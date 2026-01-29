@@ -145,7 +145,12 @@ class SkillsHandler(BaseHandler):
 
     @require_permission("skills:read")
     async def _list_skills(self, request: Any) -> HandlerResult:
-        """List all registered skills."""
+        """List all registered skills.
+
+        Query params:
+            limit: Max results (default: 50, max: 500)
+            offset: Pagination offset (default: 0)
+        """
         registry = self._get_registry()
         if not registry:
             return error_response(
@@ -154,9 +159,15 @@ class SkillsHandler(BaseHandler):
                 code="REGISTRY_UNAVAILABLE",
             )
 
-        skills = []
+        # Extract pagination params
+        limit_str = self.get_query_param(request, "limit", "50")
+        offset_str = self.get_query_param(request, "offset", "0")
+        limit = max(1, min(500, int(limit_str or 50)))
+        offset = max(0, int(offset_str or 0))
+
+        all_skills = []
         for manifest in registry.list_skills():
-            skills.append(
+            all_skills.append(
                 {
                     "name": manifest.name,
                     "version": manifest.version,
@@ -167,10 +178,15 @@ class SkillsHandler(BaseHandler):
                 }
             )
 
+        total = len(all_skills)
+        paginated = all_skills[offset : offset + limit]
+
         return json_response(
             {
-                "skills": skills,
-                "total": len(skills),
+                "skills": paginated,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
             }
         )
 

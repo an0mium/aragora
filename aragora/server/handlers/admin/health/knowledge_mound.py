@@ -5,6 +5,9 @@ Knowledge Mound health check implementations.
 Provides comprehensive health checks for:
 - /api/health/knowledge-mound - Full KM subsystem health
 - /api/health/decay - Confidence decay scheduler status
+
+The main function delegates to helper functions in knowledge_mound_utils.py
+for better modularity and testability.
 """
 
 from __future__ import annotations
@@ -15,6 +18,20 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ...base import HandlerResult, json_response
+from .knowledge_mound_utils import (
+    check_knowledge_mound_module,
+    check_mound_core_initialization,
+    check_storage_backend,
+    check_culture_accumulator,
+    check_staleness_tracker,
+    check_rlm_integration,
+    check_debate_integration,
+    check_knowledge_mound_redis_cache,
+    check_bidirectional_adapters,
+    check_control_plane_adapter,
+    check_km_metrics,
+    check_confidence_decay_scheduler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +43,14 @@ def knowledge_mound_health(handler) -> HandlerResult:
     - Core mound: Storage layer, fact storage, workspace config
     - Culture accumulator: Organizational pattern tracking
     - Staleness tracking: Fact age and refresh status
-    - Query performance: Retrieval latency stats
     - Storage backends: PostgreSQL/SQLite status
     - RLM integration: Context compression caching
-
-    This endpoint is useful for:
-    - Monitoring Knowledge Mound operational health
-    - Debugging knowledge retrieval issues
-    - Verifying debate-knowledge integration
-    - Tracking storage capacity and performance
+    - Debate integration: Knowledge-debate operations
+    - Redis cache: Distributed caching status
+    - Bidirectional adapters: Adapter availability
+    - Control Plane adapter: CP integration status
+    - KM metrics: Prometheus integration
+    - Confidence decay: Scheduler status
 
     Returns:
         JSON response with comprehensive KM health metrics
@@ -45,20 +61,8 @@ def knowledge_mound_health(handler) -> HandlerResult:
     start_time = time.time()
 
     # 1. Check if Knowledge Mound module is available
-    try:
-        from aragora.knowledge.mound import KnowledgeMound  # noqa: F401
-        from aragora.knowledge.mound.types import MoundConfig  # noqa: F401
-
-        components["module"] = {
-            "healthy": True,
-            "status": "available",
-        }
-    except ImportError as e:
-        components["module"] = {
-            "healthy": False,
-            "status": "not_available",
-            "error": str(e)[:100],
-        }
+    components["module"], should_abort = check_knowledge_mound_module()
+    if should_abort:
         all_healthy = False
         return json_response(
             {
@@ -70,379 +74,29 @@ def knowledge_mound_health(handler) -> HandlerResult:
         )
 
     # 2. Check core mound initialization
-    try:
-        mound = KnowledgeMound(workspace_id="health_check")  # type: ignore[abstract]
-
-        components["core"] = {
-            "healthy": True,
-            "status": "initialized",
-            "workspace_id": mound.workspace_id,
-        }
-
-        # Check config
-        if hasattr(mound, "config") and mound.config:
-            components["core"]["config"] = {
-                "enable_staleness_tracking": mound.config.enable_staleness_tracking,  # type: ignore[attr-defined]
-                "enable_culture_accumulator": mound.config.enable_culture_accumulator,  # type: ignore[attr-defined]
-                "enable_rlm_summaries": mound.config.enable_rlm_summaries,  # type: ignore[attr-defined]
-                "default_staleness_hours": mound.config.default_staleness_hours,  # type: ignore[attr-defined]
-            }
-
-    except Exception as e:
-        components["core"] = {
-            "healthy": False,
-            "status": "initialization_failed",
-            "error": f"{type(e).__name__}: {str(e)[:100]}",
-        }
+    components["core"], mound = check_mound_core_initialization()
+    if not components["core"]["healthy"]:
         all_healthy = False
 
-    # 3. Check storage backend
-    try:
-        import os
+    # 3-5. Check storage, culture accumulator, and staleness tracker
+    components["storage"] = check_storage_backend(mound)
+    components["culture_accumulator"] = check_culture_accumulator(mound)
+    components["staleness_tracker"] = check_staleness_tracker(mound)
 
-        database_url = os.environ.get("KNOWLEDGE_MOUND_DATABASE_URL", "")
-
-        if "postgres" in database_url.lower():
-            components["storage"] = {
-                "healthy": True,
-                "backend": "postgresql",
-                "status": "configured",
-            }
-        else:
-            components["storage"] = {
-                "healthy": True,
-                "backend": "sqlite",
-                "status": "configured",
-                "note": "Using local SQLite storage",
-            }
-
-        # Try to get storage stats if mound initialized
-        if "mound" in locals() and hasattr(mound, "_store"):
-            try:
-                # Check if store is accessible
-                if mound._store is not None:
-                    components["storage"]["store_type"] = type(mound._store).__name__
-            except AttributeError:
-                pass
-
-    except Exception as e:
-        components["storage"] = {
-            "healthy": True,
-            "status": "unknown",
-            "warning": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 4. Check culture accumulator
-    try:
-        if "mound" in locals():
-            if hasattr(mound, "_culture_accumulator") and mound._culture_accumulator:
-                accumulator = mound._culture_accumulator
-                components["culture_accumulator"] = {
-                    "healthy": True,
-                    "status": "active",
-                    "type": type(accumulator).__name__,
-                }
-
-                # Try to get pattern counts
-                try:
-                    if hasattr(accumulator, "_patterns"):
-                        workspace_count = len(accumulator._patterns)
-                        components["culture_accumulator"]["workspaces_tracked"] = workspace_count
-                except (AttributeError, TypeError):
-                    pass
-            else:
-                components["culture_accumulator"] = {
-                    "healthy": True,
-                    "status": "not_initialized",
-                    "note": "Culture accumulator disabled or not yet created",
-                }
-    except Exception as e:
-        components["culture_accumulator"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 5. Check staleness tracker
-    try:
-        if "mound" in locals():
-            if hasattr(mound, "_staleness_tracker") and mound._staleness_tracker:
-                components["staleness_tracker"] = {
-                    "healthy": True,
-                    "status": "active",
-                }
-            else:
-                components["staleness_tracker"] = {
-                    "healthy": True,
-                    "status": "not_initialized",
-                    "note": "Staleness tracking disabled",
-                }
-    except Exception as e:
-        components["staleness_tracker"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 6. Check RLM integration
-    try:
-        from aragora.rlm import HAS_OFFICIAL_RLM
-
-        if HAS_OFFICIAL_RLM:
-            components["rlm_integration"] = {
-                "healthy": True,
-                "status": "active",
-                "type": "official_rlm",
-            }
-        else:
-            components["rlm_integration"] = {
-                "healthy": True,
-                "status": "fallback",
-                "type": "compression_only",
-                "note": "Using compression fallback (official RLM not installed)",
-            }
-    except ImportError:
-        components["rlm_integration"] = {
-            "healthy": True,
-            "status": "not_available",
-            "note": "RLM module not installed",
-        }
-    except Exception as e:
-        components["rlm_integration"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 7. Check debate integration via knowledge_mound_ops
-    try:
-        from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
-
-        km_stats = get_knowledge_mound_stats()
-        components["debate_integration"] = {
-            "healthy": True,
-            "status": "active",
-            "facts_count": km_stats.get("facts_count", 0),
-            "consensus_stored": km_stats.get("consensus_stored", 0),
-            "retrievals_count": km_stats.get("retrievals_count", 0),
-        }
-    except ImportError:
-        components["debate_integration"] = {
-            "healthy": True,
-            "status": "not_available",
-            "note": "knowledge_mound_ops module not available",
-        }
-    except Exception as e:
-        components["debate_integration"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 8. Check Redis cache for mound (if configured)
-    try:
-        import os
-
-        redis_url = os.environ.get("KNOWLEDGE_MOUND_REDIS_URL") or os.environ.get("REDIS_URL")
-        if redis_url:
-            from aragora.knowledge.mound.redis_cache import KnowledgeMoundCache  # type: ignore[attr-defined]
-
-            cache = KnowledgeMoundCache(redis_url=redis_url)
-            components["redis_cache"] = {
-                "healthy": True,
-                "status": "configured",
-            }
-        else:
-            components["redis_cache"] = {
-                "healthy": True,
-                "status": "not_configured",
-                "note": "Knowledge Mound Redis cache not configured",
-            }
-    except ImportError:
-        components["redis_cache"] = {
-            "healthy": True,
-            "status": "not_available",
-            "note": "Redis cache module not installed",
-        }
-    except Exception as e:
-        components["redis_cache"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 9. Check bidirectional adapters
-    try:
-        from aragora.knowledge.mound.adapters import (
-            ContinuumAdapter,
-            ConsensusAdapter,
-            CritiqueAdapter,
-            EvidenceAdapter,
-            BeliefAdapter,
-            InsightsAdapter,
-            EloAdapter,
-            PulseAdapter,
-            CostAdapter,
-            RankingAdapter,
-            CultureAdapter,
-        )
-
-        adapter_classes = [
-            ("continuum", ContinuumAdapter),
-            ("consensus", ConsensusAdapter),
-            ("critique", CritiqueAdapter),
-            ("evidence", EvidenceAdapter),
-            ("belief", BeliefAdapter),
-            ("insights", InsightsAdapter),
-            ("elo", EloAdapter),
-            ("pulse", PulseAdapter),
-            ("cost", CostAdapter),
-            ("ranking", RankingAdapter),
-            ("culture", CultureAdapter),
-        ]
-
-        components["bidirectional_adapters"] = {
-            "healthy": True,
-            "status": "available",
-            "adapters_available": len(adapter_classes),
-            "adapter_list": [name for name, _ in adapter_classes],
-        }
-    except ImportError as e:
-        components["bidirectional_adapters"] = {
-            "healthy": True,
-            "status": "partial",
-            "error": f"Some adapters not available: {str(e)[:80]}",
-        }
-    except Exception as e:
-        components["bidirectional_adapters"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 10. Check Control Plane adapter
-    try:
-        from aragora.knowledge.mound.adapters.control_plane_adapter import (  # noqa: F401
-            ControlPlaneAdapter,
-            TaskOutcome,
-            AgentCapabilityRecord,
-            CrossWorkspaceInsight,
-        )
-
-        components["control_plane_adapter"] = {
-            "healthy": True,
-            "status": "available",
-            "features": [
-                "task_outcome_storage",
-                "capability_records",
-                "cross_workspace_insights",
-                "agent_recommendations",
-            ],
-        }
-    except ImportError as e:
-        components["control_plane_adapter"] = {
-            "healthy": True,
-            "status": "not_available",
-            "error": str(e)[:80],
-        }
-    except Exception as e:
-        components["control_plane_adapter"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # 11. Check KM metrics availability
-    try:
-        from aragora.observability.metrics.km import (  # noqa: F401
-            init_km_metrics,
-            record_km_operation,
-            record_cp_task_outcome,
-        )
-
-        components["km_metrics"] = {
-            "healthy": True,
-            "status": "available",
-            "prometheus_integration": True,
-        }
-    except ImportError:
-        components["km_metrics"] = {
-            "healthy": True,
-            "status": "not_available",
-            "prometheus_integration": False,
-        }
-    except Exception as e:
-        components["km_metrics"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
+    # 6-11. Check integrations and features
+    components["rlm_integration"] = check_rlm_integration()
+    components["debate_integration"] = check_debate_integration()
+    components["redis_cache"] = check_knowledge_mound_redis_cache()
+    components["bidirectional_adapters"] = check_bidirectional_adapters()
+    components["control_plane_adapter"] = check_control_plane_adapter()
+    components["km_metrics"] = check_km_metrics()
 
     # 12. Check Confidence Decay Scheduler
-    try:
-        from aragora.knowledge.mound.confidence_decay_scheduler import (
-            get_decay_scheduler,
-        )
+    components["confidence_decay"], decay_warnings = check_confidence_decay_scheduler()
+    warnings.extend(decay_warnings)
 
-        scheduler = get_decay_scheduler()
-        if scheduler:
-            stats = scheduler.get_stats()
-            components["confidence_decay"] = {
-                "healthy": True,
-                "status": "active" if scheduler.is_running else "stopped",
-                "running": scheduler.is_running,
-                "decay_interval_hours": stats.get("decay_interval_hours", 24),
-                "total_cycles": stats.get("total_decay_cycles", 0),
-                "total_items_processed": stats.get("total_items_processed", 0),
-                "last_run": stats.get("last_run", {}),
-                "workspaces_monitored": stats.get("workspaces"),
-            }
-            # Add alerting info
-            if scheduler.is_running:
-                last_runs = stats.get("last_run", {})
-                if last_runs:
-                    # Check if any workspace hasn't been processed in >48 hours
-                    now = datetime.now()
-                    stale_workspaces = []
-                    for ws_id, run_time_str in last_runs.items():
-                        try:
-                            run_time = datetime.fromisoformat(run_time_str)
-                            hours_since = (now - run_time).total_seconds() / 3600
-                            if hours_since > 48:
-                                stale_workspaces.append(ws_id)
-                        except (ValueError, TypeError):
-                            pass
-                    if stale_workspaces:
-                        components["confidence_decay"]["alert"] = {
-                            "level": "warning",
-                            "message": f"Decay not run in >48h for: {', '.join(stale_workspaces)}",
-                        }
-                        warnings.append(
-                            f"Confidence decay stale for workspaces: {stale_workspaces}"
-                        )
-        else:
-            components["confidence_decay"] = {
-                "healthy": True,
-                "status": "not_configured",
-                "note": "Confidence decay scheduler not initialized",
-            }
-    except ImportError:
-        components["confidence_decay"] = {
-            "healthy": True,
-            "status": "not_available",
-            "note": "Confidence decay module not installed",
-        }
-    except Exception as e:
-        components["confidence_decay"] = {
-            "healthy": True,
-            "status": "error",
-            "error": f"{type(e).__name__}: {str(e)[:80]}",
-        }
-
-    # Calculate response time
+    # Calculate response time and determine overall status
     response_time_ms = round((time.time() - start_time) * 1000, 2)
-
-    # Determine overall status
     healthy_count = sum(1 for c in components.values() if c.get("healthy", False))
     active_count = sum(1 for c in components.values() if c.get("status") == "active")
     total_components = len(components)

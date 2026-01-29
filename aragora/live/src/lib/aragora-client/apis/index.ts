@@ -54,6 +54,34 @@ export type {
   WorkflowCreateRequest,
 } from './workflows';
 
+// Admin API
+export { AdminAPI } from './admin';
+export type {
+  RevenueData,
+  RevenueResponse,
+  AdminStats,
+  AdminStatsResponse,
+  Organization,
+  OrganizationsResponse,
+  User,
+  UsersResponse,
+  SystemHealth,
+} from './admin';
+
+// Training API
+export { TrainingAPI } from './training';
+export type {
+  TrainingStats,
+  TrainingStatsResponse,
+  SFTExample,
+  DPOExample,
+  GauntletExample,
+  TrainingExportOptions,
+  TrainingExportResponse,
+  TrainingJob,
+  TrainingJobsResponse,
+} from './training';
+
 // WebSocket
 export { AragoraWebSocket, createWebSocket } from './websocket';
 export type {

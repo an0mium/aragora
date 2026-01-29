@@ -12,20 +12,9 @@ import time
 from urllib.parse import urlencode
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
-from aragora.server.handlers.oauth.config import (
-    _get_github_client_id,
-    _get_github_client_secret,
-    _get_github_redirect_uri,
-    _get_oauth_success_url,
-    GITHUB_AUTH_URL,
-    GITHUB_CLIENT_ID,
-    GITHUB_EMAILS_URL,
-    GITHUB_TOKEN_URL,
-    GITHUB_USERINFO_URL,
-)
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _validate_redirect_url, _validate_state, _generate_state
+from .utils import _impl
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +26,17 @@ class GitHubOAuthMixin:
     @log_request("GitHub OAuth start")
     def _handle_github_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to GitHub OAuth consent screen."""
-        github_client_id = _get_github_client_id()
+        impl = _impl()
+        github_client_id = impl._get_github_client_id()
         if not github_client_id:
             return error_response("GitHub OAuth not configured", 503)
 
         # Get optional redirect URL from query params
-        oauth_success_url = _get_oauth_success_url()
+        oauth_success_url = impl._get_oauth_success_url()
         redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
         # Security: Validate redirect URL against allowlist
-        if not _validate_redirect_url(redirect_url):
+        if not impl._validate_redirect_url(redirect_url):
             return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
         # Check if this is for account linking (user already authenticated)
@@ -59,16 +49,16 @@ class GitHubOAuthMixin:
             user_id = auth_ctx.user_id
 
         # Generate state for CSRF protection
-        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+        state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         # Build authorization URL
         params = {
             "client_id": github_client_id,
-            "redirect_uri": _get_github_redirect_uri(),
+            "redirect_uri": impl._get_github_redirect_uri(),
             "scope": "read:user user:email",
             "state": state,
         }
-        auth_url = f"{GITHUB_AUTH_URL}?{urlencode(params)}"
+        auth_url = f"{impl.GITHUB_AUTH_URL}?{urlencode(params)}"
 
         # Return redirect response
         return HandlerResult(
@@ -82,6 +72,7 @@ class GitHubOAuthMixin:
     @log_request("GitHub OAuth callback")
     def _handle_github_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle GitHub OAuth callback with authorization code."""
+        impl = _impl()
 
         # Check for error from GitHub
         error = _get_param(query_params, "error")
@@ -95,7 +86,7 @@ class GitHubOAuthMixin:
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
-        state_data = _validate_state(state)
+        state_data = impl._validate_state(state)
         if state_data is None:
             return self._redirect_with_error("Invalid or expired state")
 
@@ -168,7 +159,7 @@ class GitHubOAuthMixin:
         logger.info(f"OAuth login: {user.email} via GitHub")
 
         # Redirect to frontend with tokens
-        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _exchange_github_code(self, code: str) -> dict:
@@ -176,17 +167,18 @@ class GitHubOAuthMixin:
         import urllib.error
         import urllib.request
 
+        impl = _impl()
         data = urlencode(
             {
                 "code": code,
-                "client_id": GITHUB_CLIENT_ID,
-                "client_secret": _get_github_client_secret(),
-                "redirect_uri": _get_github_redirect_uri(),
+                "client_id": impl.GITHUB_CLIENT_ID,
+                "client_secret": impl._get_github_client_secret(),
+                "redirect_uri": impl._get_github_redirect_uri(),
             }
         ).encode()
 
         req = urllib.request.Request(
-            GITHUB_TOKEN_URL,
+            impl.GITHUB_TOKEN_URL,
             data=data,
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -205,9 +197,11 @@ class GitHubOAuthMixin:
         """Get user info from GitHub API."""
         import urllib.request
 
+        impl = _impl()
+
         # Get basic user info
         req = urllib.request.Request(
-            GITHUB_USERINFO_URL,
+            impl.GITHUB_USERINFO_URL,
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json",
@@ -228,7 +222,7 @@ class GitHubOAuthMixin:
         if not email:
             # Email not public, fetch from emails endpoint
             email_req = urllib.request.Request(
-                GITHUB_EMAILS_URL,
+                impl.GITHUB_EMAILS_URL,
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/json",

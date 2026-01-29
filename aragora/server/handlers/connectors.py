@@ -137,11 +137,19 @@ def get_scheduler() -> SyncScheduler:
 async def handle_list_connectors(
     tenant_id: str = "default",
     auth_context: Any | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """
     List all registered connectors.
 
-    GET /api/connectors
+    GET /api/connectors?limit=50&offset=0
+
+    Args:
+        tenant_id: Tenant ID for isolation
+        auth_context: Authentication context for RBAC
+        limit: Max results (default: 50, max: 500)
+        offset: Pagination offset (default: 0)
     """
     # Check RBAC permission
     perm_error = _check_permission(auth_context, "connectors:read")
@@ -151,8 +159,15 @@ async def handle_list_connectors(
     # SECURITY: Resolve tenant_id from auth context to prevent cross-tenant access
     tenant_id = _resolve_tenant_id(auth_context, tenant_id)
 
+    # Bound pagination params
+    limit = max(1, min(500, limit))
+    offset = max(0, offset)
+
     scheduler = get_scheduler()
     jobs = scheduler.list_jobs(tenant_id=tenant_id)
+
+    total = len(jobs)
+    paginated = jobs[offset : offset + limit]
 
     return {
         "connectors": [
@@ -165,9 +180,11 @@ async def handle_list_connectors(
                 "next_run": job.next_run.isoformat() if job.next_run else None,
                 "consecutive_failures": job.consecutive_failures,
             }
-            for job in jobs
+            for job in paginated
         ],
-        "total": len(jobs),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
     }
 
 

@@ -21,12 +21,8 @@ from __future__ import annotations
 # Re-export OAuthHandler from the new package
 from ._oauth.base import OAuthHandler  # noqa: F401
 
-# Re-export utility functions from the new package
-from ._oauth.utils import (  # noqa: F401
-    _oauth_limiter,
-    _validate_redirect_url,
-    _validate_state,
-)
+# Re-export rate limiter from the new package
+from ._oauth.utils import _oauth_limiter  # noqa: F401
 
 # Re-export tracing (used by tests that patch at this module path)
 from aragora.observability.tracing import create_span, add_span_attributes  # noqa: F401
@@ -100,5 +96,52 @@ from aragora.server.oauth_state_store import (  # noqa: F401
     generate_oauth_state as _generate_state,
     validate_oauth_state as _validate_state_internal,
 )
+
+import logging as _logging
+import sys as _sys
+from urllib.parse import urlparse as _urlparse
+
+_logger = _logging.getLogger(__name__)
+
+
+def _validate_redirect_url(redirect_url: str) -> bool:
+    """Validate that redirect URL is in the allowed hosts list.
+
+    Defined here (rather than re-exported) so that tests patching
+    ``_oauth_impl._get_allowed_redirect_hosts`` have the patch visible.
+    """
+    try:
+        parsed = _urlparse(redirect_url)
+        if parsed.scheme not in ("http", "https"):
+            _logger.warning(f"oauth_redirect_blocked: scheme={parsed.scheme} not allowed")
+            return False
+        host = parsed.hostname
+        if not host:
+            return False
+        host = host.lower()
+        # Look up _get_allowed_redirect_hosts from this module so patches are visible
+        _self = _sys.modules[__name__]
+        allowed_hosts = _self._get_allowed_redirect_hosts()
+        if host in allowed_hosts:
+            return True
+        for allowed in allowed_hosts:
+            if host.endswith(f".{allowed}"):
+                return True
+        _logger.warning(f"oauth_redirect_blocked: host={host} not in allowlist")
+        return False
+    except Exception as e:
+        _logger.warning(f"oauth_redirect_validation_error: {e}")
+        return False
+
+
+def _validate_state(state: str):
+    """Validate an OAuth state token.
+
+    Wraps ``_validate_state_internal`` so that tests can patch
+    ``_oauth_impl._validate_state`` and have the patch visible to mixin code
+    that calls ``_impl()._validate_state()``.
+    """
+    return _validate_state_internal(state)
+
 
 __all__ = ["OAuthHandler", "validate_oauth_config"]

@@ -29,6 +29,7 @@ from aiohttp import web
 
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.utils.auth import get_auth_context, UnauthorizedError
 from aragora.services import (
     ServiceRegistry,
     EmailPrioritizer,
@@ -186,35 +187,45 @@ class InboxCommandHandler:
 
         self._initialized = True
 
-    def _check_permission(self, request: web.Request, permission: str) -> None:
+    async def _check_permission(self, request: web.Request, permission: str) -> None:
         """Check if the request has the required permission.
+
+        SECURITY: Uses JWT-only authentication. X-User-ID headers are NOT trusted
+        to prevent user impersonation attacks.
 
         Raises:
             web.HTTPForbidden: If permission check fails
-            web.HTTPUnauthorized: If no authentication context
+            web.HTTPUnauthorized: If no valid authentication
         """
-        # Extract user info from request (set by auth middleware)
-        user_id = request.get("user_id") or request.headers.get("X-User-ID")
-        org_id = request.get("org_id") or request.headers.get("X-Org-ID")
-        roles_header = request.headers.get("X-User-Roles", "")
-        roles = set(roles_header.split(",")) if roles_header else {"member"}
+        try:
+            # SECURITY: Only trust JWT tokens, never trust X-User-ID headers
+            context = await get_auth_context(request, require_auth=False)
+        except UnauthorizedError as e:
+            raise web.HTTPUnauthorized(
+                text=str(e),
+                content_type="application/json",
+            )
+        except Exception as e:
+            logger.warning(f"Auth extraction failed: {e}")
+            context = AuthorizationContext(
+                user_id="anonymous",
+                org_id=None,
+                roles=set(),
+            )
 
-        if not user_id:
-            # Allow anonymous access in demo mode
-            user_id = "anonymous"
-
-        context = AuthorizationContext(
-            user_id=user_id,
-            org_id=org_id,
-            roles=roles,
-        )
+        if not context.user_id or context.user_id == "anonymous":
+            # Require authentication for all inbox operations
+            raise web.HTTPUnauthorized(
+                text="Authentication required for inbox access",
+                content_type="application/json",
+            )
 
         checker = get_permission_checker()
         decision = checker.check_permission(context, permission)
 
         if not decision.allowed:
             logger.warning(
-                f"Permission denied: {permission} for user {user_id} - {decision.reason}"
+                f"Permission denied: {permission} for user {context.user_id} - {decision.reason}"
             )
             raise web.HTTPForbidden(
                 text=f"Permission denied: {decision.reason}",
@@ -234,7 +245,7 @@ class InboxCommandHandler:
             - unread_only: Only return unread emails (default false)
         """
         try:
-            self._check_permission(request, "inbox:read")
+            await self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             limit = int(request.query.get("limit", "50"))
@@ -281,7 +292,7 @@ class InboxCommandHandler:
             - params: Optional action-specific parameters
         """
         try:
-            self._check_permission(request, "inbox:write")
+            await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()
@@ -331,7 +342,7 @@ class InboxCommandHandler:
             - params: Optional action-specific parameters
         """
         try:
-            self._check_permission(request, "inbox:write")
+            await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()
@@ -387,7 +398,7 @@ class InboxCommandHandler:
             - email: Sender email address
         """
         try:
-            self._check_permission(request, "inbox:read")
+            await self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             email = request.query.get("email")
@@ -413,7 +424,7 @@ class InboxCommandHandler:
         Get daily digest statistics.
         """
         try:
-            self._check_permission(request, "inbox:read")
+            await self._check_permission(request, "inbox:read")
             self._ensure_services()
 
             digest = await self._calculate_daily_digest()
@@ -436,7 +447,7 @@ class InboxCommandHandler:
             - force_tier: Optional tier to force (tier_1_rules, tier_2_lightweight, tier_3_debate)
         """
         try:
-            self._check_permission(request, "inbox:write")
+            await self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()

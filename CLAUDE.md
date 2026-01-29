@@ -71,7 +71,7 @@ aragora/
 ├── knowledge/        # Unified knowledge management
 │   ├── bridges.py          # KnowledgeBridgeHub, MetaLearner, Evidence bridges
 │   └── mound/              # KnowledgeMound with sync, revalidation
-│       └── adapters/       # KM adapters (28 total)
+│       └── adapters/       # KM adapters (20 registered)
 │           └── factory.py  # Auto-create adapters from Arena subsystems
 ├── connectors/       # External integrations
 │   ├── chat/               # Telegram, WhatsApp connectors
@@ -331,7 +331,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 **Integrated:**
 - Knowledge Mound - STABLE Phase A2 (100% integrated, 950+ tests passing)
-  - 14 adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking)
+  - 20 adapters (Continuum, Consensus, Critique, Evidence, Pulse, Insights, ELO, Belief, Cost, Receipt, ControlPlane, RLM, Culture, Ranking, CalibrationFusion, Workflow, Resilience, Governance, Analytics, Extraction)
   - Visibility, sharing, federation, global knowledge
   - Semantic search, validation feedback, cross-debate learning
   - SLO alerting with Prometheus metrics
@@ -353,3 +353,4 @@ See `docs/STATUS.md` for 74+ detailed feature statuses.
 | `docs/FEATURE_DISCOVERY.md` | Complete feature catalog (100+ features) |
 | `docs/STATUS.md` | Detailed feature implementation status |
 | `docs/API_REFERENCE.md` | REST API documentation |
+| `docs/RESILIENCE_PATTERNS.md` | Circuit breakers, retry, timeout, health monitoring |

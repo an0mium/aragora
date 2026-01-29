@@ -100,19 +100,40 @@ export interface BotStatus {
 }
 
 /**
- * Zapier app configuration
+ * Zapier app summary (from list)
+ */
+export interface ZapierAppSummary {
+  id: string;
+  workspace_id: string;
+  created_at: string;
+  active: boolean;
+  trigger_count: number;
+  action_count: number;
+}
+
+/**
+ * Zapier app with credentials (from create)
  */
 export interface ZapierApp {
   id: string;
-  name: string;
+  workspace_id: string;
   api_key: string;
-  triggers_enabled: string[];
-  actions_enabled: string[];
+  api_secret: string;
   created_at: string;
 }
 
 /**
- * Zapier trigger type
+ * Zapier trigger subscription
+ */
+export interface ZapierTriggerSubscription {
+  id: string;
+  trigger_type: string;
+  webhook_url: string;
+  created_at: string;
+}
+
+/**
+ * Zapier trigger type definition
  */
 export interface ZapierTrigger {
   id: string;
@@ -122,13 +143,53 @@ export interface ZapierTrigger {
 }
 
 /**
- * Make connection
+ * Create Zapier app request
+ */
+export interface CreateZapierAppRequest {
+  workspace_id: string;
+}
+
+/**
+ * Subscribe to Zapier trigger request
+ */
+export interface SubscribeZapierTriggerRequest {
+  app_id: string;
+  trigger_type: string;
+  webhook_url: string;
+  workspace_id?: string;
+  debate_tags?: string[];
+  min_confidence?: number;
+}
+
+/**
+ * Make connection summary (from list)
+ */
+export interface MakeConnectionSummary {
+  id: string;
+  workspace_id: string;
+  created_at: string;
+  active: boolean;
+  total_operations: number;
+  webhooks_count: number;
+}
+
+/**
+ * Make connection with credentials (from create)
  */
 export interface MakeConnection {
   id: string;
-  name: string;
-  status: 'active' | 'inactive' | 'error';
-  last_used_at?: string;
+  workspace_id: string;
+  api_key: string;
+  created_at: string;
+}
+
+/**
+ * Make webhook
+ */
+export interface MakeWebhook {
+  id: string;
+  module_type: string;
+  webhook_url: string;
   created_at: string;
 }
 
@@ -145,14 +206,55 @@ export interface MakeModule {
 }
 
 /**
- * n8n credential
+ * Create Make connection request
+ */
+export interface CreateMakeConnectionRequest {
+  workspace_id: string;
+}
+
+/**
+ * Register Make webhook request
+ */
+export interface RegisterMakeWebhookRequest {
+  connection_id: string;
+  module_type: string;
+  webhook_url: string;
+  workspace_id?: string;
+  event_filter?: Record<string, unknown>;
+}
+
+/**
+ * n8n credential summary (from list)
+ */
+export interface N8nCredentialSummary {
+  id: string;
+  workspace_id: string;
+  api_url: string;
+  created_at: string;
+  active: boolean;
+  operation_count: number;
+  webhooks_count: number;
+}
+
+/**
+ * n8n credential with API key (from create)
  */
 export interface N8nCredential {
   id: string;
-  name: string;
-  type: string;
+  workspace_id: string;
+  api_key: string;
+  api_url: string;
   created_at: string;
-  updated_at: string;
+}
+
+/**
+ * n8n webhook
+ */
+export interface N8nWebhook {
+  id: string;
+  webhook_path: string;
+  events: string[];
+  created_at: string;
 }
 
 /**
@@ -166,6 +268,35 @@ export interface N8nNode {
   inputs: string[];
   outputs: string[];
   properties: Record<string, unknown>[];
+}
+
+/**
+ * n8n nodes response (includes node, trigger, credential definitions)
+ */
+export interface N8nNodesResponse {
+  node: N8nNode;
+  trigger: N8nNode;
+  credential: Record<string, unknown>;
+  events: Record<string, unknown>;
+}
+
+/**
+ * Create n8n credential request
+ */
+export interface CreateN8nCredentialRequest {
+  workspace_id: string;
+  api_url?: string;
+}
+
+/**
+ * Register n8n webhook request
+ */
+export interface RegisterN8nWebhookRequest {
+  credential_id: string;
+  events: string[];
+  workflow_id?: string;
+  node_id?: string;
+  workspace_id?: string;
 }
 
 /**
@@ -469,44 +600,63 @@ export class IntegrationsAPI {
 
   /**
    * List Zapier apps.
+   *
+   * @param workspaceId - Optional workspace ID to filter by
+   * @returns List of Zapier apps
    */
-  async listZapierApps(): Promise<{ apps: ZapierApp[] }> {
-    return this.client.request('GET', '/api/v1/integrations/zapier/apps');
+  async listZapierApps(workspaceId?: string): Promise<{ apps: ZapierAppSummary[]; count: number }> {
+    const params = workspaceId ? { params: { workspace_id: workspaceId } } : undefined;
+    return this.client.request('GET', '/api/v1/integrations/zapier/apps', params);
   }
 
   /**
    * Create Zapier app.
+   *
+   * @param body - Create request with workspace_id
+   * @returns Created app with API credentials (save these, they won't be shown again)
    */
-  async createZapierApp(name: string, triggers?: string[], actions?: string[]): Promise<ZapierApp> {
-    return this.client.request('POST', '/api/v1/integrations/zapier/apps', { json: { name, triggers, actions } });
+  async createZapierApp(body: CreateZapierAppRequest): Promise<{ app: ZapierApp; message: string }> {
+    return this.client.request('POST', '/api/v1/integrations/zapier/apps', { json: { ...body } });
   }
 
   /**
    * Delete Zapier app.
+   *
+   * @param appId - The app ID to delete
+   * @returns Deletion confirmation
    */
-  async deleteZapierApp(appId: string): Promise<{ deleted: boolean }> {
+  async deleteZapierApp(appId: string): Promise<{ deleted: boolean; app_id: string }> {
     return this.client.request('DELETE', `/api/v1/integrations/zapier/apps/${appId}`);
   }
 
   /**
-   * List available Zapier triggers.
+   * List available Zapier triggers and actions.
+   *
+   * @returns Available trigger and action types
    */
-  async listZapierTriggers(): Promise<{ triggers: ZapierTrigger[] }> {
+  async listZapierTriggerTypes(): Promise<{ triggers: Record<string, unknown>; actions: Record<string, unknown> }> {
     return this.client.request('GET', '/api/v1/integrations/zapier/triggers');
   }
 
   /**
    * Subscribe to Zapier trigger.
+   *
+   * @param body - Subscribe request with app_id, trigger_type, webhook_url
+   * @returns Created trigger subscription
    */
-  async subscribeZapierTrigger(appId: string, triggerId: string, hookUrl: string): Promise<{ subscription_id: string }> {
-    return this.client.request('POST', '/api/v1/integrations/zapier/triggers', { json: { app_id: appId, trigger_id: triggerId, hook_url: hookUrl } });
+  async subscribeZapierTrigger(body: SubscribeZapierTriggerRequest): Promise<{ trigger: ZapierTriggerSubscription }> {
+    return this.client.request('POST', '/api/v1/integrations/zapier/triggers', { json: { ...body } });
   }
 
   /**
    * Unsubscribe from Zapier trigger.
+   *
+   * @param triggerId - The trigger subscription ID
+   * @param appId - The app ID the trigger belongs to
+   * @returns Deletion confirmation
    */
-  async unsubscribeZapierTrigger(subscriptionId: string): Promise<{ unsubscribed: boolean }> {
-    return this.client.request('DELETE', `/api/v1/integrations/zapier/triggers/${subscriptionId}`);
+  async unsubscribeZapierTrigger(triggerId: string, appId: string): Promise<{ deleted: boolean; trigger_id: string }> {
+    return this.client.request('DELETE', `/api/v1/integrations/zapier/triggers/${triggerId}`, { params: { app_id: appId } });
   }
 
   // ===========================================================================
@@ -515,44 +665,63 @@ export class IntegrationsAPI {
 
   /**
    * List Make connections.
+   *
+   * @param workspaceId - Optional workspace ID to filter by
+   * @returns List of Make connections
    */
-  async listMakeConnections(): Promise<{ connections: MakeConnection[] }> {
-    return this.client.request('GET', '/api/v1/integrations/make/connections');
+  async listMakeConnections(workspaceId?: string): Promise<{ connections: MakeConnectionSummary[]; count: number }> {
+    const params = workspaceId ? { params: { workspace_id: workspaceId } } : undefined;
+    return this.client.request('GET', '/api/v1/integrations/make/connections', params);
   }
 
   /**
    * Create Make connection.
+   *
+   * @param body - Create request with workspace_id
+   * @returns Created connection with API key (save this, it won't be shown again)
    */
-  async createMakeConnection(name: string, credentials: Record<string, unknown>): Promise<MakeConnection> {
-    return this.client.request('POST', '/api/v1/integrations/make/connections', { json: { name, credentials } });
+  async createMakeConnection(body: CreateMakeConnectionRequest): Promise<{ connection: MakeConnection; message: string }> {
+    return this.client.request('POST', '/api/v1/integrations/make/connections', { json: { ...body } });
   }
 
   /**
    * Delete Make connection.
+   *
+   * @param connectionId - The connection ID to delete
+   * @returns Deletion confirmation
    */
-  async deleteMakeConnection(connectionId: string): Promise<{ deleted: boolean }> {
+  async deleteMakeConnection(connectionId: string): Promise<{ deleted: boolean; connection_id: string }> {
     return this.client.request('DELETE', `/api/v1/integrations/make/connections/${connectionId}`);
   }
 
   /**
    * List Make modules.
+   *
+   * @returns Available module types
    */
-  async listMakeModules(): Promise<{ modules: MakeModule[] }> {
+  async listMakeModules(): Promise<{ modules: Record<string, unknown> }> {
     return this.client.request('GET', '/api/v1/integrations/make/modules');
   }
 
   /**
    * Register Make webhook.
+   *
+   * @param body - Register request with connection_id, module_type, webhook_url
+   * @returns Created webhook
    */
-  async registerMakeWebhook(connectionId: string, hookUrl: string, events: string[]): Promise<{ webhook_id: string }> {
-    return this.client.request('POST', '/api/v1/integrations/make/webhooks', { json: { connection_id: connectionId, hook_url: hookUrl, events } });
+  async registerMakeWebhook(body: RegisterMakeWebhookRequest): Promise<{ webhook: MakeWebhook }> {
+    return this.client.request('POST', '/api/v1/integrations/make/webhooks', { json: { ...body } });
   }
 
   /**
    * Unregister Make webhook.
+   *
+   * @param webhookId - The webhook ID to unregister
+   * @param connectionId - The connection ID the webhook belongs to
+   * @returns Deletion confirmation
    */
-  async unregisterMakeWebhook(webhookId: string): Promise<{ unregistered: boolean }> {
-    return this.client.request('DELETE', `/api/v1/integrations/make/webhooks/${webhookId}`);
+  async unregisterMakeWebhook(webhookId: string, connectionId: string): Promise<{ deleted: boolean; webhook_id: string }> {
+    return this.client.request('DELETE', `/api/v1/integrations/make/webhooks/${webhookId}`, { params: { connection_id: connectionId } });
   }
 
   // ===========================================================================
@@ -561,44 +730,63 @@ export class IntegrationsAPI {
 
   /**
    * List n8n credentials.
+   *
+   * @param workspaceId - Optional workspace ID to filter by
+   * @returns List of n8n credentials
    */
-  async listN8nCredentials(): Promise<{ credentials: N8nCredential[] }> {
-    return this.client.request('GET', '/api/v1/integrations/n8n/credentials');
+  async listN8nCredentials(workspaceId?: string): Promise<{ credentials: N8nCredentialSummary[]; count: number }> {
+    const params = workspaceId ? { params: { workspace_id: workspaceId } } : undefined;
+    return this.client.request('GET', '/api/v1/integrations/n8n/credentials', params);
   }
 
   /**
    * Create n8n credential.
+   *
+   * @param body - Create request with workspace_id and optional api_url
+   * @returns Created credential with API key (save this, it won't be shown again)
    */
-  async createN8nCredential(name: string, type: string, data: Record<string, unknown>): Promise<N8nCredential> {
-    return this.client.request('POST', '/api/v1/integrations/n8n/credentials', { json: { name, type, data } });
+  async createN8nCredential(body: CreateN8nCredentialRequest): Promise<{ credential: N8nCredential; message: string }> {
+    return this.client.request('POST', '/api/v1/integrations/n8n/credentials', { json: { ...body } });
   }
 
   /**
    * Delete n8n credential.
+   *
+   * @param credentialId - The credential ID to delete
+   * @returns Deletion confirmation
    */
-  async deleteN8nCredential(credentialId: string): Promise<{ deleted: boolean }> {
+  async deleteN8nCredential(credentialId: string): Promise<{ deleted: boolean; credential_id: string }> {
     return this.client.request('DELETE', `/api/v1/integrations/n8n/credentials/${credentialId}`);
   }
 
   /**
    * Get n8n node definitions.
+   *
+   * @returns Node, trigger, and credential definitions plus event types
    */
-  async getN8nNodes(): Promise<{ nodes: N8nNode[] }> {
+  async getN8nNodes(): Promise<N8nNodesResponse> {
     return this.client.request('GET', '/api/v1/integrations/n8n/nodes');
   }
 
   /**
    * Register n8n webhook.
+   *
+   * @param body - Register request with credential_id and events
+   * @returns Created webhook with webhook_path
    */
-  async registerN8nWebhook(credentialId: string, hookUrl: string, events: string[]): Promise<{ webhook_id: string }> {
-    return this.client.request('POST', '/api/v1/integrations/n8n/webhooks', { json: { credential_id: credentialId, hook_url: hookUrl, events } });
+  async registerN8nWebhook(body: RegisterN8nWebhookRequest): Promise<{ webhook: N8nWebhook }> {
+    return this.client.request('POST', '/api/v1/integrations/n8n/webhooks', { json: { ...body } });
   }
 
   /**
    * Unregister n8n webhook.
+   *
+   * @param webhookId - The webhook ID to unregister
+   * @param credentialId - The credential ID the webhook belongs to
+   * @returns Deletion confirmation
    */
-  async unregisterN8nWebhook(webhookId: string): Promise<{ unregistered: boolean }> {
-    return this.client.request('DELETE', `/api/v1/integrations/n8n/webhooks/${webhookId}`);
+  async unregisterN8nWebhook(webhookId: string, credentialId: string): Promise<{ deleted: boolean; webhook_id: string }> {
+    return this.client.request('DELETE', `/api/v1/integrations/n8n/webhooks/${webhookId}`, { params: { credential_id: credentialId } });
   }
 
   // ===========================================================================

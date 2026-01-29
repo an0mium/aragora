@@ -126,16 +126,15 @@ class HealthHandler(SecureHandler):
     ]
 
     # Routes that are public (no auth required)
-    # Includes K8s probes and basic health endpoints for load balancers/monitoring
+    # SECURITY: Only K8s probes should be public to minimize information exposure.
+    # All other health endpoints require authentication via system.health.read permission.
     PUBLIC_ROUTES = {
-        "/healthz",
-        "/readyz",
-        "/readyz/dependencies",
-        "/api/health",  # Basic health check for load balancers
-        "/api/v1/health",  # v1 route for basic health check
-        "/api/health/ws",  # WebSocket health check for availability
-        "/api/v1/health/ws",  # v1 WebSocket health check
+        "/healthz",  # K8s liveness probe
+        "/readyz",  # K8s readiness probe
+        "/readyz/dependencies",  # K8s extended readiness
     }
+    # Note: /api/health and /api/v1/health now require authentication.
+    # Load balancers should use /healthz or configure proper auth headers.
 
     # Permission required for protected health endpoints
     HEALTH_PERMISSION = "system.health.read"

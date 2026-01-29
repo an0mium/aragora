@@ -11,15 +11,16 @@ import json
 import logging
 import os
 import sqlite3
+import sys
 import time
 from typing import Any, Optional
 
 from .models import DebateOrigin
 from .stores import (
     ORIGIN_TTL_SECONDS,
-    _get_sqlite_store,
-    _get_postgres_store,
-    _get_postgres_store_sync,
+    _get_sqlite_store as _stores_get_sqlite_store,
+    _get_postgres_store as _stores_get_postgres_store,
+    _get_postgres_store_sync as _stores_get_postgres_store_sync,
 )
 from .sessions import _create_and_link_session
 
@@ -32,6 +33,42 @@ logger = logging.getLogger(__name__)
 
 # In-memory store with optional Redis backend
 _origin_store: dict[str, DebateOrigin] = {}
+
+
+def _get_pkg():
+    """Get the package module to support test patching via __init__."""
+    return sys.modules.get("aragora.server.debate_origin")
+
+
+def _get_sqlite_store():
+    """Wrapper that respects patches on the package namespace."""
+    pkg = _get_pkg()
+    if pkg is not None and hasattr(pkg, "_get_sqlite_store"):
+        fn = getattr(pkg, "_get_sqlite_store")
+        # Avoid infinite recursion if the package re-exported us
+        if fn is not _get_sqlite_store:
+            return fn()
+    return _stores_get_sqlite_store()
+
+
+async def _get_postgres_store():
+    """Wrapper that respects patches on the package namespace."""
+    pkg = _get_pkg()
+    if pkg is not None and hasattr(pkg, "_get_postgres_store"):
+        fn = getattr(pkg, "_get_postgres_store")
+        if fn is not _get_postgres_store:
+            return await fn()
+    return await _stores_get_postgres_store()
+
+
+def _get_postgres_store_sync():
+    """Wrapper that respects patches on the package namespace."""
+    pkg = _get_pkg()
+    if pkg is not None and hasattr(pkg, "_get_postgres_store_sync"):
+        fn = getattr(pkg, "_get_postgres_store_sync")
+        if fn is not _get_postgres_store_sync:
+            return fn()
+    return _stores_get_postgres_store_sync()
 
 
 def _store_origin_redis(origin: DebateOrigin) -> None:
@@ -71,6 +108,26 @@ def _load_origin_redis(debate_id: str) -> DebateOrigin | None:
         raise
 
 
+def _resolve_store_origin_redis():
+    """Get _store_origin_redis, respecting patches on the package namespace."""
+    pkg = _get_pkg()
+    if pkg is not None and hasattr(pkg, "_store_origin_redis"):
+        fn = getattr(pkg, "_store_origin_redis")
+        if fn is not _store_origin_redis:
+            return fn
+    return _store_origin_redis
+
+
+def _resolve_load_origin_redis():
+    """Get _load_origin_redis, respecting patches on the package namespace."""
+    pkg = _get_pkg()
+    if pkg is not None and hasattr(pkg, "_load_origin_redis"):
+        fn = getattr(pkg, "_load_origin_redis")
+        if fn is not _load_origin_redis:
+            return fn
+    return _load_origin_redis
+
+
 def register_debate_origin(
     debate_id: str,
     platform: str,
@@ -103,7 +160,6 @@ def register_debate_origin(
     if create_session and not session_id:
         try:
             from aragora.connectors.debate_session import get_debate_session_manager
-            import asyncio
 
             manager = get_debate_session_manager()
             # Try to create session synchronously
@@ -132,7 +188,6 @@ def register_debate_origin(
         # Link existing session to debate
         try:
             from aragora.connectors.debate_session import get_debate_session_manager
-            import asyncio
 
             manager = get_debate_session_manager()
             try:
@@ -188,8 +243,9 @@ def register_debate_origin(
 
     # Persist to Redis for distributed deployments
     redis_success = False
+    store_redis_fn = _resolve_store_origin_redis()
     try:
-        _store_origin_redis(origin)
+        store_redis_fn(origin)
         redis_success = True
     except ImportError:
         if is_distributed_state_required():
@@ -228,8 +284,9 @@ def get_debate_origin(debate_id: str) -> DebateOrigin | None:
         return origin
 
     # Try Redis
+    load_redis_fn = _resolve_load_origin_redis()
     try:
-        origin = _load_origin_redis(debate_id)
+        origin = load_redis_fn(debate_id)
         if origin:
             _origin_store[debate_id] = origin  # Cache locally
             return origin
@@ -279,8 +336,9 @@ async def get_debate_origin_async(debate_id: str) -> DebateOrigin | None:
         return origin
 
     # Try Redis
+    load_redis_fn = _resolve_load_origin_redis()
     try:
-        origin = _load_origin_redis(debate_id)
+        origin = load_redis_fn(debate_id)
         if origin:
             _origin_store[debate_id] = origin  # Cache locally
             return origin
@@ -342,8 +400,9 @@ def mark_result_sent(debate_id: str) -> None:
                     logger.debug(f"SQLite update failed: {e}")
 
         # Update Redis if available
+        store_redis_fn = _resolve_store_origin_redis()
         try:
-            _store_origin_redis(origin)
+            store_redis_fn(origin)
         except Exception as e:
             # Catch all Redis errors (including redis.exceptions.ConnectionError)
             logger.debug(f"Redis update skipped: {e}")

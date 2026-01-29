@@ -16,6 +16,7 @@ Endpoints:
 - GET /api/debates/{id}/trickster - Get trickster hollow consensus status
 - POST /api/debates/{id}/fork - Fork debate at a branch point
 - PATCH /api/debates/{id} - Update debate metadata (title, tags, status)
+- DELETE /api/debates/{id} - Permanently delete a debate (cascades to critiques)
 - GET /api/search - Cross-debate search by query
 """
 
@@ -1234,6 +1235,17 @@ class DebatesHandler(
                 return self._patch_debate(handler, debate_id)
         return None
 
+    def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
+        """Route DELETE requests to appropriate methods."""
+        # Handle DELETE /api/debates/{id}
+        if path.startswith("/api/v1/debates/") and path.count("/") == 4:
+            debate_id, err = self._extract_debate_id(path)
+            if err:
+                return error_response(err, 400)
+            if debate_id:
+                return self._delete_debate(handler, debate_id)
+        return None
+
     @require_storage
     def _patch_debate(self, handler, debate_id: str) -> HandlerResult:
         """Update debate metadata.
@@ -1357,6 +1369,76 @@ class DebatesHandler(
         except ValueError as e:
             logger.warning("Invalid update request for %s: %s", debate_id, e)
             return error_response(f"Invalid update data: {e}", 400)
+
+    @require_permission("debates:delete")
+    @require_storage
+    def _delete_debate(self, handler, debate_id: str) -> HandlerResult:
+        """Delete a debate and its associated data.
+
+        Performs a permanent deletion of the debate record and cascades
+        to associated critiques. For soft-delete, use PATCH with
+        status="archived" instead.
+
+        Returns:
+            JSON confirmation with deleted debate ID.
+        """
+        storage = self.get_storage()
+        try:
+            debate = storage.get_debate(debate_id)
+            if not debate:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            # ABAC: Check if user has delete access to this debate
+            user = self.get_current_user(handler)
+            if user:
+                debate_owner_id = debate.get("user_id") or debate.get("owner_id")
+                debate_workspace_id = debate.get("workspace_id") or debate.get("org_id")
+
+                access_decision = check_resource_access(
+                    user_id=user.user_id,
+                    user_role=getattr(user, "role", "user"),
+                    user_plan=getattr(user, "plan", "free"),
+                    resource_type=ResourceType.DEBATE,
+                    resource_id=debate_id,
+                    action=Action.DELETE,
+                    resource_owner_id=debate_owner_id,
+                    resource_workspace_id=debate_workspace_id,
+                    user_workspace_id=getattr(user, "org_id", None),
+                    user_workspace_role=getattr(user, "org_role", None),
+                )
+
+                if not access_decision.allowed:
+                    logger.warning(
+                        f"ABAC denied DELETE access to debate {debate_id} for user {user.user_id}: "
+                        f"{access_decision.reason}"
+                    )
+                    return error_response(
+                        "You do not have permission to delete this debate",
+                        403,
+                    )
+
+            # Cancel if still running
+            if debate_id in _active_debates:
+                active = _active_debates[debate_id]
+                if hasattr(active, "task") and active.task and not active.task.done():
+                    active.task.cancel()
+                del _active_debates[debate_id]
+
+            # Perform deletion with cascade
+            deleted = storage.delete_debate(debate_id, cascade_critiques=True)
+            if not deleted:
+                return error_response(f"Debate not found: {debate_id}", 404)
+
+            logger.info(f"Debate {debate_id} permanently deleted")
+            return json_response({"deleted": True, "id": debate_id})
+
+        except RecordNotFoundError:
+            return error_response(f"Debate not found: {debate_id}", 404)
+        except (StorageError, DatabaseError) as e:
+            logger.error(
+                "Failed to delete debate %s: %s: %s", debate_id, type(e).__name__, e, exc_info=True
+            )
+            return error_response("Database error deleting debate", 500)
 
     def _check_spam_content(self, body: dict) -> HandlerResult | None:
         """

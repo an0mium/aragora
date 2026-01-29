@@ -96,6 +96,11 @@ async def run_startup_sequence(
             The server will start but return 503 for most endpoints until the issue is resolved.
             Defaults to True for production resilience.
 
+    Environment Variables:
+        ARAGORA_STRICT_STARTUP: If set to "true", overrides graceful_degradation to False,
+            causing the server to fail fast if dependencies are unavailable.
+            Useful for Kubernetes deployments where you want pods to restart on failure.
+
     Returns:
         Dictionary with startup status for each component. If graceful_degradation is True
         and startup fails, returns a minimal status dict with degraded=True.
@@ -104,6 +109,13 @@ async def run_startup_sequence(
         RuntimeError: If production requirements are not met AND graceful_degradation is False
     """
     import os
+
+    # STRICT_STARTUP mode: Override graceful_degradation to fail fast
+    # This is useful for K8s deployments where you want pods to restart on failure
+    strict_startup = os.environ.get("ARAGORA_STRICT_STARTUP", "").lower() in ("1", "true", "yes")
+    if strict_startup:
+        logger.info("ARAGORA_STRICT_STARTUP enabled: server will fail fast on dependency errors")
+        graceful_degradation = False
 
     from aragora.control_plane.leader import is_distributed_state_required
     from aragora.server.degraded_mode import (

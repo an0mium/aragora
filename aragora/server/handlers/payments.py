@@ -40,6 +40,7 @@ from uuid import uuid4
 from aiohttp import web
 
 from aragora.audit.unified import audit_data, audit_security
+from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.resilience_patterns import (
     get_circuit_breaker,
     with_retry,
@@ -354,10 +355,10 @@ async def handle_charge(request: web.Request) -> web.Response:
         )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error processing charge: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 async def _charge_stripe(
@@ -538,7 +539,7 @@ async def handle_authorize(request: web.Request) -> web.Response:
 
         amount = Decimal(str(body.get("amount", 0)))
         if amount <= 0:
-            return web.json_response({"error": "Amount must be greater than 0"}, status=400)
+            return web_error_response("Amount must be greater than 0", 400)
 
         currency = body.get("currency", "USD")
         payment_method = body.get("payment_method")
@@ -574,7 +575,7 @@ async def handle_authorize(request: web.Request) -> web.Response:
             # Stripe authorization
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             amount_cents = int(amount * 100)
             intent = await connector.create_payment_intent(
@@ -593,13 +594,13 @@ async def handle_authorize(request: web.Request) -> web.Response:
                 }
             )
 
-        return web.json_response({"error": "Invalid request"}, status=400)
+        return web_error_response("Invalid request", 400)
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error authorizing payment: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("payments:capture")
@@ -623,7 +624,7 @@ async def handle_capture(request: web.Request) -> web.Response:
         amount = body.get("amount")
 
         if not transaction_id:
-            return web.json_response({"error": "Missing transaction_id"}, status=400)
+            return web_error_response("Missing transaction_id", 400)
 
         if provider == PaymentProvider.AUTHORIZE_NET:
             connector = await get_authnet_connector(request)
@@ -648,7 +649,7 @@ async def handle_capture(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             intent = await connector.capture_payment_intent(
                 payment_intent_id=transaction_id,
@@ -664,10 +665,10 @@ async def handle_capture(request: web.Request) -> web.Response:
             )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error capturing payment: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("payments:refund")
@@ -692,9 +693,9 @@ async def handle_refund(request: web.Request) -> web.Response:
         amount = Decimal(str(body.get("amount", 0)))
 
         if not transaction_id:
-            return web.json_response({"error": "Missing transaction_id"}, status=400)
+            return web_error_response("Missing transaction_id", 400)
         if amount <= 0:
-            return web.json_response({"error": "Amount must be greater than 0"}, status=400)
+            return web_error_response("Amount must be greater than 0", 400)
 
         if provider == PaymentProvider.AUTHORIZE_NET:
             connector = await get_authnet_connector(request)
@@ -737,7 +738,7 @@ async def handle_refund(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             refund = await connector.create_refund(
                 payment_intent=transaction_id,
@@ -766,7 +767,7 @@ async def handle_refund(request: web.Request) -> web.Response:
             )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error processing refund: {e}")
         audit_security(
@@ -776,7 +777,7 @@ async def handle_refund(request: web.Request) -> web.Response:
             resource_id=body.get("transaction_id", "unknown"),
             reason=str(e),
         )
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("payments:void")
@@ -798,7 +799,7 @@ async def handle_void(request: web.Request) -> web.Response:
         transaction_id = body.get("transaction_id")
 
         if not transaction_id:
-            return web.json_response({"error": "Missing transaction_id"}, status=400)
+            return web_error_response("Missing transaction_id", 400)
 
         if provider == PaymentProvider.AUTHORIZE_NET:
             connector = await get_authnet_connector(request)
@@ -820,7 +821,7 @@ async def handle_void(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             intent = await connector.cancel_payment_intent(transaction_id)
 
@@ -833,10 +834,10 @@ async def handle_void(request: web.Request) -> web.Response:
             )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error voiding transaction: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("payments:read")
@@ -851,7 +852,7 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
         provider_str = request.query.get("provider", "stripe")
 
         if not transaction_id:
-            return web.json_response({"error": "Missing transaction_id"}, status=400)
+            return web_error_response("Missing transaction_id", 400)
 
         provider = (
             PaymentProvider.AUTHORIZE_NET
@@ -870,13 +871,13 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
                 details = await connector.get_transaction_details(transaction_id)
 
             if not details:
-                return web.json_response({"error": "Transaction not found"}, status=404)
+                return web_error_response("Transaction not found", 404)
 
             return web.json_response({"transaction": details})
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             intent = await connector.retrieve_payment_intent(transaction_id)
 
@@ -895,7 +896,7 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
 
     except Exception as e:
         logger.exception(f"Error getting transaction: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 # =============================================================================
@@ -952,7 +953,7 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             customer = await connector.create_customer(
                 email=email,
@@ -969,10 +970,10 @@ async def handle_create_customer(request: web.Request) -> web.Response:
             )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error creating customer: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("payments:customer:read")
@@ -987,7 +988,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
         provider_str = request.query.get("provider", "stripe")
 
         if not customer_id:
-            return web.json_response({"error": "Missing customer_id"}, status=400)
+            return web_error_response("Missing customer_id", 400)
 
         provider = (
             PaymentProvider.AUTHORIZE_NET
@@ -1006,7 +1007,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
                 profile = await connector.get_customer_profile(customer_id)
 
             if not profile:
-                return web.json_response({"error": "Customer not found"}, status=404)
+                return web_error_response("Customer not found", 404)
 
             return web.json_response(
                 {
@@ -1022,7 +1023,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             customer = await connector.retrieve_customer(customer_id)
 
@@ -1040,7 +1041,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
 
     except Exception as e:
         logger.exception(f"Error getting customer: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("billing:delete")
@@ -1055,7 +1056,7 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
         provider_str = request.query.get("provider", "stripe")
 
         if not customer_id:
-            return web.json_response({"error": "Missing customer_id"}, status=400)
+            return web_error_response("Missing customer_id", 400)
 
         provider = (
             PaymentProvider.AUTHORIZE_NET
@@ -1077,7 +1078,7 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             result = await connector.delete_customer(customer_id)
 
@@ -1085,7 +1086,7 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
 
     except Exception as e:
         logger.exception(f"Error deleting customer: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 # =============================================================================
@@ -1122,9 +1123,9 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         interval_count = int(body.get("interval_count", 1))
 
         if not customer_id:
-            return web.json_response({"error": "Missing customer_id"}, status=400)
+            return web_error_response("Missing customer_id", 400)
         if amount <= 0:
-            return web.json_response({"error": "Amount must be greater than 0"}, status=400)
+            return web_error_response("Amount must be greater than 0", 400)
 
         if provider == PaymentProvider.AUTHORIZE_NET:
             connector = await get_authnet_connector(request)
@@ -1156,7 +1157,7 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             # Create or get price
             price_id = body.get("price_id")
@@ -1181,10 +1182,10 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
             )
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error creating subscription: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 @require_permission("billing:cancel")
@@ -1199,7 +1200,7 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
         provider_str = request.query.get("provider", "stripe")
 
         if not subscription_id:
-            return web.json_response({"error": "Missing subscription_id"}, status=400)
+            return web_error_response("Missing subscription_id", 400)
 
         provider = (
             PaymentProvider.AUTHORIZE_NET
@@ -1221,7 +1222,7 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
         else:
             connector = await get_stripe_connector(request)
             if not connector:
-                return web.json_response({"error": "Stripe connector not available"}, status=503)
+                return web_error_response("Stripe connector not available", 503)
 
             subscription = await connector.cancel_subscription(subscription_id)
 
@@ -1235,7 +1236,7 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
 
     except Exception as e:
         logger.exception(f"Error canceling subscription: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 # =============================================================================
@@ -1255,15 +1256,15 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
 
         connector = await get_stripe_connector(request)
         if not connector:
-            return web.json_response({"error": "Stripe connector not available"}, status=503)
+            return web_error_response("Stripe connector not available", 503)
 
         # Verify webhook signature
         try:
             event = await connector.construct_webhook_event(payload, sig_header)
         except ValueError:
-            return web.json_response({"error": "Invalid payload"}, status=400)
+            return web_error_response("Invalid payload", 400)
         except Exception as e:
-            return web.json_response({"error": f"Signature verification failed: {e}"}, status=400)
+            return web_error_response(f"Signature verification failed: {e}", 400)
 
         # Get event ID for idempotency check
         event_id = event.id
@@ -1297,7 +1298,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
 
     except Exception as e:
         logger.exception(f"Error handling Stripe webhook: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 async def handle_authnet_webhook(request: web.Request) -> web.Response:
@@ -1312,12 +1313,12 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
         connector = await get_authnet_connector(request)
         if not connector:
-            return web.json_response({"error": "Authorize.net connector not available"}, status=503)
+            return web_error_response("Authorize.net connector not available", 503)
 
         # Verify webhook signature
         async with connector:
             if not await connector.verify_webhook_signature(payload, signature or ""):
-                return web.json_response({"error": "Invalid signature"}, status=400)
+                return web_error_response("Invalid signature", 400)
 
         # Get event ID for idempotency check
         event_id = payload.get("notificationId") or payload.get("payload", {}).get("id")
@@ -1352,10 +1353,10 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
         return web.json_response({"received": True})
 
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
     except Exception as e:
         logger.exception(f"Error handling Authorize.net webhook: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        return web_error_response(str(e), 500)
 
 
 # =============================================================================

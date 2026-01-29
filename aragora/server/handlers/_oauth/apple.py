@@ -12,19 +12,9 @@ import time
 from urllib.parse import urlencode
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
-from aragora.server.handlers.oauth.config import (
-    _get_apple_client_id,
-    _get_apple_key_id,
-    _get_apple_private_key,
-    _get_apple_redirect_uri,
-    _get_apple_team_id,
-    _get_oauth_success_url,
-    APPLE_AUTH_URL,
-    APPLE_TOKEN_URL,
-)
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _validate_redirect_url, _validate_state, _generate_state
+from .utils import _impl
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +26,15 @@ class AppleOAuthMixin:
     @log_request("Apple OAuth start")
     def _handle_apple_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to Apple OAuth consent screen."""
-        apple_client_id = _get_apple_client_id()
+        impl = _impl()
+        apple_client_id = impl._get_apple_client_id()
         if not apple_client_id:
             return error_response("Apple OAuth not configured", 503)
 
-        oauth_success_url = _get_oauth_success_url()
+        oauth_success_url = impl._get_oauth_success_url()
         redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
-        if not _validate_redirect_url(redirect_url):
+        if not impl._validate_redirect_url(redirect_url):
             return error_response("Invalid redirect URL", 400)
 
         user_id = None
@@ -54,17 +45,17 @@ class AppleOAuthMixin:
         if auth_ctx.is_authenticated:
             user_id = auth_ctx.user_id
 
-        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+        state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         params = {
             "client_id": apple_client_id,
-            "redirect_uri": _get_apple_redirect_uri(),
+            "redirect_uri": impl._get_apple_redirect_uri(),
             "response_type": "code id_token",
             "scope": "name email",
             "state": state,
             "response_mode": "form_post",  # Apple requires form_post
         }
-        auth_url = f"{APPLE_AUTH_URL}?{urlencode(params)}"
+        auth_url = f"{impl.APPLE_AUTH_URL}?{urlencode(params)}"
 
         return HandlerResult(
             status_code=302,
@@ -77,6 +68,8 @@ class AppleOAuthMixin:
     @log_request("Apple OAuth callback")
     def _handle_apple_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Apple OAuth callback (POST with form data)."""
+        impl = _impl()
+
         # Apple uses form_post, so we need to read POST body
         body_data: dict[str, str] = {}
         if hasattr(handler, "request") and handler.request.body:
@@ -96,7 +89,7 @@ class AppleOAuthMixin:
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
-        state_data = _validate_state(state)
+        state_data = impl._validate_state(state)
         if state_data is None:
             return self._redirect_with_error("Invalid or expired state")
 
@@ -129,20 +122,21 @@ class AppleOAuthMixin:
         """Exchange Apple authorization code for tokens."""
         import urllib.request
 
+        impl = _impl()
         client_secret = self._generate_apple_client_secret()
 
         data = urlencode(
             {
                 "code": code,
-                "client_id": _get_apple_client_id(),
+                "client_id": impl._get_apple_client_id(),
                 "client_secret": client_secret,
-                "redirect_uri": _get_apple_redirect_uri(),
+                "redirect_uri": impl._get_apple_redirect_uri(),
                 "grant_type": "authorization_code",
             }
         ).encode()
 
         req = urllib.request.Request(
-            APPLE_TOKEN_URL,
+            impl.APPLE_TOKEN_URL,
             data=data,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
@@ -157,10 +151,11 @@ class AppleOAuthMixin:
         except ImportError:
             raise ValueError("PyJWT required for Apple OAuth. Install with: pip install PyJWT")
 
-        team_id = _get_apple_team_id()
-        key_id = _get_apple_key_id()
-        private_key = _get_apple_private_key()
-        client_id = _get_apple_client_id()
+        impl = _impl()
+        team_id = impl._get_apple_team_id()
+        key_id = impl._get_apple_key_id()
+        private_key = impl._get_apple_private_key()
+        client_id = impl._get_apple_client_id()
 
         if not all([team_id, key_id, private_key, client_id]):
             raise ValueError("Apple OAuth not fully configured")

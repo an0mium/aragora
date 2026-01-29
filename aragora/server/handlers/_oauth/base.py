@@ -12,19 +12,14 @@ import secrets
 import time
 from urllib.parse import urlencode
 
-from aragora.observability.tracing import create_span, add_span_attributes
 from aragora.rbac import AuthorizationContext, check_permission
 from aragora.rbac.defaults import get_role_permissions
 
 from aragora.server.handlers.base import HandlerResult, error_response
 from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.oauth.config import (
-    _get_oauth_success_url,
-    _get_oauth_error_url,
-)
 from aragora.server.handlers.oauth.models import OAuthUserInfo
 
-from .utils import _oauth_limiter
+from .utils import _impl
 from aragora.server.handlers.utils.rate_limit import get_client_ip
 
 from .google import GoogleOAuthMixin
@@ -114,28 +109,32 @@ class OAuthHandler(
         elif "/oidc" in path:
             provider = "oidc"
 
-        with create_span(
-            f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}
-        ) as span:
+        # Access create_span/add_span_attributes via _impl() so test patches
+        # applied to _oauth_impl.create_span are visible at runtime.
+        impl = _impl()
+        _cs = impl.create_span  # noqa: F841
+        _asa = impl.add_span_attributes  # noqa: F841
+
+        with _cs(f"oauth.{provider}", {"oauth.provider": provider, "oauth.path": path}) as span:
             # Rate limit check
             client_ip = get_client_ip(handler)
-            if not _oauth_limiter.is_allowed(client_ip):
+            if not impl._oauth_limiter.is_allowed(client_ip):
                 logger.warning(f"Rate limit exceeded for OAuth endpoint: {client_ip}")
-                add_span_attributes(span, {"oauth.rate_limited": True})
+                _asa(span, {"oauth.rate_limited": True})
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
             if hasattr(handler, "command"):
                 method = handler.command
 
             # Add method to span
-            add_span_attributes(span, {"oauth.method": method})
+            _asa(span, {"oauth.method": method})
 
             # Normalize path - support both /api/v1/ and /api/ prefixes
             normalized = path.replace("/api/v1/", "/api/")
 
             # Determine if this is a callback (more important to trace)
             is_callback = "/callback" in normalized
-            add_span_attributes(span, {"oauth.is_callback": is_callback})
+            _asa(span, {"oauth.is_callback": is_callback})
 
             if normalized == "/api/auth/oauth/google" and method == "GET":
                 return self._handle_google_auth_start(handler, query_params)
@@ -188,7 +187,7 @@ class OAuthHandler(
             if normalized == "/api/user/oauth-providers" and method == "GET":
                 return self._handle_get_user_providers(handler)
 
-            add_span_attributes(span, {"oauth.error": "method_not_allowed"})
+            _asa(span, {"oauth.error": "method_not_allowed"})
             return error_response("Method not allowed", 405)
 
     def _get_user_store(self):
@@ -276,7 +275,7 @@ class OAuthHandler(
 
         logger.info(f"OAuth login: {user.email} via {user_info.provider}")
 
-        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return self._redirect_with_tokens(redirect_url, tokens)
 
     def _find_user_by_oauth(self, user_store, user_info: OAuthUserInfo):
@@ -353,7 +352,7 @@ class OAuthHandler(
         if not success:
             logger.warning(f"OAuth linking fallback for user {user_id}")
 
-        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        redirect_url = state_data.get("redirect_url", _impl()._get_oauth_success_url())
         return HandlerResult(
             status_code=302,
             content_type="text/html",
@@ -396,7 +395,7 @@ class OAuthHandler(
         """Redirect to error page with error message."""
         from urllib.parse import quote
 
-        url = f"{_get_oauth_error_url()}?error={quote(error)}"
+        url = f"{_impl()._get_oauth_error_url()}?error={quote(error)}"
 
         return HandlerResult(
             status_code=302,

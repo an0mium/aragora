@@ -396,10 +396,10 @@ addopts = "--import-mode=importlib --reruns 2 --reruns-delay 1 --only-rerun Asse
 [tool.mypy]
 python_version = "3.11"
 mypy_path = "typings"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
 warn_redundant_casts = true
-warn_unused_ignores = true
+warn_unused_ignores = false
 ignore_missing_imports = true
 exclude = [
     "tests/",

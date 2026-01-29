@@ -50,7 +50,37 @@ export { ExplainabilityAPI, type ExplainabilityResult, type ExplanationFactor, t
 export { WebhooksAPI, type Webhook, type WebhookEvent, type WebhookDelivery, type WebhookSLOStatus, type CreateWebhookRequest, type UpdateWebhookRequest } from './webhooks';
 export { PluginsAPI, type Plugin, type PluginListing, type PluginSubmission, type PluginConfigSchema, type InstallPluginRequest, type PluginQueryRequest, type PluginValidateRequest } from './plugins';
 export { WorkspacesAPI, type Workspace, type WorkspaceSettings, type WorkspaceMember, type WorkspaceProfile, type CreateWorkspaceRequest, type UpdateWorkspaceRequest, type AddMemberRequest, type UpdateMemberRequest } from './workspaces';
-export { IntegrationsAPI, type Integration, type AvailableIntegration, type IntegrationConfigSchema, type IntegrationSyncStatus, type CreateIntegrationRequest, type UpdateIntegrationRequest } from './integrations';
+export {
+  IntegrationsAPI,
+  type Integration,
+  type AvailableIntegration,
+  type IntegrationConfigSchema,
+  type IntegrationSyncStatus,
+  type CreateIntegrationRequest,
+  type UpdateIntegrationRequest,
+  // Zapier types
+  type ZapierApp,
+  type ZapierAppSummary,
+  type ZapierTrigger,
+  type ZapierTriggerSubscription,
+  type CreateZapierAppRequest,
+  type SubscribeZapierTriggerRequest,
+  // Make types
+  type MakeConnection,
+  type MakeConnectionSummary,
+  type MakeWebhook,
+  type MakeModule,
+  type CreateMakeConnectionRequest,
+  type RegisterMakeWebhookRequest,
+  // n8n types
+  type N8nCredential,
+  type N8nCredentialSummary,
+  type N8nWebhook,
+  type N8nNode,
+  type N8nNodesResponse,
+  type CreateN8nCredentialRequest,
+  type RegisterN8nWebhookRequest,
+} from './integrations';
 
 // Compliance (SOC 2, GDPR, Audit)
 export {
@@ -995,7 +1025,20 @@ export {
 export { QueueAPI, type QueueJob, type QueueStats, type QueueWorker } from './queue';
 
 // Chat (Knowledge Chat)
-export { ChatAPI, type ChatKnowledgeSearchRequest, type ChatKnowledgeSearchResponse, type ChatKnowledgeInjectRequest, type ChatKnowledgeStoreRequest, type ChatKnowledgeSummaryResponse } from './chat';
+export {
+  ChatAPI,
+  type KnowledgeSearchScope,
+  type KnowledgeRelevanceStrategy,
+  type ChatMessage,
+  type ChatKnowledgeSearchRequest,
+  type ChatKnowledgeSearchResponse,
+  type ChatKnowledgeInjectRequest,
+  type ChatKnowledgeInjectResponse,
+  type ChatKnowledgeStoreRequest,
+  type ChatKnowledgeStoreResponse,
+  type ChatKnowledgeSummaryResponse,
+  type KnowledgeContextItem,
+} from './chat';
 
 // Flips
 export { FlipsAPI, type FlipEntry, type FlipSummary } from './flips';

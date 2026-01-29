@@ -1,20 +1,20 @@
 """
 OAuth utility functions.
 
-Module-level helpers for redirect URL validation, state management,
-and rate limiting used across all OAuth provider mixins.
+Provides the ``_impl()`` helper that all mixin modules use to resolve config
+functions and utility names from the ``_oauth_impl`` backward-compatibility
+shim at runtime.  This ensures that ``unittest.mock.patch`` calls targeting
+``_oauth_impl.<name>`` are visible to the actual mixin code.
+
+Also holds the shared ``_oauth_limiter`` instance.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+import sys
+from types import ModuleType
 
-from aragora.server.handlers.oauth.config import _get_allowed_redirect_hosts
-from aragora.server.oauth_state_store import (
-    generate_oauth_state as _generate_state,  # noqa: F401 - re-exported for mixins
-    validate_oauth_state as _validate_state_internal,
-)
 from aragora.server.handlers.utils.rate_limit import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -22,33 +22,15 @@ logger = logging.getLogger(__name__)
 # Rate limiter for OAuth endpoints (20 requests per minute - auth attempts should be limited)
 _oauth_limiter = RateLimiter(requests_per_minute=20)
 
-
-def _validate_state(state: str) -> dict[str, Any] | None:
-    """Validate and consume OAuth state token."""
-    return _validate_state_internal(state)
+# Module path constant for the backward-compat shim that tests patch against.
+_IMPL_MODULE = "aragora.server.handlers._oauth_impl"
 
 
-def _validate_redirect_url(redirect_url: str) -> bool:
-    """Validate redirect URL against allowed hosts (uses module-level _get_allowed_redirect_hosts)."""
-    from urllib.parse import urlparse
+def _impl() -> ModuleType:
+    """Return the ``_oauth_impl`` module lazily to avoid circular imports.
 
-    try:
-        parsed = urlparse(redirect_url)
-        if parsed.scheme not in ("http", "https"):
-            logger.warning(f"oauth_redirect_blocked: scheme={parsed.scheme} not allowed")
-            return False
-        host = parsed.hostname
-        if not host:
-            return False
-        host = host.lower()
-        allowed_hosts = _get_allowed_redirect_hosts()
-        if host in allowed_hosts:
-            return True
-        for allowed in allowed_hosts:
-            if host.endswith(f".{allowed}"):
-                return True
-        logger.warning(f"oauth_redirect_blocked: host={host} not in allowlist")
-        return False
-    except Exception as e:
-        logger.warning(f"oauth_redirect_validation_error: {e}")
-        return False
+    All mixin modules call ``_impl().<name>`` instead of importing config
+    functions directly so that ``unittest.mock.patch`` applied to
+    ``_oauth_impl.<name>`` is visible to the running code.
+    """
+    return sys.modules[_IMPL_MODULE]

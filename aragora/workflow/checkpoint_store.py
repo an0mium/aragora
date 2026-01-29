@@ -112,6 +112,7 @@ class LRUCheckpointCache:
     def put(self, key: str, checkpoint: WorkflowCheckpoint) -> None:
         """Put checkpoint in cache, evicting oldest if full."""
         if key in self._cache:
+            self._cache[key] = checkpoint
             self._cache.move_to_end(key)
         else:
             if len(self._cache) >= self._max_size:

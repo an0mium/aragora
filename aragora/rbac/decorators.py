@@ -1,8 +1,34 @@
 """
 RBAC Decorators - Easy permission enforcement for handlers.
 
-Provides decorators for enforcing role-based access control on
-handler methods and functions.
+Provides decorators for enforcing role-based access control (RBAC) on
+handler methods and functions. These decorators check permissions or roles
+before executing the decorated function, raising appropriate errors if
+access is denied.
+
+Main decorators:
+- require_permission: Requires a specific permission (e.g., "debates:create")
+- require_role: Requires specific role(s) (e.g., "admin")
+- require_owner: Requires the "owner" role
+- require_admin: Requires "admin" or "owner" role
+- require_org_access: Requires access to a specific organization
+- require_self_or_admin: Requires user is acting on self or has admin role
+- with_permission_context: Builds AuthorizationContext from request data
+
+Exceptions:
+- PermissionDeniedError: Raised when a permission check fails
+- RoleRequiredError: Raised when a required role is missing
+
+Usage:
+    from aragora.rbac.decorators import require_permission, require_role
+
+    @require_permission("debates:create")
+    async def create_debate(context: AuthorizationContext, ...):
+        ...
+
+    @require_role("admin")
+    async def admin_action(context: AuthorizationContext, ...):
+        ...
 """
 
 from __future__ import annotations
@@ -18,6 +44,20 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+__all__ = [
+    # Decorators
+    "require_permission",
+    "require_role",
+    "require_owner",
+    "require_admin",
+    "require_org_access",
+    "require_self_or_admin",
+    "with_permission_context",
+    # Exceptions
+    "PermissionDeniedError",
+    "RoleRequiredError",
+]
 
 
 class PermissionDeniedError(Exception):
@@ -280,14 +320,51 @@ def require_role(
 def require_owner(
     context_param: str = "context",
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator to require owner role."""
+    """
+    Decorator to require owner role.
+
+    Only users with the "owner" role can access the decorated function.
+    This is the most restrictive role check available.
+
+    Args:
+        context_param: Parameter name for AuthorizationContext (default: "context")
+
+    Raises:
+        RoleRequiredError: If the user does not have the owner role
+
+    Usage:
+        @require_owner()
+        async def delete_organization(context: AuthorizationContext, org_id: str):
+            ...
+    """
     return require_role("owner", context_param=context_param)
 
 
 def require_admin(
     context_param: str = "context",
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
-    """Decorator to require admin or owner role."""
+    """
+    Decorator to require admin or owner role.
+
+    Users with either "admin" or "owner" role can access the decorated function.
+    This is suitable for administrative operations that shouldn't require
+    full owner privileges.
+
+    Args:
+        context_param: Parameter name for AuthorizationContext (default: "context")
+
+    Raises:
+        RoleRequiredError: If the user has neither admin nor owner role
+
+    Usage:
+        @require_admin()
+        async def update_workspace_settings(context: AuthorizationContext, ...):
+            ...
+
+        @require_admin()
+        async def manage_users(context: AuthorizationContext, user_id: str):
+            ...
+    """
     return require_role("owner", "admin", context_param=context_param)
 
 

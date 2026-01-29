@@ -34,8 +34,26 @@ from ..base import (
     success_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.connectors.chat.webhook_security import (
+    should_allow_unverified,
+    log_verification_attempt,
+)
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Webhook Verification Configuration
+# =============================================================================
+
+# Environment variables for webhook verification
+import os
+
+# Gmail Pub/Sub audience (your webhook endpoint URL)
+GMAIL_PUBSUB_AUDIENCE = os.environ.get("GMAIL_PUBSUB_AUDIENCE", "")
+GMAIL_PUBSUB_ISSUER = "https://accounts.google.com"
+
+# Outlook webhook secret for clientState verification
+OUTLOOK_WEBHOOK_SECRET = os.environ.get("OUTLOOK_WEBHOOK_SECRET", "")
 
 # =============================================================================
 # Data Models
@@ -386,6 +404,137 @@ class EmailWebhooksHandler(BaseHandler):
         """Initialize handler with optional server context."""
         super().__init__(server_context or {})  # type: ignore[arg-type]
 
+    # =========================================================================
+    # Webhook Verification Methods
+    # =========================================================================
+
+    async def _verify_gmail_pubsub_token(self, request: Any) -> bool:
+        """Verify Gmail Pub/Sub push notification authenticity.
+
+        Google Pub/Sub push messages include a JWT bearer token in the
+        Authorization header that can be verified.
+
+        SECURITY: In production, all notifications MUST be verified.
+        In development, can be bypassed with ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS.
+
+        See: https://cloud.google.com/pubsub/docs/push#authentication
+        """
+        auth_header = getattr(request, "headers", {}).get("Authorization", "")
+
+        if not auth_header.startswith("Bearer "):
+            if should_allow_unverified("gmail_pubsub"):
+                log_verification_attempt(
+                    "gmail_pubsub",
+                    True,
+                    "bypassed",
+                    "No auth header - verification skipped (dev mode)",
+                )
+                return True
+            log_verification_attempt("gmail_pubsub", False, "jwt", "Missing Authorization header")
+            return False
+
+        token = auth_header[7:]  # Remove "Bearer " prefix
+
+        # If audience not configured, check dev bypass
+        if not GMAIL_PUBSUB_AUDIENCE:
+            if should_allow_unverified("gmail_pubsub"):
+                log_verification_attempt(
+                    "gmail_pubsub",
+                    True,
+                    "bypassed",
+                    "GMAIL_PUBSUB_AUDIENCE not configured - skipped (dev mode)",
+                )
+                return True
+            log_verification_attempt(
+                "gmail_pubsub", False, "jwt", "GMAIL_PUBSUB_AUDIENCE not configured"
+            )
+            return False
+
+        try:
+            # Try to verify the JWT token from Google
+            from google.auth import jwt as google_jwt
+
+            claims = google_jwt.decode(
+                token,
+                audience=GMAIL_PUBSUB_AUDIENCE,
+                verify=True,
+            )
+
+            # Verify issuer
+            if claims.get("iss") != GMAIL_PUBSUB_ISSUER:
+                log_verification_attempt(
+                    "gmail_pubsub", False, "jwt", f"Invalid issuer: {claims.get('iss')}"
+                )
+                return False
+
+            log_verification_attempt("gmail_pubsub", True, "jwt")
+            return True
+
+        except ImportError:
+            # google-auth not installed
+            if should_allow_unverified("gmail_pubsub"):
+                log_verification_attempt(
+                    "gmail_pubsub",
+                    True,
+                    "bypassed",
+                    "google-auth not installed - skipped (dev mode)",
+                )
+                return True
+            log_verification_attempt(
+                "gmail_pubsub", False, "jwt", "google-auth package not installed"
+            )
+            return False
+
+        except Exception as e:
+            if should_allow_unverified("gmail_pubsub"):
+                log_verification_attempt(
+                    "gmail_pubsub", True, "bypassed", f"JWT verification failed but bypassed: {e}"
+                )
+                return True
+            log_verification_attempt("gmail_pubsub", False, "jwt", f"JWT verification failed: {e}")
+            return False
+
+    async def _verify_outlook_notification(self, request: Any, body: dict[str, Any]) -> bool:
+        """Verify Outlook Graph notification authenticity.
+
+        Microsoft Graph uses clientState for webhook verification.
+        The clientState is set during subscription creation and echoed
+        back in notifications.
+
+        SECURITY: In production, all notifications MUST be verified.
+        """
+        changes = body.get("value", [])
+        if not changes:
+            log_verification_attempt(
+                "outlook", False, "clientState", "No notification data in body"
+            )
+            return should_allow_unverified("outlook")
+
+        for change in changes:
+            subscription_id = change.get("subscriptionId", "")
+            client_state = change.get("clientState")
+
+            # Look up expected clientState for this subscription
+            async with _webhooks_lock:
+                subscription = _subscriptions.get(subscription_id)
+
+            if subscription is None:
+                log_verification_attempt(
+                    "outlook", False, "clientState", f"Unknown subscription: {subscription_id}"
+                )
+                if not should_allow_unverified("outlook"):
+                    return False
+                continue  # Skip this notification in dev mode
+
+            if subscription.client_state != client_state:
+                log_verification_attempt("outlook", False, "clientState", "clientState mismatch")
+                if not should_allow_unverified("outlook"):
+                    return False
+                continue
+
+        log_verification_attempt("outlook", True, "clientState")
+        return True
+
     @require_permission("webhooks:read")
     async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
         """Route requests to appropriate handler methods."""
@@ -439,8 +588,15 @@ class EmailWebhooksHandler(BaseHandler):
 
         Google sends notifications to this endpoint when there are
         changes to the user's mailbox.
+
+        SECURITY: Verifies the JWT token from Google Pub/Sub before processing.
         """
         try:
+            # SECURITY: Verify the push notification is from Google
+            if not await self._verify_gmail_pubsub_token(request):
+                logger.warning("Gmail webhook verification failed")
+                return error_response("Webhook verification failed", 401)
+
             body = await self._get_json_body(request)
 
             # Process the notification
@@ -476,9 +632,11 @@ class EmailWebhooksHandler(BaseHandler):
         """Handle Outlook Graph change notification.
 
         Microsoft sends change notifications when subscribed resources change.
+
+        SECURITY: Verifies clientState before processing notifications.
         """
         try:
-            # Check for validation request
+            # Check for validation request (no verification needed for initial handshake)
             params = self._get_query_params(request)
             validation_token = params.get("validationToken")
 
@@ -492,6 +650,11 @@ class EmailWebhooksHandler(BaseHandler):
                 )
 
             body = await self._get_json_body(request)
+
+            # SECURITY: Verify clientState for actual notifications
+            if not await self._verify_outlook_notification(request, body):
+                logger.warning("Outlook webhook verification failed")
+                return error_response("Webhook verification failed", 401)
 
             # Process notifications
             notifications = await process_outlook_notification(body, tenant_id)

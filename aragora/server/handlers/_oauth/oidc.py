@@ -11,16 +11,9 @@ import logging
 from urllib.parse import urlencode
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
-from aragora.server.handlers.oauth.config import (
-    _get_oidc_client_id,
-    _get_oidc_client_secret,
-    _get_oidc_issuer,
-    _get_oidc_redirect_uri,
-    _get_oauth_success_url,
-)
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _validate_redirect_url, _validate_state, _generate_state
+from .utils import _impl
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +25,17 @@ class OIDCOAuthMixin:
     @log_request("OIDC OAuth start")
     def _handle_oidc_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to generic OIDC provider."""
-        oidc_issuer = _get_oidc_issuer()
-        oidc_client_id = _get_oidc_client_id()
+        impl = _impl()
+        oidc_issuer = impl._get_oidc_issuer()
+        oidc_client_id = impl._get_oidc_client_id()
 
         if not oidc_issuer or not oidc_client_id:
             return error_response("OIDC provider not configured", 503)
 
-        oauth_success_url = _get_oauth_success_url()
+        oauth_success_url = impl._get_oauth_success_url()
         redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
-        if not _validate_redirect_url(redirect_url):
+        if not impl._validate_redirect_url(redirect_url):
             return error_response("Invalid redirect URL", 400)
 
         user_id = None
@@ -52,7 +46,7 @@ class OIDCOAuthMixin:
         if auth_ctx.is_authenticated:
             user_id = auth_ctx.user_id
 
-        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+        state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         # Discover OIDC endpoints
         discovery = self._get_oidc_discovery(oidc_issuer)
@@ -63,7 +57,7 @@ class OIDCOAuthMixin:
 
         params = {
             "client_id": oidc_client_id,
-            "redirect_uri": _get_oidc_redirect_uri(),
+            "redirect_uri": impl._get_oidc_redirect_uri(),
             "response_type": "code",
             "scope": "openid email profile",
             "state": state,
@@ -81,6 +75,7 @@ class OIDCOAuthMixin:
     @log_request("OIDC OAuth callback")
     def _handle_oidc_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle generic OIDC callback."""
+        impl = _impl()
         error = _get_param(query_params, "error")
         if error:
             error_desc = _get_param(query_params, "error_description", error)
@@ -90,7 +85,7 @@ class OIDCOAuthMixin:
         if not state:
             return self._redirect_with_error("Missing state parameter")
 
-        state_data = _validate_state(state)
+        state_data = impl._validate_state(state)
         if state_data is None:
             return self._redirect_with_error("Invalid or expired state")
 
@@ -98,7 +93,7 @@ class OIDCOAuthMixin:
         if not code:
             return self._redirect_with_error("Missing authorization code")
 
-        oidc_issuer = _get_oidc_issuer()
+        oidc_issuer = impl._get_oidc_issuer()
         discovery = self._get_oidc_discovery(oidc_issuer)
 
         try:
@@ -136,6 +131,7 @@ class OIDCOAuthMixin:
         """Exchange OIDC authorization code for tokens."""
         import urllib.request
 
+        impl = _impl()
         token_endpoint = discovery.get("token_endpoint")
         if not token_endpoint:
             raise ValueError("No token endpoint in OIDC discovery")
@@ -143,9 +139,9 @@ class OIDCOAuthMixin:
         data = urlencode(
             {
                 "code": code,
-                "client_id": _get_oidc_client_id(),
-                "client_secret": _get_oidc_client_secret(),
-                "redirect_uri": _get_oidc_redirect_uri(),
+                "client_id": impl._get_oidc_client_id(),
+                "client_secret": impl._get_oidc_client_secret(),
+                "redirect_uri": impl._get_oidc_redirect_uri(),
                 "grant_type": "authorization_code",
             }
         ).encode()

@@ -27,6 +27,8 @@ import { DebatesAPI } from './apis/debates';
 import { AgentsAPI } from './apis/agents';
 import { AnalyticsAPI } from './apis/analytics';
 import { WorkflowsAPI } from './apis/workflows';
+import { AdminAPI } from './apis/admin';
+import { TrainingAPI } from './apis/training';
 import { AragoraWebSocket, createWebSocket, WebSocketOptions } from './apis/websocket';
 
 // =============================================================================
@@ -52,6 +54,8 @@ export class AragoraClient {
   readonly agents: AgentsAPI;
   readonly analytics: AnalyticsAPI;
   readonly workflows: WorkflowsAPI;
+  readonly admin: AdminAPI;
+  readonly training: TrainingAPI;
 
   constructor(config: ClientConfig) {
     this.http = new HttpClient(config);
@@ -61,6 +65,8 @@ export class AragoraClient {
     this.agents = new AgentsAPI(this.http);
     this.analytics = new AnalyticsAPI(this.http);
     this.workflows = new WorkflowsAPI(this.http);
+    this.admin = new AdminAPI(this.http);
+    this.training = new TrainingAPI(this.http);
 
     // Store WebSocket options for lazy initialization
     this.wsOptions = {
@@ -202,3 +208,23 @@ export type {
   WebSocketState,
   DebateEvent,
 } from './apis/websocket';
+
+export type {
+  RevenueData,
+  RevenueResponse,
+  AdminStats,
+  AdminStatsResponse,
+  Organization,
+  User,
+} from './apis/admin';
+
+export type {
+  TrainingStats,
+  TrainingStatsResponse,
+  SFTExample,
+  DPOExample,
+  GauntletExample,
+  TrainingExportOptions,
+  TrainingExportResponse,
+  TrainingJob,
+} from './apis/training';

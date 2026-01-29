@@ -518,7 +518,9 @@ class TestFileCheckpointStore:
         id1 = await store.save(sample_checkpoint)
         import asyncio
 
-        await asyncio.sleep(0.01)
+        # FileCheckpointStore uses second-precision timestamps for IDs
+        # Need >1s delay to ensure different checkpoint IDs
+        await asyncio.sleep(1.1)
         id2 = await store.save(sample_checkpoint_2)
 
         checkpoints = await store.list_checkpoints("wf-test-123")
@@ -808,24 +810,30 @@ class TestKnowledgeMoundCheckpointStore:
     @pytest.mark.asyncio
     async def test_save(self, mock_mound, sample_checkpoint):
         """Save stores checkpoint in KnowledgeMound."""
-        with patch.dict("sys.modules", {"aragora.knowledge.mound": MagicMock()}):
-            from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
+        import builtins
 
-            store = KnowledgeMoundCheckpointStore(mock_mound)
+        from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
 
-            # Mock the KM types
-            with patch(
-                "aragora.workflow.checkpoint_store.__import__",
-                return_value=MagicMock(
-                    KnowledgeNode=MagicMock,
-                    MemoryTier=MagicMock(MEDIUM="medium"),
-                    ProvenanceChain=MagicMock,
-                ),
-            ):
-                node_id = await store.save(sample_checkpoint)
+        store = KnowledgeMoundCheckpointStore(mock_mound)
 
-            mock_mound.add_node.assert_called_once()
-            assert node_id == "node-123"
+        # Mock the dynamic import of KM types
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "aragora.knowledge.mound":
+                mock_module = MagicMock()
+                mock_module.KnowledgeNode = MagicMock
+                mock_module.MemoryTier = MagicMock()
+                mock_module.MemoryTier.MEDIUM = "medium"
+                mock_module.ProvenanceChain = MagicMock
+                return mock_module
+            return original_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=mock_import):
+            node_id = await store.save(sample_checkpoint)
+
+        mock_mound.add_node.assert_called_once()
+        assert node_id == "node-123"
 
     @pytest.mark.asyncio
     async def test_load(self, mock_mound, sample_checkpoint):

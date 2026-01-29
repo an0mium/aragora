@@ -13,19 +13,9 @@ from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action, audit_security
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
-from aragora.server.handlers.oauth.config import (
-    _get_google_client_id,
-    _get_google_client_secret,
-    _get_google_redirect_uri,
-    _get_oauth_success_url,
-    GOOGLE_AUTH_URL,
-    GOOGLE_CLIENT_ID,
-    GOOGLE_TOKEN_URL,
-    GOOGLE_USERINFO_URL,
-)
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
-from .utils import _validate_redirect_url, _validate_state, _generate_state
+from .utils import _impl
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +27,17 @@ class GoogleOAuthMixin:
     @log_request("Google OAuth start")
     def _handle_google_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to Google OAuth consent screen."""
-        google_client_id = _get_google_client_id()
+        impl = _impl()
+        google_client_id = impl._get_google_client_id()
         if not google_client_id:
             return error_response("Google OAuth not configured", 503)
 
         # Get optional redirect URL from query params
-        oauth_success_url = _get_oauth_success_url()
+        oauth_success_url = impl._get_oauth_success_url()
         redirect_url = _get_param(query_params, "redirect_url", oauth_success_url)
 
         # Security: Validate redirect URL against allowlist to prevent open redirects
-        if not _validate_redirect_url(redirect_url):
+        if not impl._validate_redirect_url(redirect_url):
             return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
         # Check if this is for account linking (user already authenticated)
@@ -59,19 +50,19 @@ class GoogleOAuthMixin:
             user_id = auth_ctx.user_id
 
         # Generate state for CSRF protection
-        state = _generate_state(user_id=user_id, redirect_url=redirect_url)
+        state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         # Build authorization URL
         params = {
             "client_id": google_client_id,
-            "redirect_uri": _get_google_redirect_uri(),
+            "redirect_uri": impl._get_google_redirect_uri(),
             "response_type": "code",
             "scope": "openid email profile",
             "state": state,
             "access_type": "offline",
             "prompt": "consent",
         }
-        auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+        auth_url = f"{impl.GOOGLE_AUTH_URL}?{urlencode(params)}"
 
         # Return redirect response
         return HandlerResult(
@@ -85,6 +76,7 @@ class GoogleOAuthMixin:
     @log_request("Google OAuth callback")
     def _handle_google_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Google OAuth callback with authorization code."""
+        impl = _impl()
 
         # Check for error from Google
         error = _get_param(query_params, "error")
@@ -108,7 +100,7 @@ class GoogleOAuthMixin:
             return self._redirect_with_error("Missing state parameter")
 
         logger.info(f"OAuth callback: validating state (len={len(state)}, prefix={state[:20]}...)")
-        state_data = _validate_state(state)
+        state_data = impl._validate_state(state)
         if state_data is None:
             logger.warning(f"OAuth callback: state validation failed for {state[:20]}...")
             return self._redirect_with_error("Invalid or expired state")
@@ -238,7 +230,7 @@ class GoogleOAuthMixin:
         )
 
         # Redirect to frontend with tokens
-        redirect_url = state_data.get("redirect_url", _get_oauth_success_url())
+        redirect_url = state_data.get("redirect_url", impl._get_oauth_success_url())
         logger.info(f"OAuth callback: redirecting to {redirect_url}")
         return self._redirect_with_tokens(redirect_url, tokens)
 
@@ -247,18 +239,19 @@ class GoogleOAuthMixin:
         import urllib.error
         import urllib.request
 
+        impl = _impl()
         data = urlencode(
             {
                 "code": code,
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": _get_google_client_secret(),
-                "redirect_uri": _get_google_redirect_uri(),
+                "client_id": impl.GOOGLE_CLIENT_ID,
+                "client_secret": impl._get_google_client_secret(),
+                "redirect_uri": impl._get_google_redirect_uri(),
                 "grant_type": "authorization_code",
             }
         ).encode()
 
         req = urllib.request.Request(
-            GOOGLE_TOKEN_URL,
+            impl.GOOGLE_TOKEN_URL,
             data=data,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
@@ -274,8 +267,9 @@ class GoogleOAuthMixin:
         """Get user info from Google API."""
         import urllib.request
 
+        impl = _impl()
         req = urllib.request.Request(
-            GOOGLE_USERINFO_URL,
+            impl.GOOGLE_USERINFO_URL,
             headers={"Authorization": f"Bearer {access_token}"},
         )
 

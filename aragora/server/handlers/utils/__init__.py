@@ -21,6 +21,12 @@ from .safe_fetch import (
     fetch_multiple,
     fetch_multiple_async,
 )
+from .auth import (
+    ForbiddenError,
+    UnauthorizedError,
+    get_auth_context,
+    require_authenticated,
+)
 from .auth_mixins import (
     SecureEndpointMixin,
     AuthenticatedHandlerMixin,
@@ -144,4 +150,9 @@ __all__ = [
     "sanitize_integration_response",
     "sanitize_payment_response",
     "sanitize_output",
+    # Auth exceptions and utilities (canonical exports)
+    "ForbiddenError",
+    "UnauthorizedError",
+    "get_auth_context",
+    "require_authenticated",
 ]

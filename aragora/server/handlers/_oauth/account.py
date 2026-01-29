@@ -11,24 +11,9 @@ from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, json_response
-from aragora.server.handlers.oauth.config import (
-    _get_google_client_id,
-    _get_google_redirect_uri,
-    _get_github_client_id,
-    _get_github_redirect_uri,
-    _get_microsoft_client_id,
-    _get_apple_client_id,
-    _get_oidc_issuer,
-    _get_oidc_client_id,
-    _get_oauth_success_url,
-    GOOGLE_AUTH_URL,
-    GOOGLE_CLIENT_ID,
-    GITHUB_AUTH_URL,
-    GITHUB_CLIENT_ID,
-)
 from aragora.server.handlers.oauth.models import _get_param
 
-from .utils import _validate_redirect_url, _generate_state
+from .utils import _impl
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +24,10 @@ class AccountManagementMixin:
     @handle_errors("list OAuth providers")
     def _handle_list_providers(self, handler) -> HandlerResult:
         """List configured OAuth providers."""
+        impl = _impl()
         providers = []
 
-        if _get_google_client_id():
+        if impl._get_google_client_id():
             providers.append(
                 {
                     "id": "google",
@@ -51,7 +37,7 @@ class AccountManagementMixin:
                 }
             )
 
-        if _get_github_client_id():
+        if impl._get_github_client_id():
             providers.append(
                 {
                     "id": "github",
@@ -61,7 +47,7 @@ class AccountManagementMixin:
                 }
             )
 
-        if _get_microsoft_client_id():
+        if impl._get_microsoft_client_id():
             providers.append(
                 {
                     "id": "microsoft",
@@ -71,7 +57,7 @@ class AccountManagementMixin:
                 }
             )
 
-        if _get_apple_client_id():
+        if impl._get_apple_client_id():
             providers.append(
                 {
                     "id": "apple",
@@ -81,7 +67,7 @@ class AccountManagementMixin:
                 }
             )
 
-        if _get_oidc_issuer() and _get_oidc_client_id():
+        if impl._get_oidc_issuer() and impl._get_oidc_client_id():
             providers.append(
                 {
                     "id": "oidc",
@@ -214,6 +200,8 @@ class AccountManagementMixin:
     @handle_errors("link OAuth account")
     def _handle_link_account(self, handler) -> HandlerResult:
         """Link OAuth account to current user (initiated from settings)."""
+        impl = _impl()
+
         # RBAC check: authentication.update permission required
         if error := self._check_permission(handler, "authentication.update"):
             return error
@@ -233,39 +221,39 @@ class AccountManagementMixin:
             return error_response("Unsupported provider", 400)
 
         # Return the auth URL for the provider
-        redirect_url = body.get("redirect_url", _get_oauth_success_url())
+        redirect_url = body.get("redirect_url", impl._get_oauth_success_url())
 
         # Validate redirect URL against allowlist (same as start flow)
-        if not _validate_redirect_url(redirect_url):
+        if not impl._validate_redirect_url(redirect_url):
             return error_response("Invalid redirect URL. Only approved domains are allowed.", 400)
 
-        state = _generate_state(user_id=auth_ctx.user_id, redirect_url=redirect_url)
+        state = impl._generate_state(user_id=auth_ctx.user_id, redirect_url=redirect_url)
 
         if provider == "google":
-            if not GOOGLE_CLIENT_ID:
+            if not impl.GOOGLE_CLIENT_ID:
                 return error_response("Google OAuth not configured", 503)
             params = {
-                "client_id": GOOGLE_CLIENT_ID,
-                "redirect_uri": _get_google_redirect_uri(),
+                "client_id": impl.GOOGLE_CLIENT_ID,
+                "redirect_uri": impl._get_google_redirect_uri(),
                 "response_type": "code",
                 "scope": "openid email profile",
                 "state": state,
                 "access_type": "offline",
                 "prompt": "consent",
             }
-            auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+            auth_url = f"{impl.GOOGLE_AUTH_URL}?{urlencode(params)}"
             return json_response({"auth_url": auth_url})
 
         if provider == "github":
-            if not GITHUB_CLIENT_ID:
+            if not impl.GITHUB_CLIENT_ID:
                 return error_response("GitHub OAuth not configured", 503)
             params = {
-                "client_id": GITHUB_CLIENT_ID,
-                "redirect_uri": _get_github_redirect_uri(),
+                "client_id": impl.GITHUB_CLIENT_ID,
+                "redirect_uri": impl._get_github_redirect_uri(),
                 "scope": "read:user user:email",
                 "state": state,
             }
-            auth_url = f"{GITHUB_AUTH_URL}?{urlencode(params)}"
+            auth_url = f"{impl.GITHUB_AUTH_URL}?{urlencode(params)}"
             return json_response({"auth_url": auth_url})
 
         return error_response("Provider not implemented", 501)

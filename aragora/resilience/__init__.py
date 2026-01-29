@@ -37,6 +37,7 @@ from .registry import (
     STALE_THRESHOLD_SECONDS,
     _circuit_breakers,
     _circuit_breakers_lock,
+    _prune_stale_circuit_breakers,
     get_circuit_breaker,
     get_circuit_breakers,
     prune_circuit_breakers,
@@ -126,6 +127,7 @@ try:
         "persist_circuit_breaker",
         # Decorator
         "with_resilience",
+        "_prune_stale_circuit_breakers",
         # NEW - Re-exports from resilience_patterns
         "RetryConfig",
         "RetryStrategy",
@@ -154,6 +156,7 @@ except ImportError:
         "STALE_THRESHOLD_SECONDS",
         "_circuit_breakers",
         "_circuit_breakers_lock",
+        "_prune_stale_circuit_breakers",
         "get_circuit_breaker",
         "get_circuit_breakers",
         "prune_circuit_breakers",

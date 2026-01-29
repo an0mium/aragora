@@ -425,10 +425,11 @@ def audit_sensitive_access(
 
 
 # Export commonly used items
+# Note: ForbiddenError and UnauthorizedError are still imported above for internal use
+# and backward compatibility, but the canonical import path is now:
+# from aragora.server.handlers.utils import ForbiddenError, UnauthorizedError
 __all__ = [
     "SecureHandler",
     "secure_endpoint",
     "audit_sensitive_access",
-    "UnauthorizedError",
-    "ForbiddenError",
 ]
