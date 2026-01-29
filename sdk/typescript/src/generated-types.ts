@@ -62,6 +62,14 @@ export interface Agent {
   calibration_score?: number;
 }
 
+export interface HealthCheck {
+  status?: "healthy" | "degraded" | "unhealthy";
+  version?: string;
+  timestamp?: string;
+  checks?: Record<string, any>;
+  response_time_ms?: number;
+}
+
 export type DebateStatus = "created" | "starting" | "pending" | "running" | "in_progress" | "completed" | "failed" | "cancelled" | "paused" | "active" | "concluded" | "archived";
 
 export interface ConsensusResult {
@@ -84,7 +92,7 @@ export interface DebateCreateRequest {
   /** Maximum number of debate rounds */
   rounds?: number;
   /** Consensus strategy to use */
-  consensus?: "majority" | "unanimous" | "weighted" | "semantic";
+  consensus?: "majority" | "unanimous" | "supermajority" | "weighted" | "hybrid" | "judge" | "none";
   /** Additional context or background information */
   context?: string;
   /** Automatically select optimal agents based on topic */
@@ -154,12 +162,14 @@ export interface Message {
   timestamp?: string;
 }
 
-export interface HealthCheck {
-  status?: "healthy" | "degraded" | "unhealthy";
-  version?: string;
-  timestamp?: string;
-  checks?: Record<string, any>;
-  response_time_ms?: number;
+export interface Round {
+  /** Round number (1-indexed) */
+  round_number?: number;
+  messages?: Message[];
+  /** Agent votes for this round */
+  votes?: Record<string, any>;
+  /** Round summary */
+  summary?: string;
 }
 
 export interface Consensus {
@@ -260,6 +270,13 @@ export interface DomainConsensusResponse {
   }[];
 }
 
+export interface DebateSummary {
+  debate_id: string;
+  summary: string;
+  confidence?: number;
+  consensus_reached?: boolean;
+}
+
 export interface BeliefCrux {
   id?: string;
   /** The crux proposition */
@@ -332,16 +349,6 @@ export interface OAuthProvider {
 export interface OAuthProviders {
   /** List of available OAuth providers */
   providers: OAuthProvider[];
-}
-
-export interface Round {
-  /** Round number (1-indexed) */
-  round_number?: number;
-  messages?: Message[];
-  /** Agent votes for this round */
-  votes?: Record<string, any>;
-  /** Round summary */
-  summary?: string;
 }
 
 export interface Workspace {
@@ -632,13 +639,6 @@ export interface Counterfactuals {
   counterfactuals: Counterfactual[];
 }
 
-export interface DebateSummary {
-  debate_id: string;
-  summary: string;
-  confidence?: number;
-  consensus_reached?: boolean;
-}
-
 export interface ExplainabilityBatch {
   batch_id: string;
   status: string;
@@ -783,6 +783,33 @@ export interface ControlPlaneStats {
 export interface ControlPlaneHealth {
   status?: string;
   agents?: Record<string, any>;
+}
+
+export interface AgentRegistration {
+  agent_id?: string;
+  capabilities?: string[];
+  model?: string;
+  provider?: string;
+  registered_at?: string;
+  status?: string;
+}
+
+export interface TaskStatus {
+  task_id?: string;
+  status?: string;
+  progress?: number;
+  started_at?: string;
+  completed_at?: string;
+  result?: Record<string, any>;
+  error?: string;
+}
+
+export interface PolicyEvaluation {
+  policy_id?: string;
+  allowed?: boolean;
+  reason?: string;
+  conditions_met?: string[];
+  evaluated_at?: string;
 }
 
 export interface VulnerabilityReference {
@@ -932,6 +959,93 @@ export interface CodebaseFileMetricsResponse {
 export interface CodebaseMetricsHistoryResponse {
   success?: boolean;
   analyses?: Record<string, any>[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CodebaseDependencyAnalysisRequest {
+  repository: string;
+  branch?: string;
+  include_dev?: boolean;
+  ecosystems?: string[];
+}
+
+export interface CodebaseDependencyAnalysisResponse {
+  success?: boolean;
+  analysis_id?: string;
+  status?: string;
+}
+
+export interface CodebaseDependencyScanRequest {
+  repository: string;
+  branch?: string;
+  severity_threshold?: string;
+}
+
+export interface CodebaseDependencyScanResponse {
+  success?: boolean;
+  scan_id?: string;
+  status?: string;
+}
+
+export interface CodebaseLicenseCheckRequest {
+  repository: string;
+  branch?: string;
+  allowed_licenses?: string[];
+  blocked_licenses?: string[];
+}
+
+export interface CodebaseLicenseCheckResponse {
+  success?: boolean;
+  check_id?: string;
+  status?: string;
+}
+
+export interface CodebaseSBOMRequest {
+  repository: string;
+  branch?: string;
+  format?: "spdx" | "cyclonedx";
+  include_dev?: boolean;
+}
+
+export interface CodebaseSBOMResponse {
+  success?: boolean;
+  sbom_id?: string;
+  format?: string;
+}
+
+export interface CodebaseSecretsScanRequest {
+  repository: string;
+  branch?: string;
+  include_history?: boolean;
+  patterns?: string[];
+}
+
+export interface CodebaseSecretsScanStartResponse {
+  success?: boolean;
+  scan_id?: string;
+  status?: string;
+  repository?: string;
+  include_history?: boolean;
+}
+
+export interface CodebaseSecretsScanResultResponse {
+  success?: boolean;
+  scan_id?: string;
+  findings?: Record<string, any>[];
+  total?: number;
+}
+
+export interface CodebaseSecretsListResponse {
+  success?: boolean;
+  secrets?: Record<string, any>[];
+  total?: number;
+}
+
+export interface CodebaseSecretsScanListResponse {
+  success?: boolean;
+  scans?: Record<string, any>[];
   total?: number;
   limit?: number;
   offset?: number;
@@ -1192,6 +1306,120 @@ export interface CostDismissAlertResponse {
   success: boolean;
 }
 
+export type BudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
+
+export type BudgetStatus = "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
+
+export type BudgetAction = "notify" | "warn" | "soft_limit" | "hard_limit" | "suspend";
+
+export interface BudgetThreshold {
+  /** Threshold percentage (0.0 - 1.0) */
+  percentage: number;
+  action: BudgetAction;
+}
+
+export interface Budget {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description?: string;
+  limit_usd: number;
+  period: BudgetPeriod;
+  status: BudgetStatus;
+  current_spend_usd?: number;
+  current_period_start?: string;
+  current_period_end?: string;
+  thresholds?: BudgetThreshold[];
+  scope?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+}
+
+export interface BudgetCreateRequest {
+  name: string;
+  description?: string;
+  limit_usd: number;
+  period: BudgetPeriod;
+  thresholds?: BudgetThreshold[];
+  scope?: Record<string, any>;
+}
+
+export interface BudgetUpdateRequest {
+  name?: string;
+  description?: string;
+  limit_usd?: number;
+  period?: BudgetPeriod;
+  status?: BudgetStatus;
+  thresholds?: BudgetThreshold[];
+}
+
+export interface BudgetListResponse {
+  budgets: Budget[];
+  total: number;
+  offset?: number;
+  limit?: number;
+}
+
+export interface BudgetSummary {
+  total_budget_usd?: number;
+  total_spend_usd?: number;
+  active_budgets?: number;
+  warning_budgets?: number;
+  exceeded_budgets?: number;
+  utilization_percentage?: number;
+  trend?: "increasing" | "stable" | "decreasing";
+}
+
+export interface BudgetCheckRequest {
+  operation_type: string;
+  estimated_cost_usd?: number;
+  model?: string;
+  tokens?: number;
+}
+
+export interface BudgetCheckResponse {
+  allowed: boolean;
+  budget_id?: string;
+  remaining_usd?: number;
+  current_utilization?: number;
+  reason?: string;
+}
+
+export interface BudgetAlert {
+  id: string;
+  budget_id: string;
+  budget_name: string;
+  threshold_percentage: number;
+  actual_percentage?: number;
+  action_taken: BudgetAction;
+  message?: string;
+  created_at?: string;
+  acknowledged?: boolean;
+  acknowledged_at?: string;
+  acknowledged_by?: string;
+}
+
+export interface BudgetAlertListResponse {
+  alerts: BudgetAlert[];
+  total: number;
+  unacknowledged_count?: number;
+}
+
+export interface BudgetOverrideRequest {
+  budget_id: string;
+  override_limit_usd: number;
+  duration_hours?: number;
+  reason: string;
+}
+
+export interface BudgetOverrideResponse {
+  override_added: boolean;
+  budget_id: string;
+  user_id: string;
+  duration_hours?: any;
+}
+
 export interface SharedInbox {
   id?: string;
   workspace_id?: string;
@@ -1250,6 +1478,29 @@ export interface SharedInboxMessageResponse {
   error?: string;
 }
 
+export interface SharedInboxCreateRequest {
+  workspace_id: string;
+  name: string;
+  description?: string;
+  email_address?: string;
+  connector_type?: string;
+  team_members?: string[];
+  admins?: string[];
+  settings?: Record<string, any>;
+}
+
+export interface SharedInboxAssignRequest {
+  assigned_to: string;
+}
+
+export interface SharedInboxStatusRequest {
+  status: string;
+}
+
+export interface SharedInboxTagRequest {
+  tag: string;
+}
+
 export interface RoutingRule {
   id?: string;
   workspace_id?: string;
@@ -1293,29 +1544,6 @@ export interface RoutingRuleTestResponse {
   error?: string;
 }
 
-export interface SharedInboxCreateRequest {
-  workspace_id: string;
-  name: string;
-  description?: string;
-  email_address?: string;
-  connector_type?: string;
-  team_members?: string[];
-  admins?: string[];
-  settings?: Record<string, any>;
-}
-
-export interface SharedInboxAssignRequest {
-  assigned_to: string;
-}
-
-export interface SharedInboxStatusRequest {
-  status: string;
-}
-
-export interface SharedInboxTagRequest {
-  tag: string;
-}
-
 export interface RoutingRuleCreateRequest {
   workspace_id: string;
   name: string;
@@ -1339,250 +1567,6 @@ export interface RoutingRuleUpdateRequest {
 
 export interface RoutingRuleTestRequest {
   workspace_id: string;
-}
-
-export interface CodebaseDependencyAnalysisRequest {
-  repo_path: string;
-  include_dev?: boolean;
-}
-
-export interface CodebaseDependencyAnalysisResponse {
-  status?: string;
-  data?: Record<string, any>;
-  message?: string;
-}
-
-export interface CodebaseDependencyScanRequest {
-  repo_path: string;
-}
-
-export interface CodebaseDependencyScanResponse {
-  status?: string;
-  data?: Record<string, any>;
-  message?: string;
-}
-
-export interface CodebaseLicenseCheckRequest {
-  repo_path: string;
-  project_license?: string;
-}
-
-export interface CodebaseLicenseCheckResponse {
-  status?: string;
-  data?: Record<string, any>;
-  message?: string;
-}
-
-export interface CodebaseSBOMRequest {
-  repo_path: string;
-  format?: string;
-  include_vulnerabilities?: boolean;
-}
-
-export interface CodebaseSBOMResponse {
-  status?: string;
-  data?: Record<string, any>;
-  message?: string;
-}
-
-export interface CodebaseSecretsScanRequest {
-  repo_path: string;
-  branch?: string;
-  commit_sha?: string;
-}
-
-export interface CodebaseSecretsScanStartResponse {
-  success: boolean;
-  scan_id?: string;
-  status?: string;
-  repository?: string;
-  error?: string;
-}
-
-export interface CodebaseSecretsScanResultResponse {
-  success: boolean;
-  scan_result?: Record<string, any>;
-  error?: string;
-}
-
-export interface CodebaseSecretsListResponse {
-  success: boolean;
-  secrets?: Record<string, any>[];
-  total?: number;
-}
-
-export interface CodebaseSecretsScanListResponse {
-  success: boolean;
-  scans?: Record<string, any>[];
-  total?: number;
-}
-
-export type BudgetPeriod = "daily" | "weekly" | "monthly" | "quarterly" | "annual" | "unlimited";
-
-export type BudgetStatus = "active" | "warning" | "critical" | "exceeded" | "suspended" | "paused" | "closed";
-
-export type BudgetAction = "notify" | "warn" | "soft_limit" | "hard_limit" | "suspend";
-
-export interface BudgetThreshold {
-  /** Threshold percentage (0.0 - 1.0) */
-  percentage: number;
-  action: BudgetAction;
-}
-
-export interface Budget {
-  /** Unique budget identifier */
-  budget_id: string;
-  /** Organization ID */
-  org_id: string;
-  /** Budget name */
-  name: string;
-  /** Budget description */
-  description?: string;
-  /** Budget limit in USD */
-  amount_usd: number;
-  period?: BudgetPeriod;
-  /** Amount spent in current period */
-  spent_usd?: number;
-  /** Remaining budget */
-  remaining_usd?: number;
-  /** Current usage as percentage (0.0 - 1.0+) */
-  usage_percentage?: number;
-  /** Period start timestamp */
-  period_start?: number;
-  period_start_iso?: string;
-  /** Period end timestamp */
-  period_end?: number;
-  period_end_iso?: string;
-  status?: BudgetStatus;
-  current_action?: BudgetAction;
-  /** Auto-suspend on exceed */
-  auto_suspend?: boolean;
-  /** Whether budget is exceeded */
-  is_exceeded?: boolean;
-  thresholds?: BudgetThreshold[];
-  /** Creation timestamp */
-  created_at?: number;
-  /** Last update timestamp */
-  updated_at?: number;
-}
-
-export interface BudgetCreateRequest {
-  /** Budget name */
-  name: string;
-  /** Budget limit in USD */
-  amount_usd: number;
-  period?: BudgetPeriod;
-  /** Budget description */
-  description?: string;
-  /** Auto-suspend when exceeded */
-  auto_suspend?: boolean;
-}
-
-export interface BudgetUpdateRequest {
-  name?: string;
-  description?: string;
-  amount_usd?: number;
-  auto_suspend?: boolean;
-  status?: BudgetStatus;
-}
-
-export interface BudgetListResponse {
-  budgets: Budget[];
-  count: number;
-  org_id?: string;
-}
-
-export interface BudgetSummary {
-  org_id: string;
-  total_budget_usd: number;
-  total_spent_usd: number;
-  total_remaining_usd?: number;
-  overall_usage_percentage?: number;
-  active_budgets?: number;
-  exceeded_budgets?: number;
-  budgets?: Budget[];
-}
-
-export interface BudgetCheckRequest {
-  /** Estimated operation cost */
-  estimated_cost_usd: number;
-}
-
-export interface BudgetCheckResponse {
-  /** Whether operation is allowed */
-  allowed: boolean;
-  /** Explanation */
-  reason: string;
-  /** Required action if any */
-  action?: any;
-  estimated_cost_usd?: number;
-}
-
-export interface BudgetAlert {
-  alert_id: string;
-  budget_id: string;
-  org_id?: string;
-  threshold_percentage?: number;
-  action?: BudgetAction;
-  spent_usd?: number;
-  amount_usd?: number;
-  usage_percentage?: number;
-  message: string;
-  created_at?: number;
-  created_at_iso?: string;
-  acknowledged?: boolean;
-  acknowledged_by?: any;
-  acknowledged_at?: any;
-}
-
-export interface BudgetAlertListResponse {
-  alerts: BudgetAlert[];
-  count: number;
-  budget_id?: string;
-}
-
-export interface BudgetOverrideRequest {
-  /** User to grant override */
-  user_id: string;
-  /** Override duration (null for permanent) */
-  duration_hours?: any;
-}
-
-export interface BudgetOverrideResponse {
-  override_added: boolean;
-  budget_id: string;
-  user_id: string;
-  duration_hours?: any;
-}
-
-export interface DisagreementStats {
-  /** Total debates analyzed */
-  total_debates?: number;
-  /** Debates with disagreements */
-  with_disagreements?: number;
-  /** Unanimous debates */
-  unanimous?: number;
-  /** Count by disagreement type */
-  disagreement_types?: Record<string, any>;
-}
-
-export interface RoleRotationStats {
-  total_rotations?: number;
-  by_agent?: Record<string, any>;
-}
-
-export interface EarlyStopStats {
-  total_early_stops?: number;
-  by_reason?: Record<string, any>;
-  average_rounds_saved?: number;
-}
-
-export interface RankingStats {
-  total_agents?: number;
-  average_elo?: number;
-  highest_elo?: number;
-  lowest_elo?: number;
-  total_matches?: number;
 }
 
 export interface MemoryStats {
@@ -1675,85 +1659,82 @@ export interface KnowledgeQueryResult {
 }
 
 export interface KnowledgeStoreResult {
-  node_id: string;
-  success: boolean;
-  duplicate?: boolean;
-  topics_extracted?: string[];
+  id?: string;
+  success?: boolean;
+  source?: string;
+  timestamp?: string;
 }
 
 export interface KnowledgeFact {
-  id: string;
-  statement: string;
-  workspace_id?: string;
+  id?: string;
+  content?: string;
+  source?: string;
   confidence?: number;
-  validation_status?: string;
-  topics?: string[];
-  evidence_ids?: string[];
-  source_documents?: string[];
-  metadata?: Record<string, any>;
+  evidence?: string[];
+  contradictions?: string[];
   created_at?: string;
-  updated_at?: string;
+  verified_at?: string;
 }
 
 export interface KnowledgeFactList {
   facts?: KnowledgeFact[];
   total?: number;
-  limit?: number;
-  offset?: number;
 }
 
 export interface KnowledgeSearchResult {
-  id?: string;
-  content?: string;
+  node?: KnowledgeNode;
   score?: number;
-  metadata?: Record<string, any>;
+  highlights?: string[];
 }
 
 export interface KnowledgeSearchResponse {
-  query?: string;
-  workspace_id?: string;
   results?: KnowledgeSearchResult[];
-  count?: number;
+  total?: number;
+  query?: string;
+  search_time_ms?: number;
 }
 
 export interface KnowledgeStats {
-  workspace_id?: string;
+  total_nodes?: number;
   total_facts?: number;
-  total_entries?: number;
-  sources?: Record<string, any>;
-  categories?: Record<string, any>;
+  by_source?: Record<string, any>;
   avg_confidence?: number;
-  last_updated?: string;
+  contradiction_rate?: number;
 }
 
 export interface KnowledgeQueryResponse {
+  success?: boolean;
+  result?: KnowledgeQueryResult;
 }
 
-export interface AgentRegistration {
-  agent_id: string;
-  name: string;
-  capabilities?: string[];
-  status: "healthy" | "degraded" | "unhealthy";
-  last_heartbeat?: string;
-  metadata?: Record<string, any>;
+export interface DisagreementStats {
+  /** Total debates analyzed */
+  total_debates?: number;
+  /** Debates with disagreements */
+  with_disagreements?: number;
+  /** Unanimous debates */
+  unanimous?: number;
+  /** Count by disagreement type */
+  disagreement_types?: Record<string, any>;
 }
 
-export interface TaskStatus {
-  task_id: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
-  progress?: number;
-  result?: Record<string, any>;
-  error?: string;
-  created_at?: string;
-  updated_at?: string;
+export interface RoleRotationStats {
+  total_rotations?: number;
+  by_agent?: Record<string, any>;
 }
 
-export interface PolicyEvaluation {
-  allowed: boolean;
-  policy_id?: string;
-  reason?: string;
-  conditions_met?: string[];
-  conditions_failed?: string[];
+export interface EarlyStopStats {
+  total_early_stops?: number;
+  by_reason?: Record<string, any>;
+  average_rounds_saved?: number;
+}
+
+export interface RankingStats {
+  total_agents?: number;
+  average_elo?: number;
+  highest_elo?: number;
+  lowest_elo?: number;
+  total_matches?: number;
 }
 
 export interface PositionFlip {
