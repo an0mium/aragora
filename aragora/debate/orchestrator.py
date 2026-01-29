@@ -11,7 +11,6 @@ import asyncio
 import time
 from collections import deque
 from functools import lru_cache
-from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -58,6 +57,33 @@ from aragora.server.metrics import (
 )
 from aragora.spectate.stream import SpectatorStream
 from aragora.utils.cache_registry import register_lru_cache
+
+# Extracted sibling modules for hook/bead, memory, and agent selection logic
+from aragora.debate.orchestrator_hooks import (
+    complete_hook_tracking as _hooks_complete_hook_tracking,
+    create_debate_bead as _hooks_create_debate_bead,
+    create_pending_debate_bead as _hooks_create_pending_debate_bead,
+    init_hook_tracking as _hooks_init_hook_tracking,
+    recover_pending_debates as _hooks_recover_pending_debates,
+    update_debate_bead as _hooks_update_debate_bead,
+)
+from aragora.debate.orchestrator_memory import (
+    auto_create_knowledge_mound as _mem_auto_create_knowledge_mound,
+    compress_debate_messages as _mem_compress_debate_messages,
+    init_checkpoint_bridge as _mem_init_checkpoint_bridge,
+    init_cross_subscriber_bridge as _mem_init_cross_subscriber_bridge,
+    init_rlm_limiter_state as _mem_init_rlm_limiter_state,
+    queue_for_supabase_sync as _mem_queue_for_supabase_sync,
+    setup_belief_network as _mem_setup_belief_network,
+)
+from aragora.debate.orchestrator_agents import (
+    assign_hierarchy_roles as _agents_assign_hierarchy_roles,
+    filter_responses_by_quality as _agents_filter_responses_by_quality,
+    get_fabric_agents_sync as _agents_get_fabric_agents_sync,
+    init_agent_hierarchy as _agents_init_agent_hierarchy,
+    select_debate_team as _agents_select_debate_team,
+    should_terminate_early as _agents_should_terminate_early,
+)
 
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
@@ -362,46 +388,13 @@ class Arena:
             logger.info("[propulsion] PropulsionEngine attached (reactive debate flow enabled)")
 
         # Auto-create Knowledge Mound if not provided (recommended for decision engine)
-        if knowledge_mound is None and auto_create_knowledge_mound:
-            if enable_knowledge_retrieval or enable_knowledge_ingestion:
-                try:
-                    from aragora.knowledge.mound import get_knowledge_mound
-
-                    knowledge_mound = get_knowledge_mound(
-                        workspace_id=org_id or "default",
-                        auto_initialize=True,
-                    )
-                    logger.info(
-                        f"[knowledge_mound] Auto-created KM instance for debate "
-                        f"(enable_retrieval={enable_knowledge_retrieval}, enable_ingestion={enable_knowledge_ingestion})"
-                    )
-                except ImportError as e:
-                    logger.warning(
-                        f"[knowledge_mound] Could not auto-create: {e}. "
-                        "Debates will run without knowledge grounding."
-                    )
-                except (RuntimeError, ConnectionError, OSError) as e:
-                    logger.warning(
-                        f"[knowledge_mound] Initialization failed (infrastructure): {e}. "
-                        "Debates will run without knowledge grounding."
-                    )
-                except (ValueError, TypeError, AttributeError) as e:
-                    logger.warning(
-                        f"[knowledge_mound] Initialization failed (config): {e}. "
-                        "Debates will run without knowledge grounding."
-                    )
-                except Exception as e:
-                    logger.exception(
-                        f"[knowledge_mound] Unexpected initialization error: {e}. "
-                        "Debates will run without knowledge grounding."
-                    )
-        elif knowledge_mound is None:
-            # User explicitly disabled auto-create
-            if enable_knowledge_retrieval or enable_knowledge_ingestion:
-                logger.warning(
-                    "[knowledge_mound] KM not provided and auto_create_knowledge_mound=False. "
-                    "Knowledge retrieval/ingestion features will be disabled."
-                )
+        knowledge_mound = _mem_auto_create_knowledge_mound(
+            knowledge_mound=knowledge_mound,
+            auto_create=auto_create_knowledge_mound,
+            enable_retrieval=enable_knowledge_retrieval,
+            enable_ingestion=enable_knowledge_ingestion,
+            org_id=org_id,
+        )
 
         # Initialize tracking subsystems via ArenaInitializer
         trackers = initializer.init_trackers(
@@ -638,51 +631,8 @@ class Arena:
         self._event_emitter.broadcast_health_event(event)
 
     def _get_fabric_agents_sync(self, fabric: Any, fabric_config: Any) -> list:
-        """
-        Get agents from fabric pool synchronously.
-
-        This is a sync wrapper for use during __init__. For async contexts,
-        use FabricDebateRunner instead.
-
-        Args:
-            fabric: AgentFabric instance
-            fabric_config: FabricDebateConfig with pool_id
-
-        Returns:
-            List of FabricAgentAdapter instances that implement the Agent protocol
-        """
-        import asyncio
-
-        from aragora.debate.fabric_integration import FabricAgentAdapter
-
-        async def get_agents():
-            pool = await fabric.get_pool(fabric_config.pool_id)
-            if not pool:
-                raise ValueError(f"Pool {fabric_config.pool_id} not found")
-
-            max_agents = getattr(fabric_config, "max_agents", 10)
-            agents = []
-            for agent_id in pool.current_agents[:max_agents]:
-                adapter = FabricAgentAdapter(
-                    fabric=fabric,
-                    agent_id=agent_id,
-                    model=pool.model,
-                )
-                agents.append(adapter)
-            return agents
-
-        # Try to get existing event loop or create new one
-        try:
-            asyncio.get_running_loop()
-            # If we're in an async context, raise to use new_event_loop instead
-            raise RuntimeError("Cannot use sync helper in async context")
-        except RuntimeError:
-            # No running loop, create a new one
-            loop = asyncio.new_event_loop()
-            try:
-                return loop.run_until_complete(get_agents())
-            finally:
-                loop.close()
+        """Get agents from fabric pool. Delegates to orchestrator_agents."""
+        return _agents_get_fabric_agents_sync(fabric, fabric_config)
 
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
@@ -720,11 +670,7 @@ class Arena:
         return self.audience_manager._suggestions
 
     def _init_roles_and_stances(self) -> None:
-        """Initialize cognitive role rotation and agent stances.
-
-        Delegates to RolesManager for role assignment, stance assignment,
-        and agreement intensity application.
-        """
+        """Initialize cognitive role rotation and agent stances."""
         # Create roles manager
         self.roles_manager = RolesManager(
             agents=self.agents,
@@ -780,50 +726,8 @@ class Arena:
             logger.debug(f"Cleaned up embedding cache for debate {self._convergence_debate_id}")
 
     def _queue_for_supabase_sync(self, ctx: "DebateContext", result: "DebateResult") -> None:
-        """Queue debate result for background Supabase sync.
-
-        This is a non-blocking operation. If sync is disabled or fails,
-        the debate still completes successfully (SQLite remains primary).
-
-        Args:
-            ctx: Debate context with metadata
-            result: Completed debate result
-        """
-        try:
-            from aragora.persistence.sync_service import get_sync_service
-
-            sync = get_sync_service()
-            if not sync.enabled:
-                return
-
-            # Build sync payload from result
-            debate_data = {
-                "id": result.id,
-                "debate_id": result.debate_id or ctx.debate_id,
-                "loop_id": getattr(ctx, "loop_id", "default"),
-                "cycle_number": getattr(ctx, "cycle_number", 0),
-                "phase": "debate",
-                "task": result.task,
-                "agents": [a.name for a in ctx.agents] if ctx.agents else [],
-                "transcript": "\n".join(str(m) for m in result.messages[:50]),  # Truncate
-                "consensus_reached": result.consensus_reached,
-                "confidence": result.confidence,
-                "winning_proposal": result.final_answer[:1000] if result.final_answer else None,
-                "vote_tally": {v.choice: 1 for v in result.votes} if result.votes else None,
-            }
-
-            sync.queue_debate(debate_data)
-            logger.debug(f"Queued debate {result.id} for Supabase sync")
-
-        except ImportError:
-            # Sync service not available
-            pass
-        except (ConnectionError, TimeoutError) as e:
-            # Network issues - expected for sync operations
-            logger.debug(f"Supabase sync queue failed (non-fatal): {e}")
-        except Exception as e:
-            # Never fail the debate due to sync issues
-            logger.warning(f"Unexpected Supabase sync error (non-fatal): {e}")
+        """Queue debate result for background Supabase sync. Delegates to orchestrator_memory."""
+        _mem_queue_for_supabase_sync(ctx, result)
 
     def _init_caches(self) -> None:
         """Initialize caches for computed values.
@@ -858,32 +762,10 @@ class Arena:
         )
 
     def _init_checkpoint_bridge(self) -> None:
-        """Initialize optional checkpoint bridge for molecule-aware recovery."""
-        self.molecule_orchestrator = None
-        self.checkpoint_bridge = None
-
-        if getattr(self.protocol, "enable_molecule_tracking", False):
-            try:
-                from aragora.debate.molecule_orchestrator import get_molecule_orchestrator
-
-                self.molecule_orchestrator = get_molecule_orchestrator(self.protocol)
-            except ImportError:
-                logger.debug("[molecules] Molecule orchestrator not available")
-            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-                logger.warning(f"[molecules] Failed to initialize orchestrator: {e}")
-
-        if self.checkpoint_manager or self.molecule_orchestrator:
-            try:
-                from aragora.debate.checkpoint_bridge import create_checkpoint_bridge
-
-                self.checkpoint_bridge = create_checkpoint_bridge(
-                    molecule_orchestrator=self.molecule_orchestrator,
-                    checkpoint_manager=self.checkpoint_manager,
-                )
-            except ImportError:
-                logger.debug("[checkpoint_bridge] Checkpoint bridge not available")
-            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
-                logger.warning(f"[checkpoint_bridge] Initialization failed: {e}")
+        """Initialize optional checkpoint bridge. Delegates to orchestrator_memory."""
+        self.molecule_orchestrator, self.checkpoint_bridge = _mem_init_checkpoint_bridge(
+            self.protocol, self.checkpoint_manager
+        )
 
     def _init_grounded_operations(self) -> None:
         """Initialize GroundedOperations helper for verdict and relationship management."""
@@ -899,90 +781,22 @@ class Arena:
         enable_agent_hierarchy: bool,
         hierarchy_config: Optional[HierarchyConfig],
     ) -> None:
-        """Initialize AgentHierarchy for Gastown-style role assignment.
-
-        The hierarchy assigns agents to roles:
-        - Orchestrator: Coordinates debate flow and synthesis
-        - Monitor: Observes for quality issues and stuck debates
-        - Worker: Executes individual debate tasks (proposals, critiques)
-
-        Args:
-            enable_agent_hierarchy: Whether to enable role assignment
-            hierarchy_config: Optional custom configuration
-        """
+        """Initialize AgentHierarchy. Delegates to orchestrator_agents."""
         self.enable_agent_hierarchy = enable_agent_hierarchy
-        self._hierarchy: Optional[AgentHierarchy] = None
-
-        if enable_agent_hierarchy:
-            config = hierarchy_config or HierarchyConfig()
-            self._hierarchy = AgentHierarchy(config)
-            logger.info(
-                f"[hierarchy] AgentHierarchy initialized "
-                f"(max_orchestrators={config.max_orchestrators}, "
-                f"max_monitors={config.max_monitors})"
-            )
+        self._hierarchy: Optional[AgentHierarchy] = _agents_init_agent_hierarchy(
+            enable_agent_hierarchy, hierarchy_config
+        )
 
     def _assign_hierarchy_roles(
         self,
         ctx: "DebateContext",
         task_type: Optional[str] = None,
     ) -> None:
-        """Assign hierarchy roles to agents for this debate.
-
-        Called during _run_inner after agent selection to assign roles.
-        Results are stored in ctx.hierarchy_assignments.
-
-        Args:
-            ctx: Debate context to update
-            task_type: Optional task type for affinity matching
-        """
-        if not self.enable_agent_hierarchy or self._hierarchy is None:
-            return
-
-        try:
-            # Build agent profiles from agents
-            from aragora.routing.selection import AgentProfile
-
-            profiles = []
-            for agent in ctx.agents:
-                profile = AgentProfile(
-                    name=agent.name,
-                    agent_type=getattr(agent, "provider", "unknown"),
-                    elo_rating=getattr(agent, "elo_rating", 1500.0),
-                    capabilities=getattr(agent, "capabilities", set()),
-                    task_affinity=getattr(agent, "task_affinity", {}),
-                )
-                profiles.append(profile)
-
-            # Assign roles
-            assignments = self._hierarchy.assign_roles(
-                debate_id=ctx.debate_id,
-                agents=profiles,
-                task_type=task_type,
-            )
-
-            ctx.hierarchy_assignments = assignments
-
-            # Log assignments
-            role_summary = {
-                role.value: [name for name, assign in assignments.items() if assign.role == role]
-                for role in set(a.role for a in assignments.values())
-            }
-            logger.info(f"[hierarchy] Roles assigned for debate {ctx.debate_id}: {role_summary}")
-
-        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.warning(f"[hierarchy] Role assignment failed: {e}")
-            ctx.hierarchy_assignments = {}
+        """Assign hierarchy roles to agents. Delegates to orchestrator_agents."""
+        _agents_assign_hierarchy_roles(ctx, self.enable_agent_hierarchy, self._hierarchy, task_type)
 
     def _init_knowledge_ops(self) -> None:
-        """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion.
-
-        Delegates to ArenaKnowledgeManager for:
-        - KnowledgeMoundOperations creation
-        - KnowledgeBridgeHub initialization
-        - RevalidationScheduler setup
-        - BidirectionalCoordinator and adapter factory
-        """
+        """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion."""
         # Create the knowledge manager
         self._km_manager = ArenaKnowledgeManager(
             knowledge_mound=self.knowledge_mound,
@@ -1082,36 +896,11 @@ class Arena:
         )
 
     def _init_cross_subscriber_bridge(self) -> None:
-        """Initialize cross-subscriber bridge for event cross-pollination.
-
-        Connects the Arena's EventBus to the CrossSubscriberManager,
-        enabling cross-subsystem event handling during debates.
-        """
-        self._cross_subscriber_bridge = None
-        if self.event_bus is None:
-            return
-
-        try:
-            from aragora.events.arena_bridge import ArenaEventBridge
-
-            self._cross_subscriber_bridge = ArenaEventBridge(self.event_bus)
-            self._cross_subscriber_bridge.connect_to_cross_subscribers()
-            logger.debug("[arena] Cross-subscriber bridge connected")
-        except ImportError:
-            logger.debug("[arena] Cross-subscriber bridge not available")
-        except (AttributeError, ValueError, TypeError, RuntimeError) as e:
-            logger.warning(f"[arena] Failed to initialize cross-subscriber bridge: {e}")
+        """Initialize cross-subscriber bridge. Delegates to orchestrator_memory."""
+        self._cross_subscriber_bridge = _mem_init_cross_subscriber_bridge(self.event_bus)
 
     async def _init_km_context(self, debate_id: str, domain: str) -> None:
-        """Initialize Knowledge Mound context for the debate.
-
-        Delegates to ArenaKnowledgeManager.init_context() which emits
-        DEBATE_START event to trigger cross-subsystem handlers.
-
-        Args:
-            debate_id: Unique debate identifier
-            domain: Detected debate domain for targeted retrieval
-        """
+        """Initialize Knowledge Mound context. Delegates to ArenaKnowledgeManager."""
         await self._km_manager.init_context(
             debate_id=debate_id,
             domain=domain,
@@ -1121,29 +910,12 @@ class Arena:
         )
 
     def _get_culture_hints(self, debate_id: str) -> dict:
-        """Retrieve culture hints from cross-subscriber manager.
-
-        Delegates to ArenaKnowledgeManager.get_culture_hints().
-
-        Args:
-            debate_id: Debate identifier
-
-        Returns:
-            Dict of protocol hints derived from organizational culture
-        """
+        """Retrieve culture hints. Delegates to ArenaKnowledgeManager."""
         return self._km_manager.get_culture_hints(debate_id)
 
     def _apply_culture_hints(self, hints: dict) -> None:
-        """Apply culture-derived hints to protocol and debate configuration.
-
-        Delegates to ArenaKnowledgeManager.apply_culture_hints() and copies
-        the applied hints to Arena attributes for backwards compatibility.
-
-        Args:
-            hints: Protocol hints from organizational culture patterns
-        """
+        """Apply culture-derived hints. Delegates to ArenaKnowledgeManager."""
         self._km_manager.apply_culture_hints(hints)
-        # Copy applied hints to Arena for backwards compatibility
         self._culture_consensus_hint = self._km_manager.culture_consensus_hint
         self._culture_extra_critiques = self._km_manager.culture_extra_critiques
         self._culture_early_consensus = self._km_manager.culture_early_consensus
@@ -1155,53 +927,8 @@ class Arena:
         topic: str,
         seed_from_km: bool = True,
     ) -> Any:
-        """Initialize BeliefNetwork and seed with prior beliefs from KM.
-
-        This implements the KM → BeliefNetwork reverse flow for cross-session
-        learning. When a new debate starts, we seed the belief network with
-        historical cruxes and beliefs related to the topic.
-
-        Args:
-            debate_id: Unique ID for this debate
-            topic: The debate topic/question
-            seed_from_km: Whether to seed from Knowledge Mound
-
-        Returns:
-            BeliefNetwork instance or None if initialization fails
-        """
-        try:
-            from aragora.reasoning.belief import BeliefNetwork
-
-            # Create network with optional KM adapter
-            km_adapter = None
-            try:
-                from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
-
-                km_adapter = BeliefAdapter()
-            except ImportError:
-                logger.debug("[arena] BeliefAdapter not available")
-
-            network = BeliefNetwork(
-                debate_id=debate_id,
-                km_adapter=km_adapter,
-            )
-
-            # Seed from KM if enabled
-            if seed_from_km and km_adapter and topic:
-                seeded = network.seed_from_km(topic, min_confidence=0.7)
-                if seeded > 0:
-                    logger.info(
-                        f"[arena] Seeded belief network with {seeded} prior beliefs from KM"
-                    )
-
-            return network
-
-        except ImportError:
-            logger.debug("[arena] BeliefNetwork not available")
-            return None
-        except (ValueError, TypeError, AttributeError, KeyError) as e:
-            logger.debug(f"[arena] Failed to setup belief network: {e}")
-            return None
+        """Initialize BeliefNetwork. Delegates to orchestrator_memory."""
+        return _mem_setup_belief_network(debate_id, topic, seed_from_km)
 
     def _init_rlm_limiter(
         self,
@@ -1211,44 +938,19 @@ class Arena:
         rlm_max_recent_messages: int,
         rlm_summary_level: str,
     ) -> None:
-        """Initialize the RLM cognitive load limiter for context compression.
-
-        The RLM limiter compresses older debate context using hierarchical
-        summarization while preserving semantic access. This prevents context
-        windows from overflowing during long debates.
-        """
-        self.use_rlm_limiter = use_rlm_limiter
-        self.rlm_compression_threshold = rlm_compression_threshold
-        self.rlm_max_recent_messages = rlm_max_recent_messages
-        self.rlm_summary_level = rlm_summary_level
-
-        if rlm_limiter is not None:
-            self.rlm_limiter = rlm_limiter
-        elif use_rlm_limiter:
-            # Create RLM limiter with configured parameters
-            try:
-                from aragora.debate.cognitive_limiter_rlm import (
-                    RLMCognitiveBudget,
-                    RLMCognitiveLoadLimiter,
-                )
-
-                budget = RLMCognitiveBudget(
-                    enable_rlm_compression=True,
-                    compression_threshold=rlm_compression_threshold,
-                    max_recent_full_messages=rlm_max_recent_messages,
-                    summary_level=rlm_summary_level,
-                )
-                self.rlm_limiter = RLMCognitiveLoadLimiter(budget=budget)
-                logger.info(
-                    f"[arena] RLM limiter enabled: threshold={rlm_compression_threshold}, "
-                    f"recent={rlm_max_recent_messages}, level={rlm_summary_level}"
-                )
-            except ImportError:
-                logger.warning("[arena] RLM module not available, disabling limiter")
-                self.rlm_limiter = None
-                self.use_rlm_limiter = False
-        else:
-            self.rlm_limiter = None
+        """Initialize the RLM cognitive load limiter. Delegates to orchestrator_memory."""
+        state = _mem_init_rlm_limiter_state(
+            use_rlm_limiter=use_rlm_limiter,
+            rlm_limiter=rlm_limiter,
+            rlm_compression_threshold=rlm_compression_threshold,
+            rlm_max_recent_messages=rlm_max_recent_messages,
+            rlm_summary_level=rlm_summary_level,
+        )
+        self.use_rlm_limiter = state["use_rlm_limiter"]
+        self.rlm_compression_threshold = state["rlm_compression_threshold"]
+        self.rlm_max_recent_messages = state["rlm_max_recent_messages"]
+        self.rlm_summary_level = state["rlm_summary_level"]
+        self.rlm_limiter = state["rlm_limiter"]
 
     def _require_agents(self) -> list[Agent]:
         """Return agents list, raising error if empty."""
@@ -1270,45 +972,11 @@ class Arena:
     ) -> tuple[list, list | None]:
         """Compress debate messages using RLM cognitive load limiter.
 
-        Uses hierarchical compression to reduce context size while preserving
-        semantic content. Older messages are summarized, recent messages kept
-        at full detail.
-
-        Args:
-            messages: List of debate messages to compress
-            critiques: Optional list of critiques to compress
-
-        Returns:
-            Tuple of (compressed_messages, compressed_critiques)
-
-        Example:
-            compressed_msgs, compressed_crits = await arena.compress_debate_messages(
-                messages=ctx.context_messages,
-                critiques=all_critiques,
-            )
+        Delegates to orchestrator_memory.compress_debate_messages().
         """
-        if not self.use_rlm_limiter or not self.rlm_limiter:
-            return messages, critiques
-
-        try:
-            result = await self.rlm_limiter.compress_context_async(
-                messages=messages,
-                critiques=critiques,
-            )
-
-            if result.compression_applied:
-                logger.info(
-                    f"[arena] Compressed debate context: {result.original_chars} → "
-                    f"{result.compressed_chars} chars ({result.compression_ratio:.0%} of original)"
-                )
-
-            return result.messages, result.critiques
-        except (ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"[arena] RLM compression failed with data error, using original: {e}")
-            return messages, critiques
-        except Exception as e:
-            logger.exception(f"[arena] Unexpected RLM compression error, using original: {e}")
-            return messages, critiques
+        return await _mem_compress_debate_messages(
+            messages, critiques, self.use_rlm_limiter, self.rlm_limiter
+        )
 
     def _get_continuum_context(self) -> str:
         """Retrieve relevant memories from ContinuumMemory for debate context."""
@@ -1342,10 +1010,7 @@ class Arena:
             logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
 
     def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
-        """Extract claims that need citations from all proposals.
-
-        Heavy3-inspired: Identifies statements that should be backed by evidence.
-        """
+        """Extract claims that need citations from all proposals."""
         if not self.citation_extractor:
             return {}
 
@@ -1359,12 +1024,7 @@ class Arena:
         return citation_needs
 
     def _extract_debate_domain(self) -> str:
-        """Extract domain from the debate task for calibration tracking.
-
-        Uses heuristics to categorize the debate topic.
-        Result is cached at both instance level (for this debate) and
-        module level (for repeated tasks across debates).
-        """
+        """Extract domain from the debate task. Cached at instance and module level."""
         # Return instance-level cached domain if available
         if self._cache.has_debate_domain():
             # has_debate_domain() guarantees debate_domain is not None
@@ -1379,106 +1039,40 @@ class Arena:
         return domain
 
     def _select_debate_team(self, requested_agents: list[Agent]) -> list[Agent]:
-        """Select debate team using ML delegation or AgentPool.
-
-        Priority:
-        1. ML delegation (if enable_ml_delegation=True)
-        2. Performance selection via AgentPool (if use_performance_selection=True)
-        3. Original requested agents
-        """
-        # ML-based agent selection takes priority
-        if self.enable_ml_delegation and self._ml_delegation_strategy:
-            try:
-                selected = self._ml_delegation_strategy.select_agents(
-                    task=self.env.task,
-                    agents=requested_agents,
-                    context={
-                        "domain": self._extract_debate_domain(),
-                        "protocol": self.protocol,
-                    },
-                    max_agents=len(requested_agents),
-                )
-                logger.debug(
-                    f"[ml] Selected {len(selected)} agents via ML delegation: "
-                    f"{[a.name for a in selected]}"
-                )
-                return selected
-            except (ValueError, TypeError, KeyError) as e:
-                logger.warning(f"[ml] ML delegation failed with data error, falling back: {e}")
-            except Exception as e:
-                logger.exception(f"[ml] Unexpected ML delegation error, falling back: {e}")
-
-        # Fall back to performance-based selection
-        if self.use_performance_selection:
-            return self.agent_pool.select_team(
-                domain=self._extract_debate_domain(),
-                team_size=len(requested_agents),
-            )
-
-        return requested_agents
+        """Select debate team. Delegates to orchestrator_agents."""
+        return _agents_select_debate_team(
+            agents=requested_agents,
+            env=self.env,
+            extract_domain_fn=self._extract_debate_domain,
+            enable_ml_delegation=self.enable_ml_delegation,
+            ml_delegation_strategy=self._ml_delegation_strategy,
+            protocol=self.protocol,
+            use_performance_selection=self.use_performance_selection,
+            agent_pool=self.agent_pool,
+        )
 
     def _filter_responses_by_quality(
         self, responses: list[tuple[str, str]], context: str = ""
     ) -> list[tuple[str, str]]:
-        """Filter responses using ML quality gate if enabled.
-
-        Args:
-            responses: List of (agent_name, response_text) tuples
-            context: Optional task context for quality assessment
-
-        Returns:
-            Filtered list containing only high-quality responses
-        """
-        if not self.enable_quality_gates or not self._ml_quality_gate:
-            return responses
-
-        try:
-            filtered = self._ml_quality_gate.filter_responses(
-                responses, context=context or self.env.task
-            )
-            removed = len(responses) - len(filtered)
-            if removed > 0:
-                logger.debug(f"[ml] Quality gate filtered {removed} low-quality responses")
-            return filtered
-        except (ValueError, TypeError, KeyError, AttributeError) as e:
-            logger.warning(f"[ml] Quality gate failed with data error, keeping all responses: {e}")
-            return responses
-        except Exception as e:
-            logger.exception(f"[ml] Unexpected quality gate error, keeping all responses: {e}")
-            return responses
+        """Filter responses using ML quality gate. Delegates to orchestrator_agents."""
+        return _agents_filter_responses_by_quality(
+            responses=responses,
+            enable_quality_gates=self.enable_quality_gates,
+            ml_quality_gate=self._ml_quality_gate,
+            task=self.env.task,
+            context=context,
+        )
 
     def _should_terminate_early(self, responses: list[tuple[str, str]], current_round: int) -> bool:
-        """Check if debate should terminate early based on consensus estimation.
-
-        Args:
-            responses: List of (agent_name, response_text) tuples
-            current_round: Current debate round number
-
-        Returns:
-            True if consensus is highly likely and safe to terminate early
-        """
-        if not self.enable_consensus_estimation or not self._ml_consensus_estimator:
-            return False
-
-        try:
-            should_stop = self._ml_consensus_estimator.should_terminate_early(
-                responses=responses,
-                current_round=current_round,
-                total_rounds=self.protocol.rounds,
-                context=self.env.task,
-            )
-            if should_stop:
-                logger.info(
-                    f"[ml] Consensus estimator recommends early termination at round "
-                    f"{current_round}/{self.protocol.rounds}"
-                )
-            return should_stop
-        except (ValueError, TypeError, KeyError) as e:
-            logger.warning(f"[ml] Consensus estimation failed with data error: {e}")
-            return False
-        except Exception as e:
-            logger.exception(f"[ml] Unexpected consensus estimation error: {e}")
-            return False
+        """Check if debate should terminate early. Delegates to orchestrator_agents."""
+        return _agents_should_terminate_early(
+            responses=responses,
+            current_round=current_round,
+            enable_consensus_estimation=self.enable_consensus_estimation,
+            ml_consensus_estimator=self._ml_consensus_estimator,
+            protocol=self.protocol,
+            task=self.env.task,
+        )
 
     def _get_calibration_weight(self, agent_name: str) -> float:
         """Get calibration weight. Delegates to AgentPool."""
@@ -1603,305 +1197,30 @@ class Arena:
         await self._km_manager.ingest_outcome(result, self.env)
 
     async def _create_debate_bead(self, result: "DebateResult") -> Optional[str]:
-        """Create a Bead to track this debate decision with git-backed audit trail.
-
-        Returns the bead ID if created, None otherwise.
-        """
-        # Check if bead tracking is enabled via protocol or config
-        enable_bead = getattr(self.protocol, "enable_bead_tracking", False)
-        min_confidence = getattr(self.protocol, "bead_min_confidence", 0.5)
-
-        if not enable_bead:
-            return None
-
-        # Only create beads for debates meeting confidence threshold
-        if result.confidence < min_confidence:
-            logger.debug(
-                f"Skipping bead creation: confidence {result.confidence:.2f} < {min_confidence}"
-            )
-            return None
-
-        try:
-            from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
-
-            # Get or create bead store (default to .beads directory)
-            bead_store = getattr(self, "_bead_store", None)
-            if bead_store is None:
-                bead_store = BeadStore(
-                    bead_dir=Path(self.env.context.get("bead_dir", ".beads"))
-                    if self.env.context
-                    else Path(".beads"),
-                    git_enabled=True,
-                    auto_commit=getattr(self.protocol, "bead_auto_commit", False),
-                )
-                await bead_store.initialize()
-                self._bead_store = bead_store
-
-            # Determine priority based on confidence
-            if result.confidence >= 0.9:
-                priority = BeadPriority.HIGH
-            elif result.confidence >= 0.7:
-                priority = BeadPriority.NORMAL
-            else:
-                priority = BeadPriority.LOW
-
-            # Create the bead
-            bead = Bead.create(
-                bead_type=BeadType.DEBATE_DECISION,
-                title=f"Decision: {result.task[:50]}..."
-                if len(result.task) > 50
-                else f"Decision: {result.task}",
-                description=result.final_answer[:500] if result.final_answer else "",
-                priority=priority,
-                tags=["debate", result.status, f"confidence:{result.confidence:.0%}"],
-                metadata={
-                    "debate_id": result.debate_id,
-                    "consensus_reached": result.consensus_reached,
-                    "confidence": result.confidence,
-                    "rounds_used": result.rounds_used,
-                    "participants": result.participants,
-                    "winner": result.winner,
-                    "domain": getattr(self, "_extract_debate_domain", lambda: "general")(),
-                },
-            )
-
-            bead_id = await bead_store.create(bead)
-            logger.info(f"Created debate bead: {bead_id[:8]} for debate {result.debate_id[:8]}")
-            return bead_id
-
-        except ImportError:
-            logger.debug("Bead tracking unavailable: aragora.nomic.beads not found")
-            return None
-        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to create debate bead: {e}")
-            return None
+        """Create a Bead to track this debate decision. Delegates to orchestrator_hooks."""
+        return await _hooks_create_debate_bead(result, self.protocol, self.env, self)
 
     async def _create_pending_debate_bead(self, debate_id: str, task: str) -> Optional[str]:
-        """Create a pending bead to track debate work in progress.
-
-        Called at debate START (unlike _create_debate_bead which is called at END).
-        This enables GUPP recovery by creating durable work tracking before execution.
-
-        Args:
-            debate_id: The debate ID
-            task: The debate task/question
-
-        Returns:
-            The bead ID if created, None otherwise
-        """
-        # Only create if hook tracking is enabled (bead tracking alone uses final bead)
-        enable_hooks = getattr(self.protocol, "enable_hook_tracking", False)
-        if not enable_hooks:
-            return None
-
-        try:
-            from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
-
-            # Get or create bead store
-            bead_store = getattr(self, "_bead_store", None)
-            if bead_store is None:
-                bead_store = BeadStore(
-                    bead_dir=Path(self.env.context.get("bead_dir", ".beads"))
-                    if self.env.context
-                    else Path(".beads"),
-                    git_enabled=True,
-                    auto_commit=getattr(self.protocol, "bead_auto_commit", False),
-                )
-                await bead_store.initialize()
-                self._bead_store = bead_store
-
-            # Create pending bead with minimal info
-            bead = Bead.create(
-                bead_type=BeadType.DEBATE_DECISION,
-                title=f"[Pending] Decision: {task[:50]}..."
-                if len(task) > 50
-                else f"[Pending] Decision: {task}",
-                description="Debate in progress...",
-                priority=BeadPriority.NORMAL,
-                tags=["debate", "pending", "gupp-tracked"],
-                metadata={
-                    "debate_id": debate_id,
-                    "participants": [a.name for a in self.agents],
-                    "status": "in_progress",
-                },
-            )
-
-            bead_id = await bead_store.create(bead)
-            logger.debug(f"Created pending debate bead: {bead_id[:8]} for debate {debate_id[:8]}")
-            return bead_id
-
-        except ImportError:
-            logger.debug("Bead tracking unavailable")
-            return None
-        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to create pending debate bead: {e}")
-            return None
+        """Create a pending bead for GUPP tracking. Delegates to orchestrator_hooks."""
+        return await _hooks_create_pending_debate_bead(
+            debate_id, task, self.protocol, self.env, self.agents, self
+        )
 
     async def _update_debate_bead(
         self, bead_id: str, result: "DebateResult", success: bool
     ) -> None:
-        """Update a pending debate bead with final results.
-
-        Args:
-            bead_id: The bead ID to update
-            result: The final debate result
-            success: Whether the debate completed successfully
-        """
-        if not bead_id:
-            return
-
-        try:
-            from aragora.nomic.beads import BeadPriority, BeadStatus
-
-            bead_store = getattr(self, "_bead_store", None)
-            if bead_store is None:
-                return
-
-            bead = await bead_store.get(bead_id)
-            if not bead:
-                return
-
-            # Update bead with final info
-            bead.title = (
-                f"Decision: {result.task[:50]}..."
-                if len(result.task) > 50
-                else f"Decision: {result.task}"
-            )
-            bead.description = result.final_answer[:500] if result.final_answer else ""
-
-            # Update priority based on confidence
-            if result.confidence >= 0.9:
-                bead.priority = BeadPriority.HIGH
-            elif result.confidence >= 0.7:
-                bead.priority = BeadPriority.NORMAL
-            else:
-                bead.priority = BeadPriority.LOW
-
-            # Update metadata
-            bead.metadata.update(
-                {
-                    "consensus_reached": result.consensus_reached,
-                    "confidence": result.confidence,
-                    "rounds_used": result.rounds_used,
-                    "winner": result.winner,
-                    "status": "completed" if success else "failed",
-                }
-            )
-
-            # Update tags
-            bead.tags = ["debate", result.status, f"confidence:{result.confidence:.0%}"]
-
-            # Update status
-            if success:
-                await bead_store.update_status(bead_id, BeadStatus.COMPLETED)
-            else:
-                await bead_store.update_status(bead_id, BeadStatus.FAILED)
-
-            logger.debug(
-                f"Updated debate bead: {bead_id[:8]} status={'completed' if success else 'failed'}"
-            )
-
-        except ImportError:
-            pass
-        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
-            logger.warning(f"Failed to update debate bead: {e}")
+        """Update a pending debate bead. Delegates to orchestrator_hooks."""
+        await _hooks_update_debate_bead(bead_id, result, success, self)
 
     async def _init_hook_tracking(self, debate_id: str, bead_id: str) -> dict[str, str]:
-        """Initialize GUPP hook tracking for debate work.
-
-        Pushes the debate bead onto each participating agent's hook queue,
-        ensuring work recovery on crash via the GUPP principle:
-        "If there is work on your Hook, YOU MUST RUN IT."
-
-        Args:
-            debate_id: The debate ID
-            bead_id: The bead ID tracking this debate
-
-        Returns:
-            Dict mapping agent_id to hook_entry_id
-        """
-        enable_hooks = getattr(self.protocol, "enable_hook_tracking", False)
-        if not enable_hooks or not bead_id:
-            return {}
-
-        try:
-            from aragora.nomic.hook_queue import HookQueueRegistry
-
-            # Get or create hook registry
-            hook_registry = getattr(self, "_hook_registry", None)
-            if hook_registry is None:
-                bead_store = getattr(self, "_bead_store", None)
-                if bead_store is None:
-                    logger.debug("Hook tracking requires bead_store, skipping")
-                    return {}
-                hook_registry = HookQueueRegistry(bead_store)
-                self._hook_registry = hook_registry
-
-            # Push debate work onto each agent's hook
-            hook_entries = {}
-            for agent in self.agents:
-                agent_id = getattr(agent, "name", str(agent))
-                try:
-                    hook_queue = await hook_registry.get_queue(agent_id)
-                    entry = await hook_queue.push(
-                        bead_id=bead_id,
-                        priority=75,  # High priority for debate work
-                        max_attempts=3,
-                    )
-                    hook_entries[agent_id] = entry.id
-                    logger.debug(f"Pushed debate {debate_id[:8]} to hook for {agent_id}")
-                except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
-                    logger.warning(f"Failed to push hook for {agent_id}: {e}")
-
-            if hook_entries:
-                logger.info(
-                    f"GUPP: Tracked debate {debate_id[:8]} on {len(hook_entries)} agent hooks"
-                )
-
-            return hook_entries
-
-        except ImportError:
-            logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not found")
-            return {}
-        except (OSError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to initialize hook tracking: {e}")
-            return {}
+        """Initialize GUPP hook tracking. Delegates to orchestrator_hooks."""
+        return await _hooks_init_hook_tracking(debate_id, bead_id, self.protocol, self.agents, self)
 
     async def _complete_hook_tracking(
         self, bead_id: str, hook_entries: dict[str, str], success: bool, error_msg: str = ""
     ) -> None:
-        """Complete or fail hook entries for debate work.
-
-        Args:
-            bead_id: The bead ID tracking this debate
-            hook_entries: Dict mapping agent_id to hook_entry_id
-            success: Whether the debate completed successfully
-            error_msg: Error message if failed
-        """
-        if not hook_entries or not bead_id:
-            return
-
-        try:
-            hook_registry = getattr(self, "_hook_registry", None)
-            if hook_registry is None:
-                return
-
-            for agent_id, entry_id in hook_entries.items():
-                try:
-                    hook_queue = await hook_registry.get_queue(agent_id)
-                    if success:
-                        await hook_queue.complete(bead_id)
-                        logger.debug(f"Completed hook {entry_id[:8]} for {agent_id}")
-                    else:
-                        await hook_queue.fail(bead_id, error_msg or "Debate failed")
-                        logger.debug(f"Failed hook {entry_id[:8]} for {agent_id}")
-                except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
-                    logger.warning(f"Failed to complete hook for {agent_id}: {e}")
-
-        except ImportError:
-            pass
-        except (OSError, ValueError, TypeError, AttributeError) as e:
-            logger.warning(f"Failed to complete hook tracking: {e}")
+        """Complete or fail hook entries. Delegates to orchestrator_hooks."""
+        await _hooks_complete_hook_tracking(bead_id, hook_entries, success, self, error_msg)
 
     @classmethod
     async def recover_pending_debates(
@@ -1909,84 +1228,8 @@ class Arena:
         bead_store=None,
         max_age_hours: int = 24,
     ) -> list[dict]:
-        """Recover pending debates from hook queues on startup.
-
-        GUPP Principle: "If there is work on your Hook, YOU MUST RUN IT."
-
-        This method should be called during server startup to identify
-        debates that were interrupted by crashes and need to be resumed.
-
-        Args:
-            bead_store: Optional BeadStore instance (creates default if None)
-            max_age_hours: Maximum age of recoverable work in hours
-
-        Returns:
-            List of dicts with debate recovery info:
-            [{"debate_id": str, "bead_id": str, "agents": list[str], "bead": Bead}, ...]
-        """
-        try:
-            from datetime import datetime, timedelta, timezone
-
-            from aragora.nomic.beads import BeadStatus, BeadStore, BeadType
-            from aragora.nomic.hook_queue import HookQueueRegistry
-
-            # Create bead store if not provided
-            if bead_store is None:
-                bead_store = BeadStore(bead_dir=Path(".beads"), git_enabled=False)
-                await bead_store.initialize()
-
-            # Recover all agent hooks
-            registry = HookQueueRegistry(bead_store)
-            recovered = await registry.recover_all()
-
-            if not recovered:
-                logger.info("GUPP recovery: No pending work found")
-                return []
-
-            # Group by debate (bead_id) and filter by age
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-            debates_to_resume = {}
-
-            for agent_id, beads in recovered.items():
-                for bead in beads:
-                    # Filter to debate decision beads
-                    if bead.bead_type != BeadType.DEBATE_DECISION:
-                        continue
-
-                    # Filter by age
-                    if bead.created_at < cutoff_time:
-                        logger.debug(f"Skipping stale bead {bead.id[:8]} (too old)")
-                        continue
-
-                    # Filter by status (only recover non-terminal)
-                    if bead.status in (BeadStatus.COMPLETED, BeadStatus.FAILED):
-                        continue
-
-                    debate_id = bead.metadata.get("debate_id", bead.id)
-                    if debate_id not in debates_to_resume:
-                        debates_to_resume[debate_id] = {
-                            "debate_id": debate_id,
-                            "bead_id": bead.id,
-                            "agents": [],
-                            "bead": bead,
-                        }
-                    debates_to_resume[debate_id]["agents"].append(agent_id)
-
-            result = list(debates_to_resume.values())
-            if result:
-                logger.info(
-                    f"GUPP recovery: Found {len(result)} debates to resume "
-                    f"across {sum(len(d['agents']) for d in result)} agent hooks"
-                )
-
-            return result
-
-        except ImportError as e:
-            logger.debug(f"GUPP recovery unavailable: {e}")
-            return []
-        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
-            logger.warning(f"GUPP recovery failed: {e}")
-            return []
+        """Recover pending debates from hook queues. Delegates to orchestrator_hooks."""
+        return await _hooks_recover_pending_debates(bead_store, max_age_hours)
 
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int
@@ -2103,15 +1346,7 @@ class Arena:
             self._channel_integration = None
 
     async def run(self, correlation_id: str = "") -> DebateResult:
-        """Run the full debate and return results.
-
-        Args:
-            correlation_id: Optional request correlation ID for distributed tracing.
-                           If not provided, one will be generated.
-
-        If timeout_seconds is set in protocol, the debate will be terminated
-        after the specified time with partial results.
-        """
+        """Run the full debate and return results."""
         if self.protocol.timeout_seconds > 0:
             try:
                 # Use wait_for for Python 3.10 compatibility (asyncio.timeout is 3.11+)
@@ -2133,19 +1368,7 @@ class Arena:
         return await self._run_inner(correlation_id=correlation_id)
 
     async def _run_inner(self, correlation_id: str = "") -> DebateResult:
-        """Internal debate execution orchestrator.
-
-        Args:
-            correlation_id: Request correlation ID for distributed tracing.
-
-        This method coordinates the debate phases:
-        0. Context Initialization - inject history, patterns, research
-        1. Proposals - generate initial proposer responses
-        2. Debate Rounds - critique/revision loop
-        3. Consensus - voting and resolution
-        4-6. Analytics - metrics, insights, verdict
-        7. Feedback - ELO, persona, position updates
-        """
+        """Internal debate execution orchestrator coordinating all phases."""
         import uuid
 
         debate_id = str(uuid.uuid4())
@@ -2457,49 +1680,23 @@ class Arena:
             logger.warning("Async debate indexing failed: %s", e)  # type: ignore[misc,call-arg]
 
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
-        """
-        Group semantically similar vote choices.
-
-        This prevents artificial disagreement when agents vote for the
-        same thing using different wording (e.g., "Vector DB" vs "Use vector database").
-
-        Delegates to VotingPhase for implementation.
-
-        Returns:
-            Dict mapping canonical choice -> list of original choices that map to it
-        """
+        """Group semantically similar vote choices. Delegates to VotingPhase."""
         return self.voting_phase.group_similar_votes(votes)
 
     async def _check_judge_termination(
         self, round_num: int, proposals: dict[str, str], context: list[Message]
     ) -> tuple[bool, str]:
-        """Have a judge evaluate if the debate is conclusive.
-
-        Delegates to TerminationChecker.
-
-        Returns:
-            Tuple of (should_continue: bool, reason: str)
-        """
+        """Have a judge evaluate if the debate is conclusive. Delegates to TerminationChecker."""
         return await self.termination_checker.check_judge_termination(round_num, proposals, context)
 
     async def _check_early_stopping(
         self, round_num: int, proposals: dict[str, str], context: list[Message]
     ) -> bool:
-        """Check if agents want to stop debate early.
-
-        Delegates to TerminationChecker.
-
-        Returns True if debate should continue, False if it should stop.
-        """
+        """Check if agents want to stop debate early. Delegates to TerminationChecker."""
         return await self.termination_checker.check_early_stopping(round_num, proposals, context)
 
     async def _select_judge(self, proposals: dict[str, str], context: list[Message]) -> Agent:
-        """Select judge based on protocol.judge_selection setting.
-
-        Delegates to JudgeSelector. For new code, use:
-            selector = JudgeSelector.from_protocol(protocol, agents, elo_system, ...)
-            judge = await selector.select_judge(proposals, context)
-        """
+        """Select judge based on protocol.judge_selection setting. Delegates to JudgeSelector."""
 
         async def generate_wrapper(agent: Agent, prompt: str, ctx: list[Message]) -> str:
             return await agent.generate(prompt, ctx)
@@ -2533,10 +1730,7 @@ class Arena:
             logger.debug(f"role_assignments round={round_num} roles={roles_str}")
 
     def _update_role_assignments(self, round_num: int) -> None:
-        """Update cognitive role assignments for the current round.
-
-        Delegates to RolesManager for centralized role management.
-        """
+        """Update cognitive role assignments for the current round."""
         debate_domain = self._extract_debate_domain()
         self.roles_manager.update_role_assignments(round_num, debate_domain)
 
@@ -2545,60 +1739,31 @@ class Arena:
         self._log_role_assignments(round_num)
 
     def _get_role_context(self, agent: Agent) -> str:
-        """Get cognitive role context for an agent in the current round.
-
-        Delegates to RolesManager for centralized role management.
-        """
+        """Get cognitive role context for an agent. Delegates to RolesManager."""
         return self.roles_manager.get_role_context(agent)
 
     def _get_persona_context(self, agent: Agent) -> str:
-        """Get persona context for agent specialization.
-
-        Delegates to PromptContextBuilder.get_persona_context().
-        """
+        """Get persona context. Delegates to PromptContextBuilder."""
         return self._prompt_context.get_persona_context(agent)
 
     def _get_flip_context(self, agent: Agent) -> str:
-        """Get flip/consistency context for agent self-awareness.
-
-        Delegates to PromptContextBuilder.get_flip_context().
-        """
+        """Get flip/consistency context. Delegates to PromptContextBuilder."""
         return self._prompt_context.get_flip_context(agent)
 
     def _prepare_audience_context(self, emit_event: bool = False) -> str:
-        """Prepare audience context for prompt building.
-
-        Handles the shared pre-processing for prompt building:
-        1. Drain pending audience events
-        2. Sync Arena state to PromptBuilder
-        3. Compute audience section from suggestions
-
-        Args:
-            emit_event: Whether to emit spectator event for dashboard
-
-        Returns:
-            Formatted audience section string (empty if no suggestions)
-        """
-        # Sync state to PromptBuilder first (audience_manager.drain_events is called by _prompt_context)
+        """Prepare audience context for prompt building. Delegates to PromptContextBuilder."""
         self._sync_prompt_builder_state()
-
         return self._prompt_context.prepare_audience_context(emit_event=emit_event)
 
     def _build_proposal_prompt(self, agent: Agent) -> str:
-        """Build the initial proposal prompt.
-
-        Delegates to PromptContextBuilder.build_proposal_prompt().
-        """
+        """Build the initial proposal prompt. Delegates to PromptContextBuilder."""
         self._sync_prompt_builder_state()
         return self._prompt_context.build_proposal_prompt(agent)
 
     def _build_revision_prompt(
         self, agent: Agent, original: str, critiques: list[Critique], round_number: int = 0
     ) -> str:
-        """Build the revision prompt including critiques and round-specific phase context.
-
-        Delegates to PromptContextBuilder.build_revision_prompt().
-        """
+        """Build the revision prompt. Delegates to PromptContextBuilder."""
         self._sync_prompt_builder_state()
         return self._prompt_context.build_revision_prompt(
             agent, original, critiques, round_number=round_number
@@ -2617,36 +1782,7 @@ class Arena:
         timeout_seconds: int = 300,
         org_id: str = "default",
     ) -> "DebateResult":
-        """
-        Run a multi-agent debate on a security event.
-
-        This method creates a specialized debate focused on security remediation,
-        using security-focused agents and protocols optimized for vulnerability analysis.
-
-        Args:
-            event: SecurityEvent containing findings to debate
-            agents: Optional list of agents to use (defaults to security-auditor, compliance-auditor)
-            confidence_threshold: Minimum consensus confidence required
-            timeout_seconds: Maximum debate duration
-            org_id: Organization ID for multi-tenancy
-
-        Returns:
-            DebateResult with remediation recommendations
-
-        Example:
-            from aragora.events.security_events import SecurityEvent, SecurityEventType
-            from aragora.debate.orchestrator import Arena
-
-            event = SecurityEvent(
-                event_type=SecurityEventType.CRITICAL_CVE,
-                severity=SecuritySeverity.CRITICAL,
-                repository="my-repo",
-                findings=[...],
-            )
-            result = await Arena.run_security_debate(event)
-            print(result.final_answer)  # Remediation recommendations
-        """
-        # Delegate to extracted module
+        """Run a security debate. Delegates to aragora.debate.security_debate."""
         from aragora.debate.security_debate import run_security_debate
 
         return await run_security_debate(
@@ -2659,12 +1795,7 @@ class Arena:
 
     @staticmethod
     async def _get_security_debate_agents() -> list[Agent]:
-        """Get agents suitable for security debates.
-
-        Returns agents with security expertise. Tries to use a diverse set
-        of models for better debate quality.
-        """
-        # Delegate to extracted module
+        """Get agents suitable for security debates. Delegates to security_debate module."""
         from aragora.debate.security_debate import get_security_debate_agents
 
         return await get_security_debate_agents()
