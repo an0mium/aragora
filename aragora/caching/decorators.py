@@ -356,9 +356,9 @@ def cached(
             cache.set(cache_key, result)
             return result
 
-        # Attach cache management methods
-        wrapper.cache_info = cache.cache_info  # type: ignore[attr-defined]
-        wrapper.cache_clear = cache.clear  # type: ignore[attr-defined]
+        # Attach cache management methods using setattr to avoid attr-defined errors
+        setattr(wrapper, "cache_info", cache.cache_info)
+        setattr(wrapper, "cache_clear", cache.clear)
 
         return wrapper  # type: ignore[return-value]
 
@@ -448,9 +448,9 @@ def async_cached(
                 cache.set(cache_key, result)
                 return result
 
-        # Attach cache management methods
-        wrapper.cache_info = cache.cache_info  # type: ignore[attr-defined]
-        wrapper.cache_clear = cache.clear  # type: ignore[attr-defined]
+        # Attach cache management methods using setattr to avoid attr-defined errors
+        setattr(wrapper, "cache_info", cache.cache_info)
+        setattr(wrapper, "cache_clear", cache.clear)
 
         return wrapper  # type: ignore[return-value]
 
@@ -537,8 +537,8 @@ def memoize(func: F) -> F:
             cache.clear()
             stats.size = 0
 
-    wrapper.cache_info = cache_info  # type: ignore[attr-defined]
-    wrapper.cache_clear = cache_clear  # type: ignore[attr-defined]
+    setattr(wrapper, "cache_info", cache_info)
+    setattr(wrapper, "cache_clear", cache_clear)
 
     return wrapper  # type: ignore[return-value]
 
@@ -570,7 +570,7 @@ def cache_key(*key_args: str) -> Callable[[F], F]:
     """
 
     def decorator(func: F) -> F:
-        func._cache_key_args = key_args  # type: ignore[attr-defined]
+        setattr(func, "_cache_key_args", key_args)
         return func
 
     return decorator

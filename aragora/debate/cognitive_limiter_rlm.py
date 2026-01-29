@@ -44,10 +44,10 @@ try:
 except ImportError:
     HAS_OFFICIAL_RLM = False
     HAS_RLM_FACTORY = False
-    get_rlm = None  # type: ignore[misc]  # Optional module fallback
-    get_compressor = None  # type: ignore[misc]  # Optional module fallback
-    DebateContextAdapter = None  # type: ignore[misc]  # Optional module fallback
-    RLMBackendConfig = None  # type: ignore[misc]  # Optional module fallback
+    get_rlm: Any = None
+    get_compressor: Any = None
+    DebateContextAdapter: Any = None
+    RLMBackendConfig: Any = None
 
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
@@ -202,16 +202,15 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
                 "Install with: pip install aragora[rlm]"
             )
 
-        # Extended stats
-        self.stats.update(
-            {
-                "rlm_compressions": 0,
-                "rlm_queries": 0,
-                "real_rlm_used": 0,
-                "compression_ratio_avg": 1.0,  # type: ignore[dict-item]
-                "abstraction_levels_used": {},  # type: ignore[dict-item]
-            }
-        )
+        # Extended stats (using cast to avoid dict-item type errors for mixed-type dicts)
+        rlm_stats: dict[str, Any] = {
+            "rlm_compressions": 0,
+            "rlm_queries": 0,
+            "real_rlm_used": 0,
+            "compression_ratio_avg": 1.0,
+            "abstraction_levels_used": {},
+        }
+        self.stats.update(rlm_stats)
 
     @property
     def has_real_rlm(self) -> bool:
@@ -424,14 +423,13 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
         # Update stats
         self.stats["rlm_compressions"] += 1
         ratio = result.compression_ratio
-        self.stats["compression_ratio_avg"] = (
-            self.stats["compression_ratio_avg"] * 0.9 + ratio * 0.1  # type: ignore[operator,assignment]
-        )
+        compression_avg = float(self.stats.get("compression_ratio_avg", 1.0))
+        self.stats["compression_ratio_avg"] = compression_avg * 0.9 + ratio * 0.1
 
-        for level in result.abstraction_levels:
-            self.stats["abstraction_levels_used"][level] = (  # type: ignore[index]
-                self.stats["abstraction_levels_used"].get(level, 0) + 1  # type: ignore[union-attr,attr-defined]
-            )
+        levels_used = self.stats.get("abstraction_levels_used")
+        if isinstance(levels_used, dict):
+            for level in result.abstraction_levels:
+                levels_used[level] = levels_used.get(level, 0) + 1
 
         logger.info(
             f"[rlm_compress] {result.original_chars} -> {result.compressed_chars} chars "
