@@ -379,11 +379,14 @@ class WakeWordDetector:
 
         logger.info(f"Simulating wake word: {phrase} ({confidence:.2f})")
 
-        # Call callback synchronously
-        result = self._callback(phrase, confidence)
-        if asyncio.iscoroutine(result):
-            # Schedule coroutine
-            asyncio.create_task(result)
+        # Call callback with error handling
+        try:
+            result = self._callback(phrase, confidence)
+            if asyncio.iscoroutine(result):
+                # Schedule coroutine
+                asyncio.create_task(result)
+        except Exception as e:
+            logger.error(f"Wake callback error in simulate_wake: {e}")
 
     def get_stats(self) -> dict[str, Any]:
         """Get detector statistics."""

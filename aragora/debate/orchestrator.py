@@ -247,12 +247,41 @@ class Arena:
         post_debate_workflow=None,  # Workflow DAG to trigger after high-confidence debates
         enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
         post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
+        # Agent Fabric integration (for high-scale orchestration)
+        fabric=None,  # Optional AgentFabric instance
+        fabric_config=None,  # Optional FabricDebateConfig
     ):
         """Initialize the Arena with environment, agents, and optional subsystems.
 
         See inline parameter comments for subsystem descriptions.
         Initialization delegates to ArenaInitializer for core/tracker setup.
+
+        Fabric Integration:
+            When fabric and fabric_config are provided, agents are obtained from the
+            specified fabric pool instead of the agents parameter. This enables
+            high-scale orchestration with 50+ concurrent agents.
         """
+        # Handle fabric integration - get agents from fabric pool if configured
+        if fabric is not None and fabric_config is not None:
+            if agents:
+                raise ValueError(
+                    "Cannot specify both 'agents' and 'fabric'/'fabric_config'. "
+                    "Use either direct agents or fabric-managed agents."
+                )
+            agents = self._get_fabric_agents_sync(fabric, fabric_config)
+            self._fabric = fabric
+            self._fabric_config = fabric_config
+            logger.info(
+                f"[fabric] Arena using fabric pool {fabric_config.pool_id} "
+                f"with {len(agents)} agents"
+            )
+        else:
+            self._fabric = None
+            self._fabric_config = None
+
+        if not agents:
+            raise ValueError("Must specify either 'agents' or both 'fabric' and 'fabric_config'")
+
         # Create initializer with broadcast callback
         initializer = ArenaInitializer(broadcast_callback=self._broadcast_health_event)
 
