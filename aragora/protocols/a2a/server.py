@@ -346,7 +346,7 @@ class A2AServer:
 
         # Run debate
         env = Environment(task=request.instruction, max_rounds=rounds)
-        protocol = DebateProtocol(rounds=rounds, consensus=DEFAULT_CONSENSUS)
+        protocol = DebateProtocol(rounds=rounds, consensus=DEFAULT_CONSENSUS)  # type: ignore[arg-type]
         arena = Arena(env, agents, protocol)
 
         result = await arena.run()

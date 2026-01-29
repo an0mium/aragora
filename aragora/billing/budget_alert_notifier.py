@@ -349,7 +349,7 @@ class BudgetAlertNotifier:
                 workspace = store.get(workspace_id)
                 if workspace and workspace.access_token:
                     connector = SlackConnector(token=workspace.access_token)
-                    await connector.post_message(
+                    await connector.post_message(  # type: ignore[attr-defined]
                         channel=channel_id,
                         text=message["text"],
                         blocks=message.get("blocks"),
@@ -384,7 +384,7 @@ class BudgetAlertNotifier:
         else:
             # Try to import and use connector
             try:
-                from aragora.connectors.enterprise.collaboration.teams import TeamsConnector
+                from aragora.connectors.enterprise.collaboration.teams import TeamsConnector  # type: ignore[attr-defined]
                 from aragora.storage.teams_workspace_store import get_teams_workspace_store
 
                 store = get_teams_workspace_store()
