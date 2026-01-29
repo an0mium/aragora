@@ -27,6 +27,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -489,6 +490,8 @@ class FHIRConnector(EnterpriseConnector):
         enable_phi_redaction: bool = True,
         preserve_year_in_dates: bool = True,
         audit_reason: str = "clinical_decision_support",
+        circuit_breaker: Optional[CircuitBreaker] = None,
+        enable_circuit_breaker: bool = True,
         **kwargs,
     ):
         connector_id = f"fhir_{hashlib.sha256(base_url.encode()).hexdigest()[:12]}"
@@ -505,6 +508,18 @@ class FHIRConnector(EnterpriseConnector):
         self.client_id = client_id
         self.enable_phi_redaction = enable_phi_redaction
         self.audit_reason = audit_reason
+
+        # Circuit breaker for API resilience
+        if circuit_breaker is not None:
+            self._circuit_breaker = circuit_breaker
+        elif enable_circuit_breaker:
+            self._circuit_breaker = CircuitBreaker(
+                name="fhir",
+                failure_threshold=3,  # Strict for healthcare data
+                cooldown_seconds=60.0,
+            )
+        else:
+            self._circuit_breaker: Optional[CircuitBreaker] = None
 
         # Initialize components
         self._redactor = PHIRedactor(
@@ -554,6 +569,60 @@ class FHIRConnector(EnterpriseConnector):
             await self._authenticate()
 
         return self._client
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Make HTTP request with circuit breaker protection."""
+        import httpx
+
+        # Check circuit breaker before making request
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            cooldown = self._circuit_breaker.cooldown_remaining()
+            raise FHIRError(
+                f"Circuit breaker open - retry in {cooldown:.1f}s",
+                status_code=503,
+            )
+
+        try:
+            client = await self._get_client()
+            response = await client.request(method, url, params=params, headers=headers)
+
+            # Handle transient errors (record failure for circuit breaker)
+            if response.status_code >= 500 or response.status_code == 429:
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_failure()
+                raise FHIRError(
+                    f"Server error: HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+
+            # Handle client errors (don't record failure - not transient)
+            if response.status_code >= 400:
+                raise FHIRError(
+                    f"Client error: HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+
+            # Success - record for circuit breaker
+            if self._circuit_breaker:
+                self._circuit_breaker.record_success()
+
+            return response.json()
+
+        except httpx.TimeoutException as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            raise FHIRError(f"Request timeout: {e}", status_code=504)
+
+        except httpx.ConnectError as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            raise FHIRError(f"Connection error: {e}", status_code=503)
 
     async def _authenticate(self):
         """Authenticate using SMART on FHIR OAuth2."""
@@ -968,3 +1037,11 @@ class FHIRConnector(EnterpriseConnector):
                 return True
 
         return False
+
+
+class FHIRError(Exception):
+    """FHIR API error."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code

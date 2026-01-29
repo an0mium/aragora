@@ -224,7 +224,7 @@ class QuickBooksConnector:
                 cooldown_seconds=60.0,
             )
         else:
-            self._circuit_breaker: Optional[CircuitBreaker] = None
+            self._circuit_breaker = None
 
     @property
     def is_configured(self) -> bool:
