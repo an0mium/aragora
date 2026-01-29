@@ -70,6 +70,7 @@ class SLOAlertConfig:
     pagerduty_enabled: bool = False
     pagerduty_api_key: Optional[str] = None
     pagerduty_service_id: Optional[str] = None
+    pagerduty_email: str = "slo-alerts@aragora.dev"  # Email for PagerDuty requests
     pagerduty_min_severity: AlertSeverity = AlertSeverity.MAJOR
 
     # Slack configuration
@@ -185,7 +186,10 @@ class SLOAlertBridge:
             )
 
             if self._pagerduty_client is None:
-                credentials = PagerDutyCredentials(api_key=self.config.pagerduty_api_key or "")
+                credentials = PagerDutyCredentials(
+                    api_key=self.config.pagerduty_api_key or "",
+                    email=self.config.pagerduty_email,
+                )
                 self._pagerduty_client = PagerDutyConnector(credentials)
 
             # Map severity to PagerDuty urgency/priority

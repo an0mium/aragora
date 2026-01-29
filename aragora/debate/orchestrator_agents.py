@@ -276,8 +276,12 @@ def get_fabric_agents_sync(fabric: Any, fabric_config: Any) -> list:
 
     try:
         asyncio.get_running_loop()
+        # If we get here, there IS a running loop - we should not use sync helper
         raise RuntimeError("Cannot use sync helper in async context")
-    except RuntimeError:
+    except RuntimeError as e:
+        # Only catch the "no running event loop" error, not our own error
+        if "Cannot use sync helper" in str(e):
+            raise
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(get_agents())

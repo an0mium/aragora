@@ -267,7 +267,7 @@ class TestFolderUploadStart:
             assert result.status == 404
 
 
-class TestFolderUploadStatus:
+class TestGetFolderUploadStatus:
     """Tests for getting folder upload status."""
 
     def test_get_status_not_found(self, handler):

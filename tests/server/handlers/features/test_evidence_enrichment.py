@@ -205,9 +205,9 @@ class TestEnrichFinding:
                 lambda f: f,
             ),
             patch(
-                "aragora.server.handlers.features.evidence_enrichment._run_async"
-            ) as mock_run:
-                mock_run.side_effect = ValueError("Finding not found: invalid"),
+                "aragora.server.handlers.features.evidence_enrichment._run_async",
+                side_effect=ValueError("Finding not found: invalid"),
+            ),
         ):
             result = handler._enrich_finding(mock_handler, "invalid-finding")
             assert result.status == 404

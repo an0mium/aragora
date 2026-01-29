@@ -238,16 +238,19 @@ class MockIsolationManager:
         self.workspaces[workspace.id] = workspace
         return workspace
 
-    async def list_workspaces(
-        self, actor: str, organization_id: str = None
-    ) -> List[MockWorkspace]:
+    async def list_workspaces(self, actor: str, organization_id: str = None) -> List[MockWorkspace]:
         return list(self.workspaces.values())
 
     async def get_workspace(self, workspace_id: str, actor: str) -> MockWorkspace:
         if workspace_id not in self.workspaces:
             from aragora.privacy import AccessDeniedException
 
-            raise AccessDeniedException(f"Workspace {workspace_id} not found")
+            raise AccessDeniedException(
+                message=f"Workspace {workspace_id} not found",
+                workspace_id=workspace_id,
+                actor=actor,
+                action="read",
+            )
         return self.workspaces[workspace_id]
 
     async def delete_workspace(
@@ -256,7 +259,12 @@ class MockIsolationManager:
         if workspace_id not in self.workspaces:
             from aragora.privacy import AccessDeniedException
 
-            raise AccessDeniedException(f"Workspace {workspace_id} not found")
+            raise AccessDeniedException(
+                message=f"Workspace {workspace_id} not found",
+                workspace_id=workspace_id,
+                actor=deleted_by,
+                action="delete",
+            )
         del self.workspaces[workspace_id]
 
     async def add_member(
@@ -269,16 +277,24 @@ class MockIsolationManager:
         if workspace_id not in self.workspaces:
             from aragora.privacy import AccessDeniedException
 
-            raise AccessDeniedException(f"Workspace {workspace_id} not found")
+            raise AccessDeniedException(
+                message=f"Workspace {workspace_id} not found",
+                workspace_id=workspace_id,
+                actor=added_by,
+                action="add_member",
+            )
         self.workspaces[workspace_id].members.append(user_id)
 
-    async def remove_member(
-        self, workspace_id: str, user_id: str, removed_by: str
-    ) -> None:
+    async def remove_member(self, workspace_id: str, user_id: str, removed_by: str) -> None:
         if workspace_id not in self.workspaces:
             from aragora.privacy import AccessDeniedException
 
-            raise AccessDeniedException(f"Workspace {workspace_id} not found")
+            raise AccessDeniedException(
+                message=f"Workspace {workspace_id} not found",
+                workspace_id=workspace_id,
+                actor=removed_by,
+                action="remove_member",
+            )
         if user_id in self.workspaces[workspace_id].members:
             self.workspaces[workspace_id].members.remove(user_id)
 
@@ -340,8 +356,14 @@ class MockRetentionManager:
         self, workspace_id: str = None, days: int = 14
     ) -> List[Dict[str, Any]]:
         return [
-            {"id": "doc-001", "expires_at": (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()},
-            {"id": "doc-002", "expires_at": (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()},
+            {
+                "id": "doc-001",
+                "expires_at": (datetime.now(timezone.utc) + timedelta(days=5)).isoformat(),
+            },
+            {
+                "id": "doc-002",
+                "expires_at": (datetime.now(timezone.utc) + timedelta(days=10)).isoformat(),
+            },
         ]
 
 
@@ -407,14 +429,10 @@ class MockAuditLog:
     ) -> tuple[bool, List[str]]:
         return True, []
 
-    async def get_actor_history(
-        self, actor_id: str, days: int = 30
-    ) -> List[MockAuditEntry]:
+    async def get_actor_history(self, actor_id: str, days: int = 30) -> List[MockAuditEntry]:
         return [e for e in self.entries if e.actor_id == actor_id]
 
-    async def get_resource_history(
-        self, resource_id: str, days: int = 30
-    ) -> List[MockAuditEntry]:
+    async def get_resource_history(self, resource_id: str, days: int = 30) -> List[MockAuditEntry]:
         return [e for e in self.entries if e.resource_id == resource_id]
 
     async def get_denied_access_attempts(self, days: int = 7) -> List[MockAuditEntry]:
@@ -817,9 +835,7 @@ class TestHandleCreatePolicy:
     @patch("aragora.server.handlers.workspace.extract_user_from_request")
     def test_invalid_action(self, mock_extract, workspace_handler, auth_context):
         mock_extract.return_value = auth_context
-        mock_http = create_mock_handler(
-            "POST", {"name": "Policy", "action": "invalid_action"}
-        )
+        mock_http = create_mock_handler("POST", {"name": "Policy", "action": "invalid_action"})
 
         result = workspace_handler._handle_create_policy(mock_http)
 

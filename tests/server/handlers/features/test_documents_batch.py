@@ -131,9 +131,7 @@ class TestBatchStatus:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         with (
-            patch(
-                "aragora.server.handlers.features.documents_batch.get_batch_job"
-            ) as mock_get_job,
+            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
             patch(
                 "aragora.server.handlers.features.documents_batch.require_user_auth",
                 lambda f: f,
@@ -156,9 +154,7 @@ class TestBatchStatus:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         with (
-            patch(
-                "aragora.server.handlers.features.documents_batch.get_batch_job"
-            ) as mock_get_job,
+            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
             patch(
                 "aragora.server.handlers.features.documents_batch.require_user_auth",
                 lambda f: f,
@@ -166,9 +162,7 @@ class TestBatchStatus:
         ):
             mock_get_job.return_value = None
 
-            result = handler.handle(
-                "/api/v1/documents/batch/invalid-job", {}, mock_handler
-            )
+            result = handler.handle("/api/v1/documents/batch/invalid-job", {}, mock_handler)
             assert result.status == 404
 
 
@@ -198,9 +192,7 @@ class TestBatchCancel:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         with (
-            patch(
-                "aragora.server.handlers.features.documents_batch.get_batch_job"
-            ) as mock_get_job,
+            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
             patch(
                 "aragora.server.handlers.features.documents_batch.require_user_auth",
                 lambda f: f,
@@ -208,9 +200,7 @@ class TestBatchCancel:
         ):
             mock_get_job.return_value = None
 
-            result = handler.handle_delete(
-                "/api/v1/documents/batch/invalid-job", {}, mock_handler
-            )
+            result = handler.handle_delete("/api/v1/documents/batch/invalid-job", {}, mock_handler)
             assert result.status == 404
 
     def test_cancel_batch_success(self, handler):
@@ -219,9 +209,7 @@ class TestBatchCancel:
         mock_handler.client_address = ("127.0.0.1", 12345)
 
         with (
-            patch(
-                "aragora.server.handlers.features.documents_batch.get_batch_job"
-            ) as mock_get_job,
+            patch("aragora.server.handlers.features.documents_batch.get_batch_job") as mock_get_job,
             patch(
                 "aragora.server.handlers.features.documents_batch.cancel_batch_job"
             ) as mock_cancel,
@@ -233,9 +221,7 @@ class TestBatchCancel:
             mock_get_job.return_value = MagicMock(job_id="job123", status="processing")
             mock_cancel.return_value = True
 
-            result = handler.handle_delete(
-                "/api/v1/documents/batch/job123", {}, mock_handler
-            )
+            result = handler.handle_delete("/api/v1/documents/batch/job123", {}, mock_handler)
             assert result.status == 200
 
 

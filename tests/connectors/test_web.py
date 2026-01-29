@@ -497,9 +497,7 @@ class TestFetchUrl:
             mock_get_client.return_value = mock_client
 
             with patch.object(connector, "_resolve_and_validate_ip", return_value=(True, "")):
-                with patch.object(
-                    connector, "_validate_redirect_target", return_value=(True, "")
-                ):
+                with patch.object(connector, "_validate_redirect_target", return_value=(True, "")):
                     result = await connector.fetch_url("https://example.com/old-page")
 
                     assert result is not None
@@ -521,12 +519,8 @@ class TestFetchUrl:
             mock_get_client.return_value = mock_client
 
             with patch.object(connector, "_resolve_and_validate_ip", return_value=(True, "")):
-                with patch.object(
-                    connector, "_validate_redirect_target", return_value=(True, "")
-                ):
-                    result = await connector.fetch_url(
-                        "https://example.com/loop", max_redirects=3
-                    )
+                with patch.object(connector, "_validate_redirect_target", return_value=(True, "")):
+                    result = await connector.fetch_url("https://example.com/loop", max_redirects=3)
 
                     assert result is not None
                     assert "[Error]" in result.content
@@ -573,9 +567,7 @@ class TestFetchUrl:
             mock_get_client.return_value = mock_client
 
             with patch.object(connector, "_resolve_and_validate_ip", return_value=(True, "")):
-                result = await connector.fetch_url(
-                    "https://example.com/missing", max_retries=3
-                )
+                result = await connector.fetch_url("https://example.com/missing", max_retries=3)
 
                 assert result is not None
                 assert "[Error]" in result.content
@@ -805,9 +797,7 @@ class TestSecurityValidation:
             "_resolve_and_validate_ip",
             return_value=(False, "Localhost access blocked"),
         ):
-            is_safe, error = connector._validate_redirect_target(
-                "https://redirect-to-local.com"
-            )
+            is_safe, error = connector._validate_redirect_target("https://redirect-to-local.com")
             assert not is_safe
 
 

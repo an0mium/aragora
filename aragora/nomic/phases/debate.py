@@ -26,6 +26,11 @@ class DebateConfig:
     proposer_count: int = -1
     role_rotation: bool = True
     asymmetric_stances: bool = False
+    agreement_intensity: int = 2
+    early_stopping: bool = True
+    early_stop_threshold: float = 0.95
+    min_rounds_before_early_stop: int = 8
+    convergence_detection: bool = True
     audience_injection: str = "summary"
     enable_research: bool = True
 

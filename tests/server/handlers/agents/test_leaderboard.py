@@ -1,14 +1,25 @@
 """Tests for leaderboard view endpoint handler."""
+
 import sys
 import types as _types_mod
 
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
-    "SlackHandler", "get_slack_handler", "get_slack_integration",
-    "get_workspace_store", "resolve_workspace", "create_tracked_task",
-    "_validate_slack_url", "SLACK_SIGNING_SECRET", "SLACK_BOT_TOKEN",
-    "SLACK_WEBHOOK_URL", "SLACK_ALLOWED_DOMAINS", "SignatureVerifierMixin",
-    "CommandsMixin", "EventsMixin", "init_slack_handler",
+    "SlackHandler",
+    "get_slack_handler",
+    "get_slack_integration",
+    "get_workspace_store",
+    "resolve_workspace",
+    "create_tracked_task",
+    "_validate_slack_url",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_WEBHOOK_URL",
+    "SLACK_ALLOWED_DOMAINS",
+    "SignatureVerifierMixin",
+    "CommandsMixin",
+    "EventsMixin",
+    "init_slack_handler",
 ]
 for _mod_name in (
     "aragora.server.handlers.social.slack.handler",
@@ -51,6 +62,7 @@ class MockHandler:
 def clear_module_state():
     """Clear any module-level state between tests."""
     from aragora.server.handlers.agents.leaderboard import _leaderboard_limiter
+
     _leaderboard_limiter._requests.clear()
     yield
 
@@ -113,8 +125,10 @@ class TestLeaderboardViewHandlerAuth:
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
 
-        with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth, \
-             patch.object(handler, "check_permission") as mock_check:
+        with (
+            patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth,
+            patch.object(handler, "check_permission") as mock_check,
+        ):
             mock_auth.return_value = mock_auth_context
             mock_check.side_effect = ForbiddenError("Permission denied")
             result = await handler.handle("/api/leaderboard-view", {}, mock_http_handler)
@@ -133,8 +147,15 @@ class TestLeaderboardViewHandlerRateLimit:
         handler = LeaderboardViewHandler()
         mock_http_handler = MagicMock()
 
-        with patch("aragora.server.handlers.agents.leaderboard.get_client_ip", return_value="127.0.0.1"), \
-             patch("aragora.server.handlers.agents.leaderboard._leaderboard_limiter.is_allowed", return_value=False):
+        with (
+            patch(
+                "aragora.server.handlers.agents.leaderboard.get_client_ip", return_value="127.0.0.1"
+            ),
+            patch(
+                "aragora.server.handlers.agents.leaderboard._leaderboard_limiter.is_allowed",
+                return_value=False,
+            ),
+        ):
             result = await handler.handle("/api/leaderboard-view", {}, mock_http_handler)
 
         assert result.status_code == 429
@@ -149,12 +170,28 @@ class TestGetLeaderboardView:
 
         handler = LeaderboardViewHandler()
 
-        with patch.object(handler, "_fetch_rankings", return_value={"agents": [], "count": 0}), \
-             patch.object(handler, "_fetch_matches", return_value={"matches": [], "count": 0}), \
-             patch.object(handler, "_fetch_reputations", return_value={"reputations": [], "count": 0}), \
-             patch.object(handler, "_fetch_teams", return_value={"combinations": [], "count": 0}), \
-             patch.object(handler, "_fetch_stats", return_value={"mean_elo": 1500, "total_agents": 0, "total_matches": 0, "median_elo": 1500, "rating_distribution": {}, "trending_up": [], "trending_down": []}), \
-             patch.object(handler, "_fetch_introspection", return_value={"agents": {}, "count": 0}):
+        with (
+            patch.object(handler, "_fetch_rankings", return_value={"agents": [], "count": 0}),
+            patch.object(handler, "_fetch_matches", return_value={"matches": [], "count": 0}),
+            patch.object(
+                handler, "_fetch_reputations", return_value={"reputations": [], "count": 0}
+            ),
+            patch.object(handler, "_fetch_teams", return_value={"combinations": [], "count": 0}),
+            patch.object(
+                handler,
+                "_fetch_stats",
+                return_value={
+                    "mean_elo": 1500,
+                    "total_agents": 0,
+                    "total_matches": 0,
+                    "median_elo": 1500,
+                    "rating_distribution": {},
+                    "trending_up": [],
+                    "trending_down": [],
+                },
+            ),
+            patch.object(handler, "_fetch_introspection", return_value={"agents": {}, "count": 0}),
+        ):
             result = handler._get_leaderboard_view(10, None, None)
 
         assert result.status_code == 200
@@ -173,12 +210,28 @@ class TestGetLeaderboardView:
 
         handler = LeaderboardViewHandler()
 
-        with patch.object(handler, "_fetch_rankings", side_effect=RuntimeError("Rankings failed")), \
-             patch.object(handler, "_fetch_matches", return_value={"matches": [], "count": 0}), \
-             patch.object(handler, "_fetch_reputations", return_value={"reputations": [], "count": 0}), \
-             patch.object(handler, "_fetch_teams", return_value={"combinations": [], "count": 0}), \
-             patch.object(handler, "_fetch_stats", return_value={"mean_elo": 1500, "total_agents": 0, "total_matches": 0, "median_elo": 1500, "rating_distribution": {}, "trending_up": [], "trending_down": []}), \
-             patch.object(handler, "_fetch_introspection", return_value={"agents": {}, "count": 0}):
+        with (
+            patch.object(handler, "_fetch_rankings", side_effect=RuntimeError("Rankings failed")),
+            patch.object(handler, "_fetch_matches", return_value={"matches": [], "count": 0}),
+            patch.object(
+                handler, "_fetch_reputations", return_value={"reputations": [], "count": 0}
+            ),
+            patch.object(handler, "_fetch_teams", return_value={"combinations": [], "count": 0}),
+            patch.object(
+                handler,
+                "_fetch_stats",
+                return_value={
+                    "mean_elo": 1500,
+                    "total_agents": 0,
+                    "total_matches": 0,
+                    "median_elo": 1500,
+                    "rating_distribution": {},
+                    "trending_up": [],
+                    "trending_down": [],
+                },
+            ),
+            patch.object(handler, "_fetch_introspection", return_value={"agents": {}, "count": 0}),
+        ):
             result = handler._get_leaderboard_view(10, None, None)
 
         assert result.status_code == 200
@@ -202,8 +255,10 @@ class TestFetchRankings:
             {"agent": "gemini", "elo": 1550, "name": "gemini"},
         ]
 
-        with patch.object(handler, "get_elo_system", return_value=mock_elo), \
-             patch.object(handler, "get_nomic_dir", return_value=None):
+        with (
+            patch.object(handler, "get_elo_system", return_value=mock_elo),
+            patch.object(handler, "get_nomic_dir", return_value=None),
+        ):
             result = handler._fetch_rankings(10, None)
 
         assert "agents" in result
@@ -230,8 +285,10 @@ class TestFetchRankings:
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [{"agent": "claude", "elo": 1600, "name": "claude"}]
 
-        with patch.object(handler, "get_elo_system", return_value=mock_elo), \
-             patch.object(handler, "get_nomic_dir", return_value=None):
+        with (
+            patch.object(handler, "get_elo_system", return_value=mock_elo),
+            patch.object(handler, "get_nomic_dir", return_value=None),
+        ):
             result = handler._fetch_rankings(10, "coding")
 
         mock_elo.get_leaderboard.assert_called_once_with(limit=10, domain="coding")
@@ -298,8 +355,13 @@ class TestFetchTeams:
             {"agents": ["claude", "gemini"], "win_rate": 0.7},
         ]
 
-        with patch.object(handler, "get_elo_system", return_value=MagicMock()), \
-             patch("aragora.server.handlers.agents.leaderboard.AgentSelector", return_value=mock_selector):
+        with (
+            patch.object(handler, "get_elo_system", return_value=MagicMock()),
+            patch(
+                "aragora.server.handlers.agents.leaderboard.AgentSelector",
+                return_value=mock_selector,
+            ),
+        ):
             result = handler._fetch_teams(3, 10)
 
         assert "combinations" in result
@@ -356,8 +418,13 @@ class TestFetchIntrospection:
         mock_snapshot = MagicMock()
         mock_snapshot.to_dict.return_value = {"agent": "claude", "traits": []}
 
-        with patch.object(handler, "get_nomic_dir", return_value=None), \
-             patch("aragora.server.handlers.agents.leaderboard.get_agent_introspection", return_value=mock_snapshot):
+        with (
+            patch.object(handler, "get_nomic_dir", return_value=None),
+            patch(
+                "aragora.server.handlers.agents.leaderboard.get_agent_introspection",
+                return_value=mock_snapshot,
+            ),
+        ):
             result = handler._fetch_introspection()
 
         assert "agents" in result
@@ -375,11 +442,7 @@ class TestSafeFetchSection:
         data: Dict[str, Any] = {}
         errors: Dict[str, str] = {}
 
-        handler._safe_fetch_section(
-            data, errors, "test_key",
-            lambda: {"value": 1},
-            {"value": 0}
-        )
+        handler._safe_fetch_section(data, errors, "test_key", lambda: {"value": 1}, {"value": 0})
 
         assert data["test_key"]["value"] == 1
         assert "test_key" not in errors
@@ -396,11 +459,7 @@ class TestSafeFetchSection:
         def failing_fetch():
             raise RuntimeError("Fetch failed")
 
-        handler._safe_fetch_section(
-            data, errors, "test_key",
-            failing_fetch,
-            {"value": 0}
-        )
+        handler._safe_fetch_section(data, errors, "test_key", failing_fetch, {"value": 0})
 
         assert data["test_key"]["value"] == 0
         assert "test_key" in errors
