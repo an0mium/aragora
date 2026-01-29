@@ -57,6 +57,11 @@ interface BudgetsClientInterface {
   getBudgetTransactions(budgetId: string, params?: TransactionFilterOptions): Promise<BudgetTransactionList>;
   getBudgetTrends(budgetId: string, params?: TrendsOptions): Promise<BudgetTrendsResponse>;
   getOrgTrends(params?: TrendsOptions): Promise<BudgetTrendsResponse>;
+  getCostDashboard(params?: { period?: string }): Promise<import('../types').CostDashboard>;
+  getCostBreakdown(params?: { period?: string; group_by?: string }): Promise<import('../types').CostBreakdown>;
+  getCostTimeline(params?: { period?: string; granularity?: string }): Promise<import('../types').CostTimeline>;
+  getCostAlerts(): Promise<{ alerts: import('../types').CostAlert[] }>;
+  setCostBudget(body: { daily_limit?: number; monthly_limit?: number; alert_threshold?: number }): Promise<{ set: boolean }>;
 }
 
 /**
@@ -320,6 +325,45 @@ export class BudgetsAPI {
    */
   async getOrgTrends(params?: TrendsOptions): Promise<BudgetTrendsResponse> {
     return this.client.getOrgTrends(params);
+  }
+
+  // ===========================================================================
+  // Cost Visibility
+  // ===========================================================================
+
+  /**
+   * Get cost dashboard data.
+   */
+  async getCostDashboard(params?: { period?: string }): Promise<import('../types').CostDashboard> {
+    return this.client.getCostDashboard(params);
+  }
+
+  /**
+   * Get detailed cost breakdown by model, agent, or category.
+   */
+  async getCostBreakdown(params?: { period?: string; group_by?: string }): Promise<import('../types').CostBreakdown> {
+    return this.client.getCostBreakdown(params);
+  }
+
+  /**
+   * Get cost timeline for trend visualization.
+   */
+  async getCostTimeline(params?: { period?: string; granularity?: string }): Promise<import('../types').CostTimeline> {
+    return this.client.getCostTimeline(params);
+  }
+
+  /**
+   * Get active cost alerts.
+   */
+  async getCostAlerts(): Promise<{ alerts: import('../types').CostAlert[] }> {
+    return this.client.getCostAlerts();
+  }
+
+  /**
+   * Set cost budget limits for the organization.
+   */
+  async setCostBudget(body: { daily_limit?: number; monthly_limit?: number; alert_threshold?: number }): Promise<{ set: boolean }> {
+    return this.client.setCostBudget(body);
   }
 }
 
