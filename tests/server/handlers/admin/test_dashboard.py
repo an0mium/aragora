@@ -58,10 +58,9 @@ def mock_storage():
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
 
-    # Setup connection context manager
-    storage.db = MagicMock()
-    storage.db.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
-    storage.db.connection.return_value.__exit__ = MagicMock(return_value=False)
+    # Setup connection context manager - code uses storage.connection()
+    storage.connection.return_value.__enter__ = MagicMock(return_value=mock_conn)
+    storage.connection.return_value.__exit__ = MagicMock(return_value=False)
 
     mock_conn.cursor.return_value = mock_cursor
 

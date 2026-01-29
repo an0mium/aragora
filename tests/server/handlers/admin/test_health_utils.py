@@ -136,7 +136,7 @@ class TestCheckAiProvidersHealth:
         with patch.dict("os.environ", {
             "ANTHROPIC_API_KEY": "sk-ant-1234567890",
             "OPENAI_API_KEY": "sk-1234567890",
-        }):
+        }, clear=True):
             result = check_ai_providers_health()
 
         assert result["available_count"] == 2
@@ -154,10 +154,10 @@ class TestCheckSecurityServices:
         mock_service = MagicMock()
 
         with patch(
-            "aragora.server.handlers.admin.health_utils.get_encryption_service",
+            "aragora.security.encryption.get_encryption_service",
             return_value=mock_service,
         ), patch(
-            "aragora.server.handlers.admin.health_utils.get_secret",
+            "aragora.config.secrets.get_secret",
             return_value="encryption_key_value",
         ):
             result = check_security_services()
@@ -170,10 +170,10 @@ class TestCheckSecurityServices:
         from aragora.server.handlers.admin.health_utils import check_security_services
 
         with patch(
-            "aragora.server.handlers.admin.health_utils.get_encryption_service",
+            "aragora.security.encryption.get_encryption_service",
             return_value=MagicMock(),
         ), patch(
-            "aragora.server.handlers.admin.health_utils.get_secret",
+            "aragora.config.secrets.get_secret",
             return_value=None,
         ):
             result = check_security_services(is_production=True)
