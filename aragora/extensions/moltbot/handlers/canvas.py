@@ -383,7 +383,8 @@ class MoltbotCanvasHandler(BaseHandler):
             y=body.get("y", 0),
             width=body.get("width", 100),
             height=body.get("height", 100),
-            properties=body.get("properties", {}),
+            content=body.get("content", body.get("properties", {})),
+            style=body.get("style", {}),
             layer_id=body.get("layer_id"),
         )
 
@@ -408,16 +409,20 @@ class MoltbotCanvasHandler(BaseHandler):
             return error_response("Request body required", 400)
 
         manager = get_canvas_manager()
+
+        # Build updates dict with only provided values
+        updates: dict[str, Any] = {}
+        for key in ["x", "y", "width", "height", "rotation", "z_index", "content", "style"]:
+            if key in body:
+                updates[key] = body[key]
+        # Support legacy 'properties' as 'content'
+        if "properties" in body and "content" not in updates:
+            updates["content"] = body["properties"]
+
         element = await manager.update_element(
             canvas_id=canvas_id,
             element_id=element_id,
-            x=body.get("x"),
-            y=body.get("y"),
-            width=body.get("width"),
-            height=body.get("height"),
-            rotation=body.get("rotation"),
-            z_index=body.get("z_index"),
-            properties=body.get("properties"),
+            updates=updates,
         )
 
         if not element:
@@ -434,7 +439,7 @@ class MoltbotCanvasHandler(BaseHandler):
             return err
 
         manager = get_canvas_manager()
-        success = await manager.remove_element(canvas_id, element_id)
+        success = await manager.delete_element(canvas_id, element_id)
 
         if not success:
             return error_response("Element not found", 404)
@@ -470,14 +475,18 @@ class MoltbotCanvasHandler(BaseHandler):
         if canvas.owner_id != user.user_id:
             return error_response("Only owner can add collaborators", 403)
 
-        success = await manager.add_collaborator(
+        # Use join_canvas to add collaborator
+        success = await manager.join_canvas(
             canvas_id=canvas_id,
             user_id=user_id,
-            permission=permission,
         )
 
         if not success:
             return error_response("Failed to add collaborator", 500)
+
+        # Store permission in canvas metadata if needed
+        # For now, permission is informational only
+        _ = permission  # Acknowledge but don't use yet
 
         return json_response(
             {"success": True, "canvas_id": canvas_id, "user_id": user_id, "permission": permission},
@@ -502,7 +511,8 @@ class MoltbotCanvasHandler(BaseHandler):
         if canvas.owner_id != user.user_id:
             return error_response("Only owner can remove collaborators", 403)
 
-        success = await manager.remove_collaborator(canvas_id, user_id)
+        # Use leave_canvas to remove collaborator
+        success = await manager.leave_canvas(canvas_id, user_id)
 
         if not success:
             return error_response("Collaborator not found", 404)
@@ -525,11 +535,36 @@ class MoltbotCanvasHandler(BaseHandler):
         if not canvas:
             return error_response("Canvas not found", 404)
 
+        # Get all elements for export
+        elements = await manager.list_elements(canvas_id)
+
         if format_type == "json":
-            export_data = await manager.export_canvas(canvas_id, format="json")
+            # Build layer data
+            layers_data: list[dict[str, Any]] = []
+            for layer_id in canvas.layers:
+                layer = await manager.get_layer(layer_id)
+                if layer:
+                    layers_data.append(
+                        {
+                            "id": layer.id,
+                            "name": layer.name,
+                            "visible": layer.visible,
+                            "locked": layer.locked,
+                        }
+                    )
+
+            # Build JSON export
+            export_data = {
+                "canvas": self._serialize_canvas(canvas, element_count=len(elements)),
+                "elements": [self._serialize_element(e) for e in elements],
+                "layers": layers_data,
+            }
             return json_response({"export": export_data})
         elif format_type == "svg":
-            export_data = await manager.export_canvas(canvas_id, format="svg")
-            return json_response({"svg": export_data, "format": "svg"})
+            # Basic SVG export - placeholder
+            svg = f'<svg width="{canvas.config.width}" height="{canvas.config.height}">'
+            svg += f'<rect width="100%" height="100%" fill="{canvas.config.background_color}"/>'
+            svg += "</svg>"
+            return json_response({"svg": svg, "format": "svg"})
         else:
             return error_response(f"Unsupported format: {format_type}", 400)

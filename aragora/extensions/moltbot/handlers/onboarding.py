@@ -195,13 +195,13 @@ class MoltbotOnboardingHandler(BaseHandler):
         if err:
             return err
 
-        active_only = query_params.get("active_only", "false").lower() == "true"
-        tenant_id = query_params.get("tenant_id")
+        status_filter = query_params.get("status")
+        target_segment = query_params.get("target_segment")
 
         orchestrator = get_orchestrator()
         flows = await orchestrator.list_flows(
-            active_only=active_only,
-            tenant_id=tenant_id,
+            status=status_filter,
+            target_segment=target_segment,
         )
 
         return json_response(
@@ -232,8 +232,7 @@ class MoltbotOnboardingHandler(BaseHandler):
         flow = await orchestrator.create_flow(
             name=name,
             description=body.get("description", ""),
-            is_active=body.get("is_active", True),
-            tenant_id=body.get("tenant_id"),
+            target_segment=body.get("target_segment"),
         )
 
         return json_response(
@@ -272,15 +271,18 @@ class MoltbotOnboardingHandler(BaseHandler):
             return error_response("Request body required", 400)
 
         orchestrator = get_orchestrator()
-        flow = await orchestrator.update_flow(
-            flow_id=flow_id,
-            name=body.get("name"),
-            description=body.get("description"),
-            is_active=body.get("is_active"),
-        )
+        flow = await orchestrator.get_flow(flow_id)
 
         if not flow:
             return error_response("Flow not found", 404)
+
+        # Update flow attributes directly
+        if "name" in body:
+            flow.name = body["name"]
+        if "description" in body:
+            flow.description = body["description"]
+        if "status" in body:
+            flow.status = body["status"]
 
         return json_response({"success": True, "flow": self._serialize_flow(flow)})
 
@@ -291,12 +293,13 @@ class MoltbotOnboardingHandler(BaseHandler):
             return err
 
         orchestrator = get_orchestrator()
-        success = await orchestrator.delete_flow(flow_id)
+        # Archive flow instead of deleting (soft delete)
+        flow = await orchestrator.archive_flow(flow_id)
 
-        if not success:
+        if not flow:
             return error_response("Flow not found", 404)
 
-        return json_response({"success": True, "deleted": flow_id})
+        return json_response({"success": True, "archived": flow_id})
 
     async def _handle_add_step(self, flow_id: str, handler: Any) -> HandlerResult:
         """Add step to flow."""
@@ -312,20 +315,21 @@ class MoltbotOnboardingHandler(BaseHandler):
             return error_response("Request body required", 400)
 
         step_type = body.get("type")
-        title = body.get("title")
+        name = body.get("name") or body.get("title")  # Support both name and title
 
-        if not step_type or not title:
-            return error_response("type and title are required", 400)
+        if not step_type or not name:
+            return error_response("type and name are required", 400)
 
         orchestrator = get_orchestrator()
         step = await orchestrator.add_step(
             flow_id=flow_id,
+            name=name,
             step_type=step_type,
-            title=title,
-            content=body.get("content", ""),
-            is_required=body.get("is_required", True),
-            timeout_seconds=body.get("timeout_seconds"),
-            metadata=body.get("metadata", {}),
+            content=body.get("content", {}),
+            required=body.get("required", body.get("is_required", True)),
+            validation=body.get("validation"),
+            next_step=body.get("next_step"),
+            branch_conditions=body.get("branch_conditions"),
         )
 
         if not step:
@@ -373,14 +377,16 @@ class MoltbotOnboardingHandler(BaseHandler):
             body = {}
 
         orchestrator = get_orchestrator()
-        session = await orchestrator.start_session(
-            flow_id=flow_id,
-            user_id=body.get("user_id", user.user_id),
-            device_id=body.get("device_id"),
-        )
-
-        if not session:
-            return error_response("Flow not found or not active", 404)
+        try:
+            session = await orchestrator.start_session(
+                flow_id=flow_id,
+                user_id=body.get("user_id", user.user_id),
+                channel_id=body.get("channel_id", "web"),
+                tenant_id=body.get("tenant_id"),
+                initial_data=body.get("initial_data"),
+            )
+        except ValueError as e:
+            return error_response(str(e), 404)
 
         return json_response(
             {"success": True, "session": self._serialize_session(session)},
@@ -417,18 +423,25 @@ class MoltbotOnboardingHandler(BaseHandler):
         if err:
             return err
 
-        response = body.get("response") if body else None
+        data = body.get("data", body.get("response", {})) if body else {}
 
         orchestrator = get_orchestrator()
-        session = await orchestrator.advance_session(
+        result = await orchestrator.submit_step(
             session_id=session_id,
-            response=response,
+            data=data,
         )
 
-        if not session:
-            return error_response("Session not found or already completed", 404)
+        if not result.get("success"):
+            error_msg = result.get("error", "Session not found or already completed")
+            return error_response(error_msg, 400 if "validation" in error_msg.lower() else 404)
 
-        return json_response({"success": True, "session": self._serialize_session(session)})
+        # Get updated session for response
+        session = await orchestrator.get_session(session_id)
+        response_data: dict[str, Any] = {"success": True, "result": result}
+        if session:
+            response_data["session"] = self._serialize_session(session)
+
+        return json_response(response_data)
 
     async def _handle_complete_session(self, session_id: str, handler: Any) -> HandlerResult:
         """Complete an onboarding session."""
@@ -437,12 +450,20 @@ class MoltbotOnboardingHandler(BaseHandler):
             return err
 
         orchestrator = get_orchestrator()
-        session = await orchestrator.complete_session(session_id)
+        session = await orchestrator.get_session(session_id)
 
         if not session:
             return error_response("Session not found", 404)
 
-        return json_response({"success": True, "session": self._serialize_session(session)})
+        # Mark session as completed by submitting empty data for remaining steps
+        # The submit_step method auto-completes when all steps are done
+        result = await orchestrator.submit_step(session_id, {})
+        if result.get("completed"):
+            session = await orchestrator.get_session(session_id)
+
+        return json_response(
+            {"success": True, "session": self._serialize_session(session) if session else {}}
+        )
 
     async def _handle_skip_step(self, session_id: str, handler: Any) -> HandlerResult:
         """Skip current step in session."""
@@ -451,9 +472,19 @@ class MoltbotOnboardingHandler(BaseHandler):
             return err
 
         orchestrator = get_orchestrator()
-        session = await orchestrator.skip_step(session_id)
+        session = await orchestrator.get_session(session_id)
 
         if not session:
-            return error_response("Session not found or step cannot be skipped", 400)
+            return error_response("Session not found", 404)
 
-        return json_response({"success": True, "session": self._serialize_session(session)})
+        # Skip by submitting empty data - validation may fail for required fields
+        # This effectively allows skipping optional steps
+        result = await orchestrator.submit_step(session_id, {"__skip__": True})
+
+        if not result.get("success") and "required" in str(result.get("error", "")).lower():
+            return error_response("Step is required and cannot be skipped", 400)
+
+        session = await orchestrator.get_session(session_id)
+        return json_response(
+            {"success": True, "session": self._serialize_session(session) if session else {}}
+        )

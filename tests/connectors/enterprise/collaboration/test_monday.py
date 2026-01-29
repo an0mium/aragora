@@ -14,7 +14,7 @@ Tests the Monday.com GraphQL API integration including:
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from aragora.connectors.enterprise.collaboration.monday import (
     MondayConnector,
@@ -28,6 +28,56 @@ from aragora.connectors.enterprise.collaboration.monday import (
     ColumnType,
     BoardKind,
 )
+from aragora.connectors.base import Evidence
+
+
+# =============================================================================
+# Concrete Test Subclass
+# =============================================================================
+
+
+class ConcreteMondayConnector(MondayConnector):
+    """Concrete implementation of MondayConnector for testing.
+
+    Implements the abstract methods from BaseConnector that are required
+    for instantiation but not directly tested here.
+    """
+
+    async def search(
+        self,
+        query: str,
+        limit: int = 10,
+        **kwargs,
+    ) -> List[Evidence]:
+        """Implement abstract search method."""
+        # For testing - delegates to search_items
+        items = await self.search_items(query, limit=limit)
+        return [
+            Evidence(
+                id=f"monday-item-{item.id}",
+                content=f"{item.name}: {item.group_title}",
+                source_type=self.source_type,
+                source_id=str(item.board_id) if item.board_id else "unknown",
+                metadata={"item_id": item.id, "board_id": item.board_id},
+            )
+            for item in items
+        ]
+
+    async def fetch(self, evidence_id: str) -> Optional[Evidence]:
+        """Implement abstract fetch method."""
+        # Extract item ID from evidence_id
+        if evidence_id.startswith("monday-item-"):
+            item_id = int(evidence_id.replace("monday-item-", ""))
+            item = await self.get_item(item_id)
+            if item:
+                return Evidence(
+                    id=evidence_id,
+                    content=f"{item.name}: {item.group_title}",
+                    source_type=self.source_type,
+                    source_id=str(item.board_id) if item.board_id else "unknown",
+                    metadata={"item_id": item.id, "board_id": item.board_id},
+                )
+        return None
 
 
 # =============================================================================
@@ -38,7 +88,7 @@ from aragora.connectors.enterprise.collaboration.monday import (
 @pytest.fixture
 def connector():
     """Create test connector."""
-    return MondayConnector(
+    return ConcreteMondayConnector(
         workspace_ids=[1, 2],
         board_ids=[100, 200],
         max_results=50,
@@ -78,14 +128,14 @@ class TestMondayConnectorInit:
 
     def test_default_configuration(self):
         """Should use default configuration."""
-        connector = MondayConnector()
+        connector = ConcreteMondayConnector()
         assert connector.workspace_ids is None
         assert connector.board_ids is None
         assert connector.max_results == 100
 
     def test_custom_configuration(self):
         """Should accept custom configuration."""
-        connector = MondayConnector(
+        connector = ConcreteMondayConnector(
             workspace_ids=[1, 2],
             board_ids=[100, 200, 300],
             max_results=50,
@@ -478,7 +528,7 @@ class TestItemOperations:
     async def test_update_item(self, connector):
         """Should update an existing item."""
         mock_data = {
-            "change_column_value": {
+            "change_multiple_column_values": {
                 "id": "1001",
                 "name": "Updated Task",
                 "state": "active",
@@ -486,6 +536,8 @@ class TestItemOperations:
                 "column_values": [
                     {"id": "status", "text": "Done"},
                 ],
+                "created_at": "2024-01-15T10:00:00Z",
+                "updated_at": "2024-01-15T12:00:00Z",
             }
         }
         mock_response = make_graphql_response(mock_data)
@@ -499,7 +551,7 @@ class TestItemOperations:
             mock_get_client.return_value = mock_client
 
             item = await connector.update_item(
-                item_id=1001, board_id=100, column_values={"status": {"label": "Done"}}
+                item_id=1001, column_values={"status": {"label": "Done"}}, board_id=100
             )
 
             assert item.id == 1001
@@ -533,7 +585,7 @@ class TestSearchOperations:
 
     @pytest.mark.asyncio
     async def test_search_items(self, connector):
-        """Should search items by query."""
+        """Should search items by query text."""
         mock_data = {
             "items_page_by_column_values": {
                 "cursor": None,
@@ -545,6 +597,8 @@ class TestSearchOperations:
                         "board": {"id": "100", "name": "Bugs"},
                         "group": {"id": "high_priority", "title": "High Priority"},
                         "column_values": [],
+                        "created_at": "2024-01-15T10:00:00Z",
+                        "updated_at": "2024-01-15T12:00:00Z",
                     },
                     {
                         "id": "1002",
@@ -553,6 +607,8 @@ class TestSearchOperations:
                         "board": {"id": "200", "name": "Features"},
                         "group": {"id": "backlog", "title": "Backlog"},
                         "column_values": [],
+                        "created_at": "2024-01-15T10:00:00Z",
+                        "updated_at": "2024-01-15T12:00:00Z",
                     },
                 ],
             }
@@ -567,9 +623,7 @@ class TestSearchOperations:
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_get_client.return_value = mock_client
 
-            items = await connector.search_items(
-                board_id=100, column_id="name", column_value="login"
-            )
+            items = await connector.search_items(query_text="login", board_ids=[100, 200])
 
             assert len(items) == 2
             assert "login" in items[0].name.lower()
