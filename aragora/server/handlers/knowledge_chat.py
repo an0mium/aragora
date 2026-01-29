@@ -118,6 +118,7 @@ async def handle_knowledge_search(
         }
 
 
+@require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_inject(
     messages: List[Dict[str, Any]],
@@ -163,6 +164,7 @@ async def handle_knowledge_inject(
         }
 
 
+@require_permission("knowledge:write")
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
     messages: List[Dict[str, Any]],
@@ -225,6 +227,7 @@ async def handle_store_chat_knowledge(
         }
 
 
+@require_permission("knowledge:read")
 async def handle_channel_knowledge_summary(
     channel_id: str,
     workspace_id: str = "default",
@@ -298,9 +301,11 @@ class KnowledgeChatHandler(BaseHandler):
         # GET /api/v1/chat/knowledge/channel/:id/summary
         if path.startswith("/api/v1/chat/knowledge/channel/") and path.endswith("/summary"):
             # Extract channel_id from path
+            # Path: /api/v1/chat/knowledge/channel/<channel_id>/summary
+            # Index:  0   1   2     3         4        5           6
             parts = path.split("/")
-            if len(parts) >= 7:
-                channel_id = parts[5]
+            if len(parts) >= 8:
+                channel_id = parts[6]
                 workspace_id = query_params.get("workspace_id", "default")
                 # Validate and clamp max_items to bounds
                 max_items = get_clamped_int_param(

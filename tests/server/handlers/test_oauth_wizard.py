@@ -14,6 +14,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import os
 import pytest
 from datetime import datetime, timezone
@@ -153,7 +154,7 @@ class TestRBACPermissions:
                 mock_handler,
             )
 
-            assert result[1] == 401
+            assert result.status_code == 401
 
     @pytest.mark.asyncio
     async def test_permission_denied_returns_403(
@@ -175,7 +176,7 @@ class TestRBACPermissions:
                     mock_handler,
                 )
 
-                assert result[1] == 403
+                assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_read_permission_allows_get(self, oauth_handler, mock_handler, read_only_context):
@@ -196,7 +197,7 @@ class TestRBACPermissions:
                 )
 
                 mock_check.assert_called_with(read_only_context, "connector:read")
-                assert result[1] == 200
+                assert result.status_code == 200
 
 
 # -----------------------------------------------------------------------------
@@ -222,8 +223,8 @@ class TestGetWizardConfig:
                     mock_handler,
                 )
 
-                assert result[1] == 200
-                data = result[0]
+                assert result.status_code == 200
+                data = json.loads(result.body)
                 assert "wizard" in data
                 assert "providers" in data["wizard"]
                 assert "summary" in data["wizard"]
@@ -246,7 +247,8 @@ class TestGetWizardConfig:
                     mock_handler,
                 )
 
-                provider_ids = [p["id"] for p in result[0]["wizard"]["providers"]]
+                data = json.loads(result.body)
+                provider_ids = [p["id"] for p in data["wizard"]["providers"]]
                 for expected_id in PROVIDERS.keys():
                     assert expected_id in provider_ids
 
@@ -267,8 +269,9 @@ class TestGetWizardConfig:
                     mock_handler,
                 )
 
-                assert "recommended_order" in result[0]["wizard"]
-                assert "slack" in result[0]["wizard"]["recommended_order"]
+                data = json.loads(result.body)
+                assert "recommended_order" in data["wizard"]
+                assert "slack" in data["wizard"]["recommended_order"]
 
 
 # -----------------------------------------------------------------------------
@@ -294,10 +297,11 @@ class TestListProviders:
                     mock_handler,
                 )
 
-                assert result[1] == 200
-                assert "providers" in result[0]
-                assert "total" in result[0]
-                assert result[0]["total"] == len(PROVIDERS)
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                assert "providers" in data
+                assert "total" in data
+                assert data["total"] == len(PROVIDERS)
 
     @pytest.mark.asyncio
     async def test_list_providers_filter_by_category(
@@ -316,8 +320,9 @@ class TestListProviders:
                     mock_handler,
                 )
 
-                assert result[1] == 200
-                for provider in result[0]["providers"]:
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                for provider in data["providers"]:
                     assert provider["category"] == "communication"
 
     @pytest.mark.asyncio
@@ -337,8 +342,9 @@ class TestListProviders:
                     mock_handler,
                 )
 
-                assert result[1] == 200
-                for provider in result[0]["providers"]:
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                for provider in data["providers"]:
                     assert provider["configured"] is False
 
 
@@ -370,10 +376,11 @@ class TestGetStatus:
                         mock_handler,
                     )
 
-                    assert result[1] == 200
-                    assert "statuses" in result[0]
-                    assert "summary" in result[0]
-                    assert len(result[0]["statuses"]) == len(PROVIDERS)
+                    assert result.status_code == 200
+                    data = json.loads(result.body)
+                    assert "statuses" in data
+                    assert "summary" in data
+                    assert len(data["statuses"]) == len(PROVIDERS)
 
     @pytest.mark.asyncio
     async def test_status_includes_summary(self, oauth_handler, mock_handler, auth_context):
@@ -393,7 +400,8 @@ class TestGetStatus:
                         mock_handler,
                     )
 
-                    summary = result[0]["summary"]
+                    data = json.loads(result.body)
+                    summary = data["summary"]
                     assert "total" in summary
                     assert "configured" in summary
                     assert "connected" in summary
@@ -426,7 +434,7 @@ class TestValidateConfig:
                         mock_handler,
                     )
 
-                    assert result[1] == 400
+                    assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_validate_unknown_provider_returns_400(
@@ -448,7 +456,7 @@ class TestValidateConfig:
                         mock_handler,
                     )
 
-                    assert result[1] == 400
+                    assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_validate_slack_missing_env_vars(self, oauth_handler, mock_handler, auth_context):
@@ -469,9 +477,10 @@ class TestValidateConfig:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
-                        assert result[0]["valid"] is False
-                        assert len(result[0]["checks"]) > 0
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["valid"] is False
+                        assert len(data["checks"]) > 0
 
     @pytest.mark.asyncio
     async def test_validate_slack_with_env_vars(self, oauth_handler, mock_handler, auth_context):
@@ -498,8 +507,9 @@ class TestValidateConfig:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
-                        assert result[0]["valid"] is True
+                        assert result.status_code == 200
+                        data = json.loads(result.body)
+                        assert data["valid"] is True
 
 
 # -----------------------------------------------------------------------------
@@ -528,7 +538,7 @@ class TestTestConnection:
                         mock_handler,
                     )
 
-                    assert result[1] == 404
+                    assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_test_slack_no_workspaces(self, oauth_handler, mock_handler, auth_context):
@@ -552,7 +562,7 @@ class TestTestConnection:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
+                        assert result.status_code == 200
                         assert result[0]["test_result"]["success"] is False
 
     @pytest.mark.asyncio
@@ -577,7 +587,7 @@ class TestTestConnection:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
+                        assert result.status_code == 200
                         assert result[0]["test_result"]["success"] is True
                         assert result[0]["provider"] == "slack"
 
@@ -607,7 +617,7 @@ class TestListWorkspaces:
                     mock_handler,
                 )
 
-                assert result[1] == 404
+                assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_list_slack_workspaces(self, oauth_handler, mock_handler, auth_context):
@@ -638,7 +648,7 @@ class TestListWorkspaces:
                         mock_handler,
                     )
 
-                    assert result[1] == 200
+                    assert result.status_code == 200
                     assert result[0]["provider"] == "slack"
                     assert result[0]["count"] == 1
 
@@ -671,7 +681,7 @@ class TestListWorkspaces:
                         mock_handler,
                     )
 
-                    assert result[1] == 200
+                    assert result.status_code == 200
                     assert result[0]["provider"] == "teams"
                     assert result[0]["count"] == 1
 
@@ -702,7 +712,7 @@ class TestDisconnectProvider:
                         mock_handler,
                     )
 
-                    assert result[1] == 404
+                    assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_disconnect_slack_missing_workspace_id_returns_400(
@@ -722,7 +732,7 @@ class TestDisconnectProvider:
                         mock_handler,
                     )
 
-                    assert result[1] == 400
+                    assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_disconnect_slack_success(self, oauth_handler, mock_handler, auth_context):
@@ -745,7 +755,7 @@ class TestDisconnectProvider:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
+                        assert result.status_code == 200
                         assert result[0]["disconnected"] is True
                         mock_store.return_value.deactivate.assert_called_with("W123")
 
@@ -770,7 +780,7 @@ class TestDisconnectProvider:
                             mock_handler,
                         )
 
-                        assert result[1] == 200
+                        assert result.status_code == 200
                         assert result[0]["disconnected"] is True
                         mock_store.return_value.deactivate.assert_called_with("T123")
 
@@ -799,7 +809,7 @@ class TestDisconnectProvider:
                         mock_handler,
                     )
 
-                    assert result[1] == 403
+                    assert result.status_code == 403
 
 
 # -----------------------------------------------------------------------------
@@ -929,7 +939,7 @@ class TestErrorHandling:
                     mock_handler,
                 )
 
-                assert result[1] == 404
+                assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_internal_error_returns_500(self, oauth_handler, mock_handler, auth_context):
@@ -952,7 +962,7 @@ class TestErrorHandling:
                         mock_handler,
                     )
 
-                    assert result[1] == 500
+                    assert result.status_code == 500
 
 
 # -----------------------------------------------------------------------------

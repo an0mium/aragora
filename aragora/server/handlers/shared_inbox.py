@@ -1333,6 +1333,7 @@ async def handle_delete_routing_rule(
         }
 
 
+@require_permission("inbox:rules:manage")
 async def handle_test_routing_rule(
     rule_id: str,
     workspace_id: str,
