@@ -364,12 +364,17 @@ class TestKnowledgeChatHandlerRBAC:
     @pytest.mark.asyncio
     async def test_search_requires_read_permission(self, handler, mock_http_handler):
         """Test search endpoint requires read permission."""
+        from aragora.server.handlers.utils.responses import HandlerResult
+
         mock_http_handler.rfile.read.return_value = b'{"query": "test"}'
+        forbidden_result = HandlerResult(
+            status_code=403, content_type="application/json", body=b'{"error": "Forbidden"}'
+        )
 
         with patch.object(
             handler,
             "require_permission_or_error",
-            return_value=(None, {"status": 403, "body": {"error": "Forbidden"}}),
+            return_value=(None, forbidden_result),
         ):
             result = await handler.handle_post(
                 "/api/v1/chat/knowledge/search",
@@ -377,17 +382,22 @@ class TestKnowledgeChatHandlerRBAC:
                 mock_http_handler,
             )
 
-        assert result["status"] == 403
+        assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_store_requires_write_permission(self, handler, mock_http_handler):
         """Test store endpoint requires write permission."""
+        from aragora.server.handlers.utils.responses import HandlerResult
+
         mock_http_handler.rfile.read.return_value = b'{"messages": [{"c": "1"}, {"c": "2"}]}'
+        forbidden_result = HandlerResult(
+            status_code=403, content_type="application/json", body=b'{"error": "Forbidden"}'
+        )
 
         with patch.object(
             handler,
             "require_permission_or_error",
-            return_value=(None, {"status": 403, "body": {"error": "Forbidden"}}),
+            return_value=(None, forbidden_result),
         ):
             result = await handler.handle_post(
                 "/api/v1/chat/knowledge/store",
@@ -395,15 +405,20 @@ class TestKnowledgeChatHandlerRBAC:
                 mock_http_handler,
             )
 
-        assert result["status"] == 403
+        assert result.status_code == 403
 
     @pytest.mark.asyncio
     async def test_get_requires_read_permission(self, handler, mock_http_handler):
         """Test GET endpoint requires read permission."""
+        from aragora.server.handlers.utils.responses import HandlerResult
+
+        forbidden_result = HandlerResult(
+            status_code=403, content_type="application/json", body=b'{"error": "Forbidden"}'
+        )
         with patch.object(
             handler,
             "require_permission_or_error",
-            return_value=(None, {"status": 403, "body": {"error": "Forbidden"}}),
+            return_value=(None, forbidden_result),
         ):
             result = await handler.handle(
                 "/api/v1/chat/knowledge/channel/test/summary",
@@ -411,7 +426,7 @@ class TestKnowledgeChatHandlerRBAC:
                 mock_http_handler,
             )
 
-        assert result["status"] == 403
+        assert result.status_code == 403
 
 
 class TestKnowledgeChatHandlerInputValidation:
@@ -420,6 +435,8 @@ class TestKnowledgeChatHandlerInputValidation:
     @pytest.mark.asyncio
     async def test_search_validates_query_required(self, handler, mock_http_handler):
         """Test search requires query parameter."""
+        import json
+
         mock_http_handler.rfile.read.return_value = b"{}"
 
         with patch.object(handler, "require_permission_or_error", return_value=(True, None)):
@@ -429,12 +446,15 @@ class TestKnowledgeChatHandlerInputValidation:
                 mock_http_handler,
             )
 
-        assert result["status"] == 400
-        assert "query is required" in result["body"].get("error", "")
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "query is required" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_inject_validates_messages_required(self, handler, mock_http_handler):
         """Test inject requires messages parameter."""
+        import json
+
         mock_http_handler.rfile.read.return_value = b"{}"
 
         with patch.object(handler, "require_permission_or_error", return_value=(True, None)):
@@ -444,12 +464,15 @@ class TestKnowledgeChatHandlerInputValidation:
                 mock_http_handler,
             )
 
-        assert result["status"] == 400
-        assert "messages is required" in result["body"].get("error", "")
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "messages is required" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_store_validates_minimum_messages(self, handler, mock_http_handler):
         """Test store validates minimum message count."""
+        import json
+
         mock_http_handler.rfile.read.return_value = b'{"messages": [{"content": "one"}]}'
 
         with patch.object(handler, "require_permission_or_error", return_value=(True, None)):
@@ -459,8 +482,9 @@ class TestKnowledgeChatHandlerInputValidation:
                 mock_http_handler,
             )
 
-        assert result["status"] == 400
-        assert "2 messages required" in result["body"].get("error", "")
+        assert result.status_code == 400
+        body = json.loads(result.body)
+        assert "2 messages required" in body.get("error", "")
 
     def test_max_results_limit_constant(self):
         """Test MAX_RESULTS_LIMIT is reasonable."""

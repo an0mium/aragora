@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 from aragora.resilience_patterns import with_timeout
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ def _get_bridge():
     return _bridge
 
 
+@require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_search(
     query: str,

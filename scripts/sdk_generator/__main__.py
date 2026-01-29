@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .openapi_parser import OpenAPIParser
 from .python_generator import PythonGenerator
+from .typescript_generator import TypeScriptGenerator
 
 
 def main() -> int:
@@ -144,9 +145,13 @@ Examples:
             verbose=args.verbose,
         )
     elif args.language == "typescript":
-        print("Error: TypeScript generator not yet implemented", file=sys.stderr)
-        print("Use --language python for now", file=sys.stderr)
-        return 1
+        return _generate_typescript(
+            api_parser,
+            namespaces,
+            output_dir,
+            dry_run=args.dry_run,
+            verbose=args.verbose,
+        )
 
     return 0
 
@@ -190,6 +195,48 @@ def _generate_python(
 
     except Exception as e:
         print(f"Error generating SDK: {e}", file=sys.stderr)
+        return 1
+
+
+def _generate_typescript(
+    api_parser: OpenAPIParser,
+    namespaces: dict,
+    output_dir: Path,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> int:
+    """Generate TypeScript SDK namespaces."""
+    if dry_run:
+        print(f"\nDry run - would generate {len(namespaces)} namespace(s):\n")
+        for ns, endpoints in sorted(namespaces.items()):
+            print(f"  {output_dir / f'{ns}.ts'}")
+            if verbose:
+                for ep in endpoints:
+                    print(f"    - {ep.method:6} {ep.path}")
+        return 0
+
+    if verbose:
+        print(f"\nGenerating TypeScript SDK to: {output_dir}\n")
+
+    try:
+        generator = TypeScriptGenerator(api_parser, output_dir)
+
+        # Generate filtered namespaces only
+        generated = 0
+        for ns, endpoints in sorted(namespaces.items()):
+            content = generator.generate_namespace(ns, endpoints)
+            generator._write_namespace(ns, content)
+            generated += 1
+            if verbose:
+                print(f"  Generated: {ns}.ts ({len(endpoints)} endpoints)")
+            else:
+                print(f"  {ns}.ts")
+
+        print(f"\nGenerated {generated} TypeScript namespace file(s)")
+        return 0
+
+    except Exception as e:
+        print(f"Error generating TypeScript SDK: {e}", file=sys.stderr)
         return 1
 
 

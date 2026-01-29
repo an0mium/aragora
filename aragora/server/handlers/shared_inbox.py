@@ -972,6 +972,7 @@ async def handle_add_message_to_inbox(
 # =============================================================================
 
 
+@require_permission("inbox:rules:manage")
 async def handle_create_routing_rule(
     workspace_id: str,
     name: str,
@@ -1086,6 +1087,7 @@ async def handle_create_routing_rule(
         }
 
 
+@require_permission("inbox:read")
 async def handle_list_routing_rules(
     workspace_id: str,
     enabled_only: bool = False,
@@ -1181,6 +1183,7 @@ async def handle_list_routing_rules(
         }
 
 
+@require_permission("inbox:rules:manage")
 async def handle_update_routing_rule(
     rule_id: str,
     updates: Dict[str, Any],
