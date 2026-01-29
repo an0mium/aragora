@@ -14,6 +14,7 @@ This validates the core product value proposition end-to-end.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 from datetime import datetime, timezone
@@ -52,6 +53,12 @@ def get_status(result: HandlerResult) -> int:
     if result is None:
         return 404
     return result.status_code
+
+
+def maybe_await(result):
+    if asyncio.iscoroutine(result):
+        return asyncio.run(result)
+    return result
 
 
 def create_mock_request(
@@ -269,7 +276,7 @@ class TestCompleteUserSignupFlow:
         }
 
         request = create_mock_request(body=login_data, path="/api/v1/auth/login")
-        result = auth_handler.handle(request.path, {}, request)
+        result = maybe_await(auth_handler.handle(request.path, {}, request))
 
         status = get_status(result)
         body = get_body(result)
@@ -300,7 +307,7 @@ class TestCompleteUserSignupFlow:
             path="/api/v1/auth/me",
         )
 
-        result = auth_handler.handle(request.path, {}, request)
+        result = maybe_await(auth_handler.handle(request.path, {}, request))
         body = get_body(result)
 
         # Should get user info or valid response

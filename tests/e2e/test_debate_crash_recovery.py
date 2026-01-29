@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import tempfile
 import uuid
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -117,22 +116,19 @@ async def create_test_checkpoint(
     from aragora.debate.checkpoint import CheckpointStatus, DebateCheckpoint
 
     checkpoint = DebateCheckpoint(
+        checkpoint_id=f"chk-{uuid.uuid4().hex[:8]}",
         debate_id=debate_id,
+        task="Test debate task",
         current_round=round_num,
         total_rounds=5,
         phase=phase,
-        message_history=messages,
+        messages=messages,
         critiques=critiques or [],
         votes=votes or [],
+        agent_states=[],
         current_consensus=None,
         consensus_confidence=0.0,
-        environment_state={"task": "Test debate task"},
-        agent_states={},
-        metadata={
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "checkpointed_by": "test",
-        },
-        status=CheckpointStatus.VALID,
+        status=CheckpointStatus.COMPLETE,
     )
 
     await store.save(checkpoint)
@@ -163,12 +159,12 @@ class TestProposalPhaseCrashRecovery:
         )
 
         # Verify checkpoint was saved
-        loaded = await checkpoint_store.load(debate_id)
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert loaded is not None
         assert loaded.debate_id == debate_id
         assert loaded.phase == "proposal"
         assert loaded.current_round == 1
-        assert len(loaded.message_history) == 0
+        assert len(loaded.messages) == 0
 
     async def test_crash_after_partial_proposals_preserves_state(self, checkpoint_store):
         """Test crash when 2/3 agents have proposed preserves completed work."""
@@ -189,10 +185,10 @@ class TestProposalPhaseCrashRecovery:
         )
 
         # Verify state is preserved
-        loaded = await checkpoint_store.load(debate_id)
-        assert len(loaded.message_history) == 2
-        assert loaded.message_history[0]["agent"] == "claude"
-        assert loaded.message_history[1]["agent"] == "gpt4"
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
+        assert len(loaded.messages) == 2
+        assert loaded.messages[0]["agent"] == "claude"
+        assert loaded.messages[1]["agent"] == "gpt4"
 
     async def test_crash_during_later_round_preserves_history(self, checkpoint_store):
         """Test crash during round 3 preserves rounds 1-2 completely."""
@@ -216,12 +212,12 @@ class TestProposalPhaseCrashRecovery:
             messages=messages,
         )
 
-        loaded = await checkpoint_store.load(debate_id)
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert loaded.current_round == 3
-        assert len(loaded.message_history) == 6
+        assert len(loaded.messages) == 6
         # Round 1 and 2 messages preserved
-        round_1_msgs = [m for m in loaded.message_history if m["round"] == 1]
-        round_2_msgs = [m for m in loaded.message_history if m["round"] == 2]
+        round_1_msgs = [m for m in loaded.messages if m["round"] == 1]
+        round_2_msgs = [m for m in loaded.messages if m["round"] == 2]
         assert len(round_1_msgs) == 3
         assert len(round_2_msgs) == 3
 
@@ -262,7 +258,7 @@ class TestCritiquePhaseCrashRecovery:
             critiques=critiques,
         )
 
-        loaded = await checkpoint_store.load(debate_id)
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert loaded.phase == "critique"
         assert len(loaded.critiques) == 1
         assert loaded.critiques[0]["critic"] == "claude"
@@ -300,7 +296,7 @@ class TestCritiquePhaseCrashRecovery:
             critiques=detailed_critiques,
         )
 
-        loaded = await checkpoint_store.load(debate_id)
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert len(loaded.critiques) == 2
 
         # Verify first critique details
@@ -336,7 +332,7 @@ class TestVotingPhaseCrashRecovery:
             votes=votes,
         )
 
-        loaded = await checkpoint_store.load(debate_id)
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
         assert loaded.phase == "vote"
         assert len(loaded.votes) == 2
         assert loaded.votes[0]["agent"] == "claude"
@@ -469,15 +465,17 @@ class TestEndToEndCrashRecoveryFlow:
             )
 
         # List all checkpoints
-        all_checkpoints = await checkpoint_store.list_all()
+        all_checkpoints = await checkpoint_store.list_checkpoints()
         assert len(all_checkpoints) >= 3
 
-        # Delete one
-        await checkpoint_store.delete(debate_ids[0])
+        # Delete one checkpoint by ID
+        first_checkpoint_id = all_checkpoints[0]["checkpoint_id"]
+        await checkpoint_store.delete(first_checkpoint_id)
 
         # Verify deletion
-        remaining = await checkpoint_store.list_all()
-        assert debate_ids[0] not in remaining
+        remaining = await checkpoint_store.list_checkpoints()
+        remaining_ids = {c["checkpoint_id"] for c in remaining}
+        assert first_checkpoint_id not in remaining_ids
 
     async def test_checkpoint_metadata_preserved(self, checkpoint_store):
         """Test that custom metadata is preserved across save/load."""
@@ -491,20 +489,18 @@ class TestEndToEndCrashRecoveryFlow:
             messages=[],
         )
 
-        # Add custom metadata
-        checkpoint.metadata["custom_field"] = "custom_value"
-        checkpoint.metadata["recovery_count"] = 2
+        # Add custom state
+        checkpoint.convergence_status = "stalled"
+        checkpoint.claims_kernel_state = {"claims": 2}
         await checkpoint_store.save(checkpoint)
 
         # Reload and verify
-        loaded = await checkpoint_store.load(debate_id)
-        assert loaded.metadata.get("custom_field") == "custom_value"
-        assert loaded.metadata.get("recovery_count") == 2
+        loaded = await checkpoint_store.load(checkpoint.checkpoint_id)
+        assert loaded.convergence_status == "stalled"
+        assert loaded.claims_kernel_state == {"claims": 2}
 
     async def test_multiple_checkpoints_per_debate(self, checkpoint_store):
         """Test that multiple checkpoint versions can coexist."""
-        from aragora.debate.checkpoint import CheckpointStatus
-
         debate_id = str(uuid.uuid4())
 
         # Create initial checkpoint
@@ -517,15 +513,16 @@ class TestEndToEndCrashRecoveryFlow:
         )
 
         # Get checkpoint ID
-        loaded1 = await checkpoint_store.load(debate_id)
-        version1_hash = loaded1.compute_hash()
-
+        loaded1 = await checkpoint_store.load(cp1.checkpoint_id)
         # Update to round 2
         loaded1.current_round = 2
-        loaded1.message_history.append({"agent": "a2", "content": "m2", "round": 2})
+        loaded1.messages.append({"agent": "a2", "content": "m2", "round": 2})
+        # Recompute checksum after mutation to keep integrity checks valid
+        loaded1.checksum = loaded1._compute_checksum()
         await checkpoint_store.save(loaded1)
 
         # Verify update
-        loaded2 = await checkpoint_store.load(debate_id)
+        loaded2 = await checkpoint_store.load(cp1.checkpoint_id)
         assert loaded2.current_round == 2
-        assert len(loaded2.message_history) == 2
+        assert len(loaded2.messages) == 2
+        assert loaded2.verify_integrity()

@@ -27,6 +27,24 @@ from tests.e2e.conftest import DebateSetup, MockAgentResponse
 
 
 # ============================================================================
+# Fixtures
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _isolate_origin_store(tmp_path, monkeypatch):
+    """Isolate debate origin storage per test to avoid cross-test leakage."""
+    monkeypatch.setenv("ARAGORA_DATA_DIR", str(tmp_path))
+    import aragora.server.debate_origin as debate_origin
+
+    debate_origin._origin_store.clear()
+    debate_origin._sqlite_store = None
+    yield
+    debate_origin._origin_store.clear()
+    debate_origin._sqlite_store = None
+
+
+# ============================================================================
 # Debate Origin Registration Tests
 # ============================================================================
 

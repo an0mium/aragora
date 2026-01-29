@@ -236,6 +236,7 @@ class TestRateLimitIntegration:
         """Memory handler should enforce rate limits."""
         from aragora.server.handlers.memory.memory import MemoryHandler
         from aragora.server.handlers.memory import memory
+        from aragora.rbac.models import AuthorizationContext
 
         # Clear limiters
         memory._retrieve_limiter._buckets.clear()
@@ -247,11 +248,17 @@ class TestRateLimitIntegration:
         http_handler = MagicMock()
         http_handler.client_address = ("192.168.1.200", 12345)
         http_handler.headers = {}
+        http_handler._auth_context = AuthorizationContext(
+            user_id="test-user",
+            org_id="test-org",
+            roles={"admin"},
+            permissions={"memory:read", "memory:write", "*"},
+        )
 
         # Make many requests to trigger rate limit
         results = []
         for _ in range(70):  # More than 60/min limit
-            result = handler.handle("/api/memory/continuum/retrieve", {}, http_handler)
+            result = handler.handle("/api/v1/memory/continuum/retrieve", {}, http_handler)
             if result:
                 results.append(result.status_code)
 
