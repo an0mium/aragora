@@ -764,7 +764,10 @@ class TestOIDCDiscoveryDocument:
         provider = OIDCProvider(oidc_config)
         provider._http_client = mock_http_client
 
-        with patch.object(provider, "issuer", "https://idp.example.com"):
+        with patch(
+            "aragora.server.handlers.oauth_providers.oidc._get_secret",
+            return_value="https://idp.example.com",
+        ):
             discovery = provider._get_discovery()
 
         mock_http_client.get.assert_called_once_with(
@@ -787,7 +790,10 @@ class TestOIDCDiscoveryDocument:
         """Should raise ValueError when issuer not configured."""
         provider = OIDCProvider(oidc_config)
 
-        with patch.object(provider, "issuer", ""):
+        with patch(
+            "aragora.server.handlers.oauth_providers.oidc._get_secret",
+            return_value="",
+        ):
             with pytest.raises(ValueError) as exc_info:
                 provider._get_discovery()
             assert "OIDC_ISSUER not configured" in str(exc_info.value)
@@ -799,7 +805,10 @@ class TestOIDCDiscoveryDocument:
         provider = OIDCProvider(oidc_config)
         provider._http_client = mock_http_client
 
-        with patch.object(provider, "issuer", "https://idp.example.com"):
+        with patch(
+            "aragora.server.handlers.oauth_providers.oidc._get_secret",
+            return_value="https://idp.example.com",
+        ):
             with pytest.raises(ValueError) as exc_info:
                 provider._get_discovery()
             assert "Failed to fetch OIDC discovery" in str(exc_info.value)
@@ -1264,26 +1273,33 @@ class TestInvalidTokenSignature:
 class TestExpiredTokens:
     """Tests for expired token handling."""
 
-    @patch("aragora.server.handlers.oauth_providers.apple.jwt")
-    def test_apple_expired_token(self, mock_jwt, apple_config):
+    def test_apple_expired_token(self, apple_config, mock_http_client):
         """Should raise ValueError for expired Apple ID token."""
-        import jwt as real_jwt
+        import jwt
 
-        mock_jwt.get_unverified_header.return_value = {"kid": "test_key", "alg": "RS256"}
-        mock_jwt.decode.side_effect = real_jwt.ExpiredSignatureError("Token expired")
-        mock_jwt.ExpiredSignatureError = real_jwt.ExpiredSignatureError
-        mock_jwt.exceptions = real_jwt.exceptions
-        mock_jwt.PyJWK = MagicMock()
+        # Create a mock signing key
+        mock_key = MagicMock()
+        mock_key.key = MagicMock()
 
         provider = AppleOAuthProvider(apple_config)
-        AppleOAuthProvider._jwks_cache = {"keys": [{"kid": "test_key", "kty": "RSA"}]}
+        provider._http_client = mock_http_client
 
-        with pytest.raises(ValueError) as exc_info:
-            provider._verify_id_token("expired.token.here")
-        assert "expired" in str(exc_info.value).lower()
+        # Set up JWKS cache
+        AppleOAuthProvider._jwks_cache = {"keys": [{"kid": "test_key", "kty": "RSA", "use": "sig"}]}
+        AppleOAuthProvider._jwks_cache_expiry = time.time() + 3600
+
+        # Mock the _get_signing_key to return a mock key
+        with patch.object(provider, "_get_signing_key", return_value=(mock_key.key, "RS256")):
+            # Mock jwt.decode to raise ExpiredSignatureError - patch on jwt module
+            with patch.object(jwt, "decode") as mock_decode:
+                mock_decode.side_effect = jwt.ExpiredSignatureError("Token expired")
+                with pytest.raises(ValueError) as exc_info:
+                    provider._verify_id_token("expired.token.here")
+                assert "expired" in str(exc_info.value).lower()
 
         # Clean up
         AppleOAuthProvider._jwks_cache = None
+        AppleOAuthProvider._jwks_cache_expiry = 0
 
 
 class TestMissingRequiredClaims:
@@ -1343,7 +1359,10 @@ class TestNetworkFailures:
         provider = OIDCProvider(oidc_config)
         provider._http_client = mock_http_client
 
-        with patch.object(provider, "issuer", "https://idp.example.com"):
+        with patch(
+            "aragora.server.handlers.oauth_providers.oidc._get_secret",
+            return_value="https://idp.example.com",
+        ):
             with pytest.raises(ValueError) as exc_info:
                 provider._get_discovery()
             assert "Failed to fetch OIDC discovery" in str(exc_info.value)
