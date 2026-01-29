@@ -277,7 +277,7 @@ def get_knowledge_mound(
                     # Can't await in running loop; schedule initialization task once
                     init_task = getattr(_knowledge_mound_instance, "_init_task", None)
                     if init_task is None or getattr(init_task, "done", lambda: True)():
-                        _knowledge_mound_instance._init_task = loop.create_task(
+                        _knowledge_mound_instance._init_task = loop.create_task(  # type: ignore[attr-defined]
                             _knowledge_mound_instance.initialize()
                         )
                         logger.debug(
