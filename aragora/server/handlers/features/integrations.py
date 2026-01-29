@@ -2,12 +2,12 @@
 Integration API Handler.
 
 Provides REST API endpoints for chat platform integration management:
-- GET    /api/integrations/status       - Get status of all integrations
-- GET    /api/integrations/:type        - Get configuration for specific integration
-- PUT    /api/integrations/:type        - Configure/update integration
-- PATCH  /api/integrations/:type        - Partial update (enable/disable)
-- DELETE /api/integrations/:type        - Remove integration configuration
-- POST   /api/integrations/:type/test   - Test integration connection
+- GET    /api/v1/integrations/status       - Get status of all integrations
+- GET    /api/v1/integrations/:type        - Get configuration for specific integration
+- PUT    /api/v1/integrations/:type        - Configure/update integration
+- PATCH  /api/v1/integrations/:type        - Partial update (enable/disable)
+- DELETE /api/v1/integrations/:type        - Remove integration configuration
+- POST   /api/v1/integrations/:type/test   - Test integration connection
 
 Supported integration types:
 - slack, discord, telegram, email, teams, whatsapp, matrix
@@ -28,6 +28,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
+from aragora.server.versioning.compat import strip_version_prefix
 from aragora.storage.integration_store import (
     IntegrationConfig,
     VALID_INTEGRATION_TYPES,
@@ -117,6 +118,27 @@ class IntegrationsHandler(SecureHandler):
     """
 
     RESOURCE_TYPE = "integration"
+    ROUTES = [
+        "/api/v1/integrations",
+        "/api/v1/integrations/status",
+        "/api/v1/integrations/available",
+        "/api/v1/integrations/config",
+        "/api/v1/integrations/config/*",
+        "/api/v1/integrations/*",
+        "/api/v1/integrations/*/sync",
+        "/api/v1/integrations/*/test",
+    ]
+
+    def can_handle(self, path: str) -> bool:
+        """Check if this handler can process the given path."""
+        normalized = strip_version_prefix(path)
+        if not normalized.startswith("/api/integrations"):
+            return False
+        # Defer external automation integrations to their handler
+        segments = normalized.strip("/").split("/")
+        if len(segments) >= 3 and segments[2] in {"zapier", "make", "n8n"}:
+            return False
+        return True
 
     async def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
         """Check if user has required permission. Returns error response if denied."""
@@ -128,6 +150,178 @@ class IntegrationsHandler(SecureHandler):
             return error_response("Authentication required", status=401)
         except ForbiddenError as e:
             return error_response(str(e), status=403)
+
+    async def _get_user_id(self, handler: Any) -> tuple[Optional[str], Optional[HandlerResult]]:
+        """Extract user_id from auth context, returning an error response if unauthenticated."""
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+        except UnauthorizedError:
+            return None, error_response("Authentication required", status=401)
+        except ForbiddenError as e:
+            return None, error_response(str(e), status=403)
+        return auth_context.user_id, None
+
+    def _extract_integration_type(
+        self, normalized_path: str
+    ) -> tuple[Optional[str], Optional[HandlerResult]]:
+        """Extract integration type from a normalized /api/integrations path."""
+        segments = normalized_path.strip("/").split("/")
+        if len(segments) < 3:
+            return None, error_response("Integration type is required", status=400)
+        if segments[2] == "config":
+            if len(segments) < 4:
+                return None, error_response("Integration type is required", status=400)
+            return segments[3], None
+        return segments[2], None
+
+    async def handle_get(  # type: ignore[override]
+        self,
+        path: str,
+        query_params: Dict[str, Any],
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle GET requests for integration configuration."""
+        normalized = strip_version_prefix(path)
+        if normalized in ("/api/integrations", "/api/integrations/status"):
+            perm_error = await self._check_permission(handler, INTEGRATION_READ_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            return await self.get_status(user_id=user_id or "default", handler=handler)
+
+        if normalized == "/api/integrations/available":
+            perm_error = await self._check_permission(handler, INTEGRATION_READ_PERMISSION)
+            if perm_error:
+                return perm_error
+            return json_response({"types": list(VALID_INTEGRATION_TYPES)})
+
+        if normalized.startswith("/api/integrations/"):
+            perm_error = await self._check_permission(handler, INTEGRATION_READ_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized)
+            if err:
+                return err
+            return await self.get_integration(integration_type, user_id=user_id or "default")
+
+        return error_response("Not found", status=404)
+
+    async def handle_post(  # type: ignore[override]
+        self,
+        path: str,
+        data: Dict[str, Any],
+        query_params: Optional[Dict[str, Any]] = None,
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle POST requests for integration configuration and tests."""
+        normalized = strip_version_prefix(path)
+        if normalized == "/api/integrations":
+            integration_type = data.get("type")
+            if not integration_type:
+                return error_response("Integration type is required", status=400)
+            perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            return await self.configure_integration(
+                integration_type, data, user_id=user_id or "default"
+            )
+
+        if normalized.endswith("/test"):
+            perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized.rsplit("/test", 1)[0])
+            if err:
+                return err
+            return await self.test_integration(integration_type, user_id=user_id or "default")
+
+        if normalized.endswith("/sync"):
+            perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+            return error_response("Sync not implemented for integrations", status=501)
+
+        return error_response("Not found", status=404)
+
+    async def handle_put(  # type: ignore[override]
+        self,
+        path: str,
+        data: Dict[str, Any],
+        query_params: Optional[Dict[str, Any]] = None,
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle PUT requests for integration configuration."""
+        normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/integrations/"):
+            perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized)
+            if err:
+                return err
+            return await self.configure_integration(
+                integration_type, data, user_id=user_id or "default"
+            )
+        return error_response("Not found", status=404)
+
+    async def handle_patch(  # type: ignore[override]
+        self,
+        path: str,
+        data: Dict[str, Any],
+        query_params: Optional[Dict[str, Any]] = None,
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle PATCH requests for integration configuration."""
+        normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/integrations/"):
+            perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized)
+            if err:
+                return err
+            return await self.update_integration(
+                integration_type, data, user_id=user_id or "default"
+            )
+        return error_response("Not found", status=404)
+
+    async def handle_delete(  # type: ignore[override]
+        self,
+        path: str,
+        query_params: Dict[str, Any],
+        handler: Any = None,
+    ) -> HandlerResult:
+        """Handle DELETE requests for integration configuration."""
+        normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/integrations/"):
+            perm_error = await self._check_permission(handler, INTEGRATION_DELETE_PERMISSION)
+            if perm_error:
+                return perm_error
+            user_id, auth_error = await self._get_user_id(handler)
+            if auth_error:
+                return auth_error
+            integration_type, err = self._extract_integration_type(normalized)
+            if err:
+                return err
+            return await self.delete_integration(integration_type, user_id=user_id or "default")
+        return error_response("Not found", status=404)
 
     async def get_status(self, user_id: str = "default", handler: Any = None) -> HandlerResult:
         """Get status of all integrations.
@@ -475,7 +669,7 @@ class IntegrationsHandler(SecureHandler):
             elif integration_type == "telegram":
                 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
-                telegram_integration: ConnectionIntegration = TelegramIntegration(
+                telegram_integration = TelegramIntegration(
                     TelegramConfig(
                         bot_token=settings.get("bot_token", ""),
                         chat_id=settings.get("chat_id", ""),

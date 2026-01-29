@@ -137,6 +137,22 @@ class TelegramIntegration:
         if self._session and not self._session.closed:
             await self._session.close()
 
+    async def verify_connection(self) -> bool:
+        """Verify Telegram connection by testing API access."""
+        if not self.config.bot_token:
+            return False
+        try:
+            session = await self._get_session()
+            url = f"{self.config.api_base}/getMe"
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("ok", False)
+                return False
+        except Exception as e:
+            logger.warning(f"Telegram verification failed: {e}")
+            return False
+
     def _check_rate_limit(self) -> bool:
         """Check if we're within rate limits."""
         now = datetime.now()
