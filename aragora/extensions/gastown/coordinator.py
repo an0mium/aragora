@@ -435,7 +435,7 @@ class Coordinator:
         hook_stats = await self._hook_runner.get_stats()
 
         async with self._lock:
-            ledger_by_type = {}
+            ledger_by_type: dict[str, int] = {}
             for entry in self._ledger.values():
                 ledger_by_type[entry.type] = ledger_by_type.get(entry.type, 0) + 1
 

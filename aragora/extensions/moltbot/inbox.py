@@ -403,8 +403,8 @@ class InboxManager:
     async def get_stats(self) -> dict[str, Any]:
         """Get inbox statistics."""
         async with self._lock:
-            by_channel = {}
-            by_status = {}
+            by_channel: dict[str, int] = {}
+            by_status: dict[str, int] = {}
             inbound = 0
             outbound = 0
 

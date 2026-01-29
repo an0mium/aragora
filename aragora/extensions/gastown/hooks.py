@@ -432,7 +432,7 @@ class HookRunner:
     async def get_stats(self) -> dict[str, Any]:
         """Get hook runner statistics."""
         async with self._lock:
-            by_type = {}
+            by_type: dict[str, int] = {}
             total_triggers = 0
             enabled_count = 0
 

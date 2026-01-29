@@ -575,7 +575,7 @@ class ConvoyTracker:
         """Get convoy tracker statistics."""
         async with self._lock:
             convoys = await self.list_convoys()
-            by_status = {}
+            by_status: dict[str, int] = {}
             for convoy in convoys:
                 status = convoy.status.value
                 by_status[status] = by_status.get(status, 0) + 1

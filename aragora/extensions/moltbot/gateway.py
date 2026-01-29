@@ -426,7 +426,7 @@ class LocalGateway:
             offline = sum(1 for d in self._devices.values() if d.status == "offline")
             error = sum(1 for d in self._devices.values() if d.status == "error")
 
-            by_type = {}
+            by_type: dict[str, int] = {}
             total_messages = 0
             total_errors = 0
 

@@ -563,7 +563,7 @@ class VoiceWakeManager:
                 intent = cmd.intent or "unknown"
                 commands_by_intent[intent] = commands_by_intent.get(intent, 0) + 1
 
-            states_count = {}
+            states_count: dict[str, int] = {}
             for state in self._device_states.values():
                 states_count[state.value] = states_count.get(state.value, 0) + 1
 

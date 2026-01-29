@@ -676,7 +676,7 @@ class CanvasManager:
             total_layers = len(self._layers)
             active_users = sum(len(c.active_users) for c in self._canvases.values())
 
-            by_type = {}
+            by_type: dict[str, int] = {}
             for element in self._elements.values():
                 t = element.type.value
                 by_type[t] = by_type.get(t, 0) + 1
