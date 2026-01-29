@@ -1064,3 +1064,441 @@ class TestThreadSafety:
         # All should have unique IDs
         ids = [r["inbox"]["id"] for r in results]
         assert len(set(ids)) == 5
+
+
+# =============================================================================
+# Participant Handling Tests
+# =============================================================================
+
+
+class TestParticipantHandling:
+    """Tests for team member and admin participant handling."""
+
+    @pytest.mark.asyncio
+    async def test_inbox_team_members_list(self, sample_inbox):
+        """Should store and return team members correctly."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
+
+        assert result["success"] is True
+        assert "user1" in result["inbox"]["team_members"]
+        assert "user2" in result["inbox"]["team_members"]
+
+    @pytest.mark.asyncio
+    async def test_inbox_admins_list(self, sample_inbox):
+        """Should store and return admins correctly."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
+
+        assert result["success"] is True
+        assert "admin1" in result["inbox"]["admins"]
+
+    @pytest.mark.asyncio
+    async def test_admin_can_access_inbox(self, sample_inbox):
+        """Admin should be able to access the inbox."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_list_shared_inboxes(
+                workspace_id="ws_test",
+                user_id="admin1",
+            )
+
+        assert result["success"] is True
+        assert len(result["inboxes"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_create_inbox_without_team_members(self, clean_inbox_state):
+        """Should create inbox with empty team members list."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_create_shared_inbox(
+                workspace_id="ws_test",
+                name="Empty Team Inbox",
+            )
+
+        assert result["success"] is True
+        assert result["inbox"]["team_members"] == []
+        assert result["inbox"]["admins"] == []
+
+
+# =============================================================================
+# Message Routing Tests
+# =============================================================================
+
+
+class TestMessageRouting:
+    """Tests for message routing with different conditions."""
+
+    @pytest.fixture
+    def routing_rule_from_domain(self, clean_inbox_state):
+        """Create a routing rule that matches sender domain."""
+        now = datetime.now(timezone.utc)
+        rule = RoutingRule(
+            id="rule_domain",
+            name="Internal Domain Rule",
+            workspace_id="ws_test",
+            conditions=[
+                RuleCondition(
+                    field=RuleConditionField.SENDER_DOMAIN,
+                    operator=RuleConditionOperator.EQUALS,
+                    value="company.com",
+                )
+            ],
+            condition_logic="AND",
+            actions=[
+                RuleAction(type=RuleActionType.LABEL, target="internal"),
+            ],
+            priority=2,
+            enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+        with _storage_lock:
+            _routing_rules[rule.id] = rule
+        return rule
+
+    @pytest.fixture
+    def routing_rule_assign(self, clean_inbox_state):
+        """Create a routing rule that assigns to a user."""
+        now = datetime.now(timezone.utc)
+        rule = RoutingRule(
+            id="rule_assign",
+            name="Assign to Support",
+            workspace_id="ws_test",
+            conditions=[
+                RuleCondition(
+                    field=RuleConditionField.SUBJECT,
+                    operator=RuleConditionOperator.CONTAINS,
+                    value="support",
+                )
+            ],
+            condition_logic="AND",
+            actions=[
+                RuleAction(type=RuleActionType.ASSIGN, target="support_user"),
+            ],
+            priority=1,
+            enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+        with _storage_lock:
+            _routing_rules[rule.id] = rule
+        return rule
+
+    @pytest.mark.asyncio
+    async def test_route_by_sender_domain(self, sample_inbox, routing_rule_from_domain):
+        """Should route messages based on sender domain."""
+        now = datetime.now(timezone.utc)
+        message = SharedInboxMessage(
+            id="msg_domain_test",
+            inbox_id=sample_inbox.id,
+            email_id="email_domain",
+            subject="Internal Update",
+            from_address="employee@company.com",
+            to_addresses=["inbox@example.com"],
+            snippet="Internal update...",
+            received_at=now,
+        )
+        with _storage_lock:
+            _inbox_messages[sample_inbox.id][message.id] = message
+
+        result = await apply_routing_rules_to_message(
+            inbox_id=sample_inbox.id,
+            message=message,
+            workspace_id="ws_test",
+        )
+
+        assert result["applied"] is True
+        assert "internal" in message.tags
+
+    @pytest.mark.asyncio
+    async def test_route_with_assign_action(self, sample_inbox, routing_rule_assign):
+        """Should assign message to user based on routing rule."""
+        now = datetime.now(timezone.utc)
+        message = SharedInboxMessage(
+            id="msg_assign_test",
+            inbox_id=sample_inbox.id,
+            email_id="email_support",
+            subject="Need support help",
+            from_address="customer@example.com",
+            to_addresses=["inbox@example.com"],
+            snippet="I need support...",
+            received_at=now,
+        )
+        with _storage_lock:
+            _inbox_messages[sample_inbox.id][message.id] = message
+
+        result = await apply_routing_rules_to_message(
+            inbox_id=sample_inbox.id,
+            message=message,
+            workspace_id="ws_test",
+        )
+
+        assert result["applied"] is True
+        assert message.assigned_to == "support_user"
+        assert message.status == MessageStatus.ASSIGNED
+
+    @pytest.mark.asyncio
+    async def test_route_with_or_condition(self, sample_inbox, clean_inbox_state):
+        """Should match messages using OR condition logic."""
+        now = datetime.now(timezone.utc)
+        rule = RoutingRule(
+            id="rule_or",
+            name="Urgent OR High Priority",
+            workspace_id="ws_test",
+            conditions=[
+                RuleCondition(
+                    field=RuleConditionField.SUBJECT,
+                    operator=RuleConditionOperator.CONTAINS,
+                    value="urgent",
+                ),
+                RuleCondition(
+                    field=RuleConditionField.PRIORITY,
+                    operator=RuleConditionOperator.EQUALS,
+                    value="high",
+                ),
+            ],
+            condition_logic="OR",
+            actions=[
+                RuleAction(type=RuleActionType.LABEL, target="priority"),
+            ],
+            priority=1,
+            enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+        with _storage_lock:
+            _routing_rules[rule.id] = rule
+
+        # Message matches first condition only
+        message = SharedInboxMessage(
+            id="msg_or_test",
+            inbox_id=sample_inbox.id,
+            email_id="email_or",
+            subject="This is urgent!",
+            from_address="user@example.com",
+            to_addresses=["inbox@example.com"],
+            snippet="...",
+            received_at=now,
+            priority="normal",  # Second condition doesn't match
+        )
+        with _storage_lock:
+            _inbox_messages[sample_inbox.id][message.id] = message
+
+        result = await apply_routing_rules_to_message(
+            inbox_id=sample_inbox.id,
+            message=message,
+            workspace_id="ws_test",
+        )
+
+        assert result["applied"] is True
+        assert "priority" in message.tags
+
+
+# =============================================================================
+# Additional Error Handling Tests
+# =============================================================================
+
+
+class TestExtendedErrorHandling:
+    """Extended error handling tests for edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_assign_to_inbox_not_found(self, clean_inbox_state):
+        """Should fail to assign message when inbox doesn't exist."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_assign_message(
+                inbox_id="nonexistent_inbox",
+                message_id="msg_123",
+                assigned_to="user1",
+            )
+
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_add_tag_to_nonexistent_message(self, sample_inbox):
+        """Should fail to add tag when message doesn't exist."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_add_message_tag(
+                inbox_id=sample_inbox.id,
+                message_id="nonexistent_msg",
+                tag="important",
+            )
+
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_update_status_nonexistent_message(self, sample_inbox):
+        """Should fail to update status when message doesn't exist."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_update_message_status(
+                inbox_id=sample_inbox.id,
+                message_id="nonexistent_msg",
+                status="resolved",
+            )
+
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+
+# =============================================================================
+# Handler Methods Validation Tests
+# =============================================================================
+
+
+class TestHandlerMethodValidation:
+    """Tests for handler method parameter validation."""
+
+    @pytest.mark.asyncio
+    async def test_post_assign_requires_assigned_to(self, shared_inbox_handler, sample_inbox):
+        """POST assign should require assigned_to field."""
+        result = await shared_inbox_handler.handle_post_assign_message(
+            data={},
+            inbox_id=sample_inbox.id,
+            message_id="msg_123",
+        )
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_post_status_requires_status(self, shared_inbox_handler, sample_inbox):
+        """POST status should require status field."""
+        result = await shared_inbox_handler.handle_post_update_status(
+            data={},
+            inbox_id=sample_inbox.id,
+            message_id="msg_123",
+        )
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_post_tag_requires_tag(self, shared_inbox_handler, sample_inbox):
+        """POST tag should require tag field."""
+        result = await shared_inbox_handler.handle_post_add_tag(
+            data={},
+            inbox_id=sample_inbox.id,
+            message_id="msg_123",
+        )
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_post_test_rule_requires_workspace_id(self, shared_inbox_handler):
+        """POST test rule should require workspace_id."""
+        result = await shared_inbox_handler.handle_post_test_routing_rule(
+            data={},
+            rule_id="rule_123",
+        )
+        assert result.status_code == 400
+
+
+# =============================================================================
+# Inbox Message Counts Tests
+# =============================================================================
+
+
+class TestInboxMessageCounts:
+    """Tests for inbox message and unread counts."""
+
+    @pytest.mark.asyncio
+    async def test_inbox_message_count_updated(self, sample_inbox, sample_message):
+        """Should update message count when getting inbox."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
+
+        assert result["success"] is True
+        assert result["inbox"]["message_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_inbox_unread_count_updated(self, sample_inbox, sample_message):
+        """Should update unread count based on open messages."""
+        # sample_message has status=OPEN
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
+
+        assert result["success"] is True
+        assert result["inbox"]["unread_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_unread_count_decreases_when_assigned(self, sample_inbox, sample_message):
+        """Unread count should decrease when message is assigned."""
+        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            with patch("aragora.server.handlers.shared_inbox._log_activity", return_value=None):
+                # Assign the message (changes status from OPEN to ASSIGNED)
+                await handle_assign_message(
+                    inbox_id=sample_inbox.id,
+                    message_id=sample_message.id,
+                    assigned_to="user1",
+                )
+
+                # Check inbox counts
+                result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
+
+        assert result["inbox"]["unread_count"] == 0
+
+
+# =============================================================================
+# Rule Priority Tests
+# =============================================================================
+
+
+class TestRulePriority:
+    """Tests for routing rule priority ordering."""
+
+    @pytest.mark.asyncio
+    async def test_rules_sorted_by_priority(self, clean_inbox_state):
+        """Rules should be returned sorted by priority."""
+        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+            # Create rules with different priorities
+            await handle_create_routing_rule(
+                workspace_id="ws_test",
+                name="Low Priority",
+                conditions=[{"field": "subject", "operator": "contains", "value": "test"}],
+                actions=[{"type": "label", "target": "low"}],
+                priority=10,
+            )
+            await handle_create_routing_rule(
+                workspace_id="ws_test",
+                name="High Priority",
+                conditions=[{"field": "subject", "operator": "contains", "value": "test"}],
+                actions=[{"type": "label", "target": "high"}],
+                priority=1,
+            )
+            await handle_create_routing_rule(
+                workspace_id="ws_test",
+                name="Medium Priority",
+                conditions=[{"field": "subject", "operator": "contains", "value": "test"}],
+                actions=[{"type": "label", "target": "medium"}],
+                priority=5,
+            )
+
+            result = await handle_list_routing_rules(workspace_id="ws_test")
+
+        assert result["success"] is True
+        priorities = [r["priority"] for r in result["rules"]]
+        assert priorities == sorted(priorities)  # Should be ascending
+
+
+# =============================================================================
+# Handler User ID Extraction Tests
+# =============================================================================
+
+
+class TestHandlerUserIdExtraction:
+    """Tests for user ID extraction from handler context."""
+
+    def test_get_user_id_from_context(self, shared_inbox_handler):
+        """Should extract user ID from auth context."""
+        user_id = shared_inbox_handler._get_user_id()
+        assert user_id == "test_user"
+
+    def test_get_user_id_fallback_to_default(self):
+        """Should fallback to 'default' when no auth context."""
+        ctx = {}
+        handler = SharedInboxHandler(ctx)
+        user_id = handler._get_user_id()
+        assert user_id == "default"
+
+    def test_get_user_id_with_none_context(self):
+        """Should handle None auth context gracefully."""
+        ctx = {"auth_context": None}
+        handler = SharedInboxHandler(ctx)
+        user_id = handler._get_user_id()
+        assert user_id == "default"

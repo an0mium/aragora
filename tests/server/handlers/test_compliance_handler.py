@@ -1777,3 +1777,749 @@ class TestAuditTrailEdgeCases:
         )
 
         assert result.status_code == 404
+
+
+# ===========================================================================
+# User ID Extraction Tests
+# ===========================================================================
+
+
+class TestUserIdExtraction:
+    """Test user ID extraction from headers."""
+
+    def test_extract_user_id_no_headers(self):
+        """Test extraction with no headers returns default."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers(None)
+        assert result == "compliance_api"
+
+    def test_extract_user_id_empty_headers(self):
+        """Test extraction with empty headers returns default."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers({})
+        assert result == "compliance_api"
+
+    def test_extract_user_id_no_auth_header(self):
+        """Test extraction without Authorization header returns default."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers({"Content-Type": "application/json"})
+        assert result == "compliance_api"
+
+    def test_extract_user_id_invalid_auth_header(self):
+        """Test extraction with invalid Authorization header format."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers({"Authorization": "Basic xyz"})
+        assert result == "compliance_api"
+
+    def test_extract_user_id_api_key_format(self):
+        """Test extraction with API key format (ara_xxx)."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers({"Authorization": "Bearer ara_1234567890abcdef"})
+        assert result.startswith("api_key:")
+        assert "ara_12345678" in result
+
+    def test_extract_user_id_lowercase_authorization(self):
+        """Test extraction with lowercase authorization header."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        result = _extract_user_id_from_headers({"authorization": "Bearer ara_testkey123"})
+        assert result.startswith("api_key:")
+
+    def test_extract_user_id_jwt_token_import_error(self):
+        """Test extraction with JWT token when validation fails."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        # JWT tokens that aren't ara_ prefixed will try to validate
+        with patch(
+            "aragora.server.handlers.compliance_handler.validate_access_token",
+            side_effect=ImportError("Module not found"),
+        ):
+            result = _extract_user_id_from_headers({"Authorization": "Bearer some.jwt.token"})
+            assert result == "compliance_api"
+
+    def test_extract_user_id_jwt_token_valid(self):
+        """Test extraction with valid JWT token."""
+        from aragora.server.handlers.compliance_handler import (
+            _extract_user_id_from_headers,
+        )
+
+        mock_payload = MagicMock()
+        mock_payload.user_id = "user-from-jwt-123"
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.validate_access_token",
+            return_value=mock_payload,
+        ):
+            result = _extract_user_id_from_headers({"Authorization": "Bearer valid.jwt.token"})
+            assert result == "user-from-jwt-123"
+
+
+# ===========================================================================
+# Timestamp Parsing Tests
+# ===========================================================================
+
+
+class TestTimestampParsing:
+    """Test timestamp parsing functionality."""
+
+    def test_parse_timestamp_none(self, handler):
+        """Test parsing None timestamp returns None."""
+        result = handler._parse_timestamp(None)
+        assert result is None
+
+    def test_parse_timestamp_empty_string(self, handler):
+        """Test parsing empty string returns None."""
+        result = handler._parse_timestamp("")
+        assert result is None
+
+    def test_parse_timestamp_unix_epoch(self, handler):
+        """Test parsing unix timestamp."""
+        result = handler._parse_timestamp("1704067200")
+        assert result is not None
+        assert result.year == 2024
+
+    def test_parse_timestamp_unix_float(self, handler):
+        """Test parsing unix timestamp as float."""
+        result = handler._parse_timestamp("1704067200.123")
+        assert result is not None
+
+    def test_parse_timestamp_iso_format(self, handler):
+        """Test parsing ISO format timestamp."""
+        result = handler._parse_timestamp("2025-01-01T00:00:00Z")
+        assert result is not None
+        assert result.year == 2025
+        assert result.month == 1
+
+    def test_parse_timestamp_iso_format_with_timezone(self, handler):
+        """Test parsing ISO format with timezone offset."""
+        result = handler._parse_timestamp("2025-06-15T12:30:00+00:00")
+        assert result is not None
+        assert result.month == 6
+        assert result.day == 15
+
+    def test_parse_timestamp_invalid_format(self, handler):
+        """Test parsing invalid timestamp returns None."""
+        result = handler._parse_timestamp("not-a-timestamp")
+        assert result is None
+
+    def test_parse_timestamp_partial_date(self, handler):
+        """Test parsing partial date format returns None."""
+        result = handler._parse_timestamp("2025-01")
+        assert result is None
+
+
+# ===========================================================================
+# Permission Denied Tests
+# ===========================================================================
+
+
+class TestPermissionDenied:
+    """Test RBAC permission denied scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_permission_denied_status_endpoint(self, mock_server_context):
+        """Test permission denied on status endpoint."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=MagicMock(),
+            ),
+        ):
+            handler = ComplianceHandler(mock_server_context)
+
+            # Mock the _get_status method to raise PermissionDeniedError
+            with patch.object(
+                handler,
+                "_get_status",
+                side_effect=PermissionDeniedError("compliance:read"),
+            ):
+                result = await handler.handle("GET", "/api/v2/compliance/status")
+
+            assert result.status_code == 403
+            body = json.loads(result.body)
+            assert "error" in body
+
+    @pytest.mark.asyncio
+    async def test_permission_denied_gdpr_export(self, mock_server_context):
+        """Test permission denied on GDPR export endpoint."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=MagicMock(),
+            ),
+        ):
+            handler = ComplianceHandler(mock_server_context)
+
+            with patch.object(
+                handler,
+                "_gdpr_export",
+                side_effect=PermissionDeniedError("compliance:gdpr"),
+            ):
+                result = await handler.handle(
+                    "GET",
+                    "/api/v2/compliance/gdpr-export",
+                    query_params={"user_id": "user-123"},
+                )
+
+            assert result.status_code == 403
+
+
+# ===========================================================================
+# Control Evaluation Tests
+# ===========================================================================
+
+
+class TestControlEvaluation:
+    """Test SOC 2 control evaluation."""
+
+    @pytest.mark.asyncio
+    async def test_evaluate_controls_returns_expected_structure(self, handler):
+        """Test that control evaluation returns expected structure."""
+        controls = await handler._evaluate_controls()
+
+        assert isinstance(controls, list)
+        assert len(controls) > 0
+
+        for control in controls:
+            assert "control_id" in control
+            assert "category" in control
+            assert "name" in control
+            assert "description" in control
+            assert "status" in control
+            assert "evidence" in control
+
+    @pytest.mark.asyncio
+    async def test_evaluate_controls_has_security_category(self, handler):
+        """Test that controls include Security category."""
+        controls = await handler._evaluate_controls()
+
+        security_controls = [c for c in controls if c["category"] == "Security"]
+        assert len(security_controls) > 0
+
+    @pytest.mark.asyncio
+    async def test_evaluate_controls_has_privacy_category(self, handler):
+        """Test that controls include Privacy category."""
+        controls = await handler._evaluate_controls()
+
+        privacy_controls = [c for c in controls if c["category"] == "Privacy"]
+        assert len(privacy_controls) > 0
+
+
+# ===========================================================================
+# Trust Service Criteria Tests
+# ===========================================================================
+
+
+class TestTrustServiceCriteria:
+    """Test trust service criteria assessment."""
+
+    @pytest.mark.asyncio
+    async def test_assess_security_criteria(self, handler):
+        """Test security criteria assessment."""
+        result = await handler._assess_security_criteria()
+
+        assert "status" in result
+        assert "controls_tested" in result
+        assert "controls_effective" in result
+        assert "key_findings" in result
+        assert isinstance(result["key_findings"], list)
+
+    @pytest.mark.asyncio
+    async def test_assess_availability_criteria(self, handler):
+        """Test availability criteria assessment."""
+        result = await handler._assess_availability_criteria()
+
+        assert "status" in result
+        assert "uptime_target" in result
+        assert "key_findings" in result
+
+    @pytest.mark.asyncio
+    async def test_assess_integrity_criteria(self, handler):
+        """Test processing integrity criteria assessment."""
+        result = await handler._assess_integrity_criteria()
+
+        assert "status" in result
+        assert result["status"] == "effective"
+        assert "key_findings" in result
+
+    @pytest.mark.asyncio
+    async def test_assess_confidentiality_criteria(self, handler):
+        """Test confidentiality criteria assessment."""
+        result = await handler._assess_confidentiality_criteria()
+
+        assert "status" in result
+        assert "key_findings" in result
+
+    @pytest.mark.asyncio
+    async def test_assess_privacy_criteria(self, handler):
+        """Test privacy criteria assessment."""
+        result = await handler._assess_privacy_criteria()
+
+        assert "status" in result
+        assert "key_findings" in result
+
+
+# ===========================================================================
+# Consent Revocation Tests
+# ===========================================================================
+
+
+class TestConsentRevocation:
+    """Test consent revocation functionality."""
+
+    @pytest.mark.asyncio
+    async def test_revoke_all_consents_success(self, handler):
+        """Test successful consent revocation."""
+        mock_manager = MagicMock()
+        mock_manager.bulk_revoke_for_user.return_value = 5
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            return_value=mock_manager,
+        ):
+            result = await handler._revoke_all_consents("user-123")
+            assert result == 5
+            mock_manager.bulk_revoke_for_user.assert_called_once_with("user-123")
+
+    @pytest.mark.asyncio
+    async def test_revoke_all_consents_import_error(self, handler):
+        """Test consent revocation when consent manager import fails."""
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            side_effect=ImportError("Module not found"),
+        ):
+            result = await handler._revoke_all_consents("user-123")
+            assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_revoke_all_consents_runtime_error(self, handler):
+        """Test consent revocation when runtime error occurs."""
+        mock_manager = MagicMock()
+        mock_manager.bulk_revoke_for_user.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            return_value=mock_manager,
+        ):
+            result = await handler._revoke_all_consents("user-123")
+            assert result == 0
+
+
+# ===========================================================================
+# User Data Retrieval Tests
+# ===========================================================================
+
+
+class TestUserDataRetrieval:
+    """Test user data retrieval methods."""
+
+    @pytest.mark.asyncio
+    async def test_get_user_decisions_success(self, handler, mock_receipt_store):
+        """Test successful user decisions retrieval."""
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=mock_receipt_store,
+        ):
+            decisions = await handler._get_user_decisions("user-123")
+            assert isinstance(decisions, list)
+
+    @pytest.mark.asyncio
+    async def test_get_user_decisions_error(self, handler):
+        """Test user decisions retrieval on error returns empty list."""
+        failing_store = MagicMock()
+        failing_store.list.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=failing_store,
+        ):
+            decisions = await handler._get_user_decisions("user-123")
+            assert decisions == []
+
+    @pytest.mark.asyncio
+    async def test_get_user_preferences(self, handler):
+        """Test user preferences retrieval."""
+        preferences = await handler._get_user_preferences("user-123")
+        assert isinstance(preferences, dict)
+        assert "notification_settings" in preferences
+        assert "privacy_settings" in preferences
+
+    @pytest.mark.asyncio
+    async def test_get_user_activity_success(self, handler, mock_audit_store):
+        """Test successful user activity retrieval."""
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            activity = await handler._get_user_activity("user-123")
+            assert isinstance(activity, list)
+
+    @pytest.mark.asyncio
+    async def test_get_user_activity_error(self, handler):
+        """Test user activity retrieval on error returns empty list."""
+        failing_store = MagicMock()
+        failing_store.get_recent_activity.side_effect = RuntimeError("Database error")
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store",
+            return_value=failing_store,
+        ):
+            activity = await handler._get_user_activity("user-123")
+            assert activity == []
+
+
+# ===========================================================================
+# Audit Trail Verification Tests
+# ===========================================================================
+
+
+class TestAuditTrailVerification:
+    """Test audit trail verification methods."""
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_success(self, handler, mock_receipt_store):
+        """Test successful trail verification."""
+        mock_receipt_store._receipts["trail-test"] = MockStoredReceipt(
+            receipt_id="trail-test",
+            gauntlet_id="gauntlet-test",
+            signature="sig-data",
+        )
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=mock_receipt_store,
+        ):
+            result = await handler._verify_trail("trail-test")
+
+            assert result["valid"] is True
+            assert result["type"] == "audit_trail"
+            assert "checked" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_not_found(self, handler, mock_receipt_store):
+        """Test trail verification when trail not found."""
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=mock_receipt_store,
+        ):
+            result = await handler._verify_trail("nonexistent-trail")
+
+            assert result["valid"] is False
+            assert "not found" in result.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_verify_trail_exception(self, handler):
+        """Test trail verification on exception."""
+        failing_store = MagicMock()
+        failing_store.get.side_effect = RuntimeError("Store error")
+        failing_store.get_by_gauntlet.side_effect = RuntimeError("Store error")
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_receipt_store",
+            return_value=failing_store,
+        ):
+            result = await handler._verify_trail("some-trail")
+
+            assert result["valid"] is False
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_date_range_success(self, handler, mock_audit_store):
+        """Test date range verification success."""
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store",
+            return_value=mock_audit_store,
+        ):
+            result = await handler._verify_date_range(
+                {
+                    "from": "2025-01-01T00:00:00Z",
+                    "to": "2025-12-31T23:59:59Z",
+                }
+            )
+
+            assert result["type"] == "date_range"
+            assert "events_checked" in result
+
+    @pytest.mark.asyncio
+    async def test_verify_date_range_exception(self, handler):
+        """Test date range verification on exception."""
+        failing_store = MagicMock()
+        failing_store.get_log.side_effect = RuntimeError("Store error")
+
+        with patch(
+            "aragora.server.handlers.compliance_handler.get_audit_store",
+            return_value=failing_store,
+        ):
+            result = await handler._verify_date_range(
+                {
+                    "from": "2025-01-01T00:00:00Z",
+                    "to": "2025-12-31T23:59:59Z",
+                }
+            )
+
+            assert result["valid"] is False
+            assert len(result["errors"]) > 0
+
+
+# ===========================================================================
+# Render Tests
+# ===========================================================================
+
+
+class TestRenderFunctions:
+    """Test HTML/CSV rendering functions."""
+
+    def test_render_soc2_html(self, handler):
+        """Test SOC 2 HTML rendering."""
+        report = {
+            "report_id": "soc2-test",
+            "report_type": "SOC 2 Type II",
+            "period": {
+                "start": "2025-01-01",
+                "end": "2025-03-31",
+            },
+            "organization": "Test Org",
+            "summary": {
+                "controls_tested": 10,
+                "controls_effective": 9,
+                "exceptions": 1,
+            },
+            "controls": [
+                {
+                    "control_id": "CC1.1",
+                    "category": "Security",
+                    "name": "Test Control",
+                    "status": "compliant",
+                },
+            ],
+            "generated_at": "2025-01-15T00:00:00Z",
+        }
+
+        html = handler._render_soc2_html(report)
+
+        assert "<!DOCTYPE html>" in html
+        assert "SOC 2 Type II" in html
+        assert "Test Org" in html
+        assert "CC1.1" in html
+
+    def test_render_gdpr_csv(self, handler):
+        """Test GDPR CSV rendering."""
+        export_data = {
+            "user_id": "user-test",
+            "export_id": "export-test",
+            "requested_at": "2025-01-15T00:00:00Z",
+            "data_categories": ["decisions", "activity"],
+            "decisions": [{"decision_id": "d1"}],
+            "activity": [{"event": "login"}],
+            "checksum": "abc123",
+        }
+
+        csv_content = handler._render_gdpr_csv(export_data)
+
+        assert "GDPR Data Export" in csv_content
+        assert "user-test" in csv_content
+        assert "export-test" in csv_content
+        assert "abc123" in csv_content
+
+    def test_render_gdpr_csv_empty_data(self, handler):
+        """Test GDPR CSV rendering with minimal data."""
+        export_data = {
+            "user_id": "user-minimal",
+            "export_id": "export-minimal",
+            "requested_at": "2025-01-15T00:00:00Z",
+            "data_categories": [],
+        }
+
+        csv_content = handler._render_gdpr_csv(export_data)
+
+        assert "user-minimal" in csv_content
+
+
+# ===========================================================================
+# Legal Hold with User on Hold Tests
+# ===========================================================================
+
+
+class TestLegalHoldBlockingDeletion:
+    """Test that legal holds properly block deletions."""
+
+    @pytest.mark.asyncio
+    async def test_schedule_deletion_blocked_by_legal_hold(
+        self,
+        mock_server_context,
+        mock_audit_store,
+        mock_receipt_store,
+        mock_deletion_coordinator,
+    ):
+        """Test that scheduling deletion is blocked when user is on legal hold."""
+        # Create scheduler and legal hold manager
+        scheduler = MockDeletionScheduler()
+        legal_hold_manager = MockLegalHoldManager()
+
+        # Put user on legal hold
+        legal_hold_manager.create_hold(
+            user_ids=["user-blocked"],
+            reason="Litigation hold",
+            created_by="legal-team",
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_scheduler",
+                return_value=scheduler,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_legal_hold_manager",
+                return_value=legal_hold_manager,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_deletion_coordinator",
+                return_value=mock_deletion_coordinator,
+            ),
+        ):
+            handler = ComplianceHandler(mock_server_context)
+
+            # Try to schedule deletion for user on hold
+            with pytest.raises(ValueError, match="legal hold"):
+                await handler._schedule_deletion(
+                    user_id="user-blocked",
+                    request_id="test-req",
+                    scheduled_for=datetime.now(timezone.utc) + timedelta(days=30),
+                    reason="GDPR request",
+                )
+
+
+# ===========================================================================
+# Final Export Generation Tests
+# ===========================================================================
+
+
+class TestFinalExportGeneration:
+    """Test final export generation for RTBF."""
+
+    @pytest.mark.asyncio
+    async def test_generate_final_export_includes_all_categories(
+        self,
+        handler,
+        mock_audit_store,
+        mock_receipt_store,
+    ):
+        """Test that final export includes all data categories."""
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_consent_manager",
+                side_effect=ImportError("Not available"),
+            ),
+        ):
+            export = await handler._generate_final_export("user-123")
+
+            assert "export_id" in export
+            assert "user_id" in export
+            assert export["user_id"] == "user-123"
+            assert "data_categories" in export
+            assert "decisions" in export["data_categories"]
+            assert "preferences" in export["data_categories"]
+            assert "activity" in export["data_categories"]
+            assert "checksum" in export
+
+    @pytest.mark.asyncio
+    async def test_generate_final_export_includes_consent_records(
+        self,
+        handler,
+        mock_audit_store,
+        mock_receipt_store,
+    ):
+        """Test that final export includes consent records when available."""
+        mock_consent_manager = MagicMock()
+        mock_consent_export = MagicMock()
+        mock_consent_export.to_dict.return_value = {"consents": []}
+        mock_consent_manager.export_consent_data.return_value = mock_consent_export
+
+        with (
+            patch(
+                "aragora.server.handlers.compliance_handler.get_audit_store",
+                return_value=mock_audit_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_receipt_store",
+                return_value=mock_receipt_store,
+            ),
+            patch(
+                "aragora.server.handlers.compliance_handler.get_consent_manager",
+                return_value=mock_consent_manager,
+            ),
+        ):
+            export = await handler._generate_final_export("user-123")
+
+            assert "consent_records" in export["data_categories"]
