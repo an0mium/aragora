@@ -1136,8 +1136,10 @@ class UnifiedInboxHandler(BaseHandler):
                 """,
             )
 
+            # Fast-path triage: intentionally short debates for responsiveness.
+            TRIAGE_FAST_ROUNDS = 2
             DebateProtocol(
-                rounds=2,
+                rounds=TRIAGE_FAST_ROUNDS,
                 consensus="majority",
             )
 
