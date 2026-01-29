@@ -274,8 +274,15 @@ def get_knowledge_mound(
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # Can't await in running loop, schedule for later
-                    logger.debug("[knowledge_mound] Deferring initialization (event loop running)")
+                    # Can't await in running loop; schedule initialization task once
+                    init_task = getattr(_knowledge_mound_instance, "_init_task", None)
+                    if init_task is None or getattr(init_task, "done", lambda: True)():
+                        _knowledge_mound_instance._init_task = loop.create_task(
+                            _knowledge_mound_instance.initialize()
+                        )
+                        logger.debug(
+                            "[knowledge_mound] Initialization scheduled (event loop running)"
+                        )
                 else:
                     loop.run_until_complete(_knowledge_mound_instance.initialize())
                     logger.info("[knowledge_mound] Singleton initialized successfully")

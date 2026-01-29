@@ -202,7 +202,7 @@ class FusionMixin:
         """
         # Try to use ReverseFlowMixin method if available
         if hasattr(self, "_get_record_for_validation"):
-            return self._get_record_for_validation(source_id)  # type: ignore
+            return self._get_record_for_validation(source_id)  # type: ignore[attr-defined]  # Mixin method
         return None
 
     def fuse_validations_from_km(

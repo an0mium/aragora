@@ -1834,7 +1834,7 @@ def with_timeout(
                     result = fallback(*args, **kwargs)
                     if asyncio.iscoroutine(result):
                         return await result
-                    return result  # type: ignore
+                    return result  # type: ignore[return-value]  # Fallback return type varies
                 raise
 
         return wrapper
