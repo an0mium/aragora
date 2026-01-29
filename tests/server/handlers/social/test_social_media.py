@@ -132,7 +132,11 @@ def mock_youtube_connector():
     connector.get_auth_url.return_value = "https://accounts.google.com/oauth"
     connector.exchange_code = AsyncMock(return_value={"success": True})
     connector.upload = AsyncMock(
-        return_value={"success": True, "video_id": "abc123", "url": "https://youtube.com/watch?v=abc123"}
+        return_value={
+            "success": True,
+            "video_id": "abc123",
+            "url": "https://youtube.com/watch?v=abc123",
+        }
     )
     return connector
 
@@ -142,11 +146,13 @@ def mock_twitter_connector():
     connector = MagicMock()
     connector.is_configured = True
     connector.post_tweet = AsyncMock(
-        return_value={"success": True, "tweet_id": "12345", "url": "https://twitter.com/i/status/12345"}
+        return_value={
+            "success": True,
+            "tweet_id": "12345",
+            "url": "https://twitter.com/i/status/12345",
+        }
     )
-    connector.post_thread = AsyncMock(
-        return_value={"success": True, "thread_ids": ["1", "2", "3"]}
-    )
+    connector.post_thread = AsyncMock(return_value={"success": True, "thread_ids": ["1", "2", "3"]})
     return connector
 
 
@@ -172,7 +178,9 @@ def mock_audio_store():
 
 
 @pytest.fixture
-def handler_context(mock_user_store, mock_youtube_connector, mock_twitter_connector, mock_storage, mock_audio_store):
+def handler_context(
+    mock_user_store, mock_youtube_connector, mock_twitter_connector, mock_storage, mock_audio_store
+):
     return {
         "user_store": mock_user_store,
         "youtube_connector": mock_youtube_connector,
@@ -235,9 +243,7 @@ class TestYouTubeStatus:
         """Test YouTube status when configured."""
         http_handler = MockHandler(path="/api/v1/youtube/status", method="GET")
 
-        result = social_handler.handle(
-            "/api/v1/youtube/status", {}, http_handler, method="GET"
-        )
+        result = social_handler.handle("/api/v1/youtube/status", {}, http_handler, method="GET")
         assert result is not None
 
     def test_youtube_status_not_configured(self, handler_context):
@@ -314,9 +320,7 @@ class TestMethodNotAllowed:
         """Test only GET allowed for YouTube status."""
         http_handler = MockHandler(path="/api/v1/youtube/status", method="POST")
 
-        result = social_handler.handle(
-            "/api/v1/youtube/status", {}, http_handler, method="POST"
-        )
+        result = social_handler.handle("/api/v1/youtube/status", {}, http_handler, method="POST")
         # POST is not handled by handle(), so it falls through to handle_post
         # which doesn't match, returning None
         assert result is None

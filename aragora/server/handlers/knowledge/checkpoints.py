@@ -75,6 +75,7 @@ class RestoreResultProtocol(Protocol):
     nodes_skipped: int
     errors: list[str]
 
+
 # RBAC imports with fallback for backwards compatibility
 try:
     from aragora.rbac import check_permission, AuthorizationContext

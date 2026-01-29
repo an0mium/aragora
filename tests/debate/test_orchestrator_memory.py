@@ -117,7 +117,7 @@ class TestQueueForSupabaseSync:
 
         with patch(
             "aragora.debate.orchestrator_memory.get_sync_service",
-            side_effect=ImportError("Not found")
+            side_effect=ImportError("Not found"),
         ):
             # Should not raise
             queue_for_supabase_sync(mock_ctx, mock_result)
@@ -180,8 +180,7 @@ class TestSetupBeliefNetwork:
         from aragora.debate.orchestrator_memory import setup_belief_network
 
         with patch(
-            "aragora.debate.orchestrator_memory.BeliefNetwork",
-            side_effect=ImportError("Not found")
+            "aragora.debate.orchestrator_memory.BeliefNetwork", side_effect=ImportError("Not found")
         ):
             result = setup_belief_network(
                 debate_id="debate-123",
@@ -211,8 +210,10 @@ class TestSetupBeliefNetwork:
         """When seed_from_km is True, seed from Knowledge Mound."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork, \
-             patch("aragora.debate.orchestrator_memory.BeliefAdapter") as MockAdapter:
+        with (
+            patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork,
+            patch("aragora.debate.orchestrator_memory.BeliefAdapter") as MockAdapter,
+        ):
             mock_instance = MagicMock()
             mock_instance.seed_from_km.return_value = 5
             MockNetwork.return_value = mock_instance
@@ -230,11 +231,13 @@ class TestSetupBeliefNetwork:
         """When BeliefAdapter import fails, continue without adapter."""
         from aragora.debate.orchestrator_memory import setup_belief_network
 
-        with patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork, \
-             patch(
-                 "aragora.debate.orchestrator_memory.BeliefAdapter",
-                 side_effect=ImportError("Not found")
-             ):
+        with (
+            patch("aragora.debate.orchestrator_memory.BeliefNetwork") as MockNetwork,
+            patch(
+                "aragora.debate.orchestrator_memory.BeliefAdapter",
+                side_effect=ImportError("Not found"),
+            ),
+        ):
             mock_instance = MagicMock()
             MockNetwork.return_value = mock_instance
 
@@ -303,8 +306,10 @@ class TestInitRlmLimiterState:
         """When enabled without limiter, create one."""
         from aragora.debate.orchestrator_memory import init_rlm_limiter_state
 
-        with patch("aragora.debate.orchestrator_memory.RLMCognitiveBudget") as MockBudget, \
-             patch("aragora.debate.orchestrator_memory.RLMCognitiveLoadLimiter") as MockLimiter:
+        with (
+            patch("aragora.debate.orchestrator_memory.RLMCognitiveBudget") as MockBudget,
+            patch("aragora.debate.orchestrator_memory.RLMCognitiveLoadLimiter") as MockLimiter,
+        ):
             mock_limiter = MagicMock()
             MockLimiter.return_value = mock_limiter
 
@@ -326,7 +331,7 @@ class TestInitRlmLimiterState:
 
         with patch(
             "aragora.debate.orchestrator_memory.RLMCognitiveBudget",
-            side_effect=ImportError("Not found")
+            side_effect=ImportError("Not found"),
         ):
             result = init_rlm_limiter_state(
                 use_rlm_limiter=True,
@@ -385,10 +390,10 @@ class TestInitCheckpointBridge:
 
         mock_protocol.enable_molecule_tracking = True
 
-        with patch(
-            "aragora.debate.orchestrator_memory.get_molecule_orchestrator"
-        ) as MockGetOrch, \
-             patch("aragora.debate.orchestrator_memory.create_checkpoint_bridge") as MockCreate:
+        with (
+            patch("aragora.debate.orchestrator_memory.get_molecule_orchestrator") as MockGetOrch,
+            patch("aragora.debate.orchestrator_memory.create_checkpoint_bridge") as MockCreate,
+        ):
             mock_orch = MagicMock()
             MockGetOrch.return_value = mock_orch
             MockCreate.return_value = MagicMock()
@@ -425,7 +430,7 @@ class TestInitCheckpointBridge:
 
         with patch(
             "aragora.debate.orchestrator_memory.get_molecule_orchestrator",
-            side_effect=ImportError("Not found")
+            side_effect=ImportError("Not found"),
         ):
             result = init_checkpoint_bridge(
                 protocol=mock_protocol,
@@ -531,7 +536,7 @@ class TestAutoCreateKnowledgeMound:
 
         with patch(
             "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=ImportError("Not found")
+            side_effect=ImportError("Not found"),
         ):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
@@ -549,7 +554,7 @@ class TestAutoCreateKnowledgeMound:
 
         with patch(
             "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=RuntimeError("Init failed")
+            side_effect=RuntimeError("Init failed"),
         ):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
@@ -567,7 +572,7 @@ class TestAutoCreateKnowledgeMound:
 
         with patch(
             "aragora.debate.orchestrator_memory.get_knowledge_mound",
-            side_effect=ConnectionError("Network error")
+            side_effect=ConnectionError("Network error"),
         ):
             result = auto_create_knowledge_mound(
                 knowledge_mound=None,
@@ -654,7 +659,7 @@ class TestInitCrossSubscriberBridge:
 
         with patch(
             "aragora.debate.orchestrator_memory.ArenaEventBridge",
-            side_effect=ImportError("Not found")
+            side_effect=ImportError("Not found"),
         ):
             result = init_cross_subscriber_bridge(event_bus=mock_bus)
 

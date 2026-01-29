@@ -34,7 +34,9 @@ class MockAgent(Agent):
     async def generate(self, prompt: str, context: list = None) -> str:
         return "Test response"
 
-    async def critique(self, proposal: str, task: str, context: list = None, target_agent: str = None):
+    async def critique(
+        self, proposal: str, task: str, context: list = None, target_agent: str = None
+    ):
         return MagicMock()
 
     async def vote(self, proposals: dict, task: str):
@@ -644,11 +646,13 @@ class TestAssignHierarchyRoles:
     @pytest.fixture
     def mock_hierarchy(self):
         hierarchy = MagicMock()
-        hierarchy.assign_roles = MagicMock(return_value={
-            "agent-0": MagicMock(role=MagicMock(value="orchestrator")),
-            "agent-1": MagicMock(role=MagicMock(value="worker")),
-            "agent-2": MagicMock(role=MagicMock(value="worker")),
-        })
+        hierarchy.assign_roles = MagicMock(
+            return_value={
+                "agent-0": MagicMock(role=MagicMock(value="orchestrator")),
+                "agent-1": MagicMock(role=MagicMock(value="worker")),
+                "agent-2": MagicMock(role=MagicMock(value="worker")),
+            }
+        )
         return hierarchy
 
     def test_skips_when_hierarchy_disabled(self, mock_ctx):

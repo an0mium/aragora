@@ -434,7 +434,7 @@ class DashboardHandler(SecureHandler):
         }
 
         try:
-            with storage.db.connection() as conn:
+            with storage.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT
@@ -471,7 +471,7 @@ class DashboardHandler(SecureHandler):
         try:
             cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
 
-            with storage.db.connection() as conn:
+            with storage.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -907,7 +907,7 @@ class DashboardHandler(SecureHandler):
                     .isoformat()
                 )
                 try:
-                    with storage.db.connection() as conn:
+                    with storage.connection() as conn:
                         cursor = conn.cursor()
                         cursor.execute(
                             "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
@@ -937,7 +937,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     # Count total
                     if status:
@@ -1022,7 +1022,7 @@ class DashboardHandler(SecureHandler):
                 month_start = (now - timedelta(days=30)).isoformat()
 
                 try:
-                    with storage.db.connection() as conn:
+                    with storage.connection() as conn:
                         cursor = conn.cursor()
                         # Today
                         cursor.execute(
@@ -1212,7 +1212,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT domain, COUNT(*) as cnt FROM debates "
@@ -1238,7 +1238,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT domain, COUNT(*) as cnt FROM debates "
@@ -1264,7 +1264,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("SELECT COUNT(*) FROM debates")
                     row = cursor.fetchone()
@@ -1318,7 +1318,7 @@ class DashboardHandler(SecureHandler):
                     .isoformat()
                 )
                 try:
-                    with storage.db.connection() as conn:
+                    with storage.connection() as conn:
                         cursor = conn.cursor()
                         cursor.execute(
                             "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
@@ -1400,7 +1400,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT id, domain, confidence, created_at FROM debates "
@@ -1437,7 +1437,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         "SELECT id, domain, created_at FROM debates "
@@ -1476,7 +1476,7 @@ class DashboardHandler(SecureHandler):
         try:
             storage = self.get_storage()
             if storage:
-                with storage.db.connection() as conn:
+                with storage.connection() as conn:
                     cursor = conn.cursor()
                     like_query = f"%{query}%"
                     cursor.execute(
