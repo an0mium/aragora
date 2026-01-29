@@ -22,6 +22,25 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.conftest import (
+    requires_encryption,
+    REQUIRES_ENCRYPTION,
+    requires_integration_store,
+    REQUIRES_INTEGRATION_STORE,
+    requires_gmail_token_store,
+    REQUIRES_GMAIL_TOKEN_STORE,
+    requires_sync_store,
+    REQUIRES_SYNC_STORE,
+    requires_key_rotation,
+    REQUIRES_KEY_ROTATION,
+    requires_security_handler,
+    REQUIRES_SECURITY_HANDLER,
+    requires_security_metrics,
+    REQUIRES_SECURITY_METRICS,
+    requires_no_ci,
+    REQUIRES_NO_CI,
+)
+
 
 # =============================================================================
 # Security API Handler Tests
@@ -45,24 +64,20 @@ class TestSecurityServiceDirect:
                 pass
             yield key
 
+    @pytest.mark.skipif(requires_encryption, reason=REQUIRES_ENCRYPTION)
     def test_encryption_service_status(self, encryption_key):
         """Test encryption service returns correct status."""
-        try:
-            from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
-        except ImportError:
-            pytest.skip("Encryption service not available")
+        from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
 
         assert CRYPTO_AVAILABLE is True
         service = get_encryption_service()
         assert service is not None
         assert service.get_active_key_id() is not None
 
+    @pytest.mark.skipif(requires_encryption, reason=REQUIRES_ENCRYPTION)
     def test_encryption_service_key_info(self, encryption_key):
         """Test encryption service returns key information."""
-        try:
-            from aragora.security.encryption import get_encryption_service
-        except ImportError:
-            pytest.skip("Encryption service not available")
+        from aragora.security.encryption import get_encryption_service
 
         service = get_encryption_service()
 
@@ -74,12 +89,10 @@ class TestSecurityServiceDirect:
             # Some implementations may not have list_keys
             pytest.skip("list_keys not available")
 
+    @pytest.mark.skipif(requires_encryption, reason=REQUIRES_ENCRYPTION)
     def test_encryption_round_trip_health(self, encryption_key):
         """Test encryption service can perform round-trip."""
-        try:
-            from aragora.security.encryption import get_encryption_service
-        except ImportError:
-            pytest.skip("Encryption service not available")
+        from aragora.security.encryption import get_encryption_service
 
         service = get_encryption_service()
         test_data = b"health_check_test_data"
@@ -89,12 +102,10 @@ class TestSecurityServiceDirect:
 
         assert decrypted == test_data
 
+    @pytest.mark.skipif(requires_encryption, reason=REQUIRES_ENCRYPTION)
     def test_list_encryption_keys(self, encryption_key):
         """Test listing encryption keys."""
-        try:
-            from aragora.security.encryption import get_encryption_service
-        except ImportError:
-            pytest.skip("Encryption service not available")
+        from aragora.security.encryption import get_encryption_service
 
         service = get_encryption_service()
         keys = service.list_keys()
@@ -141,15 +152,13 @@ class TestIntegrationStoreE2E:
             pass
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(requires_integration_store, reason=REQUIRES_INTEGRATION_STORE)
     async def test_save_and_retrieve_encrypted_integration(self, encryption_key, temp_db):
         """Test saving and retrieving an integration with encrypted secrets."""
-        try:
-            from aragora.storage.integration_store import (
-                SQLiteIntegrationStore,
-                IntegrationConfig,
-            )
-        except ImportError:
-            pytest.skip("IntegrationStore not available")
+        from aragora.storage.integration_store import (
+            SQLiteIntegrationStore,
+            IntegrationConfig,
+        )
 
         store = SQLiteIntegrationStore(db_path=temp_db)
 
@@ -177,15 +186,13 @@ class TestIntegrationStoreE2E:
         assert retrieved.settings["webhook_url"] == "https://hooks.slack.com/secret"
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(requires_integration_store, reason=REQUIRES_INTEGRATION_STORE)
     async def test_secrets_encrypted_in_database(self, encryption_key, temp_db):
         """Verify secrets are actually encrypted in the database file."""
-        try:
-            from aragora.storage.integration_store import (
-                SQLiteIntegrationStore,
-                IntegrationConfig,
-            )
-        except ImportError:
-            pytest.skip("IntegrationStore not available")
+        from aragora.storage.integration_store import (
+            SQLiteIntegrationStore,
+            IntegrationConfig,
+        )
 
         store = SQLiteIntegrationStore(db_path=temp_db)
 
@@ -237,15 +244,13 @@ class TestGmailTokenStoreE2E:
             pass
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(requires_gmail_token_store, reason=REQUIRES_GMAIL_TOKEN_STORE)
     async def test_save_and_retrieve_encrypted_tokens(self, encryption_key, temp_db):
         """Test saving and retrieving Gmail tokens with encryption."""
-        try:
-            from aragora.storage.gmail_token_store import (
-                SQLiteGmailTokenStore,
-                GmailUserState,
-            )
-        except ImportError:
-            pytest.skip("GmailTokenStore not available")
+        from aragora.storage.gmail_token_store import (
+            SQLiteGmailTokenStore,
+            GmailUserState,
+        )
 
         store = SQLiteGmailTokenStore(db_path=temp_db)
 
@@ -269,15 +274,13 @@ class TestGmailTokenStoreE2E:
         assert retrieved.refresh_token == "1//refresh_token_secret_67890"
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(requires_gmail_token_store, reason=REQUIRES_GMAIL_TOKEN_STORE)
     async def test_tokens_encrypted_in_database(self, encryption_key, temp_db):
         """Verify tokens are actually encrypted in the database file."""
-        try:
-            from aragora.storage.gmail_token_store import (
-                SQLiteGmailTokenStore,
-                GmailUserState,
-            )
-        except ImportError:
-            pytest.skip("GmailTokenStore not available")
+        from aragora.storage.gmail_token_store import (
+            SQLiteGmailTokenStore,
+            GmailUserState,
+        )
 
         store = SQLiteGmailTokenStore(db_path=temp_db)
 
@@ -335,15 +338,13 @@ class TestSyncStoreE2E:
             pass
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(requires_sync_store, reason=REQUIRES_SYNC_STORE)
     async def test_save_and_retrieve_encrypted_connector(self, encryption_key, temp_db):
         """Test saving and retrieving connector config with encryption."""
-        try:
-            from aragora.connectors.enterprise.sync_store import (
-                SyncStore,
-                ConnectorConfig,
-            )
-        except ImportError:
-            pytest.skip("SyncStore not available")
+        from aragora.connectors.enterprise.sync_store import (
+            SyncStore,
+            ConnectorConfig,
+        )
 
         # Use SQLite URL format for SyncStore
         store = SyncStore(database_url=f"sqlite:///{temp_db}", use_encryption=True)
@@ -394,12 +395,10 @@ class TestKeyRotationE2E:
                 pass
             yield key
 
+    @pytest.mark.skipif(requires_key_rotation, reason=REQUIRES_KEY_ROTATION)
     def test_rotation_dry_run_preserves_data(self, encryption_key):
         """Test that dry run doesn't modify any data."""
-        try:
-            from aragora.security.migration import rotate_encryption_key
-        except ImportError:
-            pytest.skip("Key rotation not available")
+        from aragora.security.migration import rotate_encryption_key
 
         # Run dry run
         result = rotate_encryption_key(dry_run=True, stores=[])
@@ -407,12 +406,10 @@ class TestKeyRotationE2E:
         assert result.success is True
         assert result.records_reencrypted == 0  # Dry run shouldn't re-encrypt
 
+    @pytest.mark.skipif(requires_key_rotation, reason=REQUIRES_KEY_ROTATION)
     def test_rotation_result_structure(self, encryption_key):
         """Test rotation result has expected structure."""
-        try:
-            from aragora.security.migration import rotate_encryption_key
-        except ImportError:
-            pytest.skip("Key rotation not available")
+        from aragora.security.migration import rotate_encryption_key
 
         result = rotate_encryption_key(dry_run=True, stores=[])
 
@@ -432,56 +429,47 @@ class TestKeyRotationE2E:
 # =============================================================================
 
 
-@pytest.mark.skipif(
-    "CI" in __import__("os").environ or "GITHUB_ACTIONS" in __import__("os").environ,
-    reason="Security routes not handled in CI environment",
-)
+@pytest.mark.skipif(requires_no_ci, reason=REQUIRES_NO_CI)
 class TestSecurityHardeningVerification:
     """Tests verifying security hardening is properly configured."""
 
+    @pytest.mark.skipif(requires_encryption, reason=REQUIRES_ENCRYPTION)
     def test_encryption_service_available(self):
         """Verify encryption service is importable and usable."""
-        try:
-            from aragora.security.encryption import (
-                get_encryption_service,
-                CRYPTO_AVAILABLE,
-            )
+        from aragora.security.encryption import (
+            get_encryption_service,
+            CRYPTO_AVAILABLE,
+        )
 
-            assert CRYPTO_AVAILABLE is True
-        except ImportError:
-            pytest.skip("Encryption module not available")
+        assert CRYPTO_AVAILABLE is True
 
+    @pytest.mark.skipif(requires_security_handler, reason=REQUIRES_SECURITY_HANDLER)
     def test_security_handler_registered(self):
         """Verify SecurityHandler is registered in handler registry."""
-        try:
-            from aragora.server.handler_registry import (
-                HANDLER_REGISTRY,
-                SecurityHandler,
-            )
+        from aragora.server.handler_registry import (
+            HANDLER_REGISTRY,
+            SecurityHandler,
+        )
 
-            handler_names = [h[0] for h in HANDLER_REGISTRY]
-            assert "_security_handler" in handler_names
-            assert SecurityHandler is not None
-        except ImportError:
-            pytest.skip("Handler registry not available")
+        handler_names = [h[0] for h in HANDLER_REGISTRY]
+        assert "_security_handler" in handler_names
+        assert SecurityHandler is not None
 
+    @pytest.mark.skipif(requires_security_handler, reason=REQUIRES_SECURITY_HANDLER)
     def test_security_routes_defined(self):
         """Verify security routes are defined."""
-        try:
-            from aragora.server.handlers.admin.security import SecurityHandler
+        from aragora.server.handlers.admin.security import SecurityHandler
 
-            handler = SecurityHandler({})
-            expected_routes = [
-                "/api/admin/security/status",
-                "/api/admin/security/rotate-key",
-                "/api/admin/security/health",
-                "/api/admin/security/keys",
-            ]
+        handler = SecurityHandler({})
+        expected_routes = [
+            "/api/admin/security/status",
+            "/api/admin/security/rotate-key",
+            "/api/admin/security/health",
+            "/api/admin/security/keys",
+        ]
 
-            for route in expected_routes:
-                assert handler.can_handle(route), f"Route not handled: {route}"
-        except ImportError:
-            pytest.skip("SecurityHandler not available")
+        for route in expected_routes:
+            assert handler.can_handle(route), f"Route not handled: {route}"
 
     def test_key_rotation_scheduler_available(self):
         """Verify key rotation scheduler is importable."""
@@ -498,23 +486,21 @@ class TestSecurityHardeningVerification:
         except ImportError:
             pytest.skip("Key rotation module not available")
 
+    @pytest.mark.skipif(requires_security_metrics, reason=REQUIRES_SECURITY_METRICS)
     def test_security_metrics_available(self):
         """Verify security metrics are defined."""
-        try:
-            from aragora.observability.metrics.security import (
-                record_encryption_operation,
-                record_key_rotation,
-                record_auth_attempt,
-                record_rbac_decision,
-            )
+        from aragora.observability.metrics.security import (
+            record_encryption_operation,
+            record_key_rotation,
+            record_auth_attempt,
+            record_rbac_decision,
+        )
 
-            # Just verify functions are callable
-            assert callable(record_encryption_operation)
-            assert callable(record_key_rotation)
-            assert callable(record_auth_attempt)
-            assert callable(record_rbac_decision)
-        except ImportError:
-            pytest.skip("Security metrics not available")
+        # Just verify functions are callable
+        assert callable(record_encryption_operation)
+        assert callable(record_key_rotation)
+        assert callable(record_auth_attempt)
+        assert callable(record_rbac_decision)
 
 
 if __name__ == "__main__":

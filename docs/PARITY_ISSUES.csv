@@ -1,0 +1,37 @@
+Epic,Issue,Priority,Milestone,Owner,Notes
+EPIC-1,Define Agent Fabric interfaces (scheduler, pool, lifecycle),P0,M1,TBD,Core abstraction used by both extensions
+EPIC-1,Implement agent pool manager with quotas and affinity,P0,M1,TBD,Workspace-scoped pools
+EPIC-1,Add per-agent queue + backpressure controls,P0,M1,TBD,Semaphore-based concurrency
+EPIC-1,Add per-agent resource limits (tokens/time/requests),P0,M1,TBD,Hard caps with enforcement
+EPIC-1,Design isolation strategy (process/container),P1,M1,TBD,Document tradeoffs + MVP choice
+EPIC-1,Add agent lifecycle endpoints (provision/warmup/shutdown),P1,M1,TBD,Operational stability
+EPIC-1,Agent Fabric telemetry + tracing,P1,M1,TBD,Per-agent run metrics
+EPIC-2,Policy model for tool/device access,P0,M1,TBD,Unified policy document
+EPIC-2,Approval workflow for sensitive actions,P0,M1,TBD,Sync + async approvals
+EPIC-2,Policy enforcement hooks in executor,P0,M1,TBD,Block/allow tool calls
+EPIC-2,Workspace budgets + quota enforcement,P1,M1,TBD,Extend cost enforcement
+EPIC-2,Audit log extensions for device actions,P1,M1,TBD,Replayable action logs
+EPIC-3,Workspace manager (rig abstraction),P0,M2,TBD,Per-repo context + pools
+EPIC-3,Git worktree hook persistence (Hooks),P0,M2,TBD,Durable task queues
+EPIC-3,Convoy tracker (state machine + artifacts),P0,M2,TBD,Work batch lifecycle
+EPIC-3,Mayor coordinator for SE task decomposition,P1,M2,TBD,Goal -> convoy -> tasks
+EPIC-3,Inter-agent mail/nudge outside debates,P1,M2,TBD,Durable mailbox
+EPIC-3,Convoy dashboard endpoints,P2,M2,TBD,Status visibility
+EPIC-3,Workspace CLI commands,P2,M2,TBD,Workspace/convoy ops
+EPIC-4,Local gateway daemon (auth + routing),P0,M3,TBD,Device-local control plane
+EPIC-4,Device node registry + capability model,P0,M3,TBD,Device permissions
+EPIC-4,Unified inbox aggregation service,P1,M3,TBD,Channel normalization
+EPIC-4,Onboarding wizard (CLI or minimal UI),P1,M3,TBD,First-run setup
+EPIC-4,Channel-to-agent routing rules,P2,M3,TBD,Per-account routing
+EPIC-5,Canvas stream endpoints (API + WS),P0,M3,TBD,Expose canvas surface
+EPIC-5,Canvas persistence + snapshots,P1,M3,TBD,Recoverable sessions
+EPIC-5,Canvas UI scaffold (minimal A2UI),P1,M3,TBD,Consumer-grade surface
+EPIC-6,Computer-use action API,P0,M4,TBD,Browser/shell/screen actions
+EPIC-6,Sandbox executor integration,P0,M4,TBD,Policy-gated execution
+EPIC-6,Approval UI/CLI for actions,P1,M4,TBD,Human-in-the-loop
+EPIC-6,Action audit + replay tooling,P1,M4,TBD,Compliance ready
+EPIC-7,Voice wake word integration,P1,M4,TBD,On-device trigger
+EPIC-7,Voice pipeline bridge to gateway,P1,M4,TBD,Audio input/output routing
+EPIC-8,Load tests for 50+ concurrent agents,P1,M5,TBD,Define SLOs
+EPIC-8,Failure recovery scenarios,P2,M5,TBD,Chaos + resilience drills
+EPIC-8,Extension integration docs,P2,M5,TBD,Dev-facing contracts

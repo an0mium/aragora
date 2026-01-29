@@ -392,13 +392,23 @@ class StatusPageHandler(BaseHandler):
 
     def _incidents(self) -> HandlerResult:
         """Return current and recent incidents."""
-        # In production, this would query from incident management system
         now = datetime.now(timezone.utc)
+
+        try:
+            from aragora.observability.incident_store import get_incident_store
+
+            store = get_incident_store()
+            active = [i.to_dict() for i in store.get_active_incidents()]
+            recent = [i.to_dict() for i in store.get_recent_incidents(days=7)]
+        except Exception as e:
+            logger.debug(f"Incident store unavailable: {e}")
+            active = []
+            recent = []
 
         return json_response(
             {
-                "active": [],
-                "recent": [],
+                "active": active,
+                "recent": recent,
                 "scheduled_maintenance": [],
                 "timestamp": now.isoformat(),
             }

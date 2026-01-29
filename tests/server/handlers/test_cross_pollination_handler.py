@@ -32,12 +32,14 @@ from aragora.server.handlers.cross_pollination import (
 
 class MockEventType(Enum):
     """Mock event type for testing."""
+
     DEBATE_STARTED = "debate_started"
     CONSENSUS_REACHED = "consensus_reached"
 
 
 class MockStreamType(Enum):
     """Mock stream type for testing."""
+
     DEBATE = "debate"
     CONSENSUS = "consensus"
 
@@ -170,7 +172,9 @@ class TestCrossPollinationSubscribersHandler:
     """Tests for subscribers listing endpoint."""
 
     @pytest.mark.asyncio
-    async def test_list_subscribers_success(self, subscribers_handler: CrossPollinationSubscribersHandler):
+    async def test_list_subscribers_success(
+        self, subscribers_handler: CrossPollinationSubscribersHandler
+    ):
         """Subscribers endpoint lists all registered subscribers."""
         mock_manager = MockCrossSubscriberManager()
         mock_manager._subscribers = {
@@ -232,7 +236,9 @@ class TestCrossPollinationBridgeHandler:
         assert "debate_start" in body["event_mappings"]
 
     @pytest.mark.asyncio
-    async def test_get_bridge_module_unavailable(self, bridge_handler: CrossPollinationBridgeHandler):
+    async def test_get_bridge_module_unavailable(
+        self, bridge_handler: CrossPollinationBridgeHandler
+    ):
         """Bridge endpoint handles missing module gracefully."""
         with patch.dict("sys.modules", {"aragora.events.arena_bridge": None}):
             # Force ImportError
