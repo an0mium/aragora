@@ -116,7 +116,7 @@ class WorkspaceManager:
             if config:
                 workspace.config = config
             if status:
-                workspace.status = status  # type: ignore[attr-defined]
+                workspace.status = status  # type: ignore[assignment]
             workspace.updated_at = datetime.utcnow()
 
             return workspace
@@ -235,7 +235,7 @@ class WorkspaceManager:
             if config:
                 rig.config = config
             if status:
-                rig.status = status  # type: ignore[attr-defined]
+                rig.status = status  # type: ignore[assignment]
             rig.updated_at = datetime.utcnow()
 
             return rig

@@ -22,7 +22,7 @@ from aragora.workspace.bead import (
 
 # Re-export nomic-level classes used by dashboard for queue stats
 from aragora.nomic.beads import (
-    BeadManager as NomicBeadManager,
+    BeadStore as NomicBeadManager,
     BeadPriority,
     BeadStatus as NomicBeadStatus,
 )
