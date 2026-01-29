@@ -193,7 +193,7 @@ def admin_secure_endpoint(
             except (UnauthorizedError, ForbiddenError) as e:
                 return self.handle_security_error(e, request)  # type: ignore[return-value]
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

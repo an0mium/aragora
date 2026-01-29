@@ -501,8 +501,8 @@ def track_memory(
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

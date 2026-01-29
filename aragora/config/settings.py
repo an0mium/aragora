@@ -84,9 +84,9 @@ class DebateSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ARAGORA_")
 
-    default_rounds: int = Field(default=3, ge=1, le=20, alias="ARAGORA_DEFAULT_ROUNDS")
-    max_rounds: int = Field(default=10, ge=1, le=50, alias="ARAGORA_MAX_ROUNDS")
-    default_consensus: str = Field(default="hybrid", alias="ARAGORA_DEFAULT_CONSENSUS")
+    default_rounds: int = Field(default=9, ge=1, le=20, alias="ARAGORA_DEFAULT_ROUNDS")
+    max_rounds: int = Field(default=12, ge=1, le=50, alias="ARAGORA_MAX_ROUNDS")
+    default_consensus: str = Field(default="judge", alias="ARAGORA_DEFAULT_CONSENSUS")
     timeout_seconds: int = Field(default=600, ge=30, le=7200, alias="ARAGORA_DEBATE_TIMEOUT")
     max_agents_per_debate: int = Field(
         default=10, ge=2, le=50, alias="ARAGORA_MAX_AGENTS_PER_DEBATE"
@@ -101,7 +101,7 @@ class DebateSettings(BaseSettings):
     @field_validator("default_consensus")
     @classmethod
     def validate_consensus(cls, v: str) -> str:
-        valid = {"unanimous", "majority", "supermajority", "hybrid"}
+        valid = {"unanimous", "majority", "supermajority", "hybrid", "judge"}
         if v.lower() not in valid:
             raise ValueError(f"Consensus must be one of {valid}")
         return v.lower()

@@ -156,6 +156,24 @@ from aragora.observability.metrics.explainability import (  # noqa: F401, E402
     track_batch_explainability_debate,
 )
 
+from aragora.observability.metrics.fabric import (  # noqa: F401, E402
+    init_fabric_metrics,
+    set_agents_active as set_fabric_agents_active,
+    set_agents_health as set_fabric_agents_health,
+    record_agent_spawned as record_fabric_agent_spawned,
+    record_agent_terminated as record_fabric_agent_terminated,
+    record_task_queued as record_fabric_task_queued,
+    record_task_completed as record_fabric_task_completed,
+    record_task_cancelled as record_fabric_task_cancelled,
+    set_task_queue_depth as set_fabric_task_queue_depth,
+    record_policy_decision as record_fabric_policy_decision,
+    set_pending_approvals as set_fabric_pending_approvals,
+    set_budget_usage as set_fabric_budget_usage,
+    record_budget_alert as record_fabric_budget_alert,
+    record_fabric_stats,
+    track_fabric_task,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup

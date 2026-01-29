@@ -1,0 +1,742 @@
+"""
+RBAC Role Definitions.
+
+Contains all system-wide roles and role hierarchy.
+"""
+
+from __future__ import annotations
+
+from aragora.rbac.models import Role
+
+from .registry import SYSTEM_PERMISSIONS
+from .permissions import (
+    # Debate
+    PERM_DEBATE_CREATE,
+    PERM_DEBATE_READ,
+    PERM_DEBATE_UPDATE,
+    PERM_DEBATE_DELETE,
+    PERM_DEBATE_RUN,
+    PERM_DEBATE_STOP,
+    PERM_DEBATE_FORK,
+    # Agent
+    PERM_AGENT_CREATE,
+    PERM_AGENT_READ,
+    PERM_AGENT_UPDATE,
+    PERM_AGENT_DELETE,
+    PERM_AGENT_DEPLOY,
+    # User
+    PERM_USER_READ,
+    PERM_USER_INVITE,
+    PERM_USER_REMOVE,
+    PERM_USER_CHANGE_ROLE,
+    # Organization
+    PERM_ORG_READ,
+    PERM_ORG_UPDATE,
+    PERM_ORG_AUDIT,
+    PERM_ORG_EXPORT,
+    PERM_ORG_INVITE,
+    # API
+    PERM_API_GENERATE_KEY,
+    PERM_API_REVOKE_KEY,
+    PERM_API_KEY_CREATE,
+    PERM_API_KEY_REVOKE,
+    # Memory
+    PERM_MEMORY_READ,
+    PERM_MEMORY_UPDATE,
+    PERM_MEMORY_DELETE,
+    # Workflow
+    PERM_WORKFLOW_CREATE,
+    PERM_WORKFLOW_READ,
+    PERM_WORKFLOW_RUN,
+    PERM_WORKFLOW_DELETE,
+    # Analytics
+    PERM_ANALYTICS_READ,
+    PERM_ANALYTICS_EXPORT,
+    PERM_PERFORMANCE_READ,
+    PERM_PERFORMANCE_WRITE,
+    # Introspection & History
+    PERM_INTROSPECTION_READ,
+    PERM_HISTORY_READ,
+    # Reasoning
+    PERM_REASONING_READ,
+    # Knowledge
+    PERM_KNOWLEDGE_READ,
+    PERM_CULTURE_READ,
+    PERM_CULTURE_WRITE,
+    # Provenance
+    PERM_PROVENANCE_READ,
+    PERM_PROVENANCE_VERIFY,
+    PERM_PROVENANCE_EXPORT,
+    # Inbox
+    PERM_INBOX_READ,
+    PERM_INBOX_UPDATE,
+    # Skills
+    PERM_SKILLS_READ,
+    PERM_SKILLS_INSTALL,
+    PERM_SKILLS_RATE,
+    # Training & Evidence
+    PERM_TRAINING_READ,
+    PERM_TRAINING_CREATE,
+    PERM_EVIDENCE_READ,
+    PERM_EVIDENCE_CREATE,
+    # Documents
+    PERM_DOCUMENTS_READ,
+    PERM_DOCUMENTS_CREATE,
+    PERM_UPLOAD_CREATE,
+    PERM_SPEECH_CREATE,
+    # Connectors
+    PERM_CONNECTOR_READ,
+    PERM_CONNECTOR_CREATE,
+    PERM_CONNECTOR_DELETE,
+    # Bot & Feedback
+    PERM_BOTS_READ,
+    PERM_FEEDBACK_READ,
+    PERM_FEEDBACK_WRITE,
+    PERM_FEEDBACK_ALL,
+    # Device
+    PERM_DEVICE_READ,
+    PERM_DEVICE_WRITE,
+    PERM_DEVICE_NOTIFY,
+    # Repository
+    PERM_REPOSITORY_READ,
+    PERM_REPOSITORY_CREATE,
+    PERM_REPOSITORY_UPDATE,
+    PERM_REPOSITORY_DELETE,
+    # Bindings
+    PERM_BINDINGS_READ,
+    PERM_BINDINGS_CREATE,
+    PERM_BINDINGS_UPDATE,
+    PERM_BINDINGS_DELETE,
+    # Admin
+    PERM_ADMIN_METRICS,
+    # Webhook
+    PERM_WEBHOOK_READ,
+    PERM_WEBHOOK_CREATE,
+    PERM_WEBHOOK_DELETE,
+    PERM_WEBHOOK_ADMIN,
+    # Checkpoint & Replay
+    PERM_CHECKPOINT_READ,
+    PERM_CHECKPOINT_CREATE,
+    PERM_CHECKPOINT_DELETE,
+    PERM_REPLAYS_READ,
+    # Gauntlet
+    PERM_GAUNTLET_RUN,
+    PERM_GAUNTLET_READ,
+    PERM_GAUNTLET_DELETE,
+    PERM_GAUNTLET_SIGN,
+    PERM_GAUNTLET_COMPARE,
+    PERM_GAUNTLET_EXPORT,
+    # Marketplace
+    PERM_MARKETPLACE_READ,
+    PERM_MARKETPLACE_PUBLISH,
+    PERM_MARKETPLACE_IMPORT,
+    PERM_MARKETPLACE_RATE,
+    PERM_MARKETPLACE_REVIEW,
+    PERM_MARKETPLACE_DELETE,
+    # Explainability
+    PERM_EXPLAINABILITY_READ,
+    PERM_EXPLAINABILITY_BATCH,
+    # Findings
+    PERM_FINDINGS_READ,
+    PERM_FINDINGS_UPDATE,
+    PERM_FINDINGS_ASSIGN,
+    PERM_FINDINGS_BULK,
+    # Decision
+    PERM_DECISION_CREATE,
+    PERM_DECISION_READ,
+    PERM_DECISION_UPDATE,
+    # Control Plane
+    PERM_DATA_CLASSIFICATION_READ,
+    PERM_DATA_CLASSIFICATION_CLASSIFY,
+    PERM_DATA_CLASSIFICATION_UPDATE,
+    PERM_DATA_RETENTION_READ,
+    PERM_DATA_RETENTION_UPDATE,
+    PERM_DATA_LINEAGE_READ,
+    PERM_PII_READ,
+    PERM_PII_REDACT,
+    PERM_PII_MASK,
+    # Compliance Policy
+    PERM_COMPLIANCE_POLICY_READ,
+    PERM_COMPLIANCE_POLICY_UPDATE,
+    PERM_COMPLIANCE_POLICY_ENFORCE,
+    PERM_AUDIT_LOG_READ,
+    PERM_AUDIT_LOG_EXPORT,
+    PERM_AUDIT_LOG_SEARCH,
+    PERM_AUDIT_LOG_STREAM,
+    PERM_AUDIT_LOG_CONFIGURE,
+    PERM_VENDOR_READ,
+    PERM_VENDOR_APPROVE,
+    # Team
+    PERM_TEAM_READ,
+    PERM_TEAM_UPDATE,
+    PERM_TEAM_ADD_MEMBER,
+    PERM_TEAM_REMOVE_MEMBER,
+    PERM_TEAM_SHARE,
+    # Workspace
+    PERM_WORKSPACE_CREATE,
+    PERM_WORKSPACE_READ,
+    PERM_WORKSPACE_UPDATE,
+    PERM_WORKSPACE_DELETE,
+    PERM_WORKSPACE_MEMBER_ADD,
+    PERM_WORKSPACE_MEMBER_REMOVE,
+    PERM_WORKSPACE_MEMBER_CHANGE_ROLE,
+    PERM_WORKSPACE_SHARE,
+    # Quota & Budget
+    PERM_QUOTA_READ,
+    PERM_COST_CENTER_READ,
+    # Session & Auth
+    PERM_SESSION_READ,
+    PERM_SESSION_REVOKE,
+    PERM_AUTH_RESET_PASSWORD,
+    PERM_AUTH_REQUIRE_MFA,
+    PERM_AUTH_READ,
+    PERM_AUTH_CREATE,
+    PERM_AUTH_UPDATE,
+    PERM_AUTH_REVOKE,
+    # Approval
+    PERM_APPROVAL_REQUEST,
+    PERM_APPROVAL_GRANT,
+    PERM_APPROVAL_READ,
+    # System
+    PERM_QUEUE_READ,
+    PERM_QUEUE_MANAGE,
+    PERM_QUEUE_ADMIN,
+    PERM_NOMIC_READ,
+    PERM_NOMIC_ADMIN,
+    PERM_ORCHESTRATION_READ,
+    PERM_ORCHESTRATION_EXECUTE,
+    PERM_SYSTEM_HEALTH_READ,
+    # Verticals
+    PERM_VERTICALS_READ,
+    PERM_VERTICALS_WRITE,
+    # Canvas
+    PERM_CANVAS_READ,
+    PERM_CANVAS_CREATE,
+    PERM_CANVAS_UPDATE,
+    PERM_CANVAS_DELETE,
+    PERM_CANVAS_RUN,
+    # Verification
+    PERM_VERIFICATION_READ,
+    PERM_VERIFICATION_CREATE,
+    # Codebase
+    PERM_CODEBASE_READ,
+    PERM_CODEBASE_ANALYZE,
+    # Computer-Use
+    PERM_COMPUTER_USE_READ,
+    PERM_COMPUTER_USE_EXECUTE,
+    PERM_COMPUTER_USE_BROWSER,
+    PERM_COMPUTER_USE_SHELL,
+    PERM_COMPUTER_USE_FILE_READ,
+    PERM_COMPUTER_USE_FILE_WRITE,
+    PERM_COMPUTER_USE_SCREENSHOT,
+    PERM_COMPUTER_USE_NETWORK,
+    PERM_COMPUTER_USE_ADMIN,
+)
+
+
+# ============================================================================
+# SYSTEM ROLES
+# ============================================================================
+
+# Owner - Full control over organization
+ROLE_OWNER = Role(
+    id="owner",
+    name="owner",
+    display_name="Owner",
+    description="Full control over the organization. Can manage billing, users, and all resources.",
+    permissions={p.key for p in SYSTEM_PERMISSIONS.values()},
+    priority=100,
+    is_system=True,
+)
+
+# Admin - Administrative access without billing
+ROLE_ADMIN = Role(
+    id="admin",
+    name="admin",
+    display_name="Administrator",
+    description="Manage users and resources. Cannot manage billing.",
+    permissions={
+        # All debate operations
+        PERM_DEBATE_CREATE.key,
+        PERM_DEBATE_READ.key,
+        PERM_DEBATE_UPDATE.key,
+        PERM_DEBATE_DELETE.key,
+        PERM_DEBATE_RUN.key,
+        PERM_DEBATE_STOP.key,
+        PERM_DEBATE_FORK.key,
+        # All agent operations
+        PERM_AGENT_CREATE.key,
+        PERM_AGENT_READ.key,
+        PERM_AGENT_UPDATE.key,
+        PERM_AGENT_DELETE.key,
+        PERM_AGENT_DEPLOY.key,
+        # User management
+        PERM_USER_READ.key,
+        PERM_USER_INVITE.key,
+        PERM_USER_REMOVE.key,
+        PERM_USER_CHANGE_ROLE.key,
+        # Organization (no billing)
+        PERM_ORG_READ.key,
+        PERM_ORG_UPDATE.key,
+        PERM_ORG_AUDIT.key,
+        PERM_ORG_EXPORT.key,
+        PERM_ORG_INVITE.key,
+        # API keys
+        PERM_API_GENERATE_KEY.key,
+        PERM_API_REVOKE_KEY.key,
+        PERM_API_KEY_CREATE.key,
+        PERM_API_KEY_REVOKE.key,
+        # Authentication management
+        PERM_AUTH_READ.key,
+        PERM_AUTH_CREATE.key,
+        PERM_AUTH_UPDATE.key,
+        PERM_AUTH_REVOKE.key,
+        PERM_AUTH_RESET_PASSWORD.key,
+        PERM_AUTH_REQUIRE_MFA.key,
+        # Session management
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
+        # All memory
+        PERM_MEMORY_READ.key,
+        PERM_MEMORY_UPDATE.key,
+        PERM_MEMORY_DELETE.key,
+        # All workflows
+        PERM_WORKFLOW_CREATE.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_WORKFLOW_RUN.key,
+        PERM_WORKFLOW_DELETE.key,
+        # Analytics
+        PERM_ANALYTICS_READ.key,
+        PERM_ANALYTICS_EXPORT.key,
+        # Training
+        PERM_TRAINING_READ.key,
+        PERM_TRAINING_CREATE.key,
+        # Evidence
+        PERM_EVIDENCE_READ.key,
+        PERM_EVIDENCE_CREATE.key,
+        # Documents (duplicated in original for some reason)
+        PERM_DOCUMENTS_READ.key,
+        PERM_DOCUMENTS_CREATE.key,
+        PERM_UPLOAD_CREATE.key,
+        PERM_SPEECH_CREATE.key,
+        # Connectors
+        PERM_CONNECTOR_READ.key,
+        PERM_CONNECTOR_CREATE.key,
+        PERM_CONNECTOR_DELETE.key,
+        # Bots
+        PERM_BOTS_READ.key,
+        # Feedback (all operations including admin)
+        PERM_FEEDBACK_READ.key,
+        PERM_FEEDBACK_WRITE.key,
+        PERM_FEEDBACK_ALL.key,
+        # Devices
+        PERM_DEVICE_READ.key,
+        PERM_DEVICE_WRITE.key,
+        PERM_DEVICE_NOTIFY.key,
+        # Repositories
+        PERM_REPOSITORY_READ.key,
+        PERM_REPOSITORY_CREATE.key,
+        PERM_REPOSITORY_UPDATE.key,
+        PERM_REPOSITORY_DELETE.key,
+        # Message bindings
+        PERM_BINDINGS_READ.key,
+        PERM_BINDINGS_CREATE.key,
+        PERM_BINDINGS_UPDATE.key,
+        PERM_BINDINGS_DELETE.key,
+        # Webhooks
+        PERM_WEBHOOK_READ.key,
+        PERM_WEBHOOK_CREATE.key,
+        PERM_WEBHOOK_DELETE.key,
+        PERM_WEBHOOK_ADMIN.key,
+        # Checkpoints
+        PERM_CHECKPOINT_READ.key,
+        PERM_CHECKPOINT_CREATE.key,
+        PERM_CHECKPOINT_DELETE.key,
+        # Gauntlet (all operations)
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_GAUNTLET_DELETE.key,
+        PERM_GAUNTLET_SIGN.key,
+        PERM_GAUNTLET_COMPARE.key,
+        PERM_GAUNTLET_EXPORT.key,
+        # Marketplace (all operations)
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_PUBLISH.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        PERM_MARKETPLACE_DELETE.key,
+        # Explainability (all operations)
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_EXPLAINABILITY_BATCH.key,
+        # Findings (all operations)
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
+        PERM_FINDINGS_BULK.key,
+        # Provenance (all operations)
+        PERM_PROVENANCE_READ.key,
+        PERM_PROVENANCE_VERIFY.key,
+        PERM_PROVENANCE_EXPORT.key,
+        # Admin (limited)
+        PERM_ADMIN_METRICS.key,
+        # Decisions (all)
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
+        # Workspaces (all)
+        PERM_WORKSPACE_CREATE.key,
+        PERM_WORKSPACE_READ.key,
+        PERM_WORKSPACE_UPDATE.key,
+        PERM_WORKSPACE_DELETE.key,
+        PERM_WORKSPACE_MEMBER_ADD.key,
+        PERM_WORKSPACE_MEMBER_REMOVE.key,
+        PERM_WORKSPACE_MEMBER_CHANGE_ROLE.key,
+        PERM_WORKSPACE_SHARE.key,
+        # System operations (all admin access)
+        PERM_QUEUE_READ.key,
+        PERM_QUEUE_MANAGE.key,
+        PERM_QUEUE_ADMIN.key,
+        PERM_NOMIC_READ.key,
+        PERM_NOMIC_ADMIN.key,
+        PERM_ORCHESTRATION_READ.key,
+        PERM_ORCHESTRATION_EXECUTE.key,
+        PERM_SYSTEM_HEALTH_READ.key,
+        # Verticals
+        PERM_VERTICALS_READ.key,
+        PERM_VERTICALS_WRITE.key,
+        # Canvas (all operations)
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_UPDATE.key,
+        PERM_CANVAS_DELETE.key,
+        PERM_CANVAS_RUN.key,
+        # Verification (all operations)
+        PERM_VERIFICATION_READ.key,
+        PERM_VERIFICATION_CREATE.key,
+        # Codebase analysis (all operations)
+        PERM_CODEBASE_READ.key,
+        PERM_CODEBASE_ANALYZE.key,
+        # Performance (all operations)
+        PERM_PERFORMANCE_READ.key,
+        PERM_PERFORMANCE_WRITE.key,
+        # Culture (all operations)
+        PERM_CULTURE_READ.key,
+        PERM_CULTURE_WRITE.key,
+        # Computer-Use (all operations)
+        PERM_COMPUTER_USE_READ.key,
+        PERM_COMPUTER_USE_EXECUTE.key,
+        PERM_COMPUTER_USE_BROWSER.key,
+        PERM_COMPUTER_USE_SHELL.key,
+        PERM_COMPUTER_USE_FILE_READ.key,
+        PERM_COMPUTER_USE_FILE_WRITE.key,
+        PERM_COMPUTER_USE_SCREENSHOT.key,
+        PERM_COMPUTER_USE_NETWORK.key,
+        PERM_COMPUTER_USE_ADMIN.key,
+    },
+    parent_roles=[],
+    priority=80,
+    is_system=True,
+)
+
+# Debate Creator - Can create and manage debates
+ROLE_DEBATE_CREATOR = Role(
+    id="debate_creator",
+    name="debate_creator",
+    display_name="Debate Creator",
+    description="Create, run, and manage debates. Cannot manage users or billing.",
+    permissions={
+        PERM_DEBATE_CREATE.key,
+        PERM_DEBATE_READ.key,
+        PERM_DEBATE_UPDATE.key,
+        PERM_DEBATE_RUN.key,
+        PERM_DEBATE_STOP.key,
+        PERM_DEBATE_FORK.key,
+        PERM_AGENT_READ.key,
+        PERM_MEMORY_READ.key,
+        PERM_MEMORY_UPDATE.key,
+        PERM_WORKFLOW_CREATE.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_WORKFLOW_RUN.key,
+        PERM_EVIDENCE_READ.key,
+        PERM_EVIDENCE_CREATE.key,
+        PERM_ANALYTICS_READ.key,
+        PERM_CHECKPOINT_READ.key,
+        PERM_CHECKPOINT_CREATE.key,
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_GAUNTLET_COMPARE.key,
+        PERM_GAUNTLET_EXPORT.key,
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_PUBLISH.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_EXPLAINABILITY_BATCH.key,
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_API_GENERATE_KEY.key,
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
+        PERM_VERTICALS_READ.key,
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_UPDATE.key,
+        PERM_CANVAS_RUN.key,
+        PERM_VERIFICATION_READ.key,
+        PERM_CODEBASE_READ.key,
+    },
+    priority=50,
+    is_system=True,
+)
+
+# Analyst - Read access to data and analytics
+ROLE_ANALYST = Role(
+    id="analyst",
+    name="analyst",
+    display_name="Analyst",
+    description="View debates, analytics, and reports. Cannot create or modify resources.",
+    permissions={
+        PERM_DEBATE_READ.key,
+        PERM_AGENT_READ.key,
+        PERM_MEMORY_READ.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_ANALYTICS_READ.key,
+        PERM_ANALYTICS_EXPORT.key,
+        PERM_TRAINING_READ.key,
+        PERM_EVIDENCE_READ.key,
+        PERM_DOCUMENTS_READ.key,
+        PERM_CHECKPOINT_READ.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_MARKETPLACE_READ.key,
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_FINDINGS_READ.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+    },
+    priority=30,
+    is_system=True,
+)
+
+# Viewer - Minimal read-only access
+ROLE_VIEWER = Role(
+    id="viewer",
+    name="viewer",
+    display_name="Viewer",
+    description="View debates and basic information. No modification rights.",
+    permissions={
+        PERM_DEBATE_READ.key,
+        PERM_AGENT_READ.key,
+        PERM_ORG_READ.key,
+        PERM_FINDINGS_READ.key,
+    },
+    priority=10,
+    is_system=True,
+)
+
+# Member - Default role for organization members
+ROLE_MEMBER = Role(
+    id="member",
+    name="member",
+    display_name="Member",
+    description="Default organization member with standard access.",
+    permissions={
+        PERM_DEBATE_CREATE.key,
+        PERM_DEBATE_READ.key,
+        PERM_DEBATE_RUN.key,
+        PERM_DEBATE_STOP.key,
+        PERM_DEBATE_FORK.key,
+        PERM_AGENT_READ.key,
+        PERM_MEMORY_READ.key,
+        PERM_WORKFLOW_CREATE.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_WORKFLOW_RUN.key,
+        PERM_EVIDENCE_READ.key,
+        PERM_EVIDENCE_CREATE.key,
+        PERM_ANALYTICS_READ.key,
+        PERM_INTROSPECTION_READ.key,
+        PERM_HISTORY_READ.key,
+        PERM_REASONING_READ.key,
+        PERM_KNOWLEDGE_READ.key,
+        PERM_PERFORMANCE_READ.key,
+        PERM_CULTURE_READ.key,
+        PERM_PROVENANCE_READ.key,
+        PERM_INBOX_READ.key,
+        PERM_INBOX_UPDATE.key,
+        PERM_BOTS_READ.key,
+        PERM_FEEDBACK_READ.key,
+        PERM_FEEDBACK_WRITE.key,
+        PERM_DEVICE_READ.key,
+        PERM_DEVICE_WRITE.key,
+        PERM_DEVICE_NOTIFY.key,
+        PERM_CHECKPOINT_READ.key,
+        PERM_CHECKPOINT_CREATE.key,
+        PERM_REPLAYS_READ.key,
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_MARKETPLACE_RATE.key,
+        PERM_MARKETPLACE_REVIEW.key,
+        PERM_SKILLS_READ.key,
+        PERM_SKILLS_INSTALL.key,
+        PERM_SKILLS_RATE.key,
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_API_GENERATE_KEY.key,
+        PERM_API_KEY_CREATE.key,
+        PERM_API_KEY_REVOKE.key,
+        PERM_AUTH_READ.key,
+        PERM_AUTH_CREATE.key,
+        PERM_AUTH_UPDATE.key,
+        PERM_AUTH_REVOKE.key,
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
+        PERM_WORKSPACE_READ.key,
+        PERM_WORKSPACE_SHARE.key,
+        PERM_VERTICALS_READ.key,
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_RUN.key,
+        PERM_NOMIC_READ.key,
+    },
+    parent_roles=[],
+    priority=40,
+    is_system=True,
+)
+
+# Compliance Officer - Enterprise compliance and data governance
+ROLE_COMPLIANCE_OFFICER = Role(
+    id="compliance_officer",
+    name="compliance_officer",
+    display_name="Compliance Officer",
+    description="Manage compliance policies, data governance, and audit trails.",
+    permissions={
+        PERM_DATA_CLASSIFICATION_READ.key,
+        PERM_DATA_CLASSIFICATION_CLASSIFY.key,
+        PERM_DATA_CLASSIFICATION_UPDATE.key,
+        PERM_DATA_RETENTION_READ.key,
+        PERM_DATA_RETENTION_UPDATE.key,
+        PERM_DATA_LINEAGE_READ.key,
+        PERM_PII_READ.key,
+        PERM_PII_REDACT.key,
+        PERM_PII_MASK.key,
+        PERM_COMPLIANCE_POLICY_READ.key,
+        PERM_COMPLIANCE_POLICY_UPDATE.key,
+        PERM_COMPLIANCE_POLICY_ENFORCE.key,
+        PERM_AUDIT_LOG_READ.key,
+        PERM_AUDIT_LOG_EXPORT.key,
+        PERM_AUDIT_LOG_SEARCH.key,
+        PERM_AUDIT_LOG_STREAM.key,
+        PERM_AUDIT_LOG_CONFIGURE.key,
+        PERM_VENDOR_READ.key,
+        PERM_VENDOR_APPROVE.key,
+        PERM_APPROVAL_GRANT.key,
+        PERM_APPROVAL_READ.key,
+        PERM_DEBATE_READ.key,
+        PERM_AGENT_READ.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_ORG_AUDIT.key,
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_SESSION_READ.key,
+        PERM_SESSION_REVOKE.key,
+        PERM_AUTH_REQUIRE_MFA.key,
+    },
+    priority=75,
+    is_system=True,
+)
+
+# Team Lead - Manage team members and resources
+ROLE_TEAM_LEAD = Role(
+    id="team_lead",
+    name="team_lead",
+    display_name="Team Lead",
+    description="Manage team membership and share resources with team.",
+    permissions={
+        PERM_TEAM_READ.key,
+        PERM_TEAM_UPDATE.key,
+        PERM_TEAM_ADD_MEMBER.key,
+        PERM_TEAM_REMOVE_MEMBER.key,
+        PERM_TEAM_SHARE.key,
+        PERM_QUOTA_READ.key,
+        PERM_COST_CENTER_READ.key,
+        PERM_APPROVAL_REQUEST.key,
+        PERM_APPROVAL_READ.key,
+        PERM_DEBATE_CREATE.key,
+        PERM_DEBATE_READ.key,
+        PERM_DEBATE_UPDATE.key,
+        PERM_DEBATE_RUN.key,
+        PERM_DEBATE_STOP.key,
+        PERM_DEBATE_FORK.key,
+        PERM_AGENT_READ.key,
+        PERM_MEMORY_READ.key,
+        PERM_MEMORY_UPDATE.key,
+        PERM_WORKFLOW_CREATE.key,
+        PERM_WORKFLOW_READ.key,
+        PERM_WORKFLOW_RUN.key,
+        PERM_EVIDENCE_READ.key,
+        PERM_EVIDENCE_CREATE.key,
+        PERM_ANALYTICS_READ.key,
+        PERM_CHECKPOINT_READ.key,
+        PERM_CHECKPOINT_CREATE.key,
+        PERM_GAUNTLET_RUN.key,
+        PERM_GAUNTLET_READ.key,
+        PERM_MARKETPLACE_READ.key,
+        PERM_MARKETPLACE_IMPORT.key,
+        PERM_EXPLAINABILITY_READ.key,
+        PERM_FINDINGS_READ.key,
+        PERM_FINDINGS_UPDATE.key,
+        PERM_FINDINGS_ASSIGN.key,
+        PERM_USER_READ.key,
+        PERM_ORG_READ.key,
+        PERM_API_GENERATE_KEY.key,
+        PERM_DECISION_CREATE.key,
+        PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
+    },
+    parent_roles=["member"],
+    priority=55,
+    is_system=True,
+)
+
+
+# All system roles
+SYSTEM_ROLES: dict[str, Role] = {
+    r.name: r
+    for r in [
+        ROLE_OWNER,
+        ROLE_ADMIN,
+        ROLE_COMPLIANCE_OFFICER,
+        ROLE_DEBATE_CREATOR,
+        ROLE_TEAM_LEAD,
+        ROLE_ANALYST,
+        ROLE_VIEWER,
+        ROLE_MEMBER,
+    ]
+}
+
+# Role hierarchy (for inheritance resolution)
+ROLE_HIERARCHY: dict[str, list[str]] = {
+    "owner": ["admin"],
+    "admin": ["compliance_officer", "debate_creator", "analyst"],
+    "compliance_officer": ["analyst"],
+    "debate_creator": ["team_lead"],
+    "team_lead": ["member"],
+    "analyst": ["viewer"],
+    "member": ["viewer"],
+    "viewer": [],
+}

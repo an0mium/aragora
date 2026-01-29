@@ -89,11 +89,16 @@ from aragora.mcp.tools_module import (
     canvas_list_tool,
     canvas_delete_node_tool,
 )
+from aragora.config.settings import AgentSettings, DebateSettings
 
 logger = logging.getLogger(__name__)
 
 
 # Tool metadata for MCP registration
+_DEFAULT_AGENTS = AgentSettings().default_agents
+_DEFAULT_ROUNDS = DebateSettings().default_rounds
+_DEFAULT_CONSENSUS = DebateSettings().default_consensus
+
 TOOLS_METADATA = [
     {
         "name": "run_debate",
@@ -101,9 +106,9 @@ TOOLS_METADATA = [
         "function": run_debate_tool,
         "parameters": {
             "question": {"type": "string", "required": True},
-            "agents": {"type": "string", "default": "anthropic-api,openai-api"},
-            "rounds": {"type": "integer", "default": 3},
-            "consensus": {"type": "string", "default": "majority"},
+            "agents": {"type": "string", "default": _DEFAULT_AGENTS},
+            "rounds": {"type": "integer", "default": _DEFAULT_ROUNDS},
+            "consensus": {"type": "string", "default": _DEFAULT_CONSENSUS},
         },
     },
     {

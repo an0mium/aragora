@@ -6,6 +6,7 @@ Based on concepts from arXiv:2512.24601.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 
@@ -82,7 +83,7 @@ class RLMConfig:
     max_sub_calls: int = 10  # Maximum sub-LM calls per level
 
     # Context management
-    target_tokens: int = 4000  # Target context size for each level
+    target_tokens: int = 8000  # Target context size for each level
     overlap_tokens: int = 200  # Overlap between chunks
 
     # Compression settings
@@ -98,10 +99,16 @@ class RLMConfig:
     cache_ttl_seconds: int = 3600  # Cache TTL
 
     # Production Hardening - Resource Limits
-    max_content_bytes: int = 10_000_000  # 10MB max content size
-    max_streaming_timeout: float = 60.0  # Max streaming timeout (seconds)
-    max_repl_memory_mb: int = 100  # Max REPL namespace memory (MB)
+    # Default 40MB for broader context; Nomic loop context builder may
+    # increase to 100MB+ for 10M-token codebase comprehension via
+    # NOMIC_MAX_CONTEXT_BYTES env var or direct config override.
+    max_content_bytes: int = 40_000_000  # ~10M token upper bound (bytes cap)
+    max_content_bytes_nomic: int = 100_000_000  # 100MB for Nomic loop (10M tokens)
+    max_streaming_timeout: float = 120.0  # Max streaming timeout (seconds)
+    max_repl_memory_mb: int = 1024  # Max REPL namespace memory (MB)
     max_query_results: int = 1000  # Max results from knowledge queries
+    # Externalize large context to disk when above this threshold (TRUE RLM reads file)
+    externalize_content_bytes: int = 2_000_000  # 2MB
 
     # Output format
     include_citations: bool = True  # Include source references
@@ -164,6 +171,12 @@ class RLMContext:
     source_type: str = "text"  # text, debate, code, document
     created_at: str = ""
     compression_stats: dict[str, Any] = field(default_factory=dict)
+    # Externalized content (for TRUE RLM REPL access)
+    source_path: Optional[str] = None  # Path to full context file
+    source_root: Optional[str] = None  # Root directory for repo context
+    source_manifest: Optional[str] = None  # Manifest file listing repo contents
+    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_at_level(self, level: AbstractionLevel) -> str:
         """Get concatenated content at a specific abstraction level."""
@@ -174,6 +187,22 @@ class RLMContext:
     def get_node(self, node_id: str) -> Optional[AbstractionNode]:
         """Get a specific node by ID."""
         return self.nodes_by_id.get(node_id)
+
+    def load_original_content(self, max_bytes: Optional[int] = None) -> str:
+        """Load original content, optionally from an external file."""
+        if self.original_content:
+            return self.original_content
+        if self.source_path:
+            try:
+                path = Path(self.source_path)
+                if not path.exists():
+                    return ""
+                if max_bytes is None:
+                    return path.read_text(errors="replace")
+                return path.read_text(errors="replace")[:max_bytes]
+            except Exception:
+                return ""
+        return ""
 
     def drill_down(self, node_id: str) -> list[AbstractionNode]:
         """Get more detailed nodes under a given node."""

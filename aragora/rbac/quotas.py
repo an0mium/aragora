@@ -33,13 +33,22 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Enable Redis persistence for quota usage via env var
+PERSISTENCE_ENABLED = os.environ.get("ARAGORA_QUOTA_PERSISTENCE", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 
 class QuotaPeriod(str, Enum):
@@ -127,6 +136,39 @@ class UsageRecord:
     timestamp: datetime
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for Redis storage."""
+        return {
+            "user_id": self.user_id,
+            "org_id": self.org_id,
+            "workspace_id": self.workspace_id,
+            "resource_type": self.resource_type,
+            "amount": self.amount,
+            "cost": self.cost,
+            "timestamp": self.timestamp.isoformat(),
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_storage_dict(cls, data: dict[str, Any]) -> "UsageRecord":
+        """Reconstruct from storage dictionary."""
+        timestamp = data.get("timestamp")
+        if isinstance(timestamp, str):
+            timestamp = datetime.fromisoformat(timestamp)
+        elif timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+
+        return cls(
+            user_id=data.get("user_id", ""),
+            org_id=data.get("org_id"),
+            workspace_id=data.get("workspace_id"),
+            resource_type=data.get("resource_type", ""),
+            amount=data.get("amount", 0),
+            cost=data.get("cost", 0.0),
+            timestamp=timestamp,
+            metadata=data.get("metadata", {}),
+        )
+
 
 class QuotaEnforcer:
     """
@@ -150,11 +192,112 @@ class QuotaEnforcer:
         "exports": QuotaPolicy("exports", 50, QuotaPeriod.DAILY, cost_per_unit=0.02),
     }
 
-    def __init__(self):
-        """Initialize quota enforcer."""
+    def __init__(self, enable_persistence: Optional[bool] = None):
+        """Initialize quota enforcer.
+
+        Args:
+            enable_persistence: Enable Redis persistence. If None, uses ARAGORA_QUOTA_PERSISTENCE env var.
+        """
         self._policies: dict[str, QuotaPolicy] = dict(self.DEFAULT_QUOTAS)
         self._org_policies: dict[str, dict[str, QuotaPolicy]] = {}  # org_id -> policies
         self._usage: dict[str, list[UsageRecord]] = {}  # key -> records
+
+        # Redis persistence
+        self._persistence_enabled = (
+            enable_persistence if enable_persistence is not None else PERSISTENCE_ENABLED
+        )
+        self._redis: Optional[Any] = None
+        self._redis_checked = False
+
+        if self._persistence_enabled:
+            self._load_from_persistence()
+
+    def _get_redis(self) -> Optional[Any]:
+        """Get Redis client (lazy initialization)."""
+        if self._redis_checked:
+            return self._redis
+
+        self._redis_checked = True
+
+        try:
+            from aragora.server.redis_config import get_redis_client
+
+            self._redis = get_redis_client()
+            if self._redis:
+                logger.info("Quota enforcer using Redis persistence")
+        except Exception as e:
+            logger.warning(f"Redis not available for quota persistence: {e}")
+            self._redis = None
+
+        return self._redis
+
+    def _usage_redis_key(self, usage_key: str) -> str:
+        """Generate Redis key for usage records."""
+        return f"aragora:quota:usage:{usage_key}"
+
+    def _persist_usage(self, usage_key: str, record: UsageRecord) -> None:
+        """Persist a usage record to Redis."""
+        if not self._persistence_enabled:
+            return
+
+        redis = self._get_redis()
+        if not redis:
+            return
+
+        try:
+            redis_key = self._usage_redis_key(usage_key)
+            record_json = json.dumps(record.to_storage_dict())
+
+            # Use RPUSH to append to list, LTRIM to keep max 10000 records per key
+            redis.rpush(redis_key, record_json)
+            redis.ltrim(redis_key, -10000, -1)  # Keep last 10000 records
+
+            # Set TTL of 90 days on the key
+            redis.expire(redis_key, 90 * 24 * 3600)
+        except Exception as e:
+            logger.warning(f"Failed to persist quota usage to Redis: {e}")
+
+    def _load_from_persistence(self) -> None:
+        """Load usage records from Redis on startup."""
+        redis = self._get_redis()
+        if not redis:
+            return
+
+        try:
+            # Scan for all quota usage keys
+            cursor = 0
+            loaded_count = 0
+
+            while True:
+                cursor, keys = redis.scan(cursor, match="aragora:quota:usage:*", count=100)
+
+                for redis_key in keys:
+                    usage_key = redis_key.decode() if isinstance(redis_key, bytes) else redis_key
+                    usage_key = usage_key.replace("aragora:quota:usage:", "")
+
+                    # Load records from Redis list
+                    records_json = redis.lrange(self._usage_redis_key(usage_key), 0, -1)
+
+                    if records_json:
+                        self._usage[usage_key] = []
+                        for record_json in records_json:
+                            try:
+                                if isinstance(record_json, bytes):
+                                    record_json = record_json.decode()
+                                data = json.loads(record_json)
+                                record = UsageRecord.from_storage_dict(data)
+                                self._usage[usage_key].append(record)
+                                loaded_count += 1
+                            except Exception as e:
+                                logger.warning(f"Failed to parse quota record: {e}")
+
+                if cursor == 0:
+                    break
+
+            if loaded_count > 0:
+                logger.info(f"Loaded {loaded_count} quota usage records from Redis")
+        except Exception as e:
+            logger.warning(f"Failed to load quota usage from Redis: {e}")
 
     def set_policy(
         self,
@@ -304,6 +447,9 @@ class QuotaEnforcer:
         if key not in self._usage:
             self._usage[key] = []
         self._usage[key].append(record)
+
+        # Persist to Redis
+        self._persist_usage(key, record)
 
         logger.debug(
             f"Usage recorded: user={user_id}, resource={resource_type}, "

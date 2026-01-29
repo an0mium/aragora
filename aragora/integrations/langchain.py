@@ -27,6 +27,12 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 logger = logging.getLogger(__name__)
 
+from aragora.config.settings import get_settings
+
+_LANGCHAIN_DEFAULTS = get_settings()
+_DEFAULT_LC_AGENTS = _LANGCHAIN_DEFAULTS.agents.default_agent_list
+_DEFAULT_LC_ROUNDS = _LANGCHAIN_DEFAULTS.debate.default_rounds
+
 
 # =============================================================================
 # LangChain Compatibility Layer
@@ -62,7 +68,7 @@ class AragoraToolInput(BaseModel):
         default=None,
         description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
     )
-    rounds: Optional[int] = Field(default=3, description="Number of debate rounds")
+    rounds: Optional[int] = Field(default=_DEFAULT_LC_ROUNDS, description="Number of debate rounds")
     consensus_threshold: Optional[float] = Field(
         default=0.8, description="Confidence threshold for consensus (0-1)"
     )
@@ -102,8 +108,8 @@ class AragoraTool(BaseTool):
     # Configuration
     api_base: str = "https://api.aragora.ai"
     api_key: str = ""
-    default_agents: List[str] = field(default_factory=lambda: ["claude", "gpt", "gemini"])
-    default_rounds: int = 3
+    default_agents: List[str] = field(default_factory=lambda: list(_DEFAULT_LC_AGENTS))
+    default_rounds: int = _DEFAULT_LC_ROUNDS
     timeout_seconds: float = 120.0
 
     # Internal state
@@ -114,7 +120,7 @@ class AragoraTool(BaseTool):
         api_base: str = "https://api.aragora.ai",
         api_key: str = "",
         default_agents: Optional[List[str]] = None,
-        default_rounds: int = 3,
+        default_rounds: int = _DEFAULT_LC_ROUNDS,
         timeout_seconds: float = 120.0,
         **kwargs,
     ):
@@ -130,7 +136,7 @@ class AragoraTool(BaseTool):
         super().__init__(**kwargs)
         self.api_base = api_base
         self.api_key = api_key
-        self.default_agents = default_agents or ["claude", "gpt", "gemini"]
+        self.default_agents = default_agents or list(_DEFAULT_LC_AGENTS)
         self.default_rounds = default_rounds
         self.timeout_seconds = timeout_seconds
 

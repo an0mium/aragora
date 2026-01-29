@@ -1,0 +1,150 @@
+"""Tests for NomicContextBuilder."""
+
+from __future__ import annotations
+
+import pytest
+from pathlib import Path
+from unittest.mock import AsyncMock
+
+from aragora.nomic.context_builder import (
+    CodebaseIndex,
+    IndexedFile,
+    NomicContextBuilder,
+)
+
+
+@pytest.fixture
+def sample_tree(tmp_path):
+    """Create a small file tree for indexing."""
+    src = tmp_path / "aragora"
+    src.mkdir()
+    (src / "__init__.py").write_text("from .core import Arena\n")
+    (src / "core.py").write_text('"""Core module."""\n\nclass Arena:\n    pass\n')
+    sub = src / "debate"
+    sub.mkdir()
+    (sub / "__init__.py").write_text("")
+    (sub / "protocol.py").write_text(
+        '"""Protocol module."""\n\nclass DebateProtocol:\n    rounds = 9\n'
+    )
+    return tmp_path
+
+
+class TestCodebaseIndex:
+    """Tests for CodebaseIndex data structure."""
+
+    def test_total_tokens_estimate(self):
+        idx = CodebaseIndex(root_path=Path("."), total_bytes=4000)
+        assert idx.total_tokens_estimate == 1000
+
+    def test_get_file(self):
+        f = IndexedFile(
+            relative_path="aragora/core.py", size_bytes=100, line_count=10, extension=".py"
+        )
+        idx = CodebaseIndex(root_path=Path("."), files=[f])
+        assert idx.get_file("aragora/core.py") is f
+        assert idx.get_file("nonexistent.py") is None
+
+    def test_search_files(self):
+        files = [
+            IndexedFile(
+                relative_path="aragora/core.py", size_bytes=100, line_count=10, extension=".py"
+            ),
+            IndexedFile(
+                relative_path="aragora/debate/protocol.py",
+                size_bytes=200,
+                line_count=20,
+                extension=".py",
+            ),
+            IndexedFile(
+                relative_path="tests/test_core.py", size_bytes=50, line_count=5, extension=".py"
+            ),
+        ]
+        idx = CodebaseIndex(root_path=Path("."), files=files)
+        results = idx.search_files("core")
+        assert len(results) == 2  # core.py and test_core.py
+
+
+class TestNomicContextBuilder:
+    """Tests for NomicContextBuilder."""
+
+    @pytest.mark.asyncio
+    async def test_build_index(self, sample_tree):
+        builder = NomicContextBuilder(aragora_path=sample_tree)
+        index = await builder.build_index()
+        assert index.total_files >= 3  # __init__.py, core.py, protocol.py
+        assert index.total_bytes > 0
+        assert index.total_lines > 0
+
+    @pytest.mark.asyncio
+    async def test_build_index_skips_tests(self, sample_tree):
+        """Default: test files are excluded (directory named 'test')."""
+        # The builder filters on "test" in path.parts (exact match)
+        test_dir = sample_tree / "test"
+        test_dir.mkdir()
+        (test_dir / "test_foo.py").write_text("def test_x(): pass\n")
+
+        builder = NomicContextBuilder(aragora_path=sample_tree, include_tests=False)
+        index = await builder.build_index()
+        paths = [f.relative_path for f in index.files]
+        assert not any("test_foo" in p for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_build_index_includes_tests(self, sample_tree):
+        """With include_tests=True, test files are included."""
+        test_dir = sample_tree / "test"
+        test_dir.mkdir()
+        (test_dir / "test_bar.py").write_text("def test_y(): pass\n")
+
+        builder = NomicContextBuilder(aragora_path=sample_tree, include_tests=True)
+        index = await builder.build_index()
+        paths = [f.relative_path for f in index.files]
+        assert any("test_bar" in p for p in paths)
+
+    @pytest.mark.asyncio
+    async def test_build_debate_context(self, sample_tree):
+        builder = NomicContextBuilder(aragora_path=sample_tree)
+        context = await builder.build_debate_context()
+        assert "Aragora Codebase Context" in context
+        assert "files" in context
+
+    @pytest.mark.asyncio
+    async def test_query_fallback_to_index(self, sample_tree):
+        builder = NomicContextBuilder(aragora_path=sample_tree)
+        await builder.build_index()
+        result = await builder.query("core module")
+        assert "core" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_empty_dir(self, tmp_path):
+        builder = NomicContextBuilder(aragora_path=tmp_path)
+        index = await builder.build_index()
+        assert index.total_files == 0
+        assert index.total_bytes == 0
+
+    @pytest.mark.asyncio
+    async def test_knowledge_mound_integration(self, sample_tree):
+        mock_mound = AsyncMock()
+        mock_mound.query_semantic = AsyncMock(return_value=[])
+        builder = NomicContextBuilder(
+            aragora_path=sample_tree,
+            knowledge_mound=mock_mound,
+        )
+        context = await builder.build_debate_context()
+        assert isinstance(context, str)
+
+    @pytest.mark.asyncio
+    async def test_index_search_no_matches(self, sample_tree):
+        builder = NomicContextBuilder(aragora_path=sample_tree)
+        await builder.build_index()
+        result = await builder.query("zzzznonexistentkeyword")
+        assert "No matching files found" in result
+
+    def test_module_path_derivation(self):
+        f = IndexedFile(
+            relative_path="aragora/debate/protocol.py",
+            size_bytes=100,
+            line_count=10,
+            extension=".py",
+            module_path="aragora.debate.protocol",
+        )
+        assert f.module_path == "aragora.debate.protocol"

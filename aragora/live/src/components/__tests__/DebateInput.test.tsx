@@ -13,8 +13,8 @@ jest.mock('next/navigation', () => ({
 // Mock config
 jest.mock('@/config', () => ({
   DEFAULT_AGENTS: 'grok,anthropic-api,openai-api',
-  DEFAULT_ROUNDS: 8,  // 9-round format default
-  DEFAULT_CONSENSUS: 'judge',
+  DEFAULT_ROUNDS: 9,  // 9-round format default
+  DEFAULT_CONSENSUS: 'hybrid',
   AGENT_DISPLAY_NAMES: {
     grok: 'Grok 4',
     'anthropic-api': 'Claude Opus 4.5',

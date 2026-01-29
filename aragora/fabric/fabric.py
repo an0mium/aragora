@@ -585,13 +585,27 @@ class AgentFabric:
         policy_stats = await self.policy.get_stats()
         budget_stats = await self.budget.get_stats()
 
-        return {
+        stats = {
             "scheduler": scheduler_stats,
             "lifecycle": lifecycle_stats,
             "policy": policy_stats,
             "budget": budget_stats,
             "pools": len(self._pools),
         }
+
+        # Record to Prometheus metrics
+        self._record_prometheus_metrics(stats)
+
+        return stats
+
+    def _record_prometheus_metrics(self, stats: dict[str, Any]) -> None:
+        """Record stats to Prometheus metrics (graceful fallback if unavailable)."""
+        try:
+            from aragora.observability.metrics.fabric import record_fabric_stats
+
+            record_fabric_stats(stats)
+        except ImportError:
+            pass  # Metrics not available
 
     async def get_fabric_stats(self) -> FabricStats:
         """Get aggregated statistics as FabricStats object."""

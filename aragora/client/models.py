@@ -13,6 +13,8 @@ from typing import Any, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
+
 
 class DebateStatus(str, Enum):
     """Status of a debate.
@@ -60,6 +62,7 @@ class ConsensusType(str, Enum):
     MAJORITY = "majority"
     SUPERMAJORITY = "supermajority"
     HYBRID = "hybrid"
+    JUDGE = "judge"
 
 
 class AgentMessage(BaseModel):
@@ -162,9 +165,11 @@ class DebateCreateRequest(BaseModel):
     """Request to create a new debate."""
 
     task: str
-    agents: list[str] = Field(default_factory=lambda: ["anthropic-api", "openai-api"])
-    rounds: int = Field(default=3, ge=1, le=10)
-    consensus: ConsensusType = ConsensusType.MAJORITY
+    agents: list[str] = Field(
+        default_factory=lambda: [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+    )
+    rounds: int = Field(default=DEFAULT_ROUNDS, ge=1, le=MAX_ROUNDS)
+    consensus: ConsensusType = ConsensusType(DEFAULT_CONSENSUS)
     context: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 

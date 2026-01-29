@@ -721,6 +721,99 @@ def trace_decision(func: F) -> F:
 
 
 # =============================================================================
+# Agent Fabric Tracing
+# =============================================================================
+
+
+@contextmanager
+def trace_fabric_operation(
+    operation: str,
+    agent_id: Optional[str] = None,
+    task_id: Optional[str] = None,
+    pool_id: Optional[str] = None,
+) -> Iterator[Any]:
+    """Context manager for tracing Agent Fabric operations.
+
+    Args:
+        operation: Type of operation (spawn, schedule, execute, policy_check, etc.)
+        agent_id: Optional agent ID involved
+        task_id: Optional task ID involved
+        pool_id: Optional pool ID involved
+
+    Yields:
+        The span object
+
+    Example:
+        with trace_fabric_operation("schedule", agent_id="a1", task_id="t1") as span:
+            handle = await scheduler.schedule(task, agent_id)
+            span.set_attribute("task.status", handle.status.value)
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span(f"fabric.{operation}") as span:
+        span.set_attribute("fabric.operation", operation)
+        if agent_id:
+            span.set_attribute("fabric.agent_id", agent_id)
+        if task_id:
+            span.set_attribute("fabric.task_id", task_id)
+        if pool_id:
+            span.set_attribute("fabric.pool_id", pool_id)
+        yield span
+
+
+@contextmanager
+def trace_fabric_task(
+    task_type: str,
+    task_id: str,
+    agent_id: str,
+    priority: str = "normal",
+) -> Iterator[Any]:
+    """Context manager for tracing fabric task execution.
+
+    Args:
+        task_type: Type of task (debate, generate, etc.)
+        task_id: Task identifier
+        agent_id: Agent executing the task
+        priority: Task priority
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span(f"fabric.task.{task_type}") as span:
+        span.set_attribute("fabric.task.id", task_id)
+        span.set_attribute("fabric.task.type", task_type)
+        span.set_attribute("fabric.agent_id", agent_id)
+        span.set_attribute("fabric.task.priority", priority)
+        yield span
+
+
+@contextmanager
+def trace_fabric_policy_check(
+    action: str,
+    agent_id: Optional[str] = None,
+    resource: Optional[str] = None,
+) -> Iterator[Any]:
+    """Context manager for tracing fabric policy decisions.
+
+    Args:
+        action: Action being checked
+        agent_id: Agent requesting the action
+        resource: Resource being accessed
+
+    Yields:
+        The span object
+    """
+    tracer = get_tracer()
+    with tracer.start_as_current_span("fabric.policy.check") as span:
+        span.set_attribute("fabric.policy.action", action)
+        if agent_id:
+            span.set_attribute("fabric.agent_id", agent_id)
+        if resource:
+            span.set_attribute("fabric.policy.resource", resource)
+        yield span
+
+
+# =============================================================================
 # HTTP Trace Header Propagation
 # =============================================================================
 

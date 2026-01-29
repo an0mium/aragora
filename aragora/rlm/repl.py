@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 MAX_REGEX_PATTERN_LENGTH = 1000
 MAX_REGEX_GROUPS = 20
 REGEX_TIMEOUT_SECONDS = 2.0
-MAX_NAMESPACE_VALUE_SIZE = 10_000_000  # 10MB per value
+# Default per-value cap; RLMEnvironment overrides using RLMConfig
+MAX_NAMESPACE_VALUE_SIZE = 10_000_000  # 10MB per value (fallback)
 
 
 def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
@@ -315,6 +316,14 @@ class RLMEnvironment:
         self.config = config
         self.context = context
         self.agent_call = agent_call
+        # Derive per-value cap from config (supports very large contexts)
+        repl_cap = int(self.config.max_repl_memory_mb * 1024 * 1024)
+        content_cap = int(self.config.max_content_bytes) if self.config.max_content_bytes else 0
+        if content_cap > 0:
+            repl_cap = min(repl_cap, content_cap)
+        if repl_cap <= 0:
+            repl_cap = MAX_NAMESPACE_VALUE_SIZE
+        self._max_namespace_value_size = repl_cap
 
         self.state = REPLState()
         self._initialize_namespace()
@@ -674,17 +683,21 @@ class RLMEnvironment:
                 if _contains_blocked_dunder(value):
                     del self.state.namespace[key]
                     raise SecurityError(f"String variable '{key}' contains blocked dunder pattern")
-                if len(value) > MAX_NAMESPACE_VALUE_SIZE:
+                if len(value) > self._max_namespace_value_size:
                     del self.state.namespace[key]
-                    raise SecurityError(f"String variable '{key}' exceeds size limit")
+                    raise SecurityError(
+                        f"String variable '{key}' exceeds size limit ({self._max_namespace_value_size} bytes)"
+                    )
 
             # Check list/dict sizes
             elif isinstance(value, (list, dict, set)):
                 try:
                     size = len(str(value))
-                    if size > MAX_NAMESPACE_VALUE_SIZE:
+                    if size > self._max_namespace_value_size:
                         del self.state.namespace[key]
-                        raise SecurityError(f"Collection variable '{key}' exceeds size limit")
+                        raise SecurityError(
+                            f"Collection variable '{key}' exceeds size limit ({self._max_namespace_value_size} bytes)"
+                        )
                 except (TypeError, RecursionError) as e:
                     logger.debug(f"Could not check collection size: {e}")
                     pass  # Can't check size, allow it

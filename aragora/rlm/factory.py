@@ -40,7 +40,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional
 
-from .types import RLMMode
+from .types import RLMMode, RLMConfig
 
 if TYPE_CHECKING:
     from .bridge import AragoraRLM
@@ -167,6 +167,41 @@ def get_rlm(
 
     from .bridge import AragoraRLM, HAS_OFFICIAL_RLM
 
+    def _apply_env_overrides(rlm_config: "RLMConfig") -> "RLMConfig":
+        env_max_bytes = os.environ.get("ARAGORA_RLM_MAX_CONTENT_BYTES")
+        if env_max_bytes:
+            try:
+                rlm_config.max_content_bytes = int(env_max_bytes)
+            except ValueError:
+                logger.warning(
+                    "[RLM Factory] Invalid ARAGORA_RLM_MAX_CONTENT_BYTES: %s", env_max_bytes
+                )
+        env_max_repl = os.environ.get("ARAGORA_RLM_MAX_REPL_MEMORY_MB")
+        if env_max_repl:
+            try:
+                rlm_config.max_repl_memory_mb = int(env_max_repl)
+            except ValueError:
+                logger.warning(
+                    "[RLM Factory] Invalid ARAGORA_RLM_MAX_REPL_MEMORY_MB: %s", env_max_repl
+                )
+        env_target_tokens = os.environ.get("ARAGORA_RLM_TARGET_TOKENS")
+        if env_target_tokens:
+            try:
+                rlm_config.target_tokens = int(env_target_tokens)
+            except ValueError:
+                logger.warning(
+                    "[RLM Factory] Invalid ARAGORA_RLM_TARGET_TOKENS: %s", env_target_tokens
+                )
+        env_overlap_tokens = os.environ.get("ARAGORA_RLM_OVERLAP_TOKENS")
+        if env_overlap_tokens:
+            try:
+                rlm_config.overlap_tokens = int(env_overlap_tokens)
+            except ValueError:
+                logger.warning(
+                    "[RLM Factory] Invalid ARAGORA_RLM_OVERLAP_TOKENS: %s", env_overlap_tokens
+                )
+        return rlm_config
+
     # Determine effective mode from config, parameter, or environment
     effective_mode = mode
     if effective_mode is None and config is not None:
@@ -205,6 +240,8 @@ def get_rlm(
 
     _metrics.singleton_misses += 1
 
+    if config is None:
+        config = _apply_env_overrides(RLMConfig())
     rlm = AragoraRLM(aragora_config=config)
     _metrics.rlm_instances_created += 1
 

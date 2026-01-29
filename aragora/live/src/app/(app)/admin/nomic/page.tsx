@@ -99,7 +99,7 @@ export default function NomicAdminPage() {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch nomic status
-      const statusRes = await fetch(`${backendConfig.api}/api/admin/nomic/status`, { headers });
+      const statusRes = await fetch(`${backendConfig.api}/api/v1/admin/nomic/status`, { headers });
       if (statusRes.ok) {
         const data = await statusRes.json();
         setStatus(data);
@@ -114,7 +114,7 @@ export default function NomicAdminPage() {
       }
 
       // Fetch circuit breakers
-      const cbRes = await fetch(`${backendConfig.api}/api/admin/nomic/circuit-breakers`, { headers });
+      const cbRes = await fetch(`${backendConfig.api}/api/v1/admin/nomic/circuit-breakers`, { headers });
       if (cbRes.ok) {
         const data = await cbRes.json();
         setCircuitBreakers(data.circuit_breakers || []);
@@ -139,7 +139,7 @@ export default function NomicAdminPage() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${backendConfig.api}/api/admin/nomic/pause`, {
+      const res = await fetch(`${backendConfig.api}/api/v1/admin/nomic/pause`, {
         method: 'POST',
         headers,
       });
@@ -163,7 +163,7 @@ export default function NomicAdminPage() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${backendConfig.api}/api/admin/nomic/resume`, {
+      const res = await fetch(`${backendConfig.api}/api/v1/admin/nomic/resume`, {
         method: 'POST',
         headers,
       });
@@ -190,7 +190,7 @@ export default function NomicAdminPage() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${backendConfig.api}/api/admin/nomic/reset`, {
+      const res = await fetch(`${backendConfig.api}/api/v1/admin/nomic/reset`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ phase: resetPhase }),
@@ -218,7 +218,7 @@ export default function NomicAdminPage() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${backendConfig.api}/api/admin/nomic/circuit-breakers/reset`, {
+      const res = await fetch(`${backendConfig.api}/api/v1/admin/nomic/circuit-breakers/reset`, {
         method: 'POST',
         headers,
       });

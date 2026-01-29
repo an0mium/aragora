@@ -35,7 +35,7 @@ export function DebateTab({ featureConfig, updateFeatureConfig }: DebateTabProps
               min={1}
               max={10}
               value={featureConfig.default_rounds}
-              onChange={(e) => updateFeatureConfig('default_rounds', parseInt(e.target.value) || 3)}
+              onChange={(e) => updateFeatureConfig('default_rounds', parseInt(e.target.value) || 9)}
               className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
             />
           </div>

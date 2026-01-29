@@ -212,6 +212,52 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false
 
+  helm-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Helm Chart Validation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+
+      - name: Lint primary Helm chart
+        run: |
+          helm lint deploy/helm/aragora/ --strict
+          echo "Primary chart passed lint!"
+
+      - name: Lint Kubernetes Helm chart
+        run: |
+          helm lint deploy/kubernetes/helm/aragora/ --strict
+          echo "Kubernetes chart passed lint!"
+
+      - name: Lint multi-region Helm chart
+        run: |
+          helm lint deploy/multi-region/helm/aragora/ --strict
+          echo "Multi-region chart passed lint!"
+
+      - name: Lint operator Helm chart
+        run: |
+          helm lint aragora-operator/helm/aragora-operator/ --strict
+          echo "Operator chart passed lint!"
+
+      - name: Validate chart templates
+        run: |
+          # Validate primary chart renders correctly
+          helm template aragora deploy/helm/aragora/ --debug > /dev/null
+          echo "Primary chart template validation passed!"
+
+          # Validate with staging values
+          if [ -f deploy/helm/aragora/values-staging.yaml ]; then
+            helm template aragora deploy/helm/aragora/ -f deploy/helm/aragora/values-staging.yaml --debug > /dev/null
+            echo "Staging values validation passed!"
+          fi
+
   docs-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10

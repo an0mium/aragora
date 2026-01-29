@@ -129,21 +129,21 @@ export default function SecurityAdminPage() {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch security status
-      const statusRes = await fetch(`${backendConfig.api}/api/admin/security/status`, { headers });
+      const statusRes = await fetch(`${backendConfig.api}/api/v1/admin/security/status`, { headers });
       if (statusRes.ok) {
         const data = await statusRes.json();
         setStatus(data);
       }
 
       // Fetch security health
-      const healthRes = await fetch(`${backendConfig.api}/api/admin/security/health`, { headers });
+      const healthRes = await fetch(`${backendConfig.api}/api/v1/admin/security/health`, { headers });
       if (healthRes.ok) {
         const data = await healthRes.json();
         setHealth(data);
       }
 
       // Fetch encryption keys
-      const keysRes = await fetch(`${backendConfig.api}/api/admin/security/keys`, { headers });
+      const keysRes = await fetch(`${backendConfig.api}/api/v1/admin/security/keys`, { headers });
       if (keysRes.ok) {
         const data = await keysRes.json();
         setKeys(data.keys || []);
@@ -244,7 +244,7 @@ export default function SecurityAdminPage() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${backendConfig.api}/api/admin/security/rotate-key`, {
+      const res = await fetch(`${backendConfig.api}/api/v1/admin/security/rotate-key`, {
         method: 'POST',
         headers,
       });

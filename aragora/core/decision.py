@@ -30,6 +30,20 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
+from aragora.config.settings import get_settings
+
+# Resolve defaults once per import (environment-driven)
+_DEFAULT_SETTINGS = get_settings()
+_DEFAULT_DECISION_ROUNDS = _DEFAULT_SETTINGS.debate.default_rounds
+_DEFAULT_DECISION_CONSENSUS = _DEFAULT_SETTINGS.debate.default_consensus
+_DEFAULT_DECISION_MAX_AGENTS = _DEFAULT_SETTINGS.debate.max_agents_per_debate
+
+
+def _default_decision_agents() -> List[str]:
+    agents = _DEFAULT_SETTINGS.agents.default_agent_list
+    return agents if agents else ["anthropic-api", "openai-api"]
+
+
 # Lazy import for tracing to avoid circular imports
 _tracing_imported = False
 _trace_decision = None
@@ -424,12 +438,12 @@ class DecisionConfig:
 
     # Common settings
     timeout_seconds: int = 300
-    max_agents: int = 3
-    agents: List[str] = field(default_factory=lambda: ["anthropic-api", "openai-api"])
+    max_agents: int = _DEFAULT_DECISION_MAX_AGENTS
+    agents: List[str] = field(default_factory=_default_decision_agents)
 
     # Debate-specific (mapped to DebateProtocol)
-    rounds: int = 3
-    consensus: str = "majority"  # majority, unanimous, judge, weighted
+    rounds: int = _DEFAULT_DECISION_ROUNDS
+    consensus: str = _DEFAULT_DECISION_CONSENSUS  # majority, unanimous, judge, weighted
     enable_calibration: bool = True
     early_stopping: bool = True
 
@@ -478,10 +492,10 @@ class DecisionConfig:
         """Create from dictionary."""
         return cls(
             timeout_seconds=data.get("timeout_seconds", 300),
-            max_agents=data.get("max_agents", 3),
-            agents=data.get("agents", ["anthropic-api", "openai-api"]),
-            rounds=data.get("rounds", 3),
-            consensus=data.get("consensus", "majority"),
+            max_agents=data.get("max_agents", _DEFAULT_DECISION_MAX_AGENTS),
+            agents=data.get("agents", _default_decision_agents()),
+            rounds=data.get("rounds", _DEFAULT_DECISION_ROUNDS),
+            consensus=data.get("consensus", _DEFAULT_DECISION_CONSENSUS),
             enable_calibration=data.get("enable_calibration", True),
             early_stopping=data.get("early_stopping", True),
             workflow_id=data.get("workflow_id"),

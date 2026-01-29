@@ -18,6 +18,7 @@ from aragora.cli.review import (
     DEFAULT_ROUNDS,
     MAX_DIFF_SIZE,
 )
+from aragora.config.settings import DebateSettings
 from aragora.export.pr_comment import (
     format_pr_comment,
     format_compact_comment,
@@ -390,8 +391,7 @@ class TestConstants:
 
     def test_default_rounds(self):
         """Default rounds should be quick but meaningful."""
-        assert DEFAULT_ROUNDS >= 1
-        assert DEFAULT_ROUNDS <= 5
+        assert DEFAULT_ROUNDS == DebateSettings().default_rounds
 
     def test_max_diff_size(self):
         """Max diff size should be reasonable."""

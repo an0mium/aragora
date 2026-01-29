@@ -588,9 +588,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.debate.roles import RoleRotationConfig, CognitiveRole
 from aragora.core import Environment
-from aragora.agents.api_agents import GeminiAgent, DeepSeekV3Agent
+from aragora.agents.api_agents import (
+    GeminiAgent,
+    DeepSeekV3Agent,
+    MistralAgent,
+    QwenAgent,
+    KimiK2Agent,
+)
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
+from aragora.config.settings import AgentSettings, DebateSettings
 from aragora.agents.airlock import AirlockProxy, AirlockConfig
+from aragora.nomic.convoy_executor import GastownConvoyExecutor
 
 # Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
 KILOCODE_AVAILABLE = False
@@ -3052,6 +3060,24 @@ The most valuable proposals combine deep analysis with actionable implementation
             + safety_footer
         )
 
+        self.mistral = MistralAgent(
+            name="mistral-frontier",
+            role="proposer",
+        )
+        self.mistral.system_prompt = self.deepseek.system_prompt
+
+        self.qwen = QwenAgent(
+            name="qwen-frontier",
+            role="proposer",
+        )
+        self.qwen.system_prompt = self.deepseek.system_prompt
+
+        self.kimi = KimiK2Agent(
+            name="kimi-frontier",
+            role="proposer",
+        )
+        self.kimi.system_prompt = self.deepseek.system_prompt
+
         # Wrap all agents with Airlock for resilience
         # This adds timeout handling, null byte sanitization, and fallback responses
         # Timeouts increased to accommodate CLI agents (codex/claude can take 10+ min)
@@ -3068,7 +3094,37 @@ The most valuable proposals combine deep analysis with actionable implementation
         self.claude = AirlockProxy(self.claude, airlock_config)
         self.grok = AirlockProxy(self.grok, airlock_config)
         self.deepseek = AirlockProxy(self.deepseek, airlock_config)
-        self._log("  [airlock] All 5 agents wrapped with resilience layer")
+        self.mistral = AirlockProxy(self.mistral, airlock_config)
+        self.qwen = AirlockProxy(self.qwen, airlock_config)
+        self.kimi = AirlockProxy(self.kimi, airlock_config)
+        self._log("  [airlock] All 8 agents wrapped with resilience layer")
+
+        self.agent_pool = {
+            "gemini": self.gemini,
+            "openai-api": self.codex,
+            "anthropic-api": self.claude,
+            "grok": self.grok,
+            "deepseek": self.deepseek,
+            "mistral": self.mistral,
+            "qwen": self.qwen,
+            "kimi": self.kimi,
+        }
+
+        # Gastown-style convoy executor for implementation phase
+        self.implement_executor = GastownConvoyExecutor(
+            repo_path=self.aragora_path,
+            implementers=[self.claude, self.codex],
+            reviewers=[
+                self.gemini,
+                self.grok,
+                self.deepseek,
+                self.mistral,
+                self.qwen,
+                self.kimi,
+            ],
+            log_fn=self._log,
+            stream_emit_fn=self._stream_emit,
+        )
 
     def _create_verify_phase(self) -> "VerifyPhase":
         """Create an extracted VerifyPhase instance.
@@ -3118,18 +3174,32 @@ The most valuable proposals combine deep analysis with actionable implementation
     def _create_debate_phase(self, topic_hint: str = "") -> "DebatePhase":
         """Create an extracted DebatePhase instance.
 
+        Uses NomicDebateProfile for full-power 8-round structured debates with
+        all 8 frontier models when available, falling back to DebateSettings defaults.
+
         NOTE: The inline phase_debate() is ~787 lines with extensive post-processing
         integrations (ELO, calibration, relationships, personas, etc.). Full migration
         requires providing PostDebateHooks callbacks for all integrations.
-
-        Current status: Factory method available for external callers.
-        Full inline migration: Pending hooks architecture.
 
         Args:
             topic_hint: Optional topic hint for agent selection (e.g., from initial_proposal)
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
+
+        # Use NomicDebateProfile for full-power debates
+        try:
+            from aragora.nomic.debate_profile import NomicDebateProfile
+
+            profile = NomicDebateProfile.from_env()
+            debate_config = profile.to_debate_config()
+            self._log(
+                f"  [debate] Using NomicDebateProfile: {profile.agent_count} agents, "
+                f"{profile.rounds} rounds, {profile.total_phases} phases"
+            )
+        except ImportError:
+            debate_settings = DebateSettings()
+            debate_config = DebateConfig(rounds=debate_settings.default_rounds)
 
         # Select debate team dynamically (like the legacy inline implementation)
         debate_team = self._select_debate_team(topic_hint)
@@ -3140,7 +3210,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             arena_factory=lambda *args, **kwargs: Arena(*args, **kwargs),
             environment_factory=lambda *args, **kwargs: Environment(*args, **kwargs),
             protocol_factory=lambda *args, **kwargs: DebateProtocol(*args, **kwargs),
-            config=DebateConfig(),
+            config=debate_config,
             nomic_integration=(
                 self.nomic_integration if hasattr(self, "nomic_integration") else None
             ),
@@ -3170,8 +3240,8 @@ The most valuable proposals combine deep analysis with actionable implementation
         design_agents = self._select_debate_team("design")
         if not design_agents:
             self._log("  [design] WARNING: No agents from selection, using all available")
-            design_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
-            design_agents = [a for a in design_agents if a is not None]
+            agent_pool = getattr(self, "agent_pool", {})
+            design_agents = [a for a in agent_pool.values() if a is not None]
 
         if not design_agents:
             raise RuntimeError("No agents available for design phase")
@@ -3204,16 +3274,42 @@ The most valuable proposals combine deep analysis with actionable implementation
 
         The ImplementPhase handles hybrid multi-model code generation with
         crash recovery via checkpoints and pre-verification review.
+
+        When ConvoyImplementExecutor is available, it provides Gastown-style
+        multi-agent parallel implementation with cross-checking.
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
+
+        # Create convoy executor for multi-agent implementation if available
+        executor = getattr(self, "implement_executor", None)
+        if executor is None:
+            try:
+                from aragora.nomic.implement_executor import ConvoyImplementExecutor
+                from aragora.nomic.debate_profile import NomicDebateProfile
+
+                profile = NomicDebateProfile.from_env()
+                executor = ConvoyImplementExecutor(
+                    aragora_path=self.aragora_path,
+                    agents=profile.agent_names,
+                    agent_factory=self._create_agent_for_implement,
+                    max_parallel=4,
+                    enable_cross_check=True,
+                    log_fn=self._log,
+                )
+                self._log(
+                    f"  [implement] ConvoyImplementExecutor created with "
+                    f"{profile.agent_count} agents"
+                )
+            except ImportError:
+                pass
 
         return ImplementPhase(
             aragora_path=self.aragora_path,
             plan_generator=(
                 self._generate_implement_plan if hasattr(self, "_generate_implement_plan") else None
             ),
-            executor=getattr(self, "implement_executor", None),
+            executor=executor,
             progress_loader=lambda path: load_progress(path) if "load_progress" in dir() else None,
             progress_saver=lambda data, path: (
                 save_progress(data, path) if "save_progress" in dir() else None
@@ -3232,14 +3328,38 @@ The most valuable proposals combine deep analysis with actionable implementation
             constitution_verifier=self.constitution_verifier,
         )
 
+    async def _generate_implement_plan(self, design: str, repo_path: Path):
+        """Generate an implementation plan with Gemini; fallback to single task."""
+        try:
+            return await generate_implement_plan(design, repo_path)
+        except Exception as e:
+            self._log(f"  [implement] Plan generation failed, using fallback: {e}")
+            return create_single_task_plan(design, repo_path)
+
     def _create_context_phase(self) -> "ContextPhase":
         """Create an extracted ContextPhase instance.
 
         The ContextPhase gathers codebase understanding from multiple agents
         using their native exploration harnesses.
+
+        When NomicContextBuilder is available, it also builds a TRUE RLM-powered
+        codebase index for deep context that agents can query programmatically.
         """
         if not _NOMIC_PHASES_AVAILABLE:
             raise RuntimeError("Extracted phases not available")
+
+        # Build deep codebase context via NomicContextBuilder if available
+        try:
+            from aragora.nomic.context_builder import NomicContextBuilder
+
+            if not hasattr(self, "_context_builder"):
+                self._context_builder = NomicContextBuilder(
+                    aragora_path=self.aragora_path,
+                    knowledge_mound=getattr(self, "knowledge_mound", None),
+                )
+            self._log("  [context] NomicContextBuilder available for deep codebase indexing")
+        except ImportError:
+            pass
 
         return ContextPhase(
             aragora_path=self.aragora_path,
@@ -3258,7 +3378,28 @@ The most valuable proposals combine deep analysis with actionable implementation
             get_features_fn=(
                 self.get_current_features if hasattr(self, "get_current_features") else None
             ),
+            context_builder=getattr(self, "_context_builder", None),
         )
+
+    def _create_agent_for_implement(self, agent_name: str):
+        """Create or retrieve an agent instance for implementation tasks.
+
+        Maps agent names (from NomicDebateProfile) to actual agent instances
+        that can execute code generation prompts via agent.generate(prompt).
+        """
+        # Check well-known agent attributes first
+        agent_map = {
+            "anthropic-api": getattr(self, "claude", None),
+            "openai-api": getattr(self, "codex", None),
+        }
+        if agent_name in agent_map and agent_map[agent_name] is not None:
+            return agent_map[agent_name]
+        # Fall back to the agent pool (populated during _setup_agents)
+        pool = getattr(self, "agent_pool", {})
+        if agent_name in pool:
+            return pool[agent_name]
+        # Last resort: return any available agent
+        return getattr(self, "codex", None) or getattr(self, "claude", None)
 
     def _create_post_debate_hooks(self, debate_team: list = None) -> "PostDebateHooks":
         """Create PostDebateHooks with callbacks to NomicLoop's post-processing methods.
@@ -3341,6 +3482,47 @@ The most valuable proposals combine deep analysis with actionable implementation
                 docstring = content.split('"""')[1]
                 return docstring[:2000]
         return "Unable to read current features"
+
+    async def _build_rlm_codebase_context(self) -> dict | None:
+        """Build a TRUE RLM (REPL-based) codebase summary for large contexts."""
+        try:
+            from aragora.nomic.rlm_codebase import summarize_codebase_with_rlm
+            from aragora.rlm import RLMConfig
+
+            require_true = os.environ.get("NOMIC_RLM_REQUIRE_TRUE", "1") == "1"
+            max_bytes = int(
+                os.environ.get(
+                    "NOMIC_MAX_CONTEXT_BYTES",
+                    str(RLMConfig().max_content_bytes_nomic),
+                )
+            )
+            max_files = int(os.environ.get("NOMIC_RLM_MAX_FILES", "25000"))
+            max_file_bytes = int(os.environ.get("NOMIC_RLM_MAX_FILE_BYTES", "2000000"))
+
+            output_dir = self.nomic_dir / "rlm"
+            result = await summarize_codebase_with_rlm(
+                repo_path=self.aragora_path,
+                output_dir=output_dir,
+                require_true_rlm=require_true,
+                max_content_bytes=max_bytes,
+                max_files=max_files,
+                max_file_bytes=max_file_bytes,
+            )
+
+            return {
+                "summary": result.summary,
+                "corpus_path": str(result.corpus.corpus_path),
+                "manifest_path": str(result.corpus.manifest_path),
+                "file_count": result.corpus.file_count,
+                "total_bytes": result.corpus.total_bytes,
+                "estimated_tokens": result.corpus.estimated_tokens,
+                "used_true_rlm": result.used_true_rlm,
+                "used_fallback": result.used_fallback,
+                "error": result.error,
+            }
+        except Exception as e:
+            self._log(f"  [rlm] Codebase summary failed: {e}")
+            return None
 
     def get_recent_changes(self) -> str:
         """Get recent git commits."""
@@ -4115,13 +4297,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 strength = ConsensusStrength.SPLIT
 
             # Get participating agents
-            agents = [
-                self.gemini.name,
-                self.codex.name,
-                self.claude.name,
-                self.grok.name,
-                self.deepseek.name,
-            ]
+            agents = [a.name for a in self._get_all_agents()]
 
             # Store the consensus (full content, no truncation)
             record = self.consensus_memory.store_consensus(
@@ -4492,7 +4668,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             # Identify winning agents
             winning_agents = set()
             if result.final_answer:
-                for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
+                for agent in self._get_all_agents():
                     if agent.name.lower() in result.final_answer.lower():
                         winning_agents.add(agent.name)
 
@@ -4596,7 +4772,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
         try:
             self._log("  [prober] Running capability probes...")
-            agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+            agents = self._get_all_agents()
 
             for agent in agents:
                 if agent is None:
@@ -4653,7 +4829,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         if not self.persona_manager or not PERSONAS_AVAILABLE:
             return
         try:
-            for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
+            for agent in self._get_all_agents():
                 persona = get_or_create_persona(self.persona_manager, agent.name)
                 top_exp = persona.top_expertise[:2] if persona.top_expertise else []
                 self._log(f"  [persona] {agent.name}: {persona.trait_string}, top: {top_exp}")
@@ -4739,7 +4915,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
                 self._log("  [evolver] No patterns accumulated yet")
                 return
 
-            for agent in [self.gemini, self.codex, self.claude, self.grok, self.deepseek]:
+            for agent in self._get_all_agents():
                 if hasattr(agent, "system_prompt") and agent.system_prompt:
                     self.prompt_evolver.apply_evolution(agent, patterns)
                     version = self.prompt_evolver.get_prompt_version(agent.name)
@@ -4768,7 +4944,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
 
         try:
             self._log(f"\n=== TOURNAMENT (Cycle {self.cycle_count}) ===")
-            agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+            agents = self._get_all_agents()
             tasks = create_default_tasks()[:3]  # Use 3 tasks for speed
 
             tournament = Tournament(
@@ -5139,9 +5315,36 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         except (AttributeError, TypeError) as e:
             logger.debug(f"[elo] Leaderboard fetch failed: {e}")
 
+    def _get_all_agents(self) -> list:
+        agent_pool = getattr(self, "agent_pool", {})
+        agents = [a for a in agent_pool.values() if a is not None]
+        if agents:
+            return agents
+        return [
+            a
+            for a in [
+                self.gemini,
+                self.codex,
+                self.claude,
+                self.grok,
+                self.deepseek,
+                self.mistral,
+                self.qwen,
+                self.kimi,
+            ]
+            if a is not None
+        ]
+
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
-        all_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+        agent_pool = getattr(self, "agent_pool", {})
+        preferred_names = AgentSettings().default_agent_list()
+        ordered_agents = [
+            agent_pool.get(name) for name in preferred_names if agent_pool.get(name) is not None
+        ]
+        if not ordered_agents:
+            ordered_agents = [a for a in agent_pool.values() if a is not None]
+        all_agents = ordered_agents
 
         # Filter out agents in circuit breaker cooldown
         default_team = []
@@ -5374,7 +5577,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
             return
 
         self._log("  [personas] Agent insights:")
-        agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
+        agents = self._get_all_agents()
         for agent in agents:
             try:
                 persona = self.persona_synthesizer.get_grounded_persona(agent.name)
@@ -5445,7 +5648,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
         # ELO domain calibration stats
         if self.elo_system:
             try:
-                agents = [self.gemini, self.claude, self.codex, self.grok, self.deepseek]
+                agents = self._get_all_agents()
                 for agent in agents:
                     cal = self.elo_system.get_domain_calibration(agent.name)
                     if cal and cal.get("total", 0) > 0:
@@ -6906,7 +7109,7 @@ Be concise (1-2 sentences). Focus on correctness and safety issues only.
         self._log("    [deep-audit] Running strategic design audit (5-round)")
 
         try:
-            audit_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+            audit_agents = self._get_all_agents()
 
             # Use CODE_ARCHITECTURE_AUDIT for strategic design review
             verdict = await run_deep_audit(
@@ -6974,7 +7177,7 @@ Cross-examine each other's reasoning. Be thorough.""",
 
         try:
             # Create agents list for deep audit
-            audit_agents = [self.gemini, self.codex, self.claude, self.grok, self.deepseek]
+            audit_agents = self._get_all_agents()
 
             # Run deep audit
             verdict = await run_deep_audit(
@@ -7785,12 +7988,23 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         """
         context_phase = self._create_context_phase()
         result = await context_phase.execute()
+
+        # Optionally enrich with TRUE RLM (REPL-based) codebase summary
+        rlm_context = await self._build_rlm_codebase_context()
+        codebase_context = result["codebase_summary"]
+        if rlm_context and rlm_context.get("summary"):
+            codebase_context = (
+                f"{codebase_context}\n\n=== RLM CODEBASE SUMMARY (REPL) ===\n"
+                f"{rlm_context['summary']}"
+            )
+
         # Convert ContextResult (TypedDict) to dict for backward compatibility
         return {
             "phase": "context",
-            "codebase_context": result["codebase_summary"],
+            "codebase_context": codebase_context,
             "duration": result["duration_seconds"],
             "agents_succeeded": result.get("data", {}).get("agents_succeeded", 0),
+            "rlm": rlm_context or {},
         }
 
     async def phase_debate(self, codebase_context: str = None) -> dict:

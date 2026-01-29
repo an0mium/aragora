@@ -20,14 +20,21 @@ from . import DebateResult
 class DebateConfig:
     """Configuration for debate phase."""
 
-    rounds: int = 2
+    rounds: int = 9
     consensus_mode: str = "judge"
     judge_selection: str = "elo_ranked"
-    proposer_count: int = 4
+    proposer_count: int = -1
     role_rotation: bool = True
     asymmetric_stances: bool = False
     audience_injection: str = "summary"
     enable_research: bool = True
+
+    @classmethod
+    def from_profile(cls) -> "DebateConfig":
+        """Create a DebateConfig from NomicDebateProfile defaults."""
+        from aragora.nomic.debate_profile import NomicDebateProfile
+
+        return NomicDebateProfile().to_debate_config()
 
 
 @dataclass

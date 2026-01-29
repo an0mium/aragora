@@ -565,3 +565,288 @@ class TestVerificationResult:
         assert data["verified"] is True
         assert data["storage_verified"] is True
         assert data["backup_verified"] is True
+
+
+# ============================================================================
+# Coordinated Deletion Tests
+# ============================================================================
+
+
+class TestCoordinatedDeletion:
+    """Tests for execute_coordinated_deletion method."""
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_deletion_success(
+        self, coordinator, mock_deleter, mock_backup_coordinator, mock_audit_logger
+    ):
+        """Test successful coordinated deletion."""
+        coordinator.register_deleter("users", mock_deleter)
+        coordinator.register_backup_coordinator(mock_backup_coordinator)
+
+        result = await coordinator.execute_coordinated_deletion(
+            user_id="user-123",
+            reason="GDPR request",
+            delete_from_backups=True,
+        )
+
+        assert result.status == CascadeStatus.COMPLETED
+        assert result.metadata["reason"] == "GDPR request"
+        assert result.metadata["delete_from_backups"] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_deletion_dry_run(
+        self, coordinator, mock_deleter, mock_backup_coordinator, mock_audit_logger
+    ):
+        """Test dry run doesn't delete data."""
+        coordinator.register_deleter("users", mock_deleter)
+        coordinator.register_backup_coordinator(mock_backup_coordinator)
+
+        result = await coordinator.execute_coordinated_deletion(
+            user_id="user-123",
+            reason="Test dry run",
+            dry_run=True,
+        )
+
+        assert result.status == CascadeStatus.PENDING
+        assert result.metadata["dry_run"] is True
+        # Deleter should not be called in dry run
+        mock_deleter.delete_for_user.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_deletion_dry_run_shows_affected_backups(
+        self, coordinator, mock_deleter, mock_backup_coordinator, mock_audit_logger
+    ):
+        """Test dry run shows affected backups."""
+        coordinator.register_deleter("users", mock_deleter)
+        coordinator.register_backup_coordinator(mock_backup_coordinator)
+
+        result = await coordinator.execute_coordinated_deletion(
+            user_id="user-123",
+            reason="Test dry run",
+            dry_run=True,
+            delete_from_backups=True,
+        )
+
+        assert result.backup_status["affected_backups"] == ["backup-1", "backup-2"]
+        assert result.backup_status["would_purge"] is True
+
+    @pytest.mark.asyncio
+    async def test_execute_coordinated_deletion_no_backup(
+        self, coordinator, mock_deleter, mock_backup_coordinator, mock_audit_logger
+    ):
+        """Test coordinated deletion without backup deletion."""
+        coordinator.register_deleter("users", mock_deleter)
+        coordinator.register_backup_coordinator(mock_backup_coordinator)
+
+        result = await coordinator.execute_coordinated_deletion(
+            user_id="user-123",
+            reason="User request",
+            delete_from_backups=False,
+        )
+
+        assert result.status == CascadeStatus.COMPLETED
+        # Backup should not be checked
+        mock_backup_coordinator.get_backups_containing_user.assert_not_called()
+
+
+# ============================================================================
+# Backup Exclusion List Tests
+# ============================================================================
+
+
+class TestBackupExclusionList:
+    """Tests for backup exclusion list management."""
+
+    def test_add_to_exclusion_list(self, coordinator, mock_audit_logger):
+        """Test adding user to exclusion list."""
+        coordinator.add_to_backup_exclusion_list("user-123", "GDPR deletion")
+
+        assert coordinator.is_user_excluded_from_backups("user-123") is True
+        assert coordinator.is_user_excluded_from_backups("user-456") is False
+
+    def test_remove_from_exclusion_list(self, coordinator, mock_audit_logger):
+        """Test removing user from exclusion list."""
+        coordinator.add_to_backup_exclusion_list("user-123", "GDPR deletion")
+        assert coordinator.is_user_excluded_from_backups("user-123") is True
+
+        removed = coordinator.remove_from_backup_exclusion_list("user-123")
+
+        assert removed is True
+        assert coordinator.is_user_excluded_from_backups("user-123") is False
+
+    def test_remove_nonexistent_from_exclusion_list(self, coordinator, mock_audit_logger):
+        """Test removing non-existent user returns False."""
+        removed = coordinator.remove_from_backup_exclusion_list("user-999")
+
+        assert removed is False
+
+    def test_get_exclusion_list(self, coordinator, mock_audit_logger):
+        """Test getting exclusion list."""
+        coordinator.add_to_backup_exclusion_list("user-1", "Reason 1")
+        coordinator.add_to_backup_exclusion_list("user-2", "Reason 2")
+
+        exclusions = coordinator.get_backup_exclusion_list()
+
+        assert len(exclusions) == 2
+        user_ids = [e["user_id"] for e in exclusions]
+        assert "user-1" in user_ids
+        assert "user-2" in user_ids
+
+    def test_get_exclusion_list_with_limit(self, coordinator, mock_audit_logger):
+        """Test getting exclusion list with limit."""
+        for i in range(10):
+            coordinator.add_to_backup_exclusion_list(f"user-{i}", f"Reason {i}")
+
+        exclusions = coordinator.get_backup_exclusion_list(limit=3)
+
+        assert len(exclusions) == 3
+
+
+# ============================================================================
+# Enum Tests
+# ============================================================================
+
+
+class TestEnums:
+    """Tests for deletion coordinator enums."""
+
+    def test_cascade_status_values(self):
+        """Test CascadeStatus enum values."""
+        assert CascadeStatus.PENDING.value == "pending"
+        assert CascadeStatus.IN_PROGRESS.value == "in_progress"
+        assert CascadeStatus.COMPLETED.value == "completed"
+        assert CascadeStatus.FAILED.value == "failed"
+        assert CascadeStatus.PARTIAL.value == "partial"
+
+    def test_deletion_system_values(self):
+        """Test DeletionSystem enum values."""
+        from aragora.deletion_coordinator import DeletionSystem
+
+        assert DeletionSystem.USER_STORE.value == "user_store"
+        assert DeletionSystem.DEBATE_STORE.value == "debate_store"
+        assert DeletionSystem.KNOWLEDGE_MOUND.value == "knowledge_mound"
+        assert DeletionSystem.MEMORY.value == "memory"
+        assert DeletionSystem.AUDIT_TRAIL.value == "audit_trail"
+        assert DeletionSystem.BACKUP.value == "backup"
+
+
+# ============================================================================
+# Certificate Signature Tests
+# ============================================================================
+
+
+class TestCertificateSignature:
+    """Tests for certificate signature verification."""
+
+    def test_certificate_signature_is_deterministic(self):
+        """Test that same content produces same signature."""
+        cascade_result = CascadeResult(
+            user_id="user-123",
+            status=CascadeStatus.COMPLETED,
+            started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2024, 1, 1, 12, 1, 0, tzinfo=timezone.utc),
+            entities_deleted={"users": 5},
+        )
+        verification_result = VerificationResult(
+            user_id="user-123",
+            verified=True,
+            verified_at=datetime(2024, 1, 1, 12, 2, 0, tzinfo=timezone.utc),
+            storage_verified=True,
+            backup_verified=True,
+        )
+
+        # Create certificate
+        cert = DeletionCertificate.create(
+            user_id="user-123",
+            cascade_result=cascade_result,
+            verification_result=verification_result,
+        )
+
+        # Signature should exist and be non-empty
+        assert cert.signature is not None
+        assert len(cert.signature) == 64  # SHA-256 hex = 64 chars
+
+    def test_certificate_signature_changes_with_content(self):
+        """Test that different content produces different signature."""
+        cascade_result1 = CascadeResult(
+            user_id="user-123",
+            status=CascadeStatus.COMPLETED,
+            started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            entities_deleted={"users": 5},
+        )
+        cascade_result2 = CascadeResult(
+            user_id="user-456",  # Different user
+            status=CascadeStatus.COMPLETED,
+            started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            entities_deleted={"users": 5},
+        )
+        verification_result = VerificationResult(
+            user_id="user-123",
+            verified=True,
+            verified_at=datetime(2024, 1, 1, 12, 2, 0, tzinfo=timezone.utc),
+        )
+
+        cert1 = DeletionCertificate.create("user-123", cascade_result1, verification_result)
+        cert2 = DeletionCertificate.create("user-456", cascade_result2, verification_result)
+
+        # Signatures should be different
+        assert cert1.signature != cert2.signature
+
+
+# ============================================================================
+# Edge Case Tests
+# ============================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error conditions."""
+
+    @pytest.mark.asyncio
+    async def test_cascade_with_no_deleters(self, coordinator, mock_audit_logger):
+        """Test cascade when no deleters registered."""
+        result = await coordinator.execute_cascade("user-123")
+
+        assert result.status == CascadeStatus.COMPLETED
+        assert result.total_deleted == 0
+
+    @pytest.mark.asyncio
+    async def test_verification_with_no_deleters(self, coordinator, mock_audit_logger):
+        """Test verification when no deleters registered."""
+        result = await coordinator.verify_deletion("user-123")
+
+        assert result.verified is True
+        assert result.storage_verified is True
+
+    @pytest.mark.asyncio
+    async def test_cascade_with_missing_deleter_warning(
+        self, coordinator, mock_deleter, mock_audit_logger
+    ):
+        """Test cascade warns about missing deleters in order."""
+        coordinator.register_deleter("users", mock_deleter)
+        # Manually add to order without registering deleter
+        coordinator._deletion_order.append("missing_entity")
+
+        result = await coordinator.execute_cascade("user-123")
+
+        assert result.status == CascadeStatus.COMPLETED
+        assert any("missing_entity" in w for w in result.warnings)
+
+    @pytest.mark.asyncio
+    async def test_cascade_with_backup_coordinator_error(
+        self, coordinator, mock_deleter, mock_audit_logger
+    ):
+        """Test cascade handles backup coordinator errors."""
+        failing_backup = MagicMock()
+        failing_backup.get_backups_containing_user = MagicMock(
+            side_effect=Exception("Backup system down")
+        )
+
+        coordinator.register_deleter("users", mock_deleter)
+        coordinator.register_backup_coordinator(failing_backup)
+
+        result = await coordinator.execute_cascade("user-123")
+
+        # Deletion should still succeed
+        assert result.status == CascadeStatus.COMPLETED
+        # But warning should be recorded
+        assert any("backup" in w.lower() for w in result.warnings)

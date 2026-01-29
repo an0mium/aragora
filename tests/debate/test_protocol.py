@@ -76,9 +76,9 @@ class TestDebateProtocolDefaults:
         assert protocol.topology == "all-to-all"
 
     def test_default_rounds(self):
-        """Default rounds is 8."""
+        """Default rounds is 9."""
         protocol = DebateProtocol()
-        assert protocol.rounds == 8
+        assert protocol.rounds == 9
 
     def test_default_consensus(self):
         """Default consensus is judge."""

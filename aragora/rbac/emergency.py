@@ -6,6 +6,7 @@ Implements emergency access override mechanism for critical situations:
 - Extended audit logging during emergency
 - Automatic notification to security team
 - Post-incident review requirements
+- Optional Redis persistence for multi-instance deployments
 
 Usage:
     from aragora.rbac.emergency import BreakGlassAccess
@@ -26,13 +27,20 @@ Usage:
     # Deactivate when done
     await emergency.deactivate(access_id)
 
+Persistence:
+    Set ARAGORA_EMERGENCY_ACCESS_PERSISTENCE=true to enable Redis persistence.
+    This ensures emergency access survives server restarts and works across
+    multiple instances.
+
 IMPORTANT: Break-glass access should be used only for genuine emergencies.
 All actions during emergency access are logged with enhanced audit detail.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -40,6 +48,13 @@ from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+# Configuration
+PERSISTENCE_ENABLED = os.environ.get("ARAGORA_EMERGENCY_ACCESS_PERSISTENCE", "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 
 class EmergencyAccessStatus(str, Enum):
@@ -104,6 +119,68 @@ class EmergencyAccessRecord:
             "metadata": self.metadata,
         }
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for persistence storage."""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "reason": self.reason,
+            "status": self.status.value,
+            "activated_at": self.activated_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "deactivated_at": self.deactivated_at.isoformat() if self.deactivated_at else None,
+            "deactivated_by": self.deactivated_by,
+            "ip_address": self.ip_address,
+            "user_agent": self.user_agent,
+            "actions_taken": self.actions_taken,
+            "review_required": self.review_required,
+            "review_completed": self.review_completed,
+            "review_notes": self.review_notes,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_storage_dict(cls, data: dict[str, Any]) -> "EmergencyAccessRecord":
+        """Reconstruct from storage dictionary."""
+        # Parse timestamps
+        activated_at = data.get("activated_at")
+        if isinstance(activated_at, str):
+            activated_at = datetime.fromisoformat(activated_at.replace("Z", "+00:00"))
+
+        expires_at = data.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+
+        deactivated_at = data.get("deactivated_at")
+        if isinstance(deactivated_at, str):
+            deactivated_at = datetime.fromisoformat(deactivated_at.replace("Z", "+00:00"))
+
+        # Parse status
+        status = data.get("status", "active")
+        if isinstance(status, str):
+            try:
+                status = EmergencyAccessStatus(status)
+            except ValueError:
+                status = EmergencyAccessStatus.ACTIVE
+
+        return cls(
+            id=data["id"],
+            user_id=data["user_id"],
+            reason=data.get("reason", ""),
+            status=status,
+            activated_at=activated_at,
+            expires_at=expires_at,
+            deactivated_at=deactivated_at,
+            deactivated_by=data.get("deactivated_by"),
+            ip_address=data.get("ip_address"),
+            user_agent=data.get("user_agent"),
+            actions_taken=data.get("actions_taken", []),
+            review_required=data.get("review_required", True),
+            review_completed=data.get("review_completed", False),
+            review_notes=data.get("review_notes"),
+            metadata=data.get("metadata", {}),
+        )
+
 
 class BreakGlassAccess:
     """
@@ -140,11 +217,137 @@ class BreakGlassAccess:
         "audit_log:read",
     ]
 
-    def __init__(self):
-        """Initialize break-glass access manager."""
+    def __init__(self, enable_persistence: Optional[bool] = None):
+        """
+        Initialize break-glass access manager.
+
+        Args:
+            enable_persistence: Override persistence setting (None = use env var)
+        """
         self._active_records: dict[str, EmergencyAccessRecord] = {}
         self._by_user: dict[str, list[str]] = {}  # user_id -> record_ids
         self._all_records: dict[str, EmergencyAccessRecord] = {}  # Historical
+
+        # Persistence configuration
+        self._persistence_enabled = (
+            enable_persistence if enable_persistence is not None else PERSISTENCE_ENABLED
+        )
+        self._redis: Optional[Any] = None
+        self._redis_checked = False
+
+        # Load from persistence on startup
+        if self._persistence_enabled:
+            self._load_from_persistence()
+
+    def _get_redis(self) -> Optional[Any]:
+        """Get Redis client (lazy initialization)."""
+        if self._redis_checked:
+            return self._redis
+
+        try:
+            from aragora.server.redis_config import get_redis_client
+
+            self._redis = get_redis_client()
+            self._redis_checked = True
+            if self._redis:
+                logger.debug("BreakGlassAccess using Redis persistence")
+            else:
+                logger.debug("BreakGlassAccess using in-memory only (Redis unavailable)")
+        except ImportError:
+            self._redis_checked = True
+            logger.debug("BreakGlassAccess using in-memory only (redis_config not available)")
+
+        return self._redis
+
+    def _redis_key(self, access_id: str) -> str:
+        """Build Redis key for an access record."""
+        return f"aragora:break_glass:{access_id}"
+
+    def _redis_user_key(self, user_id: str) -> str:
+        """Build Redis key for user index."""
+        return f"aragora:break_glass:user:{user_id}"
+
+    def _persist_record(self, record: EmergencyAccessRecord) -> None:
+        """Persist a record to Redis."""
+        if not self._persistence_enabled:
+            return
+
+        redis = self._get_redis()
+        if not redis:
+            return
+
+        try:
+            # Calculate TTL from expires_at (with buffer for historical records)
+            ttl_seconds = max(
+                int((record.expires_at - datetime.now(timezone.utc)).total_seconds()),
+                86400 * 90,  # Keep for 90 days minimum for audit
+            )
+
+            # Store the record
+            key = self._redis_key(record.id)
+            redis.setex(key, ttl_seconds, json.dumps(record.to_storage_dict()))
+
+            # Update user index
+            user_key = self._redis_user_key(record.user_id)
+            redis.sadd(user_key, record.id)
+            redis.expire(user_key, 86400 * 90)  # 90 days
+
+            logger.debug(f"Persisted break-glass record {record.id} to Redis")
+        except Exception as e:
+            logger.warning(f"Failed to persist break-glass record to Redis: {e}")
+
+    def _delete_from_persistence(self, access_id: str) -> None:
+        """Remove a record from Redis active set (keep for audit)."""
+        # Note: We don't actually delete - just update the status
+        pass
+
+    def _load_from_persistence(self) -> None:
+        """Load active records from Redis on startup."""
+        redis = self._get_redis()
+        if not redis:
+            return
+
+        try:
+            # Scan for all break-glass records
+            pattern = "aragora:break_glass:emerg-*"
+            cursor = 0
+            loaded_count = 0
+
+            while True:
+                cursor, keys = redis.scan(cursor, match=pattern, count=100)
+
+                for key in keys:
+                    try:
+                        data = redis.get(key)
+                        if data:
+                            record_dict = json.loads(data)
+                            record = EmergencyAccessRecord.from_storage_dict(record_dict)
+
+                            # Add to in-memory structures
+                            self._all_records[record.id] = record
+                            if record.user_id not in self._by_user:
+                                self._by_user[record.user_id] = []
+                            if record.id not in self._by_user[record.user_id]:
+                                self._by_user[record.user_id].append(record.id)
+
+                            # Add to active if still active
+                            if record.is_active:
+                                self._active_records[record.id] = record
+
+                            loaded_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to load break-glass record from {key}: {e}")
+
+                if cursor == 0:
+                    break
+
+            if loaded_count > 0:
+                logger.info(
+                    f"Loaded {loaded_count} break-glass records from Redis "
+                    f"({len(self._active_records)} active)"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load break-glass records from Redis: {e}")
 
     async def activate(
         self,
@@ -214,6 +417,9 @@ class BreakGlassAccess:
             self._by_user[user_id] = []
         self._by_user[user_id].append(record.id)
 
+        # Persist to Redis
+        self._persist_record(record)
+
         logger.warning(
             f"BREAK-GLASS ACTIVATED: user={user_id}, id={record.id}, "
             f"duration={duration_minutes}min, reason={reason[:50]}..."
@@ -264,6 +470,9 @@ class BreakGlassAccess:
         # Remove from active
         self._active_records.pop(access_id, None)
 
+        # Persist updated record to Redis
+        self._persist_record(record)
+
         logger.info(
             f"BREAK-GLASS DEACTIVATED: id={access_id}, "
             f"user={record.user_id}, by={record.deactivated_by}"
@@ -313,6 +522,9 @@ class BreakGlassAccess:
 
         # Remove from active
         self._active_records.pop(access_id, None)
+
+        # Persist updated record to Redis
+        self._persist_record(record)
 
         logger.warning(
             f"BREAK-GLASS REVOKED: id={access_id}, "

@@ -586,8 +586,8 @@ class FeaturesHandler(BaseHandler):
         "theme": "system",  # light, dark, system
         # Debate preferences
         "default_mode": "standard",  # standard, graph, matrix
-        "default_rounds": 3,
-        "default_agents": "claude,gemini,gpt4",
+        "default_rounds": 9,
+        "default_agents": "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi",
         # Notification preferences
         "telegram_enabled": False,
         "email_digest": "none",  # none, daily, weekly

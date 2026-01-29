@@ -333,7 +333,7 @@ function OrganizationsAdminPageContent() {
       if (searchQuery) params.set('search', searchQuery);
 
       const res = await fetch(
-        `${backendConfig.api}/api/admin/organizations?${params}`,
+        `${backendConfig.api}/api/v1/admin/organizations?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -373,7 +373,7 @@ function OrganizationsAdminPageContent() {
     if (!token) return [];
 
     const res = await fetch(
-      `${backendConfig.api}/api/admin/organizations/${orgId}/members`,
+      `${backendConfig.api}/api/v1/admin/organizations/${orgId}/members`,
       {
         headers: { 'Authorization': `Bearer ${token}` },
       }
@@ -407,7 +407,7 @@ function OrganizationsAdminPageContent() {
     if (!token) return [];
 
     const res = await fetch(
-      `${backendConfig.api}/api/admin/organizations/${orgId}/api-keys`,
+      `${backendConfig.api}/api/v1/admin/organizations/${orgId}/api-keys`,
       {
         headers: { 'Authorization': `Bearer ${token}` },
       }

@@ -36,6 +36,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Union
 
+from aragora.config.settings import get_settings
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.protocol import DebateProtocol
 
@@ -53,10 +54,19 @@ class DebateOptions:
     """
 
     # Protocol options
-    rounds: int = 3
-    consensus: Literal[
-        "majority", "unanimous", "judge", "none", "weighted", "supermajority", "any", "byzantine"
-    ] = "majority"
+    rounds: Optional[int] = None
+    consensus: Optional[
+        Literal[
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ]
+    ] = None
     topology: Literal["all-to-all", "sparse", "round-robin", "ring", "star", "random-graph"] = (
         "all-to-all"
     )
@@ -85,6 +95,13 @@ class DebateOptions:
     on_round_start: Optional[Callable[[int], None]] = None
     on_agent_message: Optional[Callable[[str, str], None]] = None
     on_consensus: Optional[Callable[[str, float], None]] = None
+
+    def __post_init__(self) -> None:
+        settings = get_settings()
+        if self.rounds is None:
+            self.rounds = settings.debate.default_rounds
+        if self.consensus is None:
+            self.consensus = settings.debate.default_consensus
 
     def to_protocol(self) -> DebateProtocol:
         """Convert options to a DebateProtocol."""
@@ -125,7 +142,7 @@ class DebateService:
 
     def __init__(
         self,
-        default_agents: Optional[list[Agent]] = None,
+        default_agents: Optional[list[Agent] | list[str]] = None,
         default_options: Optional[DebateOptions] = None,
         memory: Optional["ContinuumMemory"] = None,
         agent_resolver: Optional[Callable[[str], Agent]] = None,
@@ -355,7 +372,7 @@ _debate_service: Optional[DebateService] = None
 
 
 def get_debate_service(
-    default_agents: Optional[list[Agent]] = None,
+    default_agents: Optional[list[Agent] | list[str]] = None,
     **kwargs: Any,
 ) -> DebateService:
     """Get the global debate service instance.
@@ -372,7 +389,11 @@ def get_debate_service(
     global _debate_service
 
     if _debate_service is None or default_agents is not None:
-        _debate_service = DebateService(default_agents=default_agents, **kwargs)
+        resolved_defaults = default_agents
+        if resolved_defaults is None:
+            settings = get_settings()
+            resolved_defaults = settings.agents.default_agent_list
+        _debate_service = DebateService(default_agents=resolved_defaults, **kwargs)
 
     return _debate_service
 

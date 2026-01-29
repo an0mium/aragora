@@ -197,8 +197,8 @@ def require_authenticated(
         import asyncio
 
         if asyncio.iscoroutinefunction(fn):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     if func is not None:
         # Called without arguments: @require_authenticated

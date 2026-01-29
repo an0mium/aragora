@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List
 
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from ..models import (
     ConsensusType,
     Debate,
@@ -26,6 +27,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _default_agent_list() -> list[str]:
+    return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+
+
 class DebatesAPI:
     """API interface for debates."""
 
@@ -36,8 +41,8 @@ class DebatesAPI:
         self,
         task: str,
         agents: list[str] | None = None,
-        rounds: int = 3,
-        consensus: str = "majority",
+        rounds: int = DEFAULT_ROUNDS,
+        consensus: str = DEFAULT_CONSENSUS,
         context: str | None = None,
         **kwargs: Any,
     ) -> DebateCreateResponse:
@@ -46,8 +51,8 @@ class DebatesAPI:
 
         Args:
             task: The question or topic to debate.
-            agents: List of agent IDs to participate (default: anthropic-api, openai-api).
-            rounds: Number of debate rounds (default: 3).
+            agents: List of agent IDs to participate (default: config default agents).
+            rounds: Number of debate rounds (default: config default rounds).
             consensus: Consensus mechanism (unanimous, majority, supermajority, hybrid).
             context: Additional context for the debate.
 
@@ -56,7 +61,7 @@ class DebatesAPI:
         """
         request = DebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or _default_agent_list(),
             rounds=rounds,
             consensus=ConsensusType(consensus),
             context=context,
@@ -70,15 +75,15 @@ class DebatesAPI:
         self,
         task: str,
         agents: list[str] | None = None,
-        rounds: int = 3,
-        consensus: str = "majority",
+        rounds: int = DEFAULT_ROUNDS,
+        consensus: str = DEFAULT_CONSENSUS,
         context: str | None = None,
         **kwargs: Any,
     ) -> DebateCreateResponse:
         """Async version of create()."""
         request = DebateCreateRequest(
             task=task,
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or _default_agent_list(),
             rounds=rounds,
             consensus=ConsensusType(consensus),
             context=context,
@@ -150,8 +155,8 @@ class DebatesAPI:
         self,
         task: str,
         agents: List[str] | None = None,
-        rounds: int = 3,
-        consensus: str = "majority",
+        rounds: int = DEFAULT_ROUNDS,
+        consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
         **kwargs: Any,
     ) -> Debate:
@@ -189,8 +194,8 @@ class DebatesAPI:
         self,
         task: str,
         agents: List[str] | None = None,
-        rounds: int = 3,
-        consensus: str = "majority",
+        rounds: int = DEFAULT_ROUNDS,
+        consensus: str = DEFAULT_CONSENSUS,
         timeout: int = 600,
         **kwargs: Any,
     ) -> Debate:

@@ -430,7 +430,7 @@ def require_approval(
             # Raise pending error so caller can present approval UI
             raise ApprovalPendingError(approval_request)
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

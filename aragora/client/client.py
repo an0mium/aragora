@@ -40,6 +40,8 @@ import time as time_module
 from typing import TYPE_CHECKING, Any, NoReturn, Optional
 from urllib.parse import urljoin
 
+from aragora.config import DEFAULT_ROUNDS
+
 # Import from refactored modules
 from .errors import (
     AragoraAPIError,
@@ -891,7 +893,7 @@ class AragoraClient:
         self,
         task: str,
         agents: list,
-        rounds: int = 3,
+        rounds: int = DEFAULT_ROUNDS,
         stream_options: Optional[Any] = None,
         **kwargs: Any,
     ):

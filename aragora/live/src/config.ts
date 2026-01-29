@@ -78,9 +78,9 @@ export const IS_PRODUCTION = typeof window !== 'undefined' && isProductionEnviro
 // === Debate Defaults ===
 // 9-round format: Round 0 (context), Rounds 1-7 (debate), Round 8 (adjudication)
 export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi';
-export const DEFAULT_ROUNDS = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '8', 10);
+export const DEFAULT_ROUNDS = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '9', 10);
 export const MAX_ROUNDS = parseInt(process.env.NEXT_PUBLIC_MAX_ROUNDS || '10', 10);
-export const DEFAULT_CONSENSUS = process.env.NEXT_PUBLIC_DEFAULT_CONSENSUS || 'judge';
+export const DEFAULT_CONSENSUS = process.env.NEXT_PUBLIC_DEFAULT_CONSENSUS || 'hybrid';
 
 // === Agent Display Names ===
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {

@@ -254,7 +254,7 @@ function UsersAdminPageContent() {
       if (searchQuery) params.set('search', searchQuery);
 
       const res = await fetch(
-        `${backendConfig.api}/api/admin/users?${params}`,
+        `${backendConfig.api}/api/v1/admin/users?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -301,7 +301,7 @@ function UsersAdminPageContent() {
     try {
       const action = currentlyActive ? 'deactivate' : 'activate';
       const res = await fetch(
-        `${backendConfig.api}/api/admin/users/${userId}/${action}`,
+        `${backendConfig.api}/api/v1/admin/users/${userId}/${action}`,
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -322,7 +322,7 @@ function UsersAdminPageContent() {
       setLoading(true);
       for (const id of selectedIds) {
         const res = await fetch(
-          `${backendConfig.api}/api/admin/users/${id}/${action}`,
+          `${backendConfig.api}/api/v1/admin/users/${id}/${action}`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
@@ -342,7 +342,7 @@ function UsersAdminPageContent() {
   const handleInviteUser = async (email: string, role: string) => {
     if (!token) throw new Error('Not authenticated');
 
-    const res = await fetch(`${backendConfig.api}/api/admin/users/invite`, {
+    const res = await fetch(`${backendConfig.api}/api/v1/admin/users/invite`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -362,7 +362,7 @@ function UsersAdminPageContent() {
   const handleChangeRole = async (userId: string, newRole: string) => {
     if (!token) throw new Error('Not authenticated');
 
-    const res = await fetch(`${backendConfig.api}/api/admin/users/${userId}/role`, {
+    const res = await fetch(`${backendConfig.api}/api/v1/admin/users/${userId}/role`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -100,9 +100,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Expose ports (HTTP API, WebSocket, Prometheus metrics)
 EXPOSE 8080 8765 9090
 
-# Health check using the v2 health endpoint
+# Health check using the standard K8s liveness endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/api/v2/health || exit 1
+    CMD curl -f http://localhost:8080/healthz || exit 1
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="Aragora" \
@@ -131,6 +131,6 @@ USER aragora
 
 # Override health check for faster dev iteration
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=2 \
-    CMD curl -f http://localhost:8080/api/v2/health || exit 1
+    CMD curl -f http://localhost:8080/healthz || exit 1
 
 CMD ["python", "-m", "aragora.server.unified_server", "--host", "0.0.0.0", "--port", "8080"]

@@ -130,11 +130,11 @@ class DebateProtocol:
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
     topology_hub_agent: Optional[str] = None  # for star topology, which agent is the hub
-    rounds: int = 8  # Structured 8-round format (0-7), Round 8 is adjudication
+    rounds: int = 9  # Structured 9-round format (0-8), Round 8 is adjudication
 
     # Structured round phases: Use predefined phase structure for each round
     # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
-    use_structured_phases: bool = True  # Enable structured 7-round format
+    use_structured_phases: bool = True  # Enable structured 9-round format
     round_phases: Optional[list[RoundPhase]] = (
         None  # Custom phases (uses STRUCTURED_ROUND_PHASES if None)
     )
@@ -186,7 +186,7 @@ class DebateProtocol:
     early_stop_threshold: float = (
         0.95  # fraction of agents saying stop to trigger (near-impossible)
     )
-    min_rounds_before_early_stop: int = 7  # minimum rounds before allowing early exit
+    min_rounds_before_early_stop: int = 8  # minimum rounds before allowing early exit
 
     # Asymmetric debate roles: Assign affirmative/negative/neutral stances
     # Forces perspective diversity, prevents premature consensus

@@ -368,7 +368,7 @@ def secure_endpoint(
                 logger.exception(f"Error in secure endpoint {func.__name__}: {e}")
                 raise
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -419,7 +419,7 @@ def audit_sensitive_access(
 
             return await func(self, request, auth_context, *args, **kwargs)  # type: ignore[misc,arg-type]
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

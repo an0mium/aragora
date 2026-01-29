@@ -44,8 +44,12 @@ Usage:
     answer = await rlm.query("What consensus was reached?", context)
 """
 
+import hashlib
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
@@ -164,6 +168,73 @@ class AragoraRLM(RLMStreamingMixin):
                 "Will use compression-based FALLBACK for all queries. "
                 "For TRUE RLM (REPL-based), install with: pip install rlm"
             )
+
+    async def build_context(
+        self,
+        content: str,
+        source_type: str = "text",
+        source_path: Optional[str] = None,
+        source_root: Optional[str] = None,
+        source_manifest: Optional[str] = None,
+    ) -> RLMContext:
+        """
+        Build an RLMContext for querying.
+
+        If TRUE RLM is available, return a lightweight context with
+        optional externalized content for REPL access. If TRUE RLM is
+        not available, fall back to hierarchical compression.
+        """
+        from aragora.rlm.exceptions import RLMContextOverflowError
+
+        content_bytes = len(content.encode("utf-8"))
+        if content_bytes > self.aragora_config.max_content_bytes:
+            raise RLMContextOverflowError(
+                f"Context size {content_bytes} exceeds max_content_bytes="
+                f"{self.aragora_config.max_content_bytes}"
+            )
+
+        inline_content = content
+        externalized_path = source_path
+        if content_bytes > self.aragora_config.externalize_content_bytes:
+            if externalized_path is None:
+                externalized_path = self._externalize_content(content)
+            inline_limit = self.aragora_config.externalize_content_bytes
+            inline_content = content[:inline_limit]
+
+        metadata = {
+            "externalized": externalized_path is not None,
+            "content_path": externalized_path,
+            "manifest_path": source_manifest,
+            "source_root": source_root,
+        }
+
+        if self._official_rlm:
+            return RLMContext(
+                original_content=inline_content,
+                original_tokens=max(1, content_bytes // 4),
+                source_type=source_type,
+                source_path=externalized_path,
+                source_root=source_root,
+                source_manifest=source_manifest,
+                metadata=metadata,
+            )
+
+        compression = await self._compressor.compress(inline_content, source_type)
+        context = compression.context
+        context.source_type = source_type
+        context.source_path = externalized_path
+        context.source_root = source_root
+        context.source_manifest = source_manifest
+        context.metadata.update(metadata)
+        return context
+
+    def _externalize_content(self, content: str) -> str:
+        """Persist large context to a temp file for TRUE RLM REPL access."""
+        fd, path = tempfile.mkstemp(prefix="aragora_rlm_", suffix=".txt")
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        logger.info("[AragoraRLM] Externalized context to %s", path)
+        return path
 
     def _init_official_rlm(self) -> None:
         """Initialize the official RLM library."""
@@ -287,10 +358,82 @@ class AragoraRLM(RLMStreamingMixin):
         summary_content = context.get_at_level(AbstractionLevel.SUMMARY) or ""
         abstract_content = context.get_at_level(AbstractionLevel.ABSTRACT) or ""
 
-        # Build RLM prompt with context included
+        # Externalize large context to a file to avoid prompt stuffing.
+        # TRUE RLM expects context to live in the environment, not the prompt.
+        use_external = self._should_externalize_context(context)
+        context_file = self._ensure_context_file(context) if use_external else None
+
+        # Build RLM prompt
         # The official RLM handles REPL interaction internally - model writes code
-        # to decompose and query this context recursively
-        rlm_prompt = f"""You are analyzing a hierarchical document context. Use Python code in the REPL to examine, grep, filter, and recursively process the context.
+        # to decompose and query this context recursively.
+        if context_file:
+            metadata = getattr(context, "metadata", {}) or {}
+            manifest_path = context.source_manifest or metadata.get("manifest_path", "")
+            source_root = context.source_root or metadata.get("source_root", "")
+            manifest_line = f"\nManifest: {manifest_path}" if manifest_path else ""
+            root_line = f"\nRepo root: {source_root}" if source_root else ""
+            rlm_prompt = f"""You are analyzing a hierarchical document context. Use Python code in the REPL to examine, grep, filter, and recursively process the context.
+
+## Context Structure
+{formatted["structure"]}
+
+## Context Data
+
+### Abstract Level
+{abstract_content if abstract_content else "[No abstract available]"}
+
+### Summary Level
+{summary_content if summary_content else "[No summary available]"}
+
+### Full Content (external file)
+Context file: {context_file}{manifest_line}{root_line}
+
+Use Python to read the file in chunks (do NOT load the entire file into memory).
+Starter helpers you can paste into the REPL:
+
+```
+CONTEXT_FILE = r"{context_file}"
+
+def read_chunk(offset=0, size=20000):
+    with open(CONTEXT_FILE, "r", errors="ignore") as f:
+        f.seek(offset)
+        return f.read(size)
+
+def grep_in_file(pattern, max_hits=50):
+    import re
+    hits = []
+    with open(CONTEXT_FILE, "r", errors="ignore") as f:
+        for line in f:
+            if re.search(pattern, line):
+                hits.append(line.strip())
+                if len(hits) >= max_hits:
+                    break
+    return hits
+```
+
+## Instructions
+1. Use Python code to programmatically examine the context
+2. Use chunked reads or line-by-line scans; avoid loading full content
+3. Use RLM_M(prompt) to recursively call yourself on subsets
+4. Call FINAL(answer) when you have the answer
+
+## Task
+Answer this question: {query}
+
+Write Python code to analyze the context and call FINAL(answer) with your answer.
+"""
+        else:
+            metadata = getattr(context, "metadata", {}) or {}
+            manifest_path = context.source_manifest or metadata.get("manifest_path", "")
+            source_root = context.source_root or metadata.get("source_root", "")
+            extra_access = ""
+            if manifest_path or source_root:
+                extra_access = "\n\nExternal context:\n"
+                if source_root:
+                    extra_access += f"Repo root: {source_root}\n"
+                if manifest_path:
+                    extra_access += f"Manifest: {manifest_path}\n"
+            rlm_prompt = f"""You are analyzing a hierarchical document context. Use Python code in the REPL to examine, grep, filter, and recursively process the context.
 
 ## Context Structure
 {formatted["structure"]}
@@ -305,6 +448,8 @@ class AragoraRLM(RLMStreamingMixin):
 
 ### Full Content ({context.original_tokens} tokens)
 {context.original_content}
+
+{extra_access}
 
 ## Instructions
 1. Use Python code to programmatically examine the context
@@ -357,6 +502,58 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             # Fall back to compression-based approach
             self._last_query_used_compression_fallback = True
             return await self._compression_fallback(query, context, strategy)
+
+    def _should_externalize_context(self, context: RLMContext) -> bool:
+        """Decide if context should be externalized to a file for TRUE RLM."""
+        metadata = getattr(context, "metadata", {}) or {}
+        if context.source_path or metadata.get("content_path"):
+            return True
+        try:
+            content_bytes = len(context.original_content.encode("utf-8", errors="ignore"))
+        except Exception:
+            content_bytes = 0
+        threshold = getattr(self.aragora_config, "externalize_content_bytes", 0) or 0
+        return threshold > 0 and content_bytes >= threshold
+
+    def _ensure_context_file(self, context: RLMContext) -> Optional[str]:
+        """Ensure context is written to disk and return its path."""
+        metadata = getattr(context, "metadata", {}) or {}
+        content_path = context.source_path or metadata.get("content_path")
+        if content_path:
+            try:
+                if Path(content_path).exists():
+                    return content_path
+            except Exception:
+                pass
+
+        # No existing file; write if we have content
+        if not context.original_content:
+            return None
+
+        # Choose directory
+        context_dir = metadata.get("context_dir") or os.environ.get("ARAGORA_RLM_CONTEXT_DIR", "")
+        if context_dir:
+            base_dir = Path(context_dir)
+        else:
+            base_dir = Path(tempfile.gettempdir()) / "aragora_rlm"
+        base_dir.mkdir(parents=True, exist_ok=True)
+
+        # Content hash to dedupe
+        content_hash = hashlib.sha256(
+            context.original_content.encode("utf-8", errors="ignore")
+        ).hexdigest()[:12]
+        file_path = base_dir / f"rlm_context_{content_hash}.txt"
+
+        if not file_path.exists():
+            try:
+                file_path.write_text(context.original_content)
+            except Exception as e:
+                logger.warning(f"[AragoraRLM] Failed to write context file: {e}")
+                return None
+
+        metadata["content_path"] = str(file_path)
+        context.metadata = metadata
+        return str(file_path)
 
     async def _compression_fallback(
         self,

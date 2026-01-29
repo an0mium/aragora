@@ -624,7 +624,7 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
 
             return await func(*args, **kwargs)
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -671,7 +671,7 @@ def require_access(
 
             return await func(*args, **kwargs)
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 

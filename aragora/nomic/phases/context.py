@@ -8,6 +8,7 @@ Phase 0: Gather codebase understanding
 """
 
 import asyncio
+import os
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
@@ -57,6 +58,7 @@ class ContextPhase:
         log_fn: Optional[Callable[..., None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
         get_features_fn: Optional[Callable[[], str]] = None,
+        context_builder: Optional[Any] = None,
     ):
         """
         Initialize the context gathering phase.
@@ -72,6 +74,7 @@ class ContextPhase:
             log_fn: Function to log messages
             stream_emit_fn: Function to emit streaming events
             get_features_fn: Function to get current features as fallback
+            context_builder: Optional NomicContextBuilder for RLM-powered context
         """
         self.aragora_path = aragora_path
         self.claude = claude_agent
@@ -83,6 +86,7 @@ class ContextPhase:
         self._log = log_fn or print
         self._stream_emit = stream_emit_fn or (lambda *args: None)
         self._get_features = get_features_fn or (lambda: "No features available")
+        self._context_builder = context_builder
 
     async def execute(self) -> ContextResult:
         """
@@ -163,7 +167,49 @@ class ContextPhase:
             self._log("  Warning: Context gathering failed, using basic context")
             combined_context = [f"Current features (from docstring):\n{self._get_features()}"]
 
+        # Add RLM-powered codebase structure map from NomicContextBuilder
+        if self._context_builder:
+            try:
+                rlm_context = await self._context_builder.build_debate_context()
+                if rlm_context:
+                    combined_context.insert(
+                        0,
+                        f"=== CODEBASE STRUCTURE MAP (via RLM Context Builder) ===\n{rlm_context}",
+                    )
+                    self._log("  RLM context builder: added structured codebase map")
+            except Exception as e:
+                self._log(f"  RLM context builder: failed ({e}), continuing without")
+
         gathered_context = "\n\n".join(combined_context)
+
+        use_rlm_context = os.environ.get("ARAGORA_NOMIC_CONTEXT_RLM", "").lower() == "true"
+        if use_rlm_context:
+            try:
+                from aragora.rlm import get_rlm, RLMConfig
+
+                rlm_config = RLMConfig()
+                if hasattr(rlm_config, "max_content_bytes_nomic"):
+                    rlm_config.max_content_bytes = rlm_config.max_content_bytes_nomic
+                env_max_bytes = os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES")
+                if env_max_bytes:
+                    try:
+                        rlm_config.max_content_bytes = int(env_max_bytes)
+                    except ValueError:
+                        self._log(
+                            f"  [context] Invalid ARAGORA_NOMIC_MAX_CONTEXT_BYTES={env_max_bytes}"
+                        )
+
+                rlm = get_rlm(config=rlm_config)
+                rlm_result = await rlm.compress_and_query(
+                    query="Provide a comprehensive, code-level summary of the aragora codebase for debate context.",
+                    content=gathered_context,
+                    source_type="nomic_context",
+                )
+                if rlm_result and rlm_result.answer:
+                    gathered_context = rlm_result.answer
+                    self._log("  [context] TRUE RLM context builder applied")
+            except Exception as e:
+                self._log(f"  [context] RLM context builder unavailable: {e}")
 
         phase_duration = time.perf_counter() - phase_start
         success = len(combined_context) > 0

@@ -25,10 +25,11 @@ from aragora.agents.base import AgentType, create_agent
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.disagreement import DisagreementReporter
 from aragora.debate.orchestrator import Arena, DebateProtocol
+from aragora.config.settings import DebateSettings, AgentSettings
 
 # Default agents for code review (fast, diverse perspectives)
-DEFAULT_REVIEW_AGENTS = "anthropic-api,openai-api"
-DEFAULT_ROUNDS = 2  # Fast reviews
+DEFAULT_REVIEW_AGENTS = AgentSettings().default_agents
+DEFAULT_ROUNDS = DebateSettings().default_rounds
 MAX_DIFF_SIZE = 50000  # 50KB max diff size
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 SHARE_BASE_URL = "https://aragora.ai/reviews"

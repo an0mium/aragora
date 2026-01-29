@@ -234,21 +234,24 @@ class TestMCPToolDefaults:
         from aragora.mcp.tools import TOOLS_METADATA
 
         run_debate = next(t for t in TOOLS_METADATA if t["name"] == "run_debate")
-        assert run_debate["parameters"]["agents"]["default"] == "anthropic-api,openai-api"
+        assert (
+            run_debate["parameters"]["agents"]["default"]
+            == "grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi"
+        )
 
     def test_run_debate_default_rounds(self):
         """run_debate has default rounds."""
         from aragora.mcp.tools import TOOLS_METADATA
 
         run_debate = next(t for t in TOOLS_METADATA if t["name"] == "run_debate")
-        assert run_debate["parameters"]["rounds"]["default"] == 3
+        assert run_debate["parameters"]["rounds"]["default"] == 9
 
     def test_run_debate_default_consensus(self):
         """run_debate has default consensus."""
         from aragora.mcp.tools import TOOLS_METADATA
 
         run_debate = next(t for t in TOOLS_METADATA if t["name"] == "run_debate")
-        assert run_debate["parameters"]["consensus"]["default"] == "majority"
+        assert run_debate["parameters"]["consensus"]["default"] == "hybrid"
 
     def test_run_gauntlet_default_content_type(self):
         """run_gauntlet has default content_type."""

@@ -14,19 +14,25 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
 logger = logging.getLogger(__name__)
 
 
+def _default_agent_list() -> List[str]:
+    return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+
+
 @dataclass
 class DecisionConfig:
     """Configuration for a decision request."""
 
-    agents: List[str] = field(default_factory=lambda: ["anthropic-api", "openai-api"])
-    rounds: int = 3
-    consensus: str = "majority"
+    agents: List[str] = field(default_factory=_default_agent_list)
+    rounds: int = DEFAULT_ROUNDS
+    consensus: str = DEFAULT_CONSENSUS
     timeout_seconds: int = 300
 
 
@@ -306,7 +312,7 @@ class DecisionsAPI:
     ) -> DecisionResult:
         """Async version of quick_decision()."""
         config = DecisionConfig(
-            agents=agents or ["anthropic-api", "openai-api"],
+            agents=agents or _default_agent_list(),
             rounds=2,
             consensus="majority",
             timeout_seconds=60,
@@ -321,7 +327,7 @@ class DecisionsAPI:
         self,
         topic: str,
         agents: Optional[List[str]] = None,
-        rounds: int = 3,
+        rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """
         Start a full debate on a topic.
@@ -335,9 +341,9 @@ class DecisionsAPI:
             DecisionResult object.
         """
         config = DecisionConfig(
-            agents=agents or ["anthropic-api", "openai-api", "gemini-api"],
+            agents=agents or _default_agent_list(),
             rounds=rounds,
-            consensus="majority",
+            consensus=DEFAULT_CONSENSUS,
             timeout_seconds=300,
         )
         return self.create(
@@ -350,13 +356,13 @@ class DecisionsAPI:
         self,
         topic: str,
         agents: Optional[List[str]] = None,
-        rounds: int = 3,
+        rounds: int = DEFAULT_ROUNDS,
     ) -> DecisionResult:
         """Async version of start_debate()."""
         config = DecisionConfig(
-            agents=agents or ["anthropic-api", "openai-api", "gemini-api"],
+            agents=agents or _default_agent_list(),
             rounds=rounds,
-            consensus="majority",
+            consensus=DEFAULT_CONSENSUS,
             timeout_seconds=300,
         )
         return await self.create_async(

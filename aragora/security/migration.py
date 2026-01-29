@@ -521,7 +521,7 @@ def rotate_and_reencrypt_store(
                                 plaintext,
                                 associated_data=str(record_id),
                             )
-                            reencrypted[key] = encrypted.to_dict()  # type: ignore[union-attr]
+                            reencrypted[key] = encrypted.to_base64()
                         except Exception as e:
                             logger.warning(f"Failed to re-encrypt field {key}: {e}")
                             reencrypted[key] = value  # Keep original
