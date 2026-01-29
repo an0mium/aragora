@@ -71,37 +71,30 @@ class TestTeamsTypingIndicator:
 
     @pytest.mark.asyncio
     async def test_sends_typing_activity(self, connector):
-        """Test that typing indicator sends typing activity."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
+        """Test that typing indicator sends typing activity via _http_request."""
+        with patch.object(connector, "_get_access_token", new_callable=AsyncMock) as mock_token:
+            mock_token.return_value = "test_token"
 
-        with patch.object(connector, "_get_access_token", return_value="test_token"):
-            with patch("aragora.connectors.chat.teams.httpx.AsyncClient") as mock_client:
-                mock_client_instance = AsyncMock()
-                mock_client_instance.post = AsyncMock(return_value=mock_response)
-                mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
-                mock_client.return_value.__aexit__ = AsyncMock()
+            with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_http:
+                mock_http.return_value = (True, {"status": "ok"}, None)
 
                 result = await connector.send_typing_indicator("conv_123")
 
                 assert result is True
-                mock_client_instance.post.assert_called_once()
-                call_args = mock_client_instance.post.call_args
-                assert "activities" in call_args[0][0]
-                assert call_args[1]["json"]["type"] == "typing"
+                mock_http.assert_called_once()
+                call_kwargs = mock_http.call_args[1]
+                assert call_kwargs["method"] == "POST"
+                assert "activities" in call_kwargs["url"]
+                assert call_kwargs["json"]["type"] == "typing"
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self, connector):
         """Test that typing indicator returns False on API failure."""
-        mock_response = MagicMock()
-        mock_response.status_code = 500
+        with patch.object(connector, "_get_access_token", new_callable=AsyncMock) as mock_token:
+            mock_token.return_value = "test_token"
 
-        with patch.object(connector, "_get_access_token", return_value="test_token"):
-            with patch("aragora.connectors.chat.teams.httpx.AsyncClient") as mock_client:
-                mock_client_instance = AsyncMock()
-                mock_client_instance.post = AsyncMock(return_value=mock_response)
-                mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
-                mock_client.return_value.__aexit__ = AsyncMock()
+            with patch.object(connector, "_http_request", new_callable=AsyncMock) as mock_http:
+                mock_http.return_value = (False, None, "HTTP 500")
 
                 result = await connector.send_typing_indicator("conv_123")
 
