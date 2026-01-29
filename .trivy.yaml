@@ -1,0 +1,37 @@
+# Trivy configuration for Aragora container scanning
+# https://aquasecurity.github.io/trivy/latest/docs/references/configuration/config-file/
+
+severity:
+  - CRITICAL
+  - HIGH
+
+# Exit with code 1 if vulnerabilities found
+exit-code: 1
+
+# Ignore unfixed vulnerabilities (no patch available)
+ignore-unfixed: true
+
+# Scan configuration
+scan:
+  # Skip files larger than this
+  file-size-limit: 50MB
+
+  # Timeout for each file scan
+  timeout: 5m
+
+# Vulnerability options
+vulnerability:
+  # Ignore vulnerabilities in dev dependencies
+  ignore-dev: true
+
+# Secret scanning
+secret:
+  # Enable secret scanning
+  enable: true
+
+# Misconfiguration scanning
+misconfiguration:
+  # Dockerfile and Kubernetes configs
+  include:
+    - dockerfile
+    - kubernetes

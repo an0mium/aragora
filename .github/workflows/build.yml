@@ -116,23 +116,47 @@ jobs:
 
   security-scan:
     needs: build
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      contents: read
       security-events: write
 
     steps:
-      - name: Run Trivy vulnerability scanner
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (Dockerfile)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-config-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run Trivy vulnerability scanner (Image)
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ github.repository }}:${{ github.sha }}
           format: 'sarif'
-          output: 'trivy-results.sarif'
+          output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
 
-      - name: Upload Trivy scan results
+      - name: Upload Trivy config scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: 'trivy-config-results.sarif'
+          category: 'trivy-config'
+        continue-on-error: true
+
+      - name: Upload Trivy image scan results
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: 'trivy-image'
         continue-on-error: true

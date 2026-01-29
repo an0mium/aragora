@@ -1964,6 +1964,21 @@ async def run_startup_sequence(
 
         raise RuntimeError(error_msg)
 
+    # Run auto-migrations if enabled
+    migration_results: dict[str, Any] = {"skipped": True}
+    if os.environ.get("ARAGORA_AUTO_MIGRATE_ON_STARTUP", "").lower() == "true":
+        try:
+            from aragora.server.auto_migrations import run_auto_migrations
+
+            migration_results = await run_auto_migrations()
+            if migration_results.get("success"):
+                logger.info("Auto-migrations completed successfully")
+            elif not migration_results.get("skipped"):
+                logger.warning(f"Auto-migrations had issues: {migration_results}")
+        except Exception as e:
+            logger.error(f"Auto-migration failed: {e}")
+            migration_results = {"error": str(e), "skipped": False}
+
     # Validate database schema (in consolidated mode)
     schema_validation = {"success": True, "errors": [], "warnings": []}
     try:
@@ -2018,6 +2033,7 @@ async def run_startup_sequence(
         "_startup_start_time": time_mod.time(),  # For duration calculation
         "backend_connectivity": connectivity,
         "storage_backend": storage_backend,
+        "migrations": migration_results,
         "schema_validation": schema_validation,
         "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
