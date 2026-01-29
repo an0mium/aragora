@@ -403,8 +403,9 @@ class TestCleanup:
     @pytest.mark.asyncio
     async def test_cleanup_completed(self, hook_mgr):
         await hook_mgr.create_hook("agent-1", {}, hook_id="hk-clean")
-        hook = await hook_mgr.complete_hook("hk-clean")
-        hook.completed_at = 0  # Very old
+        await hook_mgr.complete_hook("hk-clean")
+        # Set completed_at to a very old time to trigger cleanup
+        hook_mgr._hooks["hk-clean"].completed_at = 1.0
 
         removed = await hook_mgr.cleanup_completed(max_age_seconds=1.0)
         assert removed == 1
@@ -450,10 +451,12 @@ class TestHookStats:
 class TestPathSafety:
     """Test path traversal prevention."""
 
-    def test_hook_dir_sanitizes_path(self, tmp_path):
+    def test_hook_dir_sanitizes_path_traversal(self, tmp_path):
         config = HookManagerConfig(workspace_root=str(tmp_path), use_git_worktrees=False)
         mgr = HookManager(config=config)
 
         hook_dir = mgr._hook_dir("../../../etc/passwd")
+        # Path traversal dots should be replaced
         assert ".." not in str(hook_dir.name)
-        assert "etc" not in str(hook_dir.name)
+        # The resulting path must be under the hooks directory
+        assert str(hook_dir).startswith(str(mgr._hooks_dir))

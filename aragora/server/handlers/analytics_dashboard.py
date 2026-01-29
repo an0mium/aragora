@@ -36,6 +36,7 @@ from .base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    get_clamped_int_param,
     get_string_param,
     handle_errors,
     json_response,
@@ -610,10 +611,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         try:
             from datetime import datetime, timedelta, timezone
@@ -674,10 +672,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         granularity = query_params.get("granularity", "day")
         if granularity not in ("day", "hour"):
@@ -777,10 +772,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         try:
             from datetime import datetime, timedelta, timezone
@@ -1039,10 +1031,7 @@ class AnalyticsDashboardHandler(BaseHandler):
             }
         }
         """
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         granularity = query_params.get("granularity", "day")
         if granularity not in ("day", "week"):
@@ -1166,10 +1155,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         try:
             from datetime import datetime, timedelta, timezone
@@ -1260,10 +1246,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         try:
             from datetime import datetime, timedelta, timezone
@@ -1370,10 +1353,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         try:
             from datetime import datetime, timedelta, timezone
@@ -1469,10 +1449,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         if not org_id:
             return error_response("org_id is required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = get_clamped_int_param(query_params, "days", 30, min_val=1, max_val=365)
 
         granularity = query_params.get("granularity", "day")
         if granularity not in ("day", "week"):
