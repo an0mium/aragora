@@ -129,7 +129,7 @@ class TestDeploymentDiagnostics:
         )
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
@@ -159,7 +159,7 @@ class TestDeploymentDiagnostics:
         )
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
@@ -187,7 +187,7 @@ class TestDeploymentDiagnostics:
         )
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
@@ -204,7 +204,7 @@ class TestDeploymentDiagnostics:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             side_effect=ImportError("Module not found"),
         ):
             result = deployment_diagnostics(handler)
@@ -221,7 +221,7 @@ class TestDeploymentDiagnostics:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             side_effect=concurrent.futures.TimeoutError(),
         ):
@@ -230,7 +230,7 @@ class TestDeploymentDiagnostics:
         assert result.status_code == 504
         body = json.loads(result.body.decode("utf-8"))
         assert body["status"] == "error"
-        assert "timeout" in body["error"].lower()
+        assert "timed out" in body["error"].lower()
 
     def test_diagnostics_unexpected_error(self):
         """Test diagnostics returns 500 on unexpected error."""
@@ -239,7 +239,7 @@ class TestDeploymentDiagnostics:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             side_effect=RuntimeError("Unexpected error"),
         ):
@@ -263,7 +263,7 @@ class TestDeploymentDiagnostics:
         )
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
@@ -287,7 +287,7 @@ class TestDeploymentDiagnostics:
         )
 
         with patch(
-            "aragora.server.handlers.admin.health.diagnostics.validate_deployment",
+            "aragora.ops.deployment_validator.validate_deployment",
             new_callable=AsyncMock,
             return_value=mock_result,
         ):
