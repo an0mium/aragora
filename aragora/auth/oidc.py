@@ -67,11 +67,29 @@ except ImportError:
 
 
 def _is_production_mode() -> bool:
-    """Check if running in production mode."""
+    """Check if running in production mode.
+
+    SECURITY: Defaults to production mode (secure by default).
+    Set ARAGORA_ENV=development to enable dev mode behaviors.
+    """
     import os
 
-    env = os.environ.get("ARAGORA_ENV", "").lower()
-    return env in ("production", "prod", "staging", "stage")
+    env = os.environ.get("ARAGORA_ENV", "production").lower()
+    return env not in ("development", "dev", "local", "test")
+
+
+def _allow_dev_auth_fallback() -> bool:
+    """Check if dev auth fallback is explicitly allowed.
+
+    SECURITY: Even in dev mode, auth fallback must be explicitly enabled.
+    This prevents accidental exposure in misconfigured environments.
+    """
+    import os
+
+    # Must be in dev mode AND have explicit fallback enabled
+    if _is_production_mode():
+        return False
+    return os.environ.get("ARAGORA_ALLOW_DEV_AUTH_FALLBACK", "").lower() in ("1", "true", "yes")
 
 
 class OIDCError(SSOError):
@@ -546,13 +564,18 @@ class OIDCProvider(SSOProvider):
                 claims = await self._validate_id_token(id_token)
             except (ValueError, KeyError, TypeError) as e:
                 # Token parsing/validation errors
-                # SECURITY: In production, token validation failures should not silently
-                # fall back to userinfo - this could allow signature bypass attacks
-                if _is_production_mode():
-                    logger.error(f"ID token validation failed in production mode: {e}")
-                    raise SSOAuthenticationError(f"ID token validation required in production: {e}")
-                logger.warning(f"ID token validation failed (dev mode fallback): {e}")
-                # Development mode: Fall back to userinfo endpoint
+                # SECURITY: Never silently fall back to userinfo - could allow signature bypass
+                if not _allow_dev_auth_fallback():
+                    logger.error(f"ID token validation failed: {e}")
+                    raise SSOAuthenticationError(
+                        f"ID token validation failed: {e}. "
+                        "Set ARAGORA_ENV=development and ARAGORA_ALLOW_DEV_AUTH_FALLBACK=1 "
+                        "to allow fallback to userinfo endpoint (NOT recommended for production)."
+                    )
+                logger.warning(
+                    f"ID token validation failed, using userinfo fallback (dev mode): {e}. "
+                    "This is INSECURE - do not use in production!"
+                )
 
         # Fetch from userinfo endpoint if needed
         if not claims.get("email"):

@@ -155,18 +155,32 @@ class SAMLProvider(SSOProvider):
                 f"Invalid SAML configuration: {', '.join(errors)}", {"errors": errors}
             )
 
-        # SECURITY: Warn about simplified parser in production/staging
-        if not HAS_SAML_LIB and config.idp_certificate:
-            logger.warning(
-                "SECURITY WARNING: Using simplified SAML parser without signature validation. "
-                "Install python3-saml for production: pip install python3-saml"
-            )
+        # SECURITY: Require python3-saml library for all SAML authentication
+        # The simplified parser does NOT validate signatures, which is a critical security flaw
+        if not HAS_SAML_LIB:
+            # Check if explicitly allowed for testing only
+            allow_unsafe = os.getenv("ARAGORA_ALLOW_UNSAFE_SAML", "").lower() == "true"
             env = os.getenv("ARAGORA_ENV", "").lower()
+
             if env in ("production", "prod", "staging", "stage"):
                 raise SSOConfigurationError(
-                    "python3-saml required for SAML in production/staging. "
+                    "python3-saml required for SAML authentication. "
                     "Install with: pip install python3-saml",
                     {"code": "MISSING_SAML_LIBRARY"},
+                )
+            elif not allow_unsafe:
+                raise SSOConfigurationError(
+                    "python3-saml required for SAML authentication. "
+                    "Install with: pip install python3-saml. "
+                    "For testing only, set ARAGORA_ALLOW_UNSAFE_SAML=true to use "
+                    "the simplified parser (WARNING: no signature validation!).",
+                    {"code": "MISSING_SAML_LIBRARY"},
+                )
+            else:
+                logger.warning(
+                    "SECURITY WARNING: Using simplified SAML parser WITHOUT signature validation. "
+                    "This is ONLY safe for local testing with trusted IdPs. "
+                    "NEVER use in production!"
                 )
 
     @property
