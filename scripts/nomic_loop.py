@@ -605,6 +605,7 @@ from aragora.agents.api_agents import (
     KimiK2Agent,
 )
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
+from aragora.agents.api_agents import GrokAgent
 from aragora.config.settings import AgentSettings, DebateSettings
 from aragora.agents.airlock import AirlockProxy, AirlockConfig
 from aragora.nomic.convoy_executor import GastownConvoyExecutor
@@ -3047,12 +3048,21 @@ Never propose removing the nomic loop or core debate infrastructure."""
             + safety_footer
         )
 
-        self.grok = GrokCLIAgent(
-            name="grok-lateral-thinker",
-            model="grok-4",  # Grok 4 full
-            role="proposer",
-            timeout=1200,  # Doubled to 20 min for thorough codebase exploration
-        )
+        use_api_grok = os.environ.get("NOMIC_GROK_USE_API", "0") == "1"
+        if use_api_grok:
+            self.grok = GrokAgent(
+                name="grok-lateral-thinker",
+                model="grok-4",  # Grok 4 full
+                role="proposer",
+                timeout=1200,  # Doubled to 20 min for thorough codebase exploration
+            )
+        else:
+            self.grok = GrokCLIAgent(
+                name="grok-lateral-thinker",
+                model="grok-4",  # Grok 4 full
+                role="proposer",
+                timeout=1200,  # Doubled to 20 min for thorough codebase exploration
+            )
         self.grok.system_prompt = (
             """You are a lateral-thinking synthesizer for aragora.
 Focus on: unconventional approaches, novel patterns, creative breakthroughs.
