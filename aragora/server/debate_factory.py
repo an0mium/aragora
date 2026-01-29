@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, cast
 
 from aragora.config import (
     DEFAULT_AGENTS,
@@ -478,9 +478,22 @@ class DebateFactory:
         )
 
         # Create protocol from preset, allowing consensus override
+        consensus_type = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            config.consensus or base_protocol.consensus,
+        )
         protocol = DebateProtocol(
             rounds=base_protocol.rounds,
-            consensus=config.consensus or base_protocol.consensus,  # type: ignore[arg-type]
+            consensus=consensus_type,
             proposer_count=len(agent_result.agents),
             topology=base_protocol.topology,
             use_structured_phases=base_protocol.use_structured_phases,

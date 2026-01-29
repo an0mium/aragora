@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any
+from typing import Any, Literal, cast
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,22 @@ async def run_debate_tool(
         max_rounds=rounds,
     )
 
+    consensus_type = cast(
+        Literal[
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ],
+        consensus,
+    )
     protocol = DebateProtocol(
         rounds=rounds,
-        consensus=consensus,  # type: ignore[arg-type]
+        consensus=consensus_type,
     )
 
     # Run debate

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -141,11 +141,24 @@ async def start_decision(
 
     try:
         # Build the debate request
+        consensus_type = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            body.consensus,
+        )
         debate_request = DebateRequest(
             task=body.task,
             agents=body.agents,
             rounds=body.rounds,
-            consensus=body.consensus,  # type: ignore[arg-type]
+            consensus=consensus_type,
             timeout=body.timeout,
             priority=body.priority,
             metadata=body.metadata,

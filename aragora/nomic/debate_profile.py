@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, cast
 
 from aragora.debate.protocol import (
     DebateProtocol,
@@ -100,13 +100,30 @@ class NomicDebateProfile:
 
     def to_protocol(self) -> DebateProtocol:
         """Convert to a DebateProtocol for use with Arena."""
+        consensus_type = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            self.consensus_mode,
+        )
+        judge_selection_type = cast(
+            Literal["random", "voted", "last", "elo_ranked", "calibrated", "crux_aware"],
+            self.judge_selection,
+        )
         return DebateProtocol(
             rounds=self.rounds,
             use_structured_phases=self.use_structured_phases,
             round_phases=self.round_phases,
-            consensus=self.consensus_mode,  # type: ignore[arg-type]
+            consensus=consensus_type,
             consensus_threshold=self.consensus_threshold,
-            judge_selection=self.judge_selection,  # type: ignore[arg-type]
+            judge_selection=judge_selection_type,
             proposer_count=self.proposer_count,
             critic_count=self.critic_count,
             asymmetric_stances=self.asymmetric_stances,

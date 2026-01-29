@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 logger = logging.getLogger(__name__)
 
@@ -176,9 +176,22 @@ async def run_debate(
     )
 
     # Create protocol
+    consensus_type = cast(
+        Literal[
+            "majority",
+            "unanimous",
+            "judge",
+            "none",
+            "weighted",
+            "supermajority",
+            "any",
+            "byzantine",
+        ],
+        consensus,
+    )
     protocol = DebateProtocol(
         rounds=rounds,
-        consensus=consensus,  # type: ignore[arg-type]
+        consensus=consensus_type,
         **(protocol_overrides or {}),
     )
 

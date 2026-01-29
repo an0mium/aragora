@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, AsyncIterator, Callable, Coroutine, Optional
+from typing import Any, AsyncIterator, Callable, Coroutine, Literal, Optional, cast
 
 from aragora.protocols.a2a.types import (
     AgentCard,
@@ -346,7 +346,20 @@ class A2AServer:
 
         # Run debate
         env = Environment(task=request.instruction, max_rounds=rounds)
-        protocol = DebateProtocol(rounds=rounds, consensus=DEFAULT_CONSENSUS)  # type: ignore[arg-type]
+        consensus_type = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            DEFAULT_CONSENSUS,
+        )
+        protocol = DebateProtocol(rounds=rounds, consensus=consensus_type)
         arena = Arena(env, agents, protocol)
 
         result = await arena.run()

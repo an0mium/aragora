@@ -28,7 +28,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
@@ -387,9 +387,22 @@ class FabricDebateRunner:
             agents.append(adapter)
 
         # 6. Create and run Arena
+        consensus_type = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            DEFAULT_CONSENSUS,
+        )
         arena_protocol = protocol or DebateProtocol(
             rounds=DEFAULT_ROUNDS,
-            consensus=DEFAULT_CONSENSUS,  # type: ignore[arg-type]  # Validated at config load
+            consensus=consensus_type,
         )
 
         try:
