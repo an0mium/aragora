@@ -359,6 +359,15 @@ _EXPORT_MAP = {
     "HealthChecker": ("aragora.resilience_patterns", "HealthChecker"),
     "HealthReport": ("aragora.resilience_patterns", "HealthReport"),
     "HealthRegistry": ("aragora.resilience_patterns.health", "HealthRegistry"),
+    # Computer Use (policy-gated browser automation)
+    "ComputerUseOrchestrator": ("aragora.computer_use", "ComputerUseOrchestrator"),
+    "ComputerUseConfig": ("aragora.computer_use", "ComputerUseConfig"),
+    "ComputerPolicy": ("aragora.computer_use", "ComputerPolicy"),
+    "ComputerPolicyChecker": ("aragora.computer_use", "ComputerPolicyChecker"),
+    "PlaywrightActionExecutor": ("aragora.computer_use", "PlaywrightActionExecutor"),
+    "ExecutorConfig": ("aragora.computer_use", "ExecutorConfig"),
+    "ClaudeComputerUseBridge": ("aragora.computer_use", "ClaudeComputerUseBridge"),
+    "BridgeConfig": ("aragora.computer_use", "BridgeConfig"),
     # Agent Fabric (high-scale orchestration)
     "AgentFabric": ("aragora.fabric", "AgentFabric"),
     "AgentScheduler": ("aragora.fabric", "AgentScheduler"),
