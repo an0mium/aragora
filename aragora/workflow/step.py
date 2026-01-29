@@ -195,8 +195,10 @@ class AgentStep(BaseStep):
         """Execute using KiloCode as the coding harness."""
         from aragora.agents.cli_agents import KiloCodeAgent
 
-        provider_id = self.coding_harness.get("provider_id", "gemini-explorer")  # type: ignore[union-attr]
-        mode = self.coding_harness.get("mode", "code")  # type: ignore[union-attr]
+        # coding_harness is guaranteed to be a dict when this method is called
+        harness_config: Dict[str, Any] = self.coding_harness or {}
+        provider_id = harness_config.get("provider_id", "gemini-explorer")
+        mode = harness_config.get("mode", "code")
 
         # Create KiloCode agent with the specified provider
         agent = KiloCodeAgent(

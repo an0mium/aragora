@@ -350,9 +350,9 @@ async def execute_workflow(
                 "status": "completed" if result.success else "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "outputs": result.final_output,
-                "steps": [s.__dict__ for s in result.steps],  # type: ignore[misc]
-                "error": result.error,  # type: ignore[dict-item]
-                "duration_ms": result.total_duration_ms,  # type: ignore[dict-item]
+                "steps": [s.__dict__ for s in result.steps],
+                "error": result.error,
+                "duration_ms": result.total_duration_ms,
             }
         )
         store.save_execution(execution)

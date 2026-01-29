@@ -258,16 +258,16 @@ class ExportOperationsMixin:
             return json.dumps(debate, indent=2, default=str)
         elif format == "csv":
             result = format_debate_csv(debate, "messages")
-            return result.content  # type: ignore[return-value]
+            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
         elif format == "html":
             result = format_debate_html(debate)
-            return result.content  # type: ignore[return-value]
+            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
         elif format == "txt":
             result = format_debate_txt(debate)
-            return result.content  # type: ignore[return-value]
+            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
         elif format == "md":
             result = format_debate_md(debate)
-            return result.content  # type: ignore[return-value]
+            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
         else:
             return json.dumps(debate, indent=2, default=str)
 

@@ -11,10 +11,10 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
-    pass
+    from .base import ServerContext
 
 logger = logging.getLogger(__name__)
 
@@ -181,13 +181,14 @@ class CrossPollinationMetricsHandler(BaseHandler):
 
             metrics_text = get_cross_pollination_metrics_text()
 
-            return {  # type: ignore[return-value]
-                "status": 200,
-                "headers": {
-                    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
-                },
-                "body": metrics_text,
-            }
+            # Return raw response dict for Prometheus format
+            return json_response(
+                {
+                    "status": "ok",
+                    "content_type": "text/plain; version=0.0.4; charset=utf-8",
+                    "metrics": metrics_text,
+                }
+            )
 
         except ImportError:
             return error_response(
@@ -416,7 +417,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
                 for adapter_name, result in results.items():
                     status = result.get("status", "unknown")
-                    record_km_adapter_sync(adapter_name, "to_mound", status, duration_ms / 1000)  # type: ignore[arg-type]
+                    record_km_adapter_sync(adapter_name, "to_mound", status, duration_ms / 1000)
             except ImportError:
                 pass
 
@@ -596,7 +597,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
             return error_response(str(e), status=500)
 
 
-def register_routes(router, server_context: Optional[Any] = None) -> None:
+def register_routes(router: Any, server_context: Optional["ServerContext"] = None) -> None:
     """
     Register cross-pollination routes with the router.
 
@@ -604,16 +605,17 @@ def register_routes(router, server_context: Optional[Any] = None) -> None:
         router: aiohttp router or FastAPI app
         server_context: Optional server context for handlers
     """
-    # Create handler instances with context
-    stats_handler = CrossPollinationStatsHandler(server_context or {})  # type: ignore[arg-type]
-    subscribers_handler = CrossPollinationSubscribersHandler(server_context or {})  # type: ignore[arg-type]
-    bridge_handler = CrossPollinationBridgeHandler(server_context or {})  # type: ignore[arg-type]
-    metrics_handler = CrossPollinationMetricsHandler(server_context or {})  # type: ignore[arg-type]
-    reset_handler = CrossPollinationResetHandler(server_context or {})  # type: ignore[arg-type]
-    km_handler = CrossPollinationKMHandler(server_context or {})  # type: ignore[arg-type]
-    km_sync_handler = CrossPollinationKMSyncHandler(server_context or {})  # type: ignore[arg-type]
-    km_staleness_handler = CrossPollinationKMStalenessHandler(server_context or {})  # type: ignore[arg-type]
-    km_culture_handler = CrossPollinationKMCultureHandler(server_context or {})  # type: ignore[arg-type]
+    # Create handler instances with context - use cast for empty dict fallback
+    ctx = server_context if server_context is not None else cast("ServerContext", {})
+    stats_handler = CrossPollinationStatsHandler(ctx)
+    subscribers_handler = CrossPollinationSubscribersHandler(ctx)
+    bridge_handler = CrossPollinationBridgeHandler(ctx)
+    metrics_handler = CrossPollinationMetricsHandler(ctx)
+    reset_handler = CrossPollinationResetHandler(ctx)
+    km_handler = CrossPollinationKMHandler(ctx)
+    km_sync_handler = CrossPollinationKMSyncHandler(ctx)
+    km_staleness_handler = CrossPollinationKMStalenessHandler(ctx)
+    km_culture_handler = CrossPollinationKMCultureHandler(ctx)
 
     routes = [
         ("GET", "/api/v1/cross-pollination/stats", stats_handler.get),

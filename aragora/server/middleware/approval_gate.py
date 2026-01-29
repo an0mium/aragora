@@ -379,26 +379,31 @@ def require_approval(
             if not auth_context:
                 raise ValueError("No AuthorizationContext found for approval check")
 
+            # Type assertion for auth_context
+            assert isinstance(auth_context, AuthorizationContext)
+
             # Check if user has auto-approve role
-            if auto_roles and auth_context.has_any_role(*auto_roles):  # type: ignore[attr-defined]
+            if auto_roles and auth_context.has_any_role(*auto_roles):
                 logger.debug(
-                    f"Auto-approved {operation} for {auth_context.user_id} "  # type: ignore[attr-defined]
-                    f"(roles: {auth_context.roles})"  # type: ignore[attr-defined]
+                    f"Auto-approved {operation} for {auth_context.user_id} "
+                    f"(roles: {auth_context.roles})"
                 )
-                return await func(*args, **kwargs)  # type: ignore[assignment,misc]
+                result = await func(*args, **kwargs)
+                return result  # type: ignore[return-value]
 
             # Check for existing approval token in kwargs
             approval_id = kwargs.pop("_approval_id", None)
 
             if approval_id:
                 # Verify the approval is valid
-                request = await get_approval_request(approval_id)  # type: ignore[arg-type]
+                request = await get_approval_request(str(approval_id))
                 if request and request.state == ApprovalState.APPROVED:
                     # Approval is valid, proceed
                     logger.info(
                         f"Executing approved operation {operation} (approval: {approval_id})"
                     )
-                    return await func(*args, **kwargs)  # type: ignore[assignment,misc]
+                    result = await func(*args, **kwargs)
+                    return result  # type: ignore[return-value]
                 elif request and request.state == ApprovalState.REJECTED:
                     raise ApprovalDeniedError(request, request.rejection_reason or "")
                 elif request and request.state == ApprovalState.EXPIRED:
@@ -408,15 +413,15 @@ def require_approval(
             resource_type = ""
             resource_id = ""
             if resource_type_param:
-                resource_type = kwargs.get(resource_type_param, "")  # type: ignore[assignment]
+                resource_type = str(kwargs.get(resource_type_param, ""))
             if resource_id_param:
-                resource_id = kwargs.get(resource_id_param, "")  # type: ignore[assignment]
+                resource_id = str(kwargs.get(resource_id_param, ""))
 
             # Create approval request
-            approval_request = await create_approval_request(  # type: ignore[arg-type]
+            approval_request = await create_approval_request(
                 operation=operation,
                 risk_level=risk_level,
-                auth_context=auth_context,  # type: ignore[arg-type]
+                auth_context=auth_context,
                 resource_type=resource_type,
                 resource_id=str(resource_id) if resource_id else "",
                 description=description or f"Approval required for {operation}",

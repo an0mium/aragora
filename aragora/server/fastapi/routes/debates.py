@@ -167,8 +167,12 @@ async def list_debates(
                     id=getattr(d, "id", ""),
                     task=getattr(d, "task", getattr(getattr(d, "environment", None), "task", "")),
                     status=getattr(d, "status", "unknown"),
-                    created_at=str(getattr(d, "created_at", "")) if hasattr(d, "created_at") else None,
-                    updated_at=str(getattr(d, "updated_at", "")) if hasattr(d, "updated_at") else None,
+                    created_at=str(getattr(d, "created_at", ""))
+                    if hasattr(d, "created_at")
+                    else None,
+                    updated_at=str(getattr(d, "updated_at", ""))
+                    if hasattr(d, "updated_at")
+                    else None,
                     round_count=len(getattr(d, "rounds", [])),
                     agent_count=len(getattr(d, "agents", [])),
                     has_consensus=getattr(d, "consensus", None) is not None,
@@ -228,15 +232,25 @@ async def get_debate(
             # Handle dataclass/object
             return DebateDetail(
                 id=getattr(debate, "id", debate_id),
-                task=getattr(debate, "task", getattr(getattr(debate, "environment", None), "task", "")),
+                task=getattr(
+                    debate, "task", getattr(getattr(debate, "environment", None), "task", "")
+                ),
                 status=getattr(debate, "status", "unknown"),
-                protocol=getattr(debate, "protocol", {}).__dict__ if hasattr(getattr(debate, "protocol", None), "__dict__") else {},
+                protocol=getattr(debate, "protocol", {}).__dict__
+                if hasattr(getattr(debate, "protocol", None), "__dict__")
+                else {},
                 agents=[str(a) for a in getattr(debate, "agents", [])],
-                rounds=[r if isinstance(r, dict) else r.__dict__ for r in getattr(debate, "rounds", [])],
+                rounds=[
+                    r if isinstance(r, dict) else r.__dict__ for r in getattr(debate, "rounds", [])
+                ],
                 final_answer=getattr(debate, "final_answer", None),
                 consensus=getattr(debate, "consensus", None),
-                created_at=str(getattr(debate, "created_at", "")) if hasattr(debate, "created_at") else None,
-                updated_at=str(getattr(debate, "updated_at", "")) if hasattr(debate, "updated_at") else None,
+                created_at=str(getattr(debate, "created_at", ""))
+                if hasattr(debate, "created_at")
+                else None,
+                updated_at=str(getattr(debate, "updated_at", ""))
+                if hasattr(debate, "updated_at")
+                else None,
                 metadata=getattr(debate, "metadata", {}),
             )
 
@@ -274,7 +288,9 @@ async def get_debate_messages(
         # Extract messages from rounds
         messages: list[dict[str, Any]] = []
 
-        rounds = debate.get("rounds", []) if isinstance(debate, dict) else getattr(debate, "rounds", [])
+        rounds = (
+            debate.get("rounds", []) if isinstance(debate, dict) else getattr(debate, "rounds", [])
+        )
 
         for round_data in rounds:
             if isinstance(round_data, dict):
@@ -286,7 +302,9 @@ async def get_debate_messages(
                 if isinstance(msg, dict):
                     messages.append(msg)
                 else:
-                    messages.append(msg.__dict__ if hasattr(msg, "__dict__") else {"content": str(msg)})
+                    messages.append(
+                        msg.__dict__ if hasattr(msg, "__dict__") else {"content": str(msg)}
+                    )
 
         # Paginate
         total = len(messages)
@@ -352,7 +370,9 @@ async def get_debate_convergence(
             debate_id=debate_id,
             converged=converged,
             confidence=confidence,
-            rounds_to_convergence=len(debate.get("rounds", [])) if converged and isinstance(debate, dict) else None,
+            rounds_to_convergence=len(debate.get("rounds", []))
+            if converged and isinstance(debate, dict)
+            else None,
             similarity_scores=similarity_scores,
         )
 

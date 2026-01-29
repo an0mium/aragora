@@ -24,7 +24,7 @@ class APIError(Exception):
         message: str,
         status_code: int = 500,
         code: str = "internal_error",
-        details: dict[str, Any] | None = None
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -86,10 +86,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(ValidationError)
-    async def validation_error_handler(
-        request: Request,
-        exc: ValidationError
-    ) -> JSONResponse:
+    async def validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
         """Handle Pydantic validation errors."""
         return JSONResponse(
             status_code=422,
@@ -101,10 +98,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(ValueError)
-    async def value_error_handler(
-        request: Request,
-        exc: ValueError
-    ) -> JSONResponse:
+    async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
         """Handle value errors as bad requests."""
         return JSONResponse(
             status_code=400,
@@ -115,10 +109,7 @@ def setup_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def generic_error_handler(
-        request: Request,
-        exc: Exception
-    ) -> JSONResponse:
+    async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
         """Handle unexpected errors."""
         logger.exception(f"Unhandled error: {exc}")
         return JSONResponse(

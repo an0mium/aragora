@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .middleware.tracing import TracingMiddleware
+from .middleware.validation import RequestValidationMiddleware
 from .middleware.error_handling import setup_exception_handlers
 from .routes import health, debates, decisions
 
@@ -57,6 +58,7 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
     # Initialize ELO system
     try:
         from aragora.ranking.elo import EloSystem
+
         ctx["elo_system"] = EloSystem()
         logger.info("Initialized EloSystem")
     except Exception as e:
@@ -66,6 +68,7 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
     # Initialize user store (optional)
     try:
         from aragora.storage.user_store import UserStore
+
         ctx["user_store"] = UserStore()  # type: ignore[call-arg]
     except Exception:
         ctx["user_store"] = None
@@ -73,10 +76,21 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
     # Initialize RBAC checker
     try:
         from aragora.rbac.checker import get_permission_checker
+
         ctx["rbac_checker"] = get_permission_checker()
     except Exception as e:
         logger.warning(f"Failed to initialize RBAC checker: {e}")
         ctx["rbac_checker"] = None
+
+    # Initialize DecisionService
+    try:
+        from aragora.debate.decision_service import get_decision_service
+
+        ctx["decision_service"] = get_decision_service()
+        logger.info("Initialized DecisionService")
+    except Exception as e:
+        logger.warning(f"Failed to initialize DecisionService: {e}")
+        ctx["decision_service"] = None
 
     return ctx
 
@@ -101,6 +115,13 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     logger.info("FastAPI server shutting down...")
+
+    # Cancel any running debates
+    decision_service = ctx.get("decision_service")
+    if decision_service:
+        for task in getattr(decision_service, "_running_tasks", {}).values():
+            if not task.done():
+                task.cancel()
 
     if ctx.get("storage"):
         try:
@@ -153,6 +174,9 @@ def create_app(
 
     # Tracing middleware
     app.add_middleware(TracingMiddleware)
+
+    # Request validation middleware (body size, JSON depth, array limits)
+    app.add_middleware(RequestValidationMiddleware)
 
     # Register routes
     app.include_router(health.router)

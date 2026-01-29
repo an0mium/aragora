@@ -118,8 +118,7 @@ async def health_detailed(request: Request) -> dict[str, Any]:
 
     # Overall status
     all_healthy = all(
-        s.get("status") in ("healthy", "not_initialized")
-        for s in subsystems.values()
+        s.get("status") in ("healthy", "not_initialized") for s in subsystems.values()
     )
 
     return {

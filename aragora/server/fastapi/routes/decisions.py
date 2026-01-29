@@ -38,9 +38,7 @@ class StartDebateRequest(BaseModel):
     agents: Optional[list[str]] = Field(
         None, description="List of agent names (defaults to configured agents)"
     )
-    rounds: int = Field(
-        DEFAULT_ROUNDS, ge=1, le=20, description="Number of debate rounds"
-    )
+    rounds: int = Field(DEFAULT_ROUNDS, ge=1, le=20, description="Number of debate rounds")
     consensus: str = Field(
         DEFAULT_CONSENSUS,
         description="Consensus mechanism: majority, unanimous, supermajority, etc.",

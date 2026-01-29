@@ -54,11 +54,14 @@ def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerRe
         return error_response("Authentication required", status=401)
 
     # Build minimal auth context from server context
+    org_id = ctx.get("org_id")
+    roles = ctx.get("roles", set())
+    permissions = ctx.get("permissions", set())
     auth_context = AuthorizationContext(
         user_id=user_id,
-        org_id=ctx.get("org_id"),  # type: ignore[arg-type]
-        roles=ctx.get("roles", set()),  # type: ignore[arg-type]
-        permissions=ctx.get("permissions", set()),  # type: ignore[arg-type]
+        org_id=str(org_id) if org_id else None,
+        roles=roles if isinstance(roles, set) else set(roles) if roles else set(),
+        permissions=permissions if isinstance(permissions, set) else set(permissions) if permissions else set(),
     )
 
     checker = get_permission_checker()

@@ -57,7 +57,7 @@ critical assumptions underlying the debate's conclusions.""",
 
 **Includes:** node count, edge count, clustering coefficient, argument depth,
 most-connected claims, and structural metrics.""",
-            "operationId": "getDebateGraphStats",
+            "operationId": "getBeliefGraphStats",
             "parameters": [
                 {
                     "name": "debate_id",

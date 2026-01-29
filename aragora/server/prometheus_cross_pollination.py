@@ -92,7 +92,7 @@ class FallbackMetrics:
         )
 
     def record_km_adapter_sync(
-        self, adapter: str, direction: str, status: str, duration: float = None
+        self, adapter: str, direction: str, status: str, duration: Optional[float] = None
     ) -> None:
         if adapter not in self.km_adapter_syncs:
             self.km_adapter_syncs[adapter] = {}
@@ -333,7 +333,7 @@ def record_km_adapter_sync(
     adapter: str,
     direction: str,
     status: str,
-    duration: float = None,
+    duration: Optional[float] = None,
 ) -> None:
     """Record an adapter sync operation.
 

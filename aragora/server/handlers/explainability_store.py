@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -102,12 +102,12 @@ class RedisBatchJobStore(BatchJobStore):
         key = self._key(batch_id)
         data = self._redis.get(key)
         if data:
-            return BatchJob.from_dict(json.loads(data))  # type: ignore[arg-type]
+            return BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))
         return None
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
-        return self._redis.delete(key) > 0  # type: ignore[operator]
+        return bool(self._redis.delete(key) > 0)
 
     async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
         # Scan for keys and filter
@@ -118,7 +118,7 @@ class RedisBatchJobStore(BatchJobStore):
             for key in keys:
                 data = self._redis.get(key)
                 if data:
-                    job = BatchJob.from_dict(json.loads(data))  # type: ignore[arg-type]
+                    job = BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))
                     if status is None or job.status == status:
                         jobs.append(job)
                         if len(jobs) >= limit:

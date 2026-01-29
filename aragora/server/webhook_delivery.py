@@ -724,8 +724,8 @@ class WebhookDeliveryManager:
                 import httpx
 
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.post(url, json=payload, headers=headers)  # type: ignore[assignment]
-                    return response.status_code  # type: ignore[attr-defined]
+                    httpx_response = await client.post(url, json=payload, headers=headers)
+                    return httpx_response.status_code
             except ImportError:
                 logger.error("No HTTP client available (need aiohttp or httpx)")
                 raise RuntimeError("No HTTP client available")

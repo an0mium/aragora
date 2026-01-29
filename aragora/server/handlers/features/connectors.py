@@ -25,8 +25,17 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict
 from uuid import uuid4
+
+
+class ConnectorTypeMeta(TypedDict, total=False):
+    """Metadata for a connector type."""
+
+    name: str
+    description: str
+    category: str
+    coming_soon: bool
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
@@ -75,7 +84,7 @@ async def _get_store() -> Optional["SyncStore"]:
 
 
 # Connector type metadata
-CONNECTOR_TYPES = {
+CONNECTOR_TYPES: Dict[str, ConnectorTypeMeta] = {
     "github": {
         "name": "GitHub Enterprise",
         "description": "Sync repositories, issues, and pull requests from GitHub",
@@ -325,10 +334,11 @@ class ConnectorsHandler(SecureHandler):
 
         # Apply category filter (not handled by store)
         if category_filter:
+            empty_meta: ConnectorTypeMeta = {}
             connectors = [
                 c
                 for c in connectors
-                if CONNECTOR_TYPES.get(c["type"], {}).get("category") == category_filter  # type: ignore[call-overload]
+                if CONNECTOR_TYPES.get(c["type"], empty_meta).get("category") == category_filter
             ]
 
         return self._json_response(
@@ -391,9 +401,10 @@ class ConnectorsHandler(SecureHandler):
             ][-5:]
 
         # Add type metadata
-        type_meta = CONNECTOR_TYPES.get(connector["type"], {})  # type: ignore[call-overload]
-        connector["type_name"] = type_meta.get("name", connector["type"])  # type: ignore[attr-defined]
-        connector["category"] = type_meta.get("category", "unknown")  # type: ignore[attr-defined]
+        empty_meta: ConnectorTypeMeta = {}
+        type_meta = CONNECTOR_TYPES.get(connector["type"], empty_meta)
+        connector["type_name"] = type_meta.get("name", connector["type"])
+        connector["category"] = type_meta.get("category", "unknown")
 
         return self._json_response(200, connector)
 
@@ -411,13 +422,13 @@ class ConnectorsHandler(SecureHandler):
         if connector_type not in CONNECTOR_TYPES:
             return self._error_response(400, f"Unknown connector type: {connector_type}")
 
-        if CONNECTOR_TYPES[connector_type].get("coming_soon"):  # type: ignore[attr-defined]
+        if CONNECTOR_TYPES[connector_type].get("coming_soon"):
             return self._error_response(400, f"Connector type {connector_type} is coming soon")
 
         # Create connector
         connector_id = str(uuid4())
         type_meta = CONNECTOR_TYPES[connector_type]
-        name = body.get("name", type_meta["name"])  # type: ignore[index]
+        name = body.get("name", type_meta.get("name", connector_type))
         config = body.get("config", {})
 
         # Save to persistent store if available
@@ -435,7 +446,7 @@ class ConnectorsHandler(SecureHandler):
             "id": connector_id,
             "type": connector_type,
             "name": name,
-            "description": type_meta["description"],  # type: ignore[index]
+            "description": type_meta.get("description", ""),
             "status": "configured",
             "config": config,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -676,7 +687,7 @@ class ConnectorsHandler(SecureHandler):
                 history = [h for h in history if h["connector_id"] == connector_id]
 
             # Sort by start time descending
-            history.sort(key=lambda x: x["started_at"], reverse=True)  # type: ignore[arg-type,return-value]
+            history.sort(key=lambda x: x.get("started_at", "") or "", reverse=True)
 
             # Apply limit
             history = history[:limit]
@@ -728,7 +739,7 @@ class ConnectorsHandler(SecureHandler):
         # Fallback to in-memory
         connectors = list(_connectors.values())
 
-        total_items = sum(c.get("items_synced", 0) for c in connectors)  # type: ignore[misc]
+        total_items = sum(int(c.get("items_synced") or 0) for c in connectors)
         connected = sum(1 for c in connectors if c["status"] in ("connected", "syncing"))
         syncing = sum(1 for c in connectors if c["status"] == "syncing")
         errors = sum(1 for c in connectors if c["status"] == "error")
@@ -815,7 +826,8 @@ class ConnectorsHandler(SecureHandler):
 
                 # Calculate latency score (lower is better, normalized to 0-1)
                 avg_duration = stats.get("avg_duration_seconds", 0) or 0
-                connector_type_info: Dict[str, Any] = CONNECTOR_TYPES.get(config.connector_type, {})  # type: ignore[assignment]
+                empty_meta: ConnectorTypeMeta = {}
+                connector_type_info = CONNECTOR_TYPES.get(config.connector_type, empty_meta)
                 expected_duration = connector_type_info.get("expected_sync_duration", 60)
                 if avg_duration <= expected_duration:
                     latency_score = 1.0
@@ -949,17 +961,17 @@ class ConnectorsHandler(SecureHandler):
         """List all available connector types."""
         types: List[Dict[str, Any]] = []
         for type_id, type_meta in CONNECTOR_TYPES.items():
-            type_entry: Dict[str, Any] = {"type": type_id}
-            type_entry.update(type_meta)  # type: ignore[call-overload]
+            type_entry: Dict[str, Any] = {"type": type_id, **type_meta}
             types.append(type_entry)
 
         return self._json_response(200, {"types": types})
 
     def _count_by_category(self, connectors: List[Dict[str, Any]]) -> Dict[str, int]:
         """Count connectors by category."""
+        empty_meta: ConnectorTypeMeta = {}
         counts: Dict[str, int] = {}
         for connector in connectors:
-            category = CONNECTOR_TYPES.get(connector["type"], {}).get("category", "other")  # type: ignore[call-overload,attr-defined]
+            category = CONNECTOR_TYPES.get(connector["type"], empty_meta).get("category", "other")
             counts[category] = counts.get(category, 0) + 1
         return counts
 

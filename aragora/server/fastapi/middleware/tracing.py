@@ -23,11 +23,7 @@ class TracingMiddleware(BaseHTTPMiddleware):
     - Adds trace headers to responses
     """
 
-    async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Get or generate trace ID
         trace_id = request.headers.get("X-Trace-ID")
         if not trace_id:

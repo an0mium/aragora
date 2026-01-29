@@ -313,6 +313,31 @@ class MigrationRunner:
             applied = [m.version for m in migrations if m.version <= current_version]
             pending = [m.version for m in migrations if m.version > current_version]
 
+            # Populate applied details and checksum mismatches from tracking table
+            applied_details = []
+            checksum_mismatches = []
+            applied_checksums = self._get_applied_checksums(conn)
+            applied_details_map = self._get_applied_details(conn)
+
+            for m in migrations:
+                if m.version <= current_version:
+                    detail = applied_details_map.get(m.version)
+                    if detail:
+                        applied_details.append(detail)
+                    else:
+                        # Migration was applied but not tracked (pre-tracking)
+                        applied_details.append(
+                            AppliedMigration(
+                                version=m.version,
+                                name=m.name,
+                                checksum=m.checksum,
+                                applied_at="unknown",
+                            )
+                        )
+                    # Check for checksum mismatch
+                    if m.version in applied_checksums and applied_checksums[m.version] != m.checksum:
+                        checksum_mismatches.append(m.version)
+
             return MigrationStatus(
                 db_name=db_name,
                 db_path=str(db_path),
@@ -321,6 +346,8 @@ class MigrationRunner:
                 pending_count=len(pending),
                 applied_migrations=applied,
                 pending_migrations=pending,
+                applied_details=applied_details,
+                checksum_mismatches=checksum_mismatches,
             )
         finally:
             conn.close()
@@ -459,6 +486,48 @@ class MigrationRunner:
             return {row[0]: row[1] for row in cursor.fetchall()}
         except Exception:
             return {}
+
+    def _get_applied_details(self, conn) -> dict[int, AppliedMigration]:
+        """Get full details of previously applied migrations."""
+        try:
+            cursor = conn.execute(
+                "SELECT version, name, checksum, applied_at FROM _migration_checksums ORDER BY version"
+            )
+            return {
+                row[0]: AppliedMigration(
+                    version=row[0],
+                    name=row[1],
+                    checksum=row[2],
+                    applied_at=row[3],
+                )
+                for row in cursor.fetchall()
+            }
+        except Exception:
+            return {}
+
+    def get_migration_history(self, db_name: str) -> list[AppliedMigration]:
+        """
+        Get full migration history for a database.
+
+        Returns applied migrations with timestamps and checksums,
+        ordered by version ascending.
+
+        Args:
+            db_name: Name of the database module
+
+        Returns:
+            List of AppliedMigration records, empty if database doesn't exist
+        """
+        db_path = self.get_db_path(db_name)
+        if not db_path.exists():
+            return []
+
+        conn = get_wal_connection(db_path)
+        try:
+            details = self._get_applied_details(conn)
+            return sorted(details.values(), key=lambda d: d.version)
+        finally:
+            conn.close()
 
     def _record_migration(self, conn, migration: MigrationFile) -> None:
         """Record a migration with its checksum."""

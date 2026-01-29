@@ -78,7 +78,7 @@ class AnalyticsHandler(BaseHandler):
             if err:
                 return err
             if user:
-                user_id = user.get("sub") or user.get("user_id") or user.get("id")  # type: ignore[attr-defined]
+                user_id = user.user_id
         except Exception as e:
             logger.warning(f"Authentication failed for knowledge analytics: {e}")
             return error_response("Authentication required", 401)
@@ -88,10 +88,10 @@ class AnalyticsHandler(BaseHandler):
             try:
                 auth_ctx = RBACContext(
                     user_id=user_id or "anonymous",
-                    user_email=user.get("email"),  # type: ignore[attr-defined]
-                    org_id=user.get("org_id"),  # type: ignore[attr-defined]
+                    user_email=user.email,
+                    org_id=user.org_id,
                     workspace_id=query_params.get("workspace_id"),
-                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[attr-defined]
+                    roles={user.role} if user else {"member"},
                 )
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_ANALYTICS_READ_PERMISSION)
