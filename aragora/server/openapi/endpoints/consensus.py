@@ -161,7 +161,8 @@ These views are preserved to:
                     "schema": {"type": "string"},
                 }
             ],
-            "responses": {"200": _ok_response("Domain consensus data")},
+            "responses": {"200": _ok_response("Domain consensus data", "DomainConsensusResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
 }
