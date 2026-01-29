@@ -449,6 +449,15 @@ def create_persistent_store(
         logger.info(f"[{store_name}] Using in-memory store (testing)")
         return memory_class()
 
+    # Check if we're in an async context - if so, we can't safely create PostgreSQL pools
+    # because asyncpg pools are bound to specific event loops
+    in_async_context = False
+    try:
+        asyncio.get_running_loop()
+        in_async_context = True
+    except RuntimeError:
+        pass
+
     # Determine if SQLite is allowed (not in production unless explicitly allowed)
     allow_sqlite = not is_production_environment()
     require_value = os.environ.get("ARAGORA_REQUIRE_DISTRIBUTED")
@@ -462,46 +471,66 @@ def create_persistent_store(
     if os.environ.get("ARAGORA_ALLOW_SQLITE_FALLBACK", "").lower() in ("true", "1"):
         allow_sqlite = True
 
+    # In async context, we MUST allow SQLite fallback because we can't safely create
+    # PostgreSQL pools (asyncpg pools are event-loop bound)
+    if in_async_context and not allow_sqlite:
+        logger.warning(
+            f"[{store_name}] Forcing SQLite fallback in async context. "
+            "asyncpg pools cannot be created from within a running event loop. "
+            "Initialize stores BEFORE starting the async server, or set "
+            "ARAGORA_ALLOW_SQLITE_FALLBACK=true to suppress this warning."
+        )
+        allow_sqlite = True
+
     # Get database configuration
     config = resolve_database_config(store_name, allow_sqlite=allow_sqlite)
 
     # Try PostgreSQL backends (Supabase or self-hosted)
     if config.backend_type in (StorageBackendType.SUPABASE, StorageBackendType.POSTGRES):
-        try:
-            pool, _ = get_database_pool_sync(store_name, allow_sqlite=allow_sqlite)
-            if pool:
-                store = postgres_class(pool)
-                # Initialize if the store has an async initialize method
-                if hasattr(store, "initialize"):
+        if in_async_context:
+            # Can't safely initialize PostgreSQL from async context
+            # The pool would be created in a different event loop via ThreadPoolExecutor
+            logger.warning(
+                f"[{store_name}] Cannot initialize PostgreSQL from async context. "
+                "asyncpg pools are event-loop bound. Initialize stores BEFORE starting "
+                "the event loop, or use async store factory. Falling back to SQLite."
+            )
+        else:
+            try:
+                pool, _ = get_database_pool_sync(store_name, allow_sqlite=allow_sqlite)
+                if pool:
+                    store = postgres_class(pool)
+                    # Initialize if the store has an async initialize method
+                    if hasattr(store, "initialize"):
+                        from aragora.utils.async_utils import run_async
+
+                        run_async(store.initialize())
+                    backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
+                    logger.info(f"[{store_name}] Initialized with {backend_name}")
+                    return store
+                elif config.dsn:
                     from aragora.utils.async_utils import run_async
 
-                    run_async(store.initialize())
-                backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-                logger.info(f"[{store_name}] Initialized with {backend_name}")
-                return store
-            elif config.dsn:
-                from aragora.utils.async_utils import run_async
+                    async def init_postgres():
+                        from aragora.storage.postgres_store import get_postgres_pool
 
-                async def init_postgres():
-                    from aragora.storage.postgres_store import get_postgres_pool
+                        pool = await get_postgres_pool(dsn=config.dsn)
+                        store = postgres_class(pool)
+                        if hasattr(store, "initialize"):
+                            await store.initialize()
+                        return store
 
-                    pool = await get_postgres_pool(dsn=config.dsn)
-                    store = postgres_class(pool)
-                    if hasattr(store, "initialize"):
-                        await store.initialize()
+                    store = run_async(init_postgres())
+                    backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
+                    logger.info(f"[{store_name}] Initialized with {backend_name}")
                     return store
-
-                store = run_async(init_postgres())
-                backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
-                logger.info(f"[{store_name}] Initialized with {backend_name}")
-                return store
-        except Exception as e:
-            logger.warning(f"[{store_name}] PostgreSQL unavailable: {e}")
-            if not allow_sqlite:
-                raise RuntimeError(
-                    f"PostgreSQL required for {store_name} in production. "
-                    f"Configure SUPABASE_URL or DATABASE_URL. Error: {e}"
-                )
+            except Exception as e:
+                logger.warning(f"[{store_name}] PostgreSQL unavailable: {e}")
+                if not allow_sqlite:
+                    raise RuntimeError(
+                        f"PostgreSQL required for {store_name} in production. "
+                        f"Configure SUPABASE_URL or DATABASE_URL. Error: {e}"
+                    )
 
     # SQLite fallback
     if not allow_sqlite:

@@ -19,12 +19,13 @@ T = TypeVar("T")
 
 
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
-    """Run async coroutine from sync context, handling nested event loops.
+    """Run async coroutine from sync context ONLY.
 
-    This handles the case where we're in a sync context but need to call async code.
-    It properly handles:
-    1. No running event loop - uses asyncio.run() directly
-    2. Running event loop - uses ThreadPoolExecutor to avoid nested loop issues
+    IMPORTANT: This function should ONLY be called from synchronous code.
+    If called from an async context, it will raise RuntimeError to prevent
+    event loop cross-contamination that breaks asyncpg connection pools.
+
+    For async code, use `await coro` directly instead of `run_async(coro)`.
 
     Args:
         coro: Coroutine to execute
@@ -34,25 +35,32 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
         Result from the coroutine
 
     Raises:
+        RuntimeError: If called from within an async context
         Exception: Any exception from the coroutine
         TimeoutError: If execution exceeds timeout
     """
+    # Check if there's a running loop - if so, FAIL FAST
+    # Using ThreadPoolExecutor with asyncio.run() creates a new event loop,
+    # which breaks asyncpg pools (they're bound to specific event loops).
     try:
-        # Check if there's a running loop (avoids deprecation warning)
-        try:
-            asyncio.get_running_loop()
-            # If we get here, there's a running loop - can't use run_until_complete
-            # Use ThreadPoolExecutor to run in a new thread with its own loop
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                future = pool.submit(asyncio.run, coro)
-                return future.result(timeout=timeout)
-        except RuntimeError:
-            # No running loop, safe to use asyncio.run()
+        loop = asyncio.get_running_loop()
+        # We're in an async context - this is a caller bug
+        # Close the coroutine to prevent "coroutine was never awaited" warning
+        coro.close()
+        raise RuntimeError(
+            "run_async() cannot be called from an async context. "
+            "asyncpg connection pools are bound to specific event loops. "
+            "Use 'await coro' directly instead of 'run_async(coro)'. "
+            f"Current event loop: {loop}"
+        )
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower():
+            # No running loop - safe to use asyncio.run()
             return asyncio.run(coro)
-    except (RuntimeError, asyncio.InvalidStateError) as e:
-        # Fallback: create new event loop for edge cases
-        logger.debug(f"Creating new event loop after: {type(e).__name__}: {e}")
-        return asyncio.run(coro)
+        # Re-raise other RuntimeErrors (including our own from above)
+        # Close the coroutine to prevent warnings
+        coro.close()
+        raise
 
 
 # Semaphore to limit concurrent subprocess calls (prevent resource exhaustion)
