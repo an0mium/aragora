@@ -3,6 +3,11 @@ Migration runner for Aragora database schema management.
 
 Provides a lightweight alternative to Alembic for managing schema changes
 across SQLite and PostgreSQL backends.
+
+Features:
+- Advisory locking for PostgreSQL to prevent concurrent migration runs
+- Version tracking with applied_by metadata
+- Support for SQL and Python migration functions
 """
 
 import importlib
@@ -22,6 +27,9 @@ from aragora.storage.backends import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Advisory lock ID for migration coordination (hash of 'aragora_migration')
+MIGRATION_LOCK_ID = 2089872453
 
 
 @dataclass

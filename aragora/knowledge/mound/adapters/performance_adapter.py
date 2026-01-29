@@ -1256,7 +1256,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
 
         # Apply domain adjustments (take highest)
         if domain_adjustments:
-            best_domain = max(domain_adjustments, key=domain_adjustments.get)  # type: ignore[arg-type]  # dict.get is valid key func
+            best_domain = max(domain_adjustments, key=lambda k: domain_adjustments.get(k) or 0.0)
             total_adjustment += domain_adjustments[best_domain]
 
         # Clamp to max adjustment

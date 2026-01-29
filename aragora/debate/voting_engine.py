@@ -534,7 +534,7 @@ class VotingEngine:
         # Step 4: Determine winner and consensus
         if vote_counts and total_weighted > 0:
             # Get winner (highest vote count)
-            winner = max(vote_counts, key=vote_counts.get)  # type: ignore[arg-type]
+            winner = max(vote_counts, key=lambda k: vote_counts.get(k) or 0)
             count = vote_counts[winner]
             result.winner = winner
             result.confidence = count / total_weighted

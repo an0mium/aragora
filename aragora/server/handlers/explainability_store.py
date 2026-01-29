@@ -102,12 +102,12 @@ class RedisBatchJobStore(BatchJobStore):
         key = self._key(batch_id)
         data = self._redis.get(key)
         if data:
-            return BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))
+            return BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
         return None
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
-        return bool(self._redis.delete(key) > 0)
+        return bool(self._redis.delete(key) > 0)  # type: ignore[operator]
 
     async def list_jobs(self, status: Optional[str] = None, limit: int = 100) -> List[BatchJob]:
         # Scan for keys and filter
@@ -118,7 +118,7 @@ class RedisBatchJobStore(BatchJobStore):
             for key in keys:
                 data = self._redis.get(key)
                 if data:
-                    job = BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))
+                    job = BatchJob.from_dict(cast(Dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
                     if status is None or job.status == status:
                         jobs.append(job)
                         if len(jobs) >= limit:

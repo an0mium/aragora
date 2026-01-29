@@ -130,6 +130,7 @@ aragora/live/playwright/.cache/
 .nomic/*.json
 .nomic/*.jsonl
 .nomic/*.md
+.nomic/*.pid
 .nomic/*_transcript*
 .nomic/context/*.tsv
 .nomic/rlm/*.txt
@@ -145,6 +146,9 @@ backups/
 # Runtime artifacts (nomic loop state directories)
 .nomic/epic_strategic_debate/
 .nomic/strategic_debate/
+
+# Convoy runtime state
+.convoys/
 
 # Screenshots (dev/testing artifacts)
 FireShot*.png
