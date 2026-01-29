@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.secure import SecureHandler, UnauthorizedError
+from aragora.rbac.decorators import PermissionDeniedError, RoleRequiredError
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
 # RBAC Permissions for OAuth wizard operations
@@ -223,7 +224,7 @@ class OAuthWizardHandler(SecureHandler):
             # Check permission
             try:
                 self.check_permission(auth_context, required_permission)
-            except Exception:
+            except (PermissionDeniedError, RoleRequiredError):
                 return error_response(f"Permission denied: {required_permission} required", 403)
 
             # Main wizard endpoint

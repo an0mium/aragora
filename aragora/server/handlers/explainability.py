@@ -809,7 +809,7 @@ h3 {{ color: #666; }}
                     "error_count": error_count,
                 },
             )
-        except Exception:
+        except (ImportError, AttributeError, RuntimeError):
             pass  # WebSocket events are optional
 
     def _build_explanation_dict(
