@@ -11,7 +11,6 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -270,7 +269,13 @@ class MongoDBConnector(EnterpriseConnector):
                             )
 
                     # Create sync item
-                    item_id = f"mongo:{self.database_name}:{collection_name}:{hashlib.sha256(doc_id.encode()).hexdigest()[:12]}"
+                    from aragora.connectors.enterprise.database.id_codec import (
+                        generate_evidence_id,
+                    )
+
+                    item_id = generate_evidence_id(
+                        "mongo", self.database_name, collection_name, doc_id
+                    )
 
                     yield SyncItem(
                         id=item_id,
@@ -387,21 +392,59 @@ class MongoDBConnector(EnterpriseConnector):
 
     async def fetch(self, evidence_id: str):
         """Fetch a specific document by evidence ID."""
+        from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
+
         if not evidence_id.startswith("mongo:"):
             return None
 
-        parts = evidence_id.split(":")
-        if len(parts) < 4:
+        parsed = parse_evidence_id(evidence_id)
+        if not parsed:
             return None
 
-        database, _collection_name, _doc_hash = parts[1], parts[2], parts[3]
+        if parsed.get("is_legacy"):
+            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            return None
+
+        database = parsed["database"]
+        collection_name = parsed["table"]
+        doc_id = parsed["pk_value"]
 
         if database != self.database_name:
             return None
 
-        # We can't reverse the hash, so this is limited
-        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
-        return None
+        try:
+            client = await self._get_client()
+            db = client[database]
+            collection = db[collection_name]
+
+            # Try ObjectId conversion for 24-char hex strings
+            query_id = doc_id
+            if isinstance(doc_id, str) and len(doc_id) == 24:
+                try:
+                    from bson import ObjectId
+
+                    query_id = ObjectId(doc_id)
+                except Exception:
+                    pass
+
+            doc = await collection.find_one({"_id": query_id})
+
+            if doc:
+                if "_id" in doc and hasattr(doc["_id"], "__str__"):
+                    doc["_id"] = str(doc["_id"])
+                return {
+                    "id": evidence_id,
+                    "collection": collection_name,
+                    "database": database,
+                    "document_id": doc_id,
+                    "data": doc,
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Fetch failed: {e}")
+            return None
 
     async def start_change_stream(self):
         """Start change stream for real-time updates with resume token support."""

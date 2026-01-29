@@ -12,7 +12,6 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from datetime import datetime, timezone
@@ -295,9 +294,11 @@ class SQLServerConnector(EnterpriseConnector):
                         pk_value = row_dict.get(self.primary_key_column)
                         content = self._row_to_content(row_dict, self.content_columns)
 
-                        item_id = hashlib.sha256(
-                            f"{self.database}.{self.schema}.{table}.{pk_value}".encode()
-                        ).hexdigest()[:16]
+                        from aragora.connectors.enterprise.database.id_codec import (
+                            generate_evidence_id,
+                        )
+
+                        item_id = generate_evidence_id("mssql", self.database, table, pk_value)
 
                         yield SyncItem(
                             id=item_id,
@@ -380,21 +381,53 @@ class SQLServerConnector(EnterpriseConnector):
 
     async def fetch(self, evidence_id: str):
         """Fetch a specific row by evidence ID."""
-        if not evidence_id.startswith("sqlserver:"):
+        from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
+
+        if not evidence_id.startswith("mssql:"):
             return None
 
-        parts = evidence_id.split(":")
-        if len(parts) < 4:
+        parsed = parse_evidence_id(evidence_id)
+        if not parsed:
             return None
 
-        database, _table, _pk_hash = parts[1], parts[2], parts[3]
+        if parsed.get("is_legacy"):
+            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            return None
+
+        database = parsed["database"]
+        table = parsed["table"]
+        pk_value = parsed["pk_value"]
 
         if database != self.database:
             return None
 
-        # We can't reverse the hash, so this is limited
-        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
-        return None
+        try:
+            pool = await self._get_pool()
+
+            async with pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    query = f"SELECT * FROM [{self.schema}].[{table}] WHERE [{self.primary_key_column}] = ?"
+                    await cursor.execute(query, pk_value)
+                    col_names = [desc[0] for desc in cursor.description]
+                    row = await cursor.fetchone()
+
+                    if row:
+                        row_dict = dict(zip(col_names, row))
+                        return {
+                            "id": evidence_id,
+                            "table": table,
+                            "database": database,
+                            "schema": self.schema,
+                            "primary_key": pk_value,
+                            "data": row_dict,
+                            "content": self._row_to_content(row_dict, self.content_columns),
+                        }
+
+                    return None
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Fetch failed: {e}")
+            return None
 
     async def _check_cdc_enabled(self, table: str) -> bool:
         """Check if CDC is enabled for a table."""

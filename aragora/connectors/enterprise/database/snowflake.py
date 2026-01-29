@@ -12,7 +12,6 @@ Features:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import re
@@ -430,7 +429,13 @@ class SnowflakeConnector(EnterpriseConnector):
                             )
 
                     # Create sync item
-                    item_id = f"sf:{self.account}:{self.database}:{table}:{hashlib.sha256(str(pk_value).encode()).hexdigest()[:12]}"
+                    from aragora.connectors.enterprise.database.id_codec import (
+                        generate_evidence_id,
+                    )
+
+                    item_id = generate_evidence_id(
+                        "sf", self.database, table, pk_value, account=self.account
+                    )
 
                     yield SyncItem(
                         id=item_id,
@@ -525,21 +530,52 @@ class SnowflakeConnector(EnterpriseConnector):
 
     async def fetch(self, evidence_id: str) -> Any | None:
         """Fetch a specific row by evidence ID."""
+        from aragora.connectors.enterprise.database.id_codec import parse_evidence_id
+
         if not evidence_id.startswith("sf:"):
             return None
 
-        parts = evidence_id.split(":")
-        if len(parts) < 5:
+        parsed = parse_evidence_id(evidence_id)
+        if not parsed:
             return None
 
-        account, database, _table, _pk_hash = parts[1], parts[2], parts[3], parts[4]
+        if parsed.get("is_legacy"):
+            logger.debug(f"[{self.name}] Cannot fetch legacy hash-based ID: {evidence_id}")
+            return None
+
+        account = parsed.get("account")
+        database = parsed["database"]
+        table = parsed["table"]
+        pk_value = parsed["pk_value"]
 
         if account != self.account or database != self.database:
             return None
 
-        # We can't reverse the hash, so this is limited
-        logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
-        return None
+        try:
+            query = f"""
+                SELECT * FROM {self.database}.{self.schema}."{table}"
+                WHERE "{self.primary_key_column}" = %s
+            """
+            rows = await self._async_query(query, (pk_value,))
+
+            if rows:
+                row_dict = rows[0]
+                return {
+                    "id": evidence_id,
+                    "table": table,
+                    "database": database,
+                    "schema": self.schema,
+                    "account": account,
+                    "primary_key": pk_value,
+                    "data": row_dict,
+                    "content": self._row_to_content(row_dict, self.content_columns),
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"[{self.name}] Fetch failed: {e}")
+            return None
 
     async def execute_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """
