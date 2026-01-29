@@ -252,27 +252,28 @@ class PlaywrightActionExecutor:
 
         try:
             # Dispatch to specific handler based on action type
+            # Type narrowing via match-case not fully recognized by mypy
             match action.action_type:
                 case ActionType.SCREENSHOT:
                     return await self._execute_screenshot(action)
                 case ActionType.CLICK:
-                    return await self._execute_click(action)  # type: ignore
+                    return await self._execute_click(action)  # type: ignore[arg-type]
                 case ActionType.DOUBLE_CLICK:
-                    return await self._execute_double_click(action)  # type: ignore
+                    return await self._execute_double_click(action)  # type: ignore[arg-type]
                 case ActionType.RIGHT_CLICK:
-                    return await self._execute_right_click(action)  # type: ignore
+                    return await self._execute_right_click(action)  # type: ignore[arg-type]
                 case ActionType.TYPE:
-                    return await self._execute_type(action)  # type: ignore
+                    return await self._execute_type(action)  # type: ignore[arg-type]
                 case ActionType.KEY:
-                    return await self._execute_key(action)  # type: ignore
+                    return await self._execute_key(action)  # type: ignore[arg-type]
                 case ActionType.SCROLL:
-                    return await self._execute_scroll(action)  # type: ignore
+                    return await self._execute_scroll(action)  # type: ignore[arg-type]
                 case ActionType.MOVE:
-                    return await self._execute_move(action)  # type: ignore
+                    return await self._execute_move(action)  # type: ignore[arg-type]
                 case ActionType.DRAG:
-                    return await self._execute_drag(action)  # type: ignore
+                    return await self._execute_drag(action)  # type: ignore[arg-type]
                 case ActionType.WAIT:
-                    return await self._execute_wait(action)  # type: ignore
+                    return await self._execute_wait(action)  # type: ignore[arg-type]
                 case _:
                     return ActionResult(
                         action_id=action.action_id,

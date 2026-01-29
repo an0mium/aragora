@@ -164,6 +164,8 @@ MarketplaceHandler: HandlerType = None
 OnboardingHandler: HandlerType = None
 SMEUsageDashboardHandler: HandlerType = None
 CanvasHandler: HandlerType = None
+GatewayHandler: HandlerType = None
+ComputerUseHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
 # Import handlers with graceful fallback
@@ -525,6 +527,12 @@ try:
     from aragora.server.handlers.canvas import (
         CanvasHandler as _CanvasHandler,
     )
+    from aragora.server.handlers.gateway_handler import (
+        GatewayHandler as _GatewayHandler,
+    )
+    from aragora.server.handlers.computer_use_handler import (
+        ComputerUseHandler as _ComputerUseHandler,
+    )
 
     # Assign imported classes to module-level variables
     SystemHandler = _SystemHandler
@@ -645,6 +653,8 @@ try:
     OnboardingHandler = _OnboardingHandler
     SMEUsageDashboardHandler = _SMEUsageDashboardHandler
     CanvasHandler = _CanvasHandler
+    GatewayHandler = _GatewayHandler
+    ComputerUseHandler = _ComputerUseHandler
     HandlerResult = _HandlerResult
 
     HANDLERS_AVAILABLE = True
@@ -778,6 +788,8 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_onboarding_handler", OnboardingHandler),
     ("_sme_usage_dashboard_handler", SMEUsageDashboardHandler),
     ("_canvas_handler", CanvasHandler),
+    ("_gateway_handler", GatewayHandler),
+    ("_computer_use_handler", ComputerUseHandler),
 ]
 
 
@@ -1004,6 +1016,12 @@ class RouteIndex:
             "_canvas_handler": [
                 "/api/v1/canvas",
                 "/api/v1/canvas/",
+            ],
+            "_gateway_handler": [
+                "/api/v1/gateway/",
+            ],
+            "_computer_use_handler": [
+                "/api/v1/computer-use/",
             ],
         }
 
@@ -1411,6 +1429,8 @@ class HandlerRegistryMixin:
     _onboarding_handler: Optional["BaseHandler"] = None
     _sme_usage_dashboard_handler: Optional["BaseHandler"] = None
     _canvas_handler: Optional["BaseHandler"] = None
+    _gateway_handler: Optional["BaseHandler"] = None
+    _computer_use_handler: Optional["BaseHandler"] = None
     _receipts_handler: Optional["BaseHandler"] = None
     _backup_handler: Optional["BaseHandler"] = None
     _dr_handler: Optional["BaseHandler"] = None
