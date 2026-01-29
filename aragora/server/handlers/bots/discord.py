@@ -30,9 +30,13 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
-DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY", "")
+# Environment variables - None defaults make misconfiguration explicit
+DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID")
+DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY")
+
+# Log warnings at module load time for missing secrets
+if not DISCORD_PUBLIC_KEY:
+    logger.warning("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
 
 
 def _verify_discord_signature(

@@ -32,11 +32,15 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID", "")
-ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET", "")
-ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID", "")
-ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
+# Environment variables - None defaults make misconfiguration explicit
+ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID")
+ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
+ZOOM_BOT_JID = os.environ.get("ZOOM_BOT_JID")
+ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
+
+# Log warnings at module load time for missing secrets
+if not ZOOM_SECRET_TOKEN:
+    logger.warning("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
 
 
 class ZoomHandler(BotHandlerMixin, SecureHandler):

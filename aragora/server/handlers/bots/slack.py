@@ -39,9 +39,15 @@ COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$", re.IGNORECASE)
 # Matches quoted or unquoted topics
 TOPIC_PATTERN = re.compile(r'^["\']?([^"\']+)["\']?$')
 
-# Environment variables for Slack configuration
-SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
-SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
+# Environment variables for Slack configuration - None defaults make misconfiguration explicit
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+
+# Log warnings at module load time for missing secrets
+if not SLACK_SIGNING_SECRET:
+    logger.warning("SLACK_SIGNING_SECRET not configured - signature verification disabled")
+if not SLACK_BOT_TOKEN:
+    logger.warning("SLACK_BOT_TOKEN not configured - Slack bot responses disabled")
 
 # Store active debate sessions for Slack
 # In production, this would be in Redis/database

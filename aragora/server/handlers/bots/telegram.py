@@ -35,9 +35,15 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+# Environment variables - None defaults make misconfiguration explicit
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
+
+# Log warnings at module load time for missing secrets
+if not TELEGRAM_BOT_TOKEN:
+    logger.warning("TELEGRAM_BOT_TOKEN not configured - Telegram bot disabled")
+if not TELEGRAM_WEBHOOK_SECRET:
+    logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook secret verification disabled")
 
 # Compute expected webhook token from bot token (Telegram recommendation)
 TELEGRAM_WEBHOOK_TOKEN = ""

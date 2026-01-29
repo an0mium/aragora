@@ -31,9 +31,13 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS", "")
-GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID", "")
+# Environment variables - None defaults make misconfiguration explicit
+GOOGLE_CHAT_CREDENTIALS = os.environ.get("GOOGLE_CHAT_CREDENTIALS")
+GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID")
+
+# Log warnings at module load time for missing secrets
+if not GOOGLE_CHAT_CREDENTIALS:
+    logger.warning("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
 
 # Input validation limits
 MAX_TOPIC_LENGTH = 500

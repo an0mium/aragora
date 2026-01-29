@@ -29,9 +29,13 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID", "")
-TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")
+# Environment variables - None defaults make misconfiguration explicit
+TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")
+TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
+
+# Log warnings at module load time for missing secrets
+if not TEAMS_APP_PASSWORD:
+    logger.warning("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
 
 
 def _check_botframework_available() -> tuple[bool, Optional[str]]:
