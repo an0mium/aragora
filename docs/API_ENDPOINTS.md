@@ -23,6 +23,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Code Review](#code-review)
 - [Compliance Handler](#compliance-handler)
 - [Composite](#composite)
+- [ComputerUse](#computeruse)
 - [Consensus](#consensus)
 - [Control Plane](#control-plane)
 - [Costs](#costs)
@@ -46,10 +47,11 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Feedback](#feedback)
 - [Gallery](#gallery)
 - [Gastown Dashboard](#gastown-dashboard)
+- [Gateway](#gateway)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Inbox Command](#inbox-command)
-- [Integrations](#integrations)
+- [Integration Management](#integration-management)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
 - [KnowledgeChat](#knowledgechat)
@@ -77,7 +79,9 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Shared Inbox](#shared-inbox)
 - [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
+- [Slack](#slack)
 - [Slo](#slo)
+- [SMESuccessDashboard](#smesuccessdashboard)
 - [SMEUsageDashboard](#smeusagedashboard)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
@@ -774,6 +778,36 @@ GET /api/v1/debates/*/compression-analysis
 
 ---
 
+## ComputerUse
+
+HTTP request handler for computer use API endpoints.
+
+### `GET` `/api/v1/computer-use/tasks` 🔒
+
+Handle POST /api/v1/computer-use/tasks/{id}/cancel
+
+### `GET` `/api/v1/computer-use/tasks/*`
+
+GET /api/v1/computer-use/tasks/*
+
+### `GET` `/api/v1/computer-use/actions` 🔒
+
+Handle GET /api/v1/computer-use/actions/stats
+
+### `GET` `/api/v1/computer-use/actions/*`
+
+GET /api/v1/computer-use/actions/*
+
+### `GET` `/api/v1/computer-use/policies` 🔒
+
+Handle POST /api/v1/computer-use/policies
+
+### `GET` `/api/v1/computer-use/policies/*`
+
+GET /api/v1/computer-use/policies/*
+
+---
+
 ## Consensus
 
 Consensus Memory endpoint handlers.
@@ -1428,15 +1462,19 @@ User Feedback Collection Handler.
 
 ### `POST` `/api/v1/feedback/nps`
 
-Submit NPS score
+Submit NPS score (requires feedback.write)
 
 ### `POST` `/api/v1/feedback/general`
 
-Submit general feedback
+Submit general feedback (requires feedback.write)
+
+### `GET` `/api/v1/feedback/nps/summary`
+
+Get NPS summary (requires feedback.update - admin)
 
 ### `GET` `/api/v1/feedback/prompts`
 
-Get active feedback prompts
+Get active feedback prompts (requires feedback.read)
 
 ---
 
@@ -1481,6 +1519,40 @@ Get bead queue stats
 ### `GET` `/api/v1/dashboard/gastown/metrics`
 
 Get throughput metrics
+
+---
+
+## Gateway
+
+HTTP request handler for gateway API endpoints.
+
+### `GET` `/api/v1/gateway/devices` 🔒
+
+Handle GET /api/v1/gateway/devices/{id}
+
+### `GET` `/api/v1/gateway/devices/*`
+
+GET /api/v1/gateway/devices/*
+
+### `GET` `/api/v1/gateway/channels` 🔒
+
+Handle GET /api/v1/gateway/channels
+
+### `GET` `/api/v1/gateway/routing` 🔒
+
+Handle GET /api/v1/gateway/routing/rules
+
+### `GET` `/api/v1/gateway/routing/*`
+
+GET /api/v1/gateway/routing/*
+
+### `GET` `/api/v1/gateway/messages` 🔒
+
+Handle POST /api/v1/gateway/messages/route
+
+### `GET` `/api/v1/gateway/messages/*`
+
+GET /api/v1/gateway/messages/*
 
 ---
 
@@ -1582,7 +1654,7 @@ Trigger AI re-prioritization
 
 ---
 
-## Integrations
+## Integration Management
 
 Integration Management HTTP Handlers for Aragora.
 
@@ -2294,9 +2366,25 @@ Verify cryptographic signature
 
 Batch signature verification
 
+### `POST` `/api/v2/receipts/sign-batch`
+
+Batch signing
+
+### `POST` `/api/v2/receipts/batch-export`
+
+Batch export to ZIP
+
 ### `GET` `/api/v2/receipts/stats`
 
 Receipt statistics
+
+### `POST` `/api/v2/receipts/:receipt_id/share`
+
+Create shareable link
+
+### `GET` `/api/v2/receipts/share/:token`
+
+Access receipt via share token
 
 ---
 
@@ -2419,6 +2507,10 @@ Get information about a specific scorer
 ### `GET` `/api/v1/selection/team` 🔒
 
 Get information about a specific team selector
+
+### `GET` `/api/v1/team-selection`
+
+GET /api/v1/team-selection
 
 ---
 
@@ -2544,6 +2636,34 @@ Get skill execution metrics
 
 ---
 
+## Slack
+
+Handler for Slack bot integration endpoints.
+
+### `GET` `/api/v1/bots/slack/status`
+
+Build the status response JSON
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `extra_status` | string | Additional fields to include. |
+
+### `GET` `/api/v1/bots/slack/events`
+
+GET /api/v1/bots/slack/events
+
+### `GET` `/api/v1/bots/slack/interactions`
+
+GET /api/v1/bots/slack/interactions
+
+### `GET` `/api/v1/bots/slack/commands`
+
+GET /api/v1/bots/slack/commands
+
+---
+
 ## Slo
 
 SLO (Service Level Objective) endpoint handlers.
@@ -2567,6 +2687,36 @@ Recent SLO violations
 ### `GET` `/api/v1/slos/status`
 
 Versioned endpoint
+
+---
+
+## SMESuccessDashboard
+
+Handler for SME success dashboard endpoints.
+
+### `GET` `/api/v1/sme/success`
+
+Calculate core success metrics for an organization
+
+### `GET` `/api/v1/sme/success/cfo` 🔒
+
+Get CFO-focused success view
+
+### `GET` `/api/v1/sme/success/pm` 🔒
+
+Get PM-focused success view
+
+### `GET` `/api/v1/sme/success/hr` 🔒
+
+Get HR-focused success view
+
+### `GET` `/api/v1/sme/success/milestones` 🔒
+
+Get achievement milestones and gamification status
+
+### `GET` `/api/v1/sme/success/insights` 🔒
+
+Get actionable insights and recommendations
 
 ---
 
@@ -2936,6 +3086,14 @@ GET /api/v1/workflows/*
 
 GET /api/v1/workflow-templates
 
+### `GET` `/api/v1/workflows/templates`
+
+Handle GET /api/workflow-templates
+
+### `GET` `/api/v1/workflows/templates/*`
+
+GET /api/v1/workflows/templates/*
+
 ### `GET` `/api/v1/workflow-approvals`
 
 GET /api/v1/workflow-approvals
@@ -2951,6 +3109,14 @@ GET /api/v1/workflow-executions
 ### `GET` `/api/v1/workflow-executions/*`
 
 GET /api/v1/workflow-executions/*
+
+### `GET` `/api/v1/workflows/executions`
+
+Handle GET /api/workflow-executions
+
+### `GET` `/api/v1/workflows/executions/*`
+
+GET /api/v1/workflows/executions/*
 
 ---
 

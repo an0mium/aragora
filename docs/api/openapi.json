@@ -7748,7 +7748,7 @@
         ],
         "summary": "Get debate graph stats",
         "description": "Get graph-based statistics for the belief network of a debate.\n\n**Includes:** node count, edge count, clustering coefficient, argument depth,\nmost-connected claims, and structural metrics.",
-        "operationId": "getDebateGraphStats",
+        "operationId": "getBeliefGraphStats",
         "parameters": [
           {
             "name": "debate_id",

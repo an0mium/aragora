@@ -6788,7 +6788,7 @@ export interface paths {
          *     **Includes:** node count, edge count, clustering coefficient, argument depth,
          *     most-connected claims, and structural metrics.
          */
-        get: operations["getDebateGraphStats"];
+        get: operations["getBeliefGraphStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -57886,7 +57886,7 @@ export interface operations {
             };
         };
     };
-    getDebateGraphStats: {
+    getBeliefGraphStats: {
         parameters: {
             query?: never;
             header?: never;

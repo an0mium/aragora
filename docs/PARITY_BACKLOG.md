@@ -40,14 +40,15 @@ Status legend:
 ## Priority Backlog (Best Order)
 
 ### P0: Unify duplicated primitives (foundation)
-1. **Unify bead storage and status mapping**
+1. **Unify bead storage and status mapping** ✅
    - Acceptance: single storage backend for beads (Nomic BeadStore), workspace APIs preserved, consistent status mapping
-   - Current: `aragora.workspace` now uses Nomic BeadStore via adapter
-2. **Unify convoy storage and IDs**
+   - Current: `aragora.workspace` uses Nomic BeadStore via adapter
+2. **Unify convoy storage and IDs** ✅
    - Acceptance: convoys share the same store backend, workspace status preserved via metadata, IDs stable across adapters
    - Current: `aragora.workspace` + `aragora.extensions.gastown` convoys use Nomic ConvoyManager adapters
-3. **Canonical ownership of Gastown primitives**
-   - Acceptance: clear “source of truth” module for beads/convoys/workspaces and compatibility shims for legacy APIs
+3. **Canonical ownership of Gastown primitives** ✅
+   - Acceptance: clear "source of truth" module for beads/convoys/workspaces and compatibility shims for legacy APIs
+   - Current: `aragora.nomic.stores` package provides canonical entry point with `BeadStore`, `ConvoyStore`, adapters in `aragora.nomic.stores.adapters`
 
 ### P1: Protocol compatibility & device runtime
 4. **Gateway WS protocol adapter (Moltbot-compatible)**
