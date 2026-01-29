@@ -184,6 +184,7 @@ async def handle_reply_email(
 # =============================================================================
 
 
+@require_permission("email:update")
 async def handle_archive_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -230,6 +231,7 @@ async def handle_archive_message(
         return error_response(f"Archive failed: {str(e)}", status=500)
 
 
+@require_permission("email:delete")
 async def handle_trash_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -276,6 +278,7 @@ async def handle_trash_message(
         return error_response(f"Trash failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_restore_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -321,6 +324,7 @@ async def handle_restore_message(
 # =============================================================================
 
 
+@require_permission("email:update")
 async def handle_snooze_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -402,6 +406,7 @@ async def handle_snooze_message(
 # =============================================================================
 
 
+@require_permission("email:update")
 async def handle_mark_read(
     data: dict[str, Any],
     message_id: str = "",
@@ -447,6 +452,7 @@ async def handle_mark_read(
         return error_response(f"Mark read failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_mark_unread(
     data: dict[str, Any],
     message_id: str = "",
@@ -487,6 +493,7 @@ async def handle_mark_unread(
         return error_response(f"Mark unread failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_star_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -532,6 +539,7 @@ async def handle_star_message(
         return error_response(f"Star failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_unstar_message(
     data: dict[str, Any],
     message_id: str = "",
@@ -577,6 +585,7 @@ async def handle_unstar_message(
 # =============================================================================
 
 
+@require_permission("email:update")
 async def handle_move_to_folder(
     data: dict[str, Any],
     message_id: str = "",
@@ -630,6 +639,7 @@ async def handle_move_to_folder(
         return error_response(f"Move failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_add_label(
     data: dict[str, Any],
     message_id: str = "",
@@ -676,6 +686,7 @@ async def handle_add_label(
         return error_response(f"Add labels failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_remove_label(
     data: dict[str, Any],
     message_id: str = "",
@@ -727,6 +738,7 @@ async def handle_remove_label(
 # =============================================================================
 
 
+@require_permission("email:update")
 async def handle_batch_archive(
     data: dict[str, Any],
     user_id: str = "default",
@@ -774,6 +786,7 @@ async def handle_batch_archive(
         return error_response(f"Batch archive failed: {str(e)}", status=500)
 
 
+@require_permission("email:delete")
 async def handle_batch_trash(
     data: dict[str, Any],
     user_id: str = "default",
@@ -816,6 +829,7 @@ async def handle_batch_trash(
         return error_response(f"Batch trash failed: {str(e)}", status=500)
 
 
+@require_permission("email:update")
 async def handle_batch_modify(
     data: dict[str, Any],
     user_id: str = "default",

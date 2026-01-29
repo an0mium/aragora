@@ -96,6 +96,9 @@ class AuthHandler(SecureHandler):
         "/api/auth/password/change",
         "/api/auth/password/forgot",
         "/api/auth/password/reset",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password",
+        "/api/auth/profile",
         "/api/auth/api-key",
         "/api/auth/api-keys",
         "/api/auth/api-keys/*",
@@ -162,6 +165,11 @@ class AuthHandler(SecureHandler):
                 return self._handle_get_me(handler)
             elif method == "PUT":
                 return self._handle_update_me(handler)
+            elif method == "POST":
+                return self._handle_update_me(handler)
+
+        if path == "/api/auth/profile" and method == "POST":
+            return self._handle_update_me(handler)
 
         if path == "/api/auth/password" and method == "POST":
             return self._handle_change_password(handler)
@@ -173,6 +181,12 @@ class AuthHandler(SecureHandler):
             return error_response("Password reset flow not implemented", 501)
 
         if path == "/api/auth/password/reset" and method == "POST":
+            return error_response("Password reset flow not implemented", 501)
+
+        if path == "/api/auth/forgot-password" and method == "POST":
+            return error_response("Password reset flow not implemented", 501)
+
+        if path == "/api/auth/reset-password" and method == "POST":
             return error_response("Password reset flow not implemented", 501)
 
         if path == "/api/auth/revoke" and method == "POST":

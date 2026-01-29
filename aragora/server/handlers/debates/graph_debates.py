@@ -56,16 +56,22 @@ class GraphDebatesHandler(SecureHandler):
     ROUTES = [
         "/api/v1/debates/graph",
         "/api/v1/debates/graph/",
+        "/api/v1/graph-debates",
+        "/api/v1/graph-debates/",
+        "/api/v1/graph-debates/*",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
         "/api/v1/debates/graph",
+        "/api/v1/graph-debates",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
-        return normalized.startswith("/api/debates/graph")
+        return normalized.startswith("/api/debates/graph") or normalized.startswith(
+            "/api/graph-debates"
+        )
 
     def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
@@ -88,6 +94,8 @@ class GraphDebatesHandler(SecureHandler):
 
         # Extract debate ID from path if present
         normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/graph-debates"):
+            normalized = normalized.replace("/api/graph-debates", "/api/debates/graph", 1)
         parts = normalized.rstrip("/").split("/")
 
         # GET /api/debates/graph/{id} - Get specific graph debate
@@ -140,6 +148,8 @@ class GraphDebatesHandler(SecureHandler):
                     return error
 
         normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/graph-debates"):
+            normalized = normalized.replace("/api/graph-debates", "/api/debates/graph", 1)
         if not normalized.rstrip("/").endswith("/debates/graph"):
             return error_response("Not found", 404)
 

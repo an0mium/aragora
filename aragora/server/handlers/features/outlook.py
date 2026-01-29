@@ -310,6 +310,7 @@ async def handle_list_messages(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_get_message(
     workspace_id: str,
     user_id: str,
@@ -365,6 +366,7 @@ async def handle_get_message(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_get_conversation(
     workspace_id: str,
     user_id: str,
@@ -465,6 +467,7 @@ async def handle_send_message(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:write")
 async def handle_reply_message(
     workspace_id: str,
     user_id: str,
@@ -510,6 +513,7 @@ async def handle_reply_message(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_search_messages(
     workspace_id: str,
     user_id: str,
@@ -550,6 +554,7 @@ async def handle_search_messages(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:write")
 async def handle_mark_read(
     workspace_id: str,
     user_id: str,
@@ -592,6 +597,7 @@ async def handle_mark_read(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:write")
 async def handle_move_message(
     workspace_id: str,
     user_id: str,
@@ -687,6 +693,7 @@ async def handle_delete_message(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_get_status(
     workspace_id: str,
     user_id: str,

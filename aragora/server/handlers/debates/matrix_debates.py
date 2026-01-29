@@ -15,6 +15,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 if TYPE_CHECKING:
     from typing import TypeAlias
 
@@ -93,15 +95,22 @@ class MatrixDebatesHandler(SecureHandler):
     ROUTES = [
         "/api/v1/debates/matrix",
         "/api/v1/debates/matrix/",
+        "/api/v1/matrix-debates",
+        "/api/v1/matrix-debates/",
+        "/api/v1/matrix-debates/*",
     ]
 
     AUTH_REQUIRED_ENDPOINTS = [
         "/api/v1/debates/matrix",
+        "/api/v1/matrix-debates",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/debates/matrix")
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/debates/matrix") or normalized.startswith(
+            "/api/matrix-debates"
+        )
 
     @handle_errors("matrix debates GET")
     async def handle_get(
@@ -118,7 +127,10 @@ class MatrixDebatesHandler(SecureHandler):
             logger.warning(f"Matrix debates GET access denied: {e}")
             return error_response(str(e), 403)
 
-        parts = path.rstrip("/").split("/")
+        normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/matrix-debates"):
+            normalized = normalized.replace("/api/matrix-debates", "/api/debates/matrix", 1)
+        parts = normalized.rstrip("/").split("/")
 
         # GET /api/v1/debates/matrix/{id}
         # Path structure: ['', 'api', 'v1', 'debates', 'matrix', '{id}', ...]
@@ -143,7 +155,10 @@ class MatrixDebatesHandler(SecureHandler):
 
         POST /api/debates/matrix - Run parallel scenario debates
         """
-        if not path.rstrip("/").endswith("/debates/matrix"):
+        normalized = strip_version_prefix(path)
+        if normalized.startswith("/api/matrix-debates"):
+            normalized = normalized.replace("/api/matrix-debates", "/api/debates/matrix", 1)
+        if not normalized.rstrip("/").endswith("/debates/matrix"):
             return error_response("Not found", 404)
 
         # RBAC: Require authentication and debates:create permission

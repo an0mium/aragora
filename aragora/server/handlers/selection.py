@@ -78,6 +78,7 @@ class SelectionHandler(BaseHandler):
         "/api/v1/selection/defaults",
         "/api/v1/selection/score",
         "/api/v1/selection/team",
+        "/api/v1/team-selection",
     ]
 
     # Routes with path parameters
@@ -122,7 +123,7 @@ class SelectionHandler(BaseHandler):
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/selection/score":
             return self._score_agents(handler)
-        if path == "/api/v1/selection/team":
+        if path in ("/api/v1/selection/team", "/api/v1/team-selection"):
             return self._select_team(handler)
         return None
 

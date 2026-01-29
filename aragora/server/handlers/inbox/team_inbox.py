@@ -296,6 +296,7 @@ async def handle_remove_team_member(
 # =============================================================================
 
 
+@require_permission("inbox:read")
 async def handle_start_viewing(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -343,6 +344,7 @@ async def handle_start_viewing(
         return error_response(f"Start viewing failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:read")
 async def handle_stop_viewing(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -384,6 +386,7 @@ async def handle_stop_viewing(
         return error_response(f"Stop viewing failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:write")
 async def handle_start_typing(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -428,6 +431,7 @@ async def handle_start_typing(
         return error_response(f"Start typing failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:write")
 async def handle_stop_typing(
     data: dict[str, Any],
     inbox_id: str = "",
@@ -635,6 +639,7 @@ async def handle_get_mentions(
         return error_response(f"Get mentions failed: {str(e)}", status=500)
 
 
+@require_permission("inbox:write")
 async def handle_acknowledge_mention(
     data: dict[str, Any],
     mention_id: str = "",

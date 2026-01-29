@@ -320,7 +320,7 @@ class DebatesHandler(
 
         if normalized in ("/api/debate", "/api/debates"):
             return True  # POST - create debate, GET - list debates
-        if normalized == "/api/search":
+        if normalized in ("/api/search", "/api/debates/search"):
             return True
         if normalized.startswith("/api/debates/"):
             return True
@@ -348,7 +348,7 @@ class DebatesHandler(
                 return auth_error
 
         # Search endpoint
-        if normalized == "/api/search":
+        if normalized in ("/api/search", "/api/debates/search"):
             query = query_params.get("q", query_params.get("query", ""))
             if isinstance(query, list):
                 query = query[0] if query else ""
