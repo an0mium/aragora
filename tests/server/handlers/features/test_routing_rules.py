@@ -154,9 +154,7 @@ class TestListRules:
         mock_request = MagicMock()
         mock_request.args = {}
 
-        with patch(
-            "aragora.server.handlers.features.routing_rules.RoutingRule.from_dict"
-        ) as mock_from_dict:
+        with patch("aragora.core.routing_rules.RoutingRule.from_dict") as mock_from_dict:
             mock_rule = MagicMock()
             mock_rule.enabled = True
             mock_rule.tags = []
@@ -195,9 +193,9 @@ class TestCreateRule:
 
         with (
             patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body,
-            patch("aragora.server.handlers.features.routing_rules.RoutingRule") as MockRule,
-            patch("aragora.server.handlers.features.routing_rules.Condition") as MockCondition,
-            patch("aragora.server.handlers.features.routing_rules.Action") as MockAction,
+            patch("aragora.core.routing_rules.RoutingRule") as MockRule,
+            patch("aragora.core.routing_rules.Condition") as MockCondition,
+            patch("aragora.core.routing_rules.Action") as MockAction,
         ):
             mock_body.return_value = {
                 "name": "Test Rule",
@@ -402,7 +400,7 @@ class TestGetTemplates:
         mock_request = MagicMock()
 
         with patch(
-            "aragora.server.handlers.features.routing_rules.RULE_TEMPLATES",
+            "aragora.core.routing_rules.RULE_TEMPLATES",
             {"template1": MagicMock(to_dict=lambda: {"name": "Template 1"})},
         ):
             result = await handler._get_templates(mock_request)

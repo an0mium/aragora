@@ -105,7 +105,7 @@ class TestLegalStatus:
         mock_request.tenant_id = "test_tenant"
 
         with patch(
-            "aragora.server.handlers.features.legal.DocuSignConnector", create=True
+            "aragora.connectors.legal.docusign.DocuSignConnector", create=True
         ) as MockConnector:
             mock_instance = MagicMock()
             mock_instance.is_configured = False
@@ -122,7 +122,7 @@ class TestLegalStatus:
         mock_request = MagicMock()
 
         with patch(
-            "aragora.server.handlers.features.legal.DocuSignConnector",
+            "aragora.connectors.legal.docusign.DocuSignConnector",
             side_effect=ImportError("Module not found"),
         ):
             # The import happens inside _handle_status, so we need to mock it there
@@ -309,7 +309,7 @@ class TestGetDocuSignConnector:
     async def test_get_connector_not_configured(self):
         """Test get connector when not configured."""
         with patch(
-            "aragora.server.handlers.features.legal.DocuSignConnector", create=True
+            "aragora.connectors.legal.docusign.DocuSignConnector", create=True
         ) as MockConnector:
             mock_instance = MagicMock()
             mock_instance.is_configured = False
@@ -327,7 +327,7 @@ class TestGetDocuSignConnector:
     async def test_get_connector_import_error(self):
         """Test get connector when module not available."""
         with patch(
-            "aragora.server.handlers.features.legal.DocuSignConnector",
+            "aragora.connectors.legal.docusign.DocuSignConnector",
             side_effect=ImportError("Module not found"),
         ):
             import aragora.server.handlers.features.legal as legal_module
