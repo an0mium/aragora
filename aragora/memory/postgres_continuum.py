@@ -360,8 +360,8 @@ class PostgresContinuumMemory(PostgresStore):
         Returns:
             True if the entry was updated, False if not found
         """
-        updates = []
-        params = []
+        updates: List[str] = []
+        params: List[Any] = []
         param_idx = 1
 
         if content is not None:
@@ -370,7 +370,7 @@ class PostgresContinuumMemory(PostgresStore):
             param_idx += 1
         if importance is not None:
             updates.append(f"importance = ${param_idx}")
-            params.append(importance)  # type: ignore[arg-type]
+            params.append(importance)
             param_idx += 1
         if metadata is not None:
             updates.append(f"metadata = ${param_idx}")
@@ -378,18 +378,18 @@ class PostgresContinuumMemory(PostgresStore):
             param_idx += 1
         if surprise_score is not None:
             updates.append(f"surprise_score = ${param_idx}")
-            params.append(surprise_score)  # type: ignore[arg-type]
+            params.append(surprise_score)
             param_idx += 1
         if consolidation_score is not None:
             updates.append(f"consolidation_score = ${param_idx}")
-            params.append(consolidation_score)  # type: ignore[arg-type]
+            params.append(consolidation_score)
             param_idx += 1
 
         if not updates:
             return False
 
         updates.append(f"updated_at = ${param_idx}")
-        params.append(datetime.now())  # type: ignore[arg-type]
+        params.append(datetime.now())
         param_idx += 1
 
         params.append(memory_id)

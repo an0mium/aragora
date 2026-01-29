@@ -376,7 +376,7 @@ class SQLServerConnector(EnterpriseConnector):
                         logger.debug(f"Search failed on {table}: {e}")
                         continue
 
-        return sorted(results, key=lambda x: float(x.get("rank", 0)), reverse=True)[:limit]  # type: ignore[arg-type]
+        return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
     async def fetch(self, evidence_id: str):
         """Fetch a specific row by evidence ID."""

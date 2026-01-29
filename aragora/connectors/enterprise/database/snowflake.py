@@ -485,7 +485,7 @@ class SnowflakeConnector(EnterpriseConnector):
                 logger.debug(f"Search failed on {tbl}: {e}")
                 continue
 
-        return sorted(results, key=lambda x: x.get("rank", 0), reverse=True)[:limit]  # type: ignore[arg-type,return-value]
+        return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
     async def fetch(self, evidence_id: str) -> Optional[Any]:
         """Fetch a specific row by evidence ID."""
