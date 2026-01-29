@@ -728,7 +728,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             try:
                 from aragora.services.email_prioritization import EmailPrioritizer
 
-                prioritizer = EmailPrioritizer(gmail_connector=self)
+                prioritizer = EmailPrioritizer(gmail_connector=self)  # type: ignore[arg-type]
             except ImportError:
                 logger.warning("[Gmail] EmailPrioritizer not available, skipping prioritization")
                 # Return messages without prioritization

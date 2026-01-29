@@ -203,7 +203,7 @@ class MoltbotInboxHandler(BaseHandler):
         except ValueError:
             return error_response(f"Invalid channel type: {channel_type_str}", 400)
 
-        config = ChannelConfig(
+        config = ChannelConfig(  # type: ignore[call-arg]
             name=name,
             type=channel_type,
             provider_config=body.get("provider_config", {}),
