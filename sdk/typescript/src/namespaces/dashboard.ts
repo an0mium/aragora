@@ -35,4 +35,33 @@ export class DashboardAPI {
   async listDebates(params?: { limit?: number; offset?: number }): Promise<{ debates: DashboardDebateEntry[]; total?: number }> {
     return this.client.request('GET', '/api/v1/dashboard/debates', { params: params as Record<string, unknown> });
   }
+
+  async getOverview(): Promise<DashboardOverview> {
+    return this.client.request('GET', '/api/v1/dashboard/overview');
+  }
+
+  async getStats(): Promise<DashboardStats> {
+    return this.client.request('GET', '/api/v1/dashboard/stats');
+  }
+
+  async getActivity(params?: { limit?: number }): Promise<{ activity: ActivityItem[] }> {
+    return this.client.request('GET', '/api/v1/dashboard/activity', { params: params as Record<string, unknown> });
+  }
+
+  async getInboxSummary(): Promise<InboxSummary> {
+    return this.client.request('GET', '/api/v1/dashboard/inbox-summary');
+  }
+
+  async getQuickActions(): Promise<{ actions: QuickAction[] }> {
+    return this.client.request('GET', '/api/v1/dashboard/quick-actions');
+  }
+
+  async executeQuickAction(
+    actionId: string,
+    params?: Record<string, unknown>
+  ): Promise<QuickActionResult> {
+    return this.client.request('POST', `/api/v1/dashboard/quick-actions/${actionId}`, {
+      params,
+    });
+  }
 }

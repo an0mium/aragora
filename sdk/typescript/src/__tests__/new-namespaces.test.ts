@@ -21,6 +21,7 @@ global.fetch = mockFetch;
 describe('New Namespace APIs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   // ===========================================================================
