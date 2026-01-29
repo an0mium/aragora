@@ -186,15 +186,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
+                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
                 return_value={"healthy": False, "error": "Permission denied"},
             ),
             patch(
-                "aragora.server.handlers.admin.health_utils.check_redis_health",
+                "aragora.server.handlers.admin.health.detailed.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
+                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -226,15 +226,15 @@ class TestHealthCheck:
 
         with (
             patch(
-                "aragora.server.handlers.admin.health_utils.check_filesystem_health",
+                "aragora.server.handlers.admin.health.detailed.check_filesystem_health",
                 return_value={"healthy": True},
             ),
             patch(
-                "aragora.server.handlers.admin.health_utils.check_redis_health",
+                "aragora.server.handlers.admin.health.detailed.check_redis_health",
                 return_value={"healthy": True, "configured": False},
             ),
             patch(
-                "aragora.server.handlers.admin.health_utils.check_ai_providers_health",
+                "aragora.server.handlers.admin.health.detailed.check_ai_providers_health",
                 return_value={"healthy": True, "any_available": True},
             ),
             patch(
@@ -391,7 +391,7 @@ class TestDetailedHealthCheck:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.detailed.SimpleObserver",
+            "aragora.monitoring.simple_observer.SimpleObserver",
             return_value=mock_observer,
         ):
             result = detailed_health_check(handler)
@@ -414,7 +414,7 @@ class TestDetailedHealthCheck:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.detailed.SimpleObserver",
+            "aragora.monitoring.simple_observer.SimpleObserver",
             return_value=mock_observer,
         ):
             result = detailed_health_check(handler)
