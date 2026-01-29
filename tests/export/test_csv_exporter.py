@@ -251,7 +251,10 @@ class TestCSVExporterMessages:
             result = exporter.export_messages(output_path)
 
             assert output_path.exists()
-            assert output_path.read_text() == result
+            # Normalize line endings for cross-platform compatibility
+            file_content = output_path.read_text().replace("\r\n", "\n")
+            normalized_result = result.replace("\r\n", "\n")
+            assert file_content == normalized_result
 
 
 # =============================================================================
