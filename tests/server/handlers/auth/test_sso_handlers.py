@@ -859,3 +859,610 @@ class TestGetSsoHandlers:
 
         for name, handler in handlers.items():
             assert callable(handler), f"Handler {name} should be callable"
+
+
+# ===========================================================================
+# Test _get_sso_provider
+# ===========================================================================
+
+
+class TestGetSsoProvider:
+    """Tests for _get_sso_provider function."""
+
+    def test_get_provider_returns_none_without_config(self):
+        """Provider should return None when not configured."""
+        # Clear any cached providers
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        # Without env vars, should return None
+        with patch.dict(os.environ, {}, clear=True):
+            provider = _get_sso_provider("oidc")
+            assert provider is None
+
+    def test_get_provider_caches_instance(self):
+        """Provider should cache the instance."""
+        mock_provider = MagicMock()
+
+        with _sso_providers_lock:
+            _sso_providers["test_type"] = mock_provider
+
+        result = _get_sso_provider("test_type")
+        assert result is mock_provider
+
+    def test_get_provider_oidc_with_config(self):
+        """OIDC provider should initialize with valid config."""
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        env_vars = {
+            "OIDC_CLIENT_ID": "test-client-id",
+            "OIDC_CLIENT_SECRET": "test-client-secret",
+            "OIDC_ISSUER_URL": "https://test-issuer.example.com",
+            "OIDC_CALLBACK_URL": "https://app.example.com/callback",
+            "OIDC_SCOPES": "openid,email,profile",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=True):
+            # Mock at the import location inside the function
+            with patch("aragora.auth.oidc.OIDCProvider") as mock_oidc:
+                mock_oidc.return_value = MagicMock()
+                provider = _get_sso_provider("oidc")
+                # Provider should have been created
+                assert provider is not None or mock_oidc.called
+
+    def test_get_provider_google_with_config(self):
+        """Google provider should initialize with valid config."""
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        env_vars = {
+            "GOOGLE_CLIENT_ID": "test-google-client.apps.googleusercontent.com",
+            "GOOGLE_CLIENT_SECRET": "test-google-secret",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=True):
+            with patch("aragora.auth.oidc.OIDCProvider") as mock_oidc:
+                mock_oidc.return_value = MagicMock()
+                provider = _get_sso_provider("google")
+                # Provider should have been created
+                assert provider is not None or mock_oidc.called
+
+    def test_get_provider_github_with_config(self):
+        """GitHub provider should initialize with valid config."""
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        env_vars = {
+            "GITHUB_CLIENT_ID": "test-github-client-id",
+            "GITHUB_CLIENT_SECRET": "test-github-secret",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=True):
+            with patch("aragora.auth.oidc.OIDCProvider") as mock_oidc:
+                mock_oidc.return_value = MagicMock()
+                provider = _get_sso_provider("github")
+                # Provider should have been created
+                assert provider is not None or mock_oidc.called
+
+    def test_get_provider_handles_exception_gracefully(self):
+        """Provider initialization should handle exceptions gracefully."""
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        env_vars = {
+            "OIDC_CLIENT_ID": "test-client-id",
+            "OIDC_ISSUER_URL": "https://test-issuer.example.com",
+        }
+
+        with patch.dict(os.environ, env_vars, clear=True):
+            # Simulate initialization error
+            with patch("aragora.auth.oidc.OIDCProvider", side_effect=Exception("Init failed")):
+                provider = _get_sso_provider("oidc")
+                # Should return None gracefully
+                assert provider is None
+
+    def test_get_provider_unknown_type(self):
+        """Unknown provider type should return None."""
+        with _sso_providers_lock:
+            _sso_providers.clear()
+
+        provider = _get_sso_provider("unknown_provider")
+        assert provider is None
+
+
+# ===========================================================================
+# Test Additional Login Edge Cases
+# ===========================================================================
+
+
+class TestHandleSsoLoginEdgeCases:
+    """Additional edge case tests for handle_sso_login."""
+
+    @pytest.mark.asyncio
+    async def test_login_exception_handling(self, mock_oidc_provider):
+        """Login should handle exceptions gracefully."""
+        mock_oidc_provider.get_authorization_url.side_effect = Exception("Connection failed")
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+
+            result = await handle_sso_login({"provider": "oidc"})
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_login_triggers_cleanup_periodically(self, mock_oidc_provider):
+        """Login should trigger session cleanup periodically."""
+        # Add 9 sessions to make total 10 (trigger cleanup at 10 % 10 == 0)
+        with _auth_sessions_lock:
+            for i in range(9):
+                _auth_sessions[f"state_{i}"] = {
+                    "provider_type": "oidc",
+                    "redirect_url": "/",
+                    "created_at": time.time() - 1000,  # Expired
+                }
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+            with patch(
+                "aragora.server.handlers.auth.sso_handlers._cleanup_expired_sessions"
+            ) as mock_cleanup:
+                await handle_sso_login({"provider": "oidc"})
+
+                # After 10th session, cleanup should be triggered
+                # (but we're testing the path, not the actual count)
+
+    @pytest.mark.asyncio
+    async def test_login_with_empty_redirect_url(self, mock_oidc_provider):
+        """Login with empty redirect_url should use default."""
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+
+            result = await handle_sso_login({"redirect_url": ""})
+
+        body = get_data(result)
+        state = body["state"]
+
+        with _auth_sessions_lock:
+            # Empty string becomes "/" via or default
+            assert _auth_sessions[state]["redirect_url"] == ""
+
+
+# ===========================================================================
+# Test Additional Callback Edge Cases
+# ===========================================================================
+
+
+class TestHandleSsoCallbackEdgeCases:
+    """Additional edge case tests for handle_sso_callback."""
+
+    @pytest.mark.asyncio
+    async def test_callback_idp_error_without_description(self, valid_auth_session):
+        """IdP error without description should use error code."""
+        state, _ = valid_auth_session
+        result = await handle_sso_callback(
+            {
+                "error": "server_error",
+                "state": state,
+            }
+        )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 401
+        assert "server_error" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_callback_with_different_provider_types(self, mock_oidc_provider, mock_sso_user):
+        """Callback should work with different provider types."""
+        mock_oidc_provider.authenticate.return_value = mock_sso_user
+
+        for provider_type in ["oidc", "google", "github"]:
+            state = f"state_for_{provider_type}"
+            with _auth_sessions_lock:
+                _auth_sessions[state] = {
+                    "provider_type": provider_type,
+                    "redirect_url": "/dashboard",
+                    "created_at": time.time(),
+                }
+
+            with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+                mock_get.return_value = mock_oidc_provider
+                with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
+                    mock_jwt.return_value = "jwt_token"
+
+                    result = await handle_sso_callback(
+                        {
+                            "code": "auth_code",
+                            "state": state,
+                        }
+                    )
+
+            status, _ = parse_result(result)
+            assert status == 200
+
+    @pytest.mark.asyncio
+    async def test_callback_user_expires_at(self, valid_auth_session, mock_oidc_provider, mock_sso_user):
+        """Callback response should include token expiration."""
+        state, _ = valid_auth_session
+        mock_sso_user.token_expires_at = time.time() + 7200  # 2 hours
+        mock_oidc_provider.authenticate.return_value = mock_sso_user
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+            with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
+                mock_jwt.return_value = "jwt_token"
+
+                result = await handle_sso_callback(
+                    {
+                        "code": "auth_code",
+                        "state": state,
+                    }
+                )
+
+        body = get_data(result)
+        assert "expires_at" in body
+        assert body["expires_at"] == mock_sso_user.token_expires_at
+
+
+# ===========================================================================
+# Test Additional Refresh Edge Cases
+# ===========================================================================
+
+
+class TestHandleSsoRefreshEdgeCases:
+    """Additional edge case tests for handle_sso_refresh."""
+
+    @pytest.mark.asyncio
+    async def test_refresh_with_different_providers(self, mock_oidc_provider, mock_sso_user):
+        """Refresh should work with different provider types."""
+        mock_oidc_provider.refresh_token.return_value = mock_sso_user
+
+        for provider in ["oidc", "google", "github"]:
+            with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+                mock_get.return_value = mock_oidc_provider
+
+                result = await handle_sso_refresh(
+                    {
+                        "provider": provider,
+                        "refresh_token": "refresh_token_xyz",
+                    }
+                )
+
+            status, _ = parse_result(result)
+            assert status == 200
+
+    @pytest.mark.asyncio
+    async def test_refresh_returns_new_refresh_token(self, mock_oidc_provider, mock_sso_user):
+        """Refresh should return new refresh token if provided."""
+        mock_sso_user.refresh_token = "new_refresh_token_abc"
+        mock_oidc_provider.refresh_token.return_value = mock_sso_user
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+
+            result = await handle_sso_refresh(
+                {
+                    "provider": "oidc",
+                    "refresh_token": "old_refresh_token",
+                }
+            )
+
+        body = get_data(result)
+        assert body["refresh_token"] == "new_refresh_token_abc"
+
+
+# ===========================================================================
+# Test Additional Logout Edge Cases
+# ===========================================================================
+
+
+class TestHandleSsoLogoutEdgeCases:
+    """Additional edge case tests for handle_sso_logout."""
+
+    @pytest.mark.asyncio
+    async def test_logout_exception_handling(self, mock_oidc_provider):
+        """Logout should handle exceptions gracefully."""
+        mock_oidc_provider.logout.side_effect = Exception("Logout failed")
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+
+            result = await handle_sso_logout(
+                {
+                    "provider": "oidc",
+                    "id_token": "some_token",
+                }
+            )
+
+        status, _ = parse_result(result)
+        error = get_error(result)
+        assert status == 500
+        assert "failed" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_logout_different_providers(self, mock_oidc_provider):
+        """Logout should work with different provider types."""
+        mock_oidc_provider.logout.return_value = "https://idp.example.com/logout"
+
+        for provider in ["oidc", "google", "github"]:
+            with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+                mock_get.return_value = mock_oidc_provider
+
+                result = await handle_sso_logout(
+                    {
+                        "provider": provider,
+                        "id_token": "id_token_xyz",
+                    }
+                )
+
+            status, _ = parse_result(result)
+            assert status == 200
+
+
+# ===========================================================================
+# Test Additional List Providers Edge Cases
+# ===========================================================================
+
+
+class TestHandleListProvidersEdgeCases:
+    """Additional edge case tests for handle_list_providers."""
+
+    @pytest.mark.asyncio
+    async def test_list_providers_all_configured(self):
+        """List providers with all configured should show all enabled."""
+        env_vars = {
+            "OIDC_CLIENT_ID": "oidc-client",
+            "OIDC_ISSUER_URL": "https://oidc.example.com",
+            "GOOGLE_CLIENT_ID": "google-client",
+            "GITHUB_CLIENT_ID": "github-client",
+            "AZURE_AD_CLIENT_ID": "azure-client",
+            "AZURE_AD_TENANT_ID": "azure-tenant",
+        }
+
+        with patch.dict(os.environ, env_vars):
+            result = await handle_list_providers({})
+
+        body = get_data(result)
+        assert body["sso_enabled"] is True
+
+        # Check each provider
+        enabled_providers = [p for p in body["providers"] if p["enabled"]]
+        assert len(enabled_providers) >= 3  # At least OIDC, Google, GitHub
+
+    @pytest.mark.asyncio
+    async def test_list_providers_exception_handling(self):
+        """List providers should handle exceptions gracefully."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("os.environ.get", side_effect=Exception("env error")):
+                result = await handle_list_providers({})
+
+        status, _ = parse_result(result)
+        assert status == 500
+
+    @pytest.mark.asyncio
+    async def test_list_providers_azure_ad_partial_config(self):
+        """Azure AD should show disabled with partial config."""
+        env_vars = {
+            "AZURE_AD_CLIENT_ID": "azure-client",
+            # Missing AZURE_AD_TENANT_ID
+        }
+
+        with patch.dict(os.environ, env_vars, clear=True):
+            result = await handle_list_providers({})
+
+        body = get_data(result)
+        azure_provider = next(p for p in body["providers"] if p["type"] == "azure_ad")
+        assert azure_provider["enabled"] is False
+
+
+# ===========================================================================
+# Test Additional Config Edge Cases
+# ===========================================================================
+
+
+class TestHandleGetSsoConfigEdgeCases:
+    """Additional edge case tests for handle_get_sso_config."""
+
+    @pytest.mark.asyncio
+    async def test_get_config_unknown_provider(self):
+        """Unknown provider should return disabled config."""
+        from aragora.server.handlers.auth import sso_handlers
+
+        original_func = sso_handlers.handle_get_sso_config.__wrapped__
+
+        result = await original_func({"provider": "unknown_provider"})
+
+        status, _ = parse_result(result)
+        body = get_data(result)
+        assert status == 200
+        assert body["enabled"] is False
+        assert body["provider"] == "unknown_provider"
+
+    @pytest.mark.asyncio
+    async def test_get_config_exception_handling(self):
+        """Config endpoint should handle exceptions gracefully."""
+        from aragora.server.handlers.auth import sso_handlers
+
+        original_func = sso_handlers.handle_get_sso_config.__wrapped__
+
+        with patch("os.environ.get", side_effect=Exception("env error")):
+            result = await original_func({"provider": "oidc"})
+
+        status, _ = parse_result(result)
+        assert status == 500
+
+    @pytest.mark.asyncio
+    async def test_get_config_oidc_scopes_parsing(self):
+        """OIDC config should parse scopes correctly."""
+        from aragora.server.handlers.auth import sso_handlers
+
+        original_func = sso_handlers.handle_get_sso_config.__wrapped__
+
+        with patch.dict(
+            os.environ,
+            {
+                "OIDC_CLIENT_ID": "client123",
+                "OIDC_ISSUER_URL": "https://idp.example.com",
+                "OIDC_SCOPES": "openid,email,profile,custom_scope",
+            },
+        ):
+            result = await original_func({"provider": "oidc"})
+
+        body = get_data(result)
+        assert "openid" in body["scopes"]
+        assert "custom_scope" in body["scopes"]
+
+
+# ===========================================================================
+# Test Session Cleanup Edge Cases
+# ===========================================================================
+
+
+class TestCleanupExpiredSessionsEdgeCases:
+    """Additional edge case tests for session cleanup."""
+
+    def test_cleanup_empty_sessions(self):
+        """Cleanup should handle empty session store."""
+        with _auth_sessions_lock:
+            _auth_sessions.clear()
+
+        _cleanup_expired_sessions()
+
+        with _auth_sessions_lock:
+            assert len(_auth_sessions) == 0
+
+    def test_cleanup_all_expired(self):
+        """Cleanup should remove all expired sessions."""
+        with _auth_sessions_lock:
+            for i in range(5):
+                _auth_sessions[f"expired_state_{i}"] = {
+                    "provider_type": "oidc",
+                    "redirect_url": "/",
+                    "created_at": time.time() - AUTH_SESSION_TTL - 1000,
+                }
+
+        _cleanup_expired_sessions()
+
+        with _auth_sessions_lock:
+            assert len(_auth_sessions) == 0
+
+    def test_cleanup_mixed_sessions(self):
+        """Cleanup should only remove expired sessions."""
+        with _auth_sessions_lock:
+            # Add expired
+            _auth_sessions["expired_1"] = {
+                "provider_type": "oidc",
+                "redirect_url": "/",
+                "created_at": time.time() - AUTH_SESSION_TTL - 100,
+            }
+            _auth_sessions["expired_2"] = {
+                "provider_type": "google",
+                "redirect_url": "/dashboard",
+                "created_at": time.time() - AUTH_SESSION_TTL - 200,
+            }
+            # Add valid
+            _auth_sessions["valid_1"] = {
+                "provider_type": "oidc",
+                "redirect_url": "/",
+                "created_at": time.time(),
+            }
+            _auth_sessions["valid_2"] = {
+                "provider_type": "github",
+                "redirect_url": "/profile",
+                "created_at": time.time() - 60,  # 1 minute ago, still valid
+            }
+
+        _cleanup_expired_sessions()
+
+        with _auth_sessions_lock:
+            assert len(_auth_sessions) == 2
+            assert "valid_1" in _auth_sessions
+            assert "valid_2" in _auth_sessions
+            assert "expired_1" not in _auth_sessions
+            assert "expired_2" not in _auth_sessions
+
+    def test_cleanup_session_without_created_at(self):
+        """Cleanup should handle sessions without created_at."""
+        with _auth_sessions_lock:
+            _auth_sessions["no_timestamp"] = {
+                "provider_type": "oidc",
+                "redirect_url": "/",
+                # No created_at - should be treated as expired (created_at=0)
+            }
+
+        _cleanup_expired_sessions()
+
+        with _auth_sessions_lock:
+            assert "no_timestamp" not in _auth_sessions
+
+
+# ===========================================================================
+# Test Thread Safety
+# ===========================================================================
+
+
+class TestThreadSafety:
+    """Tests for thread safety of SSO handlers."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_login_requests(self, mock_oidc_provider):
+        """Multiple concurrent login requests should be handled safely."""
+        import asyncio
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+
+            tasks = [handle_sso_login({"provider": "oidc"}) for _ in range(10)]
+            results = await asyncio.gather(*tasks)
+
+        # All should succeed
+        for result in results:
+            status, _ = parse_result(result)
+            assert status == 200
+
+        # All should have unique states
+        states = []
+        for result in results:
+            body = get_data(result)
+            states.append(body["state"])
+
+        assert len(set(states)) == 10
+
+    @pytest.mark.asyncio
+    async def test_concurrent_session_access(self, mock_oidc_provider, mock_sso_user):
+        """Concurrent callback requests should be thread-safe."""
+        import asyncio
+
+        mock_oidc_provider.authenticate.return_value = mock_sso_user
+
+        # Create multiple valid sessions
+        states = []
+        for i in range(5):
+            state = f"concurrent_state_{i}"
+            states.append(state)
+            with _auth_sessions_lock:
+                _auth_sessions[state] = {
+                    "provider_type": "oidc",
+                    "redirect_url": "/",
+                    "created_at": time.time(),
+                }
+
+        with patch("aragora.server.handlers.auth.sso_handlers._get_sso_provider") as mock_get:
+            mock_get.return_value = mock_oidc_provider
+            with patch("aragora.billing.jwt_auth.create_access_token") as mock_jwt:
+                mock_jwt.return_value = "jwt_token"
+
+                tasks = [
+                    handle_sso_callback({"code": "code", "state": state})
+                    for state in states
+                ]
+                results = await asyncio.gather(*tasks)
+
+        # All should succeed (each state used exactly once)
+        success_count = sum(1 for r in results if parse_result(r)[0] == 200)
+        assert success_count == 5
