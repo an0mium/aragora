@@ -920,13 +920,13 @@ class FabricAdapter(KnowledgeMoundAdapter):
                         period_start_ts = (
                             report.period_start.timestamp()
                             if hasattr(report.period_start, "timestamp")
-                            else float(report.period_start)
-                        )  # type: ignore[arg-type, union-attr]
+                            else float(report.period_start)  # type: ignore[arg-type]
+                        )
                         period_end_ts = (
                             report.period_end.timestamp()
                             if hasattr(report.period_end, "timestamp")
-                            else float(report.period_end)
-                        )  # type: ignore[arg-type, union-attr]
+                            else float(report.period_end)  # type: ignore[arg-type]
+                        )
 
                         budget_snapshot = BudgetUsageSnapshot(
                             entity_id=entity_id,
