@@ -41,7 +41,26 @@ from aragora.server.handlers.features.scheduler import SchedulerHandler
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return SchedulerHandler({})
+    h = SchedulerHandler({})
+    # Add headers so require_user_auth can find the handler
+    h.headers = MagicMock()
+    return h
+
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock authentication for all tests."""
+    mock_user = MagicMock()
+    mock_user.is_authenticated = True
+    mock_user.user_id = "test_user"
+    mock_user.role = "admin"
+    mock_user.error_reason = None
+
+    with patch(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        return_value=mock_user,
+    ):
+        yield
 
 
 class TestSchedulerHandler:
@@ -348,6 +367,16 @@ class TestSchedulerDeleteJob:
             assert result.status_code == 404
 
 
+def _mock_auth_user():
+    """Create a mock authenticated user context."""
+    user = MagicMock()
+    user.is_authenticated = True
+    user.user_id = "test_user"
+    user.role = "admin"
+    user.error_reason = None
+    return user
+
+
 class TestSchedulerJobActions:
     """Tests for scheduler job actions."""
 
@@ -357,15 +386,14 @@ class TestSchedulerJobActions:
         mock_scheduler.get_job.return_value = MagicMock()
         mock_scheduler.pause_schedule.return_value = True
 
+        # Add headers to handler so require_user_auth can find it
+        handler.headers = MagicMock()
+
         with (
             patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
             patch(
-                "aragora.server.handlers.features.scheduler.require_user_auth",
-                lambda f: f,
-            ),
-            patch(
-                "aragora.server.handlers.features.scheduler.require_permission",
-                lambda p: lambda f: f,
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_mock_auth_user(),
             ),
         ):
             result = handler._pause_job("job123")
@@ -376,15 +404,13 @@ class TestSchedulerJobActions:
         mock_scheduler = MagicMock()
         mock_scheduler.get_job.return_value = None
 
+        handler.headers = MagicMock()
+
         with (
             patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
             patch(
-                "aragora.server.handlers.features.scheduler.require_user_auth",
-                lambda f: f,
-            ),
-            patch(
-                "aragora.server.handlers.features.scheduler.require_permission",
-                lambda p: lambda f: f,
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_mock_auth_user(),
             ),
         ):
             result = handler._pause_job("invalid_job")
@@ -396,15 +422,13 @@ class TestSchedulerJobActions:
         mock_scheduler.get_job.return_value = MagicMock()
         mock_scheduler.resume_schedule.return_value = True
 
+        handler.headers = MagicMock()
+
         with (
             patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
             patch(
-                "aragora.server.handlers.features.scheduler.require_user_auth",
-                lambda f: f,
-            ),
-            patch(
-                "aragora.server.handlers.features.scheduler.require_permission",
-                lambda p: lambda f: f,
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_mock_auth_user(),
             ),
         ):
             result = handler._resume_job("job123")
@@ -420,15 +444,13 @@ class TestSchedulerJobHistory:
         mock_scheduler.get_job.return_value = MagicMock()
         mock_scheduler.get_job_history.return_value = []
 
+        handler.headers = MagicMock()
+
         with (
             patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
             patch(
-                "aragora.server.handlers.features.scheduler.require_user_auth",
-                lambda f: f,
-            ),
-            patch(
-                "aragora.server.handlers.features.scheduler.require_permission",
-                lambda p: lambda f: f,
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_mock_auth_user(),
             ),
         ):
             result = handler._get_job_history("job123", limit=10)
@@ -439,15 +461,13 @@ class TestSchedulerJobHistory:
         mock_scheduler = MagicMock()
         mock_scheduler.get_job.return_value = None
 
+        handler.headers = MagicMock()
+
         with (
             patch.object(handler, "_get_scheduler", return_value=mock_scheduler),
             patch(
-                "aragora.server.handlers.features.scheduler.require_user_auth",
-                lambda f: f,
-            ),
-            patch(
-                "aragora.server.handlers.features.scheduler.require_permission",
-                lambda p: lambda f: f,
+                "aragora.billing.jwt_auth.extract_user_from_request",
+                return_value=_mock_auth_user(),
             ),
         ):
             result = handler._get_job_history("invalid_job")
