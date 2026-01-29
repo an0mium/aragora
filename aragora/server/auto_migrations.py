@@ -97,7 +97,7 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
         total_pending = 0
         for status in statuses.values():
             if status is not None:
-                total_pending += len(status.pending)
+                total_pending += len(status.pending)  # type: ignore[attr-defined]
 
         if total_pending == 0:
             logger.debug("No pending SQLite migrations")
