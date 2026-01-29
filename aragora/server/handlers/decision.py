@@ -410,7 +410,7 @@ class DecisionHandler(BaseHandler):
             body, _ = self.read_json_body_validated(handler)
             if body:
                 reason = body.get("reason")
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             pass  # Reason is optional
 
         # Update the result with cancelled status
