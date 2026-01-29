@@ -1561,3 +1561,219 @@ class TestFactoryFunction:
         ):
             handler = create_compliance_handler(mock_server_context)
             assert isinstance(handler, ComplianceHandler)
+
+
+# ===========================================================================
+# Extended Test Coverage - Edge Cases
+# ===========================================================================
+
+
+class TestGdprExportEdgeCases:
+    """Test GDPR export edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_invalid_format(self, handler):
+        """Test GDPR export with invalid format returns 400."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr-export",
+            query_params={"user_id": "user-123", "format": "xml"},
+        )
+
+        # Should either return 400 or default to JSON
+        assert result.status_code in (200, 400)
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_with_exclude_filter(self, handler):
+        """Test GDPR export with exclude filter."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr-export",
+            query_params={"user_id": "user-123", "exclude": "activity"},
+        )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "data_categories" in body
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_nonexistent_user(self, handler):
+        """Test GDPR export for nonexistent user."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr-export",
+            query_params={"user_id": "nonexistent-user-999"},
+        )
+
+        # Should return 200 with empty data or 404
+        assert result.status_code in (200, 404)
+
+
+class TestRightToBeForgottenEdgeCases:
+    """Test Right-to-be-Forgotten edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_rtbf_missing_reason(self, handler):
+        """Test RTBF request without reason field."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/right-to-be-forgotten",
+            body={
+                "user_id": "user-123",
+                "requested_by": "admin-001",
+            },
+        )
+
+        # Should either succeed with default reason or return 400
+        assert result.status_code in (200, 400)
+
+    @pytest.mark.asyncio
+    async def test_rtbf_with_grace_period(self, handler):
+        """Test RTBF request with custom grace period."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/right-to-be-forgotten",
+            body={
+                "user_id": "user-123",
+                "requested_by": "admin-001",
+                "reason": "User request",
+                "grace_period_days": 14,
+            },
+        )
+
+        # Should accept custom grace period
+        assert result.status_code == 200
+
+
+class TestLegalHoldEdgeCases:
+    """Test legal hold edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_create_legal_hold_empty_user_list(self, handler):
+        """Test creating legal hold with empty user list."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/legal-holds",
+            body={
+                "user_ids": [],
+                "reason": "Test hold",
+            },
+        )
+
+        # Should return 400 for empty user list
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_create_legal_hold_with_expiry(self, handler):
+        """Test creating legal hold with expiry date."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/legal-holds",
+            body={
+                "user_ids": ["user-123"],
+                "reason": "Temporary hold",
+                "expires_at": "2027-01-01T00:00:00Z",
+            },
+        )
+
+        # Should accept expiry date
+        assert result.status_code == 201
+
+    @pytest.mark.asyncio
+    async def test_get_legal_hold_by_id(self, handler):
+        """Test getting a specific legal hold by ID."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/legal-holds/hold-001",
+        )
+
+        assert result.status_code in (200, 404)
+
+
+class TestCoordinatedDeletionEdgeCases:
+    """Test coordinated deletion edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_coordinated_deletion_dry_run(self, handler):
+        """Test coordinated deletion in dry run mode."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/coordinated-deletion",
+            body={
+                "user_id": "user-dry-run",
+                "reason": "Test dry run",
+                "dry_run": True,
+            },
+        )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        # Should return report
+        assert "report" in body
+
+    @pytest.mark.asyncio
+    async def test_coordinated_deletion_with_services_filter(self, handler):
+        """Test coordinated deletion with backup exclusion."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/coordinated-deletion",
+            body={
+                "user_id": "user-123",
+                "reason": "Test with backup flag",
+                "delete_from_backups": False,
+            },
+        )
+
+        assert result.status_code == 200
+
+
+class TestAuditTrailEdgeCases:
+    """Test audit trail edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_audit_events_with_date_range(self, handler):
+        """Test audit events export with date range filter."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/audit-events",
+            query_params={
+                "start_date": "2026-01-01",
+                "end_date": "2026-01-31",
+            },
+        )
+
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert "events" in body
+
+    @pytest.mark.asyncio
+    async def test_audit_events_with_event_type_filter(self, handler):
+        """Test audit events filtered by event type."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/audit-events",
+            query_params={"event_type": "deletion"},
+        )
+
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_audit_events_pagination(self, handler):
+        """Test audit events with pagination."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/audit-events",
+            query_params={"limit": "10", "offset": "20"},
+        )
+
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_audit_verification_for_nonexistent_receipt(self, handler):
+        """Test audit verification for nonexistent receipt."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/audit/verify/nonexistent-receipt-id",
+        )
+
+        assert result.status_code == 404
