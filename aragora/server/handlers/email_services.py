@@ -48,8 +48,16 @@ def _check_email_permission(
     auth_context: Optional[Any], permission_key: str
 ) -> Optional[HandlerResult]:
     """Check RBAC permission, return error response if denied."""
-    if not RBAC_AVAILABLE or auth_context is None:
-        return None  # Allow if RBAC not available
+    write_permissions = {"email:create", "email:update", "email:delete"}
+    if auth_context is None:
+        if permission_key in write_permissions:
+            return error_response("Authentication required", status=401)
+        return None
+
+    if not RBAC_AVAILABLE:
+        if permission_key in write_permissions:
+            return error_response("RBAC unavailable", status=503)
+        return None
 
     try:
         decision = check_permission(auth_context, permission_key)
@@ -58,7 +66,8 @@ def _check_email_permission(
             return error_response(f"Permission denied: {decision.reason}", status=403)
     except Exception as e:
         logger.warning(f"RBAC check failed: {e}")
-        # Fail open for now - can be changed to fail closed
+        if permission_key in write_permissions:
+            return error_response("RBAC check failed", status=503)
         return None
 
     return None

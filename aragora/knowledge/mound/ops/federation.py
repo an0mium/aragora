@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
@@ -104,11 +104,23 @@ class KnowledgeFederationMixin:
     Note: This mixin follows the FederationProtocol interface but does NOT
     inherit from it directly, as Protocol inheritance breaks the MRO chain
     in multiple inheritance scenarios (Protocol.__init__ doesn't call super()).
+
+    Type Safety: Use `self._proto` property for type-checked access to protocol
+    methods/attributes. This enables IDE support and reduces type:ignore comments.
     """
 
     # Note: Federation registry is now persisted via FederationRegistryStore
     # The class-level dict is kept for backward compatibility as a cache
     _federated_regions: dict[str, FederatedRegion] = {}
+
+    @property
+    def _proto(self) -> FederationProtocol:
+        """Cast self to FederationProtocol for type-safe method access.
+
+        This property provides type-checked access to methods defined in the
+        Protocol without requiring type:ignore comments on every usage.
+        """
+        return cast(FederationProtocol, self)
 
     async def register_federated_region(
         self,
@@ -131,7 +143,7 @@ class KnowledgeFederationMixin:
         Returns:
             The registered FederatedRegion
         """
-        self._ensure_initialized()  # type: ignore[attr-defined]  # type: ignore[attr-defined]
+        self._proto._ensure_initialized()
 
         region = FederatedRegion(
             region_id=region_id,
@@ -155,7 +167,7 @@ class KnowledgeFederationMixin:
                 api_key=api_key,
                 mode=mode.value,
                 sync_scope=sync_scope.value,
-                workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                workspace_id=self._proto.workspace_id,
             )
             await store.save(config)
         except ImportError:
@@ -195,7 +207,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            result = await store.delete(region_id, self.workspace_id)  # type: ignore[attr-defined]
+            result = await store.delete(region_id, self._proto.workspace_id)
             if result or was_in_cache:
                 logger.info(f"Unregistered federated region {region_id}")
                 return True
@@ -237,10 +249,10 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._proto._ensure_initialized()
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self._proto.workspace_id
 
         # Get region from persistent store
         region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
@@ -270,7 +282,7 @@ class KnowledgeFederationMixin:
             ]
 
             # Query items without filters (filter visibility post-query)
-            result = await self.query(  # type: ignore[attr-defined]
+            result = await self._proto.query(
                 query="",  # Get all matching items
                 workspace_id=ws_id,
                 limit=1000,
@@ -356,10 +368,10 @@ class KnowledgeFederationMixin:
         """
         import time
 
-        self._ensure_initialized()  # type: ignore[attr-defined]
+        self._proto._ensure_initialized()
 
         start_time = time.time()
-        ws_id = workspace_id or self.workspace_id  # type: ignore[attr-defined]
+        ws_id = workspace_id or self._proto.workspace_id
 
         # Get region from persistent store
         region = await self._get_region_from_store(region_id)  # type: ignore[attr-defined]
@@ -403,7 +415,7 @@ class KnowledgeFederationMixin:
                             **item_data.get("metadata", {}),
                         },
                     )
-                    await self.store(request)  # type: ignore[attr-defined]
+                    await self._proto.store(request)
                     nodes_synced += 1
                 except Exception as e:
                     logger.warning(f"Failed to ingest item from {region_id}: {e}")
@@ -508,7 +520,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            config = await store.get(region_id, self.workspace_id)  # type: ignore[attr-defined]
+            config = await store.get(region_id, self._proto.workspace_id)
             if config:
                 return FederatedRegion(
                     region_id=config.region_id,
@@ -539,7 +551,7 @@ class KnowledgeFederationMixin:
             from aragora.storage.federation_registry_store import get_federation_registry_store
 
             store = get_federation_registry_store()
-            configs = await store.list_enabled(self.workspace_id)  # type: ignore[attr-defined]
+            configs = await store.list_enabled(self._proto.workspace_id)
             return [
                 FederatedRegion(
                     region_id=config.region_id,
@@ -623,7 +635,7 @@ class KnowledgeFederationMixin:
                 direction=direction,
                 nodes_synced=nodes_synced,
                 error=error,
-                workspace_id=self.workspace_id,  # type: ignore[attr-defined]
+                workspace_id=self._proto.workspace_id,
             )
         except ImportError:
             logger.debug("Federation registry store not available")

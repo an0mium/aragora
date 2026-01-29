@@ -107,6 +107,10 @@ TeamsOAuthHandler: HandlerType = None
 DiscordOAuthHandler: HandlerType = None
 OrganizationsHandler: HandlerType = None
 OAuthHandler: HandlerType = None
+ExternalIntegrationsHandler: HandlerType = None
+IntegrationManagementHandler: HandlerType = None
+FeatureIntegrationsHandler: HandlerType = None
+OAuthWizardHandler: HandlerType = None
 ReviewsHandler: HandlerType = None
 FormalVerificationHandler: HandlerType = None
 EvaluationHandler: HandlerType = None
@@ -328,6 +332,18 @@ try:
     )
     from aragora.server.handlers import (
         OrganizationsHandler as _OrganizationsHandler,
+    )
+    from aragora.server.handlers.external_integrations import (
+        ExternalIntegrationsHandler as _ExternalIntegrationsHandler,
+    )
+    from aragora.server.handlers.integration_management import (
+        IntegrationsHandler as _IntegrationManagementHandler,
+    )
+    from aragora.server.handlers.features.integrations import (
+        IntegrationsHandler as _FeatureIntegrationsHandler,
+    )
+    from aragora.server.handlers.oauth_wizard import (
+        OAuthWizardHandler as _OAuthWizardHandler,
     )
     from aragora.server.handlers import (
         PersonaHandler as _PersonaHandler,
@@ -572,6 +588,10 @@ try:
     DiscordOAuthHandler = _DiscordOAuthHandler
     OrganizationsHandler = _OrganizationsHandler
     OAuthHandler = _OAuthHandler
+    ExternalIntegrationsHandler = _ExternalIntegrationsHandler
+    IntegrationManagementHandler = _IntegrationManagementHandler
+    FeatureIntegrationsHandler = _FeatureIntegrationsHandler
+    OAuthWizardHandler = _OAuthWizardHandler
     ReviewsHandler = _ReviewsHandler
     FormalVerificationHandler = _FormalVerificationHandler
     EvaluationHandler = _EvaluationHandler
@@ -695,6 +715,10 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_graph_debates_handler", GraphDebatesHandler),
     ("_matrix_debates_handler", MatrixDebatesHandler),
     ("_features_handler", FeaturesHandler),
+    ("_feature_integrations_handler", FeatureIntegrationsHandler),
+    ("_external_integrations_handler", ExternalIntegrationsHandler),
+    ("_integration_management_handler", IntegrationManagementHandler),
+    ("_oauth_wizard_handler", OAuthWizardHandler),
     ("_memory_analytics_handler", MemoryAnalyticsHandler),
     ("_gauntlet_handler", GauntletHandler),
     ("_slack_handler", SlackHandler),
@@ -836,6 +860,17 @@ class RouteIndex:
             "_checkpoint_handler": ["/api/checkpoints"],
             "_graph_debates_handler": ["/api/debates/graph"],
             "_matrix_debates_handler": ["/api/debates/matrix"],
+            "_feature_integrations_handler": ["/api/v1/integrations", "/api/integrations"],
+            "_external_integrations_handler": [
+                "/api/v1/integrations/zapier",
+                "/api/v1/integrations/make",
+                "/api/v1/integrations/n8n",
+                "/api/integrations/zapier",
+                "/api/integrations/make",
+                "/api/integrations/n8n",
+            ],
+            "_integration_management_handler": ["/api/v2/integrations"],
+            "_oauth_wizard_handler": ["/api/v2/integrations/wizard"],
             "_gauntlet_handler": ["/api/gauntlet/"],
             "_organizations_handler": [
                 "/api/org/",

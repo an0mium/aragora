@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from aragora.agents.base import Agent
-    from aragora.debate.results import DebateResult
+    from aragora.core_types import DebateResult
     from aragora.events.security_events import SecurityEvent
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,9 @@ async def run_security_debate(
         result = await run_security_debate(event)
         print(result.final_answer)  # Remediation recommendations
     """
-    from aragora.debate.environment import Environment
+    from aragora.core_types import DebateResult, Environment
     from aragora.debate.orchestrator import Arena
     from aragora.debate.protocol import DebateProtocol
-    from aragora.debate.results import DebateResult
     from aragora.events.security_events import build_security_debate_question
 
     # Build the debate question from security findings

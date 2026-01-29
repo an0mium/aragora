@@ -3,8 +3,8 @@
 Generated: 2026-01-28
 
 ## Summary
-- SDK TS endpoints not implemented by handlers: 701
-- SDK PY endpoints not implemented by handlers: 646
+- SDK TS endpoints not implemented by handlers: 662
+- SDK PY endpoints not implemented by handlers: 635
 
 These endpoints likely represent stale SDK methods or legacy routes. They should be removed,
 deprecated, or reintroduced in the server if still required.
@@ -26,13 +26,6 @@ DELETE /api/v1/audit/sessions/{param}
 DELETE /api/v1/bindings
 DELETE /api/v1/bindings/resolve
 DELETE /api/v1/bindings/stats
-DELETE /api/v1/integrations/make/connections/{param}
-DELETE /api/v1/integrations/make/webhooks/{param}
-DELETE /api/v1/integrations/n8n/credentials/{param}
-DELETE /api/v1/integrations/n8n/webhooks/{param}
-DELETE /api/v1/integrations/zapier/apps/{param}
-DELETE /api/v1/integrations/zapier/triggers/{param}
-DELETE /api/v1/integrations/{param}
 DELETE /api/v1/keys/{param}
 DELETE /api/v1/knowledge/facts/{param}
 DELETE /api/v1/knowledge/mound/federation/regions/{param}
@@ -64,7 +57,6 @@ DELETE /api/v1/webhooks/{param}
 DELETE /api/v1/webhooks/{param}/events
 DELETE /api/v1/workflow-executions/{param}
 DELETE /api/v2/gmail/triage-rules/{param}
-DELETE /api/v2/integrations/{param}
 DELETE /api/v2/outlook/messages/{param}
 DELETE /inbox/accounts/{param}
 GET /accounting/expenses
@@ -232,17 +224,6 @@ GET /api/v1/incidents/{param}/merge
 GET /api/v1/incidents/{param}/notes
 GET /api/v1/incidents/{param}/reassign
 GET /api/v1/incidents/{param}/resolve
-GET /api/v1/integrations
-GET /api/v1/integrations/available
-GET /api/v1/integrations/config/{param}
-GET /api/v1/integrations/make/connections
-GET /api/v1/integrations/make/modules
-GET /api/v1/integrations/n8n/credentials
-GET /api/v1/integrations/n8n/nodes
-GET /api/v1/integrations/zapier/apps
-GET /api/v1/integrations/zapier/triggers
-GET /api/v1/integrations/{param}
-GET /api/v1/integrations/{param}/sync
 GET /api/v1/keys
 GET /api/v1/knowledge/facts/{param}
 GET /api/v1/knowledge/facts/{param}/contradictions
@@ -422,12 +403,6 @@ GET /api/v2/gusto/employees
 GET /api/v2/gusto/payrolls
 GET /api/v2/gusto/payrolls/{param}
 GET /api/v2/gusto/status
-GET /api/v2/integrations
-GET /api/v2/integrations/stats
-GET /api/v2/integrations/wizard/providers
-GET /api/v2/integrations/wizard/status
-GET /api/v2/integrations/{param}
-GET /api/v2/integrations/{param}/health
 GET /api/v2/outlook/conversations/{param}
 GET /api/v2/outlook/folders
 GET /api/v2/outlook/messages
@@ -450,7 +425,6 @@ GET /threat/hash/{param}
 GET /threat/ip/{param}
 GET /threat/status
 PATCH /api/v1/admin/organizations/{param}
-PATCH /api/v1/integrations/{param}
 PATCH /api/v1/knowledge/mound/share
 PATCH /api/v1/knowledge/{param}
 PATCH /api/v1/policies/{param}
@@ -555,15 +529,6 @@ POST /api/v1/feedback/nps
 POST /api/v1/findings/batch-evidence
 POST /api/v1/graph-debates
 POST /api/v1/graph-debates/{param}/branches
-POST /api/v1/integrations
-POST /api/v1/integrations/make/connections
-POST /api/v1/integrations/make/webhooks
-POST /api/v1/integrations/n8n/credentials
-POST /api/v1/integrations/n8n/webhooks
-POST /api/v1/integrations/zapier/apps
-POST /api/v1/integrations/zapier/triggers
-POST /api/v1/integrations/{param}/sync
-POST /api/v1/integrations/{param}/test
 POST /api/v1/invitations/{param}/accept
 POST /api/v1/knowledge
 POST /api/v1/knowledge/bulk
@@ -676,9 +641,6 @@ POST /api/v2/gmail/triage-rules
 POST /api/v2/gusto/connect
 POST /api/v2/gusto/disconnect
 POST /api/v2/gusto/payrolls/{param}/journal-entry
-POST /api/v2/integrations/wizard
-POST /api/v2/integrations/wizard/validate
-POST /api/v2/integrations/{param}/test
 POST /api/v2/outlook/messages/reply
 POST /api/v2/outlook/messages/send
 POST /api/v2/outlook/messages/{param}/move
@@ -702,7 +664,6 @@ PUT /api/v1/accounting/expenses/pending
 PUT /api/v1/accounting/expenses/stats
 PUT /api/v1/accounting/expenses/sync
 PUT /api/v1/accounting/expenses/upload
-PUT /api/v1/integrations/{param}
 PUT /api/v1/knowledge/facts/{param}
 PUT /api/v1/knowledge/mound/nodes/{param}/visibility
 PUT /api/v1/org/{param}
@@ -735,7 +696,6 @@ DELETE /api/v1/bindings/resolve
 DELETE /api/v1/bindings/stats
 DELETE /api/v1/cross-pollination/subscribers/{param}
 DELETE /api/v1/documents/{param}
-DELETE /api/v1/integrations/{param}
 DELETE /api/v1/knowledge/facts/{param}
 DELETE /api/v1/knowledge/mound/federation/regions/{param}
 DELETE /api/v1/notifications/email/recipient
@@ -758,7 +718,6 @@ DELETE /api/v1/user/organizations/{param}
 DELETE /api/v1/webhooks/dead-letter/{param}
 DELETE /api/v1/webhooks/{param}
 DELETE /api/v1/workflow-executions/{param}
-DELETE /api/v2/integrations/{param}
 DELETE /inbox/accounts/{param}
 GET /api/v1/a2a/agents/{param}
 GET /api/v1/a2a/tasks/{param}
@@ -932,7 +891,6 @@ GET /api/v1/incidents/{param}/merge
 GET /api/v1/incidents/{param}/notes
 GET /api/v1/incidents/{param}/reassign
 GET /api/v1/incidents/{param}/resolve
-GET /api/v1/integrations/{param}
 GET /api/v1/knowledge/facts/{param}
 GET /api/v1/knowledge/facts/{param}/contradictions
 GET /api/v1/knowledge/facts/{param}/relations
@@ -1107,10 +1065,6 @@ GET /api/v2/gusto/employees
 GET /api/v2/gusto/payrolls
 GET /api/v2/gusto/payrolls/{param}
 GET /api/v2/gusto/status
-GET /api/v2/integrations
-GET /api/v2/integrations/wizard/providers
-GET /api/v2/integrations/{param}
-GET /api/v2/integrations/{param}/health
 GET /api/v2/laboratory/agent/{param}/analysis
 GET /api/v2/laboratory/emergent-traits
 GET /api/v2/laboratory/experiments
@@ -1134,7 +1088,6 @@ GET /status
 PATCH /api/v1/admin/organizations/{param}
 PATCH /api/v1/compliance/violations/{param}
 PATCH /api/v1/documents/{param}
-PATCH /api/v1/integrations/{param}
 PATCH /api/v1/podcast/episodes/{param}
 PATCH /api/v1/policies/{param}
 PATCH /api/v1/teams/{param}
@@ -1228,7 +1181,6 @@ POST /api/v1/documents/{param}/reprocess
 POST /api/v1/feedback/general
 POST /api/v1/feedback/nps
 POST /api/v1/findings/batch-evidence
-POST /api/v1/integrations/{param}/test
 POST /api/v1/invitations/{param}/accept
 POST /api/v1/knowledge/facts/relations
 POST /api/v1/knowledge/facts/{param}/relations
@@ -1338,7 +1290,6 @@ POST /api/v2/ap/optimize
 POST /api/v2/gusto/connect
 POST /api/v2/gusto/disconnect
 POST /api/v2/gusto/payrolls/{param}/journal-entry
-POST /api/v2/integrations/{param}/test
 POST /api/v2/laboratory/cross-pollinations
 POST /api/v2/laboratory/experiments
 POST /inbox/bulk-action
@@ -1355,7 +1306,6 @@ PUT /api/v1/accounting/expenses/sync
 PUT /api/v1/accounting/expenses/upload
 PUT /api/v1/accounting/expenses/{param}
 PUT /api/v1/cross-pollination/bridge
-PUT /api/v1/integrations/{param}
 PUT /api/v1/knowledge/facts/{param}
 PUT /api/v1/org/{param}
 PUT /api/v1/org/{param}/members/{param}/role

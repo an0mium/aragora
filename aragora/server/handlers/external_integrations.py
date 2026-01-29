@@ -44,6 +44,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,11 @@ class ExternalIntegrationsHandler(SecureHandler):
     @staticmethod
     def can_handle(path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/integrations/")
+        normalized = strip_version_prefix(path)
+        if not normalized.startswith("/api/integrations/"):
+            return False
+        segments = normalized.strip("/").split("/")
+        return len(segments) >= 3 and segments[2] in {"zapier", "make", "n8n"}
 
     def __init__(self, server_context: dict):
         """Initialize with server context."""
