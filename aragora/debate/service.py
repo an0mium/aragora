@@ -35,7 +35,7 @@ import asyncio
 import os
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, cast
 
 from aragora.config.settings import get_settings
 from aragora.core import Agent, DebateResult, Environment
@@ -114,7 +114,19 @@ class DebateOptions:
                 "any",
                 "byzantine",
             ):
-                self.consensus = consensus_value  # type: ignore[assignment]
+                self.consensus = cast(
+                    Literal[
+                        "majority",
+                        "unanimous",
+                        "judge",
+                        "none",
+                        "weighted",
+                        "supermajority",
+                        "any",
+                        "byzantine",
+                    ],
+                    consensus_value,
+                )
 
         profile = os.environ.get("ARAGORA_DEBATE_PROFILE", "").lower()
         if profile in {"full", "nomic", "structured"}:
@@ -123,15 +135,41 @@ class DebateOptions:
 
                 nomic_profile = NomicDebateProfile.from_env()
                 self.rounds = nomic_profile.rounds
-                self.consensus = nomic_profile.consensus_mode  # type: ignore[assignment]
+                self.consensus = cast(
+                    Literal[
+                        "majority",
+                        "unanimous",
+                        "judge",
+                        "none",
+                        "weighted",
+                        "supermajority",
+                        "any",
+                        "byzantine",
+                    ],
+                    nomic_profile.consensus_mode,
+                )
             except Exception as exc:
                 logger.warning("Failed to apply debate profile '%s': %s", profile, exc)
 
     def to_protocol(self) -> DebateProtocol:
         """Convert options to a DebateProtocol."""
-        return DebateProtocol(  # type: ignore[call-arg,arg-type]
-            rounds=self.rounds,
-            consensus=self.consensus,
+        # Use "judge" as default if consensus not set (matches DebateProtocol default)
+        consensus_value = cast(
+            Literal[
+                "majority",
+                "unanimous",
+                "judge",
+                "none",
+                "weighted",
+                "supermajority",
+                "any",
+                "byzantine",
+            ],
+            self.consensus or "judge",
+        )
+        return DebateProtocol(
+            rounds=self.rounds or 3,
+            consensus=consensus_value,
             topology=self.topology,
             enable_graph=self.enable_graph,
         )

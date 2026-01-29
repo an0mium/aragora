@@ -141,7 +141,7 @@ class PermissionChecker:
         self._resource_policies: dict[str, Callable[..., bool]] = {}
 
         # Cache for resource permission checks
-        self._resource_permission_cache: dict[str, tuple[bool, datetime]] = {}
+        self._resource_permission_cache: dict[str, tuple[AuthorizationDecision, datetime]] = {}
 
         # Workspace-scoped role assignments (workspace_id -> user_id -> roles)
         self._workspace_roles: dict[str, dict[str, set[str]]] = {}
@@ -554,7 +554,7 @@ class PermissionChecker:
     ) -> None:
         """Cache a resource permission decision."""
         cache_key = f"{user_id}:{permission_key}:{resource_type.value}:{resource_id}:{org_id or ''}"
-        self._resource_permission_cache[cache_key] = (decision, datetime.now(timezone.utc))  # type: ignore[assignment]
+        self._resource_permission_cache[cache_key] = (decision, datetime.now(timezone.utc))
 
     def has_role(self, context: AuthorizationContext, role_name: str) -> bool:
         """Check if context has a specific role."""
