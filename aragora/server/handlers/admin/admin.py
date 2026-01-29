@@ -44,6 +44,7 @@ from ..base import (
     log_request,
     validate_path_segment,
 )
+from ..utils.sanitization import sanitize_user_response
 from ..secure import (
     SecureHandler,
     UnauthorizedError,
@@ -484,16 +485,8 @@ class AdminHandler(SecureHandler):
             active_only=active_only,
         )
 
-        # Convert users to safe dict (exclude password hashes)
-        user_dicts = []
-        for user in users:
-            user_dict = user.to_dict()
-            # Remove sensitive fields
-            user_dict.pop("password_hash", None)
-            user_dict.pop("password_salt", None)
-            user_dict.pop("api_key", None)
-            user_dict.pop("api_key_hash", None)
-            user_dicts.append(user_dict)
+        # Convert users to safe dict (exclude password hashes and sensitive fields)
+        user_dicts = [sanitize_user_response(user.to_dict()) for user in users]
 
         return json_response(
             {

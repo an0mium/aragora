@@ -65,6 +65,14 @@ from .responses import (
 )
 from .routing import PathMatcher, RouteDispatcher
 from .safe_data import safe_get, safe_get_nested, safe_json_parse
+from .sanitization import (
+    RESPONSE_SENSITIVE_FIELDS,
+    sanitize_response,
+    sanitize_user_response,
+    sanitize_integration_response,
+    sanitize_payment_response,
+    sanitize_output,
+)
 
 __all__ = [
     # Rate limiting
@@ -127,4 +135,11 @@ __all__ = [
     "require_permission_mixin",
     "require_any_permission",
     "require_all_permissions",
+    # Response sanitization
+    "RESPONSE_SENSITIVE_FIELDS",
+    "sanitize_response",
+    "sanitize_user_response",
+    "sanitize_integration_response",
+    "sanitize_payment_response",
+    "sanitize_output",
 ]
