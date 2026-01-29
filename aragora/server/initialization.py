@@ -237,17 +237,9 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
                         logger.info("[init] PostgresInsightStore initialized via shared pool")
                         return store
 
-                # Fall back to creating a standalone pool
-                import asyncio
-
-                from aragora.storage.postgres_store import get_postgres_pool
-
-                loop = asyncio.get_event_loop()
-                pool = loop.run_until_complete(get_postgres_pool())
-                store = PostgresInsightStore(pool)
-                loop.run_until_complete(store.initialize())
-                logger.info("[init] PostgresInsightStore initialized (standalone pool)")
-                return store
+                logger.info(
+                    "[init] Shared pool not available for PostgresInsightStore, using SQLite"
+                )
             except Exception as e:
                 logger.warning(f"[init] PostgresInsightStore failed, falling back: {e}")
     except ImportError:
