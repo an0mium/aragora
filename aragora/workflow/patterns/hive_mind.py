@@ -31,6 +31,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 class HiveMindPattern(WorkflowPattern):
     """
     Parallel agent execution with consensus merge.

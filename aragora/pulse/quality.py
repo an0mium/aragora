@@ -11,6 +11,7 @@ Quality signals:
 - Question/statement structure
 - Hashtag/mention spam
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +23,7 @@ from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class QualityScore:
     """Quality assessment for a topic."""
@@ -31,6 +33,7 @@ class QualityScore:
     is_acceptable: bool  # Meets minimum quality threshold
     signals: dict[str, float] = field(default_factory=dict)
     issues: list[str] = field(default_factory=list)
+
 
 # Clickbait patterns
 CLICKBAIT_PATTERNS = [
@@ -93,6 +96,7 @@ QUALITY_INDICATORS = [
     r"\bimplications?\b",
     r"\bconsequences?\b",
 ]
+
 
 class TopicQualityFilter:
     """
@@ -361,6 +365,7 @@ class TopicQualityFilter:
             "clickbait_pattern_count": len(self._clickbait_patterns),
             "spam_pattern_count": len(self._spam_patterns),
         }
+
 
 __all__ = [
     "QualityScore",

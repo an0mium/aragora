@@ -44,6 +44,7 @@ from aragora.connectors.automation.base import (
 
 logger = logging.getLogger(__name__)
 
+
 class N8NConnector(AutomationConnector):
     """
     n8n-specific webhook connector.

@@ -37,6 +37,7 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 # Rate limiter for breakpoints endpoints (60 requests per minute - debug feature)
 _breakpoints_limiter = RateLimiter(requests_per_minute=60)
 
+
 class BreakpointsHandler(BaseHandler):
     """Handler for breakpoint management endpoints."""
 

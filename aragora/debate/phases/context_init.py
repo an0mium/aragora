@@ -12,6 +12,7 @@ Arena._run_inner() method, handling:
 - DebateResult initialization
 - Proposer selection
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,6 +41,7 @@ except ImportError:
     get_rlm: Optional[Callable[..., Any]] = None  # type: ignore[no-redef]
     RLMConfig: Optional[type[Any]] = None  # type: ignore[no-redef]
     _RLMContext: Optional[type[Any]] = None  # type: ignore[no-redef]
+
 
 class ContextInitializer:
     """

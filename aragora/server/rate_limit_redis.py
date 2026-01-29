@@ -47,6 +47,7 @@ from aragora.server.middleware.rate_limit import (
     RateLimitResult,
 )
 
+
 @dataclass
 class RedisConfig:
     """Configuration for Redis rate limiter."""
@@ -61,6 +62,7 @@ class RedisConfig:
     max_connections: int = 50
     retry_on_timeout: bool = True
 
+
 def get_redis_config() -> RedisConfig:
     """Get Redis configuration from environment variables."""
     return RedisConfig(
@@ -70,6 +72,7 @@ def get_redis_config() -> RedisConfig:
         ip_limit=int(os.getenv("ARAGORA_IP_RATE_LIMIT", str(IP_RATE_LIMIT))),
         burst_multiplier=float(os.getenv("ARAGORA_BURST_MULTIPLIER", str(BURST_MULTIPLIER))),
     )
+
 
 class RedisRateLimiter:
     """
@@ -428,8 +431,10 @@ class RedisRateLimiter:
             finally:
                 self._redis = None
 
+
 # Factory function for creating rate limiter based on environment
 _rate_limiter_instance: Any | None = None
+
 
 def get_distributed_rate_limiter() -> Any:
     """
@@ -463,6 +468,7 @@ def get_distributed_rate_limiter() -> Any:
     logger.info("Using in-memory rate limiter")
     return _rate_limiter_instance
 
+
 def reset_distributed_rate_limiter() -> None:
     """Reset the distributed rate limiter instance (for testing)."""
     global _rate_limiter_instance
@@ -470,6 +476,7 @@ def reset_distributed_rate_limiter() -> None:
         if hasattr(_rate_limiter_instance, "close"):
             _rate_limiter_instance.close()
         _rate_limiter_instance = None
+
 
 __all__ = [
     "RedisConfig",

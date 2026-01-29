@@ -25,6 +25,7 @@ from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
 
+
 class BugSeverity(str, Enum):
     """Severity level of potential bugs."""
 
@@ -33,6 +34,7 @@ class BugSeverity(str, Enum):
     MEDIUM = "medium"  # Moderate risk
     LOW = "low"  # Minor issue
     INFO = "info"  # Code smell, potential improvement
+
 
 class BugCategory(str, Enum):
     """Category of potential bug."""
@@ -51,6 +53,7 @@ class BugCategory(str, Enum):
     API_MISUSE = "api_misuse"
     CODE_SMELL = "code_smell"
 
+
 @dataclass
 class BugPattern:
     """A pattern for detecting potential bugs."""
@@ -64,6 +67,7 @@ class BugPattern:
     fix_suggestion: str
     languages: Optional[list[str]] = None
     false_positive_hints: list[str] = field(default_factory=list)
+
 
 @dataclass
 class PotentialBug:
@@ -119,6 +123,7 @@ class PotentialBug:
             "related_lines": self.related_lines,
             "is_false_positive": self.is_false_positive,
         }
+
 
 @dataclass
 class BugReport:
@@ -178,6 +183,7 @@ class BugReport:
             "bugs": [b.to_dict() for b in self.bugs],
             "error": self.error,
         }
+
 
 class BugDetector:
     """
@@ -958,6 +964,7 @@ class BugDetector:
             ".rs": "rust",
         }
         return mapping.get(ext)
+
 
 def quick_bug_scan(
     path: str,

@@ -76,6 +76,7 @@ from aragora.knowledge.mound.ops.analytics import AnalyticsMixin
 from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
 
+
 class KnowledgeMound(  # type: ignore[misc]
     CRUDOperationsMixin,
     QueryOperationsMixin,

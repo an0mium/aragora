@@ -11,6 +11,7 @@ Usage:
     bridge = ArenaEventBridge(event_bus)
     bridge.connect_to_cross_subscribers()
 """
+
 from __future__ import annotations
 
 import logging
@@ -53,6 +54,7 @@ EVENT_TYPE_MAP: dict[str, StreamEventType] = {
     "consensus": StreamEventType.CONSENSUS,
     "vote": StreamEventType.VOTE,
 }
+
 
 class ArenaEventBridge:
     """
@@ -159,6 +161,7 @@ class ArenaEventBridge:
         """Check if the bridge is connected."""
         return self._connected
 
+
 def create_arena_bridge(event_bus: "EventBus") -> ArenaEventBridge:
     """
     Factory function to create and connect an ArenaEventBridge.
@@ -172,6 +175,7 @@ def create_arena_bridge(event_bus: "EventBus") -> ArenaEventBridge:
     bridge = ArenaEventBridge(event_bus)
     bridge.connect_to_cross_subscribers()
     return bridge
+
 
 __all__ = [
     "ArenaEventBridge",

@@ -33,6 +33,7 @@ from aragora.utils.cache_registry import register_lru_cache
 
 logger = logging.getLogger(__name__)
 
+
 class QueryMode(str, Enum):
     """Query processing modes."""
 
@@ -42,6 +43,7 @@ class QueryMode(str, Enum):
     SUMMARY = "summary"  # Summarize content
     EXTRACTIVE = "extractive"  # Extract specific information
 
+
 class AnswerConfidence(str, Enum):
     """Confidence level in the generated answer."""
 
@@ -49,6 +51,7 @@ class AnswerConfidence(str, Enum):
     MEDIUM = "medium"  # Moderate evidence, likely answer
     LOW = "low"  # Weak evidence, uncertain
     NONE = "none"  # No relevant information found
+
 
 @dataclass
 class QueryConfig:
@@ -76,6 +79,7 @@ class QueryConfig:
     enable_context: bool = True  # Use conversation history
     max_context_turns: int = 3  # Maximum turns to include
 
+
 @dataclass
 class Citation:
     """A citation to source material."""
@@ -99,6 +103,7 @@ class Citation:
             "relevance_score": self.relevance_score,
             "heading_context": self.heading_context,
         }
+
 
 @dataclass
 class QueryResult:
@@ -137,6 +142,7 @@ class QueryResult:
         """Check if a meaningful answer was found."""
         return self.confidence != AnswerConfidence.NONE and bool(self.answer)
 
+
 @dataclass
 class StreamingChunk:
     """A chunk of streaming response."""
@@ -145,9 +151,11 @@ class StreamingChunk:
     is_final: bool = False
     citations: list[Citation] = field(default_factory=list)
 
+
 # =============================================================================
 # Cached Query Mode Detection
 # =============================================================================
+
 
 @register_lru_cache
 @lru_cache(maxsize=512)
@@ -182,6 +190,7 @@ def _detect_query_mode_cached(question_lower: str) -> str:
 
     # Default to factual
     return QueryMode.FACTUAL.value
+
 
 class DocumentQueryEngine:
     """
@@ -747,7 +756,9 @@ ANSWER:"""
         if conversation_id in self._conversation_history:
             del self._conversation_history[conversation_id]
 
+
 # Convenience functions
+
 
 async def query_documents(
     question: str,
@@ -768,6 +779,7 @@ async def query_documents(
     engine = await DocumentQueryEngine.create(config=config)
     return await engine.query(question=question, document_ids=document_ids)
 
+
 async def summarize_document(
     document_id: str,
     focus: str | None = None,
@@ -784,6 +796,7 @@ async def summarize_document(
     """
     engine = await DocumentQueryEngine.create()
     return await engine.summarize_documents(document_ids=[document_id], focus=focus)
+
 
 __all__ = [
     "DocumentQueryEngine",

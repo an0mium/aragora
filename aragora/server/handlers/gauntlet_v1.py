@@ -30,6 +30,7 @@ from .utils.auth import ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 
+
 class GauntletSecureHandler(SecureHandler):
     """Base handler for Gauntlet v1 endpoints with RBAC protection."""
 
@@ -61,11 +62,13 @@ class GauntletSecureHandler(SecureHandler):
                 problem_type=f"{PROBLEM_TYPE_BASE}/forbidden",
             )
 
+
 # RFC 7807 Problem Types
 PROBLEM_TYPE_BASE = "https://aragora.ai/problems"
 PROBLEM_NOT_FOUND = f"{PROBLEM_TYPE_BASE}/not-found"
 PROBLEM_VALIDATION = f"{PROBLEM_TYPE_BASE}/validation-error"
 PROBLEM_INTERNAL = f"{PROBLEM_TYPE_BASE}/internal-error"
+
 
 def rfc7807_error(
     status: int,
@@ -90,6 +93,7 @@ def rfc7807_error(
         content_type="application/problem+json",
         body=json.dumps(problem).encode("utf-8"),
     )
+
 
 class GauntletSchemaHandler(GauntletSecureHandler):
     """
@@ -154,6 +158,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
                 detail=str(e),
             )
 
+
 class GauntletAllSchemasHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/schemas
@@ -198,6 +203,7 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
                 title="Internal Server Error",
                 detail=str(e),
             )
+
 
 class GauntletTemplatesListHandler(GauntletSecureHandler):
     """
@@ -273,6 +279,7 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
                 detail=str(e),
             )
 
+
 class GauntletTemplateHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/templates/{id}
@@ -334,6 +341,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
                 title="Internal Server Error",
                 detail=str(e),
             )
+
 
 class GauntletReceiptExportHandler(GauntletSecureHandler):
     """
@@ -559,6 +567,7 @@ class GauntletReceiptExportHandler(GauntletSecureHandler):
                 detail=str(e),
             )
 
+
 class GauntletHeatmapExportHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/{id}/heatmap/export
@@ -681,6 +690,7 @@ class GauntletHeatmapExportHandler(GauntletSecureHandler):
                 detail=str(e),
             )
 
+
 class GauntletValidateReceiptHandler(GauntletSecureHandler):
     """
     POST /api/v1/gauntlet/validate/receipt
@@ -740,6 +750,7 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
                 detail=str(e),
             )
 
+
 # Handler classes for registration
 GAUNTLET_V1_HANDLERS = [
     GauntletSchemaHandler,
@@ -750,6 +761,7 @@ GAUNTLET_V1_HANDLERS = [
     GauntletHeatmapExportHandler,
     GauntletValidateReceiptHandler,
 ]
+
 
 def register_gauntlet_v1_handlers(router: Any, server_context: Any = None) -> None:
     """Register all v1 Gauntlet handlers with a router."""

@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DebateOptions:
     """Configuration options for a debate.
@@ -134,6 +135,7 @@ class DebateOptions:
             topology=self.topology,
             enable_graph=self.enable_graph,
         )
+
 
 class DebateService:
     """High-level service for running debates.
@@ -394,8 +396,10 @@ class DebateService:
 
         return hooks if hooks else None
 
+
 # Global service instance
 _debate_service: DebateService | None = None
+
 
 def get_debate_service(
     default_agents: Optional[list[Agent] | list[str]] = None,
@@ -423,6 +427,7 @@ def get_debate_service(
 
     return _debate_service
 
+
 def reset_debate_service() -> None:
     """Reset the global debate service instance.
 
@@ -430,6 +435,7 @@ def reset_debate_service() -> None:
     """
     global _debate_service
     _debate_service = None
+
 
 __all__ = [
     "DebateService",

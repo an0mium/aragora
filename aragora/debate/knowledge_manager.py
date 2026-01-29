@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ArenaKnowledgeManager:
     """Manages Knowledge Mound operations for Arena debates.
 

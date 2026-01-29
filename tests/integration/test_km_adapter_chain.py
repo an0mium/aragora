@@ -22,7 +22,7 @@ class MockMemoryItem:
     content: str
     confidence: float = 0.8
     tier: str = "medium"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -39,7 +39,7 @@ class MockContinuumMemory:
     """Mock Continuum memory for testing adapter chain."""
 
     def __init__(self):
-        self.items: Dict[str, MockMemoryItem] = {}
+        self.items: dict[str, MockMemoryItem] = {}
         self.sync_calls = 0
 
     async def store(self, item_id: str, content: str, **kwargs) -> str:
@@ -49,7 +49,7 @@ class MockContinuumMemory:
     async def retrieve(self, item_id: str) -> Optional[MockMemoryItem]:
         return self.items.get(item_id)
 
-    async def list_items(self, limit: int = 100) -> List[MockMemoryItem]:
+    async def list_items(self, limit: int = 100) -> list[MockMemoryItem]:
         return list(self.items.values())[:limit]
 
 
@@ -57,8 +57,8 @@ class MockEloSystem:
     """Mock ELO system for testing adapter chain."""
 
     def __init__(self):
-        self.ratings: Dict[str, float] = {"agent-1": 1000, "agent-2": 1000}
-        self.matches: List[MockEloMatch] = []
+        self.ratings: dict[str, float] = {"agent-1": 1000, "agent-2": 1000}
+        self.matches: list[MockEloMatch] = []
 
     def get_rating(self, agent_id: str) -> float:
         return self.ratings.get(agent_id, 1000)
@@ -79,13 +79,13 @@ class MockCritiqueStore:
     """Mock critique store for testing adapter chain."""
 
     def __init__(self):
-        self.critiques: Dict[str, Dict[str, Any]] = {}
+        self.critiques: dict[str, dict[str, Any]] = {}
 
     async def store_critique(self, critique_id: str, **kwargs) -> str:
         self.critiques[critique_id] = kwargs
         return critique_id
 
-    async def get_critiques(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_critiques(self, limit: int = 100) -> list[dict[str, Any]]:
         return list(self.critiques.values())[:limit]
 
 

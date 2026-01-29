@@ -28,6 +28,7 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ResearchPattern:
     """Pattern for detecting research elements."""
@@ -38,6 +39,7 @@ class ResearchPattern:
     confidence_weight: float  # How much to trust this type
     description: str
 
+
 @dataclass
 class StatisticalPattern:
     """Pattern for detecting statistical claims."""
@@ -46,6 +48,7 @@ class StatisticalPattern:
     pattern: str
     category: str  # p-value, confidence_interval, effect_size, etc.
     description: str
+
 
 class ResearchKnowledge(BaseVerticalKnowledge):
     """

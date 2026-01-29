@@ -358,11 +358,7 @@ class TestFluentChaining:
     def test_chain_with_mocked_components(self, builder):
         elo = MagicMock()
         memory = MagicMock()
-        result = (
-            builder.with_elo_system(elo)
-            .with_memory(memory)
-            .with_rounds(5)
-        )
+        result = builder.with_elo_system(elo).with_memory(memory).with_rounds(5)
         assert result is builder
         assert builder._elo_system is elo
         assert builder._memory is memory

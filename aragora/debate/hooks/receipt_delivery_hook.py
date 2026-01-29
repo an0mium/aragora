@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DeliveryResult:
     """Result of a receipt delivery attempt."""
@@ -57,6 +58,7 @@ class DeliveryResult:
             "timestamp": self.timestamp,
             "timestamp_iso": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
         }
+
 
 class ReceiptDeliveryHook:
     """Hook for automatic receipt delivery after debates.
@@ -655,6 +657,7 @@ Generated at {receipt.get("timestamp", datetime.now(timezone.utc).isoformat())}
         """Get the delivery history."""
         return self._delivery_history.copy()
 
+
 def create_receipt_delivery_hook(
     org_id: str,
     min_confidence: float = 0.0,
@@ -678,5 +681,6 @@ def create_receipt_delivery_hook(
         require_consensus=require_consensus,
         enabled=enabled,
     )
+
 
 __all__ = ["ReceiptDeliveryHook", "DeliveryResult", "create_receipt_delivery_hook"]

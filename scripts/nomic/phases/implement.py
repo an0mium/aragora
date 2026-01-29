@@ -50,7 +50,7 @@ class ImplementPhase:
         progress_loader: Optional[Callable[[Path], Any]] = None,
         progress_saver: Optional[Callable[[Any, Path], None]] = None,
         progress_clearer: Optional[Callable[[Path], None]] = None,
-        protected_files: Optional[List[str]] = None,
+        protected_files: Optional[list[str]] = None,
         cycle_count: int = 0,
         log_fn: Optional[Callable[[str], None]] = None,
         stream_emit_fn: Optional[Callable[..., None]] = None,
@@ -151,7 +151,7 @@ class ImplementPhase:
         if progress and hasattr(progress, "plan") and progress.plan.design_hash == design_hash:
             self._log("  Resuming from checkpoint...")
             plan = progress.plan
-            completed: Set[str] = set(progress.completed_tasks)
+            completed: set[str] = set(progress.completed_tasks)
             stash_ref = progress.git_stash_ref
         else:
             # Generate new plan
@@ -440,7 +440,7 @@ CRITICAL SAFETY RULES:
         except Exception:
             return ""
 
-    async def _get_modified_files(self) -> List[str]:
+    async def _get_modified_files(self) -> list[str]:
         """Get list of modified files."""
         try:
             proc = await asyncio.create_subprocess_exec(

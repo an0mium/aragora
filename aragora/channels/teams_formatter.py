@@ -13,6 +13,7 @@ from .formatter import ReceiptFormatter, register_formatter
 if TYPE_CHECKING:
     from aragora.export.decision_receipt import DecisionReceipt
 
+
 @register_formatter
 class TeamsReceiptFormatter(ReceiptFormatter):
     """Format decision receipts for Microsoft Teams using Adaptive Cards."""

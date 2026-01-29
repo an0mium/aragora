@@ -46,6 +46,7 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GraphLink:
     """A relationship between two knowledge items."""
@@ -60,6 +61,7 @@ class GraphLink:
     tenant_id: str
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class LineageNode:
     """A node in a belief lineage chain."""
@@ -72,6 +74,7 @@ class LineageNode:
     created_at: datetime
     tenant_id: str
 
+
 @dataclass
 class GraphTraversalResult:
     """Result of traversing the knowledge graph."""
@@ -82,6 +85,7 @@ class GraphTraversalResult:
     depth: int
     total_nodes: int
     total_edges: int
+
 
 class KnowledgeGraphStore(SQLiteStore):
     """
@@ -795,6 +799,7 @@ class KnowledgeGraphStore(SQLiteStore):
             "hub_nodes": [{"node_id": r[0], "connections": r[1]} for r in hub_nodes],
             "tenant_id": tenant_id,
         }
+
 
 __all__ = [
     "KnowledgeGraphStore",

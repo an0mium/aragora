@@ -5,6 +5,7 @@ When debates hit unresolved tensions, spawns recursive sub-debates with
 evolved specialist agents to resolve specific points, then synthesizes
 results back into the parent debate.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +21,7 @@ from aragora.genesis.genome import AgentGenome, GenomeStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SubDebateResult:
     """Result from a sub-debate spawned to resolve a tension."""
@@ -32,6 +34,7 @@ class SubDebateResult:
     depth: int
     resolution: str  # Summary of how the tension was resolved
     success: bool  # Whether the sub-debate reached consensus
+
 
 @dataclass
 class FractalResult:
@@ -75,6 +78,7 @@ class FractalResult:
     def get_all_debate_ids(self) -> list[str]:
         """Get all debate IDs in the tree."""
         return [self.root_debate_id] + [sd.debate_id for sd in self.sub_debates]
+
 
 class FractalOrchestrator:
     """

@@ -7,6 +7,7 @@ Provides token bucket rate limiting for API calls with:
 - Thread-safe operation with per-provider locks (no global lock contention)
 - Exponential backoff for rate limit recovery
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ from aragora.shared.rate_limiting import ExponentialBackoff
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class OpenRouterTier:
     """Rate limit configuration for an OpenRouter pricing tier."""
@@ -28,6 +30,7 @@ class OpenRouterTier:
     requests_per_minute: int
     tokens_per_minute: int = 0  # 0 = unlimited
     burst_size: int = 10  # Allow short bursts
+
 
 # OpenRouter tier configurations (based on their pricing)
 OPENROUTER_TIERS = {
@@ -38,6 +41,7 @@ OPENROUTER_TIERS = {
     "unlimited": OpenRouterTier(name="unlimited", requests_per_minute=1000, burst_size=100),
 }
 
+
 @dataclass
 class ProviderTier:
     """Rate limit configuration for an API provider."""
@@ -46,6 +50,7 @@ class ProviderTier:
     requests_per_minute: int
     tokens_per_minute: int = 0  # 0 = unlimited
     burst_size: int = 10  # Allow short bursts
+
 
 # Provider-specific default tiers (based on typical API limits)
 # These can be overridden via environment variables
@@ -67,6 +72,7 @@ PROVIDER_DEFAULT_TIERS: dict[str, ProviderTier] = {
     # LM Studio (local): Higher limits since it's local
     "lm_studio": ProviderTier(name="lm_studio", requests_per_minute=1000, burst_size=100),
 }
+
 
 class OpenRouterRateLimiter:
     """Rate limiter for OpenRouter API calls.
@@ -276,6 +282,7 @@ class OpenRouterRateLimiter:
         """Backward-compatible refill method (for testing)."""
         self._bucket._refill()
 
+
 class RateLimitContext:
     """Async context manager for rate limit acquisition.
 
@@ -304,6 +311,7 @@ class RateLimitContext:
         """Release the token back on request error."""
         if self._acquired:
             self._limiter.release_on_error()
+
 
 class ProviderRateLimiter:
     """Generic rate limiter for any API provider.
@@ -495,6 +503,7 @@ class ProviderRateLimiter:
         """Backward-compatible refill method (for testing)."""
         self._bucket._refill()
 
+
 class ProviderRateLimitContext:
     """Async context manager for provider rate limit acquisition."""
 
@@ -520,6 +529,7 @@ class ProviderRateLimitContext:
         """Release the token back on request error."""
         if self._acquired:
             self._limiter.release_on_error()
+
 
 class ProviderRateLimiterRegistry:
     """Registry for per-provider rate limiters.
@@ -589,9 +599,11 @@ class ProviderRateLimiterRegistry:
         with self._lock:
             return list(self._limiters.keys())
 
+
 # Global registry for per-provider rate limiters
 _provider_registry: ProviderRateLimiterRegistry | None = None
 _provider_registry_lock = threading.Lock()
+
 
 def get_provider_limiter(
     provider: str, rpm: int | None = None, burst: int | None = None
@@ -628,6 +640,7 @@ def get_provider_limiter(
 
     return _provider_registry.get(provider, rpm=rpm, burst=burst)
 
+
 def get_provider_registry() -> ProviderRateLimiterRegistry:
     """Get the global provider rate limiter registry.
 
@@ -642,6 +655,7 @@ def get_provider_registry() -> ProviderRateLimiterRegistry:
                 _provider_registry = ProviderRateLimiterRegistry()
 
     return _provider_registry
+
 
 def reset_provider_limiters(provider: str | None = None) -> None:
     """Reset rate limiter(s) for providers.
@@ -659,8 +673,10 @@ def reset_provider_limiters(provider: str | None = None) -> None:
         registry = get_provider_registry()
         registry.reset(provider)
 
+
 # Use ServiceRegistry for rate limiter singleton management
 _openrouter_limiter_lock = threading.Lock()
+
 
 def get_openrouter_limiter() -> OpenRouterRateLimiter:
     """Get or create the global OpenRouter rate limiter.
@@ -675,6 +691,7 @@ def get_openrouter_limiter() -> OpenRouterRateLimiter:
             registry.register(OpenRouterRateLimiter, OpenRouterRateLimiter())
         return registry.resolve(OpenRouterRateLimiter)
 
+
 def set_openrouter_tier(tier: str) -> None:
     """Set the OpenRouter rate limit tier.
 
@@ -685,6 +702,7 @@ def set_openrouter_tier(tier: str) -> None:
     with _openrouter_limiter_lock:
         registry = ServiceRegistry.get()
         registry.register(OpenRouterRateLimiter, OpenRouterRateLimiter(tier=tier))
+
 
 __all__ = [
     # Exponential backoff

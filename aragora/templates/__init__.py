@@ -8,6 +8,7 @@ Pre-built debate structures for high-value use cases:
 - Research Synthesis
 - Policy Review
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aragora.debate.protocol import DebateProtocol
+
 
 class TemplateType(Enum):
     """Types of debate templates."""
@@ -31,6 +33,7 @@ class TemplateType(Enum):
     HEALTHCARE_COMPLIANCE = "healthcare_compliance"
     FINANCIAL_RISK = "financial_risk"
 
+
 @dataclass
 class DebateRole:
     """A role in a debate template."""
@@ -40,6 +43,7 @@ class DebateRole:
     objectives: list[str]
     evaluation_criteria: list[str]
     example_prompts: list[str] = field(default_factory=list)
+
 
 @dataclass
 class DebatePhase:
@@ -51,6 +55,7 @@ class DebatePhase:
     roles_active: list[str]
     objectives: list[str]
     outputs: list[str]
+
 
 @dataclass
 class DebateTemplate:
@@ -78,6 +83,7 @@ class DebateTemplate:
     domain: str
     difficulty: float = 0.5
     tags: list[str] = field(default_factory=list)
+
 
 # ============================================================================
 # Code Review Template
@@ -1190,11 +1196,13 @@ TEMPLATES = {
     TemplateType.FINANCIAL_RISK: FINANCIAL_RISK_TEMPLATE,
 }
 
+
 def get_template(template_type: TemplateType) -> DebateTemplate:
     """Get a debate template by type."""
     if template_type not in TEMPLATES:
         raise ValueError(f"Unknown template type: {template_type}")
     return TEMPLATES[template_type]
+
 
 def list_templates() -> list[dict]:
     """List all available templates."""
@@ -1209,6 +1217,7 @@ def list_templates() -> list[dict]:
         }
         for t in TEMPLATES.values()
     ]
+
 
 def template_to_protocol(
     template: DebateTemplate,
@@ -1265,6 +1274,7 @@ def template_to_protocol(
         convergence_detection=overrides.get("convergence_detection", True),
         enable_calibration=overrides.get("enable_calibration", True),
     )
+
 
 __all__ = [
     "DebateTemplate",

@@ -26,6 +26,7 @@ from aragora.connectors.chat.models import (
     ChatUser,
 )
 
+
 class SlackThreadManager:
     """
     Slack-specific thread management using thread_ts.

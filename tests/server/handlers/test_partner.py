@@ -95,7 +95,7 @@ class _FakePartner:
     status: Any
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     webhook_url: Optional[str] = None
     webhook_secret: Optional[str] = None
     referral_code: Optional[str] = "REFCODE1"
@@ -123,7 +123,7 @@ class _FakeAPIKey:
     key_prefix: str
     key_hash: str
     name: str
-    scopes: List[str]
+    scopes: list[str]
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None

@@ -20,6 +20,7 @@ Usage:
     ))
     await whatsapp.send_debate_summary(debate_result)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,11 +37,13 @@ from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
+
 class WhatsAppProvider(Enum):
     """WhatsApp API provider."""
 
     META = "meta"
     TWILIO = "twilio"
+
 
 @dataclass
 class WhatsAppConfig:
@@ -94,6 +97,7 @@ class WhatsAppConfig:
         elif self.twilio_account_sid and self.twilio_auth_token and self.twilio_whatsapp_number:
             return WhatsAppProvider.TWILIO
         return None
+
 
 class WhatsAppIntegration:
     """

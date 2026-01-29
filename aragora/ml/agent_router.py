@@ -34,6 +34,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 class TaskType(str, Enum):
     """Categories of tasks for routing."""
 
@@ -44,6 +45,7 @@ class TaskType(str, Enum):
     RESEARCH = "research"
     MATH = "math"
     GENERAL = "general"
+
 
 @dataclass
 class AgentCapabilities:
@@ -151,6 +153,7 @@ class AgentCapabilities:
             ),
         }
 
+
 @dataclass
 class RoutingDecision:
     """Result of agent routing decision."""
@@ -171,6 +174,7 @@ class RoutingDecision:
             "diversity_score": round(self.diversity_score, 3),
         }
 
+
 @dataclass
 class AgentRouterConfig:
     """Configuration for agent router."""
@@ -189,6 +193,7 @@ class AgentRouterConfig:
 
     # Task classification
     use_embeddings: bool = True
+
 
 class AgentRouter:
     """Routes tasks to optimal agent combinations.
@@ -621,8 +626,10 @@ class AgentRouter:
 
         return stats
 
+
 # Global instance
 _agent_router: AgentRouter | None = None
+
 
 def get_agent_router() -> AgentRouter:
     """Get or create the global agent router instance."""

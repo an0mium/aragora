@@ -41,7 +41,7 @@ class MockClassificationResult:
     is_spam: bool = False
     spam_score: float = 0.0
     confidence: float = 0.9
-    reasons: List[str] = None
+    reasons: list[str] = None
     content_score: float = 0.0
     sender_score: float = 0.0
     pattern_score: float = 0.0

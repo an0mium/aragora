@@ -194,6 +194,7 @@ SALESFORCE_OBJECTS = {
     },
 }
 
+
 @dataclass
 class SalesforceRecord:
     """A Salesforce record."""
@@ -209,6 +210,7 @@ class SalesforceRecord:
     url: str = ""
     attributes: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class SalesforceAttachment:
     """A Salesforce file attachment."""
@@ -219,6 +221,7 @@ class SalesforceAttachment:
     body_length: int
     parent_id: str
     created_at: datetime | None = None
+
 
 class SalesforceConnector(EnterpriseConnector):
     """
@@ -754,5 +757,6 @@ class SalesforceConnector(EnterpriseConnector):
             opportunities.append(record)
 
         return opportunities
+
 
 __all__ = ["SalesforceConnector", "SalesforceRecord", "SALESFORCE_OBJECTS"]

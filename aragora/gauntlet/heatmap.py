@@ -4,12 +4,14 @@ Risk Heatmap - Visual risk aggregation.
 Provides a category x severity breakdown of findings
 for dashboard visualization.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from .result import GauntletResult
+
 
 @dataclass
 class HeatmapCell:
@@ -38,6 +40,7 @@ class HeatmapCell:
             "intensity": self.intensity,
             "vulnerabilities": self.vulnerabilities,
         }
+
 
 @dataclass
 class RiskHeatmap:

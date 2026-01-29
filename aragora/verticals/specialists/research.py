@@ -144,6 +144,7 @@ improve the quality and rigor of their work.""",
     tags=["research", "science", "methodology", "statistics"],
 )
 
+
 @VerticalRegistry.register(
     "research",
     config=RESEARCH_CONFIG,

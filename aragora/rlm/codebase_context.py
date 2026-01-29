@@ -58,4 +58,5 @@ class CodebaseContextBuilder(NomicContextBuilder):
             full_corpus=full_corpus,
         )
 
+
 __all__ = ["CodebaseContextBuilder"]

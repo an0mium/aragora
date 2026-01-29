@@ -65,6 +65,7 @@ T = TypeVar("T")
 # Cache Protocol
 # =============================================================================
 
+
 @dataclass
 class CacheStats:
     """Statistics for a cache instance."""
@@ -94,6 +95,7 @@ class CacheStats:
             }
             or None,
         )
+
 
 @runtime_checkable
 class CacheBackend(Protocol[T]):
@@ -162,12 +164,14 @@ class CacheBackend(Protocol[T]):
         """
         ...
 
+
 # =============================================================================
 # Cache Registry
 # =============================================================================
 
 _cache_registry: dict[str, CacheBackend] = {}
 _registry_lock = threading.Lock()
+
 
 def register_cache(name: str, cache: CacheBackend) -> None:
     """Register a cache instance in the global registry.
@@ -180,6 +184,7 @@ def register_cache(name: str, cache: CacheBackend) -> None:
         _cache_registry[name] = cache
         logger.debug(f"Registered cache: {name}")
 
+
 def get_cache(name: str) -> CacheBackend | None:
     """Get a cache instance from the registry.
 
@@ -191,6 +196,7 @@ def get_cache(name: str) -> CacheBackend | None:
     """
     with _registry_lock:
         return _cache_registry.get(name)
+
 
 def get_all_cache_stats() -> dict[str, CacheStats]:
     """Get statistics for all registered caches.
@@ -208,6 +214,7 @@ def get_all_cache_stats() -> dict[str, CacheStats]:
                 logger.warning(f"Failed to get stats for cache {name}: {e}")
         return result
 
+
 def list_caches() -> list[str]:
     """List all registered cache names.
 
@@ -216,6 +223,7 @@ def list_caches() -> list[str]:
     """
     with _registry_lock:
         return list(_cache_registry.keys())
+
 
 # =============================================================================
 # Re-exports from implementations
@@ -246,6 +254,7 @@ from aragora.utils.redis_cache import HybridTTLCache, RedisTTLCache
 # Auto-register global caches
 # =============================================================================
 
+
 def _auto_register_global_caches() -> None:
     """Auto-register the global caches from utils.cache."""
     try:
@@ -253,6 +262,7 @@ def _auto_register_global_caches() -> None:
         register_cache("query", get_query_cache())
     except Exception as e:
         logger.debug(f"Failed to auto-register global caches: {e}")
+
 
 # Register on import
 _auto_register_global_caches()

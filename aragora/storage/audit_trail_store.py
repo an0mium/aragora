@@ -47,6 +47,7 @@ DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "audit_trails.db"
 )
 
+
 @dataclass
 class StoredTrail:
     """A stored audit trail entry."""
@@ -75,6 +76,7 @@ class StoredTrail:
             **self.data,
         }
 
+
 @dataclass
 class StoredReceipt:
     """A stored decision receipt entry."""
@@ -102,6 +104,7 @@ class StoredReceipt:
             "audit_trail_id": self.audit_trail_id,
             **self.data,
         }
+
 
 class AuditTrailStore:
     """
@@ -603,9 +606,11 @@ class AuditTrailStore:
             self._backend.close()
             self._backend = None
 
+
 # Module-level singleton
 _default_store: AuditTrailStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_audit_trail_store(
     db_path: Path | None = None,
@@ -682,6 +687,7 @@ def get_audit_trail_store(
 
     return _default_store
 
+
 def reset_audit_trail_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -689,6 +695,7 @@ def reset_audit_trail_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
+
 
 __all__ = [
     "AuditTrailStore",

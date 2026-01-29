@@ -50,6 +50,7 @@ PERSISTENCE_ENABLED = os.environ.get("ARAGORA_QUOTA_PERSISTENCE", "").lower() in
     "yes",
 )
 
+
 class QuotaPeriod(str, Enum):
     """Time period for quota limits."""
 
@@ -58,6 +59,7 @@ class QuotaPeriod(str, Enum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
     PER_REQUEST = "per_request"  # Single request limit
+
 
 @dataclass
 class QuotaPolicy:
@@ -86,6 +88,7 @@ class QuotaPolicy:
             "burst_window_seconds": self.burst_window_seconds,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class QuotaUsage:
@@ -118,6 +121,7 @@ class QuotaUsage:
             "percentage_used": self.percentage_used,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class UsageRecord:
@@ -164,6 +168,7 @@ class UsageRecord:
             timestamp=timestamp,
             metadata=data.get("metadata", {}),
         )
+
 
 class QuotaEnforcer:
     """
@@ -711,6 +716,7 @@ class QuotaEnforcer:
 
         return start, end
 
+
 # Decorator for quota enforcement
 def require_quota(resource_type: str, amount: int = 1):
     """
@@ -753,6 +759,7 @@ def require_quota(resource_type: str, amount: int = 1):
 
     return decorator
 
+
 class QuotaExceededError(Exception):
     """Raised when a quota limit is exceeded."""
 
@@ -761,8 +768,10 @@ class QuotaExceededError(Exception):
         self.resource_type = resource_type
         self.limit = limit
 
+
 # Singleton instance
 _enforcer: QuotaEnforcer | None = None
+
 
 def get_quota_enforcer() -> QuotaEnforcer:
     """Get the global QuotaEnforcer instance."""
@@ -770,6 +779,7 @@ def get_quota_enforcer() -> QuotaEnforcer:
     if _enforcer is None:
         _enforcer = QuotaEnforcer()
     return _enforcer
+
 
 __all__ = [
     "QuotaPeriod",

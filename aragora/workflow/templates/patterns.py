@@ -86,6 +86,7 @@ HIVE_MIND_TEMPLATE: dict[str, Any] = {
     },
 }
 
+
 def create_hive_mind_workflow(
     name: str = "Hive Mind Analysis",
     agents: Optional[list[str]] = None,
@@ -120,6 +121,7 @@ def create_hive_mind_workflow(
         **kwargs,
     )
     return cast(dict[str, Any], pattern.create_workflow())
+
 
 # ============================================================================
 # MapReduce Template
@@ -167,6 +169,7 @@ MAP_REDUCE_TEMPLATE: dict[str, Any] = {
     },
 }
 
+
 def create_map_reduce_workflow(
     name: str = "MapReduce Processing",
     split_strategy: str = "chunks",
@@ -207,6 +210,7 @@ def create_map_reduce_workflow(
         **kwargs,
     )
     return cast(dict[str, Any], pattern.create_workflow())
+
 
 # ============================================================================
 # Review Cycle Template
@@ -251,6 +255,7 @@ REVIEW_CYCLE_TEMPLATE: dict[str, Any] = {
     },
 }
 
+
 def create_review_cycle_workflow(
     name: str = "Iterative Review Cycle",
     draft_agent: str = "claude",
@@ -289,6 +294,7 @@ def create_review_cycle_workflow(
     )
     return cast(dict[str, Any], pattern.create_workflow())
 
+
 # ============================================================================
 # Pattern Template Registry
 # ============================================================================
@@ -299,9 +305,11 @@ PATTERN_TEMPLATES: dict[str, dict[str, Any]] = {
     "pattern/review-cycle": REVIEW_CYCLE_TEMPLATE,
 }
 
+
 def get_pattern_template(pattern_id: str) -> Optional[dict[str, Any]]:
     """Get a pattern template by ID."""
     return PATTERN_TEMPLATES.get(pattern_id)
+
 
 def list_pattern_templates() -> list[dict[str, Any]]:
     """List all available pattern templates."""
@@ -318,9 +326,11 @@ def list_pattern_templates() -> list[dict[str, Any]]:
         )
     return templates
 
+
 # ============================================================================
 # Package Registration
 # ============================================================================
+
 
 def register_pattern_packages() -> None:
     """Register all pattern templates as packages."""
@@ -574,6 +584,7 @@ Each iteration:
         ],
     )
     register_package(review_cycle_pkg)
+
 
 # Register packages on module import
 register_pattern_packages()

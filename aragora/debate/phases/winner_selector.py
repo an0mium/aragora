@@ -6,6 +6,7 @@ This module extracts winner determination logic from ConsensusPhase:
 - No-unanimity handling
 - Belief network analysis
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
 
 class WinnerSelector:
     """Handles winner selection and result finalization.
@@ -381,5 +383,6 @@ class WinnerSelector:
 
         except Exception as e:
             logger.debug(f"Belief network analysis failed: {e}")
+
 
 __all__ = ["WinnerSelector"]

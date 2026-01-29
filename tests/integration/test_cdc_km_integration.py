@@ -42,7 +42,7 @@ def cdc_event_factory():
         operation: str = "insert",
         table: str = "products",
         data: Any = _UNSET,
-        primary_key: Optional[Dict[str, Any]] = None,
+        primary_key: Optional[dict[str, Any]] = None,
         document_id: Optional[str] = None,
         resume_token: Optional[str] = None,
     ) -> ChangeEvent:
@@ -70,7 +70,7 @@ def mock_knowledge_mound():
     """Create mock KnowledgeMound that tracks store calls."""
     mound = MagicMock()
     mound.workspace_id = "test_workspace"
-    mound._nodes: Dict[str, Dict[str, Any]] = {}
+    mound._nodes: dict[str, dict[str, Any]] = {}
     mound._node_counter = 0
 
     async def mock_store(request):

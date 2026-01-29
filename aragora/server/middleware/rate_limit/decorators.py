@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def rate_limit_headers(result: RateLimitResult) -> dict[str, str]:
     """Generate rate limit headers for HTTP response."""
     headers = {
@@ -31,6 +32,7 @@ def rate_limit_headers(result: RateLimitResult) -> dict[str, str]:
         headers["X-RateLimit-Reset"] = str(int(time.time() + result.retry_after))
     return headers
 
+
 def _extract_handler(*args, **kwargs) -> Any:
     """Extract handler from function arguments."""
     handler = kwargs.get("handler")
@@ -41,11 +43,13 @@ def _extract_handler(*args, **kwargs) -> Any:
                 break
     return handler
 
+
 def _error_response(message: str, status: int, headers: dict[str, str]) -> "HandlerResult":
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 
     return error_response(message, status, headers=headers)
+
 
 def rate_limit(
     requests_per_minute: int = 30,
@@ -114,6 +118,7 @@ def rate_limit(
 
     return decorator
 
+
 def user_rate_limit(
     action: str = "default",
     user_store_factory: Optional[Callable[[], Any]] = None,
@@ -162,6 +167,7 @@ def user_rate_limit(
         return wrapper
 
     return decorator
+
 
 __all__ = [
     "rate_limit_headers",

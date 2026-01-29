@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["DiscordDock"]
 
+
 class DiscordDock(ChannelDock):
     """
     Discord platform dock.

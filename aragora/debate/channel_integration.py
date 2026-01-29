@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ChannelIntegration:
     """
     Integrates AgentChannel with Arena for peer messaging.
@@ -320,6 +321,7 @@ class ChannelIntegration:
 
         return f"{context}\n\n---\n\n{prompt}"
 
+
 # Factory function for Arena integration
 def create_channel_integration(
     debate_id: str,
@@ -338,6 +340,7 @@ def create_channel_integration(
         ChannelIntegration instance
     """
     return ChannelIntegration(debate_id, agents, protocol)
+
 
 __all__ = [
     "ChannelIntegration",

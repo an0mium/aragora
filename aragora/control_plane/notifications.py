@@ -48,6 +48,7 @@ _default_dispatcher: Optional["NotificationDispatcher"] = None
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class RetryConfig:
     """Configuration for retry behavior."""
@@ -70,6 +71,7 @@ class RetryConfig:
             delay = delay * (0.5 + random.random())
         return delay
 
+
 @dataclass
 class NotificationDispatcherConfig:
     """Configuration for the notification dispatcher."""
@@ -83,6 +85,7 @@ class NotificationDispatcherConfig:
     queue_batch_size: int = 10
     max_concurrent_deliveries: int = 20
     rate_limit_per_channel: int = 100  # per minute
+
 
 @dataclass
 class QueuedNotification:
@@ -163,9 +166,11 @@ class QueuedNotification:
             last_error=data.get("last_error"),
         )
 
+
 # =============================================================================
 # Email Provider
 # =============================================================================
+
 
 class EmailProvider(ChannelProvider):
     """Email notification provider using SMTP."""
@@ -284,9 +289,11 @@ Aragora Control Plane | {message.event_type.value} | {message.timestamp.strftime
 
         return html.strip(), text.strip()
 
+
 # =============================================================================
 # Notification Dispatcher
 # =============================================================================
+
 
 class NotificationDispatcher:
     """
@@ -783,9 +790,11 @@ class NotificationDispatcher:
             # Stream doesn't exist yet
             return 0
 
+
 # =============================================================================
 # Factory Function
 # =============================================================================
+
 
 def create_notification_dispatcher(
     manager: NotificationManager | None = None,
@@ -815,18 +824,22 @@ def create_notification_dispatcher(
         config=config,
     )
 
+
 def get_default_notification_dispatcher() -> Optional["NotificationDispatcher"]:
     """Get the default notification dispatcher, if configured."""
     return _default_dispatcher
+
 
 def set_default_notification_dispatcher(dispatcher: "NotificationDispatcher") -> None:
     """Set the default notification dispatcher."""
     global _default_dispatcher
     _default_dispatcher = dispatcher
 
+
 # =============================================================================
 # Event Handler Decorator
 # =============================================================================
+
 
 def on_notification_event(
     event_types: list[NotificationEventType],
@@ -847,9 +860,11 @@ def on_notification_event(
 
     return decorator
 
+
 # =============================================================================
 # Security Notifications
 # =============================================================================
+
 
 async def send_security_notification(
     title: str,
@@ -899,6 +914,7 @@ async def send_security_notification(
     except Exception as e:
         logger.error(f"Failed to send security notification: {e}")
         return False
+
 
 # =============================================================================
 # Exports

@@ -55,6 +55,7 @@ BLOCKED_METADATA_HOSTNAMES = frozenset(
     ]
 )
 
+
 def validate_webhook_url(url: str) -> tuple[bool, str]:
     """Validate webhook URL to prevent SSRF and malformed requests."""
     if not url or not isinstance(url, str):
@@ -124,6 +125,7 @@ def validate_webhook_url(url: str) -> tuple[bool, str]:
 
     return True, ""
 
+
 def sanitize_webhook_headers(
     headers: Optional[dict[str, Any]],
 ) -> tuple[dict[str, str], str | None]:
@@ -147,6 +149,7 @@ def sanitize_webhook_headers(
 
     return sanitized, None
 
+
 class BatchStatus(str, Enum):
     """Status of a batch request."""
 
@@ -157,6 +160,7 @@ class BatchStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 class ItemStatus(str, Enum):
     """Status of an individual batch item."""
 
@@ -165,6 +169,7 @@ class ItemStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class BatchItem:
@@ -253,6 +258,7 @@ class BatchItem:
             metadata=metadata,
         )
 
+
 @dataclass
 class BatchRequest:
     """A batch of debate requests to process."""
@@ -304,6 +310,7 @@ class BatchRequest:
         result = self.to_dict()
         del result["items"]
         return result
+
 
 class DebateQueue:
     """
@@ -618,9 +625,11 @@ class DebateQueue:
             except asyncio.CancelledError:
                 pass
 
+
 # Global queue instance
 _queue: DebateQueue | None = None
 _queue_lock = asyncio.Lock()
+
 
 async def get_debate_queue() -> DebateQueue:
     """Get the global debate queue instance."""
@@ -633,9 +642,11 @@ async def get_debate_queue() -> DebateQueue:
             _queue = DebateQueue(max_concurrent=MAX_CONCURRENT_DEBATES)
         return _queue
 
+
 def get_debate_queue_sync() -> DebateQueue | None:
     """Get the global debate queue instance (sync version)."""
     return _queue
+
 
 __all__ = [
     "DebateQueue",

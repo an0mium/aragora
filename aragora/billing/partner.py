@@ -20,6 +20,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class PartnerTier(Enum):
     """Partner program tiers."""
 
@@ -28,6 +29,7 @@ class PartnerTier(Enum):
     BUSINESS = "business"  # Enterprise features, priority support
     ENTERPRISE = "enterprise"  # Custom terms, dedicated support
 
+
 class PartnerStatus(Enum):
     """Partner account status."""
 
@@ -35,6 +37,7 @@ class PartnerStatus(Enum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
     REVOKED = "revoked"
+
 
 @dataclass
 class PartnerLimits:
@@ -47,6 +50,7 @@ class PartnerLimits:
     max_rounds: int
     webhook_endpoints: int
     revenue_share_percent: float  # Percentage of referred user spend
+
 
 PARTNER_TIER_LIMITS: dict[PartnerTier, PartnerLimits] = {
     PartnerTier.STARTER: PartnerLimits(
@@ -87,6 +91,7 @@ PARTNER_TIER_LIMITS: dict[PartnerTier, PartnerLimits] = {
     ),
 }
 
+
 @dataclass
 class Partner:
     """Partner account."""
@@ -120,6 +125,7 @@ class Partner:
             "referral_code": self.referral_code,
         }
 
+
 @dataclass
 class APIKey:
     """Partner API key."""
@@ -149,6 +155,7 @@ class APIKey:
             "is_active": self.is_active,
         }
 
+
 @dataclass
 class UsageRecord:
     """Partner API usage record."""
@@ -163,6 +170,7 @@ class UsageRecord:
     tokens_used: int
     timestamp: datetime
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class RevenueShare:
@@ -179,6 +187,7 @@ class RevenueShare:
     status: str  # pending, paid, cancelled
     paid_at: datetime | None = None
 
+
 # Available API scopes
 API_SCOPES = [
     "debates:read",
@@ -192,6 +201,7 @@ API_SCOPES = [
     "knowledge:read",
     "knowledge:write",
 ]
+
 
 class PartnerStore:
     """Storage for partner data."""
@@ -536,6 +546,7 @@ class PartnerStore:
                 ),
             }
 
+
 class PartnerAPI:
     """Partner API management."""
 
@@ -779,8 +790,10 @@ class PartnerAPI:
 
         return hmac.compare_digest(f"v1={expected}", signature)
 
+
 # Singleton instance
 _partner_api: PartnerAPI | None = None
+
 
 def get_partner_api() -> PartnerAPI:
     """Get or create the partner API singleton."""

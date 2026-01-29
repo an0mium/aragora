@@ -17,6 +17,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 def database_schema_health(handler) -> HandlerResult:
     """Check health of consolidated database schema.
 
@@ -54,6 +55,7 @@ def database_schema_health(handler) -> HandlerResult:
             },
             status=500,
         )
+
 
 def database_stores_health(handler) -> HandlerResult:
     """Check health of all database stores.

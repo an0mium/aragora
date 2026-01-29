@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ResultFormatter:
     """
     Formats debate results for human-readable output.
@@ -294,6 +295,7 @@ class ResultFormatter:
 
         return base_conclusion
 
+
 def format_conclusion(result: "DebateResult") -> str:
     """
     Convenience function to format a debate conclusion.
@@ -306,6 +308,7 @@ def format_conclusion(result: "DebateResult") -> str:
     """
     formatter = ResultFormatter()
     return formatter.format_conclusion(result)
+
 
 def format_conclusion_with_compliance(
     result: "DebateResult",
@@ -325,6 +328,7 @@ def format_conclusion_with_compliance(
     """
     formatter = ResultFormatter()
     return formatter.format_conclusion_with_compliance(result, vertical, frameworks)
+
 
 __all__ = [
     "ResultFormatter",

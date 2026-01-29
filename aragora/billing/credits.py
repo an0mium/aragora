@@ -34,6 +34,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class CreditTransactionType(str, Enum):
     """Types of credit transactions."""
 
@@ -44,6 +45,7 @@ class CreditTransactionType(str, Enum):
     USAGE = "usage"  # Deducted for API usage
     ADJUSTMENT = "adjustment"  # Manual adjustment by admin
     EXPIRED = "expired"  # Credits that expired
+
 
 @dataclass
 class CreditTransaction:
@@ -88,6 +90,7 @@ class CreditTransaction:
             reference_id=row["reference_id"],
         )
 
+
 @dataclass
 class CreditAccount:
     """Credit account summary for an organization."""
@@ -112,6 +115,7 @@ class CreditAccount:
             "lifetime_expired_usd": self.lifetime_expired_cents / 100,
         }
 
+
 @dataclass
 class DeductionResult:
     """Result of attempting to deduct credits."""
@@ -129,6 +133,7 @@ class DeductionResult:
             "remaining_amount_cents": self.remaining_amount_cents,
             "message": self.message,
         }
+
 
 class CreditManager:
     """
@@ -612,9 +617,11 @@ class CreditManager:
         logger.info(f"Adjusted balance for org {org_id} by {amount_cents} cents: {description}")
         return transaction
 
+
 # Global credit manager instance
 _credit_manager: CreditManager | None = None
 _credit_manager_lock = threading.Lock()
+
 
 def get_credit_manager(db_path: str | None = None) -> CreditManager:
     """Get or create the global credit manager.
@@ -631,6 +638,7 @@ def get_credit_manager(db_path: str | None = None) -> CreditManager:
             _credit_manager = CreditManager(db_path)
         return _credit_manager
 
+
 def set_credit_manager(manager: CreditManager) -> None:
     """Set the global credit manager (for testing).
 
@@ -641,11 +649,13 @@ def set_credit_manager(manager: CreditManager) -> None:
     with _credit_manager_lock:
         _credit_manager = manager
 
+
 def reset_credit_manager() -> None:
     """Reset the global credit manager (for testing)."""
     global _credit_manager
     with _credit_manager_lock:
         _credit_manager = None
+
 
 __all__ = [
     "CreditTransactionType",

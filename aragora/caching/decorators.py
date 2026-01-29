@@ -21,16 +21,14 @@ import pickle
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
     Generic,
-    Hashable,
     Optional,
     ParamSpec,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -89,11 +87,13 @@ _registry_lock = threading.Lock()
 def _register_cache(cache_dict: OrderedDict, stats: CacheStats, lock: threading.Lock) -> None:
     """Register a cache for global management."""
     with _registry_lock:
-        _cache_registry.append({
-            "cache": cache_dict,
-            "stats": stats,
-            "lock": lock,
-        })
+        _cache_registry.append(
+            {
+                "cache": cache_dict,
+                "stats": stats,
+                "lock": lock,
+            }
+        )
 
 
 def get_global_cache_stats() -> list[CacheStats]:
@@ -193,19 +193,21 @@ class _TTLCache(Generic[T]):
         # Register for global management
         _register_cache(self._cache, self._stats, self._lock)
 
-    def get(self, key: str) -> tuple[bool, Optional[T]]:
+    def get(self, key: str, update_stats: bool = True) -> tuple[bool, Optional[T]]:
         """
         Get a value from the cache.
 
         Args:
             key: The cache key
+            update_stats: Whether to update hit/miss statistics (default True)
 
         Returns:
             Tuple of (found, value). If found is False, value is None.
         """
         with self._lock:
             if key not in self._cache:
-                self._stats.misses += 1
+                if update_stats:
+                    self._stats.misses += 1
                 return False, None
 
             entry = self._cache[key]
@@ -213,12 +215,14 @@ class _TTLCache(Generic[T]):
             if entry.is_expired():
                 del self._cache[key]
                 self._stats.size = len(self._cache)
-                self._stats.misses += 1
+                if update_stats:
+                    self._stats.misses += 1
                 return False, None
 
             # Move to end (most recently used)
             self._cache.move_to_end(key)
-            self._stats.hits += 1
+            if update_stats:
+                self._stats.hits += 1
             return True, entry.value
 
     def set(self, key: str, value: T) -> None:
@@ -258,10 +262,7 @@ class _TTLCache(Generic[T]):
 
     def _cleanup_expired(self) -> None:
         """Remove expired entries from the cache. Must be called with lock held."""
-        expired_keys = [
-            key for key, entry in self._cache.items()
-            if entry.is_expired()
-        ]
+        expired_keys = [key for key, entry in self._cache.items() if entry.is_expired()]
         for key in expired_keys:
             del self._cache[key]
 
@@ -299,7 +300,7 @@ def cached(
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
-) -> Union[F, Callable[[F], F]]:
+) -> F | Callable[[F], F]:
     """
     Decorator for TTL-based caching with LRU eviction.
 
@@ -328,24 +329,24 @@ def cached(
         - cache_info(): Returns CacheStats with hits, misses, size
         - cache_clear(): Clears all cached values
     """
+
     def decorator(fn: F) -> F:
         cache = _TTLCache[Any](maxsize=maxsize, ttl_seconds=ttl_seconds)
 
-        # Check if function has custom key args attached
-        key_args = getattr(fn, "_cache_key_args", None)
-
-        # Get parameter names for positional argument mapping
-        param_names: Optional[tuple[str, ...]] = None
-        if key_args:
-            try:
-                sig = inspect.signature(fn)
-                param_names = tuple(sig.parameters.keys())
-            except (ValueError, TypeError):
-                param_names = None
+        # Get parameter names for positional argument mapping (at decoration time)
+        try:
+            sig = inspect.signature(fn)
+            param_names: Optional[tuple[str, ...]] = tuple(sig.parameters.keys())
+        except (ValueError, TypeError):
+            param_names = None
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            cache_key = _make_cache_key(args, kwargs, key_args, param_names)
+            # Check for custom key args at call time
+            # This allows @cache_key to be applied as outer decorator
+            key_args = getattr(wrapper, "_cache_key_args", None)
+            effective_params = param_names if key_args else None
+            cache_key = _make_cache_key(args, kwargs, key_args, effective_params)
 
             found, value = cache.get(cache_key)
             if found:
@@ -382,7 +383,7 @@ def async_cached(
     func: Optional[F] = None,
     ttl_seconds: float = 300.0,
     maxsize: int = 128,
-) -> Union[F, Callable[[F], F]]:
+) -> F | Callable[[F], F]:
     """
     Decorator for TTL-based caching of async functions.
 
@@ -408,34 +409,37 @@ def async_cached(
         - cache_info(): Returns CacheStats with hits, misses, size
         - cache_clear(): Clears all cached values
     """
+
     def decorator(fn: F) -> F:
         cache = _TTLCache[Any](maxsize=maxsize, ttl_seconds=ttl_seconds)
         async_lock = asyncio.Lock()
 
-        # Check if function has custom key args attached
-        key_args = getattr(fn, "_cache_key_args", None)
-
-        # Get parameter names for positional argument mapping
-        param_names: Optional[tuple[str, ...]] = None
-        if key_args:
-            try:
-                sig = inspect.signature(fn)
-                param_names = tuple(sig.parameters.keys())
-            except (ValueError, TypeError):
-                param_names = None
+        # Get parameter names for positional argument mapping (at decoration time)
+        try:
+            sig = inspect.signature(fn)
+            param_names: Optional[tuple[str, ...]] = tuple(sig.parameters.keys())
+        except (ValueError, TypeError):
+            param_names = None
 
         @functools.wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            cache_key = _make_cache_key(args, kwargs, key_args, param_names)
+            # Check for custom key args at call time
+            # This allows @cache_key to be applied as outer decorator
+            key_args = getattr(wrapper, "_cache_key_args", None)
+            effective_params = param_names if key_args else None
+            cache_key = _make_cache_key(args, kwargs, key_args, effective_params)
 
-            # Check cache without lock first (fast path)
-            found, value = cache.get(cache_key)
+            # Check cache without lock first (fast path, no stats update)
+            found, value = cache.get(cache_key, update_stats=False)
             if found:
+                # Record the hit now that we know it's a real hit
+                with cache._lock:
+                    cache._stats.hits += 1
                 return value
 
             # Slow path: acquire lock and check again
             async with async_lock:
-                # Double-check after acquiring lock
+                # Double-check after acquiring lock (with stats update)
                 found, value = cache.get(cache_key)
                 if found:
                     return value
@@ -492,11 +496,13 @@ def memoize(func: F) -> F:
 
     # Register for global management
     with _registry_lock:
-        _cache_registry.append({
-            "cache": cache,
-            "stats": stats,
-            "lock": lock,
-        })
+        _cache_registry.append(
+            {
+                "cache": cache,
+                "stats": stats,
+                "lock": lock,
+            }
+        )
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -562,6 +568,7 @@ def cache_key(*key_args: str) -> Callable[[F], F]:
         This decorator must be applied BEFORE the caching decorator (i.e.,
         it should be the innermost decorator).
     """
+
     def decorator(func: F) -> F:
         func._cache_key_args = key_args  # type: ignore[attr-defined]
         return func

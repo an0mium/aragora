@@ -38,6 +38,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class BugType(str, Enum):
     """Types of bugs detected."""
 
@@ -56,6 +57,7 @@ class BugType(str, Enum):
     DUPLICATE_CODE = "duplicate_code"
     DEPRECATED_API = "deprecated_api"
 
+
 class BugSeverity(str, Enum):
     """Severity of detected bugs."""
 
@@ -63,6 +65,7 @@ class BugSeverity(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 @dataclass
 class BugFinding:
@@ -115,6 +118,7 @@ class BugFinding:
             "is_false_positive": self.is_false_positive,
         }
 
+
 @dataclass
 class BugScanResult:
     """Result of bug detection scan."""
@@ -163,6 +167,7 @@ class BugScanResult:
             "scanned_at": self.scanned_at.isoformat(),
         }
 
+
 class BugPattern:
     """Base class for bug detection patterns."""
 
@@ -191,6 +196,7 @@ class BugPattern:
             List of BugFinding objects (empty for base class)
         """
         return []
+
 
 class NullPointerPattern(BugPattern):
     """Detect potential null pointer dereferences."""
@@ -236,6 +242,7 @@ class NullPointerPattern(BugPattern):
                 )
 
         return bugs
+
 
 class ResourceLeakPattern(BugPattern):
     """Detect resource leaks (files, connections, locks)."""
@@ -343,6 +350,7 @@ class ResourceLeakPattern(BugPattern):
 
         return "\n".join(lines[start_line:end_line])
 
+
 class InfiniteLoopPattern(BugPattern):
     """Detect potential infinite loops."""
 
@@ -435,6 +443,7 @@ class InfiniteLoopPattern(BugPattern):
 
         return "\n".join(body_lines)
 
+
 class DeadCodePattern(BugPattern):
     """Detect dead/unreachable code."""
 
@@ -504,6 +513,7 @@ class DeadCodePattern(BugPattern):
                                 )
 
         return bugs
+
 
 class ExceptionHandlingPattern(BugPattern):
     """Detect exception handling issues."""
@@ -603,6 +613,7 @@ class ExceptionHandlingPattern(BugPattern):
 
         return "\n".join(block_lines)
 
+
 class LogicErrorPattern(BugPattern):
     """Detect common logic errors."""
 
@@ -694,6 +705,7 @@ class LogicErrorPattern(BugPattern):
 
         return bugs
 
+
 class RaceConditionPattern(BugPattern):
     """Detect potential race conditions in concurrent code."""
 
@@ -782,6 +794,7 @@ class RaceConditionPattern(BugPattern):
             if re.match(r"^\s*(async\s+)?def\s+\w+", lines[i]):
                 return i
         return None
+
 
 class TypeErrorPattern(BugPattern):
     """Detect potential type-related errors."""
@@ -879,6 +892,7 @@ class TypeErrorPattern(BugPattern):
 
         return bugs
 
+
 class DeprecatedAPIPattern(BugPattern):
     """Detect usage of deprecated APIs and patterns."""
 
@@ -937,6 +951,7 @@ class DeprecatedAPIPattern(BugPattern):
                     )
 
         return bugs
+
 
 class BugDetector:
     """
@@ -1244,9 +1259,11 @@ EXPLANATION: <brief explanation>"""
 
         return bugs
 
+
 # =============================================================================
 # Factory Functions
 # =============================================================================
+
 
 def create_bug_detector(
     patterns: Optional[list[str]] = None,
@@ -1277,6 +1294,7 @@ def create_bug_detector(
         selected = list(pattern_map.values())
 
     return BugDetector(patterns=selected, min_confidence=min_confidence)
+
 
 __all__ = [
     "BugDetector",

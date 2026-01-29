@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 _connector_instances: dict[str, Any] = {}  # tenant_id -> DocuSignConnector
 
+
 async def get_docusign_connector(tenant_id: str):
     """Get or create DocuSign connector for tenant."""
     if tenant_id not in _connector_instances:
@@ -58,9 +59,11 @@ async def get_docusign_connector(tenant_id: str):
             return None
     return _connector_instances.get(tenant_id)
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class LegalHandler(BaseHandler):
     """Handler for legal e-signature API endpoints."""
@@ -623,12 +626,15 @@ class LegalHandler(BaseHandler):
         except Exception as e:
             logger.debug(f"[Legal] Event emission skipped: {e}")
 
+
 # =============================================================================
 # Factory
 # =============================================================================
 
+
 def create_legal_handler(server_context: Optional[dict[str, Any]] = None) -> LegalHandler:
     """Create a legal handler instance."""
     return LegalHandler(server_context)
+
 
 __all__ = ["LegalHandler", "create_legal_handler"]

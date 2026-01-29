@@ -26,6 +26,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class EvaluationDimension(str, Enum):
     """The 8 evaluation dimensions for LLM-as-Judge."""
 
@@ -37,6 +38,7 @@ class EvaluationDimension(str, Enum):
     EVIDENCE = "evidence"
     CREATIVITY = "creativity"
     SAFETY = "safety"
+
 
 # Default dimension weights (sum to 1.0)
 DEFAULT_WEIGHTS: dict[EvaluationDimension, float] = {
@@ -104,6 +106,7 @@ WEIGHT_PROFILES: dict[str, dict[EvaluationDimension, float]] = {
     },
 }
 
+
 @dataclass
 class EvaluationRubric:
     """Scoring rubric for a dimension."""
@@ -126,6 +129,7 @@ class EvaluationRubric:
 - Score 4 (Above Average): {self.score_4}
 - Score 5 (Excellent): {self.score_5}
 """
+
 
 # Default rubrics for each dimension
 DEFAULT_RUBRICS: dict[EvaluationDimension, EvaluationRubric] = {
@@ -203,6 +207,7 @@ DEFAULT_RUBRICS: dict[EvaluationDimension, EvaluationRubric] = {
     ),
 }
 
+
 @dataclass
 class DimensionScore:
     """Score for a single evaluation dimension."""
@@ -222,6 +227,7 @@ class DimensionScore:
             "feedback": self.feedback,
             "examples": self.examples,
         }
+
 
 @dataclass
 class EvaluationResult:
@@ -304,6 +310,7 @@ class EvaluationResult:
             "threshold_used": self.threshold_used,
         }
 
+
 @dataclass
 class PairwiseResult:
     """Result of pairwise comparison."""
@@ -332,6 +339,7 @@ class PairwiseResult:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 @dataclass
 class JudgeConfig:
     """Configuration for LLM judge."""
@@ -356,6 +364,7 @@ class JudgeConfig:
 
     # Workspace isolation
     workspace_id: str | None = None
+
 
 class LLMJudge:
     """
@@ -865,6 +874,7 @@ Provide your comparison:"""
         except Exception as e:
             logger.warning(f"Secondary evaluation failed: {e}")
 
+
 # Convenience functions
 async def evaluate_response(
     query: str,
@@ -895,6 +905,7 @@ async def evaluate_response(
         reference=reference,
     )
 
+
 async def compare_responses(
     query: str,
     response_a: str,
@@ -923,6 +934,7 @@ async def compare_responses(
         response_b=response_b,
         context=context,
     )
+
 
 __all__ = [
     "EvaluationDimension",

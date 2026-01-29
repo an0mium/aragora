@@ -33,7 +33,7 @@ class MockPerformanceMonitor:
     """Mock performance monitor."""
 
     def __init__(self):
-        self.agent_stats: Dict[str, MockAgentStats] = {}
+        self.agent_stats: dict[str, MockAgentStats] = {}
 
     def add_agent(self, name: str, **kwargs) -> None:
         """Add agent stats."""
@@ -53,8 +53,8 @@ class MockAgentRouter:
     """Mock agent router."""
 
     def __init__(self):
-        self._capabilities: Dict[str, MockAgentCapabilities] = {}
-        self._historical_performance: Dict[str, List[bool]] = {}
+        self._capabilities: dict[str, MockAgentCapabilities] = {}
+        self._historical_performance: dict[str, list[bool]] = {}
 
     def record_performance(self, agent_name: str, task_type: str, success: bool):
         """Record performance."""

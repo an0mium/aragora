@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TaxonomyNode:
     """A node in the domain taxonomy tree."""
@@ -46,6 +47,7 @@ class TaxonomyNode:
     tenant_id: str
     created_at: datetime
     children: list["TaxonomyNode"] = field(default_factory=list)
+
 
 # Default industry taxonomies
 DEFAULT_TAXONOMY: dict[str, dict[str, Any]] = {
@@ -349,6 +351,7 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
         "placebo",
     ],
 }
+
 
 class DomainTaxonomy:
     """
@@ -721,6 +724,7 @@ class DomainTaxonomy:
             ),
             "tenant_id": self._tenant_id,
         }
+
 
 __all__ = [
     "DomainTaxonomy",

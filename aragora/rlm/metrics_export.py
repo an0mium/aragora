@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MetricsSnapshot:
     """Point-in-time snapshot of RLM metrics."""
@@ -58,6 +59,7 @@ class MetricsSnapshot:
     def to_json(self) -> str:
         """Convert to JSON string."""
         return json.dumps(self.to_dict(), indent=2)
+
 
 class MetricsCollector:
     """Collects and tracks RLM metrics over time.
@@ -122,8 +124,10 @@ class MetricsCollector:
         if callback in self._callbacks:
             self._callbacks.remove(callback)
 
+
 # Global collector instance
 _collector: MetricsCollector | None = None
+
 
 def get_metrics_collector() -> MetricsCollector:
     """Get the global metrics collector."""
@@ -131,6 +135,7 @@ def get_metrics_collector() -> MetricsCollector:
     if _collector is None:
         _collector = MetricsCollector()
     return _collector
+
 
 def export_to_json() -> str:
     """Export current metrics as JSON.
@@ -154,6 +159,7 @@ def export_to_json() -> str:
     collector = get_metrics_collector()
     snapshot = collector.collect()
     return snapshot.to_json()
+
 
 def export_to_prometheus(
     registry: Any | None = None,
@@ -223,6 +229,7 @@ def export_to_prometheus(
     logger.info(f"[RLM Metrics] Prometheus metrics registered with prefix '{prefix}'")
     return metrics_map
 
+
 def export_to_statsd(
     host: str = "localhost",
     port: int = 8125,
@@ -260,6 +267,7 @@ def export_to_statsd(
     except Exception as e:
         logger.error(f"[RLM Metrics] StatsD export failed: {e}")
         return False
+
 
 def export_to_opentelemetry(
     meter_name: str = "aragora.rlm",
@@ -314,6 +322,7 @@ def export_to_opentelemetry(
         logger.error(f"[RLM Metrics] OpenTelemetry export failed: {e}")
         return {}
 
+
 def create_periodic_exporter(
     export_fn: Callable[[], Any],
     interval_seconds: float = 60.0,
@@ -355,6 +364,7 @@ def create_periodic_exporter(
         thread.join(timeout=5.0)
 
     return stop
+
 
 __all__ = [
     "MetricsSnapshot",

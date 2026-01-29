@@ -94,10 +94,10 @@ class MockExpense:
     description: str = ""
     employee_id: Optional[str] = None
     is_reimbursable: bool = False
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     date: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "vendor_name": self.vendor_name,

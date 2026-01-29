@@ -74,7 +74,7 @@ class MockNode:
     id: str
     content: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "content": self.content}
 
 
@@ -89,7 +89,7 @@ class MockRelationship:
     strength: float = 1.0
     created_at: Optional[datetime] = None
     created_by: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -104,7 +104,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

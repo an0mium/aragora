@@ -67,6 +67,7 @@ ROLE_HIERARCHY = {
 MAX_SETTINGS_KEYS = 50  # Maximum number of settings keys
 MAX_SETTINGS_VALUE_SIZE = 10000  # 10KB per value
 
+
 class OrganizationsHandler(SecureHandler):
     """Handler for organization management endpoints.
 
@@ -1040,5 +1041,6 @@ class OrganizationsHandler(SecureHandler):
                 "role": invitation.role,
             }
         )
+
 
 __all__ = ["OrganizationsHandler"]

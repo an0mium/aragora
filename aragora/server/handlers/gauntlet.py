@@ -70,6 +70,7 @@ _USE_DURABLE_QUEUE = os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() not
     "no",
 )
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -77,6 +78,7 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     elif task.exception():
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+
 
 def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging.
@@ -88,16 +90,19 @@ def create_tracked_task(coro: Any, name: str) -> asyncio.Task[Any]:
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
 
+
 # Persistent storage singleton
 _storage: Optional["GauntletStorage"] = None
 
 # WebSocket broadcast function (set by unified server when streaming is enabled)
 _gauntlet_broadcast_fn: Optional[Callable[..., Any]] = None
 
+
 def set_gauntlet_broadcast_fn(broadcast_fn: Callable[..., Any]) -> None:
     """Set the broadcast function for WebSocket streaming."""
     global _gauntlet_broadcast_fn
     _gauntlet_broadcast_fn = broadcast_fn
+
 
 def _get_storage() -> "GauntletStorage":
     """Get or create the persistent storage instance."""
@@ -107,6 +112,7 @@ def _get_storage() -> "GauntletStorage":
 
         _storage = GauntletStorage()
     return _storage
+
 
 def _cleanup_gauntlet_runs() -> None:
     """Remove old runs from memory to prevent unbounded growth.
@@ -164,6 +170,7 @@ def _cleanup_gauntlet_runs() -> None:
     # If still over limit, evict oldest entries (FIFO via OrderedDict)
     while len(_gauntlet_runs) > MAX_GAUNTLET_RUNS_IN_MEMORY:
         _gauntlet_runs.popitem(last=False)  # Remove oldest
+
 
 def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
     """
@@ -229,6 +236,7 @@ def recover_stale_gauntlet_runs(max_age_seconds: int = 7200) -> int:
     except (ImportError, OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to recover stale gauntlet runs: {e}")
         return 0
+
 
 class GauntletHandler(BaseHandler):
     """Handler for gauntlet stress-testing endpoints.

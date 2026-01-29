@@ -4,6 +4,7 @@ Prompt builder for debate agents.
 Extracted from Arena to improve code organization and testability.
 Handles construction of prompts for proposals, revisions, and judgments.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +45,7 @@ except ImportError:
     RLMContextAdapter = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
+
 
 class PromptBuilder:
     """Builds prompts for debate agents.

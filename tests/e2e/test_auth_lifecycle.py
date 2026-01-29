@@ -286,7 +286,7 @@ class TestConcurrentAccess:
 
     def test_concurrent_token_tracking(self, auth_config):
         """Verify concurrent token tracking is safe."""
-        errors: List[Exception] = []
+        errors: list[Exception] = []
         tokens = [f"token-{i}" for i in range(100)]
 
         def track_token(token: str):
@@ -310,7 +310,7 @@ class TestConcurrentAccess:
 
     def test_concurrent_session_operations(self, auth_config):
         """Verify concurrent session operations are safe."""
-        errors: List[Exception] = []
+        errors: list[Exception] = []
 
         def create_and_read_session(session_num: int):
             try:

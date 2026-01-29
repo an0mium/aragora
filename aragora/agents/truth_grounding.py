@@ -8,6 +8,7 @@ Tracks agent positions across debates and links them to outcomes:
 
 This enables persona synthesis from verifiable data rather than self-reported traits.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -23,6 +24,7 @@ from pathlib import Path
 
 from aragora.config import resolve_db_path
 from aragora.insights.database import InsightsDatabase
+
 
 @dataclass
 class Position:
@@ -57,6 +59,7 @@ class Position:
             verified_correct=bool(row[7]) if row[7] is not None else None,
             created_at=row[8],
         )
+
 
 class PositionTracker:
     """
@@ -259,6 +262,7 @@ class PositionTracker:
 
         return [Position.from_row(row) for row in rows]
 
+
 @dataclass
 class TruthGroundedPersona:
     """A persona synthesized from verifiable data."""
@@ -286,6 +290,7 @@ class TruthGroundedPersona:
     # Behavioral patterns
     contrarian_score: float = 0.0  # How often they disagree with eventual winners
     early_adopter_score: float = 0.0  # How often first to correct answer
+
 
 class TruthGroundedLaboratory:
     """

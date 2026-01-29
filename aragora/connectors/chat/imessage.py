@@ -55,6 +55,7 @@ _bluebubbles_default = (
 BLUEBUBBLES_URL = os.environ.get("BLUEBUBBLES_URL", _bluebubbles_default)
 BLUEBUBBLES_PASSWORD = os.environ.get("BLUEBUBBLES_PASSWORD", "")
 
+
 class IMessageConnector(ChatPlatformConnector):
     """
     iMessage connector using BlueBubbles server.
@@ -935,5 +936,6 @@ class IMessageConnector(ChatPlatformConnector):
         except Exception as e:
             self._record_failure(e)
             raise
+
 
 __all__ = ["IMessageConnector"]

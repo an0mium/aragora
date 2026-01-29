@@ -14,6 +14,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class UserAuthContext:
     """
@@ -50,6 +51,7 @@ class UserAuthContext:
     def is_admin(self) -> bool:
         """Check if user is admin or owner."""
         return self.role in ("owner", "admin")
+
 
 def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
     """
@@ -125,6 +127,7 @@ def extract_user_from_request(handler: Any, user_store=None) -> UserAuthContext:
 
     return context
 
+
 def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -> UserAuthContext:
     """
     Validate an API key and populate context.
@@ -187,6 +190,7 @@ def _validate_api_key(api_key: str, context: UserAuthContext, user_store=None) -
     context.authenticated = False
     context.error_reason = "API key authentication requires server configuration"
     return context
+
 
 __all__ = [
     "UserAuthContext",

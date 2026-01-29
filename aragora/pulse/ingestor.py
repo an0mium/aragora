@@ -26,6 +26,7 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TrendingTopic:
     """A trending topic from social media."""
@@ -39,6 +40,7 @@ class TrendingTopic:
     def to_debate_prompt(self) -> str:
         """Convert to a debate-ready prompt."""
         return f"Debate the implications of trending topic: '{self.topic}' ({self.platform}, {self.volume} engagement)"
+
 
 @dataclass
 class TrendingTopicOutcome:
@@ -56,6 +58,7 @@ class TrendingTopicOutcome:
     timestamp: float = field(default_factory=time.time)
     category: str = ""
     volume: int = 0  # Original volume at debate time
+
 
 class PulseIngestor(ABC):
     """Abstract base class for social media ingestors."""
@@ -199,6 +202,7 @@ class PulseIngestor(ABC):
 
         return False
 
+
 class TwitterIngestor(PulseIngestor):
     """Twitter/X trending topics ingestor using Twitter API v2."""
 
@@ -276,6 +280,7 @@ class TwitterIngestor(PulseIngestor):
             TrendingTopic("twitter", "#SustainableAI", 78000, "environment"),
         ]
         return mock_topics[:limit]
+
 
 class HackerNewsIngestor(PulseIngestor):
     """Hacker News trending stories ingestor using Algolia API (free, no auth)."""
@@ -356,6 +361,7 @@ class HackerNewsIngestor(PulseIngestor):
             ),
         ]
         return mock_topics[:limit]
+
 
 class RedditIngestor(PulseIngestor):
     """Reddit trending posts ingestor using public JSON API (no auth required)."""
@@ -445,6 +451,7 @@ class RedditIngestor(PulseIngestor):
             TrendingTopic("reddit", "Breakthrough in fusion energy announced", 18234, "science"),
         ]
         return mock_topics[:limit]
+
 
 class GitHubTrendingIngestor(PulseIngestor):
     """GitHub Trending repositories ingestor using GitHub Search API.
@@ -628,6 +635,7 @@ class GitHubTrendingIngestor(PulseIngestor):
         ]
         return mock_topics[:limit]
 
+
 class GoogleTrendsIngestor(PulseIngestor):
     """Google Trends ingestor using the public RSS feed (free, no auth required).
 
@@ -748,6 +756,7 @@ class GoogleTrendsIngestor(PulseIngestor):
             return "entertainment"
         return "general"
 
+
 class ArxivIngestor(PulseIngestor):
     """ArXiv new papers ingestor using the ArXiv API (free, no auth required).
 
@@ -855,6 +864,7 @@ class ArxivIngestor(PulseIngestor):
                 return cat
         return "research"
 
+
 class LobstersIngestor(PulseIngestor):
     """Lobste.rs trending stories ingestor (free, no auth required).
 
@@ -913,6 +923,7 @@ class LobstersIngestor(PulseIngestor):
         if tag_set & {"web", "browsers", "css", "javascript"}:
             return "web"
         return "tech"
+
 
 class DevToIngestor(PulseIngestor):
     """Dev.to trending articles ingestor (free, no auth required).
@@ -974,6 +985,7 @@ class DevToIngestor(PulseIngestor):
         if tag_set & {"career", "beginners", "tutorial"}:
             return "learning"
         return "programming"
+
 
 class ProductHuntIngestor(PulseIngestor):
     """Product Hunt trending products ingestor.
@@ -1126,6 +1138,7 @@ class ProductHuntIngestor(PulseIngestor):
             return "design"
         return "product"
 
+
 class SubstackIngestor(PulseIngestor):
     """Substack trending newsletters ingestor.
 
@@ -1196,6 +1209,7 @@ class SubstackIngestor(PulseIngestor):
                 return all_topics[:limit]
 
         return await self._retry_with_backoff(_fetch, fallback_fn=lambda: [])
+
 
 class PulseManager:
     def __init__(self) -> None:

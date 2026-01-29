@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Default EMA alpha for surprise smoothing
 DEFAULT_SURPRISE_ALPHA = 0.3
 
+
 def calculate_surprise(
     actual: float,
     expected: float,
@@ -67,6 +68,7 @@ def calculate_surprise(
     raw_surprise = abs(actual - expected)
     scaled = raw_surprise * scale_factor
     return min(max_surprise, scaled)
+
 
 def calculate_base_rate(
     success_count: int,
@@ -102,6 +104,7 @@ def calculate_base_rate(
     smoothed_rate = (success_count + prior * prior_weight) / (total + prior_weight)
     return smoothed_rate
 
+
 def update_surprise_ema(
     old_surprise: float,
     new_surprise: float,
@@ -127,6 +130,7 @@ def update_surprise_ema(
         0.65
     """
     return old_surprise * (1 - alpha) + new_surprise * alpha
+
 
 def calculate_combined_surprise(
     success_surprise: float,
@@ -154,6 +158,7 @@ def calculate_combined_surprise(
     combined = success_weight * success_surprise + agent_weight * agent_prediction_error
     return min(1.0, combined)
 
+
 @dataclass
 class CategoryStats:
     """Statistics for a category used in surprise calculation."""
@@ -173,6 +178,7 @@ class CategoryStats:
         if self.total == 0:
             return 0.5
         return self.success_count / self.total
+
 
 @dataclass
 class SurpriseScorer:
@@ -284,7 +290,9 @@ class SurpriseScorer:
         """Reset all category statistics."""
         self._categories.clear()
 
+
 # Database-aware surprise calculation helpers
+
 
 def calculate_surprise_from_db_row(
     success_count: int,
@@ -315,8 +323,10 @@ def calculate_surprise_from_db_row(
     new_surprise = calculate_surprise(actual, base_rate, scale_factor)
     return update_surprise_ema(old_surprise, new_surprise, alpha)
 
+
 # Type alias for custom base rate calculators
 BaseRateCalculator = Callable[[str], float]
+
 
 def create_db_base_rate_calculator(
     query_func: Callable[[str], tuple[int, int]],

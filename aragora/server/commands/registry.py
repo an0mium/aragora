@@ -11,6 +11,7 @@ from .models import CommandDefinition, CommandContext, CommandResult, CommandPer
 
 logger = logging.getLogger(__name__)
 
+
 class CommandRegistry:
     """
     Registry for slash commands.
@@ -187,8 +188,10 @@ class CommandRegistry:
         """Number of registered commands."""
         return len(self._commands)
 
+
 # Global registry instance
 _registry: CommandRegistry | None = None
+
 
 def get_command_registry() -> CommandRegistry:
     """Get or create the global command registry."""

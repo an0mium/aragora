@@ -9,6 +9,7 @@ Provides access to Twitter/X via the API v2:
 Requires TWITTER_BEARER_TOKEN environment variable for API access.
 The free tier allows read-only access with limited rate limits.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,6 +36,7 @@ TWITTER_USER_TWEETS_URL = "https://api.twitter.com/2/users/{user_id}/tweets"
 
 # Tweet URL template
 TWEET_URL_TEMPLATE = "https://twitter.com/i/status/{tweet_id}"
+
 
 class TwitterConnector(BaseConnector):
     """
@@ -515,5 +517,6 @@ class TwitterConnector(BaseConnector):
             search_query = f"{query} {search_query}"
 
         return await self.search(search_query, limit=limit)
+
 
 __all__ = ["TwitterConnector"]

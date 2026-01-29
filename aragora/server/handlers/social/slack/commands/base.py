@@ -17,6 +17,7 @@ from aragora.server.handlers.social.slack.utils.responses import (
 
 logger = logging.getLogger(__name__)
 
+
 class CommandsMixin:
     """Mixin providing basic Slack slash command implementations.
 
@@ -247,5 +248,6 @@ class CommandsMixin:
                 f"Error getting leaderboard: {str(e)[:100]}",
                 response_type="ephemeral",
             )
+
 
 __all__ = ["CommandsMixin"]

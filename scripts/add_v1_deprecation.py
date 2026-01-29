@@ -37,10 +37,10 @@ class DeprecationReport:
     total_endpoints: int = 0
     already_deprecated: int = 0
     needs_deprecation: int = 0
-    endpoints: List[EndpointInfo] = field(default_factory=list)
-    files_by_count: Dict[str, int] = field(default_factory=dict)
+    endpoints: list[EndpointInfo] = field(default_factory=list)
+    files_by_count: dict[str, int] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "summary": {
                 "total_files": self.total_files,
@@ -54,7 +54,7 @@ class DeprecationReport:
         }
 
 
-def find_v1_handlers(handlers_dir: Path) -> List[Path]:
+def find_v1_handlers(handlers_dir: Path) -> list[Path]:
     v1_files = []
     for py_file in handlers_dir.rglob("*.py"):
         if py_file.name.startswith("__"):
@@ -68,7 +68,7 @@ def find_v1_handlers(handlers_dir: Path) -> List[Path]:
     return sorted(v1_files)
 
 
-def analyze_file(file_path: Path) -> List[EndpointInfo]:
+def analyze_file(file_path: Path) -> list[EndpointInfo]:
     try:
         content = file_path.read_text()
     except Exception:

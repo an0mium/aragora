@@ -20,6 +20,7 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
+
 class KnowledgeQuerySkill(Skill):
     """
     Skill for querying the Knowledge Mound.
@@ -269,6 +270,7 @@ class KnowledgeQuerySkill(Skill):
         except Exception as e:
             logger.warning(f"Insight query error: {e}")
         return []
+
 
 # Skill instance for registration
 SKILLS = [KnowledgeQuerySkill()]

@@ -17,6 +17,7 @@ Usage:
     await server.emit_agent_status(agent_id, status)
     await server.emit_task_event(task_id, event_type, data)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,6 +29,7 @@ from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 class ControlPlaneEventType(Enum):
     """Types of control plane events."""
@@ -71,6 +73,7 @@ class ControlPlaneEventType(Enum):
     # Error events
     ERROR = "error"
 
+
 @dataclass
 class ControlPlaneEvent:
     """Event emitted by the control plane."""
@@ -90,6 +93,7 @@ class ControlPlaneEvent:
     def to_json(self) -> str:
         """Serialize event to JSON string."""
         return json.dumps(self.to_dict())
+
 
 class ControlPlaneStreamServer:
     """

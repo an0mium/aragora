@@ -28,6 +28,7 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ClinicalPattern:
     """Pattern for detecting clinical terms."""
@@ -38,6 +39,7 @@ class ClinicalPattern:
     sensitivity: str  # high, medium, low (PHI sensitivity)
     description: str
 
+
 @dataclass
 class DrugPattern:
     """Pattern for detecting drug-related information."""
@@ -46,6 +48,7 @@ class DrugPattern:
     pattern: str
     category: str  # medication, dosage, interaction, contraindication
     description: str
+
 
 class HealthcareKnowledge(BaseVerticalKnowledge):
     """

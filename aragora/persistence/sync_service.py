@@ -36,6 +36,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class SyncItemType(Enum):
     """Types of items that can be synced."""
 
@@ -43,6 +44,7 @@ class SyncItemType(Enum):
     CYCLE = "cycle"
     EVENT = "event"
     METRICS = "metrics"
+
 
 @dataclass
 class SyncItem:
@@ -53,6 +55,7 @@ class SyncItem:
     created_at: datetime = field(default_factory=datetime.now)
     retries: int = 0
     last_error: str | None = None
+
 
 @dataclass
 class SyncStatus:
@@ -65,6 +68,7 @@ class SyncStatus:
     failed_count: int
     last_sync_at: datetime | None
     last_error: str | None
+
 
 class SupabaseSyncService:
     """
@@ -430,9 +434,11 @@ class SupabaseSyncService:
             logger.debug(f"Sync item error: {e}")
             raise
 
+
 # Singleton instance
 _sync_service: SupabaseSyncService | None = None
 _sync_service_lock = threading.Lock()
+
 
 def get_sync_service() -> SupabaseSyncService:
     """
@@ -453,6 +459,7 @@ def get_sync_service() -> SupabaseSyncService:
                 _sync_service.start()
 
     return _sync_service
+
 
 def shutdown_sync_service(timeout: float = 5.0) -> None:
     """

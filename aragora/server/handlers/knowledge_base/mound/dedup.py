@@ -28,12 +28,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DedupHandlerProtocol(Protocol):
     """Protocol for handlers that use DedupOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class DedupOperationsMixin:
     """Mixin providing deduplication API endpoints."""

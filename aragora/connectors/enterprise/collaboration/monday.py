@@ -38,6 +38,7 @@ MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_AUTH_URL = "https://auth.monday.com/oauth2/authorize"
 MONDAY_TOKEN_URL = "https://auth.monday.com/oauth2/token"
 
+
 class ColumnType(str, Enum):
     """Monday.com column types."""
 
@@ -59,12 +60,14 @@ class ColumnType(str, Enum):
     COLOR_PICKER = "color-picker"
     TAGS = "tags"
 
+
 class BoardKind(str, Enum):
     """Monday.com board kinds."""
 
     PUBLIC = "public"
     PRIVATE = "private"
     SHARE = "share"
+
 
 @dataclass
 class MondayCredentials:
@@ -74,6 +77,7 @@ class MondayCredentials:
     refresh_token: str | None = None
     token_type: str = "bearer"
     expires_at: datetime | None = None
+
 
 @dataclass
 class MondayWorkspace:
@@ -101,6 +105,7 @@ class MondayWorkspace:
             "kind": self.kind,
             "description": self.description,
         }
+
 
 @dataclass
 class MondayBoard:
@@ -159,6 +164,7 @@ class MondayBoard:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
 @dataclass
 class MondayColumn:
     """A Monday.com board column."""
@@ -191,6 +197,7 @@ class MondayColumn:
             "archived": self.archived,
             "width": self.width,
         }
+
 
 @dataclass
 class MondayGroup:
@@ -225,6 +232,7 @@ class MondayGroup:
             "position": self.position,
         }
 
+
 @dataclass
 class MondayColumnValue:
     """A column value for an item."""
@@ -251,6 +259,7 @@ class MondayColumnValue:
             "text": self.text,
             "value": self.value,
         }
+
 
 @dataclass
 class MondayItem:
@@ -325,6 +334,7 @@ class MondayItem:
                 return cv.text
         return None
 
+
 @dataclass
 class MondayUpdate:
     """A Monday.com update (comment)."""
@@ -365,6 +375,7 @@ class MondayUpdate:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
 def _parse_datetime(dt_str: str | None) -> datetime | None:
     """Parse Monday.com datetime string."""
     if not dt_str:
@@ -376,6 +387,7 @@ def _parse_datetime(dt_str: str | None) -> datetime | None:
         return datetime.fromisoformat(dt_str)
     except (ValueError, TypeError):
         return None
+
 
 class MondayConnector(EnterpriseConnector):
     """
@@ -1297,6 +1309,7 @@ class MondayConnector(EnterpriseConnector):
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
+
 
 __all__ = [
     "MondayConnector",

@@ -5,6 +5,7 @@ Provides:
 - GenomeBreeder: Crossover, mutation, and selection operators
 - PopulationManager: Persistent population management across debates
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from aragora.agents.personas import EXPERTISE_DOMAINS, PERSONALITY_TRAITS
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
 from aragora.genesis.genome import AgentGenome, GenomeStore, generate_genome_id
+
 
 @dataclass
 class Population:
@@ -58,6 +60,7 @@ class Population:
             "created_at": self.created_at.isoformat(),
             "debate_history": self.debate_history,
         }
+
 
 class GenomeBreeder:
     """
@@ -305,6 +308,7 @@ class GenomeBreeder:
             generation=population.generation,
             debate_history=population.debate_history.copy(),
         )
+
 
 class PopulationManager:
     """

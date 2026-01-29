@@ -41,6 +41,7 @@ MAX_BATCH_SIZE = 50
 MAX_FILE_SIZE_MB = 100
 MAX_TOTAL_BATCH_SIZE_MB = 500
 
+
 class DocumentBatchHandler(BaseHandler):
     """Handler for batch document upload and processing endpoints."""
 
@@ -123,9 +124,7 @@ class DocumentBatchHandler(BaseHandler):
             return await self._upload_batch(handler)
         return None
 
-    async def handle_delete(
-        self, path: str, query_params: dict, handler
-    ) -> HandlerResult | None:
+    async def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests."""
         if path.startswith("/api/v1/documents/batch/"):
             parts = path.split("/")
@@ -607,6 +606,7 @@ class DocumentBatchHandler(BaseHandler):
         except AttributeError as e:
             logger.exception(f"Error getting knowledge job status: {e}")
             return error_response(safe_error_message(e, "Failed to get job status"), 500)
+
 
 # Export for handler registration
 __all__ = ["DocumentBatchHandler"]

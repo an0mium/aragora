@@ -22,6 +22,7 @@ from aragora.queue.status import JobStatusTracker
 
 logger = logging.getLogger(__name__)
 
+
 class RedisStreamsQueue(JobQueue):
     """
     Redis Streams-based job queue.
@@ -387,6 +388,7 @@ class RedisStreamsQueue(JobQueue):
         # The redis client is shared, don't close it here
         self._initialized = False
         logger.debug("Queue closed")
+
 
 async def create_redis_queue(
     redis_url: str | None = None,

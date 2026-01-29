@@ -18,6 +18,7 @@ Usage with LangChain:
     retriever = AragoraRetriever(api_base="https://api.aragora.ai", api_key="your-key")
     docs = retriever.get_relevant_documents("database architecture patterns")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,6 +58,7 @@ LANGCHAIN_AVAILABLE = True  # Kept for backwards compatibility
 # Aragora Tool Input Schema
 # =============================================================================
 
+
 class AragoraToolInput(BaseModel):
     """Input schema for Aragora tool."""
 
@@ -73,9 +75,11 @@ class AragoraToolInput(BaseModel):
         default=True, description="Whether to search for and include evidence"
     )
 
+
 # =============================================================================
 # Aragora Tool
 # =============================================================================
+
 
 class AragoraTool(BaseTool):
     """
@@ -259,9 +263,11 @@ class AragoraTool(BaseTool):
 
         return json.dumps(formatted, indent=2)
 
+
 # =============================================================================
 # Aragora Retriever
 # =============================================================================
+
 
 class AragoraRetriever(BaseRetriever):
     """
@@ -373,9 +379,11 @@ class AragoraRetriever(BaseRetriever):
 
         return documents
 
+
 # =============================================================================
 # Aragora Callback Handler
 # =============================================================================
+
 
 class AragoraCallbackHandler(BaseCallbackHandler):
     """
@@ -453,9 +461,11 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         if self._on_error:
             self._on_error(error)  # type: ignore[arg-type]
 
+
 # =============================================================================
 # Aragora Chain Builder
 # =============================================================================
+
 
 def create_aragora_chain(
     api_base: str = "https://api.aragora.ai",
@@ -539,13 +549,16 @@ def create_aragora_chain(
         callbacks=[AragoraCallbackHandler(verbose=verbose)],
     )
 
+
 # =============================================================================
 # Utility Functions
 # =============================================================================
 
+
 def is_langchain_available() -> bool:
     """Check if LangChain is installed and available."""
     return LANGCHAIN_AVAILABLE
+
 
 def get_langchain_version() -> str | None:
     """Get the installed LangChain version, if available."""
@@ -557,6 +570,7 @@ def get_langchain_version() -> str | None:
         return getattr(langchain_core, "__version__", "unknown")
     except Exception:  # noqa: BLE001 - Version check fallback
         return None
+
 
 # =============================================================================
 # Exports

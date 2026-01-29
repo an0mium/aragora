@@ -73,11 +73,13 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
+
 # Token fields to encrypt
 _TOKEN_FIELDS = ["access_token", "refresh_token"]
 
 # Exported for migration scripts
 ENCRYPTED_FIELDS = _TOKEN_FIELDS
+
 
 def _encrypt_token(token: str, user_id: str = "") -> str:
     """
@@ -116,6 +118,7 @@ def _encrypt_token(token: str, user_id: str = "") -> str:
         logger.warning(f"Token encryption failed, storing unencrypted: {e}")
         return token
 
+
 def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
     """
     Decrypt a token value, handling legacy unencrypted tokens.
@@ -137,6 +140,7 @@ def _decrypt_token(encrypted_token: str, user_id: str = "") -> str:
         # Could be a legacy plain token that happens to start with "A"
         logger.debug(f"Token decryption failed for user {user_id}, returning as-is: {e}")
         return encrypted_token
+
 
 @dataclass
 class GmailUserState:
@@ -243,6 +247,7 @@ class GmailUserState:
             updated_at=row[11] or time.time(),
         )
 
+
 @dataclass
 class SyncJobState:
     """Sync job state."""
@@ -258,6 +263,7 @@ class SyncJobState:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
 
 class GmailTokenStoreBackend(ABC):
     """Abstract base for Gmail token storage backends."""
@@ -300,6 +306,7 @@ class GmailTokenStoreBackend(ABC):
     async def close(self) -> None:
         """Close connections (optional to implement)."""
         pass
+
 
 class InMemoryGmailTokenStore(GmailTokenStoreBackend):
     """
@@ -353,6 +360,7 @@ class InMemoryGmailTokenStore(GmailTokenStoreBackend):
         """Clear all entries (for testing). Not async-safe, use only in test setup."""
         self._tokens.clear()
         self._jobs.clear()
+
 
 class SQLiteGmailTokenStore(GmailTokenStoreBackend):
     """
@@ -550,6 +558,7 @@ class SQLiteGmailTokenStore(GmailTokenStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
+
 class RedisGmailTokenStore(GmailTokenStoreBackend):
     """
     Redis-backed Gmail token store with SQLite fallback.
@@ -684,6 +693,7 @@ class RedisGmailTokenStore(GmailTokenStoreBackend):
         await self._sqlite.close()
         if self._redis:
             self._redis.close()
+
 
 class PostgresGmailTokenStore(GmailTokenStoreBackend):
     """
@@ -955,12 +965,14 @@ class PostgresGmailTokenStore(GmailTokenStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
 _gmail_token_store: GmailTokenStoreBackend | None = None
 _gmail_store_init_lock = threading.Lock()
+
 
 def get_gmail_token_store() -> GmailTokenStoreBackend:
     """
@@ -1025,16 +1037,19 @@ def get_gmail_token_store() -> GmailTokenStoreBackend:
 
         return _gmail_token_store
 
+
 def set_gmail_token_store(store: GmailTokenStoreBackend) -> None:
     """Set custom Gmail token store."""
     global _gmail_token_store
     _gmail_token_store = store
     logger.debug(f"Gmail token store backend set: {type(store).__name__}")
 
+
 def reset_gmail_token_store() -> None:
     """Reset the global Gmail token store (for testing)."""
     global _gmail_token_store
     _gmail_token_store = None
+
 
 __all__ = [
     "GmailUserState",

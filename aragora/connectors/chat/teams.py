@@ -50,6 +50,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 from aragora.connectors.exceptions import (
     ConnectorAPIError,
     ConnectorAuthError,
@@ -94,6 +95,7 @@ GRAPH_AUTH_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 # Graph API scopes for different operations
 GRAPH_SCOPE_FILES = "https://graph.microsoft.com/.default"
 
+
 def _classify_teams_error(
     error_str: str,
     status_code: int = 0,
@@ -131,6 +133,7 @@ def _classify_teams_error(
 
     # Default fallback
     return ConnectorAPIError(error_str, connector_name="teams")
+
 
 class TeamsConnector(ChatPlatformConnector):
     """
@@ -1653,6 +1656,7 @@ class TeamsConnector(ChatPlatformConnector):
         except Exception as e:
             logger.debug(f"Teams get_user_info error: {e}")
             return None
+
 
 class TeamsThreadManager:
     """

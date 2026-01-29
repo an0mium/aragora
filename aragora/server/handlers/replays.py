@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for replays endpoints (30 requests per minute - file operations)
 _replays_limiter = RateLimiter(requests_per_minute=30)
 
+
 class ReplaysHandler(BaseHandler):
     """Handler for replays and learning evolution endpoints."""
 

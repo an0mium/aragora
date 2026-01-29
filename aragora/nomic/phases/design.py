@@ -6,6 +6,7 @@ Phase 2: Implementation design
 - Gemini as design lead, others as critics
 - Deadlock resolution via counterfactual branching
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ SAFETY_PREAMBLE = """SAFETY RULES:
 3. Focus on MINIMAL viable implementation
 4. Prefer simple, direct solutions"""
 
+
 @dataclass
 class DesignConfig:
     """Configuration for design phase."""
@@ -52,6 +54,7 @@ class DesignConfig:
     def __post_init__(self):
         if self.protected_files is None:
             self.protected_files = DEFAULT_PROTECTED_FILES
+
 
 @dataclass
 class BeliefContext:
@@ -88,6 +91,7 @@ class BeliefContext:
             lines.append("\n[Belief network did NOT converge - proceed with caution]")
 
         return "\n".join(lines)
+
 
 class DesignPhase:
     """
@@ -965,5 +969,6 @@ Designs missing any of these will be automatically rejected."""
             return "medium"
         else:
             return "low"
+
 
 __all__ = ["DesignPhase", "DesignConfig", "BeliefContext"]

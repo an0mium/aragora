@@ -10,6 +10,7 @@ Extends the base provenance system with:
 
 This ensures debate conclusions remain valid as underlying evidence changes.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,6 +29,7 @@ from aragora.reasoning.provenance import (
     SourceType,
 )
 
+
 class StalenessStatus(Enum):
     """Status of evidence freshness."""
 
@@ -36,6 +38,7 @@ class StalenessStatus(Enum):
     UNKNOWN = "unknown"  # Cannot determine
     ERROR = "error"  # Failed to check
     EXPIRED = "expired"  # Time-based expiration
+
 
 @dataclass
 class GitSourceInfo:
@@ -70,6 +73,7 @@ class GitSourceInfo:
             "ref": self.ref,
         }
 
+
 @dataclass
 class WebSourceInfo:
     """Web-specific source information for URL evidence."""
@@ -92,6 +96,7 @@ class WebSourceInfo:
             "last_modified": self.last_modified,
             "etag": self.etag,
         }
+
 
 @dataclass
 class StalenessCheck:
@@ -124,6 +129,7 @@ class StalenessCheck:
             "changed_lines": self.changed_lines,
         }
 
+
 @dataclass
 class RevalidationTrigger:
     """Trigger for re-debate based on stale evidence."""
@@ -146,6 +152,7 @@ class RevalidationTrigger:
             "recommendation": self.recommendation,
             "created_at": self.created_at,
         }
+
 
 class GitProvenanceTracker:
     """Tracks provenance for code evidence via git."""
@@ -348,6 +355,7 @@ class GitProvenanceTracker:
             changed_lines=changed_lines,
         )
 
+
 class WebProvenanceTracker:
     """Tracks provenance for web-based evidence."""
 
@@ -428,6 +436,7 @@ class WebProvenanceTracker:
                 checked_at=datetime.now().isoformat(),
                 reason=str(e),
             )
+
 
 class EnhancedProvenanceManager(ProvenanceManager):
     """
@@ -680,6 +689,7 @@ class EnhancedProvenanceManager(ProvenanceManager):
         )
 
         return base_export
+
 
 class ProvenanceValidator:
     """

@@ -16,6 +16,7 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class OutcomeRecord:
     """A single debate outcome record."""
@@ -29,6 +30,7 @@ class OutcomeRecord:
     def __post_init__(self):
         if not self.recorded_at:
             self.recorded_at = datetime.now(timezone.utc).isoformat()
+
 
 class EvolutionTracker(SQLiteStore):
     """

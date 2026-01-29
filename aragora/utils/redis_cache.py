@@ -15,6 +15,7 @@ Usage:
     cache.set("key", {"data": "value"})
     result = cache.get("key")
 """
+
 from __future__ import annotations
 
 import json
@@ -27,6 +28,7 @@ from typing import Any, Generic, TypeVar
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
 
 class RedisTTLCache(Generic[T]):
     """
@@ -248,6 +250,7 @@ class RedisTTLCache(Generic[T]):
         """Return count of in-memory entries."""
         return len(self._memory_cache)
 
+
 def HybridTTLCache(
     prefix: str = "cache",
     ttl_seconds: float = 300.0,
@@ -272,6 +275,7 @@ def HybridTTLCache(
         ttl_seconds=ttl_seconds,
         maxsize=maxsize,
     )
+
 
 __all__ = [
     "RedisTTLCache",

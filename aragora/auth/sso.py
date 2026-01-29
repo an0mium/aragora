@@ -28,6 +28,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class SSOProviderType(str, Enum):
     """Supported SSO provider types."""
 
@@ -38,6 +39,7 @@ class SSOProviderType(str, Enum):
     GOOGLE = "google"
     GITHUB = "github"
 
+
 class SSOError(Exception):
     """Base exception for SSO errors."""
 
@@ -47,17 +49,20 @@ class SSOError(Exception):
         self.code = code
         self.details = details or {}
 
+
 class SSOAuthenticationError(SSOError):
     """Authentication failed."""
 
     def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SSO_AUTH_FAILED", details)
 
+
 class SSOConfigurationError(SSOError):
     """SSO is misconfigured."""
 
     def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SSO_CONFIG_ERROR", details)
+
 
 @dataclass
 class SSOUser:
@@ -142,6 +147,7 @@ class SSOUser:
             result["azure_tenant_id"] = self.azure_tenant_id
         return result
 
+
 @dataclass
 class SSOConfig:
     """
@@ -201,6 +207,7 @@ class SSOConfig:
             errors.append("callback_url is required")
 
         return errors
+
 
 class SSOProvider(ABC):
     """
@@ -346,12 +353,14 @@ class SSOProvider(ABC):
         domain = email.split("@")[-1].lower()
         return domain in [d.lower() for d in self.config.allowed_domains]
 
+
 # =============================================================================
 # Global Provider Instance
 # =============================================================================
 
 _sso_provider: SSOProvider | None = None
 _sso_initialized: bool = False
+
 
 def get_sso_provider() -> SSOProvider | None:
     """
@@ -429,15 +438,18 @@ def get_sso_provider() -> SSOProvider | None:
 
     return _sso_provider
 
+
 def reset_sso_provider() -> None:
     """Reset SSO provider (for testing)."""
     global _sso_provider, _sso_initialized
     _sso_provider = None
     _sso_initialized = False
 
+
 # =============================================================================
 # SSO Utilities
 # =============================================================================
+
 
 class SSOGroupMapper:
     """Maps IdP groups to Aragora roles.
@@ -484,6 +496,7 @@ class SSOGroupMapper:
 
         return list(roles)
 
+
 @dataclass
 class SSOSession:
     """An active SSO session."""
@@ -495,6 +508,7 @@ class SSOSession:
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + 3600 * 8)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class SSOSessionManager:
     """Manages SSO sessions.
@@ -581,6 +595,7 @@ class SSOSessionManager:
             del self._sessions[session_id]
             logger.info(f"Logged out session: {session_id}")
 
+
 @dataclass
 class SSOAuditEntry:
     """An SSO audit log entry."""
@@ -596,6 +611,7 @@ class SSOAuditEntry:
     user_agent: str | None = None
     reason: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class SSOAuditLogger:
     """Logs SSO authentication events for compliance.
@@ -715,6 +731,7 @@ class SSOAuditLogger:
             }
             for e in entries
         ]
+
 
 __all__ = [
     "SSOProviderType",

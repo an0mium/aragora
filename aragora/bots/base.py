@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class Platform(Enum):
     """Supported chat platforms."""
 
@@ -23,6 +24,7 @@ class Platform(Enum):
     DISCORD = "discord"
     TEAMS = "teams"
     ZOOM = "zoom"
+
 
 @dataclass
 class BotUser:
@@ -49,6 +51,7 @@ class BotUser:
             return f"@{self.username}"
         return f"@{self.username}"
 
+
 @dataclass
 class BotChannel:
     """Represents a channel/conversation on any platform."""
@@ -60,6 +63,7 @@ class BotChannel:
     platform: Platform = Platform.SLACK
     thread_id: str | None = None  # For threaded conversations
     raw_data: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class BotMessage:
@@ -78,6 +82,7 @@ class BotMessage:
     @property
     def is_threaded(self) -> bool:
         return self.thread_id is not None
+
 
 @dataclass
 class CommandContext:
@@ -102,6 +107,7 @@ class CommandContext:
     @property
     def thread_id(self) -> str | None:
         return self.message.thread_id or self.channel.thread_id
+
 
 @dataclass
 class CommandResult:
@@ -128,6 +134,7 @@ class CommandResult:
     def fail(cls, error: str, **kwargs: Any) -> "CommandResult":
         """Create a failed result."""
         return cls(success=False, error=error, **kwargs)
+
 
 @dataclass
 class BotConfig:
@@ -157,6 +164,7 @@ class BotConfig:
     # Metadata
     bot_name: str = "Aragora"
     bot_username: str = "aragora"
+
 
 class BaseBotClient(ABC):
     """Abstract base class for platform-specific bot clients."""
@@ -290,6 +298,7 @@ class BaseBotClient(ABC):
             attachments=attachments,
         )
 
+
 class BotEventHandler(ABC):
     """Abstract base class for handling platform events."""
 
@@ -320,6 +329,7 @@ class BotEventHandler(ABC):
     async def on_error(self, error: Exception, context: Optional[dict[str, Any]] = None) -> None:
         """Handle errors during event processing."""
         logger.error(f"Bot error: {error}", exc_info=True, extra={"context": context})
+
 
 class DefaultBotEventHandler(BotEventHandler):
     """Default implementation of BotEventHandler with routing logic.

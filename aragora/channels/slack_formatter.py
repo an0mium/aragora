@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
 
+
 @register_formatter
 class SlackReceiptFormatter(ReceiptFormatter):
     """Format decision receipts for Slack using Block Kit."""

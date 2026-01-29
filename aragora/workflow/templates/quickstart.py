@@ -22,6 +22,7 @@ from aragora.workflow.types import (
     WorkflowDefinition,
 )
 
+
 def create_yes_no_workflow(
     question: str,
     context: str | None = None,
@@ -98,6 +99,7 @@ def create_yes_no_workflow(
         ],
         entry_step="debate",
     )
+
 
 def create_pros_cons_workflow(
     topic: str,
@@ -204,6 +206,7 @@ def create_pros_cons_workflow(
         steps=steps,
         entry_step="pros",
     )
+
 
 def create_risk_assessment_workflow(
     scenario: str,
@@ -314,6 +317,7 @@ def create_risk_assessment_workflow(
         entry_step="identify",
     )
 
+
 def create_brainstorm_workflow(
     topic: str,
     goal: str | None = None,
@@ -414,9 +418,11 @@ def create_brainstorm_workflow(
         entry_step="diverge",
     )
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 def quick_decision(question: str) -> WorkflowDefinition:
     """Create the fastest possible yes/no decision.
@@ -429,6 +435,7 @@ def quick_decision(question: str) -> WorkflowDefinition:
     """
     return create_yes_no_workflow(question=question)
 
+
 def quick_analysis(topic: str) -> WorkflowDefinition:
     """Create a quick pros/cons analysis.
 
@@ -439,6 +446,7 @@ def quick_analysis(topic: str) -> WorkflowDefinition:
         Streamlined pros/cons workflow
     """
     return create_pros_cons_workflow(topic=topic, max_items=3, weighted=False)
+
 
 def quick_risks(scenario: str) -> WorkflowDefinition:
     """Create a quick risk check.
@@ -454,6 +462,7 @@ def quick_risks(scenario: str) -> WorkflowDefinition:
         risk_categories=["operational", "financial"],
         include_mitigation=False,
     )
+
 
 def quick_ideas(topic: str, count: int = 5) -> WorkflowDefinition:
     """Create a quick brainstorm.
@@ -471,6 +480,7 @@ def quick_ideas(topic: str, count: int = 5) -> WorkflowDefinition:
         prioritize=False,
         perspectives=["creative", "practical"],
     )
+
 
 __all__ = [
     # Core templates

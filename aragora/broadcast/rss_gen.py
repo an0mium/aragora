@@ -3,6 +3,7 @@ RSS/Podcast feed generator for aragora debates.
 
 Generates iTunes-compatible podcast feeds from debate audio broadcasts.
 """
+
 from __future__ import annotations
 
 import html
@@ -12,6 +13,7 @@ from datetime import datetime
 from xml.sax.saxutils import escape
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class PodcastConfig:
@@ -34,6 +36,7 @@ class PodcastConfig:
         if not self.copyright:
             self.copyright = f"Copyright {datetime.now().year} Aragora"
 
+
 @dataclass
 class PodcastEpisode:
     """A single podcast episode (debate broadcast)."""
@@ -51,17 +54,20 @@ class PodcastEpisode:
     season_number: int | None = None
     agents: list[str] = field(default_factory=list)
 
+
 def _escape_xml(text: str) -> str:
     """Escape text for safe XML inclusion."""
     if not text:
         return ""
     return escape(html.unescape(text))
 
+
 def _escape_cdata(text: str) -> str:
     """Escape text for CDATA sections (handle ]]> sequences)."""
     if not text:
         return ""
     return text.replace("]]>", "]]]]><![CDATA[>")
+
 
 def _format_rfc2822_date(iso_date: str) -> str:
     """Convert ISO date to RFC 2822 format for RSS."""
@@ -71,6 +77,7 @@ def _format_rfc2822_date(iso_date: str) -> str:
     except (ValueError, AttributeError):
         return datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
 
+
 def _format_duration(seconds: int) -> str:
     """Format duration as HH:MM:SS for iTunes."""
     if not seconds or seconds < 0:
@@ -79,6 +86,7 @@ def _format_duration(seconds: int) -> str:
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
 
 class PodcastFeedGenerator:
     """
@@ -308,6 +316,7 @@ class PodcastFeedGenerator:
         lines.append("")
 
         return lines
+
 
 def create_debate_summary(
     task: str,

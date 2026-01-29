@@ -37,12 +37,14 @@ from aragora.documents.models import DocumentChunk
 
 logger = logging.getLogger(__name__)
 
+
 class EventEmitter(Protocol):
     """Protocol for event emission during exploration."""
 
     async def emit(self, event: str, data: dict[str, Any]) -> None:
         """Emit an exploration event."""
         ...
+
 
 @dataclass
 class ExplorerConfig:
@@ -74,6 +76,7 @@ class ExplorerConfig:
     # Timeouts
     phase_timeout: float = 300.0  # 5 minutes per phase
     total_timeout: float = 1800.0  # 30 minutes total
+
 
 class DocumentExplorer:
     """Orchestrates iterative document exploration.

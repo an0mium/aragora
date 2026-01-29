@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 _metrics: dict[str, Any] = {}
 _prometheus_available: bool | None = None
 
+
 def _check_prometheus() -> bool:
     """Check if prometheus_client is available."""
     global _prometheus_available
@@ -47,6 +48,7 @@ def _check_prometheus() -> bool:
             _prometheus_available = False
             logger.debug("prometheus_client not available, metrics will be no-ops")
     return _prometheus_available
+
 
 def _get_or_create_metric(
     name: str,
@@ -74,6 +76,7 @@ def _get_or_create_metric(
         else:
             _metrics[name] = metric_type(name, description)
     return _metrics[name]
+
 
 def circuit_breaker_state_changed(
     name: str,
@@ -104,6 +107,7 @@ def circuit_breaker_state_changed(
         old_val = old_state.value if hasattr(old_state, "value") else str(old_state)
         new_val = new_state.value if hasattr(new_state, "value") else str(new_state)
         counter.labels(breaker_name=name, from_state=old_val, to_state=new_val).inc()
+
 
 def retry_attempt(
     operation_name: str,
@@ -144,6 +148,7 @@ def retry_attempt(
     if histogram:
         histogram.labels(operation_name=operation_name).observe(delay)
 
+
 def retry_exhausted(
     operation_name: str,
     total_attempts: int,
@@ -169,6 +174,7 @@ def retry_exhausted(
     )
     if counter:
         counter.labels(operation_name=operation_name).inc()
+
 
 def timeout_occurred(
     operation_name: str,
@@ -204,6 +210,7 @@ def timeout_occurred(
     )
     if histogram:
         histogram.labels(operation_name=operation_name).observe(timeout_seconds)
+
 
 def health_status_changed(
     component: str,
@@ -242,6 +249,7 @@ def health_status_changed(
     if failures_gauge:
         failures_gauge.labels(component_name=component).set(consecutive_failures)
 
+
 def operation_duration(
     operation_name: str,
     duration_seconds: float,
@@ -271,6 +279,7 @@ def operation_duration(
             success=str(success).lower(),
         ).observe(duration_seconds)
 
+
 def create_metrics_callbacks() -> dict[str, Callable]:
     """Create a dictionary of metrics callbacks for decorator integration.
 
@@ -286,10 +295,12 @@ def create_metrics_callbacks() -> dict[str, Callable]:
         "on_operation_complete": operation_duration,
     }
 
+
 def reset_metrics() -> None:
     """Reset all metrics (useful for testing)."""
     global _metrics
     _metrics.clear()
+
 
 __all__ = [
     "circuit_breaker_state_changed",

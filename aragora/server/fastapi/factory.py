@@ -26,12 +26,14 @@ from .routes import health, debates, decisions
 
 logger = logging.getLogger(__name__)
 
+
 def _get_allowed_origins() -> list[str]:
     """Get allowed CORS origins from environment."""
     origins_str = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "*")
     if origins_str == "*":
         return ["*"]
     return [o.strip() for o in origins_str.split(",") if o.strip()]
+
 
 def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
     """
@@ -91,6 +93,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
     return ctx
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -124,6 +127,7 @@ async def lifespan(app: FastAPI):
             ctx["storage"].close()
         except Exception:
             pass
+
 
 def create_app(
     nomic_dir: Path | None = None,
@@ -189,6 +193,7 @@ def create_app(
     logger.info(f"FastAPI app created: {title} v{version}")
 
     return app
+
 
 # Default app instance for uvicorn
 app = create_app()

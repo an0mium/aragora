@@ -516,7 +516,7 @@ class ConcreteSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         query = input_data.get("query", "")
@@ -625,7 +625,7 @@ class ConcreteSyncSkill(SyncSkill):
 
     def execute_sync(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         path = input_data.get("path", "")
@@ -686,7 +686,7 @@ class TypeValidationSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         return SkillResult.create_success(input_data)
@@ -753,7 +753,7 @@ class TestInputValidationEdgeCases:
                 )
 
             async def execute(
-                self, input_data: Dict[str, Any], context: SkillContext
+                self, input_data: dict[str, Any], context: SkillContext
             ) -> SkillResult:
                 return SkillResult.create_success({})
 

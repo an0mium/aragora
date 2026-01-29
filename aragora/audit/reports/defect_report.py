@@ -30,6 +30,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class ReportFormat(str, Enum):
     """Available report output formats."""
 
@@ -37,6 +38,7 @@ class ReportFormat(str, Enum):
     MARKDOWN = "markdown"
     HTML = "html"
     CSV = "csv"
+
 
 @dataclass
 class ReportConfig:
@@ -66,6 +68,7 @@ class ReportConfig:
     company_name: str = ""
     logo_url: str = ""
 
+
 @dataclass
 class SeverityStats:
     """Statistics by severity level."""
@@ -90,6 +93,7 @@ class SeverityStats:
             "total": self.total,
         }
 
+
 @dataclass
 class CategoryStats:
     """Statistics by audit category."""
@@ -101,6 +105,7 @@ class CategoryStats:
 
     def to_dict(self) -> dict[str, int]:
         return dict(sorted(self.counts.items(), key=lambda x: x[1], reverse=True))
+
 
 @dataclass
 class DocumentStats:
@@ -129,6 +134,7 @@ class DocumentStats:
             stats.low += 1
         else:
             stats.info += 1
+
 
 class DefectReport:
     """
@@ -579,6 +585,7 @@ class DefectReport:
         else:
             return self.to_markdown()
 
+
 def generate_report(
     findings: list[Any],
     format: ReportFormat = ReportFormat.MARKDOWN,
@@ -600,6 +607,7 @@ def generate_report(
     config = ReportConfig(format=format, **config_kwargs)
     report = DefectReport(findings, config=config, session_id=session_id)
     return report.generate()
+
 
 __all__ = [
     "DefectReport",

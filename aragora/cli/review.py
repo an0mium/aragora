@@ -8,6 +8,7 @@ Run multi-agent code review debates on diffs/PRs:
     aragora review --diff-file pr.diff --output-dir ./artifacts
     aragora review --demo  # Try without API keys
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,11 +36,13 @@ MAX_DIFF_SIZE = 50000  # 50KB max diff size
 REVIEWS_DIR = Path.home() / ".aragora" / "reviews"
 SHARE_BASE_URL = "https://aragora.ai/reviews"
 
+
 def generate_review_id(findings: dict, diff_hash: str) -> str:
     """Generate a short, unique review ID."""
     # Use first 8 chars of UUID combined with diff hash for uniqueness
     uid = uuid.uuid4().hex[:8]
     return f"{uid}"
+
 
 def save_review_for_sharing(
     review_id: str,
@@ -85,9 +88,11 @@ def save_review_for_sharing(
 
     return review_path
 
+
 def get_shareable_url(review_id: str) -> str:
     """Get the shareable URL for a review."""
     return f"{SHARE_BASE_URL}/{review_id}"
+
 
 def get_available_agents() -> str:
     """Get available agents based on configured API keys.
@@ -120,6 +125,7 @@ def get_available_agents() -> str:
         return ""
 
     return ",".join(agents)
+
 
 def get_demo_findings() -> dict:
     """Get demo review findings for trying without API keys."""
@@ -179,6 +185,7 @@ This code review identified **2 critical security issues** that all AI models ag
 **Recommendation:** Address the SQL injection immediately before merging.""",
         "agents_used": ["anthropic-api", "openai-api", "gemini-api"],
     }
+
 
 def build_review_prompt(diff: str, focus_areas: list[str] | None = None) -> str:
     """Build a focused code review prompt."""
@@ -240,6 +247,7 @@ If no issues found in a category, say "No issues found."
 
 Be thorough but avoid false positives. Focus on real, actionable issues."""
 
+
 async def run_review_debate(
     diff: str,
     agents_str: str = DEFAULT_REVIEW_AGENTS,
@@ -282,6 +290,7 @@ async def run_review_debate(
     result = await arena.run()
 
     return result
+
 
 def extract_review_findings(result: DebateResult) -> dict:
     """Extract structured findings from debate result."""
@@ -330,6 +339,7 @@ def extract_review_findings(result: DebateResult) -> dict:
         "final_summary": result.final_answer,
         "agents_used": list(set(m.agent for m in result.messages)) if result.messages else [],
     }
+
 
 def format_github_comment(result: DebateResult | None, findings: dict[str, Any]) -> str:
     """Format findings as a GitHub PR comment."""
@@ -427,6 +437,7 @@ def format_github_comment(result: DebateResult | None, findings: dict[str, Any])
     )
 
     return "\n".join(lines)
+
 
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command."""
@@ -648,6 +659,7 @@ def cmd_review(args: argparse.Namespace) -> int:
 
     return 0
 
+
 def create_review_parser(subparsers) -> None:
     """Add review subcommand to argument parser."""
     parser = subparsers.add_parser(
@@ -711,6 +723,7 @@ def create_review_parser(subparsers) -> None:
     )
 
     parser.set_defaults(func=cmd_review)
+
 
 # For direct module execution
 if __name__ == "__main__":

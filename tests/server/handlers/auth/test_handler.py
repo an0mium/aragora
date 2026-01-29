@@ -44,8 +44,8 @@ def maybe_await(result):
 
 
 def make_mock_handler(
-    body: Dict[str, Any] | None = None,
-    headers: Dict[str, str] | None = None,
+    body: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     command: str = "GET",
     client_address: tuple = ("127.0.0.1", 12345),
 ) -> MagicMock:
@@ -66,7 +66,7 @@ def make_mock_handler(
     return handler
 
 
-def parse_result(result) -> Dict[str, Any]:
+def parse_result(result) -> dict[str, Any]:
     """Parse HandlerResult into a dictionary."""
     if result is None:
         return {"success": False, "error": "No result", "status_code": 500}

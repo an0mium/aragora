@@ -38,6 +38,7 @@ except ImportError:
     MemoryCoordinator = None  # type: ignore[misc,assignment]
     CoordinatorOptions = None  # type: ignore[misc,assignment]
 
+
 class CoordinatorHandler(SecureHandler):
     """Handler for memory coordinator endpoints.
 

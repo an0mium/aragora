@@ -33,8 +33,8 @@ class MockRedis:
     """Mock Redis client for testing."""
 
     def __init__(self):
-        self._data: Dict[str, List[Tuple[str, float]]] = {}
-        self._ttls: Dict[str, float] = {}
+        self._data: dict[str, list[tuple[str, float]]] = {}
+        self._ttls: dict[str, float] = {}
         self._available = True
 
     def ping(self):
@@ -59,7 +59,7 @@ class MockRedis:
     def zcard(self, key: str) -> int:
         return len(self._data.get(key, []))
 
-    def zadd(self, key: str, mapping: Dict[str, float]) -> int:
+    def zadd(self, key: str, mapping: dict[str, float]) -> int:
         if key not in self._data:
             self._data[key] = []
         added = 0
@@ -125,7 +125,7 @@ class MockPipeline:
 
     def __init__(self, redis: MockRedis):
         self._redis = redis
-        self._commands: List[Tuple[str, tuple, dict]] = []
+        self._commands: list[tuple[str, tuple, dict]] = []
 
     def zremrangebyscore(self, key: str, min_score: float, max_score: float):
         self._commands.append(("zremrangebyscore", (key, min_score, max_score), {}))
@@ -135,7 +135,7 @@ class MockPipeline:
         self._commands.append(("zcard", (key,), {}))
         return self
 
-    def zadd(self, key: str, mapping: Dict[str, float]):
+    def zadd(self, key: str, mapping: dict[str, float]):
         self._commands.append(("zadd", (key, mapping), {}))
         return self
 
@@ -143,7 +143,7 @@ class MockPipeline:
         self._commands.append(("expire", (key, seconds), {}))
         return self
 
-    def execute(self) -> List[Any]:
+    def execute(self) -> list[Any]:
         results = []
         for cmd, args, kwargs in self._commands:
             method = getattr(self._redis, cmd)

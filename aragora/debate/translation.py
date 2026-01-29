@@ -29,6 +29,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+
 class Language(str, Enum):
     """Supported languages for debates."""
 
@@ -105,6 +106,7 @@ class Language(str, Enum):
         }
         return names.get(self.value, self.value)
 
+
 @dataclass
 class TranslationResult:
     """Result of a translation operation."""
@@ -140,6 +142,7 @@ class TranslationResult:
             "translation_time_ms": self.translation_time_ms,
         }
 
+
 @dataclass
 class LanguageDetectionResult:
     """Result of language detection."""
@@ -156,6 +159,7 @@ class LanguageDetectionResult:
             "confidence": self.confidence,
             "alternatives": [(lang.value, conf) for lang, conf in self.alternatives],
         }
+
 
 class TranslationCache:
     """
@@ -225,6 +229,7 @@ class TranslationCache:
         with self._lock:
             self._cache.clear()
 
+
 class TranslationBackend:
     """Base class for translation backends."""
 
@@ -244,6 +249,7 @@ class TranslationBackend:
         raise NotImplementedError(
             f"Subclass {self.__class__.__name__} must implement detect_language()"
         )
+
 
 class LLMTranslationBackend(TranslationBackend):
     """Translation backend using LLM (Claude or GPT)."""
@@ -391,6 +397,7 @@ Text:
 
         return None
 
+
 class TranslationService:
     """
     Main translation service for Aragora debates.
@@ -506,6 +513,7 @@ class TranslationService:
             "cache": self.cache.get_stats(),
         }
 
+
 @dataclass
 class MultilingualDebateConfig:
     """Configuration for multilingual debate support."""
@@ -516,6 +524,7 @@ class MultilingualDebateConfig:
     translate_consensus: bool = True
     translate_messages: bool = True
     preserve_original: bool = True
+
 
 class MultilingualDebateManager:
     """
@@ -635,10 +644,12 @@ class MultilingualDebateManager:
 
         return translations
 
+
 # Global singleton instances
 _translation_service: TranslationService | None = None
 _multilingual_manager: MultilingualDebateManager | None = None
 _lock = threading.Lock()
+
 
 def get_translation_service() -> TranslationService:
     """Get the global translation service instance."""
@@ -648,6 +659,7 @@ def get_translation_service() -> TranslationService:
             _translation_service = TranslationService()
         return _translation_service
 
+
 def get_multilingual_manager() -> MultilingualDebateManager:
     """Get the global multilingual debate manager instance."""
     global _multilingual_manager
@@ -655,6 +667,7 @@ def get_multilingual_manager() -> MultilingualDebateManager:
         if _multilingual_manager is None:
             _multilingual_manager = MultilingualDebateManager()
         return _multilingual_manager
+
 
 __all__ = [
     "Language",

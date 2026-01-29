@@ -56,11 +56,13 @@ except ImportError:
     HAS_SAML_LIB = False
     logger.debug("python3-saml not installed - SAML authentication unavailable")
 
+
 class SAMLError(SSOError):
     """SAML-specific error."""
 
     def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "SAML_ERROR", details)
+
 
 @dataclass
 class SAMLConfig(SSOConfig):
@@ -132,6 +134,7 @@ class SAMLConfig(SSOConfig):
             errors.append("sp_private_key required when authn_request_signed is True")
 
         return errors
+
 
 class SAMLProvider(SSOProvider):
     """
@@ -582,6 +585,7 @@ class SAMLProvider(SSOProvider):
             index="0"/>
     </md:SPSSODescriptor>
 </md:EntityDescriptor>"""
+
 
 __all__ = [
     "SAMLError",

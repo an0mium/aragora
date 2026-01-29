@@ -348,9 +348,7 @@ class TestListPendingActions:
         """Test filtering by due_within_hours."""
         mock_permission.return_value = None
 
-        result = await handle_list_pending_actions(
-            {"due_within_hours": 24}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions({"due_within_hours": 24}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -361,9 +359,7 @@ class TestListPendingActions:
         """Test pagination parameters."""
         mock_permission.return_value = None
 
-        result = await handle_list_pending_actions(
-            {"limit": 10, "offset": 0}, user_id="user-1"
-        )
+        result = await handle_list_pending_actions({"limit": 10, "offset": 0}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -417,9 +413,7 @@ class TestCompleteAction:
         """Test completing non-existent action item."""
         mock_permission.return_value = None
 
-        result = await handle_complete_action(
-            {}, action_id="nonexistent", user_id="user-1"
-        )
+        result = await handle_complete_action({}, action_id="nonexistent", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 404
@@ -518,9 +512,7 @@ class TestGetDueSoon:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.inbox.action_items._check_inbox_permission")
-    async def test_due_soon_default(
-        self, mock_permission, sample_action_items_with_deadlines
-    ):
+    async def test_due_soon_default(self, mock_permission, sample_action_items_with_deadlines):
         """Test getting due soon items with default 24 hours."""
         mock_permission.return_value = None
 
@@ -531,9 +523,7 @@ class TestGetDueSoon:
 
     @pytest.mark.asyncio
     @patch("aragora.server.handlers.inbox.action_items._check_inbox_permission")
-    async def test_due_soon_custom_hours(
-        self, mock_permission, sample_action_items_with_deadlines
-    ):
+    async def test_due_soon_custom_hours(self, mock_permission, sample_action_items_with_deadlines):
         """Test getting due soon items with custom hours window."""
         mock_permission.return_value = None
 
@@ -550,9 +540,7 @@ class TestGetDueSoon:
         """Test excluding overdue items."""
         mock_permission.return_value = None
 
-        result = await handle_get_due_soon(
-            {"include_overdue": False}, user_id="user-1"
-        )
+        result = await handle_get_due_soon({"include_overdue": False}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -565,9 +553,7 @@ class TestGetDueSoon:
         """Test include_overdue as string parameter."""
         mock_permission.return_value = None
 
-        result = await handle_get_due_soon(
-            {"include_overdue": "true"}, user_id="user-1"
-        )
+        result = await handle_get_due_soon({"include_overdue": "true"}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -701,9 +687,7 @@ class TestAutoSnoozeMeeting:
         """Test auto-snooze when email is not a meeting."""
         mock_permission.return_value = None
         mock_detector = MockMeetingDetector()
-        mock_detector.detect_meeting = AsyncMock(
-            return_value=MockMeetingResult(is_meeting=False)
-        )
+        mock_detector.detect_meeting = AsyncMock(return_value=MockMeetingResult(is_meeting=False))
         mock_get_detector.return_value = mock_detector
 
         data = {"subject": "Newsletter", "body": "Weekly update"}
@@ -720,9 +704,7 @@ class TestAutoSnoozeMeeting:
         """Test auto-snooze when meeting has no start time."""
         mock_permission.return_value = None
         mock_detector = MockMeetingDetector()
-        mock_detector.detect_meeting = AsyncMock(
-            return_value=MockMeetingResult(start_time=None)
-        )
+        mock_detector.detect_meeting = AsyncMock(return_value=MockMeetingResult(start_time=None))
         mock_get_detector.return_value = mock_detector
 
         data = {"subject": "Meeting", "body": "Let's meet sometime"}

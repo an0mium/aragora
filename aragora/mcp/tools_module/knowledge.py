@@ -16,6 +16,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def query_knowledge_tool(
     query: str,
     node_types: str = "all",
@@ -100,6 +101,7 @@ async def query_knowledge_tool(
         },
     }
 
+
 async def store_knowledge_tool(
     content: str,
     node_type: str = "fact",
@@ -175,6 +177,7 @@ async def store_knowledge_tool(
         logger.error(f"Failed to store knowledge: {e}")
         return {"error": f"Store failed: {str(e)}"}
 
+
 async def get_knowledge_stats_tool() -> dict[str, Any]:
     """
     Get statistics about the Knowledge Mound.
@@ -207,6 +210,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to get knowledge stats: {e}")
         return {"error": f"Stats failed: {str(e)}"}
+
 
 async def get_decision_receipt_tool(
     debate_id: str,
@@ -292,6 +296,7 @@ async def get_decision_receipt_tool(
         logger.error(f"Failed to generate decision receipt: {e}")
         return {"error": f"Receipt generation failed: {str(e)}"}
 
+
 def _format_receipt_markdown(receipt: dict[str, Any]) -> str:
     """Format a decision receipt as markdown."""
     md = f"""# Decision Receipt
@@ -327,6 +332,7 @@ def _format_receipt_markdown(receipt: dict[str, Any]) -> str:
         )
 
     return md
+
 
 # Export all tools
 __all__ = [

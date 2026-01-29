@@ -13,6 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
+
 class JobStatus(Enum):
     """Status of a job in the queue."""
 
@@ -22,6 +23,7 @@ class JobStatus(Enum):
     FAILED = "failed"  # Job failed after all retries
     CANCELLED = "cancelled"  # Job was cancelled
     RETRYING = "retrying"  # Job is waiting to be retried
+
 
 @dataclass
 class Job:
@@ -119,6 +121,7 @@ class Job:
     def should_retry(self) -> bool:
         """Check if job should be retried."""
         return self.attempts < self.max_attempts
+
 
 class JobQueue(ABC):
     """

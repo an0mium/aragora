@@ -32,6 +32,7 @@ from aragora.documents.chunking.strategies import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CodebaseAuditConfig:
     """Configuration for codebase auditing."""
@@ -65,6 +66,7 @@ class CodebaseAuditConfig:
     max_concurrent_files: int = 5
     timeout_per_file: float = 30.0
 
+
 @dataclass
 class ImprovementProposal:
     """A structured improvement proposal derived from audit findings."""
@@ -94,6 +96,7 @@ class ImprovementProposal:
             "suggested_fix": self.suggested_fix,
             "tags": self.tags,
         }
+
 
 @dataclass
 class CodebaseAuditResult:
@@ -131,6 +134,7 @@ class CodebaseAuditResult:
             "proposals_count": len(self.proposals),
             "summary": self.summary,
         }
+
 
 class CodebaseAuditor:
     """Audits codebase for improvement opportunities.
@@ -699,6 +703,7 @@ class CodebaseAuditor:
             findings=filtered_findings,
             duration_seconds=elapsed,
         )
+
 
 @dataclass
 class IncrementalAuditResult:

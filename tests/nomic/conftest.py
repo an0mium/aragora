@@ -100,7 +100,7 @@ def mock_harness() -> MagicMock:
 
 
 @pytest.fixture
-def mock_debate_result() -> Dict[str, Any]:
+def mock_debate_result() -> dict[str, Any]:
     """Create a mock debate result."""
     return {
         "consensus": True,
@@ -127,7 +127,7 @@ def mock_debate_result() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_design_result() -> Dict[str, Any]:
+def mock_design_result() -> dict[str, Any]:
     """Create a mock design result."""
     return {
         "approved": True,
@@ -144,7 +144,7 @@ def mock_design_result() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_implementation_result() -> Dict[str, Any]:
+def mock_implementation_result() -> dict[str, Any]:
     """Create a mock implementation result."""
     return {
         "success": True,
@@ -159,7 +159,7 @@ def mock_implementation_result() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def mock_verification_result() -> Dict[str, Any]:
+def mock_verification_result() -> dict[str, Any]:
     """Create a mock verification result."""
     return {
         "passed": True,

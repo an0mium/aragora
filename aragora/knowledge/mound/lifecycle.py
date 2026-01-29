@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class LifecycleStage(str, Enum):
     """Stages in the knowledge lifecycle."""
 
@@ -34,6 +35,7 @@ class LifecycleStage(str, Enum):
     EXPIRED = "expired"  # Past retention, pending deletion
     DELETED = "deleted"  # Marked for deletion
 
+
 class RetentionAction(str, Enum):
     """Actions for retention policy."""
 
@@ -41,6 +43,7 @@ class RetentionAction(str, Enum):
     ARCHIVE = "archive"  # Move to cold storage
     DELETE = "delete"  # Delete permanently
     REVALIDATE = "revalidate"  # Trigger revalidation
+
 
 @dataclass
 class RetentionPolicy:
@@ -122,6 +125,7 @@ class RetentionPolicy:
             "enabled": self.enabled,
         }
 
+
 @dataclass
 class LifecycleTransition:
     """Record of a lifecycle stage transition."""
@@ -147,6 +151,7 @@ class LifecycleTransition:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class LifecycleReport:
@@ -205,6 +210,7 @@ class LifecycleReport:
                 "revalidations": self.recent_revalidations,
             },
         }
+
 
 class LifecycleManager:
     """
@@ -638,6 +644,7 @@ class LifecycleManager:
     def add_delete_callback(self, callback: Callable[[str, str], None]) -> None:
         """Add callback for delete events."""
         self._delete_callbacks.append(callback)
+
 
 # Factory function
 def create_lifecycle_manager(

@@ -44,6 +44,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SenderStats:
     """Statistics about a sender's emails."""
@@ -97,6 +98,7 @@ class SenderStats:
 
         return min(1.0, engagement + self.custom_priority_boost)
 
+
 @dataclass
 class SenderReputation:
     """Computed reputation for a sender."""
@@ -122,6 +124,7 @@ class SenderReputation:
             "category": self.category,
             "reasons": self.reasons,
         }
+
 
 class SenderHistoryService:
     """
@@ -1000,6 +1003,7 @@ class SenderHistoryService:
                 )
 
             return results
+
 
 # Convenience function for creating service
 async def create_sender_history_service(

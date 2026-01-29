@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 import uuid
 
+
 class NodeType(Enum):
     """Type of debate graph node."""
 
@@ -35,6 +36,7 @@ class NodeType(Enum):
     COUNTERFACTUAL = "counterfactual"
     CONCLUSION = "conclusion"
 
+
 class BranchReason(Enum):
     """Why a branch was created."""
 
@@ -45,6 +47,7 @@ class BranchReason(Enum):
     UNCERTAINTY = "uncertainty"
     USER_REQUESTED = "user_requested"
 
+
 class MergeStrategy(Enum):
     """How to merge branches back together."""
 
@@ -53,6 +56,7 @@ class MergeStrategy(Enum):
     VOTE = "vote"  # Agents vote on best outcome
     WEIGHTED = "weighted"  # Weight by confidence scores
     PRESERVE_ALL = "preserve_all"  # Keep all as alternatives
+
 
 @dataclass
 class DebateNode:
@@ -121,6 +125,7 @@ class DebateNode:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class Branch:
     """A branch in the debate graph."""
@@ -175,6 +180,7 @@ class Branch:
             total_agreement=data.get("total_agreement", 0.0),
         )
 
+
 @dataclass
 class MergeResult:
     """Result of merging branches."""
@@ -198,6 +204,7 @@ class MergeResult:
             "insights_preserved": self.insights_preserved,
             "conflicts_resolved": self.conflicts_resolved,
         }
+
 
 @dataclass
 class BranchPolicy:
@@ -245,6 +252,7 @@ class BranchPolicy:
             return True, BranchReason.ALTERNATIVE_APPROACH
 
         return False, None
+
 
 class ConvergenceScorer:
     """Detects when branches should merge based on convergence."""
@@ -316,6 +324,7 @@ class ConvergenceScorer:
         """Check if two branches should be merged."""
         score = self.score_convergence(branch_a, branch_b, nodes_a, nodes_b)
         return score >= self.threshold
+
 
 class DebateGraph:
     """
@@ -645,6 +654,7 @@ class DebateGraph:
 
         return graph
 
+
 class GraphReplayBuilder:
     """Replay and analyze graph-based debates."""
 
@@ -720,6 +730,7 @@ class GraphReplayBuilder:
             "agents": list(set(n.agent_id for n in self.graph.nodes.values())),
             "leaf_nodes": len(self.graph.get_leaf_nodes()),
         }
+
 
 class GraphDebateOrchestrator:
     """Orchestrate graph-based debates with automatic branching."""

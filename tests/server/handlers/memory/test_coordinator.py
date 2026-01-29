@@ -80,9 +80,9 @@ class MockCoordinator:
     critique_store: Optional[Any] = None
     knowledge_mound: Optional[Any] = None
     options: MockCoordinatorOptions = field(default_factory=MockCoordinatorOptions)
-    _rollback_handlers: Dict[str, Any] = field(default_factory=dict)
+    _rollback_handlers: dict[str, Any] = field(default_factory=dict)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         return {
             "total_transactions": 100,
             "successful_transactions": 95,

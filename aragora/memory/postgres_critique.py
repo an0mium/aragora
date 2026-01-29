@@ -6,6 +6,7 @@ deployments that need horizontal scaling and concurrent writes.
 
 This is the PostgreSQL equivalent of CritiqueStore (SQLite-based).
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -138,6 +139,7 @@ POSTGRES_CRITIQUE_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_debates_consensus ON debates(consensus_reached);
     CREATE INDEX IF NOT EXISTS idx_debates_created ON debates(created_at DESC);
 """
+
 
 class PostgresCritiqueStore:
     """
@@ -785,9 +787,7 @@ class PostgresCritiqueStore:
                 for row in rows
             ]
 
-    async def get_relevant(
-        self, issue_type: str | None = None, limit: int = 10
-    ) -> list[Pattern]:
+    async def get_relevant(self, issue_type: str | None = None, limit: int = 10) -> list[Pattern]:
         """Backward-compatible wrapper for retrieve_patterns()."""
         return await self.retrieve_patterns(issue_type=issue_type, min_success=1, limit=limit)
 
@@ -1118,6 +1118,7 @@ class PostgresCritiqueStore:
         async with self.connection() as conn:
             row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM patterns")
             return row["cnt"] if row else 0
+
 
 async def get_postgres_critique_store(
     dsn: str | None = None,

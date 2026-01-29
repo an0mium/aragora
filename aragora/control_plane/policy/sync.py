@@ -20,6 +20,7 @@ from .types import (
 
 logger = get_logger(__name__)
 
+
 class PolicyStoreSync:
     """
     Syncs policies from the compliance PolicyStore to ControlPlanePolicyManager.
@@ -336,6 +337,7 @@ class PolicyStoreSync:
                 self._synced_policy_ids.discard(policy_id)
         return removed
 
+
 # Add sync method to ControlPlanePolicyManager
 def _sync_from_compliance_store(
     self,
@@ -365,6 +367,7 @@ def _sync_from_compliance_store(
         store=store,
         replace=replace,
     )
+
 
 def _apply_monkey_patch() -> None:
     """Apply the monkey-patch to add sync_from_compliance_store to ControlPlanePolicyManager."""

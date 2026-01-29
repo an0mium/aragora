@@ -6,6 +6,7 @@ represent the default behavior of the selection system.
 
 Custom plugins can extend or replace these strategies.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements
 
 logger = logging.getLogger(__name__)
+
 
 class ELOWeightedScorer(ScorerProtocol):
     """
@@ -197,6 +199,7 @@ class ELOWeightedScorer(ScorerProtocol):
 
         return score * adjustment
 
+
 class DiverseTeamSelector(TeamSelectorProtocol):
     """
     Default team selector balancing quality with diversity.
@@ -266,6 +269,7 @@ class DiverseTeamSelector(TeamSelectorProtocol):
                     break
 
         return team
+
 
 class DomainBasedRoleAssigner(RoleAssignerProtocol):
     """
@@ -390,6 +394,7 @@ class DomainBasedRoleAssigner(RoleAssignerProtocol):
 
         return roles
 
+
 class GreedyTeamSelector(TeamSelectorProtocol):
     """
     Simple greedy team selector - picks highest-scored agents.
@@ -414,6 +419,7 @@ class GreedyTeamSelector(TeamSelectorProtocol):
         """Select top N agents by score."""
         count = min(requirements.max_agents, len(scored_agents))
         return [a for a, _ in scored_agents[:count]]
+
 
 class RandomTeamSelector(TeamSelectorProtocol):
     """
@@ -468,6 +474,7 @@ class RandomTeamSelector(TeamSelectorProtocol):
                     break
 
         return selected
+
 
 class SimpleRoleAssigner(RoleAssignerProtocol):
     """

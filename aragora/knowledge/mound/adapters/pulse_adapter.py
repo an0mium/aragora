@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Reverse Flow Dataclasses (KM → Pulse)
 # =============================================================================
 
+
 @dataclass
 class KMQualityThresholdUpdate:
     """Result of updating quality thresholds from KM patterns."""
@@ -51,6 +52,7 @@ class KMQualityThresholdUpdate:
     confidence: float = 0.7
     recommendation: str = "keep"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class KMTopicCoverage:
@@ -66,6 +68,7 @@ class KMTopicCoverage:
     priority_adjustment: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class KMSchedulingRecommendation:
     """Recommendation for scheduling adjustments from KM."""
@@ -78,6 +81,7 @@ class KMSchedulingRecommendation:
     coverage: KMTopicCoverage | None = None
     was_applied: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class KMTopicValidation:
@@ -92,6 +96,7 @@ class KMTopicValidation:
     priority_adjustment: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class PulseKMSyncResult:
     """Result of batch sync from KM validations."""
@@ -104,12 +109,14 @@ class PulseKMSyncResult:
     duration_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class TopicSearchResult:
     """Wrapper for topic search results with adapter metadata."""
 
     topic: dict[str, Any]
     relevance_score: float = 0.0
+
 
 class PulseAdapter:
     """
@@ -1238,6 +1245,7 @@ class PulseAdapter:
             "politics": 0.0,
             "entertainment": -0.1,
         }
+
 
 __all__ = [
     "PulseAdapter",

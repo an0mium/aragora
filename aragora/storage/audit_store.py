@@ -48,6 +48,7 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
+
 class AuditStore:
     """
     Database-backed storage for audit logging.
@@ -488,9 +489,11 @@ class AuditStore:
             self._local.connection.close()
             del self._local.connection
 
+
 # Module-level singleton
 _default_store: AuditStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_audit_store(
     db_path: str | None = None,
@@ -572,6 +575,7 @@ def get_audit_store(
 
     return _default_store
 
+
 def reset_audit_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -579,6 +583,7 @@ def reset_audit_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
+
 
 # Backwards compatibility alias
 log_audit_event = AuditStore.log_event

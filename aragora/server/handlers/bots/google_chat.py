@@ -43,6 +43,7 @@ if not GOOGLE_CHAT_CREDENTIALS:
 MAX_TOPIC_LENGTH = 500
 MAX_STATEMENT_LENGTH = 1000
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -51,14 +52,17 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
 
+
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
 
+
 # Cache for Google Chat connector
 _google_chat_connector: Any | None = None
+
 
 def get_google_chat_connector() -> Any | None:
     """Get or create the Google Chat connector singleton."""
@@ -82,6 +86,7 @@ def get_google_chat_connector() -> Any | None:
             logger.exception(f"Error initializing Google Chat connector: {e}")
             return None
     return _google_chat_connector
+
 
 class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     """Handler for Google Chat App webhook endpoints.
@@ -854,8 +859,10 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
         return json_response(response)
 
+
 # Export handler factory
 _google_chat_handler: Optional["GoogleChatHandler"] = None
+
 
 def get_google_chat_handler(server_context: dict | None = None) -> "GoogleChatHandler":
     """Get or create the Google Chat handler instance."""
@@ -865,5 +872,6 @@ def get_google_chat_handler(server_context: dict | None = None) -> "GoogleChatHa
             server_context = {}
         _google_chat_handler = GoogleChatHandler(server_context)  # type: ignore[arg-type]
     return _google_chat_handler
+
 
 __all__ = ["GoogleChatHandler", "get_google_chat_handler", "get_google_chat_connector"]

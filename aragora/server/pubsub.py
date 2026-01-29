@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event handlers
 EventHandler = Callable[["PubSubEvent"], Coroutine[Any, Any, None]]
 
+
 @dataclass
 class PubSubEvent:
     """Event received from pub/sub channel."""
@@ -49,6 +50,7 @@ class PubSubEvent:
     channel: str
     data: dict[str, Any]
     pattern: str | None = None
+
 
 @dataclass
 class RedisPubSub:
@@ -301,8 +303,10 @@ class RedisPubSub:
             {"type": event_type, "debate_id": debate_id, **data},
         )
 
+
 # Module-level singleton
 _pubsub: RedisPubSub | None = None
+
 
 def get_pubsub() -> RedisPubSub:
     """Get shared RedisPubSub instance.
@@ -315,10 +319,12 @@ def get_pubsub() -> RedisPubSub:
         _pubsub = RedisPubSub()
     return _pubsub
 
+
 def reset_pubsub() -> None:
     """Reset pub/sub state for testing."""
     global _pubsub
     _pubsub = None
+
 
 __all__ = [
     "PubSubEvent",

@@ -39,6 +39,7 @@ from weaviate.classes.data import DataObject  # noqa: F401
 
 WEAVIATE_AVAILABLE = True
 
+
 @dataclass
 class SearchResult:
     """A single search result from Weaviate."""
@@ -67,6 +68,7 @@ class SearchResult:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class WeaviateConfig:
     """Configuration for Weaviate connection."""
@@ -88,6 +90,7 @@ class WeaviateConfig:
             collection_name=os.getenv("WEAVIATE_COLLECTION", "DocumentChunks"),
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
         )
+
 
 class WeaviateStore:
     """
@@ -506,8 +509,10 @@ class WeaviateStore:
         except Exception as e:
             return {"healthy": False, "error": str(e)}
 
+
 # Global store instance (singleton pattern)
 _store: WeaviateStore | None = None
+
 
 def get_weaviate_store(config: WeaviateConfig | None = None) -> WeaviateStore:
     """Get or create global Weaviate store instance."""
@@ -515,6 +520,7 @@ def get_weaviate_store(config: WeaviateConfig | None = None) -> WeaviateStore:
     if _store is None:
         _store = WeaviateStore(config)
     return _store
+
 
 __all__ = [
     "WeaviateStore",

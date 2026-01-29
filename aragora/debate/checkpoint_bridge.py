@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class UnifiedRecoveryState:
     """
@@ -101,6 +102,7 @@ class UnifiedRecoveryState:
             checkpoint_votes=data.get("checkpoint_votes", []),
             channel_history=data.get("channel_history", []),
         )
+
 
 class CheckpointBridge:
     """
@@ -369,6 +371,7 @@ class CheckpointBridge:
 
         return summary
 
+
 # Factory function
 def create_checkpoint_bridge(
     molecule_orchestrator: Optional["MoleculeOrchestrator"] = None,
@@ -385,6 +388,7 @@ def create_checkpoint_bridge(
         CheckpointBridge instance
     """
     return CheckpointBridge(molecule_orchestrator, checkpoint_manager)
+
 
 __all__ = [
     "CheckpointBridge",

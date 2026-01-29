@@ -7,6 +7,7 @@ to improve modularity and testability.
 Classes:
 - MetricsHelper: Provides calibration weights, composite scores, domain extraction
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ DOMAIN_KEYWORDS = {
     "database": ["database", "sql", "query", "schema"],
     "frontend": ["ui", "frontend", "react", "css", "layout"],
 }
+
 
 class MetricsHelper:
     """
@@ -202,6 +204,7 @@ class MetricsHelper:
         except Exception as e:
             logger.debug(f"Batch ratings lookup failed: {e}")
             return {}
+
 
 def build_relationship_updates(
     participants: list[str],

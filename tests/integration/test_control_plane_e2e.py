@@ -90,8 +90,8 @@ class MockRedis:
     """Mock Redis for testing without actual Redis connection."""
 
     def __init__(self):
-        self._data: Dict[str, Any] = {}
-        self._streams: Dict[str, List[tuple]] = {}
+        self._data: dict[str, Any] = {}
+        self._streams: dict[str, list[tuple]] = {}
 
     async def get(self, key: str) -> Optional[str]:
         return self._data.get(key)
@@ -108,16 +108,16 @@ class MockRedis:
                 deleted += 1
         return deleted
 
-    async def hset(self, key: str, mapping: Dict[str, str]) -> int:
+    async def hset(self, key: str, mapping: dict[str, str]) -> int:
         if key not in self._data:
             self._data[key] = {}
         self._data[key].update(mapping)
         return len(mapping)
 
-    async def hgetall(self, key: str) -> Dict[str, str]:
+    async def hgetall(self, key: str) -> dict[str, str]:
         return self._data.get(key, {})
 
-    async def xadd(self, stream: str, fields: Dict[str, str], id: str = "*") -> str:
+    async def xadd(self, stream: str, fields: dict[str, str], id: str = "*") -> str:
         if stream not in self._streams:
             self._streams[stream] = []
         entry_id = f"{int(time.time() * 1000)}-0"
@@ -126,10 +126,10 @@ class MockRedis:
 
     async def xread(
         self,
-        streams: Dict[str, str],
+        streams: dict[str, str],
         count: Optional[int] = None,
         block: Optional[int] = None,
-    ) -> List:
+    ) -> list:
         results = []
         for stream, last_id in streams.items():
             if stream in self._streams:
@@ -145,8 +145,8 @@ class MockKnowledgeMound:
     """Mock KnowledgeMound for testing KM integration."""
 
     def __init__(self):
-        self._items: Dict[str, Dict[str, Any]] = {}
-        self._query_results: List[Dict[str, Any]] = []
+        self._items: dict[str, dict[str, Any]] = {}
+        self._query_results: list[dict[str, Any]] = []
 
     async def ingest(self, item: Any) -> str:
         item_id = getattr(item, "id", f"item-{len(self._items)}")
@@ -163,7 +163,7 @@ class MockKnowledgeMound:
         query: str,
         limit: int = 10,
         workspace_id: str = "default",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         # Return pre-configured results or search items
         if self._query_results:
             return self._query_results[:limit]
@@ -174,7 +174,7 @@ class MockKnowledgeMound:
                 results.append(item)
         return results[:limit]
 
-    def set_query_results(self, results: List[Dict[str, Any]]) -> None:
+    def set_query_results(self, results: list[dict[str, Any]]) -> None:
         """Pre-configure query results for testing."""
         self._query_results = results
 
@@ -183,7 +183,7 @@ class MockStreamServer:
     """Mock ControlPlaneStreamServer for testing event emission."""
 
     def __init__(self):
-        self.events: List[Dict[str, Any]] = []
+        self.events: list[dict[str, Any]] = []
 
     async def emit_deliberation_started(self, **kwargs):
         self.events.append({"type": "deliberation_started", **kwargs})
@@ -216,7 +216,7 @@ class MockArena:
     def __init__(self, result: Optional[Any] = None):
         self._result = result
         self.run_called = False
-        self.event_hooks: Dict[str, Any] = {}
+        self.event_hooks: dict[str, Any] = {}
 
     async def run(self) -> Any:
         self.run_called = True

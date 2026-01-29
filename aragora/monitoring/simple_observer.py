@@ -12,6 +12,7 @@ import time
 import uuid
 from typing import Any
 
+
 class SimpleObserver:
     """Observer for monitoring agent execution and system health.
 
@@ -206,5 +207,6 @@ class SimpleObserver:
             "null_byte_incidents": null_byte_incidents,
             "timeout_incidents": timeout_incidents,
         }
+
 
 __all__ = ["SimpleObserver"]

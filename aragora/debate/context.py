@@ -5,6 +5,7 @@ This module defines the shared state container used by all debate phases.
 The DebateContext is passed between phases, allowing them to read and
 modify debate state without tight coupling to the orchestrator.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,11 +16,13 @@ if TYPE_CHECKING:
     from aragora.debate.cancellation import CancellationToken
     from aragora.type_protocols import EventEmitterProtocol
 
+
 def _default_environment() -> "Environment":
     """Create a minimal Environment for tests or standalone usage."""
     from aragora.core import Environment
 
     return Environment(task="default")
+
 
 @dataclass
 class AgentWorkspace:
@@ -69,6 +72,7 @@ class AgentWorkspace:
             "state": dict(self.state),
             "created_at": self.created_at,
         }
+
 
 @dataclass
 class DebateContext:

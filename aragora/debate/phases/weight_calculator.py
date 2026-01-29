@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class WeightFactors:
     """Individual weight factors for an agent.
@@ -58,6 +59,7 @@ class WeightFactors:
             * self.self_vote
             * self.verbosity
         )
+
 
 @dataclass
 class WeightCalculatorConfig:
@@ -112,6 +114,7 @@ class WeightCalculatorConfig:
     verbosity_target_length: int = 1000  # Target proposal length (chars)
     verbosity_penalty_threshold: float = 3.0  # Penalty starts at 3x target
     verbosity_max_penalty: float = 0.3  # Max penalty (weight floor = 0.7)
+
 
 class WeightCalculator:
     """Calculate agent voting weights from multiple sources.

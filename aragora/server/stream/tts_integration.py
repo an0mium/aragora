@@ -14,6 +14,7 @@ Usage:
 
     # Now agent messages will automatically trigger TTS for voice sessions
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level singleton
 _tts_integration: Optional["TTSIntegration"] = None
+
 
 class TTSIntegration:
     """
@@ -257,14 +259,17 @@ class TTSIntegration:
             logger.warning(f"[TTS Integration] Chat synthesis failed: {e}")
             return None
 
+
 def get_tts_integration() -> TTSIntegration | None:
     """Get the singleton TTS integration instance."""
     return _tts_integration
+
 
 def set_tts_integration(integration: TTSIntegration) -> None:
     """Set the singleton TTS integration instance."""
     global _tts_integration
     _tts_integration = integration
+
 
 def init_tts_integration(
     voice_handler: Optional["VoiceStreamHandler"] = None,
@@ -293,6 +298,7 @@ def init_tts_integration(
 
     logger.info("[TTS Integration] Initialized")
     return _tts_integration
+
 
 __all__ = [
     "TTSIntegration",

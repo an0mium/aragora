@@ -29,6 +29,7 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
+
 class RegulatoryFramework(str, Enum):
     """Supported regulatory frameworks."""
 
@@ -40,6 +41,7 @@ class RegulatoryFramework(str, Enum):
     ISO27001 = "iso27001"
     NIST = "nist"
     FEDRAMP = "fedramp"
+
 
 @dataclass
 class RegulatoryRequirement:
@@ -53,6 +55,7 @@ class RegulatoryRequirement:
     violation_indicators: list[str]
     severity: FindingSeverity
     remediation: str
+
 
 # SOX Requirements (Sarbanes-Oxley)
 SOX_REQUIREMENTS = [
@@ -268,6 +271,7 @@ PCI_DSS_REQUIREMENTS = [
         remediation="Use strong cryptographic hashing (bcrypt, scrypt, or Argon2) for credentials",
     ),
 ]
+
 
 class RegulatoryAuditor(BaseAuditor):
     """
@@ -496,6 +500,7 @@ If no issues, respond with: []"""
         self._framework_findings = {}
         return findings
 
+
 class GDPRDataMapper:
     """
     Utility class for GDPR data mapping.
@@ -548,6 +553,7 @@ class GDPRDataMapper:
     def is_special_category(self, data_type: str) -> bool:
         """Check if data type is a special category under GDPR Article 9."""
         return data_type in self.SPECIAL_CATEGORIES
+
 
 __all__ = [
     "RegulatoryAuditor",

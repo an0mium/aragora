@@ -6,6 +6,7 @@ All connectors inherit from BaseConnector and implement:
 - fetch(): Retrieve specific evidence by ID
 - record(): Store evidence in provenance chain
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -53,6 +54,7 @@ from aragora.connectors.exceptions import (
     ConnectorTimeoutError,
     ConnectorCircuitOpenError,
 )
+
 
 @dataclass
 class Evidence:
@@ -139,6 +141,7 @@ class Evidence:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class ConnectorHealth:
     """
@@ -167,6 +170,7 @@ class ConnectorHealth:
             "last_check": self.last_check.isoformat() if self.last_check else None,
             "metadata": self.metadata,
         }
+
 
 class BaseConnector(ABC):
     """
@@ -761,6 +765,7 @@ class BaseConnector(ABC):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(source={self.source_type.value})"
+
 
 # Alias for backward compatibility
 Connector = BaseConnector

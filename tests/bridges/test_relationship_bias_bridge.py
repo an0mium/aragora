@@ -38,7 +38,7 @@ class MockRelationshipTracker:
     """Mock relationship tracker."""
 
     def __init__(self):
-        self._metrics: Dict[tuple, MockRelationshipMetrics] = {}
+        self._metrics: dict[tuple, MockRelationshipMetrics] = {}
 
     def compute_metrics(self, agent_a: str, agent_b: str) -> MockRelationshipMetrics:
         """Compute relationship metrics."""

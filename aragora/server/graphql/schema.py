@@ -633,12 +633,14 @@ type Subscription {
 # Schema Parsing and Validation
 # =============================================================================
 
+
 class OperationType(Enum):
     """GraphQL operation types."""
 
     QUERY = "query"
     MUTATION = "mutation"
     SUBSCRIPTION = "subscription"
+
 
 @dataclass
 class Field:
@@ -650,6 +652,7 @@ class Field:
     selections: list["Field"] = field(default_factory=list)
     directives: list[str] = field(default_factory=list)
 
+
 @dataclass
 class Operation:
     """Represents a parsed GraphQL operation."""
@@ -659,6 +662,7 @@ class Operation:
     variables: dict[str, Any]
     selections: list[Field]
 
+
 @dataclass
 class ParsedQuery:
     """Result of parsing a GraphQL query."""
@@ -667,6 +671,7 @@ class ParsedQuery:
     fragments: dict[str, list[Field]]
     errors: list[str] = field(default_factory=list)
 
+
 @dataclass
 class ValidationResult:
     """Result of validating a GraphQL query."""
@@ -674,6 +679,7 @@ class ValidationResult:
     valid: bool
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
 
 # Type definitions extracted from SDL
 QUERY_FIELDS: set[str] = {
@@ -808,6 +814,7 @@ ENUM_VALUES: dict[str, set[str]] = {
     "Priority": {"LOW", "NORMAL", "HIGH", "URGENT"},
     "HealthStatus": {"HEALTHY", "DEGRADED", "UNHEALTHY"},
 }
+
 
 class GraphQLParser:
     """Lightweight GraphQL query parser.
@@ -1057,6 +1064,7 @@ class GraphQLParser:
 
         return values
 
+
 class GraphQLValidator:
     """Validates GraphQL queries against the schema."""
 
@@ -1184,6 +1192,7 @@ class GraphQLValidator:
         }
         return nested_types.get(f"{parent_type}.{field_name}")
 
+
 def parse_and_validate_query(query: str) -> ParsedQuery:
     """Parse and validate a GraphQL query.
 
@@ -1203,6 +1212,7 @@ def parse_and_validate_query(query: str) -> ParsedQuery:
     parsed.errors.extend(validation.errors)
 
     return parsed
+
 
 # Export the schema for documentation
 SCHEMA = SCHEMA_SDL

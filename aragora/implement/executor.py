@@ -57,6 +57,7 @@ Working directory: {repo_path}
 IMPORTANT: Only make changes that are safe and reversible.
 """
 
+
 class HybridExecutor:
     """
     Executes implementation tasks using Claude, with optional Codex review.

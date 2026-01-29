@@ -3,6 +3,7 @@
 All endpoints require authentication. Approve/reject operations
 require the 'approvals:manage' permission.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,6 +27,7 @@ APPROVAL_MANAGE_PERMISSION = "approval.grant"
 # Global approval flow instance (can be replaced with dependency injection)
 _approval_flow: ApprovalFlow | None = None
 
+
 def get_approval_flow() -> ApprovalFlow:
     """Get or create the global approval flow instance."""
     global _approval_flow
@@ -33,10 +35,12 @@ def get_approval_flow() -> ApprovalFlow:
         _approval_flow = ApprovalFlow(auto_approve_low_risk=True)
     return _approval_flow
 
+
 def set_approval_flow(flow: ApprovalFlow) -> None:
     """Set the global approval flow instance."""
     global _approval_flow
     _approval_flow = flow
+
 
 class ApprovalHandler:
     """HTTP handlers for approval flow operations."""

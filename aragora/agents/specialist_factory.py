@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentConfig:
     """Configuration for creating a specialist agent."""
@@ -38,6 +39,7 @@ class AgentConfig:
     max_tokens: int = 4096
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class SpecialistAgentInfo:
     """Information about a created specialist agent."""
@@ -49,6 +51,7 @@ class SpecialistAgentInfo:
     model_id: str
     base_model: str
     adapter_name: str | None
+
 
 class SpecialistAgentFactory:
     """
@@ -392,8 +395,10 @@ Adapt your approach based on the specific task requirements.""",
 
         return result
 
+
 # Global factory instance
 _specialist_factory: SpecialistAgentFactory | None = None
+
 
 def get_specialist_factory(
     registry: SpecialistModelRegistry | None = None,
@@ -403,6 +408,7 @@ def get_specialist_factory(
     if _specialist_factory is None:
         _specialist_factory = SpecialistAgentFactory(registry)
     return _specialist_factory
+
 
 __all__ = [
     "AgentConfig",

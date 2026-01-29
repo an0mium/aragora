@@ -18,7 +18,7 @@ class MockRequest:
 
     def __init__(
         self,
-        headers: Dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
         body: bytes = b"{}",
     ):
         self.headers = headers or {}

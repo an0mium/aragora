@@ -88,12 +88,12 @@ def sample_debate_result():
     class DebateResult:
         debate_id: str
         task: str
-        proposals: List[Proposal]
+        proposals: list[Proposal]
         winner: Optional[str]
         consensus_reached: bool
         confidence: float
         rounds_used: int
-        critiques: List[Critique]
+        critiques: list[Critique]
 
     return DebateResult(
         debate_id="debate_001",

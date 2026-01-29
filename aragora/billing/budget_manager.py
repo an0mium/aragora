@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
+
 class BudgetPeriod(Enum):
     """Budget period types."""
 
@@ -32,6 +33,7 @@ class BudgetPeriod(Enum):
     QUARTERLY = "quarterly"
     ANNUAL = "annual"
     UNLIMITED = "unlimited"
+
 
 class BudgetStatus(Enum):
     """Budget status states."""
@@ -44,6 +46,7 @@ class BudgetStatus(Enum):
     PAUSED = "paused"  # Manually paused
     CLOSED = "closed"  # Budget period ended
 
+
 class BudgetAction(Enum):
     """Actions when budget thresholds are reached."""
 
@@ -53,6 +56,7 @@ class BudgetAction(Enum):
     HARD_LIMIT = "hard_limit"  # Block operations
     SUSPEND = "suspend"  # Suspend all operations
     ALLOW_WITH_CHARGES = "allow_with_charges"  # Allow but track as overage
+
 
 @dataclass
 class SpendResult:
@@ -74,6 +78,7 @@ class SpendResult:
             "overage_rate_multiplier": self.overage_rate_multiplier,
         }
 
+
 @dataclass
 class BudgetThreshold:
     """Budget alert threshold configuration."""
@@ -83,6 +88,7 @@ class BudgetThreshold:
     notify_channels: list[str] = field(default_factory=lambda: ["email"])
     cooldown_minutes: int = 60  # Minimum time between alerts
 
+
 # Default thresholds for new budgets
 DEFAULT_THRESHOLDS = [
     BudgetThreshold(0.50, BudgetAction.NOTIFY),
@@ -90,6 +96,7 @@ DEFAULT_THRESHOLDS = [
     BudgetThreshold(0.90, BudgetAction.SOFT_LIMIT),
     BudgetThreshold(1.00, BudgetAction.HARD_LIMIT),
 ]
+
 
 @dataclass
 class Budget:
@@ -281,6 +288,7 @@ class Budget:
             "updated_at": self.updated_at,
         }
 
+
 @dataclass
 class BudgetAlert:
     """Budget alert event."""
@@ -316,6 +324,7 @@ class BudgetAlert:
             "acknowledged_at": self.acknowledged_at,
         }
 
+
 @dataclass
 class BudgetTransaction:
     """A recorded spending transaction against a budget."""
@@ -340,6 +349,7 @@ class BudgetTransaction:
             "created_at": self.created_at,
             "created_at_iso": datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
         }
+
 
 class BudgetManager:
     """
@@ -1255,8 +1265,10 @@ class BudgetManager:
         # Return chronological order (oldest first) for charting
         return list(reversed(trends))
 
+
 # Module-level singleton
 _budget_manager: BudgetManager | None = None
+
 
 def get_budget_manager(db_path: str = "data/budgets.db") -> BudgetManager:
     """Get or create the budget manager singleton."""

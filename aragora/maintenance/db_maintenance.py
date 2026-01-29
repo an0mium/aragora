@@ -7,6 +7,7 @@ Provides automated maintenance to keep databases performant:
 - WAL checkpoint: Flush write-ahead log (on startup)
 - Data retention: Clean up old records (configurable)
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,6 +74,7 @@ ALLOWED_TIMESTAMP_COLUMNS = frozenset(
         "recorded_at",
     }
 )
+
 
 class DatabaseMaintenance:
     """Automated maintenance for Aragora SQLite databases."""
@@ -284,6 +286,7 @@ class DatabaseMaintenance:
             "databases": [db.name for db in databases],
         }
 
+
 def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
     """Run startup maintenance tasks.
 
@@ -339,6 +342,7 @@ def run_startup_maintenance(db_dir: Path | str = DEFAULT_DB_DIR) -> dict:
 
     logger.info("[maintenance] Startup maintenance complete")
     return results
+
 
 def schedule_maintenance(
     db_dir: Path | str = DEFAULT_DB_DIR,

@@ -144,6 +144,7 @@ consultation with qualified accounting professionals for specific matters.""",
     tags=["accounting", "finance", "audit", "SOX", "GAAP"],
 )
 
+
 @VerticalRegistry.register(
     "accounting",
     config=ACCOUNTING_CONFIG,

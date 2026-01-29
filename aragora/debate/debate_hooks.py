@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DebateHooks:
     """Lifecycle hooks for debate events.
@@ -643,6 +644,7 @@ class DebateHooks:
             },
         }
 
+
 @dataclass
 class HooksConfig:
     """Configuration for creating DebateHooks.
@@ -669,5 +671,6 @@ class HooksConfig:
             evidence_grounder=self.evidence_grounder,
             slack_webhook_url=self.slack_webhook_url,
         )
+
 
 __all__ = ["DebateHooks", "HooksConfig"]

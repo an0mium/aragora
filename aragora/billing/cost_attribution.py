@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class AttributionLevel(str, Enum):
     """Levels of cost attribution."""
 
@@ -37,6 +38,7 @@ class AttributionLevel(str, Enum):
     TEAM = "team"
     PROJECT = "project"
 
+
 class AllocationMethod(str, Enum):
     """Methods for allocating shared costs."""
 
@@ -44,6 +46,7 @@ class AllocationMethod(str, Enum):
     PROPORTIONAL = "proportional"  # Distribute based on usage proportion
     EQUAL = "equal"  # Split equally among entities
     WEIGHTED = "weighted"  # Use custom weights
+
 
 @dataclass
 class CostAllocation:
@@ -58,6 +61,7 @@ class CostAllocation:
     allocation_method: AllocationMethod = AllocationMethod.DIRECT
     allocation_weight: float = 1.0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class AttributionEntry:
@@ -119,6 +123,7 @@ class AttributionEntry:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class AttributionSummary:
     """Summary of costs for an entity."""
@@ -166,6 +171,7 @@ class AttributionSummary:
             "avg_cost_per_call": str(self.avg_cost_per_call),
             "avg_tokens_per_call": self.avg_tokens_per_call,
         }
+
 
 @dataclass
 class ChargebackReport:
@@ -233,6 +239,7 @@ class ChargebackReport:
             "shared_cost_allocation_method": self.shared_cost_allocation_method.value,
             "notes": self.notes,
         }
+
 
 class CostAttributor:
     """
@@ -799,6 +806,7 @@ class CostAttributor:
         return [
             {"period": period, "cost_usd": str(cost)} for period, cost in sorted(buckets.items())
         ]
+
 
 # Factory function for easy instantiation
 def create_cost_attributor(

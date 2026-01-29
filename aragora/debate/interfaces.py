@@ -5,6 +5,7 @@ These Protocol classes allow Arena to depend on interfaces rather than
 concrete implementations, breaking circular import chains. Concrete
 implementations are injected at runtime via ArenaFactory.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
 ]
 
 from typing import Any, Protocol, runtime_checkable
+
 
 @runtime_checkable
 class PositionTrackerProtocol(Protocol):
@@ -43,6 +45,7 @@ class PositionTrackerProtocol(Protocol):
     def get_position_history(self, claim_text: str) -> list[dict[str, Any]]:
         """Get position history for a specific claim."""
         ...
+
 
 @runtime_checkable
 class CalibrationTrackerProtocol(Protocol):
@@ -69,6 +72,7 @@ class CalibrationTrackerProtocol(Protocol):
     def get_calibration_score(self, agent_name: str) -> float | None:
         """Get an agent's calibration score."""
         ...
+
 
 @runtime_checkable
 class BeliefNetworkProtocol(Protocol):
@@ -106,6 +110,7 @@ class BeliefNetworkProtocol(Protocol):
         """Propagate beliefs through the network."""
         ...
 
+
 @runtime_checkable
 class BeliefPropagationAnalyzerProtocol(Protocol):
     """Interface for analyzing belief propagation in debates."""
@@ -117,6 +122,7 @@ class BeliefPropagationAnalyzerProtocol(Protocol):
     ) -> dict[str, Any]:
         """Analyze belief changes during a debate."""
         ...
+
 
 @runtime_checkable
 class CitationExtractorProtocol(Protocol):
@@ -134,6 +140,7 @@ class CitationExtractorProtocol(Protocol):
         """Validate extracted citations."""
         ...
 
+
 @runtime_checkable
 class InsightExtractorProtocol(Protocol):
     """Interface for extracting insights from debate content."""
@@ -145,6 +152,7 @@ class InsightExtractorProtocol(Protocol):
     ) -> list[dict[str, Any]]:
         """Extract insights from debate text."""
         ...
+
 
 @runtime_checkable
 class InsightStoreProtocol(Protocol):
@@ -174,6 +182,7 @@ class InsightStoreProtocol(Protocol):
         """Search insights by query."""
         ...
 
+
 @runtime_checkable
 class CritiqueStoreProtocol(Protocol):
     """Interface for storing and retrieving critique patterns."""
@@ -193,6 +202,7 @@ class CritiqueStoreProtocol(Protocol):
     ) -> list[dict[str, Any]]:
         """Get critique patterns relevant to a task."""
         ...
+
 
 @runtime_checkable
 class ArgumentCartographerProtocol(Protocol):

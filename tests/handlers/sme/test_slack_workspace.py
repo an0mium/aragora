@@ -41,7 +41,7 @@ class MockSlackWorkspace:
     bot_user_id: str = "U12345678"
     installed_at: float = 1700000000.0
     installed_by: Optional[str] = "user-123"
-    scopes: List[str] = None
+    scopes: list[str] = None
     tenant_id: str = "org-456"
     is_active: bool = True
     signing_secret: Optional[str] = None
@@ -52,7 +52,7 @@ class MockSlackWorkspace:
         if self.scopes is None:
             self.scopes = ["chat:write", "channels:read"]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "workspace_id": self.workspace_id,
             "workspace_name": self.workspace_name,
@@ -78,9 +78,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[bytes] = None,
-        query_params: Optional[Dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
     ):
         super().__init__(query_params or {})
         self.command = command

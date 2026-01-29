@@ -32,10 +32,10 @@ class MemoryEntry:
     created_at: datetime
     accessed_at: datetime
     access_count: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    embedding: Optional[List[float]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    embedding: Optional[list[float]] = None
 
-    def is_expired(self, ttls: Dict[MemoryTier, timedelta]) -> bool:
+    def is_expired(self, ttls: dict[MemoryTier, timedelta]) -> bool:
         """Check if entry is expired based on tier TTL."""
         ttl = ttls.get(self.tier, timedelta(hours=1))
         return datetime.now(timezone.utc) - self.created_at > ttl
@@ -56,14 +56,14 @@ class MockContinuumMemory:
 
     def __init__(
         self,
-        ttls: Dict[MemoryTier, timedelta] = None,
+        ttls: dict[MemoryTier, timedelta] = None,
         max_entries_per_tier: int = 1000,
     ):
         self.ttls = ttls or self.DEFAULT_TTLS.copy()
         self.max_entries_per_tier = max_entries_per_tier
 
-        self._entries: Dict[str, MemoryEntry] = {}
-        self._tier_indices: Dict[MemoryTier, set] = {tier: set() for tier in MemoryTier}
+        self._entries: dict[str, MemoryEntry] = {}
+        self._tier_indices: dict[MemoryTier, set] = {tier: set() for tier in MemoryTier}
 
     @property
     def total_entries(self) -> int:
@@ -77,8 +77,8 @@ class MockContinuumMemory:
         id: str,
         content: str,
         tier: MemoryTier = MemoryTier.FAST,
-        metadata: Dict[str, Any] = None,
-        embedding: List[float] = None,
+        metadata: dict[str, Any] = None,
+        embedding: list[float] = None,
     ) -> MemoryEntry:
         """Store a memory entry."""
         now = datetime.now(timezone.utc)
@@ -131,8 +131,8 @@ class MockContinuumMemory:
         self,
         query: str,
         limit: int = 10,
-        tiers: List[MemoryTier] = None,
-    ) -> List[MemoryEntry]:
+        tiers: list[MemoryTier] = None,
+    ) -> list[MemoryEntry]:
         """Search memory entries by content."""
         tiers = tiers or list(MemoryTier)
         results = []
@@ -240,7 +240,7 @@ class MockContinuumMemory:
 
         return len(expired_ids)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get memory statistics."""
         return {
             "total_entries": self.total_entries,

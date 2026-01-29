@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BatchJob:
     """Batch explanation job."""
@@ -57,6 +58,7 @@ class BatchJob:
     def from_dict(cls, data: dict[str, Any]) -> "BatchJob":
         return cls(**data)
 
+
 class BatchJobStore(ABC):
     """Abstract batch job store interface."""
 
@@ -79,6 +81,7 @@ class BatchJobStore(ABC):
     async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         """List batch jobs, optionally filtered by status."""
         pass
+
 
 class RedisBatchJobStore(BatchJobStore):
     """Redis-backed batch job storage with TTL."""
@@ -124,6 +127,7 @@ class RedisBatchJobStore(BatchJobStore):
                 break
         return jobs
 
+
 class MemoryBatchJobStore(BatchJobStore):
     """In-memory batch job storage with LRU eviction (development fallback)."""
 
@@ -166,6 +170,7 @@ class MemoryBatchJobStore(BatchJobStore):
                 if len(result) >= limit:
                     break
         return result
+
 
 class DatabaseBatchJobStore(BatchJobStore):
     """Database-backed batch job storage using SQLite or PostgreSQL."""
@@ -376,11 +381,13 @@ class DatabaseBatchJobStore(BatchJobStore):
             jobs.append(self._row_to_job(row))
         return jobs
 
+
 class SQLiteBatchJobStore(DatabaseBatchJobStore):
     """SQLite-backed batch job storage."""
 
     def __init__(self, db_path: Path, ttl_seconds: int = 3600):
         super().__init__(SQLiteBackend(db_path), ttl_seconds=ttl_seconds)
+
 
 class PostgresBatchJobStore(DatabaseBatchJobStore):
     """PostgreSQL-backed batch job storage."""
@@ -390,9 +397,11 @@ class PostgresBatchJobStore(DatabaseBatchJobStore):
             raise ImportError("psycopg2 required for PostgreSQL batch job store")
         super().__init__(PostgreSQLBackend(database_url), ttl_seconds=ttl_seconds)
 
+
 # Singleton management
 _batch_store: BatchJobStore | None = None
 _warned_memory: bool = False
+
 
 def get_batch_job_store() -> BatchJobStore:
     """Get or create batch job store based on environment."""
@@ -511,11 +520,13 @@ def get_batch_job_store() -> BatchJobStore:
     logger.info("batch_job_store_initialized", extra={"backend": "memory"})
     return _batch_store
 
+
 def reset_batch_job_store() -> None:
     """Reset the batch job store singleton (for testing)."""
     global _batch_store, _warned_memory
     _batch_store = None
     _warned_memory = False
+
 
 __all__ = [
     "BatchJob",

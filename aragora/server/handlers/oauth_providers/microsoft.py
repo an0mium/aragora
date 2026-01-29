@@ -30,6 +30,7 @@ MICROSOFT_TOKEN_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth
 MICROSOFT_USERINFO_URL = "https://graph.microsoft.com/v1.0/me"
 MICROSOFT_LOGOUT_URL_TEMPLATE = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout"
 
+
 class MicrosoftOAuthProvider(OAuthProvider):
     """
     Microsoft OAuth 2.0 provider (Azure AD v2.0).
@@ -236,5 +237,6 @@ class MicrosoftOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Failed to fetch photo: {e}")
             return None
+
 
 __all__ = ["MicrosoftOAuthProvider"]

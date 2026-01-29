@@ -71,7 +71,7 @@ class MockSkillListing:
     rating: float = 4.5
     downloads: int = 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "skill_id": self.skill_id,
             "name": self.name,
@@ -94,7 +94,7 @@ class MockSkillVersion:
     changelog: str = ""
     published_at: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "changelog": self.changelog,
@@ -111,7 +111,7 @@ class MockSkillRating:
     review: Optional[str] = None
     created_at: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "rating": self.rating,
@@ -129,7 +129,7 @@ class MockInstallResult:
     version: str = "1.0.0"
     error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "skill_id": self.skill_id,
@@ -146,7 +146,7 @@ class MockInstalledSkill:
     version: str
     installed_at: str = "2026-01-27T12:00:00Z"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "skill_id": self.skill_id,
             "version": self.version,
@@ -167,7 +167,7 @@ class MockMarketplace:
         sort_by="rating",
         limit=20,
         offset=0,
-    ) -> List[MockSkillListing]:
+    ) -> list[MockSkillListing]:
         return [
             MockSkillListing(
                 skill_id="skill-1",
@@ -185,7 +185,7 @@ class MockMarketplace:
             description="A test skill",
         )
 
-    async def get_versions(self, skill_id: str) -> List[MockSkillVersion]:
+    async def get_versions(self, skill_id: str) -> list[MockSkillVersion]:
         return [
             MockSkillVersion(version="1.0.0", changelog="Initial release"),
             MockSkillVersion(version="1.1.0", changelog="Bug fixes"),
@@ -193,7 +193,7 @@ class MockMarketplace:
 
     async def get_ratings(
         self, skill_id: str, limit: int = 20, offset: int = 0
-    ) -> List[MockSkillRating]:
+    ) -> list[MockSkillRating]:
         return [MockSkillRating(user_id="user-1", rating=5, review="Great skill!")]
 
     async def rate(
@@ -201,7 +201,7 @@ class MockMarketplace:
     ) -> MockSkillRating:
         return MockSkillRating(user_id=user_id, rating=rating, review=review)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         return {
             "total_skills": 100,
             "total_downloads": 5000,
@@ -218,7 +218,7 @@ class MockInstaller:
         tenant_id: str,
         user_id: str,
         version: Optional[str] = None,
-        permissions: List[str] = None,
+        permissions: list[str] = None,
     ) -> MockInstallResult:
         return MockInstallResult(success=True, skill_id=skill_id)
 
@@ -227,11 +227,11 @@ class MockInstaller:
         skill_id: str,
         tenant_id: str,
         user_id: str,
-        permissions: List[str] = None,
+        permissions: list[str] = None,
     ) -> bool:
         return True
 
-    async def get_installed(self, tenant_id: str) -> List[MockInstalledSkill]:
+    async def get_installed(self, tenant_id: str) -> list[MockInstalledSkill]:
         return [MockInstalledSkill(skill_id="skill-1", version="1.0.0")]
 
 

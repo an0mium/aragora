@@ -49,11 +49,13 @@ RLM_EARLY_TERMINATION_THRESHOLD = 0.75
 # Minimum lead over second choice to trigger early termination (as fraction of total agents)
 RLM_MAJORITY_LEAD_THRESHOLD = 0.25
 
+
 def get_complexity_governor():
     """Get the global complexity governor instance."""
     from aragora.debate.complexity_governor import get_complexity_governor as _get_governor
 
     return _get_governor()
+
 
 @dataclass
 class VoteCollectorConfig:
@@ -97,6 +99,7 @@ class VoteCollectorConfig:
     position_shuffling_permutations: int = 3
     # Random seed for reproducibility (None = random)
     position_shuffling_seed: int | None = None
+
 
 class VoteCollector:
     """
@@ -623,9 +626,11 @@ class VoteCollector:
 
         return vote_groups, choice_mapping
 
+
 # =============================================================================
 # Factory function
 # =============================================================================
+
 
 def create_vote_collector(
     vote_with_agent: Callable | None = None,
@@ -684,6 +689,7 @@ def create_vote_collector(
         position_shuffling_seed=position_shuffling_seed,
     )
     return VoteCollector(config)
+
 
 # =============================================================================
 # Exports

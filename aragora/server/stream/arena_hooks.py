@@ -25,6 +25,7 @@ _current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "current_task_id", default=""
 )
 
+
 @contextmanager
 def streaming_task_context(task_id: str) -> Generator[None, None, None]:
     """Context manager to set the current task_id for streaming events.
@@ -42,9 +43,11 @@ def streaming_task_context(task_id: str) -> Generator[None, None, None]:
     finally:
         _current_task_id.reset(token)
 
+
 def get_current_task_id() -> str:
     """Get the current task_id for streaming events."""
     return _current_task_id.get()
+
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:
     """Wrap an agent to emit token streaming events.
@@ -161,6 +164,7 @@ def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: s
     # Replace the generate method
     agent.generate = streaming_generate
     return agent
+
 
 def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str, Callable]:
     """
@@ -518,6 +522,7 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
         "on_novelty_check": on_novelty_check,
     }
 
+
 def create_hook_manager_from_emitter(
     emitter: SyncEventEmitter,
     loop_id: str = "",
@@ -717,6 +722,7 @@ def create_hook_manager_from_emitter(
 
     logger.debug(f"Created HookManager with {len(manager.stats)} hook types bridged to WebSocket")
     return manager
+
 
 __all__ = [
     "create_arena_hooks",

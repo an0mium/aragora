@@ -37,6 +37,7 @@ __all__ = [
     "get_cv_builder",
 ]
 
+
 @dataclass
 class ReliabilityMetrics:
     """Reliability statistics for an agent."""
@@ -66,6 +67,7 @@ class ReliabilityMetrics:
             "p99_latency_ms": self.p99_latency_ms,
             "is_reliable": self.is_reliable,
         }
+
 
 @dataclass
 class DomainPerformance:
@@ -110,6 +112,7 @@ class DomainPerformance:
             "composite_score": self.composite_score,
             "has_meaningful_data": self.has_meaningful_data,
         }
+
 
 @dataclass
 class AgentCV:
@@ -308,6 +311,7 @@ class AgentCV:
             data_sources=data.get("data_sources", []),
         )
 
+
 class CVBuilder:
     """
     Builder for constructing AgentCV from data sources.
@@ -497,8 +501,10 @@ class CVBuilder:
 
         return cvs
 
+
 # Singleton builder instance
 _cv_builder: CVBuilder | None = None
+
 
 def get_cv_builder() -> CVBuilder:
     """Get the global CVBuilder singleton instance.

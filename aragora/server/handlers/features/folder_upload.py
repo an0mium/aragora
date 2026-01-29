@@ -34,6 +34,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class FolderUploadStatus(Enum):
     """Status of a folder upload job."""
 
@@ -43,6 +44,7 @@ class FolderUploadStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class FolderUploadJob:
@@ -105,6 +107,7 @@ class FolderUploadJob:
             },
             "config": self.config,
         }
+
 
 class FolderUploadHandler(BaseHandler):
     """Handler for folder upload endpoints."""

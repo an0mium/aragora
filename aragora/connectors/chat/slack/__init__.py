@@ -66,6 +66,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector):
     """
     Slack connector using Slack Web API.
@@ -409,6 +410,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
             classified = _classify_slack_error(last_error)
             logger.debug(f"[slack] {operation} final error type: {type(classified).__name__}")
         return False, None, last_error or "Unknown error"
+
 
 __all__ = [
     # Main classes

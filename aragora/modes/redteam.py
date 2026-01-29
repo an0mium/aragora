@@ -9,12 +9,14 @@ Makes agents actively try to break each other's arguments through:
 
 This is a key differentiator vs AutoGen/CrewAI which focus on cooperation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable
+
 
 class AttackType(Enum):
     """Types of adversarial attacks."""
@@ -29,6 +31,7 @@ class AttackType(Enum):
     RESOURCE_EXHAUSTION = "resource_exhaustion"  # DoS conditions
     RACE_CONDITION = "race_condition"  # Concurrency issues
     DEPENDENCY_FAILURE = "dependency_failure"  # What if X fails?
+
 
 @dataclass
 class Attack:
@@ -51,6 +54,7 @@ class Attack:
         """Calculate overall risk score."""
         return self.severity * self.exploitability
 
+
 @dataclass
 class Defense:
     """A defense against an attack."""
@@ -63,6 +67,7 @@ class Defense:
     success: bool  # Did the defense hold?
     residual_risk: float = 0.0  # Remaining risk after defense
 
+
 @dataclass
 class RedTeamRound:
     """A round of red-team testing."""
@@ -72,6 +77,7 @@ class RedTeamRound:
     attacks: list[Attack] = field(default_factory=list)
     defenses: list[Defense] = field(default_factory=list)
     escalations: list[str] = field(default_factory=list)  # Unresolved issues
+
 
 @dataclass
 class RedTeamResult:
@@ -98,6 +104,7 @@ class RedTeamResult:
     def vulnerability_ratio(self) -> float:
         """Ratio of successful attacks."""
         return self.successful_attacks / self.total_attacks if self.total_attacks > 0 else 0.0
+
 
 class RedTeamProtocol:
     """
@@ -219,6 +226,7 @@ This demonstrates intellectual honesty and helps find real disagreements vs misu
 
 This helps ensure the debate addresses real disagreements.
 """
+
 
 class RedTeamMode:
     """
@@ -538,6 +546,7 @@ class RedTeamMode:
 
         return "\n".join(lines)
 
+
 # Convenience functions for common red-team scenarios
 async def redteam_code_review(
     code: str,
@@ -566,6 +575,7 @@ async def redteam_code_review(
         red_team_agents=agents,
         run_agent_fn=run_agent_fn,
     )
+
 
 async def redteam_policy(
     policy: str,

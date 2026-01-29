@@ -21,6 +21,8 @@ import os
 from datetime import datetime
 from typing import Any
 
+from aragora.connectors.chat.models import MessageButton
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -40,6 +42,7 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
+
 
 from .base import ChatPlatformConnector
 from .models import (
@@ -66,6 +69,7 @@ WHATSAPP_APP_SECRET = os.environ.get("WHATSAPP_APP_SECRET", "")
 
 # WhatsApp Cloud API
 WHATSAPP_API_BASE = "https://graph.facebook.com/v18.0"
+
 
 class WhatsAppConnector(ChatPlatformConnector):
     """
@@ -383,9 +387,7 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         raise RuntimeError(error or "Upload failed")
 
-    async def _upload_media_bytes(
-        self, content: bytes, filename: str, content_type: str
-    ) -> str:
+    async def _upload_media_bytes(self, content: bytes, filename: str, content_type: str) -> str:
         """Upload media bytes to WhatsApp servers.
 
         Uses _whatsapp_api_request for circuit breaker, retry, and timeout handling.
@@ -1169,5 +1171,6 @@ class WhatsAppConnector(ChatPlatformConnector):
                 **kwargs,
             )
         return SendMessageResponse(success=False, error="No channel for interaction response")
+
 
 __all__ = ["WhatsAppConnector"]

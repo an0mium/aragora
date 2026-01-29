@@ -39,6 +39,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 class WooOrderStatus(str, Enum):
     """WooCommerce order status."""
 
@@ -51,6 +52,7 @@ class WooOrderStatus(str, Enum):
     FAILED = "failed"
     TRASH = "trash"
 
+
 class WooProductStatus(str, Enum):
     """WooCommerce product status."""
 
@@ -58,6 +60,7 @@ class WooProductStatus(str, Enum):
     DRAFT = "draft"
     PENDING = "pending"
     PRIVATE = "private"
+
 
 class WooProductType(str, Enum):
     """WooCommerce product type."""
@@ -67,12 +70,14 @@ class WooProductType(str, Enum):
     GROUPED = "grouped"
     EXTERNAL = "external"
 
+
 class WooStockStatus(str, Enum):
     """WooCommerce stock status."""
 
     IN_STOCK = "instock"
     OUT_OF_STOCK = "outofstock"
     ON_BACKORDER = "onbackorder"
+
 
 @dataclass
 class WooCommerceCredentials:
@@ -93,6 +98,7 @@ class WooCommerceCredentials:
             consumer_secret=os.environ.get("WOOCOMMERCE_CONSUMER_SECRET", ""),
             api_version=os.environ.get("WOOCOMMERCE_VERSION", "wc/v3"),
         )
+
 
 @dataclass
 class WooAddress(ConnectorDataclass):
@@ -120,6 +126,7 @@ class WooAddress(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class WooLineItem(ConnectorDataclass):
@@ -149,6 +156,7 @@ class WooLineItem(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class WooOrder(ConnectorDataclass):
@@ -200,6 +208,7 @@ class WooOrder(ConnectorDataclass):
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
+
 @dataclass
 class WooProductVariation(ConnectorDataclass):
     """WooCommerce product variation."""
@@ -226,6 +235,7 @@ class WooProductVariation(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class WooProduct(ConnectorDataclass):
@@ -268,6 +278,7 @@ class WooProduct(ConnectorDataclass):
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
+
 @dataclass
 class WooCustomer(ConnectorDataclass):
     """WooCommerce customer."""
@@ -300,6 +311,7 @@ class WooCustomer(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 class WooCommerceConnector(EnterpriseConnector):
     """
@@ -1577,9 +1589,11 @@ class WooCommerceConnector(EnterpriseConnector):
             errors=errors,
         )
 
+
 # =========================================================================
 # Mock data for testing
 # =========================================================================
+
 
 def get_mock_woo_orders() -> list[WooOrder]:
     """Get mock WooCommerce orders for testing."""
@@ -1625,6 +1639,7 @@ def get_mock_woo_orders() -> list[WooOrder]:
         ),
     ]
 
+
 def get_mock_woo_products() -> list[WooProduct]:
     """Get mock WooCommerce products for testing."""
     now = datetime.now(timezone.utc)
@@ -1648,6 +1663,7 @@ def get_mock_woo_products() -> list[WooProduct]:
             manage_stock=True,
         ),
     ]
+
 
 __all__ = [
     "WooCommerceConnector",

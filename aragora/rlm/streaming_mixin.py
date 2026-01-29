@@ -4,6 +4,7 @@ RLM Streaming Mixin.
 Provides streaming query and compression methods for AragoraRLM.
 Extracted from bridge.py for better modularity.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
 
 class RLMStreamingMixin:
     """
@@ -325,5 +327,6 @@ class RLMStreamingMixin:
                 error=str(e),
             )
             raise
+
 
 __all__ = ["RLMStreamingMixin"]

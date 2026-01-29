@@ -115,6 +115,7 @@ ANALYTICS_STUB_RESPONSES = {
     "/api/analytics/deliberations/performance": {"performance": []},
 }
 
+
 class AnalyticsDashboardHandler(BaseHandler):
     """Handler for analytics dashboard endpoints."""
 

@@ -24,6 +24,7 @@ from typing import cast
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ValidationResult:
     """Result of configuration validation."""
@@ -39,6 +40,7 @@ class ValidationResult:
     @property
     def has_warnings(self) -> bool:
         return len(self.warnings) > 0
+
 
 class ConfigValidator:
     """
@@ -516,6 +518,7 @@ class ConfigValidator:
             "allowed_origins": bool(os.getenv("ARAGORA_ALLOWED_ORIGINS")),
         }
 
+
 def validate_startup_config(strict: bool = False, exit_on_error: bool = True) -> bool:
     """
     Convenience function to validate configuration at startup.
@@ -536,6 +539,7 @@ def validate_startup_config(strict: bool = False, exit_on_error: bool = True) ->
         sys.exit(1)
 
     return is_valid
+
 
 async def validate_startup_config_async(
     strict: bool = False,
@@ -569,6 +573,7 @@ async def validate_startup_config_async(
         logger.error(f"Configuration error: {error}")
 
     return result
+
 
 __all__ = [
     "ConfigValidator",

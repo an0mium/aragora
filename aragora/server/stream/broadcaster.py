@@ -4,6 +4,7 @@ WebSocket broadcasting and client management utilities.
 Extracted from servers.py to provide reusable broadcast functionality
 for both DebateStreamServer and AiohttpUnifiedServer.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +22,7 @@ from .events import StreamEvent, StreamEventType
 from .state_manager import LoopInstance
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BroadcasterConfig:
@@ -42,6 +44,7 @@ class BroadcasterConfig:
 
     # Client tracking
     max_client_ids: int = 10000
+
 
 class ClientManager:
     """
@@ -177,6 +180,7 @@ class ClientManager:
             self._rate_limiter_last_access.clear()
 
         logger.debug("ClientManager resources cleaned up")
+
 
 class DebateStateCache:
     """
@@ -364,6 +368,7 @@ class DebateStateCache:
             self._last_access.clear()
         logger.debug("DebateStateCache resources cleaned up")
 
+
 class LoopRegistry:
     """
     Tracks active nomic loop instances.
@@ -500,6 +505,7 @@ class LoopRegistry:
             self.active_loops.clear()
             self._last_access.clear()
         logger.debug("LoopRegistry resources cleaned up")
+
 
 class WebSocketBroadcaster:
     """
@@ -709,6 +715,7 @@ class WebSocketBroadcaster:
         self.debate_state_cache.cleanup()
         self.loop_registry.cleanup()
         logger.debug("WebSocketBroadcaster resources cleaned up")
+
 
 __all__ = [
     "BroadcasterConfig",

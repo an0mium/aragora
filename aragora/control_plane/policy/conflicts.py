@@ -12,6 +12,7 @@ from typing import Any
 
 from .types import ControlPlanePolicy, EnforcementLevel
 
+
 @dataclass
 class PolicyConflict:
     """Represents a conflict between two policies."""
@@ -37,6 +38,7 @@ class PolicyConflict:
             "severity": self.severity,
             "detected_at": self.detected_at.isoformat(),
         }
+
 
 class PolicyConflictDetector:
     """

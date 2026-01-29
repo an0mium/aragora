@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded governance store for persistence
 _governance_store = None
 
+
 def _get_governance_store():
     """Get or create the governance store for approval persistence."""
     global _governance_store
@@ -38,6 +39,7 @@ def _get_governance_store():
             logger.debug(f"Governance store not available: {e}")
     return _governance_store
 
+
 class ApprovalStatus(Enum):
     """Status of a human approval request."""
 
@@ -46,6 +48,7 @@ class ApprovalStatus(Enum):
     REJECTED = "rejected"
     ESCALATED = "escalated"
     TIMEOUT = "timeout"
+
 
 @dataclass
 class ChecklistItem:
@@ -56,6 +59,7 @@ class ChecklistItem:
     required: bool = True
     checked: bool = False
     notes: str = ""
+
 
 @dataclass
 class ApprovalRequest:
@@ -102,9 +106,11 @@ class ApprovalRequest:
             "escalation_emails": self.escalation_emails,
         }
 
+
 # In-memory store for approval requests (backed by GovernanceStore for persistence)
 _pending_approvals: dict[str, ApprovalRequest] = {}
 _approvals_recovered: bool = False
+
 
 def recover_pending_approvals() -> int:
     """
@@ -183,16 +189,19 @@ def recover_pending_approvals() -> int:
 
     return recovered
 
+
 def reset_approval_recovery() -> None:
     """Reset recovery state (for testing)."""
     global _approvals_recovered
     _approvals_recovered = False
+
 
 def clear_pending_approvals() -> int:
     """Clear all pending approvals from memory (for testing). Returns count cleared."""
     count = len(_pending_approvals)
     _pending_approvals.clear()
     return count
+
 
 class HumanCheckpointStep(BaseStep):
     """
@@ -515,7 +524,9 @@ class HumanCheckpointStep(BaseStep):
             return f"{base_url}/workflows/{request.workflow_id}/approvals/{request.id}"
         return None
 
+
 # Helper functions for external approval resolution
+
 
 def resolve_approval(
     request_id: str,
@@ -573,6 +584,7 @@ def resolve_approval(
 
     return True
 
+
 def _send_resolution_notification_background(request: ApprovalRequest) -> None:
     """Send resolution notification in background (fire-and-forget)."""
     import asyncio
@@ -608,6 +620,7 @@ def _send_resolution_notification_background(request: ApprovalRequest) -> None:
         except Exception as e:
             logger.warning(f"Unexpected error sending resolution notification: {e}")
 
+
 def get_pending_approvals(workflow_id: str | None = None) -> list[ApprovalRequest]:
     """Get all pending approval requests, optionally filtered by workflow.
 
@@ -624,6 +637,7 @@ def get_pending_approvals(workflow_id: str | None = None) -> list[ApprovalReques
     if workflow_id:
         approvals = [a for a in approvals if a.workflow_id == workflow_id]
     return approvals
+
 
 def get_approval_request(request_id: str) -> ApprovalRequest | None:
     """Get an approval request by ID.

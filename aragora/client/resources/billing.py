@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 @dataclass
 class BillingPlan:
     """Billing plan details."""
@@ -21,6 +22,7 @@ class BillingPlan:
     limits: dict[str, Any]
     is_current: bool = False
 
+
 @dataclass
 class Subscription:
     """User subscription details."""
@@ -32,6 +34,7 @@ class Subscription:
     current_period_start: str
     current_period_end: str
     cancel_at_period_end: bool = False
+
 
 @dataclass
 class Invoice:
@@ -45,6 +48,7 @@ class Invoice:
     paid_at: str | None = None
     pdf_url: str | None = None
 
+
 @dataclass
 class UsageMetrics:
     """Usage metrics for billing."""
@@ -56,6 +60,7 @@ class UsageMetrics:
     period_start: str
     period_end: str
 
+
 @dataclass
 class UsageForecast:
     """Usage forecast for the billing period."""
@@ -65,6 +70,7 @@ class UsageForecast:
     projected_api_calls: int
     confidence: float
     based_on_days: int
+
 
 class BillingAPI:
     """API interface for billing and subscription management."""

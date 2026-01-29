@@ -9,6 +9,7 @@ Provides access to the SEC's EDGAR database for:
 The SEC EDGAR API is free and requires no authentication.
 Rate limit: 10 requests per second.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,6 +49,7 @@ FORM_TYPES = {
     "6-K": "Foreign private issuer report",
     "20-F": "Foreign private issuer annual report",
 }
+
 
 class SECConnector(BaseConnector):
     """
@@ -512,5 +514,6 @@ class SECConnector(BaseConnector):
     def get_form_types(self) -> dict[str, str]:
         """Return available SEC form types and descriptions."""
         return FORM_TYPES.copy()
+
 
 __all__ = ["SECConnector", "FORM_TYPES"]

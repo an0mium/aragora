@@ -69,6 +69,7 @@ from aragora.core import Agent, Environment
 from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
 
+
 class InitPhase(Enum):
     """Initialization phases in dependency order.
 
@@ -97,6 +98,7 @@ class InitPhase(Enum):
             cls.PHASES: [cls.CORE, cls.TRACKERS, cls.ROLES, cls.CONVERGENCE],
         }
 
+
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
@@ -120,6 +122,7 @@ if TYPE_CHECKING:
     from aragora.templates import DebateTemplate
 
 logger = logging.getLogger(__name__)
+
 
 class ArenaBuilder:
     """Fluent builder for Arena construction.
@@ -1099,6 +1102,7 @@ class ArenaBuilder:
             auto_export_training=self._auto_export_training,
             training_export_min_confidence=self._training_export_min_confidence,
         )
+
 
 # Convenience function for minimal Arena creation
 def create_arena(

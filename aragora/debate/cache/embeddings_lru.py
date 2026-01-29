@@ -16,6 +16,7 @@ MIGRATION NOTE:
     New code should use aragora.core.embeddings for embedding operations.
     This module remains for numpy-specific caching in convergence detection.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,6 +27,7 @@ from collections import OrderedDict
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
 
 class EmbeddingCache:
     """
@@ -185,6 +187,7 @@ class EmbeddingCache:
             self._hits = 0
             self._misses = 0
 
+
 class EmbeddingCacheManager:
     """
     Manager for per-debate embedding caches.
@@ -275,12 +278,14 @@ class EmbeddingCacheManager:
                 cache.clear()
             self._caches.clear()
 
+
 # Global cache manager instance
 _cache_manager = EmbeddingCacheManager()
 
 # Legacy: Global embedding cache instance (deprecated, use get_scoped_embedding_cache)
 _embedding_cache: EmbeddingCache | None = None
 _embedding_cache_lock = threading.Lock()
+
 
 def get_scoped_embedding_cache(debate_id: str) -> EmbeddingCache:
     """
@@ -297,6 +302,7 @@ def get_scoped_embedding_cache(debate_id: str) -> EmbeddingCache:
     """
     return _cache_manager.get_cache(debate_id)
 
+
 def cleanup_embedding_cache(debate_id: str) -> None:
     """
     Cleanup embedding cache for a completed debate.
@@ -307,6 +313,7 @@ def cleanup_embedding_cache(debate_id: str) -> None:
         debate_id: Debate ID to cleanup
     """
     _cache_manager.cleanup(debate_id)
+
 
 def get_embedding_cache(
     max_size: int = 1024,
@@ -352,6 +359,7 @@ def get_embedding_cache(
 
         return _embedding_cache
 
+
 def reset_embedding_cache() -> None:
     """Reset the global embedding cache (for testing)."""
     global _embedding_cache
@@ -361,6 +369,7 @@ def reset_embedding_cache() -> None:
         _embedding_cache = None
     # Also clear manager caches
     _cache_manager.clear_all()
+
 
 __all__ = [
     "EmbeddingCache",

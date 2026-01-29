@@ -38,6 +38,7 @@ DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY")
 if not DISCORD_PUBLIC_KEY:
     logger.warning("DISCORD_PUBLIC_KEY not configured - signature verification disabled")
 
+
 def _verify_discord_signature(
     signature: str,
     timestamp: str,
@@ -70,6 +71,7 @@ def _verify_discord_signature(
     except Exception as e:
         logger.exception(f"Unexpected signature verification error: {e}")
         return False
+
 
 class DiscordHandler(BotHandlerMixin, SecureHandler):
     """Handler for Discord Interactions API endpoints.
@@ -422,5 +424,6 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 },
             }
         )
+
 
 __all__ = ["DiscordHandler"]

@@ -20,6 +20,7 @@ from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureStatus(Enum):
     """Status of feature development."""
 
@@ -31,6 +32,7 @@ class FeatureStatus(Enum):
     AWAITING_APPROVAL = "awaiting_approval"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 @dataclass
 class FeatureSpec:
@@ -58,6 +60,7 @@ class FeatureSpec:
             "tags": self.tags,
         }
 
+
 @dataclass
 class DesignDecision:
     """A design decision made during feature development."""
@@ -79,6 +82,7 @@ class DesignDecision:
             "votes": self.votes,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 @dataclass
 class ImplementationStep:
@@ -103,6 +107,7 @@ class ImplementationStep:
             "verification_results": self.verification_results,
             "error_message": self.error_message,
         }
+
 
 @dataclass
 class FeatureImplementation:
@@ -135,6 +140,7 @@ class FeatureImplementation:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "error_message": self.error_message,
         }
+
 
 class FeatureDevelopmentAgent:
     """

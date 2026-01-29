@@ -42,6 +42,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class AlertSeverity(Enum):
     """Alert severity levels mapped to PagerDuty priorities."""
 
@@ -49,6 +50,7 @@ class AlertSeverity(Enum):
     MAJOR = "major"  # P2 - Urgent, within 1 hour
     MODERATE = "moderate"  # P3 - High priority, within 4 hours
     MINOR = "minor"  # P4 - Low priority, next business day
+
 
 class AlertChannel(Enum):
     """Available alert channels."""
@@ -58,6 +60,7 @@ class AlertChannel(Enum):
     TEAMS = "teams"
     EMAIL = "email"
     WEBHOOK = "webhook"
+
 
 @dataclass
 class SLOAlertConfig:
@@ -87,6 +90,7 @@ class SLOAlertConfig:
     auto_resolve_on_recovery: bool = True
     include_runbook_links: bool = True
 
+
 @dataclass
 class ActiveViolation:
     """Tracks an active SLO violation for deduplication."""
@@ -100,6 +104,7 @@ class ActiveViolation:
     incident_key: str | None = None
     pagerduty_incident_id: str | None = None
     notified_channels: set[str] = field(default_factory=set)
+
 
 class SLOAlertBridge:
     """
@@ -482,12 +487,15 @@ class SLOAlertBridge:
             del self._active_violations[key]
         return len(stale_keys)
 
+
 # Global bridge instance
 _bridge: SLOAlertBridge | None = None
+
 
 def get_slo_alert_bridge() -> SLOAlertBridge | None:
     """Get the global SLO alert bridge instance."""
     return _bridge
+
 
 def init_slo_alerting(
     pagerduty_api_key: str | None = None,
@@ -575,6 +583,7 @@ def init_slo_alerting(
 
     return _bridge
 
+
 def shutdown_slo_alerting() -> None:
     """Shutdown the SLO alerting system and unregister callbacks."""
     global _bridge
@@ -592,6 +601,7 @@ def shutdown_slo_alerting() -> None:
         pass
 
     _bridge = None
+
 
 __all__ = [
     "AlertSeverity",

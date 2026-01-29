@@ -257,7 +257,7 @@ class TestProgressCallbackReliability:
     @pytest.mark.asyncio
     async def test_progress_callback_completeness(self, quick_config):
         """All phases report start (0.0) and end (1.0)."""
-        progress_updates: List[Tuple[str, float]] = []
+        progress_updates: list[tuple[str, float]] = []
 
         def on_progress(phase: str, percent: float):
             progress_updates.append((phase, percent))
@@ -280,7 +280,7 @@ class TestProgressCallbackReliability:
     @pytest.mark.asyncio
     async def test_progress_callback_concurrent(self, quick_config):
         """Progress callbacks work correctly with concurrent runs."""
-        all_updates: Dict[str, List[Tuple[str, float]]] = {}
+        all_updates: dict[str, list[tuple[str, float]]] = {}
 
         def make_callback(run_id: str):
             all_updates[run_id] = []

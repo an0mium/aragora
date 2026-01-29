@@ -11,6 +11,7 @@ Coordinates all advanced features for the nomic loop:
 This module provides a unified interface for the nomic loop to leverage
 all aragora features in a coordinated way.
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,6 +53,7 @@ from aragora.reasoning.provenance_enhanced import (
     StalenessStatus,
 )
 
+
 @dataclass
 class BeliefAnalysis:
     """Result of analyzing a debate with belief propagation."""
@@ -89,6 +91,7 @@ class BeliefAnalysis:
             "timestamp": self.analysis_timestamp.isoformat(),
         }
 
+
 @dataclass
 class AgentReliability:
     """Agent reliability assessment from capability probing."""
@@ -111,6 +114,7 @@ class AgentReliability:
             return self.vulnerability_report.critical_count
         return 0
 
+
 @dataclass
 class StalenessReport:
     """Report of stale evidence in claims."""
@@ -132,6 +136,7 @@ class StalenessReport:
         """Get IDs of stale claims."""
         return [c.claim_id for c in self.stale_claims]
 
+
 @dataclass
 class PhaseCheckpoint:
     """Checkpoint for a nomic loop phase."""
@@ -141,6 +146,7 @@ class PhaseCheckpoint:
     state: dict[str, Any]
     checkpoint: DebateCheckpoint
     created_at: datetime = field(default_factory=datetime.now)
+
 
 class NomicIntegration:
     """
@@ -797,6 +803,7 @@ class NomicIntegration:
     def set_debate_id(self, debate_id: str):
         """Set the current debate ID."""
         self._current_debate_id = debate_id
+
 
 # Convenience function for creating integration with defaults
 def create_nomic_integration(

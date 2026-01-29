@@ -48,12 +48,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class RedisMode(str, Enum):
     """Redis deployment mode."""
 
     STANDALONE = "standalone"
     SENTINEL = "sentinel"
     CLUSTER = "cluster"
+
 
 @dataclass
 class RedisHASettings:
@@ -159,12 +161,14 @@ class RedisHASettings:
         else:
             return f"Standalone ({self.host}:{self.port})"
 
+
 from aragora.config.env_helpers import (
     env_str as _env_str,
     env_int as _env_int,
     env_float as _env_float,
     env_bool as _env_bool,
 )
+
 
 def _parse_comma_separated(value: str) -> list[str]:
     """Parse comma-separated string into list of stripped strings.
@@ -174,6 +178,7 @@ def _parse_comma_separated(value: str) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
+
 
 def get_redis_ha_config() -> RedisHASettings:
     """
@@ -255,6 +260,7 @@ def get_redis_ha_config() -> RedisHASettings:
         ssl_cert_reqs=_env_str("ARAGORA_REDIS_SSL_CERT_REQS") or None,
         ssl_ca_certs=_env_str("ARAGORA_REDIS_SSL_CA_CERTS") or None,
     )
+
 
 # Module-level constants for direct import
 REDIS_MODE = _env_str("ARAGORA_REDIS_MODE", "standalone")

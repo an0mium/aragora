@@ -7,6 +7,7 @@ Enriches evidence snippets with additional metadata including:
 - Confidence scoring
 - Temporal context
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,6 +20,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
 
 class SourceType(str, Enum):
     """Classification of evidence source types."""
@@ -33,6 +35,7 @@ class SourceType(str, Enum):
     DATABASE = "database"  # Database records
     LOCAL = "local"  # Local files
     UNKNOWN = "unknown"  # Unclassified
+
 
 @dataclass
 class Provenance:
@@ -87,6 +90,7 @@ class Provenance:
             citation_count=data.get("citation_count"),
             peer_reviewed=data.get("peer_reviewed", False),
         )
+
 
 @dataclass
 class EnrichedMetadata:
@@ -143,6 +147,7 @@ class EnrichedMetadata:
             entities=data.get("entities", []),
             content_hash=data.get("content_hash", ""),
         )
+
 
 class MetadataEnricher:
     """Enriches evidence with additional metadata."""
@@ -532,6 +537,7 @@ class MetadataEnricher:
             existing_entities = existing["entities"]
             if isinstance(existing_entities, list):
                 metadata.entities = list(dict.fromkeys(existing_entities + metadata.entities))[:10]
+
 
 def enrich_evidence_snippet(
     snippet: Any,  # EvidenceSnippet

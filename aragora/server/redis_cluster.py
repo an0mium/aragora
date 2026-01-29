@@ -48,12 +48,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ClusterMode(Enum):
     """Redis deployment mode."""
 
     AUTO = "auto"
     CLUSTER = "cluster"
     STANDALONE = "standalone"
+
 
 @dataclass
 class ClusterConfig:
@@ -86,6 +88,7 @@ class ClusterConfig:
 
     # Encoding
     decode_responses: bool = True
+
 
 def get_cluster_config() -> ClusterConfig:
     """Get cluster configuration from environment variables."""
@@ -146,6 +149,7 @@ def get_cluster_config() -> ClusterConfig:
         health_check_interval=float(os.getenv("ARAGORA_REDIS_HEALTH_CHECK_INTERVAL", "30.0")),
     )
 
+
 class ClusterHealthMonitor:
     """Monitors cluster health and triggers reconnection on failures."""
 
@@ -182,6 +186,7 @@ class ClusterHealthMonitor:
             self._last_check = now
             return True
         return False
+
 
 class RedisClusterClient:
     """
@@ -709,12 +714,14 @@ class RedisClusterClient:
                     self._client = None
                     self._available = False
 
+
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
 _cluster_client: RedisClusterClient | None = None
 _lock = threading.Lock()
+
 
 def get_cluster_client() -> RedisClusterClient | None:
     """Get shared cluster client instance (thread-safe singleton)."""
@@ -734,6 +741,7 @@ def get_cluster_client() -> RedisClusterClient | None:
                 logger.debug("No Redis nodes configured, cluster client disabled")
         return _cluster_client
 
+
 def reset_cluster_client() -> None:
     """Reset cluster client (for testing)."""
     global _cluster_client
@@ -743,10 +751,12 @@ def reset_cluster_client() -> None:
             _cluster_client.close()
             _cluster_client = None
 
+
 def is_cluster_available() -> bool:
     """Check if cluster client is available."""
     client = get_cluster_client()
     return client is not None and client.is_available
+
 
 __all__ = [
     "ClusterConfig",

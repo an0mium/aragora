@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentCostEfficiency:
     """Cost efficiency assessment for an agent."""
@@ -56,6 +57,7 @@ class AgentCostEfficiency:
     is_overconfident: bool = False
     is_underconfident: bool = False
     recommendation: str = ""  # "efficient", "moderate", "costly"
+
 
 @dataclass
 class CalibrationCostBridgeConfig:
@@ -85,6 +87,7 @@ class CalibrationCostBridgeConfig:
     # Efficiency thresholds
     efficient_threshold: float = 0.7
     moderate_threshold: float = 0.4
+
 
 @dataclass
 class CalibrationCostBridge:
@@ -472,6 +475,7 @@ class CalibrationCostBridge:
             "cost_tracker_attached": self.cost_tracker is not None,
         }
 
+
 def create_calibration_cost_bridge(
     calibration_tracker: Optional["CalibrationTracker"] = None,
     cost_tracker: Optional["CostTracker"] = None,
@@ -493,6 +497,7 @@ def create_calibration_cost_bridge(
         cost_tracker=cost_tracker,
         config=config,
     )
+
 
 __all__ = [
     "CalibrationCostBridge",

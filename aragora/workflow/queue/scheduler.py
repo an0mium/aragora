@@ -25,6 +25,7 @@ from aragora.workflow.queue.executor import ExecutorPool
 
 logger = logging.getLogger(__name__)
 
+
 class SchedulingPolicy(str, Enum):
     """Task scheduling policies."""
 
@@ -33,6 +34,7 @@ class SchedulingPolicy(str, Enum):
     SHORTEST_FIRST = "shortest_first"  # Shortest estimated time first
     DEADLINE = "deadline"  # Earliest deadline first
     FAIR = "fair"  # Fair share among workflows
+
 
 @dataclass
 class SchedulerConfig:
@@ -44,6 +46,7 @@ class SchedulerConfig:
     enable_preemption: bool = False
     starvation_threshold_seconds: float = 300.0  # 5 minutes
     rebalance_interval_seconds: float = 30.0
+
 
 @dataclass
 class WorkflowState:
@@ -70,6 +73,7 @@ class WorkflowState:
         if total == 0:
             return 0.0
         return self.completed_count / total
+
 
 class DependencyGraph:
     """
@@ -190,6 +194,7 @@ class DependencyGraph:
                         queue.append(dep_id)
 
         return result
+
 
 class DependencyScheduler:
     """

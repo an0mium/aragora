@@ -40,11 +40,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional, Union
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.debate.hooks import HookManager, HookType
 
 logger = logging.getLogger(__name__)
+
 
 class PropulsionPriority(Enum):
     """Priority levels for propulsion events."""
@@ -54,6 +55,7 @@ class PropulsionPriority(Enum):
     NORMAL = 2  # Default priority
     LOW = 3  # Process when no higher priority work
     BACKGROUND = 4  # Process during idle time
+
 
 @dataclass
 class PropulsionPayload:
@@ -112,6 +114,7 @@ class PropulsionPayload:
             "last_error": self.last_error,
         }
 
+
 @dataclass
 class PropulsionResult:
     """Result of a propulsion event."""
@@ -135,11 +138,12 @@ class PropulsionResult:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 # Type alias for propulsion handlers
-PropulsionHandler = Union[
-    Callable[[PropulsionPayload], Any],
-    Callable[[PropulsionPayload], Coroutine[Any, Any, Any]],
-]
+PropulsionHandler = (
+    Callable[[PropulsionPayload], Any] | Callable[[PropulsionPayload], Coroutine[Any, Any, Any]]
+)
+
 
 @dataclass
 class RegisteredHandler:
@@ -149,6 +153,7 @@ class RegisteredHandler:
     handler: PropulsionHandler
     priority: PropulsionPriority
     filter_fn: Optional[Callable[[PropulsionPayload], bool]] = None
+
 
 class PropulsionEngine:
     """
@@ -487,8 +492,10 @@ class PropulsionEngine:
         """Clear stored results."""
         self._results.clear()
 
+
 # Global propulsion engine singleton
 _default_engine: PropulsionEngine | None = None
+
 
 def get_propulsion_engine() -> PropulsionEngine:
     """Get the default propulsion engine instance."""
@@ -497,12 +504,15 @@ def get_propulsion_engine() -> PropulsionEngine:
         _default_engine = PropulsionEngine()
     return _default_engine
 
+
 def reset_propulsion_engine() -> None:
     """Reset the default engine (for testing)."""
     global _default_engine
     _default_engine = None
 
+
 # Convenience decorators
+
 
 def propulsion_handler(
     event_type: str,

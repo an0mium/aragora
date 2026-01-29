@@ -10,6 +10,7 @@ Provides endpoints for managing in-app notifications:
 - GET /api/knowledge/notifications/preferences - Get notification preferences
 - PUT /api/knowledge/notifications/preferences - Update preferences
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,6 +44,7 @@ except ImportError:
 
 # Rate limiter for notification endpoints
 _notifications_limiter = RateLimiter(requests_per_minute=60)
+
 
 class SharingNotificationsHandler(BaseHandler):
     """Handler for knowledge sharing notification endpoints.
@@ -359,5 +361,6 @@ class SharingNotificationsHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to update preferences: {e}")
             return error_response("Failed to update preferences", 500)
+
 
 __all__ = ["SharingNotificationsHandler"]

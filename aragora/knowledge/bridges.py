@@ -45,6 +45,7 @@ __all__ = [
     "KnowledgeBridgeHub",
 ]
 
+
 class MetaLearnerBridge:
     """
     Bridge between MetaLearner and KnowledgeMound.
@@ -204,6 +205,7 @@ class MetaLearnerBridge:
         logger.info(f"Captured meta-learning summary as pattern node: {node_id}")
         return node_id
 
+
 class EvidenceBridge:
     """
     Bridge between Evidence Collector and KnowledgeMound.
@@ -345,6 +347,7 @@ class EvidenceBridge:
         node_id = await self.mound.add_node(node)  # type: ignore[misc]
         logger.info(f"Stored collector evidence as node: {node_id}")
         return node_id
+
 
 class PatternBridge:
     """
@@ -496,6 +499,7 @@ class PatternBridge:
                 "consensus_rate": consensus_rate,
             },
         )
+
 
 class KnowledgeBridgeHub:
     """

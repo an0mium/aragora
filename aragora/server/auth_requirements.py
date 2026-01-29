@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class AuthLevel(Enum):
     """Authentication level for endpoints."""
 
@@ -24,6 +25,7 @@ class AuthLevel(Enum):
     PERMISSION = "permission"  # Specific RBAC permission required
     ADMIN = "admin"  # Admin role required
     OWNER = "owner"  # Owner role required
+
 
 @dataclass
 class EndpointAuth:
@@ -36,6 +38,7 @@ class EndpointAuth:
     description: str = ""
     # OpenAPI security requirement that should be present
     openapi_security: list[str] = field(default_factory=lambda: ["bearerAuth"])
+
 
 # =============================================================================
 # Public Endpoints - No authentication required
@@ -343,6 +346,7 @@ OWNER_ENDPOINTS = [
 # Aggregated Requirements
 # =============================================================================
 
+
 def get_all_requirements() -> list[EndpointAuth]:
     """Get all endpoint authentication requirements."""
     return (
@@ -353,9 +357,11 @@ def get_all_requirements() -> list[EndpointAuth]:
         + OWNER_ENDPOINTS
     )
 
+
 def get_requirements_by_path(path: str) -> list[EndpointAuth]:
     """Get all requirements for a specific path (all methods)."""
     return [req for req in get_all_requirements() if req.path == path]
+
 
 def get_requirement(path: str, method: str) -> EndpointAuth | None:
     """Get the requirement for a specific path and method."""
@@ -364,6 +370,7 @@ def get_requirement(path: str, method: str) -> EndpointAuth | None:
         if req.path == path and req.method.lower() == method:
             return req
     return None
+
 
 def get_protected_prefixes() -> list[str]:
     """Get path prefixes that should be protected by default."""
@@ -386,9 +393,11 @@ def get_protected_prefixes() -> list[str]:
         "/api/apikeys",
     ]
 
+
 def get_public_paths() -> set[str]:
     """Get paths that are explicitly public."""
     return {req.path for req in PUBLIC_ENDPOINTS}
+
 
 def requires_auth(path: str, method: str = "get") -> bool:
     """Check if a path/method combination requires authentication."""
@@ -403,12 +412,14 @@ def requires_auth(path: str, method: str = "get") -> bool:
 
     return False
 
+
 def get_required_permission(path: str, method: str = "get") -> str | None:
     """Get the required permission for a path/method combination."""
     req = get_requirement(path, method)
     if req and req.permission:
         return req.permission
     return None
+
 
 __all__ = [
     "AuthLevel",

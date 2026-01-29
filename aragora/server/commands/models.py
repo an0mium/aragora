@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Coroutine
 
+
 class CommandPermission(Enum):
     """Permission levels for commands."""
 
@@ -16,6 +17,7 @@ class CommandPermission(Enum):
     MEMBER = "member"  # Must be workspace member
     ADMIN = "admin"  # Must be workspace admin
     OWNER = "owner"  # Must be org owner
+
 
 @dataclass
 class CommandDefinition:
@@ -31,6 +33,7 @@ class CommandDefinition:
     hidden: bool = False  # Hidden from help
     rate_limit: int = 10  # Max calls per minute per user
     platforms: list[str] = field(default_factory=lambda: ["slack", "teams", "discord", "telegram"])
+
 
 @dataclass
 class CommandContext:
@@ -61,6 +64,7 @@ class CommandContext:
             return self.args[index]
         return default
 
+
 @dataclass
 class CommandResult:
     """Result of command execution."""
@@ -89,6 +93,7 @@ class CommandResult:
         """Create an error result."""
         return cls(success=False, message=message, ephemeral=ephemeral)
 
+
 @dataclass
 class CommandError(Exception):
     """Exception raised during command execution."""
@@ -100,6 +105,7 @@ class CommandError(Exception):
     def to_result(self) -> CommandResult:
         """Convert to a CommandResult."""
         return CommandResult.error(self.message)
+
 
 # Type alias for command handler functions
 CommandHandler = Callable[[CommandContext], Coroutine[Any, Any, CommandResult]]

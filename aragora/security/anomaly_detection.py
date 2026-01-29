@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # Anomaly Types and Severity
 # =============================================================================
 
+
 class AnomalyType(Enum):
     """Types of security anomalies."""
 
@@ -75,6 +76,7 @@ class AnomalyType(Enum):
     NETWORK_KNOWN_BAD_IP = "network.known_bad_ip"
     NETWORK_UNUSUAL_COUNTRY = "network.unusual_country"
 
+
 class AnomalySeverity(Enum):
     """Severity levels for anomalies."""
 
@@ -82,6 +84,7 @@ class AnomalySeverity(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 @dataclass
 class AnomalyResult:
@@ -109,9 +112,11 @@ class AnomalyResult:
             "timestamp": self.timestamp,
         }
 
+
 # =============================================================================
 # Configuration
 # =============================================================================
+
 
 @dataclass
 class AnomalyDetectorConfig:
@@ -139,9 +144,11 @@ class AnomalyDetectorConfig:
     storage_path: str | None = None
     retention_days: int = 90
 
+
 # =============================================================================
 # Baseline Learning
 # =============================================================================
+
 
 @dataclass
 class UserBaseline:
@@ -162,9 +169,11 @@ class UserBaseline:
         """Check if baseline has enough samples for reliable detection."""
         return self.learning_samples >= min_samples
 
+
 # =============================================================================
 # Storage Layer
 # =============================================================================
+
 
 class AnomalyStorage:
     """SQLite-backed storage for anomaly detection data."""
@@ -546,9 +555,11 @@ class AnomalyStorage:
         conn.commit()
         return deleted
 
+
 # =============================================================================
 # Anomaly Detector
 # =============================================================================
+
 
 class AnomalyDetector:
     """Main anomaly detection engine."""
@@ -1131,12 +1142,14 @@ class AnomalyDetector:
         """Clean up old data according to retention policy."""
         return self._storage.cleanup_old_data(self.config.retention_days)
 
+
 # =============================================================================
 # Global Instance & Convenience Functions
 # =============================================================================
 
 _detector: AnomalyDetector | None = None
 _detector_lock = threading.Lock()
+
 
 def get_anomaly_detector(config: AnomalyDetectorConfig | None = None) -> AnomalyDetector:
     """Get or create the global anomaly detector."""
@@ -1145,6 +1158,7 @@ def get_anomaly_detector(config: AnomalyDetectorConfig | None = None) -> Anomaly
         if _detector is None:
             _detector = AnomalyDetector(config)
         return _detector
+
 
 async def check_auth_anomaly(
     user_id: str,
@@ -1162,6 +1176,7 @@ async def check_auth_anomaly(
         country=country,
     )
 
+
 async def check_rate_anomaly(
     user_id: str | None = None,
     ip_address: str | None = None,
@@ -1175,6 +1190,7 @@ async def check_rate_anomaly(
         endpoint=endpoint,
         response_size_bytes=response_size_bytes,
     )
+
 
 __all__ = [
     # Types

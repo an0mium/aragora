@@ -33,6 +33,7 @@ REDIS_URL = os.environ.get("REDIS_URL", "")
 OAUTH_STATE_TTL_SECONDS = int(os.environ.get("OAUTH_STATE_TTL_SECONDS", "600"))  # 10 min
 MAX_OAUTH_STATES = int(os.environ.get("OAUTH_MAX_STATES", "10000"))
 
+
 @dataclass
 class OAuthState:
     """OAuth state data."""
@@ -68,6 +69,7 @@ class OAuthState:
     def is_expired(self) -> bool:
         """Check if state has expired."""
         return time.time() > self.expires_at
+
 
 class OAuthStateStore(ABC):
     """Abstract base class for OAuth state storage."""
@@ -107,6 +109,7 @@ class OAuthStateStore(ABC):
     def size(self) -> int:
         """Get current number of stored states."""
         pass
+
 
 class InMemoryOAuthStateStore(OAuthStateStore):
     """In-memory OAuth state storage (single-instance only)."""
@@ -171,6 +174,7 @@ class InMemoryOAuthStateStore(OAuthStateStore):
         """Get current number of stored states."""
         with self._lock:
             return len(self._states)
+
 
 class SQLiteOAuthStateStore(OAuthStateStore):
     """SQLite-backed OAuth state storage (persistent, single-instance).
@@ -359,6 +363,7 @@ class SQLiteOAuthStateStore(OAuthStateStore):
                 pass
             delattr(self._local, "connection")
 
+
 class RedisOAuthStateStore(OAuthStateStore):
     """Redis-backed OAuth state storage (multi-instance safe)."""
 
@@ -491,6 +496,7 @@ class RedisOAuthStateStore(OAuthStateStore):
             # Log but don't fail - size() is for metrics only
             logger.debug(f"Redis size() query failed: {e}")
             return 0
+
 
 class JWTOAuthStateStore(OAuthStateStore):
     """JWT-based OAuth state store that requires no server-side storage.
@@ -638,6 +644,7 @@ class JWTOAuthStateStore(OAuthStateStore):
     def size(self) -> int:
         """Return count of tracked nonces (for replay protection)."""
         return len(self._used_nonces)
+
 
 class FallbackOAuthStateStore(OAuthStateStore):
     """OAuth state store with automatic fallback chain: JWT -> Redis -> SQLite -> In-memory.
@@ -886,8 +893,10 @@ class FallbackOAuthStateStore(OAuthStateStore):
             except Exception:  # noqa: BLE001 - Cleanup must not raise
                 pass
 
+
 # Global singleton
 _oauth_state_store: FallbackOAuthStateStore | None = None
+
 
 def get_oauth_state_store(
     sqlite_path: str = "aragora_oauth.db",
@@ -916,12 +925,14 @@ def get_oauth_state_store(
         logger.info(f"OAuth state store initialized: {backend}")
     return _oauth_state_store
 
+
 def reset_oauth_state_store() -> None:
     """Reset the global store (for testing)."""
     global _oauth_state_store
     if _oauth_state_store is not None:
         _oauth_state_store.close()
     _oauth_state_store = None
+
 
 # Convenience functions for backward compatibility
 def generate_oauth_state(
@@ -931,6 +942,7 @@ def generate_oauth_state(
     """Generate a new OAuth state token."""
     store = get_oauth_state_store()
     return store.generate(user_id, redirect_url)
+
 
 def validate_oauth_state(state: str) -> dict[str, Any] | None:
     """Validate and consume an OAuth state token.
@@ -949,6 +961,7 @@ def validate_oauth_state(state: str) -> dict[str, Any] | None:
         return None
     logger.debug("OAuth state validation succeeded")
     return result.to_dict()
+
 
 __all__ = [
     "OAuthState",

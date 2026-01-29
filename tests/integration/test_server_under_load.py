@@ -27,7 +27,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_concurrent_debate_creation(self):
         """Multiple debates should be created concurrently."""
-        debates_created: List[str] = []
+        debates_created: list[str] = []
         lock = asyncio.Lock()
 
         async def create_debate(task: str) -> str:
@@ -49,7 +49,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_concurrent_api_requests(self):
         """Multiple API requests should be handled concurrently."""
-        request_times: List[float] = []
+        request_times: list[float] = []
 
         async def handle_request(request_id: int) -> float:
             start = time.time()
@@ -71,7 +71,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_request_isolation(self):
         """Concurrent requests should not interfere with each other."""
-        results: Dict[int, str] = {}
+        results: dict[int, str] = {}
 
         async def process_request(request_id: int, data: str) -> str:
             # Simulate processing with varying delays
@@ -92,7 +92,7 @@ class TestConcurrentRequests:
     @pytest.mark.asyncio
     async def test_mixed_endpoint_concurrency(self):
         """Different endpoints should be handled concurrently."""
-        endpoint_calls: Dict[str, int] = {
+        endpoint_calls: dict[str, int] = {
             "/api/debates": 0,
             "/api/gauntlet": 0,
             "/api/leaderboard": 0,
@@ -152,7 +152,7 @@ class TestRateLimitingUnderLoad:
     @pytest.mark.asyncio
     async def test_rate_limit_per_client(self):
         """Rate limits should be enforced per client."""
-        client_tokens: Dict[str, int] = {}
+        client_tokens: dict[str, int] = {}
 
         def get_tokens(client_id: str) -> int:
             if client_id not in client_tokens:
@@ -221,7 +221,7 @@ class TestConnectionPoolUnderLoad:
     @pytest.mark.asyncio
     async def test_connection_reuse(self):
         """Connections should be reused efficiently."""
-        connection_uses: Dict[int, int] = {}
+        connection_uses: dict[int, int] = {}
         pool_size = 3
 
         class MockConnection:
@@ -369,10 +369,10 @@ class TestDatabaseUnderLoad:
     @pytest.mark.asyncio
     async def test_concurrent_queries(self):
         """Concurrent database queries should complete successfully."""
-        results: List[Dict] = []
+        results: list[dict] = []
         lock = asyncio.Lock()
 
-        async def run_query(query_id: int) -> Dict:
+        async def run_query(query_id: int) -> dict:
             await asyncio.sleep(0.01)  # Simulate query
             result = {"id": query_id, "data": f"result-{query_id}"}
             async with lock:
@@ -388,7 +388,7 @@ class TestDatabaseUnderLoad:
     @pytest.mark.asyncio
     async def test_transaction_isolation(self):
         """Transactions should be isolated under load."""
-        accounts: Dict[str, int] = {"A": 1000, "B": 1000}
+        accounts: dict[str, int] = {"A": 1000, "B": 1000}
         lock = asyncio.Lock()
 
         async def transfer(from_acc: str, to_acc: str, amount: int):
@@ -487,7 +487,7 @@ class TestMetricsUnderLoad:
     @pytest.mark.asyncio
     async def test_request_latency_tracking(self):
         """Request latencies should be tracked accurately."""
-        latencies: List[float] = []
+        latencies: list[float] = []
 
         async def timed_request(delay: float):
             start = time.time()
@@ -570,7 +570,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_priority_queueing(self):
         """Priority requests should be processed first."""
-        processed_order: List[Tuple[int, str]] = []
+        processed_order: list[tuple[int, str]] = []
         lock = asyncio.Lock()
 
         async def process_request(request_id: int, priority: str):

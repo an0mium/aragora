@@ -74,13 +74,13 @@ class MockDebateResult:
     consensus_reached: bool = True
     final_answer: str = ""
     confidence: float = 0.0
-    agents: List[str] = field(default_factory=list)
+    agents: list[str] = field(default_factory=list)
     rounds_used: int = 0
     duration_seconds: float = 0.0
-    messages: List[MockMessage] = field(default_factory=list)
-    votes: List[MockVote] = field(default_factory=list)
-    supporting_agents: List[str] = field(default_factory=list)
-    dissenting_agents: List[str] = field(default_factory=list)
+    messages: list[MockMessage] = field(default_factory=list)
+    votes: list[MockVote] = field(default_factory=list)
+    supporting_agents: list[str] = field(default_factory=list)
+    dissenting_agents: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.debate_id:
@@ -91,9 +91,9 @@ class MockKnowledgeMound:
     """Mock Knowledge Mound for testing ingestion."""
 
     def __init__(self):
-        self._items: Dict[str, KnowledgeItem] = {}
-        self._relationships: List[tuple] = []
-        self._queries: List[str] = []
+        self._items: dict[str, KnowledgeItem] = {}
+        self._relationships: list[tuple] = []
+        self._queries: list[str] = []
 
     async def store(
         self,
@@ -110,7 +110,7 @@ class MockKnowledgeMound:
         limit: int = 10,
         workspace_id: Optional[str] = None,
         min_confidence: Optional[float] = None,
-    ) -> List[KnowledgeItem]:
+    ) -> list[KnowledgeItem]:
         """Query knowledge items semantically."""
         self._queries.append(query)
         # Return matching items based on simple keyword match

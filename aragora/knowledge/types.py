@@ -4,12 +4,14 @@ Core types for the Knowledge Base module.
 Defines the data structures for facts, validation status,
 and related concepts used throughout the knowledge system.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 
 class ValidationStatus(Enum):
     """Validation status of a fact in the knowledge base.
@@ -24,6 +26,7 @@ class ValidationStatus(Enum):
     BYZANTINE_AGREED = "byzantine_agreed"  # Byzantine fault-tolerant consensus
     FORMALLY_PROVEN = "formally_proven"  # Verified via formal methods (Z3/Lean)
 
+
 class FactRelationType(Enum):
     """Types of relationships between facts."""
 
@@ -32,6 +35,7 @@ class FactRelationType(Enum):
     SUPERSEDES = "supersedes"  # Fact A replaces/updates Fact B
     IMPLIES = "implies"  # Fact A logically implies Fact B
     RELATED_TO = "related_to"  # General topical relationship
+
 
 @dataclass
 class Fact:
@@ -130,6 +134,7 @@ class Fact:
         """Check if fact is still active (not superseded)."""
         return self.superseded_by is None
 
+
 @dataclass
 class FactRelation:
     """A relationship between two facts.
@@ -178,6 +183,7 @@ class FactRelation:
             ),
         )
 
+
 @dataclass
 class FactFilters:
     """Filters for querying facts.
@@ -195,6 +201,7 @@ class FactFilters:
     created_before: datetime | None = None
     limit: int = 100
     offset: int = 0
+
 
 @dataclass
 class VerificationResult:
@@ -227,6 +234,7 @@ class VerificationResult:
             "verification_time_ms": self.verification_time_ms,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class QueryResult:

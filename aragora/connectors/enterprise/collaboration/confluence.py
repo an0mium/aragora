@@ -32,6 +32,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ConfluenceSpace:
     """A Confluence space."""
@@ -42,6 +43,7 @@ class ConfluenceSpace:
     type: str  # global, personal
     status: str
     homepage_id: str | None = None
+
 
 @dataclass
 class ConfluencePage:
@@ -60,6 +62,7 @@ class ConfluencePage:
     updated_at: datetime | None = None
     parent_id: str | None = None
     labels: list[str] = field(default_factory=list)
+
 
 class ConfluenceConnector(EnterpriseConnector):
     """
@@ -552,5 +555,6 @@ class ConfluenceConnector(EnterpriseConnector):
             return True
 
         return False
+
 
 __all__ = ["ConfluenceConnector", "ConfluenceSpace", "ConfluencePage"]

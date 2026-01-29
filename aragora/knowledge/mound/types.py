@@ -29,12 +29,14 @@ from aragora.knowledge.unified.types import (
 # Alias for backward compatibility with adapters
 SourceType = KnowledgeSource
 
+
 class MoundBackend(str, Enum):
     """Backend storage options for Knowledge Mound."""
 
     SQLITE = "sqlite"
     POSTGRES = "postgres"
     HYBRID = "hybrid"  # Postgres + Redis caching
+
 
 class CulturePatternType(str, Enum):
     """Types of organizational patterns tracked by the culture accumulator."""
@@ -46,6 +48,7 @@ class CulturePatternType(str, Enum):
     DEBATE_DYNAMICS = "debate_dynamics"
     RESOLUTION_PATTERNS = "resolution_patterns"
 
+
 class StalenessReason(str, Enum):
     """Reasons for knowledge staleness."""
 
@@ -56,9 +59,11 @@ class StalenessReason(str, Enum):
     SCHEDULED = "scheduled"
     MANUAL = "manual"
 
+
 # =============================================================================
 # Visibility and Access Control Types (Phase 2)
 # =============================================================================
+
 
 class VisibilityLevel(str, Enum):
     """Visibility level for knowledge items.
@@ -77,6 +82,7 @@ class VisibilityLevel(str, Enum):
     PUBLIC = "public"
     SYSTEM = "system"
 
+
 class AccessGrantType(str, Enum):
     """Type of entity receiving an access grant."""
 
@@ -84,6 +90,7 @@ class AccessGrantType(str, Enum):
     ROLE = "role"
     WORKSPACE = "workspace"
     ORGANIZATION = "organization"
+
 
 @dataclass
 class AccessGrant:
@@ -146,6 +153,7 @@ class AccessGrant:
                 else None
             ),
         )
+
 
 @dataclass
 class MoundConfig:
@@ -216,6 +224,7 @@ class MoundConfig:
     retry_base_delay: float = 0.1  # Base delay between retries (seconds)
     transaction_timeout: float = 30.0  # Transaction timeout (seconds)
 
+
 @dataclass
 class IngestionRequest:
     """Request to ingest new knowledge into the mound."""
@@ -244,6 +253,7 @@ class IngestionRequest:
     # Additional metadata
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class IngestionResult:
     """Result of ingesting knowledge."""
@@ -255,6 +265,7 @@ class IngestionResult:
     relationships_created: int = 0
     message: str | None = None
 
+
 @dataclass
 class StalenessCheck:
     """Result of a staleness check."""
@@ -265,6 +276,7 @@ class StalenessCheck:
     last_checked_at: datetime = field(default_factory=datetime.now)
     revalidation_recommended: bool = False
     evidence: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class CulturePattern:
@@ -282,6 +294,7 @@ class CulturePattern:
     contributing_debates: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class CultureProfile:
     """Aggregated culture profile for a workspace."""
@@ -291,6 +304,7 @@ class CultureProfile:
     generated_at: datetime
     total_observations: int
     dominant_traits: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class GraphQueryResult:
@@ -302,6 +316,7 @@ class GraphQueryResult:
     depth: int
     total_nodes: int
     total_edges: int
+
 
 @dataclass
 class MoundStats:
@@ -317,6 +332,7 @@ class MoundStats:
     stale_nodes_count: int
     workspace_id: str | None = None
 
+
 @dataclass
 class SyncResult:
     """Result of syncing from another memory system."""
@@ -329,9 +345,11 @@ class SyncResult:
     duration_ms: int
     errors: list[str] = field(default_factory=list)
 
+
 # =============================================================================
 # Enhanced Types for Enterprise Control Plane (Phase 1)
 # =============================================================================
+
 
 @dataclass
 class EnhancedKnowledgeItem(KnowledgeItem):
@@ -398,6 +416,7 @@ class EnhancedKnowledgeItem(KnowledgeItem):
         # Note: embedding intentionally excluded from dict to save space
         return base_dict
 
+
 @dataclass
 class BeliefLineageEntry:
     """
@@ -425,6 +444,7 @@ class BeliefLineageEntry:
             "created_at": self.created_at.isoformat(),
             "tenant_id": self.tenant_id,
         }
+
 
 @dataclass
 class DomainNode:
@@ -456,6 +476,7 @@ class DomainNode:
             "item_count": self.item_count,
         }
 
+
 @dataclass
 class UnifiedQueryRequest:
     """
@@ -484,6 +505,7 @@ class UnifiedQueryRequest:
     # Pagination
     limit: int = 20
     offset: int = 0
+
 
 @dataclass
 class UnifiedQueryResult:
@@ -522,6 +544,7 @@ class UnifiedQueryResult:
             "graph_edges": [e.to_dict() for e in self.graph_edges],
             "lineage_chains": self.lineage_chains,
         }
+
 
 __all__ = [
     # Re-exported types

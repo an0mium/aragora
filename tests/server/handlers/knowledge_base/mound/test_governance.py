@@ -55,11 +55,11 @@ class MockRole:
 
     id: str
     name: str
-    permissions: Set[Permission]
+    permissions: set[Permission]
     description: str = ""
     workspace_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -77,7 +77,7 @@ class MockRoleAssignment:
     role_id: str
     workspace_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "user_id": self.user_id,
             "role_id": self.role_id,
@@ -95,7 +95,7 @@ class MockAuditEntry:
     resource_id: str
     timestamp: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "actor_id": self.actor_id,

@@ -64,6 +64,7 @@ DECISION_ERRORS: Any = None
 DECISION_CONSENSUS_RATE: Any = None
 DECISION_AGENTS_USED: Any = None
 
+
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
     global _initialized
@@ -177,6 +178,7 @@ def _init_metrics() -> bool:
         _initialized = True
         return False
 
+
 def _init_noop_metrics() -> None:
     """Initialize no-op metrics when Prometheus is disabled."""
     global DECISION_REQUESTS, DECISION_RESULTS, DECISION_LATENCY
@@ -204,9 +206,11 @@ def _init_noop_metrics() -> None:
     DECISION_CONSENSUS_RATE = noop
     DECISION_AGENTS_USED = noop
 
+
 # =============================================================================
 # Recording Functions
 # =============================================================================
+
 
 def record_decision_request(
     decision_type: str,
@@ -221,6 +225,7 @@ def record_decision_request(
         priority=priority,
     ).inc()
     DECISION_ACTIVE.labels(decision_type=decision_type).inc()
+
 
 def record_decision_result(
     decision_type: str,
@@ -283,6 +288,7 @@ def record_decision_result(
     # Decrement active count
     DECISION_ACTIVE.labels(decision_type=decision_type).dec()
 
+
 def record_decision_error(
     decision_type: str,
     error_type: str,
@@ -294,24 +300,29 @@ def record_decision_error(
         error_type=error_type,
     ).inc()
 
+
 def record_decision_cache_hit(decision_type: str) -> None:
     """Record a decision cache hit."""
     _init_metrics()
     DECISION_CACHE_HITS.labels(decision_type=decision_type).inc()
+
 
 def record_decision_cache_miss(decision_type: str) -> None:
     """Record a decision cache miss."""
     _init_metrics()
     DECISION_CACHE_MISSES.labels(decision_type=decision_type).inc()
 
+
 def record_decision_dedup_hit(decision_type: str) -> None:
     """Record a deduplication hit."""
     _init_metrics()
     DECISION_DEDUP_HITS.labels(decision_type=decision_type).inc()
 
+
 # =============================================================================
 # Context Managers
 # =============================================================================
+
 
 @contextmanager
 def track_decision(
@@ -372,9 +383,11 @@ def track_decision(
             error_type=context.get("error_type"),
         )
 
+
 # =============================================================================
 # Metrics Retrieval
 # =============================================================================
+
 
 def get_decision_metrics() -> dict[str, Any]:
     """Get current decision metrics summary."""
@@ -402,6 +415,7 @@ def get_decision_metrics() -> dict[str, Any]:
         return {"error": "prometheus_client not installed"}
     except Exception as e:
         return {"error": str(e)}
+
 
 def get_decision_summary() -> dict[str, Any]:
     """Get a human-readable summary of decision metrics."""
@@ -469,6 +483,7 @@ def get_decision_summary() -> dict[str, Any]:
         return {"error": "prometheus_client not installed"}
     except Exception as e:
         return {"error": str(e)}
+
 
 __all__ = [
     "record_decision_request",

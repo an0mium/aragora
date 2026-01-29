@@ -14,10 +14,12 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ModelLoadError(Exception):
     """Error loading a model."""
 
     pass
+
 
 # Recommended models per vertical based on domain expertise
 RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
@@ -47,6 +49,7 @@ RECOMMENDED_MODELS: dict[str, dict[str, str]] = {
         "small": "sentence-transformers/all-MiniLM-L6-v2",
     },
 }
+
 
 @dataclass
 class SpecialistModel:
@@ -174,6 +177,7 @@ class SpecialistModel:
             pass
 
         logger.info(f"Unloaded model: {self.model_id}")
+
 
 class HuggingFaceSpecialistLoader:
     """

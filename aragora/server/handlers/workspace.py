@@ -96,6 +96,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WorkspaceHandler(SecureHandler):
     """Handler for workspace and privacy management endpoints.
 
@@ -1492,5 +1493,6 @@ class WorkspaceHandler(SecureHandler):
                 "days": days,
             }
         )
+
 
 __all__ = ["WorkspaceHandler"]

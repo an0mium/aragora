@@ -13,6 +13,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def search_evidence_tool(
     query: str,
     sources: str = "all",
@@ -72,6 +73,7 @@ async def search_evidence_tool(
         "count": len(results),
     }
 
+
 async def cite_evidence_tool(
     debate_id: str,
     evidence_id: str,
@@ -129,6 +131,7 @@ async def cite_evidence_tool(
     except Exception as e:
         return {"error": f"Failed to add citation: {e}"}
 
+
 async def verify_citation_tool(
     url: str,
 ) -> dict[str, Any]:
@@ -160,6 +163,7 @@ async def verify_citation_tool(
         return {"url": url, "valid": False, "error": "Timeout"}
     except Exception as e:
         return {"url": url, "valid": False, "error": str(e)}
+
 
 __all__ = [
     "search_evidence_tool",

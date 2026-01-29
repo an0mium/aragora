@@ -33,6 +33,7 @@ REGEX_TIMEOUT_SECONDS = 2.0
 # Default per-value cap; RLMEnvironment overrides using RLMConfig
 MAX_NAMESPACE_VALUE_SIZE = 10_000_000  # 10MB per value (fallback)
 
+
 def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
     """
     Execute regex with security protections against ReDoS.
@@ -98,6 +99,7 @@ def _safe_regex(pattern: str, text: str, flags: int = 0) -> list[str]:
 
     return result
 
+
 def _contains_blocked_dunder(value: str) -> bool:
     """
     Check if a string contains blocked dunder names.
@@ -130,6 +132,7 @@ def _contains_blocked_dunder(value: str) -> bool:
     }
     value_lower = value.lower()
     return any(b in value_lower for b in blocked)
+
 
 class SafeReModule:
     """
@@ -192,6 +195,7 @@ class SafeReModule:
         """Blocked - could bypass our safety checks."""
         raise SecurityError("re.compile() is not allowed - use findall/search directly")
 
+
 @dataclass
 class REPLState:
     """State of the REPL environment."""
@@ -214,6 +218,7 @@ class REPLState:
     ready: bool = True  # Whether answer is complete (False = needs refinement)
     iteration: int = 0  # Current refinement iteration
     feedback: str | None = None  # Feedback from previous iteration
+
 
 class RLMEnvironment:
     """
@@ -903,6 +908,7 @@ FINAL("The authentication system uses JWT tokens...")
 # FINAL("Initial analysis suggests JWT...", ready=False)
 ```
 """
+
 
 class SecurityError(Exception):
     """Raised when code attempts unsafe operations."""

@@ -224,7 +224,7 @@ class TestPhaseTransitions:
     """Test phase transition logic."""
 
     @pytest.fixture
-    def phase_results(self) -> Dict[str, PhaseResult]:
+    def phase_results(self) -> dict[str, PhaseResult]:
         """Create a full set of successful phase results."""
         return {
             "context": {
@@ -386,7 +386,7 @@ class TestProtectedFilesHandling:
     """Test protected file verification."""
 
     @pytest.fixture
-    def protected_files(self) -> List[str]:
+    def protected_files(self) -> list[str]:
         """List of protected files."""
         return [
             "CLAUDE.md",

@@ -24,6 +24,7 @@ from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
 
+
 class SecuritySeverity(str, Enum):
     """Severity level for security findings."""
 
@@ -32,6 +33,7 @@ class SecuritySeverity(str, Enum):
     MEDIUM = "medium"  # Moderate risk
     LOW = "low"  # Minor issue
     INFO = "info"  # Informational
+
 
 class VulnerabilityCategory(str, Enum):
     """Category of security vulnerability."""
@@ -49,6 +51,7 @@ class VulnerabilityCategory(str, Enum):
     AUTHENTICATION = "authentication"
     AUTHORIZATION = "authorization"
 
+
 @dataclass
 class SecurityPattern:
     """A pattern for detecting security vulnerabilities."""
@@ -63,6 +66,7 @@ class SecurityPattern:
     owasp_category: str | None = None  # OWASP Top 10 category
     languages: Optional[list[str]] = None  # Applicable languages (None = all)
     false_positive_hints: list[str] = field(default_factory=list)
+
 
 @dataclass
 class SecurityFinding:
@@ -120,6 +124,7 @@ class SecurityFinding:
             "references": self.references,
             "is_false_positive": self.is_false_positive,
         }
+
 
 @dataclass
 class SecurityReport:
@@ -195,6 +200,7 @@ class SecurityReport:
             "findings": [f.to_dict() for f in self.findings],
             "error": self.error,
         }
+
 
 class SecurityScanner:
     """
@@ -982,6 +988,7 @@ class SecurityScanner:
             ".php": "php",
         }
         return mapping.get(ext)
+
 
 def quick_security_scan(
     path: str,

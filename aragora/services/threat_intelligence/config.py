@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+
 @dataclass
 class ThreatIntelConfig:
     """Configuration for threat intelligence service."""
@@ -64,6 +65,7 @@ class ThreatIntelConfig:
     enable_urlhaus: bool = True
     enable_caching: bool = True
     enable_event_emission: bool = True  # Emit events for high-risk findings
+
 
 class ThreatEventHandler(Protocol):
     """Protocol for threat event handlers."""

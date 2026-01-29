@@ -49,6 +49,7 @@ BLOCKED_HOSTNAME_SUFFIXES = (
     ".private",
 )
 
+
 def validate_webhook_url(url: str, allow_localhost: bool = False) -> tuple[bool, str]:
     """
     Validate webhook URL is not pointing to internal services (SSRF protection).
@@ -124,6 +125,7 @@ def validate_webhook_url(url: str, allow_localhost: bool = False) -> tuple[bool,
 
     return True, ""
 
+
 def _validate_ip_address(ip_str: str) -> tuple[bool, str]:
     """
     Validate a single IP address for SSRF vulnerabilities.
@@ -164,5 +166,6 @@ def _validate_ip_address(ip_str: str) -> tuple[bool, str]:
         return False, f"Cloud metadata endpoint not allowed: {ip_str}"
 
     return True, ""
+
 
 __all__ = ["validate_webhook_url", "_validate_ip_address", "DNS_RESOLUTION_TIMEOUT"]

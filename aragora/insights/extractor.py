@@ -8,6 +8,7 @@ Analyzes completed debates to extract:
 - Convergence dynamics
 - Decision-making patterns
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,7 @@ from datetime import datetime
 from enum import Enum
 
 from aragora.serialization import SerializableMixin
+
 
 class InsightType(Enum):
     """Types of insights that can be extracted."""
@@ -28,6 +30,7 @@ class InsightType(Enum):
     AGENT_PERFORMANCE = "agent_perf"  # Individual agent contributions
     FAILURE_MODE = "failure_mode"  # Why consensus wasn't reached
     DECISION_PROCESS = "decision"  # How the final decision was made
+
 
 @dataclass
 class Insight(SerializableMixin):
@@ -50,6 +53,7 @@ class Insight(SerializableMixin):
 
     # to_dict() inherited from SerializableMixin
 
+
 @dataclass
 class AgentPerformance:
     """Performance metrics for a single agent in a debate."""
@@ -62,6 +66,7 @@ class AgentPerformance:
     vote_aligned_with_consensus: bool = False
     average_critique_severity: float = 0.0
     contribution_score: float = 0.5  # 0-1 overall contribution
+
 
 @dataclass
 class DebateInsights:
@@ -101,6 +106,7 @@ class DebateInsights:
         if self.decision_insight:
             insights.append(self.decision_insight)
         return insights
+
 
 class InsightExtractor:
     """

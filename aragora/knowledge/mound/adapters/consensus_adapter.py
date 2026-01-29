@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 class SyncResult(TypedDict):
     """Type for forward sync result."""
 
@@ -36,6 +37,7 @@ class SyncResult(TypedDict):
     records_failed: int
     errors: list[str]
     duration_ms: float
+
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ from aragora.knowledge.mound.adapters._reverse_flow_base import (
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
+
 @dataclass
 class ConsensusSearchResult:
     """Wrapper for consensus search results with similarity metadata."""
@@ -59,6 +62,7 @@ class ConsensusSearchResult:
     def __post_init__(self) -> None:
         if self.dissents is None:
             self.dissents = []
+
 
 class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """

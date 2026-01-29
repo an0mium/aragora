@@ -40,6 +40,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class ApprovalStatus(str, Enum):
     """Status of an approval request."""
 
@@ -48,6 +49,7 @@ class ApprovalStatus(str, Enum):
     REJECTED = "rejected"
     EXPIRED = "expired"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class ApprovalDecision:
@@ -66,6 +68,7 @@ class ApprovalDecision:
             "comment": self.comment,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 @dataclass
 class ApprovalRequest:
@@ -139,6 +142,7 @@ class ApprovalRequest:
             "rejection_count": self.rejection_count,
             "metadata": self.metadata,
         }
+
 
 class ApprovalWorkflow:
     """
@@ -637,8 +641,10 @@ class ApprovalWorkflow:
             # Fallback to standard logging
             logger.info(f"Approval audit: {event_type} - {kwargs}")
 
+
 # Singleton instance
 _workflow: ApprovalWorkflow | None = None
+
 
 def get_approval_workflow() -> ApprovalWorkflow:
     """Get the global ApprovalWorkflow instance."""
@@ -646,6 +652,7 @@ def get_approval_workflow() -> ApprovalWorkflow:
     if _workflow is None:
         _workflow = ApprovalWorkflow()
     return _workflow
+
 
 __all__ = [
     "ApprovalStatus",

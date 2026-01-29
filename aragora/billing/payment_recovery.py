@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Grace period configuration (days after first failure before downgrade)
 PAYMENT_GRACE_DAYS = int(os.getenv("ARAGORA_PAYMENT_GRACE_DAYS", "10"))
 
+
 @dataclass
 class PaymentFailure:
     """Record of a payment failure."""
@@ -91,6 +92,7 @@ class PaymentFailure:
             "days_until_downgrade": self.days_until_downgrade,
             "should_downgrade": self.should_downgrade,
         }
+
 
 class PaymentRecoveryStore(SQLiteStore):
     """
@@ -419,9 +421,11 @@ class PaymentRecoveryStore(SQLiteStore):
                 )
             return results
 
+
 # Global store instance
 _recovery_store: PaymentRecoveryStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_recovery_store() -> PaymentRecoveryStore:
     """Get the global payment recovery store instance."""
@@ -431,6 +435,7 @@ def get_recovery_store() -> PaymentRecoveryStore:
             if _recovery_store is None:
                 _recovery_store = PaymentRecoveryStore()
     return _recovery_store
+
 
 def process_expired_grace_periods(user_store) -> dict[str, Any]:
     """
@@ -501,6 +506,7 @@ def process_expired_grace_periods(user_store) -> dict[str, Any]:
             results["errors"] += 1
 
     return results
+
 
 __all__ = [
     "PaymentFailure",

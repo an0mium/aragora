@@ -34,6 +34,7 @@ except ImportError:
     CHROMA_AVAILABLE = False
     logger.debug("chromadb not available - install with: pip install chromadb")
 
+
 class ChromaVectorStore(BaseVectorStore):
     """
     ChromaDB vector store adapter.

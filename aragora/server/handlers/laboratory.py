@@ -41,6 +41,7 @@ _laboratory_limiter = RateLimiter(requests_per_minute=20)
 _lab_imports, LABORATORY_AVAILABLE = try_import("aragora.agents.laboratory", "PersonaLaboratory")
 PersonaLaboratory = _lab_imports.get("PersonaLaboratory")
 
+
 class LaboratoryHandler(BaseHandler):
     """Handler for persona laboratory endpoints."""
 

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _n1_detector_imported = False
 _record_query = None
 
+
 def _get_record_query():
     """Lazy import of N+1 detector to avoid circular imports."""
     global _n1_detector_imported, _record_query
@@ -31,6 +32,7 @@ def _get_record_query():
             _record_query = None
         _n1_detector_imported = True
     return _record_query
+
 
 def _extract_table_name(query: str) -> str:
     """Extract table name from a SQL query for N+1 tracking."""
@@ -56,7 +58,9 @@ def _extract_table_name(query: str) -> str:
 
     return "unknown"
 
+
 T = TypeVar("T")
+
 
 def chunked(iterable: list[T], size: int) -> Iterator[list[T]]:
     """Split a list into chunks of the specified size.
@@ -70,6 +74,7 @@ def chunked(iterable: list[T], size: int) -> Iterator[list[T]]:
     """
     for i in range(0, len(iterable), size):
         yield iterable[i : i + size]
+
 
 def batch_select(
     conn: sqlite3.Connection,
@@ -126,6 +131,7 @@ def batch_select(
 
     return results
 
+
 def batch_exists(
     conn: sqlite3.Connection,
     table: str,
@@ -169,6 +175,7 @@ def batch_exists(
             raise
 
     return existing
+
 
 def timed_query(
     conn: sqlite3.Connection,
@@ -215,6 +222,7 @@ def timed_query(
         logger.error(f"Query failed after {elapsed_ms:.1f}ms: {operation_name}")
         raise
 
+
 def get_table_stats(conn: sqlite3.Connection, table: str) -> dict[str, Any]:
     """Get basic statistics for a table.
 
@@ -235,6 +243,7 @@ def get_table_stats(conn: sqlite3.Connection, table: str) -> dict[str, Any]:
         "table": table,
         "row_count": row[0] if row else 0,
     }
+
 
 __all__ = [
     "chunked",

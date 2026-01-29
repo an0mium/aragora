@@ -34,6 +34,7 @@ _DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
 # Request Utilities
 # =============================================================================
 
+
 def get_host_header(
     handler: Any | None,
     default: str | None = None,
@@ -64,6 +65,7 @@ def get_host_header(
         return default
     return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
+
 def get_request_id(handler: Any | None) -> str | None:
     """Extract request/trace ID from request handler.
 
@@ -83,6 +85,7 @@ def get_request_id(handler: Any | None) -> str | None:
         headers.get("X-Request-ID") or headers.get("X-Trace-ID") or headers.get("X-Correlation-ID")
     )
 
+
 def get_content_length(handler: Any) -> int:
     """Extract Content-Length from request handler.
 
@@ -99,9 +102,11 @@ def get_content_length(handler: Any) -> int:
     except (ValueError, TypeError):
         return 0
 
+
 # =============================================================================
 # Agent Utilities
 # =============================================================================
+
 
 def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     """Extract agent name from dict or object.
@@ -127,6 +132,7 @@ def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     if isinstance(agent, dict):
         return agent.get("agent_name") or agent.get("name")
     return getattr(agent, "agent_name", None) or getattr(agent, "name", None)
+
 
 def agent_to_dict(
     agent: dict | AgentRating | Any | None,
@@ -180,6 +186,7 @@ def agent_to_dict(
 
     return result
 
+
 def normalize_agent_names(agents: list) -> list:
     """Normalize a list of agent names or objects to lowercase strings.
 
@@ -198,9 +205,11 @@ def normalize_agent_names(agents: list) -> list:
             result.append(name.lower())
     return result
 
+
 # =============================================================================
 # Path Utilities
 # =============================================================================
+
 
 def extract_path_segment(
     path: str,
@@ -229,6 +238,7 @@ def extract_path_segment(
     segment = parts[index]
     return segment if segment else default
 
+
 def build_api_url(
     *segments: str,
     query_params: dict | None = None,
@@ -255,9 +265,11 @@ def build_api_url(
 
     return path
 
+
 # =============================================================================
 # Content Type Utilities
 # =============================================================================
+
 
 def is_json_content_type(content_type: str | None) -> bool:
     """Check if a content type is JSON.
@@ -273,6 +285,7 @@ def is_json_content_type(content_type: str | None) -> bool:
     media_type = content_type.split(";")[0].strip().lower()
     return media_type in ("application/json", "text/json")
 
+
 def get_media_type(content_type: str | None) -> str:
     """Extract media type from Content-Type header.
 
@@ -287,6 +300,7 @@ def get_media_type(content_type: str | None) -> str:
     if not content_type:
         return ""
     return content_type.split(";")[0].strip().lower()
+
 
 __all__ = [
     # Request utilities

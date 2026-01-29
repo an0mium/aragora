@@ -39,6 +39,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 _tracer = None
 _tracer_provider = None
 
+
 def _init_tracer() -> Any:
     """Initialize OpenTelemetry tracer lazily."""
     global _tracer, _tracer_provider
@@ -102,6 +103,7 @@ def _init_tracer() -> Any:
         logger.error(f"Failed to initialize OpenTelemetry: {e}")
         return _NoOpTracer()
 
+
 class _NoOpSpan:
     """No-op span for when tracing is disabled."""
 
@@ -129,6 +131,7 @@ class _NoOpSpan:
     def __exit__(self, *args: Any) -> None:
         pass
 
+
 class _NoOpTracer:
     """No-op tracer for when tracing is disabled."""
 
@@ -142,9 +145,11 @@ class _NoOpTracer:
     def start_span(self, name: str, **kwargs: Any) -> _NoOpSpan:
         return _NoOpSpan()
 
+
 def get_tracer() -> Any:
     """Get the OpenTelemetry tracer instance."""
     return _init_tracer()
+
 
 @contextmanager
 def create_span(
@@ -165,6 +170,7 @@ def create_span(
         if attributes:
             add_span_attributes(span, attributes)
         yield span
+
 
 def trace_handler(name: str) -> Callable[[F], F]:
     """Decorator to trace HTTP handler methods.
@@ -211,6 +217,7 @@ def trace_handler(name: str) -> Callable[[F], F]:
 
     return decorator
 
+
 def trace_async_handler(name: str) -> Callable[[F], F]:
     """Decorator to trace async HTTP handler methods.
 
@@ -244,6 +251,7 @@ def trace_async_handler(name: str) -> Callable[[F], F]:
         return cast(F, wrapper)
 
     return decorator
+
 
 def trace_agent_call(agent_name: str) -> Callable[[F], F]:
     """Decorator to trace agent API calls.
@@ -291,6 +299,7 @@ def trace_agent_call(agent_name: str) -> Callable[[F], F]:
 
     return decorator
 
+
 def add_span_attributes(span: Any, attributes: dict[str, Any]) -> None:
     """Add attributes to a span safely.
 
@@ -312,6 +321,7 @@ def add_span_attributes(span: Any, attributes: dict[str, Any]) -> None:
                 # Ignore invalid attribute types (e.g., unsupported types)
                 logger.debug("Failed to set span attribute %s: %s", key, e)
 
+
 def record_exception(span: Any, exception: BaseException) -> None:
     """Record an exception on a span.
 
@@ -322,6 +332,7 @@ def record_exception(span: Any, exception: BaseException) -> None:
     if span is not None and hasattr(span, "record_exception"):
         span.record_exception(exception)
         _set_error_status(span)
+
 
 def _set_error_status(span: Any) -> None:
     """Set error status on a span."""
@@ -335,6 +346,7 @@ def _set_error_status(span: Any) -> None:
     except ImportError:
         pass
 
+
 def shutdown() -> None:
     """Shutdown the tracer provider gracefully."""
     global _tracer_provider
@@ -345,9 +357,11 @@ def shutdown() -> None:
         except Exception as e:
             logger.error(f"Error shutting down tracer: {e}")
 
+
 # =============================================================================
 # Debate-Specific Tracing
 # =============================================================================
+
 
 def trace_debate(debate_id: str) -> Callable[[F], F]:
     """Decorator to trace an entire debate lifecycle.
@@ -397,6 +411,7 @@ def trace_debate(debate_id: str) -> Callable[[F], F]:
 
     return decorator
 
+
 @contextmanager
 def trace_debate_phase(
     phase_name: str, debate_id: str, round_num: int | None = None
@@ -424,6 +439,7 @@ def trace_debate_phase(
             span.set_attribute("debate.round", round_num)
         yield span
 
+
 @contextmanager
 def trace_consensus_check(debate_id: str, round_num: int) -> Iterator[Any]:
     """Context manager for tracing consensus checking.
@@ -440,6 +456,7 @@ def trace_consensus_check(debate_id: str, round_num: int) -> Iterator[Any]:
         span.set_attribute("debate.id", debate_id)
         span.set_attribute("debate.round", round_num)
         yield span
+
 
 def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
     """Decorator to trace memory operations.
@@ -471,9 +488,11 @@ def trace_memory_operation(operation: str, tier: str) -> Callable[[F], F]:
 
     return decorator
 
+
 # =============================================================================
 # Decision Pipeline Tracing
 # =============================================================================
+
 
 @contextmanager
 def trace_decision_routing(
@@ -506,6 +525,7 @@ def trace_decision_routing(
         span.set_attribute("decision.priority", priority)
         yield span
 
+
 @contextmanager
 def trace_decision_engine(
     engine_type: str,
@@ -525,6 +545,7 @@ def trace_decision_engine(
         span.set_attribute("decision.engine", engine_type)
         span.set_attribute("decision.request_id", request_id)
         yield span
+
 
 @contextmanager
 def trace_response_delivery(
@@ -550,9 +571,11 @@ def trace_response_delivery(
         span.set_attribute("delivery.voice_enabled", voice_enabled)
         yield span
 
+
 # =============================================================================
 # Webhook Tracing
 # =============================================================================
+
 
 @contextmanager
 def trace_webhook_delivery(
@@ -586,6 +609,7 @@ def trace_webhook_delivery(
             span.set_attribute("webhook.correlation_id", correlation_id)
         yield span
 
+
 @contextmanager
 def trace_webhook_batch(
     event_type: str,
@@ -610,6 +634,7 @@ def trace_webhook_batch(
             span.set_attribute("webhook.correlation_id", correlation_id)
         yield span
 
+
 def _redact_url(url: str) -> str:
     """Redact sensitive parts of webhook URL for tracing.
 
@@ -623,6 +648,7 @@ def _redact_url(url: str) -> str:
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
     except Exception:
         return "[redacted]"
+
 
 def trace_decision(func: F) -> F:
     """Decorator to trace the entire decision routing lifecycle.
@@ -693,9 +719,11 @@ def trace_decision(func: F) -> F:
 
     return cast(F, wrapper)
 
+
 # =============================================================================
 # Agent Fabric Tracing
 # =============================================================================
+
 
 @contextmanager
 def trace_fabric_operation(
@@ -731,6 +759,7 @@ def trace_fabric_operation(
             span.set_attribute("fabric.pool_id", pool_id)
         yield span
 
+
 @contextmanager
 def trace_fabric_task(
     task_type: str,
@@ -757,6 +786,7 @@ def trace_fabric_task(
         span.set_attribute("fabric.task.priority", priority)
         yield span
 
+
 @contextmanager
 def trace_fabric_policy_check(
     action: str,
@@ -782,9 +812,11 @@ def trace_fabric_policy_check(
             span.set_attribute("fabric.policy.resource", resource)
         yield span
 
+
 # =============================================================================
 # HTTP Trace Header Propagation
 # =============================================================================
+
 
 def build_trace_headers() -> dict[str, str]:
     """Build trace context headers for outgoing HTTP requests.

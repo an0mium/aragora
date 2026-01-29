@@ -9,6 +9,7 @@ Provides access to Reddit via the public JSON API:
 The Reddit JSON API is free and requires no authentication for read-only access.
 Simply append .json to any Reddit URL.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,6 +36,7 @@ REDDIT_POST_URL = "https://www.reddit.com/comments/{post_id}.json"
 
 # User-Agent required by Reddit API guidelines
 REDDIT_USER_AGENT = "aragora-connector/1.0 (evidence collection for AI debate)"
+
 
 class RedditConnector(BaseConnector):
     """
@@ -495,5 +497,6 @@ class RedditConnector(BaseConnector):
             List of Evidence objects
         """
         return await self.get_subreddit(subreddit, sort="new", limit=limit)
+
 
 __all__ = ["RedditConnector"]

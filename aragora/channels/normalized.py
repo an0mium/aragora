@@ -27,6 +27,7 @@ __all__ = [
     "MessageAttachment",
 ]
 
+
 class MessageFormat(Enum):
     """Message content format."""
 
@@ -34,6 +35,7 @@ class MessageFormat(Enum):
     MARKDOWN = "markdown"  # Markdown formatted
     HTML = "html"  # HTML formatted
     ADAPTIVE = "adaptive"  # Adaptive Card (Teams)
+
 
 @dataclass
 class MessageButton:
@@ -52,6 +54,7 @@ class MessageButton:
             "style": self.style,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class MessageAttachment:
@@ -73,6 +76,7 @@ class MessageAttachment:
             "mimetype": self.mimetype,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class NormalizedMessage:

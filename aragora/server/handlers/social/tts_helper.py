@@ -34,9 +34,11 @@ TTS_ENABLED = os.environ.get("ARAGORA_TTS_CHAT_ENABLED", "false").lower() == "tr
 TTS_DEFAULT_VOICE = os.environ.get("ARAGORA_TTS_DEFAULT_VOICE", "narrator")
 TTS_MAX_TEXT_LENGTH = int(os.environ.get("ARAGORA_TTS_MAX_TEXT", "2000"))
 
+
 def is_tts_enabled() -> bool:
     """Check if TTS is enabled for chat responses."""
     return TTS_ENABLED
+
 
 @dataclass
 class SynthesisResult:
@@ -47,6 +49,7 @@ class SynthesisResult:
     duration_seconds: float
     voice: str
     text_length: int
+
 
 class TTSHelper:
     """
@@ -256,8 +259,10 @@ class TTSHelper:
 
         return await self.synthesize_response(summary, voice="moderator")
 
+
 # Singleton instance
 _tts_helper: TTSHelper | None = None
+
 
 def get_tts_helper() -> TTSHelper:
     """Get the TTS helper singleton."""
@@ -265,6 +270,7 @@ def get_tts_helper() -> TTSHelper:
     if _tts_helper is None:
         _tts_helper = TTSHelper()
     return _tts_helper
+
 
 __all__ = [
     "TTSHelper",

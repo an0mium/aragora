@@ -54,6 +54,7 @@ CANVAS_EDGES_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/edges$")
 CANVAS_EDGE_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/edges/([a-zA-Z0-9_-]+)$")
 CANVAS_ACTION_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/action$")
 
+
 class CanvasHandler(SecureHandler):
     """Handler for Live Canvas REST API endpoints.
 

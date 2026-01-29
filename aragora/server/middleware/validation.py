@@ -10,6 +10,7 @@ Usage:
     2. Add ValidationMiddleware to server middleware stack
     3. Validation errors are logged and optionally blocked
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Validation Configuration
 # =============================================================================
 
+
 @dataclass
 class RouteValidation:
     """Validation rules for a route pattern.
@@ -79,6 +81,7 @@ class RouteValidation:
         # Pattern is always compiled in __post_init__
         pattern: Pattern[str] = self.pattern  # type: ignore[assignment]
         return bool(pattern.match(path))
+
 
 # =============================================================================
 # Validation Registry
@@ -251,6 +254,7 @@ VALIDATION_REGISTRY: list[RouteValidation] = [
 # Validation Middleware
 # =============================================================================
 
+
 @dataclass
 class ValidationConfig:
     """Configuration for validation middleware.
@@ -267,6 +271,7 @@ class ValidationConfig:
     log_all: bool = False
     max_body_size: int = 10_485_760  # 10MB default
 
+
 @dataclass
 class ValidationResult:
     """Result of request validation."""
@@ -278,6 +283,7 @@ class ValidationResult:
     @property
     def error_message(self) -> str:
         return "; ".join(self.errors) if self.errors else ""
+
 
 class ValidationMiddleware:
     """Middleware for validating API requests.
@@ -435,9 +441,11 @@ class ValidationMiddleware:
         """Get list of routes that have no validation rules."""
         return sorted(self._unvalidated_routes)
 
+
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
 
 def create_validation_middleware(
     blocking: bool = True,
@@ -458,6 +466,7 @@ def create_validation_middleware(
         log_all=False,
     )
     return ValidationMiddleware(config=config)
+
 
 def add_route_validation(
     pattern: str,

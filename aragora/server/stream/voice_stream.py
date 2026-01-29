@@ -73,6 +73,7 @@ VOICE_MAX_BYTES_PER_MINUTE = int(
 VOICE_TTS_ENABLED = os.getenv("ARAGORA_VOICE_TTS_ENABLED", "true").lower() == "true"
 VOICE_TTS_DEFAULT_VOICE = os.getenv("ARAGORA_VOICE_TTS_DEFAULT_VOICE", "narrator")
 
+
 def _get_tts_backend():
     """Lazily load and return TTS backend."""
     global _tts_backend, _tts_available
@@ -101,6 +102,7 @@ def _get_tts_backend():
         logger.error(f"[Voice] Failed to initialize TTS backend: {e}")
         _tts_available = False
         return None
+
 
 @dataclass
 class VoiceSession:
@@ -139,6 +141,7 @@ class VoiceSession:
     def elapsed_seconds(self) -> float:
         """Get session duration in seconds."""
         return time.time() - self.started_at
+
 
 class VoiceStreamHandler:
     """

@@ -28,9 +28,9 @@ class MockJobQueue:
     """Mock job queue for testing."""
 
     def __init__(self) -> None:
-        self.queues: Dict[str, List[Job]] = {}
-        self.completed: List[str] = []
-        self.failed: List[str] = []
+        self.queues: dict[str, list[Job]] = {}
+        self.completed: list[str] = []
+        self.failed: list[str] = []
         self._lock = asyncio.Lock()
 
     async def enqueue(
@@ -94,7 +94,7 @@ class TestBatchExplainabilityLoad:
         debate_count = 100
         debate_ids = [f"debate-{i}" for i in range(debate_count)]
 
-        async def mock_explain(debate_id: str, options: Dict) -> Dict:
+        async def mock_explain(debate_id: str, options: dict) -> dict:
             """Mock explanation generator with minimal latency."""
             await asyncio.sleep(0.001)  # 1ms per debate
             return {"debate_id": debate_id, "explanation": "Test explanation"}
@@ -142,7 +142,7 @@ class TestBatchExplainabilityLoad:
         batch_count = 5
         debates_per_batch = 20
 
-        async def mock_explain(debate_id: str, options: Dict) -> Dict:
+        async def mock_explain(debate_id: str, options: dict) -> dict:
             await asyncio.sleep(0.005)
             return {"debate_id": debate_id, "explanation": "Test"}
 

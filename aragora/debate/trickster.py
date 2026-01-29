@@ -42,6 +42,7 @@ from aragora.debate.roles import ROLE_PROMPTS, CognitiveRole, RoleAssignment
 
 logger = logging.getLogger(__name__)
 
+
 def _get_evidence_linker_class():
     """Lazy import of EvidenceClaimLinker to avoid scipy/numpy import failures.
 
@@ -56,6 +57,7 @@ def _get_evidence_linker_class():
         logger.debug(f"EvidenceClaimLinker not available: {e}")
         return None
 
+
 class InterventionType(Enum):
     """Types of trickster interventions."""
 
@@ -66,6 +68,7 @@ class InterventionType(Enum):
     NOVELTY_CHALLENGE = "novelty_challenge"  # Challenge agents to seek fresh perspectives
     EVIDENCE_GAP = "evidence_gap"  # Challenge agents on unsupported claims
     ECHO_CHAMBER = "echo_chamber"  # Challenge agents to seek independent sources
+
 
 @dataclass
 class TricksterIntervention:
@@ -78,6 +81,7 @@ class TricksterIntervention:
     evidence_gaps: dict[str, list[str]]  # agent -> list of gaps
     priority: float  # 0-1, higher = more urgent
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class TricksterConfig:
@@ -111,6 +115,7 @@ class TricksterConfig:
         if self.sensitivity != 0.5:  # Only adjust if sensitivity was changed from default
             self.hollow_detection_threshold = 0.8 - (self.sensitivity * 0.6)
 
+
 @dataclass
 class TricksterState:
     """Internal state tracking for the trickster."""
@@ -120,6 +125,7 @@ class TricksterState:
     last_intervention_round: int = -10
     hollow_alerts: list[HollowConsensusAlert] = field(default_factory=list)
     total_interventions: int = 0
+
 
 class EvidencePoweredTrickster:
     """
@@ -690,6 +696,7 @@ class EvidencePoweredTrickster:
         """Reset trickster state for a new debate."""
         self._state = TricksterState()
 
+
 def create_trickster_for_debate(
     min_quality: float = 0.4,
     enable_breakpoints: bool = True,
@@ -709,6 +716,7 @@ def create_trickster_for_debate(
         enable_breakpoints=enable_breakpoints,
     )
     return EvidencePoweredTrickster(config=config)
+
 
 __all__ = [
     "InterventionType",

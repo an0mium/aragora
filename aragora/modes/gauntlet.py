@@ -81,6 +81,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GauntletProgress:
     """Progress update during Gauntlet execution."""
@@ -93,11 +94,13 @@ class GauntletProgress:
     findings_so_far: int = 0  # Findings discovered so far
     current_task: str | None = None  # Current sub-task
 
+
 # Type for progress callback
 ProgressCallback = Callable[[GauntletProgress], None]
 
 # InputType and Verdict are imported from aragora.gauntlet.types (canonical source)
 # This ensures consistency across the gauntlet system
+
 
 @dataclass
 class Finding:
@@ -125,6 +128,7 @@ class Finding:
             return "MEDIUM"
         return "LOW"
 
+
 @dataclass
 class VerifiedClaim:
     """A claim that was formally verified."""
@@ -134,6 +138,7 @@ class VerifiedClaim:
     verification_method: str  # "z3", "lean", "manual"
     proof_hash: str | None = None
     verification_time_ms: float = 0.0
+
 
 @dataclass
 class GauntletConfig:
@@ -184,6 +189,7 @@ class GauntletConfig:
         # Resolve persona string to instance
         if self.persona and isinstance(self.persona, str) and PERSONAS_AVAILABLE:
             self.persona = get_persona(self.persona)
+
 
 @dataclass
 class GauntletResult:
@@ -347,6 +353,7 @@ class GauntletResult:
         lines.append(f"Checksum: {self.checksum}")
 
         return "\n".join(lines)
+
 
 class GauntletOrchestrator:
     """
@@ -1198,6 +1205,7 @@ class GauntletOrchestrator:
         confidence = robustness_score * (1 - risk_score * 0.2)
         return Verdict.APPROVED, min(0.95, confidence)
 
+
 # Convenience function for quick stress-testing
 async def run_gauntlet(
     input_content: str,
@@ -1232,6 +1240,7 @@ async def run_gauntlet(
     )
     orchestrator = GauntletOrchestrator(agents)
     return await orchestrator.run(config)
+
 
 # Pre-configured Gauntlet profiles
 QUICK_GAUNTLET = GauntletConfig(
@@ -1273,6 +1282,7 @@ POLICY_GAUNTLET = GauntletConfig(
     severity_threshold=0.3,  # More sensitive
 )
 
+
 # Compliance-focused gauntlet profiles
 def get_compliance_gauntlet(persona_name: str = "gdpr") -> GauntletConfig:
     """
@@ -1300,6 +1310,7 @@ def get_compliance_gauntlet(persona_name: str = "gdpr") -> GauntletConfig:
         severity_threshold=0.3,
         persona=persona_name,  # Will be resolved in __post_init__
     )
+
 
 GDPR_GAUNTLET = get_compliance_gauntlet("gdpr") if PERSONAS_AVAILABLE else None
 HIPAA_GAUNTLET = get_compliance_gauntlet("hipaa") if PERSONAS_AVAILABLE else None

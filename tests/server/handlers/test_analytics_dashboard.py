@@ -189,10 +189,10 @@ class MockUsageSummary:
     total_cost_usd: float = 125.50
     total_debates: int = 50
     total_agent_calls: int = 200
-    cost_by_provider: Dict[str, float] = field(
+    cost_by_provider: dict[str, float] = field(
         default_factory=lambda: {"anthropic": 80.00, "openai": 45.50}
     )
-    debates_by_day: Dict[str, int] = field(default_factory=dict)
+    debates_by_day: dict[str, int] = field(default_factory=dict)
 
 
 # ===========================================================================

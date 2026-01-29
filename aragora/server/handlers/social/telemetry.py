@@ -135,6 +135,7 @@ if PROMETHEUS_AVAILABLE:
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
 
+
 class FallbackSocialMetrics:
     """Simple metrics accumulator when prometheus_client is unavailable."""
 
@@ -155,7 +156,9 @@ class FallbackSocialMetrics:
         self.api_calls: dict[str, dict[str, dict[str, int]]] = {}
         self.api_latencies: dict[str, dict[str, list]] = {}
 
+
 _fallback_metrics: FallbackSocialMetrics | None = None
+
 
 def _get_fallback_metrics() -> FallbackSocialMetrics:
     """Get or create fallback metrics instance."""
@@ -164,9 +167,11 @@ def _get_fallback_metrics() -> FallbackSocialMetrics:
         _fallback_metrics = FallbackSocialMetrics()
     return _fallback_metrics
 
+
 # ============================================================================
 # Metric Recording Functions
 # ============================================================================
+
 
 def record_webhook_request(platform: str, status: str) -> None:
     """Record a webhook request."""
@@ -177,6 +182,7 @@ def record_webhook_request(platform: str, status: str) -> None:
         if platform not in fb.webhook_requests:
             fb.webhook_requests[platform] = {}
         fb.webhook_requests[platform][status] = fb.webhook_requests[platform].get(status, 0) + 1
+
 
 def record_webhook_latency(platform: str, latency_seconds: float) -> None:
     """Record webhook processing latency."""
@@ -191,6 +197,7 @@ def record_webhook_latency(platform: str, latency_seconds: float) -> None:
         if len(fb.webhook_latencies[platform]) > 1000:
             fb.webhook_latencies[platform] = fb.webhook_latencies[platform][-1000:]
 
+
 def record_message(platform: str, message_type: str) -> None:
     """Record a processed message."""
     if PROMETHEUS_AVAILABLE:
@@ -200,6 +207,7 @@ def record_message(platform: str, message_type: str) -> None:
         if platform not in fb.messages:
             fb.messages[platform] = {}
         fb.messages[platform][message_type] = fb.messages[platform].get(message_type, 0) + 1
+
 
 def record_command(platform: str, command: str) -> None:
     """Record a command execution."""
@@ -211,6 +219,7 @@ def record_command(platform: str, command: str) -> None:
             fb.commands[platform] = {}
         fb.commands[platform][command] = fb.commands[platform].get(command, 0) + 1
 
+
 def record_debate_started(platform: str) -> None:
     """Record a debate being started."""
     if PROMETHEUS_AVAILABLE:
@@ -220,6 +229,7 @@ def record_debate_started(platform: str) -> None:
         fb = _get_fallback_metrics()
         fb.debates_started[platform] = fb.debates_started.get(platform, 0) + 1
         fb.debates_in_progress[platform] = fb.debates_in_progress.get(platform, 0) + 1
+
 
 def record_debate_completed(platform: str, consensus_reached: bool) -> None:
     """Record a debate completion."""
@@ -236,6 +246,7 @@ def record_debate_completed(platform: str, consensus_reached: bool) -> None:
         )
         fb.debates_in_progress[platform] = max(0, fb.debates_in_progress.get(platform, 0) - 1)
 
+
 def record_debate_failed(platform: str) -> None:
     """Record a debate failure."""
     if PROMETHEUS_AVAILABLE:
@@ -246,6 +257,7 @@ def record_debate_failed(platform: str) -> None:
         fb.debates_failed[platform] = fb.debates_failed.get(platform, 0) + 1
         fb.debates_in_progress[platform] = max(0, fb.debates_in_progress.get(platform, 0) - 1)
 
+
 def record_gauntlet_started(platform: str) -> None:
     """Record a gauntlet being started."""
     if PROMETHEUS_AVAILABLE:
@@ -253,6 +265,7 @@ def record_gauntlet_started(platform: str) -> None:
     else:
         fb = _get_fallback_metrics()
         fb.gauntlets_started[platform] = fb.gauntlets_started.get(platform, 0) + 1
+
 
 def record_gauntlet_completed(platform: str, passed: bool) -> None:
     """Record a gauntlet completion."""
@@ -267,6 +280,7 @@ def record_gauntlet_completed(platform: str, passed: bool) -> None:
             fb.gauntlets_completed[platform].get(result, 0) + 1
         )
 
+
 def record_gauntlet_failed(platform: str) -> None:
     """Record a gauntlet failure (error, not test failure)."""
     if PROMETHEUS_AVAILABLE:
@@ -274,6 +288,7 @@ def record_gauntlet_failed(platform: str) -> None:
     else:
         fb = _get_fallback_metrics()
         fb.gauntlets_failed[platform] = fb.gauntlets_failed.get(platform, 0) + 1
+
 
 def record_vote(platform: str, vote: str) -> None:
     """Record a vote."""
@@ -285,6 +300,7 @@ def record_vote(platform: str, vote: str) -> None:
             fb.votes[platform] = {}
         fb.votes[platform][vote] = fb.votes[platform].get(vote, 0) + 1
 
+
 def record_error(platform: str, error_type: str) -> None:
     """Record an error."""
     if PROMETHEUS_AVAILABLE:
@@ -294,6 +310,7 @@ def record_error(platform: str, error_type: str) -> None:
         if platform not in fb.errors:
             fb.errors[platform] = {}
         fb.errors[platform][error_type] = fb.errors[platform].get(error_type, 0) + 1
+
 
 def record_api_call(platform: str, method: str, status: str) -> None:
     """Record an outbound API call."""
@@ -306,6 +323,7 @@ def record_api_call(platform: str, method: str, status: str) -> None:
         if method not in fb.api_calls[platform]:
             fb.api_calls[platform][method] = {}
         fb.api_calls[platform][method][status] = fb.api_calls[platform][method].get(status, 0) + 1
+
 
 def record_api_latency(platform: str, method: str, latency_seconds: float) -> None:
     """Record outbound API call latency."""
@@ -322,9 +340,11 @@ def record_api_latency(platform: str, method: str, latency_seconds: float) -> No
         if len(fb.api_latencies[platform][method]) > 1000:
             fb.api_latencies[platform][method] = fb.api_latencies[platform][method][-1000:]
 
+
 # ============================================================================
 # Decorators
 # ============================================================================
+
 
 def with_webhook_metrics(platform: str) -> Callable:
     """Decorator to add webhook metrics to a handler method."""
@@ -350,6 +370,7 @@ def with_webhook_metrics(platform: str) -> Callable:
 
     return decorator
 
+
 def with_api_metrics(platform: str, method: str) -> Callable:
     """Decorator to add API call metrics to async methods."""
 
@@ -373,9 +394,11 @@ def with_api_metrics(platform: str, method: str) -> Callable:
 
     return decorator
 
+
 # ============================================================================
 # Utility Functions
 # ============================================================================
+
 
 def get_metrics_summary() -> dict[str, Any]:
     """Get a summary of all social handler metrics."""
@@ -401,10 +424,12 @@ def get_metrics_summary() -> dict[str, Any]:
             "api_calls": fb.api_calls,
         }
 
+
 def reset_fallback_metrics() -> None:
     """Reset fallback metrics (for testing)."""
     global _fallback_metrics
     _fallback_metrics = None
+
 
 __all__ = [
     "PROMETHEUS_AVAILABLE",

@@ -3,10 +3,12 @@ Filter implementations for folder scanning.
 
 Supports gitignore-style patterns with ** for recursive matching.
 """
+
 from __future__ import annotations
 
 import re
 from functools import lru_cache
+
 
 class PatternMatcher:
     """
@@ -193,6 +195,7 @@ class PatternMatcher:
 
         return False, None
 
+
 class SizeFilter:
     """Filter files based on size limits."""
 
@@ -279,6 +282,7 @@ class SizeFilter:
         """Get remaining file count budget."""
         return max(0, self.max_file_count - self._current_file_count)
 
+
 def parse_size_string(size_str: str) -> int:
     """
     Parse a human-readable size string to bytes.
@@ -318,6 +322,7 @@ def parse_size_string(size_str: str) -> int:
     }
 
     return int(number * multipliers[unit])
+
 
 def format_size_bytes(size_bytes: int) -> str:
     """

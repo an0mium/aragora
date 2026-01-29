@@ -23,6 +23,7 @@ from aragora.memory import MemoryTier
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class StoredInsight:
     """An insight stored in exploration memory."""
@@ -51,6 +52,7 @@ class StoredInsight:
             "session_ids": self.session_ids,
             "document_ids": self.document_ids,
         }
+
 
 class ExplorationMemory:
     """Multi-tier memory for exploration learning.

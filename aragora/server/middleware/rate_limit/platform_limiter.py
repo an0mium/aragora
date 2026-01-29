@@ -45,6 +45,7 @@ PLATFORM_RATE_LIMITS: dict[str, dict[str, int]] = {
     "google_chat": {"rpm": 15, "burst": 5, "daily": 0},
 }
 
+
 @dataclass
 class PlatformRateLimitResult:
     """Extended rate limit result with platform-specific info."""
@@ -70,6 +71,7 @@ class PlatformRateLimitResult:
         if self.daily_remaining is not None:
             headers["X-RateLimit-Daily-Remaining"] = str(self.daily_remaining)
         return headers
+
 
 @dataclass
 class PlatformRateLimiter:
@@ -202,9 +204,11 @@ class PlatformRateLimiter:
                 return count
             return 0
 
+
 # Global platform limiter registry
 _platform_limiters: dict[str, PlatformRateLimiter] = {}
 _platform_limiters_lock = threading.Lock()
+
 
 def get_platform_rate_limiter(
     platform: str,
@@ -251,6 +255,7 @@ def get_platform_rate_limiter(
             )
         return _platform_limiters[platform]
 
+
 def check_platform_rate_limit(platform: str, key: str) -> PlatformRateLimitResult:
     """Check rate limit for a platform+key combination.
 
@@ -266,6 +271,7 @@ def check_platform_rate_limit(platform: str, key: str) -> PlatformRateLimitResul
     limiter = get_platform_rate_limiter(platform)
     return limiter.check(key)
 
+
 def reset_platform_rate_limiters() -> int:
     """Reset all platform rate limiters (for testing).
 
@@ -276,6 +282,7 @@ def reset_platform_rate_limiters() -> int:
         count = len(_platform_limiters)
         _platform_limiters.clear()
         return count
+
 
 __all__ = [
     "PLATFORM_RATE_LIMITS",

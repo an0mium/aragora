@@ -230,7 +230,7 @@ class TestSLOWebhookSignatureVerification:
         """HMAC-SHA256 signatures are correctly generated."""
         from aragora.server.webhook_delivery import WebhookDeliveryManager
 
-        captured_headers: Dict[str, str] = {}
+        captured_headers: dict[str, str] = {}
 
         async def capture_headers(url: str, payload: dict, headers: dict) -> tuple:
             nonlocal captured_headers
@@ -258,7 +258,7 @@ class TestSLOWebhookSignatureVerification:
         """No signature header when secret is not provided."""
         from aragora.server.webhook_delivery import WebhookDeliveryManager
 
-        captured_headers: Dict[str, str] = {}
+        captured_headers: dict[str, str] = {}
 
         async def capture_headers(url: str, payload: dict, headers: dict) -> tuple:
             nonlocal captured_headers
@@ -310,7 +310,7 @@ class TestSLOWebhookConcurrency:
             init_slo_webhooks,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = lambda event: notifications.append(event) or True
@@ -375,7 +375,7 @@ class TestSLOWebhookIdempotency:
             notify_slo_violation,
         )
 
-        captured_event: Dict[str, Any] = {}
+        captured_event: dict[str, Any] = {}
 
         mock_dispatcher = MagicMock()
 
@@ -417,7 +417,7 @@ class TestSLOWebhookIdempotency:
             notify_slo_violation,
         )
 
-        captured_keys: List[str] = []
+        captured_keys: list[str] = []
 
         mock_dispatcher = MagicMock()
 
@@ -482,7 +482,7 @@ class TestSLORecoveryWebhookReliability:
             init_slo_webhooks,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = lambda event: notifications.append(event) or True

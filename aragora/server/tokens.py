@@ -51,6 +51,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class TokenType(Enum):
     """Types of reconnection tokens."""
 
@@ -58,6 +59,7 @@ class TokenType(Enum):
     DEVICE_PUSH = "device_push"
     SESSION_MIGRATE = "session_migrate"
     WEBSOCKET_RECONNECT = "websocket_reconnect"
+
 
 @dataclass
 class TokenConfig:
@@ -85,6 +87,7 @@ class TokenConfig:
         """Generate secret key if not provided."""
         if self.secret_key is None:
             self.secret_key = secrets.token_hex(32)
+
 
 @dataclass
 class TokenData:
@@ -133,6 +136,7 @@ class TokenData:
             expires_at=datetime.fromisoformat(data["expires_at"]),
             metadata=data.get("metadata", {}),
         )
+
 
 class TokenManager:
     """
@@ -513,8 +517,10 @@ class TokenManager:
 
         return tokens
 
+
 # Global token manager instance
 _token_manager: TokenManager | None = None
+
 
 def get_token_manager() -> TokenManager:
     """Get or create the global token manager instance."""
@@ -522,6 +528,7 @@ def get_token_manager() -> TokenManager:
     if _token_manager is None:
         _token_manager = TokenManager()
     return _token_manager
+
 
 async def init_token_manager(config: TokenConfig | None = None) -> TokenManager:
     """

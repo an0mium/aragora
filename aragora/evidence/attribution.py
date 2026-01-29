@@ -12,6 +12,7 @@ Works alongside aragora/reasoning/provenance.py which provides:
 - CitationGraph for citation dependencies
 - MerkleTree for batch verification
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -24,6 +25,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class VerificationOutcome(str, Enum):
     """Outcome of evidence verification."""
 
@@ -32,6 +34,7 @@ class VerificationOutcome(str, Enum):
     UNVERIFIED = "unverified"  # Could not verify (neutral)
     CONTESTED = "contested"  # Disputed by other evidence
     REFUTED = "refuted"  # Evidence shown to be incorrect
+
 
 class ReputationTier(str, Enum):
     """Source reputation tiers."""
@@ -55,6 +58,7 @@ class ReputationTier(str, Enum):
             return cls.UNCERTAIN
         else:
             return cls.UNRELIABLE
+
 
 @dataclass
 class VerificationRecord:
@@ -101,6 +105,7 @@ class VerificationRecord:
             notes=data.get("notes", ""),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class SourceReputation:
@@ -206,6 +211,7 @@ class SourceReputation:
                 (datetime.fromisoformat(ts), score) for ts, score in data["score_history"]
             ]
         return rep
+
 
 class ReputationScorer:
     """Algorithms for computing source reputation scores."""
@@ -350,6 +356,7 @@ class ReputationScorer:
         reputation.last_updated = datetime.now()
 
         return reputation
+
 
 class SourceReputationManager:
     """Manages source reputations across debates."""
@@ -564,6 +571,7 @@ class SourceReputationManager:
             f"{sum(len(v) for v in self.verifications.values())} verifications"
         )
 
+
 @dataclass
 class AttributionChainEntry:
     """Entry in the cross-debate attribution chain."""
@@ -591,6 +599,7 @@ class AttributionChainEntry:
             ),
             "metadata": self.metadata,
         }
+
 
 class AttributionChain:
     """Cross-debate attribution chain for evidence tracking."""
@@ -746,6 +755,7 @@ class AttributionChain:
             "reputation_state": self.reputation_manager.export_state(),
             "exported_at": datetime.now().isoformat(),
         }
+
 
 __all__ = [
     "VerificationOutcome",

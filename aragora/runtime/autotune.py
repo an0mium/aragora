@@ -12,12 +12,14 @@ Key features:
 - Model tier selection (cheap vs expensive)
 - Round count optimization
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Callable, Optional
+
 
 class CostTier(Enum):
     """Model cost tiers."""
@@ -26,6 +28,7 @@ class CostTier(Enum):
     CHEAP = "cheap"  # GPT-3.5, Claude Haiku, Gemini Flash
     STANDARD = "standard"  # GPT-4o, Claude Sonnet
     EXPENSIVE = "expensive"  # GPT-4, Claude Opus, Gemini Pro
+
 
 @dataclass
 class AutotuneConfig:
@@ -58,6 +61,7 @@ class AutotuneConfig:
 
     # Default model tiers
     default_tier: CostTier = CostTier.STANDARD
+
 
 @dataclass
 class RunMetrics:
@@ -137,6 +141,7 @@ class RunMetrics:
             "round_metrics": self.round_metrics,
         }
 
+
 class StopReason(Enum):
     """Why the autotuner decided to stop."""
 
@@ -149,6 +154,7 @@ class StopReason(Enum):
     USER_REQUESTED = "user_requested"
     ERROR = "error"
 
+
 @dataclass
 class AutotuneDecision:
     """Decision from the autotuner."""
@@ -158,6 +164,7 @@ class AutotuneDecision:
     recommended_tier: CostTier = CostTier.STANDARD
     suggested_action: str = ""
     metrics_summary: dict = field(default_factory=dict)
+
 
 class Autotuner:
     """
@@ -327,6 +334,7 @@ class Autotuner:
         max_remaining = budget["rounds_remaining"]
 
         return min(affordable_rounds, max_remaining, 3)  # Max 3 more rounds suggested
+
 
 class AutotunedDebateRunner:
     """

@@ -35,6 +35,7 @@ _MAX_INT_VALUE = 2**31 - 1  # 32-bit signed int max
 _MIN_INT_VALUE = -(2**31)  # 32-bit signed int min
 _MAX_FLOAT_VALUE = 1e308  # Avoid float overflow
 
+
 class ParameterConversionError(ValueError):
     """Raised when a route parameter cannot be converted to the expected type."""
 
@@ -48,6 +49,7 @@ class ParameterConversionError(ValueError):
             msg += f": {reason}"
         super().__init__(msg)
 
+
 def _convert_str(value: str) -> str:
     """Identity converter for string parameters.
 
@@ -58,6 +60,7 @@ def _convert_str(value: str) -> str:
         The input string value.
     """
     return value
+
 
 def _convert_int(value: str) -> int:
     """Convert string to integer with bounds checking.
@@ -84,6 +87,7 @@ def _convert_int(value: str) -> int:
     except ValueError as e:
         raise ParameterConversionError("unknown", value, "int", str(e))
 
+
 def _convert_float(value: str) -> float:
     """Convert string to float with bounds checking.
 
@@ -106,6 +110,7 @@ def _convert_float(value: str) -> float:
     except ValueError as e:
         raise ParameterConversionError("unknown", value, "float", str(e))
 
+
 # Parameter validation patterns
 PARAM_PATTERNS = {
     "id": re.compile(r"^[a-zA-Z0-9_-]{1,64}$"),
@@ -114,6 +119,7 @@ PARAM_PATTERNS = {
     "domain": re.compile(r"^[a-zA-Z0-9_-]{1,50}$"),
     "any": re.compile(r"^[^/]+$"),  # Any non-slash chars
 }
+
 
 @dataclass
 class ParamSpec:
@@ -168,6 +174,7 @@ class ParamSpec:
         except ParameterConversionError as e:
             # Re-raise with proper parameter name
             raise ParameterConversionError(self.name, value, e.expected_type, e.reason)
+
 
 @dataclass
 class Route:
@@ -266,6 +273,7 @@ class Route:
 
         return params
 
+
 @dataclass
 class RouteMatch:
     """Result of matching a request to a route."""
@@ -280,6 +288,7 @@ class RouteMatch:
     def matched(self) -> bool:
         """Whether a route was matched."""
         return self.route is not None
+
 
 class RouteRegistry:
     """
@@ -386,7 +395,9 @@ class RouteRegistry:
             "methods": list(set(r.method for r in self._routes)),
         }
 
+
 # Convenience function for creating routes with common patterns
+
 
 def api_route(
     pattern: str,
@@ -428,8 +439,10 @@ def api_route(
 
     return Route(pattern=pattern, handler_name=handler, method=method, params=params)
 
+
 # Default routes for the aragora API
 # These can be used to initialize a registry with standard routes
+
 
 def create_default_routes() -> list[Route]:
     """Create the default routes for the aragora API."""
@@ -568,8 +581,10 @@ def create_default_routes() -> list[Route]:
         api_route("/api/v1/analytics/usage/active_users", "AnalyticsMetricsHandler"),
     ]
 
+
 # Global registry instance
 _registry: RouteRegistry | None = None
+
 
 def get_registry() -> RouteRegistry:
     """Get or create the global route registry."""
@@ -579,6 +594,7 @@ def get_registry() -> RouteRegistry:
         for route in create_default_routes():
             _registry.register(route)
     return _registry
+
 
 def set_registry(registry: RouteRegistry) -> None:
     """Set the global route registry (for testing)."""

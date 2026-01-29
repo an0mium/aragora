@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def emit_tier_event(
     cms: "ContinuumMemory",
     event_type: str,
@@ -62,6 +63,7 @@ def emit_tier_event(
     except (ConnectionError, OSError) as e:
         # Network/IO errors during event emission - non-critical
         logger.debug(f"[memory] Event emission network error: {e}")
+
 
 def promote_batch(
     cms: "ContinuumMemory",
@@ -144,6 +146,7 @@ def promote_batch(
 
     return promoted_count
 
+
 def demote_batch(
     cms: "ContinuumMemory",
     from_tier: MemoryTier,
@@ -218,6 +221,7 @@ def demote_batch(
         )
 
     return demoted_count
+
 
 def consolidate(cms: "ContinuumMemory") -> dict[str, int]:
     """

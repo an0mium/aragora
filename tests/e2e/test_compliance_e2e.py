@@ -53,7 +53,7 @@ def compliance_handler(mock_server_context):
 
 
 @pytest.fixture
-def sample_audit_events() -> List[Dict[str, Any]]:
+def sample_audit_events() -> list[dict[str, Any]]:
     """Generate sample audit events for testing."""
     base_time = datetime.now(timezone.utc) - timedelta(days=7)
     events = []
@@ -77,7 +77,7 @@ def sample_audit_events() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_receipts() -> List[Dict[str, Any]]:
+def sample_receipts() -> list[dict[str, Any]]:
     """Generate sample decision receipts for testing."""
     receipts = []
 

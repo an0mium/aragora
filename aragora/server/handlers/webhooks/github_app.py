@@ -39,6 +39,7 @@ from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class GitHubEventType(str, Enum):
     """Supported GitHub webhook event types."""
 
@@ -49,6 +50,7 @@ class GitHubEventType(str, Enum):
     PUSH = "push"
     INSTALLATION = "installation"
     PING = "ping"
+
 
 class GitHubAction(str, Enum):
     """GitHub event actions."""
@@ -61,6 +63,7 @@ class GitHubAction(str, Enum):
     DELETED = "deleted"
     EDITED = "edited"
     SUBMITTED = "submitted"
+
 
 @dataclass
 class GitHubWebhookEvent:
@@ -99,6 +102,7 @@ class GitHubWebhookEvent:
             received_at=datetime.now(timezone.utc).isoformat(),
         )
 
+
 def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
     """
     Verify GitHub webhook signature using HMAC-SHA256.
@@ -122,6 +126,7 @@ def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
     ).hexdigest()
 
     return hmac.compare_digest(expected, computed)
+
 
 async def queue_code_review_debate(
     pr: dict[str, Any],
@@ -215,6 +220,7 @@ async def queue_code_review_debate(
     except Exception as e:
         logger.error(f"Error queuing code review debate: {e}")
         return None
+
 
 async def queue_issue_triage_debate(
     issue: dict[str, Any],
@@ -314,8 +320,10 @@ async def queue_issue_triage_debate(
         logger.error(f"Error queuing issue triage debate: {e}")
         return None
 
+
 # Event handler registry
 _event_handlers: dict[GitHubEventType, Callable] = {}
+
 
 def register_event_handler(event_type: GitHubEventType):
     """Decorator to register an event handler."""
@@ -326,6 +334,7 @@ def register_event_handler(event_type: GitHubEventType):
 
     return decorator
 
+
 @register_event_handler(GitHubEventType.PING)
 async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
     """Handle GitHub ping event (webhook test)."""
@@ -335,6 +344,7 @@ async def handle_ping(event: GitHubWebhookEvent) -> dict[str, Any]:
         "message": "pong",
         "zen": event.payload.get("zen"),
     }
+
 
 @register_event_handler(GitHubEventType.PULL_REQUEST)
 async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
@@ -377,6 +387,7 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> dict[str, Any]:
 
     return result
 
+
 @register_event_handler(GitHubEventType.ISSUES)
 async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
@@ -413,6 +424,7 @@ async def handle_issues(event: GitHubWebhookEvent) -> dict[str, Any]:
 
     return result
 
+
 @register_event_handler(GitHubEventType.PUSH)
 async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
     """
@@ -433,6 +445,7 @@ async def handle_push(event: GitHubWebhookEvent) -> dict[str, Any]:
         "commits_count": len(commits),
         "pusher": event.payload.get("pusher", {}).get("name"),
     }
+
 
 @register_event_handler(GitHubEventType.INSTALLATION)
 async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
@@ -456,6 +469,7 @@ async def handle_installation(event: GitHubWebhookEvent) -> dict[str, Any]:
         "account": installation.get("account", {}).get("login"),
         "account_type": installation.get("account", {}).get("type"),
     }
+
 
 async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
     """
@@ -531,6 +545,7 @@ async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
             }
         )
 
+
 @require_permission("webhooks:read")
 async def handle_github_app_status(ctx: ServerContext) -> HandlerResult:
     """
@@ -553,6 +568,7 @@ async def handle_github_app_status(ctx: ServerContext) -> HandlerResult:
             },
         }
     )
+
 
 # Route definitions for registration
 GITHUB_APP_ROUTES = [

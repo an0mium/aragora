@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="ConnectorDataclass")
 
+
 def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value for JSON/API export.
 
@@ -89,6 +90,7 @@ def _serialize_value(value: Any) -> Any:
 
     # Fallback: return as-is (str, int, float, bool, bytes)
     return value
+
 
 def _deserialize_value(value: Any, target_type: Any) -> Any:
     """Deserialize a value to a target type.
@@ -156,6 +158,7 @@ def _deserialize_value(value: Any, target_type: Any) -> Any:
             return [_deserialize_value(v, item_type) for v in value]
 
     return value
+
 
 class ConnectorDataclass:
     """Base class for connector data models with unified serialization.
@@ -317,5 +320,6 @@ class ConnectorDataclass:
             target_type = hints.get(f.name, Any)
             deserialized = _deserialize_value(value, target_type)
             setattr(self, f.name, deserialized)
+
 
 __all__ = ["ConnectorDataclass"]

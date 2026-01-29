@@ -41,6 +41,7 @@ DISCORD_GUILD_DB_PATH = os.environ.get(
 # Encryption key for tokens (optional but recommended)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
 
+
 @dataclass
 class DiscordGuild:
     """Represents an installed Discord guild (server)."""
@@ -107,6 +108,7 @@ class DiscordGuild:
 
         # Consider expired if within 5 minutes of expiration
         return time.time() > (self.expires_at - 300)
+
 
 class DiscordGuildStore:
     """
@@ -552,8 +554,10 @@ class DiscordGuildStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_guilds": 0, "active_guilds": 0}
 
+
 # Singleton instance
 _guild_store: DiscordGuildStore | None = None
+
 
 def get_discord_guild_store(db_path: str | None = None) -> DiscordGuildStore:
     """Get or create the guild store singleton.

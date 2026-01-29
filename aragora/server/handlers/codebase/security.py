@@ -58,6 +58,7 @@ logger = logging.getLogger(__name__)
 # Service Registry Integration
 # =============================================================================
 
+
 def _get_scanner() -> DependencyScanner:
     """Get or create DependencyScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -66,6 +67,7 @@ def _get_scanner() -> DependencyScanner:
         registry.register(DependencyScanner, scanner)
         logger.info("Registered DependencyScanner with service registry")
     return registry.resolve(DependencyScanner)
+
 
 def _get_cve_client() -> CVEClient:
     """Get or create CVEClient from service registry."""
@@ -76,6 +78,7 @@ def _get_cve_client() -> CVEClient:
         logger.info("Registered CVEClient with service registry")
     return registry.resolve(CVEClient)
 
+
 def _get_secrets_scanner() -> SecretsScanner:
     """Get or create SecretsScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -85,6 +88,7 @@ def _get_secrets_scanner() -> SecretsScanner:
         logger.info("Registered SecretsScanner with service registry")
     return registry.resolve(SecretsScanner)
 
+
 def _get_sast_scanner() -> SASTScanner:
     """Get or create SASTScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -93,6 +97,7 @@ def _get_sast_scanner() -> SASTScanner:
         registry.register(SASTScanner, scanner)
         logger.info("Registered SASTScanner with service registry")
     return registry.resolve(SASTScanner)
+
 
 # =============================================================================
 # In-Memory Storage (replace with database in production)
@@ -112,6 +117,7 @@ _sast_scan_results: dict[str, dict[str, SASTScanResult]] = {}
 _sast_scan_lock = threading.Lock()
 _running_sast_scans: dict[str, asyncio.Task] = {}
 
+
 def _get_or_create_repo_scans(repo_id: str) -> dict[str, ScanResult]:
     """Get or create scan storage for a repository."""
     with _scan_lock:
@@ -119,9 +125,11 @@ def _get_or_create_repo_scans(repo_id: str) -> dict[str, ScanResult]:
             _scan_results[repo_id] = {}
         return _scan_results[repo_id]
 
+
 # =============================================================================
 # Scan Handlers
 # =============================================================================
+
 
 @require_permission("security:scan")
 async def handle_scan_repository(
@@ -216,6 +224,7 @@ async def handle_scan_repository(
         logger.exception(f"Failed to start scan: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:read")
 async def handle_get_scan_status(
     repo_id: str,
@@ -248,6 +257,7 @@ async def handle_get_scan_status(
     except Exception as e:
         logger.exception(f"Failed to get scan status: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:read")
 async def handle_get_vulnerabilities(
@@ -319,6 +329,7 @@ async def handle_get_vulnerabilities(
         logger.exception(f"Failed to get vulnerabilities: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:read")
 async def handle_get_cve_details(
     cve_id: str,
@@ -340,6 +351,7 @@ async def handle_get_cve_details(
     except Exception as e:
         logger.exception(f"Failed to get CVE details: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:read")
 async def handle_query_package_vulnerabilities(
@@ -373,6 +385,7 @@ async def handle_query_package_vulnerabilities(
     except Exception as e:
         logger.exception(f"Failed to query package vulnerabilities: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:read")
 async def handle_list_scans(
@@ -435,9 +448,11 @@ async def handle_list_scans(
         logger.exception(f"Failed to list scans: {e}")
         return error_response(str(e), 500)
 
+
 # =============================================================================
 # Security Event Emission
 # =============================================================================
+
 
 async def _emit_scan_events(
     result: ScanResult,
@@ -527,6 +542,7 @@ async def _emit_scan_events(
 
     except Exception as e:
         logger.warning(f"[Security] Failed to emit scan events: {e}")
+
 
 async def _emit_secrets_events(
     result: SecretsScanResult,
@@ -618,9 +634,11 @@ async def _emit_secrets_events(
     except Exception as e:
         logger.warning(f"[Security] Failed to emit secrets scan events: {e}")
 
+
 # =============================================================================
 # Secrets Scan Helpers
 # =============================================================================
+
 
 def _get_or_create_secrets_scans(repo_id: str) -> dict[str, SecretsScanResult]:
     """Get or create secrets scan storage for a repository."""
@@ -629,9 +647,11 @@ def _get_or_create_secrets_scans(repo_id: str) -> dict[str, SecretsScanResult]:
             _secrets_scan_results[repo_id] = {}
         return _secrets_scan_results[repo_id]
 
+
 # =============================================================================
 # Secrets Scan Handlers
 # =============================================================================
+
 
 @require_permission("secrets:scan")
 async def handle_scan_secrets(
@@ -740,6 +760,7 @@ async def handle_scan_secrets(
         logger.exception(f"Failed to start secrets scan: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("secrets:read")
 async def handle_get_secrets_scan_status(
     repo_id: str,
@@ -772,6 +793,7 @@ async def handle_get_secrets_scan_status(
     except Exception as e:
         logger.exception(f"Failed to get secrets scan status: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("secrets:read")
 async def handle_get_secrets(
@@ -833,6 +855,7 @@ async def handle_get_secrets(
     except Exception as e:
         logger.exception(f"Failed to get secrets: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("secrets:read")
 async def handle_list_secrets_scans(
@@ -897,9 +920,11 @@ async def handle_list_secrets_scans(
         logger.exception(f"Failed to list secrets scans: {e}")
         return error_response(str(e), 500)
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class SecurityHandler(BaseHandler):
     """
@@ -938,9 +963,7 @@ class SecurityHandler(BaseHandler):
                     return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route security endpoint requests."""
         return None
 
@@ -1136,9 +1159,11 @@ class SecurityHandler(BaseHandler):
             sbom_id_b=sbom_id_b,
         )
 
+
 # =============================================================================
 # SAST Scan Handlers
 # =============================================================================
+
 
 @require_permission("security:sast:scan")
 async def handle_scan_sast(
@@ -1220,6 +1245,7 @@ async def handle_scan_sast(
         logger.exception(f"[SAST] Failed to start scan: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:sast:read")
 async def handle_get_sast_scan_status(
     repo_id: str,
@@ -1256,6 +1282,7 @@ async def handle_get_sast_scan_status(
     except Exception as e:
         logger.exception(f"[SAST] Failed to get scan status: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:sast:read")
 async def handle_get_sast_findings(
@@ -1309,6 +1336,7 @@ async def handle_get_sast_findings(
         logger.exception(f"[SAST] Failed to get findings: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:sast:read")
 async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
     """Get OWASP Top 10 summary for a repository."""
@@ -1343,6 +1371,7 @@ async def handle_get_owasp_summary(repo_id: str) -> HandlerResult:
     except Exception as e:
         logger.exception(f"[SAST] Failed to get OWASP summary: {e}")
         return error_response(str(e), 500)
+
 
 async def _emit_sast_events(
     result: SASTScanResult,
@@ -1400,6 +1429,7 @@ async def _emit_sast_events(
     except Exception as e:
         logger.warning(f"Failed to emit SAST events: {e}")
 
+
 # =============================================================================
 # SBOM Generation Handlers
 # =============================================================================
@@ -1409,12 +1439,14 @@ _sbom_results: dict[str, dict[str, SBOMResult]] = {}  # repo_id -> {sbom_id -> r
 _sbom_lock = threading.Lock()
 _running_sbom_generations: dict[str, asyncio.Task] = {}
 
+
 def _get_or_create_sbom_results(repo_id: str) -> dict[str, SBOMResult]:
     """Get or create SBOM storage for a repository."""
     with _sbom_lock:
         if repo_id not in _sbom_results:
             _sbom_results[repo_id] = {}
         return _sbom_results[repo_id]
+
 
 def _get_sbom_generator() -> SBOMGenerator:
     """Get or create SBOMGenerator from service registry."""
@@ -1424,6 +1456,7 @@ def _get_sbom_generator() -> SBOMGenerator:
         registry.register(SBOMGenerator, generator)
         logger.info("Registered SBOMGenerator with service registry")
     return registry.resolve(SBOMGenerator)
+
 
 @require_permission("security:sbom:generate")
 async def handle_generate_sbom(
@@ -1517,6 +1550,7 @@ async def handle_generate_sbom(
         logger.exception(f"Failed to generate SBOM: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:sbom:read")
 async def handle_get_sbom(
     repo_id: str,
@@ -1560,6 +1594,7 @@ async def handle_get_sbom(
     except Exception as e:
         logger.exception(f"Failed to get SBOM: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:sbom:read")
 async def handle_list_sboms(
@@ -1606,6 +1641,7 @@ async def handle_list_sboms(
         logger.exception(f"Failed to list SBOMs: {e}")
         return error_response(str(e), 500)
 
+
 @require_permission("security:sbom:read")
 async def handle_download_sbom(
     repo_id: str,
@@ -1645,6 +1681,7 @@ async def handle_download_sbom(
     except Exception as e:
         logger.exception(f"Failed to download SBOM: {e}")
         return error_response(str(e), 500)
+
 
 @require_permission("security:sbom:read")
 async def handle_compare_sboms(

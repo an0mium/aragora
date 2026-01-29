@@ -39,12 +39,12 @@ class MockRedis:
     """Mock Redis client with controllable behavior for testing failure scenarios."""
 
     def __init__(self):
-        self._data: Dict[str, Any] = {}
-        self._hashes: Dict[str, Dict[str, str]] = {}
-        self._expiries: Dict[str, float] = {}
+        self._data: dict[str, Any] = {}
+        self._hashes: dict[str, dict[str, str]] = {}
+        self._expiries: dict[str, float] = {}
         self._fail_on_next: Optional[str] = None
         self._delay_seconds: float = 0.0
-        self._operation_log: List[Dict[str, Any]] = []
+        self._operation_log: list[dict[str, Any]] = []
         self._closed = False
 
     async def set(
@@ -142,7 +142,7 @@ class MockRedis:
         key: str,
         field: Optional[str] = None,
         value: Optional[str] = None,
-        mapping: Optional[Dict] = None,
+        mapping: Optional[dict] = None,
         **kwargs,
     ) -> int:
         """Mock HSET - supports both (key, field, value) and (key, mapping=dict) forms."""
@@ -166,7 +166,7 @@ class MockRedis:
 
         return len(data)
 
-    async def hgetall(self, key: str) -> Dict[str, str]:
+    async def hgetall(self, key: str) -> dict[str, str]:
         """Mock HGETALL."""
         if self._fail_on_next == "hgetall":
             self._fail_on_next = None
@@ -339,7 +339,7 @@ class TestLeaderReelection:
         election2 = LeaderElection(config=config2, redis_client=mock_redis)
 
         # Track leader changes
-        leader_changes: List[Optional[str]] = []
+        leader_changes: list[Optional[str]] = []
 
         def on_change(node_id: Optional[str]) -> None:
             leader_changes.append(node_id)

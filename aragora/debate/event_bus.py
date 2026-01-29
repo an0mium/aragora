@@ -19,6 +19,7 @@ Usage:
     # Emit events
     await bus.emit("debate_start", debate_id="123", task="Design a rate limiter")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +34,7 @@ from typing import Any, Callable, Coroutine
 from aragora.server.middleware.tracing import get_span_id, get_trace_id
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DebateEvent:
@@ -68,9 +70,11 @@ class DebateEvent:
             result["span_id"] = self.span_id
         return result
 
+
 # Type alias for event handlers
 EventHandler = Callable[[DebateEvent], Coroutine[Any, Any, None]]
 SyncEventHandler = Callable[[DebateEvent], None]
+
 
 class EventBus:
     """
@@ -480,8 +484,10 @@ class EventBus:
         self._events_emitted = 0
         self._events_by_type.clear()
 
+
 # Singleton instance for global access (optional pattern)
 _default_bus: EventBus | None = None
+
 
 def get_event_bus() -> EventBus:
     """Get the default event bus instance."""
@@ -490,10 +496,12 @@ def get_event_bus() -> EventBus:
         _default_bus = EventBus()
     return _default_bus
 
+
 def set_event_bus(bus: EventBus) -> None:
     """Set the default event bus instance."""
     global _default_bus
     _default_bus = bus
+
 
 __all__ = [
     "EventBus",

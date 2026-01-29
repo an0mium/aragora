@@ -50,12 +50,14 @@ __all__ = [
     "GraphBranch",
 ]
 
+
 class Agent(Protocol):
     """Protocol for agents that can generate responses."""
 
     name: str
 
     async def generate(self, prompt: str, context: Any = None) -> str: ...
+
 
 @dataclass
 class GraphNode:
@@ -110,6 +112,7 @@ class GraphNode:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class BranchPolicy:
     """
@@ -149,6 +152,7 @@ class BranchPolicy:
 
         return False, None
 
+
 @dataclass
 class GraphBranch:
     """A branch in the graph debate."""
@@ -169,6 +173,7 @@ class GraphBranch:
             "is_active": self.is_active,
             "is_merged": self.is_merged,
         }
+
 
 @dataclass
 class GraphDebateResult:
@@ -194,6 +199,7 @@ class GraphDebateResult:
             "total_rounds": self.total_rounds,
             "metadata": self.metadata,
         }
+
 
 class GraphDebateOrchestrator:
     """

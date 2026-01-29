@@ -29,6 +29,7 @@ from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -37,11 +38,13 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
+
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
+
 
 from ..base import (
     BaseHandler,
@@ -82,6 +85,7 @@ TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 # Singleton connector
 _teams_connector: Any | None = None
 
+
 def get_teams_connector() -> Any | None:
     """Get or create the Teams connector singleton."""
     global _teams_connector
@@ -105,6 +109,7 @@ def get_teams_connector() -> Any | None:
             logger.exception(f"Error initializing Teams connector: {e}")
             return None
     return _teams_connector
+
 
 class TeamsIntegrationHandler(BaseHandler):
     """Handler for Microsoft Teams integration endpoints."""
@@ -168,9 +173,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         return None
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route Teams requests to appropriate methods."""
         logger.debug(f"Teams integration request: {path}")
 
@@ -1281,5 +1284,6 @@ class TeamsIntegrationHandler(BaseHandler):
             return json.loads(body.decode("utf-8"))
         except (json.JSONDecodeError, ValueError):
             return None
+
 
 __all__ = ["TeamsIntegrationHandler", "get_teams_connector"]

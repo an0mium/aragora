@@ -29,6 +29,7 @@ CERNER_IDENTIFIER_SYSTEMS = {
     "npi": "http://hl7.org/fhir/sid/us-npi",
 }
 
+
 @dataclass
 class CernerPatientContext:
     """Cerner patient launch context."""
@@ -39,6 +40,7 @@ class CernerPatientContext:
     mrn: str | None = None
     organization_id: str | None = None
     encounter_id: str | None = None
+
 
 class CernerAdapter(EHRAdapter):
     """

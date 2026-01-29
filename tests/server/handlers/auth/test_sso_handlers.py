@@ -49,13 +49,13 @@ from aragora.server.handlers.utils.responses import HandlerResult
 # ===========================================================================
 
 
-def parse_result(result: HandlerResult) -> tuple[int, Dict[str, Any]]:
+def parse_result(result: HandlerResult) -> tuple[int, dict[str, Any]]:
     """Parse HandlerResult into (status_code, body_dict)."""
     body = json.loads(result.body.decode("utf-8"))
     return result.status_code, body
 
 
-def get_data(result: HandlerResult) -> Dict[str, Any]:
+def get_data(result: HandlerResult) -> dict[str, Any]:
     """Get the 'data' from a success response."""
     _, body = parse_result(result)
     return body.get("data", body)

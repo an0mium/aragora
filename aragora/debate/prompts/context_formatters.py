@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def format_patterns_for_prompt(patterns: list[dict]) -> str:
     """Format learned patterns as prompt context for agents.
 
@@ -52,6 +53,7 @@ def format_patterns_for_prompt(patterns: list[dict]) -> str:
     lines.append("\nLearn from these past issues to improve your analysis.")
     return "\n".join(lines)
 
+
 def format_successful_patterns(
     patterns: list[dict],
     limit: int = 3,
@@ -84,6 +86,7 @@ def format_successful_patterns(
             lines.append(f"  Context: {context}")
 
     return "\n".join(lines)
+
 
 def format_evidence_for_prompt(
     snippets: list["EvidenceSnippet"],
@@ -152,6 +155,7 @@ def format_evidence_for_prompt(
     lines.append("When stating facts, cite evidence as [EVID-N]. Uncited claims may be challenged.")
     return "\n".join(lines)
 
+
 def format_trending_for_prompt(
     topics: list["TrendingTopic"],
     task: str = "",
@@ -211,6 +215,7 @@ def format_trending_for_prompt(
     lines.append("Consider how current events may relate to the debate topic.")
     return "\n".join(lines)
 
+
 def format_elo_ranking_context(
     agent_name: str,
     all_agent_names: list[str],
@@ -254,6 +259,7 @@ def format_elo_ranking_context(
     lines.append("Higher-rated agents have demonstrated stronger performance in similar debates.")
 
     return "\n".join(lines)
+
 
 def format_calibration_context(
     brier_score: float,
@@ -301,6 +307,7 @@ def format_calibration_context(
     lines.append("\nAdjust your certainty levels in this debate accordingly.")
 
     return "\n".join(lines)
+
 
 def format_belief_context(
     converged_beliefs: list[dict],

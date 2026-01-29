@@ -523,7 +523,7 @@ class TestMultiAgentWorkflows:
             task_ids.append(task_id)
 
         # Have agents claim and complete tasks
-        completed_by: Dict[str, List[str]] = {aid: [] for aid in agent_ids}
+        completed_by: dict[str, list[str]] = {aid: [] for aid in agent_ids}
 
         for _ in range(5):
             for agent_id in agent_ids:

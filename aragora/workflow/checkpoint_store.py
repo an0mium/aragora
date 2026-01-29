@@ -72,15 +72,18 @@ else:
             """No-op timeout context manager for Python < 3.11."""
             yield
 
+
 class CheckpointValidationError(Exception):
     """Raised when checkpoint validation fails."""
 
     pass
 
+
 class ConnectionTimeoutError(Exception):
     """Raised when database connection times out."""
 
     pass
+
 
 class LRUCheckpointCache:
     """
@@ -146,6 +149,7 @@ class LRUCheckpointCache:
             "hit_rate": hit_rate,
         }
 
+
 # Optional Redis import - graceful degradation
 _get_redis_client: _RedisClientGetter | None = None
 REDIS_AVAILABLE = False
@@ -170,6 +174,7 @@ try:
 except ImportError:
     logger.debug("asyncpg not available for checkpoint store")
 
+
 class CheckpointStore(Protocol):
     """Protocol for checkpoint storage backends."""
 
@@ -192,6 +197,7 @@ class CheckpointStore(Protocol):
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint."""
         ...
+
 
 class CachingCheckpointStore:
     """
@@ -274,6 +280,7 @@ class CachingCheckpointStore:
     def backend_store(self) -> CheckpointStore:
         """Get the underlying backend store."""
         return self._store
+
 
 class RedisCheckpointStore:
     """
@@ -603,6 +610,7 @@ class RedisCheckpointStore:
             created_at=created_at,
             checksum=data.get("checksum", ""),
         )
+
 
 class PostgresCheckpointStore:
     """
@@ -987,6 +995,7 @@ class PostgresCheckpointStore:
         checksum_str = json.dumps(data, sort_keys=True)
         return hashlib.sha256(checksum_str.encode()).hexdigest()[:16]
 
+
 class KnowledgeMoundCheckpointStore:
     """
     Stores workflow checkpoints in KnowledgeMound.
@@ -1252,6 +1261,7 @@ class KnowledgeMoundCheckpointStore:
             checksum=data.get("checksum", ""),
         )
 
+
 class FileCheckpointStore:
     """
     Fallback checkpoint store using local files.
@@ -1368,8 +1378,10 @@ class FileCheckpointStore:
             checksum=data.get("checksum", ""),
         )
 
+
 # Module-level default KnowledgeMound for checkpoint storage
 _default_mound: Optional["KnowledgeMound"] = None
+
 
 def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
     """
@@ -1394,9 +1406,11 @@ def set_default_knowledge_mound(mound: "KnowledgeMound") -> None:
     _default_mound = mound
     logger.info("Set default KnowledgeMound for workflow checkpoints")
 
+
 def get_default_knowledge_mound() -> Optional["KnowledgeMound"]:
     """Get the default KnowledgeMound for checkpoint storage."""
     return _default_mound
+
 
 def get_checkpoint_store(
     mound: Optional["KnowledgeMound"] = None,
@@ -1527,6 +1541,7 @@ def get_checkpoint_store(
 
     logger.debug(f"Using FileCheckpointStore in {fallback_dir}")
     return _maybe_wrap_with_cache(FileCheckpointStore(fallback_dir))
+
 
 async def get_checkpoint_store_async(
     mound: Optional["KnowledgeMound"] = None,

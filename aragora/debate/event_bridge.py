@@ -3,12 +3,14 @@ Event bridge for coordinating spectator and WebSocket event emission.
 
 Extracts event emission logic from Arena orchestrator for better modularity.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 class EventEmitterBridge:
     """

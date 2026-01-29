@@ -56,6 +56,7 @@ __all__ = [
     "WEAVIATE_AVAILABLE",
 ]
 
+
 @dataclass
 class KnowledgeSearchResult:
     """A single search result for a KnowledgeNode."""
@@ -88,6 +89,7 @@ class KnowledgeSearchResult:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class KnowledgeVectorConfig:
     """Configuration for knowledge vector storage."""
@@ -114,6 +116,7 @@ class KnowledgeVectorConfig:
             embedding_model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
             default_workspace=workspace_id or os.getenv("ARAGORA_WORKSPACE", "default"),
         )
+
 
 class KnowledgeVectorStore:
     """
@@ -794,8 +797,10 @@ class KnowledgeVectorStore:
             return []
         return [id.strip() for id in ids_string.split(",") if id.strip()]
 
+
 # Global store instances per workspace (singleton pattern)
 _stores: dict[str, KnowledgeVectorStore] = {}
+
 
 def get_knowledge_vector_store(
     workspace_id: str = "default",

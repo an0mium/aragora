@@ -41,6 +41,7 @@ MAX_CONTENT_SIZE = 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
+
 class InsightsHandler(SecureHandler):
     """Handler for insights-related endpoints.
 

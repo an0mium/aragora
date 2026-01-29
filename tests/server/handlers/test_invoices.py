@@ -84,7 +84,7 @@ class MockLineItem:
     unit_price: float = 100.00
     total: float = 100.00
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "description": self.description,
             "quantity": self.quantity,
@@ -105,9 +105,9 @@ class MockInvoice:
     invoice_date: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     due_date: Optional[datetime] = None
     po_number: Optional[str] = None
-    line_items: List[MockLineItem] = field(default_factory=list)
+    line_items: list[MockLineItem] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "vendor_name": self.vendor_name,
@@ -129,7 +129,7 @@ class MockAnomaly:
     description: str = "Duplicate invoice detected"
     severity: MockAnomalySeverity = MockAnomalySeverity.MEDIUM
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "description": self.description,
@@ -146,7 +146,7 @@ class MockPOMatch:
     confidence: float = 0.95
     variance: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "matched": self.matched,
             "po_number": self.po_number,
@@ -165,7 +165,7 @@ class MockPaymentSchedule:
     amount: float = 1000.00
     payment_method: str = "ach"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "invoice_id": self.invoice_id,
@@ -184,7 +184,7 @@ class MockPurchaseOrder:
     vendor_name: str = "Test Vendor"
     total_amount: float = 1000.00
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "po_number": self.po_number,

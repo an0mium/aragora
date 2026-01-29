@@ -12,6 +12,7 @@ from typing import Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from aragora.export.decision_receipt import DecisionReceipt
 
+
 class ReceiptFormatter(ABC):
     """Base class for channel-specific receipt formatters."""
 
@@ -62,8 +63,10 @@ class ReceiptFormatter(ABC):
             summary = summary[: max_length - 3] + "..."
         return summary
 
+
 # Registry of formatters by channel type
 _FORMATTERS: dict[str, type[ReceiptFormatter]] = {}
+
 
 def register_formatter(formatter_class: type[ReceiptFormatter]) -> type[ReceiptFormatter]:
     """Register a formatter class for its channel type."""
@@ -71,12 +74,14 @@ def register_formatter(formatter_class: type[ReceiptFormatter]) -> type[ReceiptF
     _FORMATTERS[instance.channel_type] = formatter_class
     return formatter_class
 
+
 def get_formatter(channel_type: str) -> ReceiptFormatter | None:
     """Get a formatter instance for the given channel type."""
     formatter_class = _FORMATTERS.get(channel_type)
     if formatter_class:
         return formatter_class()
     return None
+
 
 def format_receipt_for_channel(
     receipt: "DecisionReceipt",

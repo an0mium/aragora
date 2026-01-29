@@ -17,6 +17,7 @@ Usage:
     # After debate completion, trigger extensions
     extensions.on_debate_complete(ctx, result, agents)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ArenaExtensions:
@@ -762,6 +764,7 @@ class ArenaExtensions:
             # Don't fail the debate if training export fails
             logger.warning("training_export_failed error=%s", e)
 
+
 @dataclass
 class ExtensionsConfig:
     """Configuration for creating ArenaExtensions.
@@ -814,5 +817,6 @@ class ExtensionsConfig:
             auto_notify=self.auto_notify,
             notify_min_confidence=self.notify_min_confidence,
         )
+
 
 __all__ = ["ArenaExtensions", "ExtensionsConfig"]

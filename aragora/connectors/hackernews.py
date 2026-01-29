@@ -8,6 +8,7 @@ Provides access to HackerNews via the Algolia Search API:
 
 The Algolia HN API is free and requires no authentication.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ HN_ITEM_URL = "https://hn.algolia.com/api/v1/items"
 
 # HackerNews item URL template
 HN_STORY_URL = "https://news.ycombinator.com/item?id={}"
+
 
 class HackerNewsConnector(BaseConnector):
     """
@@ -429,5 +431,6 @@ class HackerNewsConnector(BaseConnector):
             List of Evidence objects
         """
         return await self.search(query, limit=limit, tags="ask_hn")
+
 
 __all__ = ["HackerNewsConnector"]

@@ -46,6 +46,7 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AuditContext:
     """
@@ -113,6 +114,7 @@ class AuditContext:
             tags=tags or [],
         )
 
+
 @dataclass
 class ChunkData:
     """
@@ -161,6 +163,7 @@ class ChunkData:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class AuditorCapabilities:
     """
@@ -199,6 +202,7 @@ class AuditorCapabilities:
             self.supported_document_types = self.supported_doc_types
         elif self.supported_document_types and not self.supported_doc_types:
             self.supported_doc_types = self.supported_document_types
+
 
 class BaseAuditor(ABC):
     """

@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 API_VERSION = "1.0.0"
 
 
-def get_handlers() -> List[Tuple[str, Any]]:
+def get_handlers() -> list[tuple[str, Any]]:
     """Get all handler classes with their routes."""
     handlers = []
 
@@ -114,7 +114,7 @@ def extract_tag_from_handler(handler_name: str) -> str:
     return tag_map.get(name, name)
 
 
-def extract_path_params(path: str) -> List[Dict[str, Any]]:
+def extract_path_params(path: str) -> list[dict[str, Any]]:
     """Extract path parameters from a route path."""
     params = []
     # Match {param} or {param:type} patterns
@@ -139,7 +139,7 @@ def convert_path_to_openapi(path: str) -> str:
     return path
 
 
-def extract_method_info(handler_cls: type, method_name: str) -> Optional[Dict[str, Any]]:
+def extract_method_info(handler_cls: type, method_name: str) -> Optional[dict[str, Any]]:
     """Extract endpoint info from handler method."""
     method = getattr(handler_cls, method_name, None)
     if method is None:
@@ -162,20 +162,20 @@ def generate_endpoint_spec(
     path: str,
     handler_name: str,
     handler_cls: type,
-    methods: Set[str],
-) -> Dict[str, Any]:
+    methods: set[str],
+) -> dict[str, Any]:
     """Generate OpenAPI spec for a single endpoint."""
     tag = extract_tag_from_handler(handler_name)
     path_params = extract_path_params(path)
     openapi_path = convert_path_to_openapi(path)
 
-    spec: Dict[str, Any] = {}
+    spec: dict[str, Any] = {}
 
     for method in methods:
         method_lower = method.lower()
 
         # Generate operation spec
-        operation: Dict[str, Any] = {
+        operation: dict[str, Any] = {
             "tags": [tag],
             "summary": f"{method} {path}",
             "responses": {
@@ -206,9 +206,9 @@ def generate_endpoint_spec(
     return spec
 
 
-def extract_routes_from_handler(handler_cls: type) -> List[Tuple[str, Set[str]]]:
+def extract_routes_from_handler(handler_cls: type) -> list[tuple[str, set[str]]]:
     """Extract routes and supported methods from a handler class."""
-    routes: List[Tuple[str, Set[str]]] = []
+    routes: list[tuple[str, set[str]]] = []
 
     # Get ROUTES attribute
     handler_routes = getattr(handler_cls, "ROUTES", [])
@@ -242,12 +242,12 @@ def extract_routes_from_handler(handler_cls: type) -> List[Tuple[str, Set[str]]]
     return routes
 
 
-def generate_openapi_schema() -> Dict[str, Any]:
+def generate_openapi_schema() -> dict[str, Any]:
     """Generate complete OpenAPI 3.0 schema from handlers."""
     handlers = get_handlers()
 
-    paths: Dict[str, Any] = {}
-    tags: Dict[str, str] = {}  # tag -> description
+    paths: dict[str, Any] = {}
+    tags: dict[str, str] = {}  # tag -> description
 
     for handler_name, handler_cls in handlers:
         tag = extract_tag_from_handler(handler_name)
@@ -315,7 +315,7 @@ def generate_openapi_schema() -> Dict[str, Any]:
     }
 
 
-def save_schema(schema: Dict[str, Any], output_path: str, fmt: str = "json") -> int:
+def save_schema(schema: dict[str, Any], output_path: str, fmt: str = "json") -> int:
     """Save schema to file. Returns endpoint count."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class DeadlockType(str, Enum):
     """Types of deadlock patterns."""
 
@@ -29,6 +30,7 @@ class DeadlockType(str, Enum):
     SEMANTIC_LOOP = "semantic_loop"  # Repeated argument patterns
     CONVERGENCE_FAILURE = "convergence_failure"  # No progress toward consensus
     RESOURCE_CONTENTION = "resource_contention"  # Competing for same resource
+
 
 @dataclass
 class ArgumentNode:
@@ -43,6 +45,7 @@ class ArgumentNode:
     targets: list[str] = field(default_factory=list)  # Arguments this criticizes
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class Deadlock:
@@ -60,6 +63,7 @@ class Deadlock:
     resolution_hint: str | None = None
     resolved: bool = False
     resolution: str | None = None
+
 
 class ArgumentGraph:
     """
@@ -213,6 +217,7 @@ class ArgumentGraph:
                     stats[node.agent_id][target_node.agent_id] += 1
 
         return {k: dict(v) for k, v in stats.items()}
+
 
 class DeadlockDetector:
     """
@@ -491,6 +496,7 @@ class DeadlockDetector:
     def get_argument_graph(self) -> ArgumentGraph:
         """Get the underlying argument graph."""
         return self._graph
+
 
 # Convenience function
 def create_argument_node(

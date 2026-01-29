@@ -401,11 +401,14 @@ class TestWebhookVerification:
         import hmac
 
         body = b'{"test": "data"}'
-        expected_sig = "sha256=" + hmac.new(
-            b"test-app-secret",
-            body,
-            hashlib.sha256,
-        ).hexdigest()
+        expected_sig = (
+            "sha256="
+            + hmac.new(
+                b"test-app-secret",
+                body,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         result = connector.verify_webhook(
             headers={"X-Hub-Signature-256": expected_sig},

@@ -9,6 +9,8 @@ Usage:
     python scripts/coverage_report.py
     python scripts/coverage_report.py --json
     python scripts/coverage_report.py --critical-only
+    python scripts/coverage_report.py --check-zero    # Fail if any module has 0% coverage
+    python scripts/coverage_report.py --min-coverage 50  # Fail if overall coverage < 50%
 """
 
 import argparse
@@ -71,6 +73,8 @@ def analyze_coverage(coverage_data: dict) -> dict:
     files = coverage_data.get("files", {})
 
     module_coverage = {}
+    zero_coverage_files = []
+
     for filepath, data in files.items():
         if not filepath.startswith("aragora/"):
             continue
@@ -88,6 +92,7 @@ def analyze_coverage(coverage_data: dict) -> dict:
                 "covered_lines": 0,
                 "total_lines": 0,
                 "missing_lines": [],
+                "zero_coverage_files": [],
             }
 
         summary = data.get("summary", {})
@@ -105,6 +110,11 @@ def analyze_coverage(coverage_data: dict) -> dict:
                     "missing": summary.get("missing_lines", 0),
                 }
             )
+
+        # Track zero-coverage files specifically
+        if pct == 0 and summary.get("num_statements", 0) > 0:
+            zero_coverage_files.append(filepath)
+            module_coverage[module]["zero_coverage_files"].append(filepath)
 
     # Calculate percentages
     for module, data in module_coverage.items():
@@ -187,11 +197,41 @@ def print_report(module_coverage: dict, critical_only: bool = False) -> bool:
     return all_passing
 
 
+def check_zero_coverage(module_coverage: dict) -> list[str]:
+    """Return list of all zero-coverage files."""
+    zero_files = []
+    for data in module_coverage.values():
+        zero_files.extend(data.get("zero_coverage_files", []))
+    return sorted(zero_files)
+
+
+def get_overall_coverage(coverage_data: dict) -> float:
+    """Calculate overall coverage percentage."""
+    totals = coverage_data.get("totals", {})
+    return totals.get("percent_covered", 0)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate module-level coverage report")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--critical-only", action="store_true", help="Only show critical modules")
     parser.add_argument("--no-run", action="store_true", help="Use existing coverage.json")
+    parser.add_argument(
+        "--check-zero",
+        action="store_true",
+        help="Fail if any module has zero coverage",
+    )
+    parser.add_argument(
+        "--min-coverage",
+        type=float,
+        default=0,
+        help="Minimum overall coverage percentage required",
+    )
+    parser.add_argument(
+        "--list-zero",
+        action="store_true",
+        help="List all zero-coverage files",
+    )
     args = parser.parse_args()
 
     if args.no_run:
@@ -205,12 +245,54 @@ def main():
         coverage_data = run_coverage()
 
     module_coverage = analyze_coverage(coverage_data)
+    overall_coverage = get_overall_coverage(coverage_data)
+
+    # Handle --list-zero flag
+    if args.list_zero:
+        zero_files = check_zero_coverage(module_coverage)
+        print(f"Zero-coverage files ({len(zero_files)} total):")
+        for f in zero_files:
+            print(f"  - {f}")
+        sys.exit(0)
 
     if args.json:
-        print(json.dumps(module_coverage, indent=2))
-    else:
-        all_passing = print_report(module_coverage, args.critical_only)
-        sys.exit(0 if all_passing else 1)
+        output = {
+            "modules": module_coverage,
+            "overall_coverage": overall_coverage,
+            "zero_coverage_files": check_zero_coverage(module_coverage),
+        }
+        print(json.dumps(output, indent=2))
+        sys.exit(0)
+
+    all_passing = print_report(module_coverage, args.critical_only)
+
+    # Print overall coverage
+    print(f"\nOVERALL COVERAGE: {overall_coverage:.1f}%")
+
+    # Check zero coverage
+    zero_files = check_zero_coverage(module_coverage)
+    if zero_files:
+        print(f"\nZERO-COVERAGE FILES ({len(zero_files)} total):")
+        for f in zero_files[:10]:  # Show first 10
+            print(f"  - {f}")
+        if len(zero_files) > 10:
+            print(f"  ... and {len(zero_files) - 10} more")
+
+    # Determine exit code
+    exit_code = 0
+
+    if not all_passing:
+        exit_code = 1
+
+    if args.check_zero and zero_files:
+        print(f"\nERROR: {len(zero_files)} files have zero coverage!")
+        exit_code = 1
+
+    if args.min_coverage > 0 and overall_coverage < args.min_coverage:
+        print(f"\nERROR: Overall coverage {overall_coverage:.1f}% < {args.min_coverage}%!")
+        exit_code = 1
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 EMAIL_INBOUND_ENABLED = os.environ.get("EMAIL_INBOUND_ENABLED", "true").lower() == "true"
 
+
 class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
     """Handler for email inbound webhook endpoints.
 
@@ -345,5 +346,6 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                 form_data[key] = values[0] if len(values) == 1 else values
 
         return form_data
+
 
 __all__ = ["EmailWebhookHandler"]

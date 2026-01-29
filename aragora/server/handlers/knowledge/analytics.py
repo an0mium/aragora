@@ -6,6 +6,7 @@ Provides endpoints for analytics data:
 - GET /api/knowledge/sharing/stats - Get sharing statistics
 - GET /api/knowledge/federation/stats - Get federation statistics
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,6 +39,7 @@ except ImportError:
 
 # Rate limiter for analytics endpoints
 _analytics_limiter = RateLimiter(requests_per_minute=60)
+
 
 class AnalyticsHandler(BaseHandler):
     """Handler for knowledge analytics endpoints.
@@ -458,5 +460,6 @@ class AnalyticsHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get learning stats: {e}")
             return error_response("Failed to get learning stats", 500)
+
 
 __all__ = ["AnalyticsHandler"]

@@ -32,7 +32,7 @@ class MockConsensusRecord:
         conclusion: str,
         strength: str = "strong",
         confidence: float = 0.85,
-        agents: List[str] = None,
+        agents: list[str] = None,
         timestamp: datetime = None,
     ):
         self.topic = topic
@@ -60,7 +60,7 @@ class MockSimilarDebate:
         self,
         consensus: MockConsensusRecord,
         similarity_score: float = 0.9,
-        dissents: List[Any] = None,
+        dissents: list[Any] = None,
     ):
         self.consensus = consensus
         self.similarity_score = similarity_score
@@ -79,7 +79,7 @@ class MockDissentRecord:
         debate_id: str = "debate_1",
         dissent_type: str = "fundamental_disagreement",
         rebuttal: str = None,
-        metadata: Dict = None,
+        metadata: dict = None,
         timestamp: datetime = None,
     ):
         self.agent_id = agent_id
@@ -107,7 +107,7 @@ class MockConsensusMemory:
         }
         self._domain_history = []
 
-    def find_similar_debates(self, topic: str, limit: int = 5) -> List[MockSimilarDebate]:
+    def find_similar_debates(self, topic: str, limit: int = 5) -> list[MockSimilarDebate]:
         return self._similar[:limit]
 
     def get_statistics(self) -> dict:
@@ -115,7 +115,7 @@ class MockConsensusMemory:
 
     def get_domain_consensus_history(
         self, domain: str, limit: int = 50
-    ) -> List[MockConsensusRecord]:
+    ) -> list[MockConsensusRecord]:
         return self._domain_history[:limit]
 
 
@@ -129,12 +129,12 @@ class MockDissentRetriever:
 
     def find_contrarian_views(
         self, topic: str, domain: str = None, limit: int = 10
-    ) -> List[MockDissentRecord]:
+    ) -> list[MockDissentRecord]:
         return self._contrarian[:limit]
 
     def find_risk_warnings(
         self, topic: str, domain: str = None, limit: int = 10
-    ) -> List[MockDissentRecord]:
+    ) -> list[MockDissentRecord]:
         return self._risk_warnings[:limit]
 
 

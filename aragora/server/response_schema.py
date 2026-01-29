@@ -34,11 +34,13 @@ Usage:
     # Simple success
     return success_response({"message": "Created"}, status=201)
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from .handlers.base import HandlerResult, json_response
+
 
 def paginated_response(
     items: list,
@@ -79,6 +81,7 @@ def paginated_response(
         data.update(extra)
     return json_response(data)
 
+
 def list_response(
     items: list,
     item_key: str = "items",
@@ -106,6 +109,7 @@ def list_response(
     if extra:
         data.update(extra)
     return json_response(data)
+
 
 def item_response(
     item: Any,
@@ -135,6 +139,7 @@ def item_response(
             data.update(extra)
     return json_response(data, status=status)
 
+
 def success_response(
     data: dict | None = None,
     message: str | None = None,
@@ -156,6 +161,7 @@ def success_response(
         response["message"] = message
     return json_response(response, status=status)
 
+
 def created_response(
     item: dict,
     id_field: str = "id",
@@ -174,6 +180,7 @@ def created_response(
         headers["Location"] = f"/api/{item[id_field]}"
     return json_response(item, status=201, headers=headers)
 
+
 def deleted_response(
     message: str = "Deleted successfully",
 ) -> HandlerResult:
@@ -186,6 +193,7 @@ def deleted_response(
         HandlerResult with 200 status
     """
     return json_response({"message": message, "deleted": True})
+
 
 def not_found_response(
     resource: str = "Resource",
@@ -204,6 +212,7 @@ def not_found_response(
     if identifier:
         message = f"{resource} '{identifier}' not found"
     return json_response({"error": message, "code": "NOT_FOUND"}, status=404)
+
 
 def validation_error_response(
     errors: list[str] | str,
@@ -230,6 +239,7 @@ def validation_error_response(
         data["field"] = field
     return json_response(data, status=400)
 
+
 def rate_limit_response(
     retry_after: int = 60,
 ) -> HandlerResult:
@@ -250,6 +260,7 @@ def rate_limit_response(
         status=429,
         headers={"Retry-After": str(retry_after)},
     )
+
 
 def server_error_response(
     trace_id: str | None = None,
@@ -272,6 +283,7 @@ def server_error_response(
         data["trace_id"] = trace_id
     return json_response(data, status=500)
 
+
 # Common response type hints for documentation
 ResponseType = HandlerResult
 PaginatedResponse = HandlerResult
@@ -282,6 +294,7 @@ ErrorResponse = HandlerResult
 # =============================================================================
 # V2 Response Envelope Support
 # =============================================================================
+
 
 def v2_envelope(
     data: Any,
@@ -310,6 +323,7 @@ def v2_envelope(
     if meta:
         envelope["meta"] = meta
     return json_response(envelope, status=status, headers=headers)
+
 
 def v2_paginated_response(
     items: list,
@@ -363,6 +377,7 @@ def v2_paginated_response(
 
     return v2_envelope(data, meta=meta)
 
+
 def v2_list_response(
     items: list,
     item_key: str = "items",
@@ -388,6 +403,7 @@ def v2_list_response(
         meta.update(extra_meta)
     return v2_envelope(data, meta=meta)
 
+
 def v2_item_response(
     item: Any,
     status: int = 200,
@@ -405,6 +421,7 @@ def v2_item_response(
         {"data": item, "meta": {...}}
     """
     return v2_envelope(item, meta=meta, status=status)
+
 
 def v2_success_response(
     message: str,
@@ -426,6 +443,7 @@ def v2_success_response(
     if data:
         response_data.update(data)
     return v2_envelope(response_data, status=status)
+
 
 def v2_error_response(
     code: str,

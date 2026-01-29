@@ -37,6 +37,7 @@ except ImportError:
     Connection = Any
     ASYNCPG_AVAILABLE = False
 
+
 @dataclass
 class MigrationRecord:
     """Record of an applied migration."""
@@ -45,6 +46,7 @@ class MigrationRecord:
     name: str
     applied_at: datetime
     checksum: str | None = None
+
 
 @dataclass
 class MigrationResult:
@@ -56,6 +58,7 @@ class MigrationResult:
     current_version: int
     errors: list[str]
     dry_run: bool = False
+
 
 class PostgresMigrationRunner:
     """
@@ -432,8 +435,10 @@ class PostgresMigrationRunner:
             await self._pool.close()
             self._pool = None
 
+
 # Singleton instance
 _runner: PostgresMigrationRunner | None = None
+
 
 def get_postgres_migration_runner() -> PostgresMigrationRunner:
     """Get or create the global PostgreSQL migration runner."""
@@ -443,6 +448,7 @@ def get_postgres_migration_runner() -> PostgresMigrationRunner:
         # Register built-in migrations
         _register_core_migrations(_runner)
     return _runner
+
 
 def _register_core_migrations(runner: PostgresMigrationRunner) -> None:
     """Register the core Aragora migrations."""

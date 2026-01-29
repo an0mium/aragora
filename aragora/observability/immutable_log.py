@@ -96,6 +96,7 @@ __all__ = [
     "init_audit_log",
 ]
 
+
 class ImmutableAuditLog:
     """
     Main interface for immutable audit logging.
@@ -595,9 +596,11 @@ class ImmutableAuditLog:
             "last_entry_hash": last_entry.entry_hash if last_entry else None,
         }
 
+
 # Global instance
 _audit_log: ImmutableAuditLog | None = None
 _lock = threading.Lock()
+
 
 def get_audit_log() -> ImmutableAuditLog:
     """Get the global audit log instance."""
@@ -621,6 +624,7 @@ def get_audit_log() -> ImmutableAuditLog:
                 )
 
     return _audit_log
+
 
 def init_audit_log(
     backend: AuditBackend = AuditBackend.LOCAL,
@@ -662,6 +666,7 @@ def init_audit_log(
 
     return _audit_log
 
+
 # Convenience functions for common audit events
 async def audit_finding_created(
     finding_id: str,
@@ -682,6 +687,7 @@ async def audit_finding_created(
         details={"severity": severity, "category": category, **kwargs},
     )
 
+
 async def audit_finding_updated(
     finding_id: str,
     actor: str,
@@ -697,6 +703,7 @@ async def audit_finding_updated(
         action="update",
         details={"changes": changes, **kwargs},
     )
+
 
 async def audit_document_uploaded(
     document_id: str,
@@ -716,6 +723,7 @@ async def audit_document_uploaded(
         details={"filename": filename, **kwargs},
     )
 
+
 async def audit_document_accessed(
     document_id: str,
     actor: str,
@@ -731,6 +739,7 @@ async def audit_document_accessed(
         action=access_type,
         details=kwargs,
     )
+
 
 async def audit_session_started(
     session_id: str,
@@ -749,6 +758,7 @@ async def audit_session_started(
         workspace_id=workspace_id,
         details={"session_type": session_type, **kwargs},
     )
+
 
 async def audit_data_exported(
     export_id: str,

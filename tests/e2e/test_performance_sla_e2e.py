@@ -108,7 +108,7 @@ async def load_harness():
 class LatencyStats:
     """Statistics for latency measurements."""
 
-    samples: List[float]
+    samples: list[float]
     p50: float
     p90: float
     p99: float
@@ -117,7 +117,7 @@ class LatencyStats:
     min_val: float
 
     @classmethod
-    def from_samples(cls, samples: List[float]) -> "LatencyStats":
+    def from_samples(cls, samples: list[float]) -> "LatencyStats":
         """Calculate statistics from latency samples (in ms)."""
         if not samples:
             return cls(
@@ -354,7 +354,7 @@ class TestWebSocketEventDelivery:
         num_concurrent = 20
         events_per_task = 10
 
-        async def emit_events(task_id: int) -> List[float]:
+        async def emit_events(task_id: int) -> list[float]:
             latencies = []
             for i in range(events_per_task):
                 start = time.perf_counter()

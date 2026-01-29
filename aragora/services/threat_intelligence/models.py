@@ -12,6 +12,7 @@ from typing import Any
 
 from .enums import ThreatSeverity, ThreatSource, ThreatType
 
+
 @dataclass
 class ThreatResult:
     """Result of a threat intelligence lookup."""
@@ -76,6 +77,7 @@ class ThreatResult:
             "phishtank_verified": self.phishtank_verified,
         }
 
+
 @dataclass
 class SourceResult:
     """Result from a single threat intelligence source."""
@@ -101,6 +103,7 @@ class SourceResult:
             "checked_at": self.checked_at.isoformat(),
             "error": self.error,
         }
+
 
 @dataclass
 class ThreatAssessment:
@@ -152,6 +155,7 @@ class ThreatAssessment:
             },
         }
 
+
 @dataclass
 class IPReputationResult:
     """Result of IP reputation check."""
@@ -189,6 +193,7 @@ class IPReputationResult:
             "is_proxy": self.is_proxy,
             "is_datacenter": self.is_datacenter,
         }
+
 
 @dataclass
 class FileHashResult:

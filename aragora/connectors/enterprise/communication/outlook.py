@@ -52,6 +52,7 @@ OUTLOOK_SCOPES_FULL = [
 # Default to read-only for backward compatibility
 OUTLOOK_SCOPES = OUTLOOK_SCOPES_READONLY
 
+
 class OutlookConnector(EnterpriseConnector):
     """
     Enterprise connector for Outlook/Microsoft 365.
@@ -1027,6 +1028,7 @@ class OutlookConnector(EnterpriseConnector):
                 "has_attachments": len(msg.attachments) > 0,
             },
         )
+
 
 __all__ = [
     "OutlookConnector",

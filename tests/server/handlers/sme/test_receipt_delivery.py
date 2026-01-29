@@ -95,10 +95,10 @@ class MockSubscription:
     channel_id: str = "C12345"
     workspace_id: str = "T12345"
     channel_name: str = "#decisions"
-    event_types: List = field(default_factory=lambda: [MockEventType.RECEIPT])
+    event_types: list = field(default_factory=lambda: [MockEventType.RECEIPT])
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "org_id": self.org_id,
@@ -117,7 +117,7 @@ class MockHandler:
     def __init__(
         self,
         body: bytes = b"",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         path: str = "/",
         method: str = "GET",
     ):
@@ -129,7 +129,7 @@ class MockHandler:
         self.client_address = ("127.0.0.1", 12345)
 
     @classmethod
-    def with_json_body(cls, data: Dict[str, Any], **kwargs) -> "MockHandler":
+    def with_json_body(cls, data: dict[str, Any], **kwargs) -> "MockHandler":
         body = json.dumps(data).encode("utf-8")
         headers = {
             "Content-Type": "application/json",

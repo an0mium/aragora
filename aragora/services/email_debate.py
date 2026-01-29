@@ -24,6 +24,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class EmailPriority(str, Enum):
     """Priority levels for emails."""
 
@@ -32,6 +33,7 @@ class EmailPriority(str, Enum):
     NORMAL = "normal"
     LOW = "low"
     SPAM = "spam"
+
 
 class EmailCategory(str, Enum):
     """Categories for email classification."""
@@ -46,6 +48,7 @@ class EmailCategory(str, Enum):
     SPAM = "spam"
     PHISHING = "phishing"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class EmailInput:
@@ -78,6 +81,7 @@ class EmailInput:
         parts.append("")
         parts.append(self.body[:2000])  # Truncate long bodies
         return "\n".join(parts)
+
 
 @dataclass
 class EmailDebateResult:
@@ -113,6 +117,7 @@ class EmailDebateResult:
             "duration_seconds": self.duration_seconds,
         }
 
+
 @dataclass
 class BatchEmailResult:
     """Result of batch email deliberation."""
@@ -143,6 +148,7 @@ class BatchEmailResult:
     def action_required_count(self) -> int:
         """Count of emails requiring action."""
         return len([r for r in self.results if r.category == EmailCategory.ACTION_REQUIRED])
+
 
 class EmailDebateService:
     """
@@ -494,6 +500,7 @@ Consider:
             duration_seconds=elapsed,
             errors=errors,
         )
+
 
 # Convenience function
 async def prioritize_emails(

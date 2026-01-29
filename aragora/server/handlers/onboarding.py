@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Types and Constants
 # =============================================================================
 
+
 class OnboardingStep(str, Enum):
     """Onboarding steps in order."""
 
@@ -53,6 +54,7 @@ class OnboardingStep(str, Enum):
     FIRST_DEBATE = "first_debate"
     RECEIPT_REVIEW = "receipt_review"
     COMPLETION = "completion"
+
 
 class UseCase(str, Enum):
     """Pre-defined use cases for personalized onboarding."""
@@ -66,6 +68,7 @@ class UseCase(str, Enum):
     COMPLIANCE = "compliance"
     GENERAL = "general"
 
+
 class QuickStartProfile(str, Enum):
     """Quick-start profiles for immediate value."""
 
@@ -75,6 +78,7 @@ class QuickStartProfile(str, Enum):
     PRODUCT = "product"
     COMPLIANCE = "compliance"
     SME = "sme"  # Small-Medium Enterprise focused profile
+
 
 @dataclass
 class StarterTemplate:
@@ -90,6 +94,7 @@ class StarterTemplate:
     example_prompt: str
     tags: list[str] = field(default_factory=list)
     difficulty: str = "beginner"
+
 
 @dataclass
 class OnboardingState:
@@ -111,6 +116,7 @@ class OnboardingState:
     skipped: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 # =============================================================================
 # In-Memory Storage (Replace with DB in production)
 # =============================================================================
@@ -120,6 +126,7 @@ _onboarding_lock = threading.Lock()
 
 _analytics_events: list[dict[str, Any]] = []
 _analytics_lock = threading.Lock()
+
 
 def _sync_flow_to_repo(flow: OnboardingState) -> None:
     """Sync flow state to persistent repository."""
@@ -144,6 +151,7 @@ def _sync_flow_to_repo(flow: OnboardingState) -> None:
         )
     except Exception as e:
         logger.warning(f"Failed to sync flow to repository: {e}")
+
 
 # =============================================================================
 # Starter Templates
@@ -406,6 +414,7 @@ QUICK_START_CONFIGS: dict[str, dict[str, Any]] = {
 # Helper Functions
 # =============================================================================
 
+
 def _get_step_order() -> list[OnboardingStep]:
     """Get ordered list of onboarding steps."""
     return [
@@ -419,11 +428,13 @@ def _get_step_order() -> list[OnboardingStep]:
         OnboardingStep.COMPLETION,
     ]
 
+
 def _get_next_step(current: OnboardingStep) -> OnboardingStep:
     """Get next step in onboarding flow."""
     steps = _get_step_order()
     idx = steps.index(current)
     return steps[min(idx + 1, len(steps) - 1)]
+
 
 def _get_recommended_templates(use_case: str | None) -> list[StarterTemplate]:
     """Get templates recommended for a use case."""
@@ -435,6 +446,7 @@ def _get_recommended_templates(use_case: str | None) -> list[StarterTemplate]:
     others = [t for t in STARTER_TEMPLATES if use_case not in t.use_cases]
 
     return (matching + others)[:5]
+
 
 def _track_event(
     event_type: str,
@@ -457,9 +469,11 @@ def _track_event(
         if len(_analytics_events) > 10000:
             _analytics_events.pop(0)
 
+
 # =============================================================================
 # Handlers
 # =============================================================================
+
 
 @require_permission("onboarding:read")
 async def handle_get_flow(
@@ -541,6 +555,7 @@ async def handle_get_flow(
     except Exception as e:
         logger.exception("Failed to get onboarding flow")
         return error_response(f"Failed to get flow: {str(e)}", status=500)
+
 
 @require_permission("onboarding:create")
 async def handle_init_flow(
@@ -645,6 +660,7 @@ async def handle_init_flow(
     except Exception as e:
         logger.exception("Failed to initialize onboarding")
         return error_response(f"Failed to initialize: {str(e)}", status=500)
+
 
 @require_permission("onboarding:update")
 async def handle_update_step(
@@ -762,6 +778,7 @@ async def handle_update_step(
         logger.exception("Failed to update step")
         return error_response(f"Failed to update: {str(e)}", status=500)
 
+
 @require_permission("onboarding:read")
 async def handle_get_templates(
     data: dict[str, Any],
@@ -804,6 +821,7 @@ async def handle_get_templates(
     except Exception as e:
         logger.exception("Failed to get templates")
         return error_response(f"Failed to get templates: {str(e)}", status=500)
+
 
 @require_permission("debates:create")
 async def handle_first_debate(
@@ -897,6 +915,7 @@ async def handle_first_debate(
     except Exception as e:
         logger.exception("Failed to start first debate")
         return error_response(f"Failed to start debate: {str(e)}", status=500)
+
 
 @require_permission("debates:create")
 async def handle_quick_debate(
@@ -1015,6 +1034,7 @@ async def handle_quick_debate(
         logger.exception("Failed to start quick debate")
         return error_response(f"Failed to start quick debate: {str(e)}", status=500)
 
+
 @require_permission("onboarding:create")
 async def handle_quick_start(
     data: dict[str, Any],
@@ -1130,6 +1150,7 @@ async def handle_quick_start(
         logger.exception("Failed to apply quick-start")
         return error_response(f"Failed to apply quick-start: {str(e)}", status=500)
 
+
 @require_permission("analytics:read")
 async def handle_analytics(
     data: dict[str, Any],
@@ -1195,9 +1216,11 @@ async def handle_analytics(
         logger.exception("Failed to get analytics")
         return error_response(f"Failed to get analytics: {str(e)}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 def get_onboarding_handlers() -> dict[str, Any]:
     """Get all onboarding handlers for registration."""
@@ -1211,6 +1234,7 @@ def get_onboarding_handlers() -> dict[str, Any]:
         "quick_debate": handle_quick_debate,
         "analytics": handle_analytics,
     }
+
 
 class OnboardingHandler:
     """Handler class for onboarding endpoints (for handler registry)."""
@@ -1284,6 +1308,7 @@ class OnboardingHandler:
             return await handle_analytics(query_params, user_id, organization_id)
 
         return error_response(f"Unknown onboarding endpoint: {path}", status=404)
+
 
 __all__ = [
     "handle_get_flow",

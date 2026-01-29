@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 class MockResponse:
     """Mock HTTP response for testing."""
 
-    def __init__(self, data: Dict[str, Any], status: int = 200):
+    def __init__(self, data: dict[str, Any], status: int = 200):
         self._data = data
         self.status = status
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> dict[str, Any]:
         return self._data
 
 

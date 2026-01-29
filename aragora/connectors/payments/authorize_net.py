@@ -37,11 +37,13 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
 class AuthorizeNetEnvironment(str, Enum):
     """Authorize.net environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
+
 
 class TransactionType(str, Enum):
     """Transaction types."""
@@ -52,6 +54,7 @@ class TransactionType(str, Enum):
     REFUND = "refundTransaction"
     VOID = "voidTransaction"
     PRIOR_AUTH_CAPTURE = "priorAuthCaptureTransaction"
+
 
 class TransactionStatus(str, Enum):
     """Transaction status."""
@@ -64,6 +67,7 @@ class TransactionStatus(str, Enum):
     VOIDED = "voided"
     REFUNDED = "refunded"
 
+
 class PaymentMethodType(str, Enum):
     """Payment method types."""
 
@@ -71,6 +75,7 @@ class PaymentMethodType(str, Enum):
     BANK_ACCOUNT = "bank_account"
     APPLE_PAY = "apple_pay"
     GOOGLE_PAY = "google_pay"
+
 
 class CardType(str, Enum):
     """Credit card types."""
@@ -82,6 +87,7 @@ class CardType(str, Enum):
     JCB = "JCB"
     DINERS = "DinersClub"
     UNKNOWN = "Unknown"
+
 
 @dataclass
 class AuthorizeNetCredentials:
@@ -112,6 +118,7 @@ class AuthorizeNetCredentials:
             signature_key=signature_key,
         )
 
+
 @dataclass
 class CreditCard:
     """Credit card payment method."""
@@ -128,6 +135,7 @@ class CreditCard:
         if self.card_code:
             result["cardCode"] = self.card_code
         return result
+
 
 @dataclass
 class BankAccount:
@@ -147,6 +155,7 @@ class BankAccount:
             "nameOnAccount": self.name_on_account,
             "echeckType": self.echeck_type,
         }
+
 
 @dataclass
 class BillingAddress:
@@ -184,6 +193,7 @@ class BillingAddress:
         if self.phone:
             result["phoneNumber"] = self.phone
         return result
+
 
 @dataclass
 class TransactionResult:
@@ -253,6 +263,7 @@ class TransactionResult:
             "errors": self.errors,
         }
 
+
 @dataclass
 class CustomerProfile:
     """Customer profile for recurring billing."""
@@ -286,6 +297,7 @@ class CustomerProfile:
             "shipping_address_count": len(self.shipping_addresses),
         }
 
+
 @dataclass
 class Subscription:
     """ARB subscription for recurring billing."""
@@ -312,6 +324,7 @@ class Subscription:
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "total_occurrences": self.total_occurrences,
         }
+
 
 class AuthorizeNetConnector:
     """
@@ -737,12 +750,14 @@ class AuthorizeNetConnector:
         result = await self._request(payload)
         return result.get("transactions", [])
 
+
 # Convenience function for quick setup
 async def create_authorize_net_connector() -> AuthorizeNetConnector:
     """Create and initialize an Authorize.net connector from environment."""
     connector = AuthorizeNetConnector()
     await connector.__aenter__()
     return connector
+
 
 __all__ = [
     "AuthorizeNetConnector",

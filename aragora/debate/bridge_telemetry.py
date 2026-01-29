@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+
 @dataclass
 class BridgeOperation:
     """Telemetry record for a single bridge operation."""
@@ -67,6 +68,7 @@ class BridgeOperation:
         if error:
             self.error_type = type(error).__name__
             self.error_message = str(error)[:200]
+
 
 @dataclass
 class BridgeMetrics:
@@ -130,11 +132,13 @@ class BridgeMetrics:
             "errors_by_type": self.errors_by_type,
         }
 
+
 # Global metrics store (thread-safe)
 _metrics_lock = threading.Lock()
 _bridge_metrics: dict[str, BridgeMetrics] = {}
 _recent_operations: list[BridgeOperation] = []
 _max_recent_operations = 100
+
 
 def _get_or_create_metrics(bridge_name: str) -> BridgeMetrics:
     """Get or create metrics for a bridge."""
@@ -142,6 +146,7 @@ def _get_or_create_metrics(bridge_name: str) -> BridgeMetrics:
         if bridge_name not in _bridge_metrics:
             _bridge_metrics[bridge_name] = BridgeMetrics(bridge_name=bridge_name)
         return _bridge_metrics[bridge_name]
+
 
 def _record_operation(op: BridgeOperation) -> None:
     """Record a completed operation to metrics."""
@@ -168,6 +173,7 @@ def _record_operation(op: BridgeOperation) -> None:
             record_bridge_error(op.bridge_name, op.error_type)
     except ImportError:
         pass  # Metrics not available
+
 
 def record_bridge_operation(
     bridge_name: str,
@@ -200,6 +206,7 @@ def record_bridge_operation(
         f"bridge_operation bridge={bridge_name} op={operation} "
         f"duration={duration_ms:.1f}ms success={success}"
     )
+
 
 class BridgeTelemetryContext:
     """Context manager for manual bridge telemetry recording.
@@ -243,6 +250,7 @@ class BridgeTelemetryContext:
             f"duration={self.operation.duration_ms:.1f}ms "
             f"success={self.operation.success}"
         )
+
 
 def with_bridge_telemetry(
     bridge_name: str,
@@ -338,6 +346,7 @@ def with_bridge_telemetry(
 
     return decorator
 
+
 def get_bridge_telemetry_stats() -> dict[str, Any]:
     """Get telemetry statistics for all bridges.
 
@@ -360,6 +369,7 @@ def get_bridge_telemetry_stats() -> dict[str, Any]:
             "total_operations": total_ops,
             "overall_success_rate": success_rate,
         }
+
 
 def get_recent_bridge_operations(limit: int = 20) -> list[dict[str, Any]]:
     """Get recent bridge operations for debugging.
@@ -384,6 +394,7 @@ def get_recent_bridge_operations(limit: int = 20) -> list[dict[str, Any]]:
             for op in recent
         ]
 
+
 def reset_bridge_telemetry() -> None:
     """Reset all bridge telemetry (for testing)."""
     global _bridge_metrics, _recent_operations
@@ -391,7 +402,9 @@ def reset_bridge_telemetry() -> None:
         _bridge_metrics = {}
         _recent_operations = []
 
+
 # Convenience decorators for specific bridges
+
 
 def performance_router_telemetry(
     operation: str,
@@ -399,11 +412,13 @@ def performance_router_telemetry(
     """Telemetry decorator for PerformanceRouterBridge methods."""
     return with_bridge_telemetry("performance_router", operation)
 
+
 def relationship_bias_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for RelationshipBiasBridge methods."""
     return with_bridge_telemetry("relationship_bias", operation)
+
 
 def calibration_cost_telemetry(
     operation: str,
@@ -411,11 +426,13 @@ def calibration_cost_telemetry(
     """Telemetry decorator for CalibrationCostBridge methods."""
     return with_bridge_telemetry("calibration_cost", operation)
 
+
 def novelty_selection_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for NoveltySelectionBridge methods."""
     return with_bridge_telemetry("novelty_selection", operation)
+
 
 def rlm_selection_telemetry(
     operation: str,
@@ -423,11 +440,13 @@ def rlm_selection_telemetry(
     """Telemetry decorator for RLMSelectionBridge methods."""
     return with_bridge_telemetry("rlm_selection", operation)
 
+
 def outcome_complexity_telemetry(
     operation: str,
 ) -> Callable[[F], F]:
     """Telemetry decorator for OutcomeComplexityBridge methods."""
     return with_bridge_telemetry("outcome_complexity", operation)
+
 
 def analytics_selection_telemetry(
     operation: str,

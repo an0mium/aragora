@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Enums and Types
 # =============================================================================
 
+
 class NotificationChannel(Enum):
     """Supported notification channels."""
 
@@ -43,6 +44,7 @@ class NotificationChannel(Enum):
     TEAMS = "teams"
     EMAIL = "email"
     WEBHOOK = "webhook"
+
 
 class DeliveryStatus(Enum):
     """Status of notification delivery."""
@@ -55,6 +57,7 @@ class DeliveryStatus(Enum):
     REJECTED = "rejected"  # Rejected by provider
     RATE_LIMITED = "rate_limited"  # Hit rate limit
 
+
 class NotificationPriority(Enum):
     """Notification priority levels."""
 
@@ -63,6 +66,7 @@ class NotificationPriority(Enum):
     HIGH = "high"
     URGENT = "urgent"
     CRITICAL = "critical"
+
 
 class NotificationEventType(Enum):
     """Types of events that trigger notifications."""
@@ -87,9 +91,11 @@ class NotificationEventType(Enum):
     CONNECTOR_SYNC_COMPLETE = "connector_sync_complete"
     CONNECTOR_SYNC_FAILED = "connector_sync_failed"
 
+
 # =============================================================================
 # Data Classes
 # =============================================================================
+
 
 @dataclass
 class NotificationMessage:
@@ -133,6 +139,7 @@ class NotificationMessage:
             "parent_correlation_id": self.parent_correlation_id,
             "idempotency_key": self.idempotency_key,
         }
+
 
 @dataclass
 class ChannelConfig:
@@ -219,6 +226,7 @@ class ChannelConfig:
             min_priority=NotificationPriority(data.get("min_priority", "low")),
         )
 
+
 @dataclass
 class NotificationResult:
     """Result of sending a notification."""
@@ -253,9 +261,11 @@ class NotificationResult:
             "next_retry_at": self.next_retry_at.isoformat() if self.next_retry_at else None,
         }
 
+
 # =============================================================================
 # Channel Providers
 # =============================================================================
+
 
 class ChannelProvider(ABC):
     """Abstract base class for notification channel providers."""
@@ -269,6 +279,7 @@ class ChannelProvider(ABC):
     def format_message(self, message: NotificationMessage) -> Any:
         """Format message for this channel."""
         pass
+
 
 class SlackProvider(ChannelProvider):
     """Slack notification provider using webhooks or Bot API."""
@@ -389,6 +400,7 @@ class SlackProvider(ChannelProvider):
 
         return {"blocks": blocks}
 
+
 class TeamsProvider(ChannelProvider):
     """Microsoft Teams notification provider using webhooks."""
 
@@ -496,6 +508,7 @@ class TeamsProvider(ChannelProvider):
 
         return card
 
+
 class WebhookProvider(ChannelProvider):
     """Generic webhook notification provider."""
 
@@ -546,9 +559,11 @@ class WebhookProvider(ChannelProvider):
         """Format message as generic JSON payload."""
         return message.to_dict()
 
+
 # =============================================================================
 # Notification Manager
 # =============================================================================
+
 
 class NotificationManager:
     """
@@ -890,9 +905,11 @@ class NotificationManager:
             "channels_configured": len(self._channels),
         }
 
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def create_task_completed_notification(
     task_id: str,
@@ -912,6 +929,7 @@ def create_task_completed_notification(
         link_text="View Task",
     )
 
+
 def create_deliberation_consensus_notification(
     task_id: str,
     question: str,
@@ -930,6 +948,7 @@ def create_deliberation_consensus_notification(
         link_text="View Vetted Decisionmaking",
     )
 
+
 def create_sla_violation_notification(
     task_id: str,
     task_type: str,
@@ -944,6 +963,7 @@ def create_sla_violation_notification(
         priority=NotificationPriority.HIGH,
         metadata={"task_id": task_id, "elapsed_seconds": elapsed_seconds},
     )
+
 
 # =============================================================================
 # Exports

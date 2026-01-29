@@ -33,6 +33,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class DocumentFormat(str, Enum):
     """Supported document formats."""
 
@@ -75,6 +76,7 @@ class DocumentFormat(str, Enum):
 
     UNKNOWN = "unknown"
 
+
 @dataclass
 class DocumentChunk:
     """A chunk of extracted content from a document."""
@@ -84,6 +86,7 @@ class DocumentChunk:
     page: int | None = None
     section: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class DocumentTable:
@@ -121,6 +124,7 @@ class DocumentTable:
 
         return "\n".join(lines)
 
+
 @dataclass
 class ParsedDocument:
     """Result of parsing a document."""
@@ -139,6 +143,7 @@ class ParsedDocument:
     def __post_init__(self):
         if not self.word_count and self.content:
             self.word_count = len(self.content.split())
+
 
 # Extension to format mapping
 EXTENSION_MAP: dict[str, DocumentFormat] = {
@@ -181,6 +186,7 @@ EXTENSION_MAP: dict[str, DocumentFormat] = {
     ".tgz": DocumentFormat.TAR,
     ".tar.gz": DocumentFormat.TAR,
 }
+
 
 class DocumentParser:
     """
@@ -1133,6 +1139,7 @@ class DocumentParser:
             format=format,
         )
 
+
 # Convenience function
 async def parse_document(
     content: bytes | str | Path,
@@ -1159,6 +1166,7 @@ async def parse_document(
 
     parser = DocumentParser(**kwargs)
     return parser.parse(content, format=format, filename=filename)
+
 
 __all__ = [
     "DocumentParser",

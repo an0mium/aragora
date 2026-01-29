@@ -5,6 +5,7 @@ Provides safe parsing of URL query parameters with bounds checking,
 type conversion, and proper error handling. Works with both
 urllib.parse_qs (list values) and aiohttp MultiDict (single values).
 """
+
 from __future__ import annotations
 
 import logging
@@ -77,6 +78,7 @@ ALLOWED_FILTER_OPERATORS = frozenset(
 # Query Parameter Parsing (parse_qs format with list values)
 # =============================================================================
 
+
 def parse_int_param(
     query: dict[str, list],
     key: str,
@@ -111,6 +113,7 @@ def parse_int_param(
     except (ValueError, IndexError, TypeError):
         return default
 
+
 def parse_float_param(
     query: dict[str, list],
     key: str,
@@ -139,6 +142,7 @@ def parse_float_param(
         return max(min_val, min(val, max_val))
     except (ValueError, IndexError, TypeError):
         return default
+
 
 def parse_bool_param(
     query: dict[str, list],
@@ -169,6 +173,7 @@ def parse_bool_param(
         return default
     except (AttributeError, IndexError, TypeError):
         return default
+
 
 def parse_string_param(
     query: dict[str, list],
@@ -202,9 +207,11 @@ def parse_string_param(
     except (IndexError, TypeError):
         return default
 
+
 # =============================================================================
 # Simple Query Value Parsing (for aiohttp-style query dicts)
 # =============================================================================
+
 
 def safe_query_int(
     query: Any,
@@ -238,6 +245,7 @@ def safe_query_int(
     except (ValueError, IndexError, TypeError):
         return default
 
+
 def safe_query_float(
     query: Any,
     key: str,
@@ -270,9 +278,11 @@ def safe_query_float(
     except (ValueError, IndexError, TypeError):
         return default
 
+
 # =============================================================================
 # Sort Parameter Validation
 # =============================================================================
+
 
 def validate_sort_param(
     query: Any,
@@ -321,6 +331,7 @@ def validate_sort_param(
     except (IndexError, TypeError, AttributeError):
         return default
 
+
 def validate_sort_direction(
     query: Any,
     key: str = "order",
@@ -350,6 +361,7 @@ def validate_sort_direction(
         return default
     except (IndexError, TypeError, AttributeError):
         return default
+
 
 def validate_sort_params(
     query: Any,
@@ -382,9 +394,11 @@ def validate_sort_params(
     direction = validate_sort_direction(query, order_key, default_order)
     return column, direction
 
+
 # =============================================================================
 # Safe String Parameter with Length Validation
 # =============================================================================
+
 
 def safe_query_string(
     query: Any,
@@ -435,6 +449,7 @@ def safe_query_string(
     except (IndexError, TypeError, AttributeError):
         return default
 
+
 def validate_filter_operator(operator: str) -> tuple[bool, str | None]:
     """Validate a filter operator.
 
@@ -453,6 +468,7 @@ def validate_filter_operator(operator: str) -> tuple[bool, str | None]:
         allowed_str = ", ".join(sorted(ALLOWED_FILTER_OPERATORS))
         return False, f"Invalid filter operator '{operator}'. Allowed: {allowed_str}"
     return True, None
+
 
 def validate_search_query(
     query_text: str,

@@ -38,9 +38,9 @@ class MockPolicyRule:
     severity: str = "medium"
     enabled: bool = True
     custom_threshold: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "rule_id": self.rule_id,
             "name": self.name,
@@ -64,13 +64,13 @@ class MockPolicy:
     vertical_id: str = "finance"
     level: str = "recommended"
     enabled: bool = True
-    rules: List[MockPolicyRule] = field(default_factory=list)
+    rules: list[MockPolicyRule] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -108,9 +108,9 @@ class MockViolation:
     resolved_at: Optional[datetime] = None
     resolved_by: Optional[str] = None
     resolution_notes: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "policy_id": self.policy_id,
@@ -137,9 +137,9 @@ class MockComplianceResult:
 
     compliant: bool = True
     score: float = 95.0
-    issues: List[Any] = field(default_factory=list)
+    issues: list[Any] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "compliant": self.compliant,
             "score": self.score,
@@ -151,8 +151,8 @@ class MockPolicyStore:
     """Mock policy store for testing."""
 
     def __init__(self):
-        self._policies: Dict[str, MockPolicy] = {}
-        self._violations: Dict[str, MockViolation] = {}
+        self._policies: dict[str, MockPolicy] = {}
+        self._violations: dict[str, MockViolation] = {}
 
     def list_policies(
         self,
@@ -162,7 +162,7 @@ class MockPolicyStore:
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[MockPolicy]:
+    ) -> list[MockPolicy]:
         policies = list(self._policies.values())
         if workspace_id:
             policies = [p for p in policies if p.workspace_id == workspace_id]
@@ -182,7 +182,7 @@ class MockPolicyStore:
         return policy
 
     def update_policy(
-        self, policy_id: str, data: Dict[str, Any], changed_by: Optional[str] = None
+        self, policy_id: str, data: dict[str, Any], changed_by: Optional[str] = None
     ) -> Optional[MockPolicy]:
         if policy_id not in self._policies:
             return None
@@ -216,7 +216,7 @@ class MockPolicyStore:
         severity: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[MockViolation]:
+    ) -> list[MockViolation]:
         violations = list(self._violations.values())
         if policy_id:
             violations = [v for v in violations if v.policy_id == policy_id]
@@ -254,7 +254,7 @@ class MockPolicyStore:
 
     def count_violations(
         self, workspace_id: Optional[str] = None, status: Optional[str] = None
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         violations = list(self._violations.values())
         if workspace_id:
             violations = [v for v in violations if v.workspace_id == workspace_id]
@@ -278,7 +278,7 @@ class MockComplianceManager:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     path: str = "/api/v1/policies",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

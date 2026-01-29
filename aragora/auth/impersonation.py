@@ -7,6 +7,7 @@ Provides secure admin impersonation with:
 3. User notification of active impersonation
 4. 2FA requirements for admin impersonation
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Global recovery state
 _sessions_recovered: bool = False
+
 
 @dataclass
 class ImpersonationSession:
@@ -58,6 +60,7 @@ class ImpersonationSession:
             "actions_performed": self.actions_performed,
         }
 
+
 @dataclass
 class ImpersonationAuditEntry:
     """Audit log entry for impersonation action."""
@@ -89,6 +92,7 @@ class ImpersonationAuditEntry:
             "success": self.success,
             "error_message": self.error_message,
         }
+
 
 class ImpersonationManager:
     """
@@ -639,8 +643,10 @@ class ImpersonationManager:
                 break
         return result
 
+
 # Global manager instance
 _impersonation_manager: ImpersonationManager | None = None
+
 
 def get_impersonation_manager() -> ImpersonationManager:
     """Get or create the global impersonation manager."""
@@ -648,6 +654,7 @@ def get_impersonation_manager() -> ImpersonationManager:
     if _impersonation_manager is None:
         _impersonation_manager = ImpersonationManager()
     return _impersonation_manager
+
 
 def configure_impersonation_manager(
     audit_callback: Optional[Callable[[ImpersonationAuditEntry], None]] = None,
@@ -664,6 +671,7 @@ def configure_impersonation_manager(
         max_concurrent_sessions=max_concurrent_sessions,
     )
     return _impersonation_manager
+
 
 def recover_impersonation_sessions() -> int:
     """
@@ -729,10 +737,12 @@ def recover_impersonation_sessions() -> int:
 
     return recovered
 
+
 def reset_session_recovery() -> None:
     """Reset recovery state (for testing)."""
     global _sessions_recovered
     _sessions_recovered = False
+
 
 def clear_impersonation_sessions() -> int:
     """

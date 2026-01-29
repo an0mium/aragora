@@ -24,6 +24,7 @@ from ..document_auditor import (
     FindingSeverity,
 )
 
+
 class RequiredClauseDict(TypedDict):
     """Type definition for required clause entries."""
 
@@ -33,7 +34,9 @@ class RequiredClauseDict(TypedDict):
     description: str
     recommendation: str
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class LegalPattern:
@@ -47,6 +50,7 @@ class LegalPattern:
     recommendation: str
     clause_type: str = ""  # For categorization
 
+
 @dataclass
 class ObligationPattern:
     """Pattern for extracting obligations from contracts."""
@@ -56,6 +60,7 @@ class ObligationPattern:
     obligation_type: str  # "shall", "must", "will", "may"
     party_indicators: list[str]
     deadline_patterns: list[str]
+
 
 @dataclass
 class ExtractedObligation:
@@ -67,6 +72,7 @@ class ExtractedObligation:
     deadline: str | None
     condition: str | None
     location: str
+
 
 class LegalAuditor(BaseAuditor):
     """
@@ -609,6 +615,7 @@ class LegalAuditor(BaseAuditor):
         """Reset state before audit."""
         self.obligations = []
 
+
 # Register with the audit registry on import
 def register_legal_auditor() -> None:
     """Register the legal auditor with the global registry."""
@@ -618,6 +625,7 @@ def register_legal_auditor() -> None:
         audit_registry.register(LegalAuditor())
     except ImportError:
         pass  # Registry not available
+
 
 __all__ = [
     "LegalAuditor",

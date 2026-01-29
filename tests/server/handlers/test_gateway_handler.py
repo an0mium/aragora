@@ -35,25 +35,25 @@ class MockDeviceNode:
     device_id: str = "device-001"
     name: str = "Test Device"
     device_type: str = "laptop"
-    capabilities: List[str] = field(default_factory=lambda: ["browser", "terminal"])
+    capabilities: list[str] = field(default_factory=lambda: ["browser", "terminal"])
     status: MagicMock = field(default_factory=lambda: MagicMock(value="online"))
     paired_at: str = "2025-01-01T00:00:00Z"
     last_seen: str = "2025-01-29T12:00:00Z"
-    allowed_channels: List[str] = field(default_factory=lambda: ["slack", "email"])
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    allowed_channels: list[str] = field(default_factory=lambda: ["slack", "email"])
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MockDeviceRegistry:
     """Mock device registry for testing."""
 
     def __init__(self):
-        self._devices: Dict[str, MockDeviceNode] = {}
+        self._devices: dict[str, MockDeviceNode] = {}
 
     async def list_devices(
         self,
         status: Optional[Any] = None,
         device_type: Optional[str] = None,
-    ) -> List[MockDeviceNode]:
+    ) -> list[MockDeviceNode]:
         devices = list(self._devices.values())
         if device_type:
             devices = [d for d in devices if d.device_type == device_type]
@@ -81,9 +81,9 @@ class MockAgentRouter:
     """Mock agent router for testing."""
 
     def __init__(self):
-        self._rules: List[Any] = []
+        self._rules: list[Any] = []
 
-    def list_rules(self) -> List[Any]:
+    def list_rules(self) -> list[Any]:
         return self._rules
 
     async def route(self, channel: str, content: str) -> MagicMock:
@@ -96,7 +96,7 @@ class MockAgentRouter:
 class MockRequestHandler:
     """Mock HTTP request handler."""
 
-    def __init__(self, body: Optional[Dict] = None, headers: Optional[Dict] = None):
+    def __init__(self, body: Optional[dict] = None, headers: Optional[dict] = None):
         self._body = body
         self.headers = headers or {}
 

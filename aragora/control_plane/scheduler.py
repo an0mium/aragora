@@ -79,6 +79,7 @@ _scheduler_redis_cb = get_circuit_breaker(
     "scheduler_redis", failure_threshold=5, cooldown_seconds=30
 )
 
+
 class TaskStatus(Enum):
     """Task lifecycle status."""
 
@@ -90,6 +91,7 @@ class TaskStatus(Enum):
     CANCELLED = "cancelled"  # Task was cancelled
     TIMEOUT = "timeout"  # Task timed out
 
+
 class TaskPriority(Enum):
     """Task priority levels."""
 
@@ -98,12 +100,14 @@ class TaskPriority(Enum):
     HIGH = 75
     URGENT = 100
 
+
 class RegionRoutingMode(Enum):
     """How tasks should be routed to regions."""
 
     ANY = "any"  # Execute in any available region
     PREFERRED = "preferred"  # Prefer target region, fallback to others
     STRICT = "strict"  # Only execute in target region, fail if unavailable
+
 
 @dataclass
 class Task:
@@ -262,6 +266,7 @@ class Task:
             region_routing_mode=routing_mode,
             origin_region=data.get("origin_region", "default"),
         )
+
 
 class TaskScheduler:
     """

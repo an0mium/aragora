@@ -18,6 +18,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 class ProbesMixin:
     """Mixin providing K8s liveness and readiness probes.
 

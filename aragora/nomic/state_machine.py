@@ -11,6 +11,7 @@ Key Features:
 - Exponential backoff on failures
 - Full event sourcing for audit trail
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,18 +44,22 @@ from .states import (
 
 logger = logging.getLogger(__name__)
 
+
 class TransitionError(Exception):
     """Raised when an invalid state transition is attempted."""
 
     pass
+
 
 class StateTimeoutError(Exception):
     """Raised when a state handler times out."""
 
     pass
 
+
 # Type alias for state handlers
 StateHandler = Callable[[StateContext, Event], Awaitable[tuple[NomicState, dict[str, Any]]]]
+
 
 class NomicStateMachine:
     """
@@ -567,6 +572,7 @@ class NomicStateMachine:
             "error_count": len(self.event_log.get_errors()),
             "state_durations": self.context.state_durations,
         }
+
 
 # Convenience function to create a pre-configured state machine
 def create_nomic_state_machine(

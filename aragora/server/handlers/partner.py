@@ -32,6 +32,7 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class PartnerHandler(BaseHandler):
     """Handler for partner API endpoints."""
 

@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class StreamState(str, Enum):
     """State of a stream."""
 
@@ -59,6 +60,7 @@ class StreamState(str, Enum):
     STREAMING = "streaming"
     COMPLETE = "complete"
     ERROR = "error"
+
 
 @dataclass
 class StreamMessage:
@@ -70,6 +72,7 @@ class StreamMessage:
     is_final: bool = False
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class StreamBuffer:
@@ -168,6 +171,7 @@ class StreamBuffer:
             "read": self._chunks_read,
             "pending": self._buffer.qsize(),
         }
+
 
 @dataclass
 class StreamChain:
@@ -351,6 +355,7 @@ class StreamChain:
             "buffers": {k: v.stats for k, v in self._buffers.items()},
         }
 
+
 @dataclass
 class ChainedDebate:
     """
@@ -464,6 +469,7 @@ class ChainedDebate:
 
         self.chain.reset_all()
         return responses
+
 
 def create_chain_from_topology(
     topology: str,

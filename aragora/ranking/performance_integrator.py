@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PerformanceScore:
     """Performance score breakdown for an agent."""
@@ -60,6 +61,7 @@ class PerformanceScore:
             "participation_score": round(self.participation_score, 3),
             "composite_score": round(self.composite_score, 3),
         }
+
 
 @dataclass
 class PerformanceEloIntegrator:
@@ -383,6 +385,7 @@ class PerformanceEloIntegrator:
             brier_score=brier,
         )
 
+
 def create_performance_integrator(
     elo_system: Optional["EloSystem"] = None,
     performance_monitor: Optional["AgentPerformanceMonitor"] = None,
@@ -403,6 +406,7 @@ def create_performance_integrator(
         performance_monitor=performance_monitor,
         **kwargs,
     )
+
 
 __all__ = [
     "PerformanceEloIntegrator",

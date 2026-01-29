@@ -30,6 +30,7 @@ T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
+
 class LazyStore(Generic[T]):
     """
     Simple thread-safe lazy-initialized store using a callable factory.
@@ -115,6 +116,7 @@ class LazyStore(Generic[T]):
     def initialization_error(self) -> str | None:
         """Get the error message if initialization failed."""
         return self._init_error
+
 
 class LazyStoreFactory:
     """
@@ -238,6 +240,7 @@ class LazyStoreFactory:
     def initialization_error(self) -> str | None:
         """Get the error message if initialization failed."""
         return self._init_error
+
 
 class LazyStoreRegistry:
     """

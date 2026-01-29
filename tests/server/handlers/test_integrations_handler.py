@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-def parse_result(result) -> Dict[str, Any]:
+def parse_result(result) -> dict[str, Any]:
     """Parse HandlerResult body to dict for assertions."""
     body = json.loads(result.body)
     return {"success": result.status_code < 400, "data": body, "status_code": result.status_code}
@@ -32,7 +32,7 @@ class MockWorkspace:
         is_active: bool = True,
         installed_at: datetime | None = None,
         installed_by: str = "user-1",
-        scopes: List[str] | None = None,
+        scopes: list[str] | None = None,
         access_token: str = "xoxb-test-token",
         refresh_token: str | None = "refresh-token",
         token_expires_at: datetime | None = None,
@@ -49,7 +49,7 @@ class MockWorkspace:
         self.refresh_token = refresh_token
         self.token_expires_at = token_expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "workspace_id": self.workspace_id,
             "workspace_name": self.workspace_name,

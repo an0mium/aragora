@@ -13,6 +13,7 @@ import random
 from dataclasses import dataclass
 from enum import Enum
 
+
 class FailureType(Enum):
     """Types of failures that can occur."""
 
@@ -22,12 +23,14 @@ class FailureType(Enum):
     INTERNAL = "internal"
     UNKNOWN = "unknown"
 
+
 class DramaLevel(Enum):
     """How dramatic the theatrical response should be."""
 
     SUBTLE = 1  # Professional with slight personality
     MODERATE = 2  # Clearly theatrical but informative
     DRAMATIC = 3  # Full chaos theater mode
+
 
 @dataclass
 class TheaterResponse:
@@ -39,6 +42,7 @@ class TheaterResponse:
     drama_level: DramaLevel
     duration_hint: float | None = None  # Estimated resolution time
     recovery_suggestion: str | None = None
+
 
 class ChaosDirector:
     """
@@ -356,8 +360,10 @@ class ChaosDirector:
         if current_idx > 0:
             self.drama_level = levels[current_idx - 1]
 
+
 # Global instance for convenient access
 _chaos_director: ChaosDirector | None = None
+
 
 def get_chaos_director(drama_level: DramaLevel = DramaLevel.MODERATE) -> ChaosDirector:
     """Get the global ChaosDirector instance."""
@@ -366,9 +372,11 @@ def get_chaos_director(drama_level: DramaLevel = DramaLevel.MODERATE) -> ChaosDi
         _chaos_director = ChaosDirector(drama_level)
     return _chaos_director
 
+
 def theatrical_timeout(agent_name: str, duration: float) -> str:
     """Quick helper to get a theatrical timeout message."""
     return get_chaos_director().timeout_response(agent_name, duration).message
+
 
 def theatrical_error(agent_name: str, error_type: str = "internal") -> str:
     """Quick helper to get a theatrical error message."""

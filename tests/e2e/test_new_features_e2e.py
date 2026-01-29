@@ -20,6 +20,7 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+import builtins
 
 # Mark all tests as e2e tests
 pytestmark = [pytest.mark.e2e, pytest.mark.new_features]
@@ -41,8 +42,8 @@ class MockTemplate:
     author_name: str
     category: str
     pattern: str
-    workflow_definition: Dict[str, Any]
-    tags: List[str]
+    workflow_definition: dict[str, Any]
+    tags: list[str]
     rating: float = 0.0
     rating_count: int = 0
     download_count: int = 0
@@ -67,9 +68,9 @@ class MockReview:
 @pytest.fixture
 def mock_marketplace_store():
     """Create a mock marketplace store for testing."""
-    templates: Dict[str, MockTemplate] = {}
-    reviews: Dict[str, List[MockReview]] = {}
-    ratings: Dict[str, int] = {}
+    templates: dict[str, MockTemplate] = {}
+    reviews: dict[str, list[MockReview]] = {}
+    ratings: dict[str, int] = {}
 
     class MockStore:
         def create_template(
@@ -80,8 +81,8 @@ def mock_marketplace_store():
             author_name: str,
             category: str,
             pattern: str,
-            workflow_definition: Dict,
-            tags: List[str] = None,
+            workflow_definition: dict,
+            tags: list[str] = None,
         ) -> MockTemplate:
             template_id = f"tpl-{uuid4().hex[:8]}"
             template = MockTemplate(
@@ -164,7 +165,7 @@ def mock_marketplace_store():
             reviews[template_id].append(review)
             return review
 
-        def list_reviews(self, template_id: str) -> List[MockReview]:
+        def list_reviews(self, template_id: str) -> list[MockReview]:
             return reviews.get(template_id, [])
 
         def increment_download(self, template_id: str):
@@ -194,7 +195,7 @@ def mock_webhook_store():
         def register(
             self,
             url: str,
-            events: List[str],
+            events: builtins.list[str],
             name: Optional[str] = None,
             description: Optional[str] = None,
             user_id: Optional[str] = None,
@@ -268,7 +269,7 @@ def mock_batch_store():
     results = {}
 
     class MockStore:
-        def create_job(self, debate_ids: List[str], options: Dict[str, Any], user_id: str):
+        def create_job(self, debate_ids: list[str], options: dict[str, Any], user_id: str):
             job_id = f"batch-{uuid4().hex[:8]}"
             job = {
                 "id": job_id,
@@ -294,7 +295,7 @@ def mock_batch_store():
             if job_id in jobs:
                 jobs[job_id]["status"] = status
 
-        def add_result(self, job_id: str, debate_id: str, result: Dict):
+        def add_result(self, job_id: str, debate_id: str, result: dict):
             if job_id in jobs:
                 results[job_id].append(
                     {"debate_id": debate_id, "result": result, "status": "success"}

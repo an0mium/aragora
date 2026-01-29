@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Global orchestrator instance
 _orchestrator: Optional["OnboardingOrchestrator"] = None
 
+
 def get_orchestrator() -> "OnboardingOrchestrator":
     """Get or create the onboarding orchestrator instance."""
     global _orchestrator
@@ -45,6 +46,7 @@ def get_orchestrator() -> "OnboardingOrchestrator":
 
         _orchestrator = OnboardingOrchestrator()
     return _orchestrator
+
 
 class MoltbotOnboardingHandler(BaseHandler):
     """HTTP handler for Moltbot onboarding flows."""

@@ -31,6 +31,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 class HierarchicalPattern(WorkflowPattern):
     """
     Manager-worker delegation pattern.
@@ -212,6 +213,7 @@ Instructions:
 
 Final Integrated Response:"""
 
+
 # Register hierarchical handlers
 def _register_hierarchical_handlers():
     """Register hierarchical task handlers."""
@@ -311,5 +313,6 @@ Provide a thorough response:"""
 
     except ImportError:
         pass
+
 
 _register_hierarchical_handlers()

@@ -66,7 +66,7 @@ class MockNotificationProvider:
     """Mock notification provider for testing."""
 
     name: str
-    sent_messages: List[Dict[str, Any]] = field(default_factory=list)
+    sent_messages: list[dict[str, Any]] = field(default_factory=list)
     fail_count: int = 0
     delay_seconds: float = 0.0
     failures_to_simulate: int = 0
@@ -103,12 +103,12 @@ class MockNotificationProvider:
 class MockWebhookServer:
     """Mock webhook server for testing."""
 
-    received_webhooks: List[Dict[str, Any]] = field(default_factory=list)
+    received_webhooks: list[dict[str, Any]] = field(default_factory=list)
     response_delay_seconds: float = 0.0
     fail_rate: float = 0.0
     _fail_counter: int = 0
 
-    async def receive_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def receive_webhook(self, payload: dict[str, Any]) -> bool:
         """Receive a webhook delivery."""
         if self.response_delay_seconds > 0:
             await asyncio.sleep(self.response_delay_seconds)

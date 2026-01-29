@@ -48,6 +48,7 @@ DEFAULT_DELIBERATION_TIMEOUT = 300.0  # 5 minutes
 DEFAULT_SLA_WARNING_THRESHOLD = 0.8  # Warn at 80% of timeout
 DEFAULT_SLA_CRITICAL_THRESHOLD = 0.95  # Critical at 95% of timeout
 
+
 class DeliberationStatus(Enum):
     """Status of a deliberation task."""
 
@@ -60,6 +61,7 @@ class DeliberationStatus(Enum):
     TIMEOUT = "timeout"  # Exceeded SLA timeout
     CANCELLED = "cancelled"  # Manually cancelled
 
+
 class SLAComplianceLevel(Enum):
     """SLA compliance levels."""
 
@@ -68,9 +70,11 @@ class SLAComplianceLevel(Enum):
     CRITICAL = "critical"  # Near timeout
     VIOLATED = "violated"  # Exceeded timeout
 
+
 # =============================================================================
 # Data Classes
 # =============================================================================
+
 
 @dataclass
 class DeliberationSLA:
@@ -95,6 +99,7 @@ class DeliberationSLA:
             return SLAComplianceLevel.WARNING
         return SLAComplianceLevel.COMPLIANT
 
+
 @dataclass
 class DeliberationMetrics:
     """Metrics collected during deliberation execution."""
@@ -114,6 +119,7 @@ class DeliberationMetrics:
             return None
         end = self.completed_at or time.time()
         return end - self.started_at
+
 
 @dataclass
 class DeliberationTask:
@@ -174,6 +180,7 @@ class DeliberationTask:
             metadata=payload.get("metadata", {}),
         )
 
+
 @dataclass
 class DeliberationOutcome:
     """
@@ -192,6 +199,7 @@ class DeliberationOutcome:
     duration_seconds: float = 0.0
     sla_compliant: bool = True
 
+
 @dataclass
 class AgentPerformance:
     """Performance metrics for a single agent in a deliberation."""
@@ -203,9 +211,11 @@ class AgentPerformance:
     position_changed: bool = False  # Did they change their position during debate
     final_position_correct: bool = False  # Was their final position the consensus
 
+
 # =============================================================================
 # Record Builders
 # =============================================================================
+
 
 def build_decision_record(
     request_id: str,
@@ -235,9 +245,11 @@ def build_decision_record(
 
     return record
 
+
 # =============================================================================
 # Core Functions
 # =============================================================================
+
 
 async def run_deliberation(
     request: DecisionRequest,
@@ -248,6 +260,7 @@ async def run_deliberation(
     result = await decision_router.route(request)
     save_decision_result(request.request_id, build_decision_record(request.request_id, result))
     return result
+
 
 def record_deliberation_error(request_id: str, error: str, status: str = "failed") -> None:
     """Persist a deliberation error result."""
@@ -262,9 +275,11 @@ def record_deliberation_error(request_id: str, error: str, status: str = "failed
     )
     logger.warning("deliberation_failed", extra={"request_id": request_id, "error": error})
 
+
 # =============================================================================
 # Deliberation Manager
 # =============================================================================
+
 
 class DeliberationManager:
     """
@@ -683,9 +698,11 @@ class DeliberationManager:
             sla_compliant=task.metrics.sla_compliance != SLAComplianceLevel.VIOLATED,
         )
 
+
 # =============================================================================
 # Worker Integration
 # =============================================================================
+
 
 async def handle_deliberation_task(
     task_id: str,
@@ -729,6 +746,7 @@ async def handle_deliberation_task(
         "duration_seconds": outcome.duration_seconds,
         "sla_compliant": outcome.sla_compliant,
     }
+
 
 # =============================================================================
 # Exports

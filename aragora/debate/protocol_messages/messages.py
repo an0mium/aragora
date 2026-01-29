@@ -14,7 +14,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Union
+from typing import Any
+
 
 class ProtocolMessageType(Enum):
     """Enumeration of all protocol message types in the debate lifecycle."""
@@ -58,6 +59,7 @@ class ProtocolMessageType(Enum):
     RECOVERY_INITIATED = "recovery_initiated"
     RECOVERY_COMPLETED = "recovery_completed"
 
+
 @dataclass
 class ProtocolPayload:
     """Base payload for protocol messages."""
@@ -71,6 +73,7 @@ class ProtocolPayload:
         """Create payload from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+
 @dataclass
 class ProposalPayload(ProtocolPayload):
     """Payload for proposal-related messages."""
@@ -82,6 +85,7 @@ class ProposalPayload(ProtocolPayload):
     token_count: int | None = None
     latency_ms: float | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class CritiquePayload(ProtocolPayload):
@@ -98,6 +102,7 @@ class CritiquePayload(ProtocolPayload):
     token_count: int | None = None
     latency_ms: float | None = None
 
+
 @dataclass
 class VotePayload(ProtocolPayload):
     """Payload for vote-related messages."""
@@ -109,6 +114,7 @@ class VotePayload(ProtocolPayload):
     rationale: str | None = None
     weighted_score: float | None = None
     is_human: bool = False
+
 
 @dataclass
 class ConsensusPayload(ProtocolPayload):
@@ -123,6 +129,7 @@ class ConsensusPayload(ProtocolPayload):
     convergence_score: float | None = None
     dissent_summary: str | None = None
 
+
 @dataclass
 class RoundPayload(ProtocolPayload):
     """Payload for round lifecycle messages."""
@@ -135,6 +142,7 @@ class RoundPayload(ProtocolPayload):
     duration_ms: float | None = None
     convergence_delta: float | None = None
 
+
 @dataclass
 class AgentEventPayload(ProtocolPayload):
     """Payload for agent lifecycle messages."""
@@ -146,16 +154,18 @@ class AgentEventPayload(ProtocolPayload):
     reason: str | None = None  # For failures/replacements
     replacement_id: str | None = None
 
+
 # Union type for all payloads
-PayloadType = Union[
-    ProposalPayload,
-    CritiquePayload,
-    VotePayload,
-    ConsensusPayload,
-    RoundPayload,
-    AgentEventPayload,
-    ProtocolPayload,
-]
+PayloadType = (
+    ProposalPayload
+    | CritiquePayload
+    | VotePayload
+    | ConsensusPayload
+    | RoundPayload
+    | AgentEventPayload
+    | ProtocolPayload
+)
+
 
 @dataclass
 class ProtocolMessage:
@@ -242,7 +252,9 @@ class ProtocolMessage:
             f")"
         )
 
+
 # Factory functions for common message types
+
 
 def proposal_message(
     debate_id: str,
@@ -267,6 +279,7 @@ def proposal_message(
             **kwargs,
         ),
     )
+
 
 def critique_message(
     debate_id: str,
@@ -295,6 +308,7 @@ def critique_message(
         ),
     )
 
+
 def vote_message(
     debate_id: str,
     agent_id: str,
@@ -319,6 +333,7 @@ def vote_message(
         ),
     )
 
+
 def consensus_message(
     debate_id: str,
     consensus_id: str,
@@ -342,6 +357,7 @@ def consensus_message(
         ),
     )
 
+
 def round_message(
     debate_id: str,
     round_number: int,
@@ -362,6 +378,7 @@ def round_message(
             **kwargs,
         ),
     )
+
 
 def agent_event_message(
     debate_id: str,

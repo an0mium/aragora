@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from .models import Canvas
 
+
 class CanvasRenderer:
     """
     Renders canvas state to various formats.

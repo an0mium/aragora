@@ -28,12 +28,12 @@ class MockTenant:
 class MockTenantStore:
     """Mock tenant store for testing."""
 
-    def __init__(self, tenants: Optional[List[MockTenant]] = None):
+    def __init__(self, tenants: Optional[list[MockTenant]] = None):
         self.tenants = tenants or []
-        self.refresh_calls: List[str] = []
+        self.refresh_calls: list[str] = []
         self.should_fail_refresh: bool = False
 
-    def get_expiring_tokens(self, hours: int = 2) -> List[MockTenant]:
+    def get_expiring_tokens(self, hours: int = 2) -> list[MockTenant]:
         """Return tenants with expiring tokens."""
         return self.tenants
 
@@ -178,7 +178,7 @@ class TestTeamsTokenRefreshScheduler:
         store = MockTenantStore(tenants=tenants)
         store.should_fail_refresh = True
 
-        failures: List[RefreshResult] = []
+        failures: list[RefreshResult] = []
 
         def on_failure(result: RefreshResult):
             failures.append(result)

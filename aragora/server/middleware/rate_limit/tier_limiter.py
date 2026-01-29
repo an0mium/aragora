@@ -29,6 +29,7 @@ TIER_RATE_LIMITS: dict[str, tuple[int, int]] = {
     "enterprise": (1000, 2000),  # 1000 req/min, 2000 burst
 }
 
+
 class TierRateLimiter:
     """
     Tier-aware rate limiter that applies different limits based on subscription tier.
@@ -124,8 +125,10 @@ class TierRateLimiter:
             for buckets in self._tier_buckets.values():
                 buckets.clear()
 
+
 # Global tier rate limiter instance
 _tier_limiter: TierRateLimiter | None = None
+
 
 def get_tier_rate_limiter() -> TierRateLimiter:
     """Get the global tier rate limiter instance."""
@@ -133,6 +136,7 @@ def get_tier_rate_limiter() -> TierRateLimiter:
     if _tier_limiter is None:
         _tier_limiter = TierRateLimiter()
     return _tier_limiter
+
 
 def check_tier_rate_limit(
     handler: Any,
@@ -191,6 +195,7 @@ def check_tier_rate_limit(
             logger.debug(f"Could not extract user tier: {e}")
 
     return limiter.allow(client_key, tier)
+
 
 __all__ = [
     "TIER_RATE_LIMITS",

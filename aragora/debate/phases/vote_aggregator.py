@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AggregatedVotes:
     """Result of vote aggregation.
@@ -64,6 +65,7 @@ class AggregatedVotes:
         if self.total_weighted <= 0:
             return {}
         return {choice: count / self.total_weighted for choice, count in self.vote_counts.items()}
+
 
 class VoteAggregator:
     """Aggregate votes with weighting and grouping.
@@ -294,6 +296,7 @@ class VoteAggregator:
             vote_counts[canonical] += 1
 
         return vote_counts
+
 
 def calculate_consensus_strength(
     vote_counts: Counter,

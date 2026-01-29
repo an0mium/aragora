@@ -31,6 +31,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class DependencyType(str, Enum):
     """Type of dependency."""
 
@@ -39,6 +40,7 @@ class DependencyType(str, Enum):
     DEV = "dev"
     OPTIONAL = "optional"
     PEER = "peer"
+
 
 class PackageManager(str, Enum):
     """Supported package managers."""
@@ -52,6 +54,7 @@ class PackageManager(str, Enum):
     CARGO = "cargo"
     GO = "go"
 
+
 class LicenseCategory(str, Enum):
     """License categories for compatibility checking."""
 
@@ -62,6 +65,7 @@ class LicenseCategory(str, Enum):
     PUBLIC_DOMAIN = "public_domain"
     UNKNOWN = "unknown"
 
+
 class VulnerabilitySeverity(str, Enum):
     """Vulnerability severity levels."""
 
@@ -70,6 +74,7 @@ class VulnerabilitySeverity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class Dependency:
@@ -109,6 +114,7 @@ class Dependency:
             return f"pkg:golang/{self.name}@{self.version}"
         return f"pkg:generic/{self.name}@{self.version}"
 
+
 @dataclass
 class Vulnerability:
     """Represents a known vulnerability."""
@@ -125,6 +131,7 @@ class Vulnerability:
     published_date: datetime | None = None
     references: list[str] = field(default_factory=list)
 
+
 @dataclass
 class LicenseConflict:
     """Represents a license compatibility conflict."""
@@ -136,6 +143,7 @@ class LicenseConflict:
     conflict_type: str
     description: str
     severity: str = "warning"
+
 
 @dataclass
 class DependencyTree:
@@ -165,6 +173,7 @@ class DependencyTree:
             d for d in self.dependencies.values() if d.dependency_type == DependencyType.TRANSITIVE
         ]
 
+
 # Common license mappings
 LICENSE_CATEGORIES: dict[str, LicenseCategory] = {
     # Permissive
@@ -191,6 +200,7 @@ LICENSE_CATEGORIES: dict[str, LicenseCategory] = {
     "proprietary": LicenseCategory.PROPRIETARY,
     "commercial": LicenseCategory.PROPRIETARY,
 }
+
 
 class DependencyAnalyzer:
     """
@@ -1078,6 +1088,7 @@ class DependencyAnalyzer:
             ],
         }
 
+
 async def analyze_project(
     repo_path: str,
     output_format: str = "cyclonedx",
@@ -1134,6 +1145,7 @@ async def analyze_project(
         ]
 
     return result
+
 
 # CLI entrypoint
 if __name__ == "__main__":

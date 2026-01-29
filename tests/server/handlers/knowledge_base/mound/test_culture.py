@@ -67,7 +67,7 @@ class MockPattern:
     frequency: float = 0.5
     description: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "frequency": self.frequency,
@@ -80,7 +80,7 @@ class MockCultureProfile:
     """Mock culture profile."""
 
     workspace_id: str
-    patterns: Dict[str, Any] = field(default_factory=dict)
+    patterns: dict[str, Any] = field(default_factory=dict)
     generated_at: Optional[datetime] = None
     total_observations: int = 0
 
@@ -97,7 +97,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

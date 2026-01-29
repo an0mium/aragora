@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["TelegramDock"]
 
+
 class TelegramDock(ChannelDock):
     """
     Telegram platform dock.

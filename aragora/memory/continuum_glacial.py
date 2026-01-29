@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ContinuumGlacialMixin:
     """
     Mixin providing glacial tier operations for ContinuumMemory.
@@ -212,5 +213,6 @@ class ContinuumGlacialMixin:
                 (row[0] or 0) / self.hyperparams["max_entries_per_tier"]["glacial"], 3
             ),
         }
+
 
 __all__ = ["ContinuumGlacialMixin"]

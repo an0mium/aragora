@@ -45,11 +45,11 @@ class LoadTestMetrics:
     total_debates: int = 0
     completed: int = 0
     failed: int = 0
-    latencies_ms: List[float] = field(default_factory=list)
+    latencies_ms: list[float] = field(default_factory=list)
     start_time: float = 0.0
     end_time: float = 0.0
     peak_memory_mb: float = 0.0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def success_rate(self) -> float:
@@ -93,7 +93,7 @@ class LoadTestMetrics:
             return 0.0
         return self.completed / self.total_duration_s
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         return {
             "total_debates": self.total_debates,
             "completed": self.completed,
@@ -112,10 +112,10 @@ class LoadTestMetrics:
 async def mock_debate_execution(
     debate_id: str,
     question: str,
-    agents: List[str],
+    agents: list[str],
     delay_range: tuple[float, float] = (0.1, 0.5),
     fail_rate: float = 0.05,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Mock debate execution for load testing without API calls.
 
@@ -360,7 +360,7 @@ class TestDebateQueueLoad:
         )
 
         # Create queue with mock executor
-        async def mock_executor(item: BatchItem) -> Dict[str, Any]:
+        async def mock_executor(item: BatchItem) -> dict[str, Any]:
             await asyncio.sleep(0.05)  # Simulate work
             return {"debate_id": f"debate_{item.item_id}", "status": "completed"}
 
@@ -400,9 +400,9 @@ class TestDebateQueueLoad:
             BatchItem,
         )
 
-        processing_order: List[int] = []
+        processing_order: list[int] = []
 
-        async def tracking_executor(item: BatchItem) -> Dict[str, Any]:
+        async def tracking_executor(item: BatchItem) -> dict[str, Any]:
             processing_order.append(item.priority)
             await asyncio.sleep(0.02)
             return {"debate_id": f"debate_{item.item_id}"}
@@ -451,7 +451,7 @@ class TestMemoryUnderLoad:
         gc.collect()
         initial_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
-        memory_samples: List[int] = []
+        memory_samples: list[int] = []
 
         # Run 5 batches of 20 debates each
         for batch in range(5):

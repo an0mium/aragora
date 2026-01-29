@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CalibrationDataPoint:
     """A single data point for calibration analysis."""
@@ -46,6 +47,7 @@ class CalibrationDataPoint:
     outcome_success: bool
     outcome_confidence: float
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 @dataclass
 class CalibrationResult:
@@ -59,6 +61,7 @@ class CalibrationResult:
     false_positive_rate: float  # Intervened when not needed
     miss_rate: float  # Didn't intervene when needed
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 @dataclass
 class TricksterCalibrator:
@@ -399,6 +402,7 @@ class TricksterCalibrator:
         self._debates_since_calibration = 0
         logger.debug("trickster_calibrator data cleared")
 
+
 def create_trickster_calibrator(
     trickster: Optional["EvidencePoweredTrickster"] = None,
     outcome_tracker: Optional["OutcomeTracker"] = None,
@@ -419,6 +423,7 @@ def create_trickster_calibrator(
         outcome_tracker=outcome_tracker,
         **kwargs,
     )
+
 
 __all__ = [
     "TricksterCalibrator",

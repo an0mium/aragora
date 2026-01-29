@@ -28,6 +28,7 @@ SAFE_BATCH_ID_PATTERN = re.compile(r"^batch_[a-zA-Z0-9]{6,32}$")
 SAFE_SHARE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,32}$")
 SAFE_SESSION_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
 
+
 def validate_path_segment(
     value: str,
     name: str,
@@ -61,6 +62,7 @@ def validate_path_segment(
         return False, f"Invalid {name}: must match pattern {pattern.pattern}"
     return True, None
 
+
 def validate_id(value: str, name: str = "ID") -> tuple[bool, str | None]:
     """Validate a generic ID (alphanumeric with hyphens/underscores, 1-64 chars).
 
@@ -73,6 +75,7 @@ def validate_id(value: str, name: str = "ID") -> tuple[bool, str | None]:
     """
     return validate_path_segment(value, name, SAFE_ID_PATTERN)
 
+
 def validate_agent_name(agent: str) -> tuple[bool, str | None]:
     """Validate an agent name (alphanumeric with hyphens/underscores, 1-32 chars).
 
@@ -84,6 +87,7 @@ def validate_agent_name(agent: str) -> tuple[bool, str | None]:
     """
     return validate_path_segment(agent, "agent name", SAFE_AGENT_PATTERN)
 
+
 def validate_debate_id(debate_id: str) -> tuple[bool, str | None]:
     """Validate a debate ID (alphanumeric with hyphens/underscores, 1-128 chars).
 
@@ -94,6 +98,7 @@ def validate_debate_id(debate_id: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(debate_id, "debate ID", SAFE_SLUG_PATTERN)
+
 
 def validate_gauntlet_id(gauntlet_id: str) -> tuple[bool, str | None]:
     """Validate a gauntlet ID (prefixed with gauntlet-).
@@ -114,6 +119,7 @@ def validate_gauntlet_id(gauntlet_id: str) -> tuple[bool, str | None]:
         return True, None
     return validate_path_segment(gauntlet_id, "gauntlet ID", SAFE_SLUG_PATTERN)
 
+
 def validate_share_token(token: str) -> tuple[bool, str | None]:
     """Validate a share token.
 
@@ -126,6 +132,7 @@ def validate_share_token(token: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(token, "share token", SAFE_SHARE_TOKEN_PATTERN)
+
 
 def validate_batch_id(batch_id: str) -> tuple[bool, str | None]:
     """Validate a batch ID (prefixed with batch_).
@@ -140,6 +147,7 @@ def validate_batch_id(batch_id: str) -> tuple[bool, str | None]:
         return False, "Invalid batch ID: must start with 'batch_'"
     return validate_path_segment(batch_id, "batch ID", SAFE_BATCH_ID_PATTERN)
 
+
 def validate_session_id(session_id: str) -> tuple[bool, str | None]:
     """Validate a session ID.
 
@@ -150,6 +158,7 @@ def validate_session_id(session_id: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(session_id, "session ID", SAFE_SESSION_ID_PATTERN)
+
 
 def validate_plugin_name(plugin_name: str) -> tuple[bool, str | None]:
     """Validate a plugin name.
@@ -162,6 +171,7 @@ def validate_plugin_name(plugin_name: str) -> tuple[bool, str | None]:
     """
     return validate_path_segment(plugin_name, "plugin name", SAFE_ID_PATTERN)
 
+
 def validate_loop_id(loop_id: str) -> tuple[bool, str | None]:
     """Validate a nomic loop ID.
 
@@ -172,6 +182,7 @@ def validate_loop_id(loop_id: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(loop_id, "loop ID", SAFE_ID_PATTERN)
+
 
 def validate_replay_id(replay_id: str) -> tuple[bool, str | None]:
     """Validate a replay ID.
@@ -184,6 +195,7 @@ def validate_replay_id(replay_id: str) -> tuple[bool, str | None]:
     """
     return validate_path_segment(replay_id, "replay ID", SAFE_ID_PATTERN)
 
+
 def validate_genome_id(genome_id: str) -> tuple[bool, str | None]:
     """Validate a genome ID (supports dots for versioning).
 
@@ -195,6 +207,7 @@ def validate_genome_id(genome_id: str) -> tuple[bool, str | None]:
     """
     return validate_path_segment(genome_id, "genome ID", SAFE_ID_PATTERN_WITH_DOTS)
 
+
 def validate_agent_name_with_version(agent: str) -> tuple[bool, str | None]:
     """Validate an agent name that may include version dots (e.g., claude-3.5-sonnet).
 
@@ -205,6 +218,7 @@ def validate_agent_name_with_version(agent: str) -> tuple[bool, str | None]:
         Tuple of (is_valid, error_message)
     """
     return validate_path_segment(agent, "agent name", SAFE_ID_PATTERN_WITH_DOTS)
+
 
 def validate_no_path_traversal(path: str) -> tuple[bool, str | None]:
     """Check that a path does not contain path traversal sequences.
@@ -230,6 +244,7 @@ def validate_no_path_traversal(path: str) -> tuple[bool, str | None]:
     if ".." in path:
         return False, "Path traversal not allowed"
     return True, None
+
 
 def sanitize_id(value: str) -> str | None:
     """Sanitize an ID string.

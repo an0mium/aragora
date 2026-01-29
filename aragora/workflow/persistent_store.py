@@ -104,6 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant ON workflow_executions(tenant_id);
 """
 
+
 class PersistentWorkflowStore:
     """
     SQLite-backed persistent storage for workflows.
@@ -734,11 +735,13 @@ class PersistentWorkflowStore:
         finally:
             conn.close()
 
+
 # Global store instance
 _store: PersistentWorkflowStore | None = None
 
 # Global workflow store instance for factory function
 _workflow_store_instance: WorkflowStoreType | None = None
+
 
 def get_workflow_store(
     db_path: Path | None = None,
@@ -795,6 +798,7 @@ def get_workflow_store(
 
     return _workflow_store_instance
 
+
 async def get_async_workflow_store(
     force_new: bool = False,
 ) -> WorkflowStoreType:
@@ -837,6 +841,7 @@ async def get_async_workflow_store(
     _workflow_store_instance = PersistentWorkflowStore()
     return _workflow_store_instance
 
+
 async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
     """
     Create and initialize a PostgreSQL workflow store.
@@ -858,11 +863,13 @@ async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
     await store.initialize()
     return store
 
+
 def reset_workflow_store() -> None:
     """Reset the global store (for testing)."""
     global _store, _workflow_store_instance
     _store = None
     _workflow_store_instance = None
+
 
 __all__ = [
     "PersistentWorkflowStore",

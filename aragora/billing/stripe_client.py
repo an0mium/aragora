@@ -53,6 +53,7 @@ STRIPE_METERED_PRICES = {
     "debates": os.environ.get("STRIPE_METERED_DEBATES", ""),  # Per debate overage
 }
 
+
 class StripeError(Exception):
     """Base exception for Stripe API errors."""
 
@@ -61,15 +62,18 @@ class StripeError(Exception):
         self.code = code
         self.status = status
 
+
 class StripeConfigError(StripeError):
     """Stripe configuration is missing or invalid."""
 
     pass
 
+
 class StripeAPIError(StripeError):
     """Stripe API returned an error."""
 
     pass
+
 
 @dataclass
 class StripeCustomer:
@@ -87,6 +91,7 @@ class StripeCustomer:
             "name": self.name,
             "metadata": self.metadata or {},
         }
+
 
 @dataclass
 class StripeSubscription:
@@ -128,6 +133,7 @@ class StripeSubscription:
         result["is_trialing"] = self.is_trialing
         return result
 
+
 @dataclass
 class CheckoutSession:
     """Stripe checkout session data."""
@@ -145,6 +151,7 @@ class CheckoutSession:
             "subscription_id": self.subscription_id,
         }
 
+
 @dataclass
 class BillingPortalSession:
     """Stripe billing portal session data."""
@@ -154,6 +161,7 @@ class BillingPortalSession:
 
     def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "url": self.url}
+
 
 @dataclass
 class UsageRecord:
@@ -173,6 +181,7 @@ class UsageRecord:
             "timestamp": self.timestamp.isoformat(),
             "action": self.action,
         }
+
 
 class StripeClient:
     """
@@ -712,9 +721,11 @@ class StripeClient:
             trial_end=trial_end,
         )
 
+
 # =============================================================================
 # Webhook Handling
 # =============================================================================
+
 
 class WebhookEvent:
     """Parsed Stripe webhook event."""
@@ -741,6 +752,7 @@ class WebhookEvent:
     def metadata(self) -> dict:
         """Get metadata from event object."""
         return self.object.get("metadata", {})
+
 
 def verify_webhook_signature(
     payload: bytes,
@@ -796,6 +808,7 @@ def verify_webhook_signature(
     # Check if any signature matches
     return any(hmac.compare_digest(expected, sig) for sig in signatures)
 
+
 def parse_webhook_event(payload: bytes, signature: str) -> WebhookEvent | None:
     """
     Parse and verify a Stripe webhook event.
@@ -822,9 +835,11 @@ def parse_webhook_event(payload: bytes, signature: str) -> WebhookEvent | None:
         logger.warning("Invalid webhook payload")
         return None
 
+
 # =============================================================================
 # Tier Mapping
 # =============================================================================
+
 
 def get_tier_from_price_id(price_id: str) -> SubscriptionTier | None:
     """
@@ -841,6 +856,7 @@ def get_tier_from_price_id(price_id: str) -> SubscriptionTier | None:
             return tier
     return None
 
+
 def get_price_id_for_tier(tier: SubscriptionTier) -> str | None:
     """
     Get Stripe price ID for a subscription tier.
@@ -853,11 +869,13 @@ def get_price_id_for_tier(tier: SubscriptionTier) -> str | None:
     """
     return STRIPE_PRICES.get(tier)
 
+
 # =============================================================================
 # Default client instance
 # =============================================================================
 
 _default_client: StripeClient | None = None
+
 
 def get_stripe_client() -> StripeClient:
     """Get the default Stripe client instance."""
@@ -865,6 +883,7 @@ def get_stripe_client() -> StripeClient:
     if _default_client is None:
         _default_client = StripeClient()
     return _default_client
+
 
 __all__ = [
     # Client

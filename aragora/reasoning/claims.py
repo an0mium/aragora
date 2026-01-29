@@ -10,6 +10,7 @@ Provides structured reasoning primitives for debates:
 
 This moves aragora beyond chat orchestration into verifiable reasoning.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Callable
+
 
 class ClaimType(Enum):
     """Types of claims in a debate."""
@@ -30,6 +32,7 @@ class ClaimType(Enum):
     ASSUMPTION = "assumption"  # Unstated premise
     QUESTION = "question"  # Requesting clarification
 
+
 class RelationType(Enum):
     """Logical relationships between claims."""
 
@@ -41,6 +44,7 @@ class RelationType(Enum):
     SUPERSEDES = "supersedes"
     ELABORATES = "elaborates"
     QUALIFIES = "qualifies"  # Adds conditions/exceptions
+
 
 class EvidenceType(Enum):
     """Types of evidence."""
@@ -54,6 +58,7 @@ class EvidenceType(Enum):
     TEST_RESULT = "test_result"  # Test execution result
     EXPERT_OPINION = "expert_opinion"  # Appeal to authority
 
+
 @dataclass
 class SourceReference:
     """Reference to evidence source."""
@@ -62,6 +67,7 @@ class SourceReference:
     identifier: str  # Agent name, file path, URL, etc.
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     metadata: dict = field(default_factory=dict)
+
 
 @dataclass
 class TypedEvidence:
@@ -80,6 +86,7 @@ class TypedEvidence:
         d = asdict(self)
         d["evidence_type"] = self.evidence_type.value
         return d
+
 
 @dataclass
 class TypedClaim:
@@ -127,6 +134,7 @@ class TypedClaim:
         d["evidence"] = [e.to_dict() for e in self.evidence]
         return d
 
+
 @dataclass
 class ClaimRelation:
     """A relationship between two claims."""
@@ -140,6 +148,7 @@ class ClaimRelation:
     created_by: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+
 @dataclass
 class ArgumentChain:
     """A chain of reasoning from premises to conclusion."""
@@ -152,6 +161,7 @@ class ArgumentChain:
     validity: float = 0.0  # 0-1, how valid is this chain
     soundness: float = 0.0  # 0-1, validity + true premises
     author: str = ""
+
 
 # ===========================================================================
 # Fast Claims Extraction (for real-time streaming visualization)
@@ -183,6 +193,7 @@ _CLAIM_PATTERNS = {
         r"\b(therefore|thus|in summary|combining|overall|to conclude)\b", re.I
     ),
 }
+
 
 def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
     """
@@ -237,6 +248,7 @@ def fast_extract_claims(text: str, author: str = "unknown") -> list[dict]:
 
     return claims
 
+
 # Cached version for repeated calls with same text
 @register_lru_cache
 @lru_cache(maxsize=1000)
@@ -248,6 +260,7 @@ def fast_extract_claims_cached(text: str, author: str = "unknown") -> tuple:
     """
     claims = fast_extract_claims(text, author)
     return tuple(tuple(sorted(c.items())) for c in claims)
+
 
 class ClaimsKernel:
     """

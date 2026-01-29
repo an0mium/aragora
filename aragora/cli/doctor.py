@@ -9,12 +9,14 @@ Checks:
 - Storage backends
 - Server endpoints (if running)
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import sys
 from pathlib import Path
+
 
 def check_icon(ok: bool | None) -> str:
     """Return status icon."""
@@ -24,10 +26,12 @@ def check_icon(ok: bool | None) -> str:
         return "\033[91m✗\033[0m"  # Red X
     return "\033[93m○\033[0m"  # Yellow circle (optional)
 
+
 def print_section(title: str) -> None:
     """Print section header."""
     print(f"\n\033[1m{title}\033[0m")
     print("-" * 40)
+
 
 def check_packages() -> list[tuple[str, str, bool | None]]:
     """Check required and optional packages."""
@@ -62,6 +66,7 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
 
     return checks
 
+
 def check_api_keys() -> list[tuple[str, str, bool | None]]:
     """Check API key configuration."""
     checks = []
@@ -88,6 +93,7 @@ def check_api_keys() -> list[tuple[str, str, bool | None]]:
             checks.append((key, "not set", None))
 
     return checks
+
 
 def check_storage() -> list[tuple[str, str, bool | None]]:
     """Check storage backends."""
@@ -137,6 +143,7 @@ def check_storage() -> list[tuple[str, str, bool | None]]:
 
     return checks
 
+
 async def check_server() -> list[tuple[str, str, bool | None]]:
     """Check if server is running and responsive."""
     checks = []
@@ -162,6 +169,7 @@ async def check_server() -> list[tuple[str, str, bool | None]]:
 
     return checks
 
+
 def check_environment() -> list[tuple[str, str, bool | None]]:
     """Check environment configuration."""
     checks = []
@@ -179,6 +187,7 @@ def check_environment() -> list[tuple[str, str, bool | None]]:
     checks.append(("Debug mode", "enabled" if debug else "disabled", True))
 
     return checks
+
 
 def main() -> int:
     """Run comprehensive health checks."""
@@ -251,6 +260,7 @@ def main() -> int:
         print("\n\033[91m✗ Some required checks failed. Please fix the issues above.\033[0m\n")
 
     return 0 if all_ok else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

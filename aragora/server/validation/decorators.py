@@ -4,12 +4,14 @@ Handler validation decorators.
 Provides decorators for automatic validation of handler requests
 including body schemas, query parameters, and path segments.
 """
+
 from __future__ import annotations
 
 from functools import wraps
 from typing import Callable, Optional
 
 from .schema import validate_against_schema
+
 
 def validate_request(
     schema: dict | None = None,
@@ -116,6 +118,7 @@ def validate_request(
 
     return decorator
 
+
 def validate_post_body(schema: dict) -> Callable:
     """Decorator for validating POST request bodies only.
 
@@ -153,6 +156,7 @@ def validate_post_body(schema: dict) -> Callable:
         return wrapper
 
     return decorator
+
 
 def validate_query_params(
     required: list | None = None,

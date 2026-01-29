@@ -195,7 +195,7 @@ class MockStorage:
     """Mock storage for debate data."""
 
     def __init__(self):
-        self._debates: Dict[str, dict] = {}
+        self._debates: dict[str, dict] = {}
 
     def add_debate(self, debate_id: str, data: dict):
         self._debates[debate_id] = data

@@ -30,6 +30,7 @@ Usage:
     # Resume after crash
     result = await engine.resume("molecule-123")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +50,7 @@ from aragora.nomic.beads import BeadStore
 
 logger = logging.getLogger(__name__)
 
+
 class StepStatus(str, Enum):
     """Status of a molecule step."""
 
@@ -57,6 +59,7 @@ class StepStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
 
 class MoleculeStatus(str, Enum):
     """Status of a molecule."""
@@ -67,6 +70,7 @@ class MoleculeStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     PAUSED = "paused"
+
 
 @dataclass
 class MoleculeStep:
@@ -170,6 +174,7 @@ class MoleculeStep:
     def is_terminal(self) -> bool:
         """Check if step is in terminal state."""
         return self.status in (StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED)
+
 
 @dataclass
 class Molecule:
@@ -293,6 +298,7 @@ class Molecule:
         completed = len([s for s in self.steps if s.is_terminal()])
         return completed / len(self.steps) * 100
 
+
 @dataclass
 class MoleculeResult:
     """Result of molecule execution."""
@@ -310,6 +316,7 @@ class MoleculeResult:
     def success(self) -> bool:
         """Check if molecule completed successfully."""
         return self.status == MoleculeStatus.COMPLETED
+
 
 class StepExecutor(ABC):
     """Abstract base class for step executors."""
@@ -332,6 +339,7 @@ class StepExecutor(ABC):
         """
         pass
 
+
 class AgentStepExecutor(StepExecutor):
     """Execute steps using AI agents."""
 
@@ -341,6 +349,7 @@ class AgentStepExecutor(StepExecutor):
         # For now, return a placeholder
         logger.info(f"Agent executing step: {step.name}")
         return {"status": "executed", "step": step.name}
+
 
 class ShellStepExecutor(StepExecutor):
     """Execute steps as shell commands."""
@@ -367,6 +376,7 @@ class ShellStepExecutor(StepExecutor):
             }
         except asyncio.TimeoutError:
             raise TimeoutError(f"Step {step.name} timed out after {step.timeout_seconds}s")
+
 
 class DebateStepExecutor(StepExecutor):
     """
@@ -423,6 +433,7 @@ class DebateStepExecutor(StepExecutor):
         except Exception as e:
             logger.error(f"Debate execution failed: {e}")
             raise
+
 
 class ParallelStepExecutor(StepExecutor):
     """
@@ -482,6 +493,7 @@ class ParallelStepExecutor(StepExecutor):
         except Exception as e:
             logger.error(f"Parallel execution failed: {e}")
             raise
+
 
 class ConditionalStepExecutor(StepExecutor):
     """
@@ -564,6 +576,7 @@ class ConditionalStepExecutor(StepExecutor):
         else:
             logger.warning(f"Unknown operator: {operator}, defaulting to equality")
             return actual == expected
+
 
 class MoleculeEngine:
     """
@@ -851,7 +864,9 @@ class MoleculeEngine:
             "total_steps": sum(len(m.steps) for m in molecules),
         }
 
+
 # Escalation support (Gastown pattern)
+
 
 class EscalationLevel(str, Enum):
     """Standard escalation severity levels."""
@@ -860,6 +875,7 @@ class EscalationLevel(str, Enum):
     THROTTLE = "throttle"  # Reduce throughput/rate limit
     SUSPEND = "suspend"  # Pause agent/operation
     TERMINATE = "terminate"  # Full stop with cleanup
+
 
 @dataclass
 class EscalationContext:
@@ -872,6 +888,7 @@ class EscalationContext:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     previous_level: EscalationLevel | None = None
     auto_escalate_at: datetime | None = None
+
 
 class EscalationStepExecutor(StepExecutor):
     """Execute escalation steps with severity-aware handlers."""
@@ -939,6 +956,7 @@ class EscalationStepExecutor(StepExecutor):
         except Exception as e:
             logger.error(f"Escalation handler failed: {e}")
             raise
+
 
 def create_escalation_molecule(
     name: str,
@@ -1027,6 +1045,7 @@ def create_escalation_molecule(
         },
     )
 
+
 def create_conditional_escalation_molecule(
     name: str,
     check_fn: Any,  # Callable[[], bool] - condition to check
@@ -1099,8 +1118,10 @@ def create_conditional_escalation_molecule(
         },
     )
 
+
 # Singleton instance
 _default_engine: MoleculeEngine | None = None
+
 
 async def get_molecule_engine(
     bead_store: BeadStore | None = None,
@@ -1112,6 +1133,7 @@ async def get_molecule_engine(
         _default_engine = MoleculeEngine(bead_store, checkpoint_dir)
         await _default_engine.initialize()
     return _default_engine
+
 
 def reset_molecule_engine() -> None:
     """Reset the default engine (for testing)."""

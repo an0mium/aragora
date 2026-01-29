@@ -49,6 +49,7 @@ from aragora.knowledge.mound.ops.fusion import (
 
 logger = logging.getLogger(__name__)
 
+
 class FusionSyncResult(TypedDict):
     """Result type for fusion sync operations."""
 
@@ -59,6 +60,7 @@ class FusionSyncResult(TypedDict):
     conflicts_resolved: int
     errors: list[str]
     duration_ms: float
+
 
 @dataclass
 class FusionState:
@@ -92,6 +94,7 @@ class FusionState:
             "source_participation": self.source_participation,
             "avg_fusion_confidence": round(self.avg_fusion_confidence, 4),
         }
+
 
 class FusionMixin:
     """Mixin providing multi-adapter fusion capabilities for adapters.
@@ -612,6 +615,7 @@ class FusionMixin:
     def supports_fusion(self) -> bool:
         """Indicate that this adapter supports fusion operations."""
         return True
+
 
 __all__ = [
     "FusionMixin",

@@ -34,7 +34,7 @@ class MockBudgetAlert:
     acknowledged_by: Optional[str] = None
     acknowledged_at: Optional[float] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "alert_id": self.alert_id,
             "budget_id": self.budget_id,
@@ -57,8 +57,8 @@ class MockChannelSubscription:
     channel_type: str = "slack"
     channel_id: str = "C12345678"
     workspace_id: str = "T12345678"
-    event_types: List[str] = field(default_factory=lambda: ["budget_alert"])
-    config: Dict[str, Any] = field(default_factory=dict)
+    event_types: list[str] = field(default_factory=lambda: ["budget_alert"])
+    config: dict[str, Any] = field(default_factory=dict)
 
 
 @pytest.fixture

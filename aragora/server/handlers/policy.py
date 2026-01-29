@@ -42,6 +42,7 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class PolicyHandler(BaseHandler):
     """Handler for policy and compliance endpoints."""
 
@@ -731,6 +732,7 @@ class PolicyHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get compliance stats: {e}")
             return error_response(f"Failed to get stats: {e}", 500)
+
 
 # Export for registration
 __all__ = ["PolicyHandler"]

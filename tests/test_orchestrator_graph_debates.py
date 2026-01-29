@@ -36,7 +36,7 @@ class GraphMockAgent(Agent):
     def __init__(
         self,
         name: str,
-        proposals: List[str] = None,
+        proposals: list[str] = None,
         branch_on: str = None,
     ):
         super().__init__(name=name, model="mock-model", role="proposer")

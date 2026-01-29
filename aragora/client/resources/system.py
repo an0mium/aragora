@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
+
 @dataclass
 class HealthStatus:
     """System health status."""
@@ -36,6 +37,7 @@ class HealthStatus:
             checks=data.get("checks", {}),
             timestamp=data.get("timestamp", ""),
         )
+
 
 @dataclass
 class SystemInfo:
@@ -63,6 +65,7 @@ class SystemInfo:
             cpu_percent=data.get("cpu_percent", 0.0),
         )
 
+
 @dataclass
 class SystemStats:
     """System statistics."""
@@ -88,6 +91,7 @@ class SystemStats:
             memory_entries=data.get("memory_entries", 0),
             consensus_rate=data.get("consensus_rate", 0.0),
         )
+
 
 @dataclass
 class CircuitBreakerStatus:
@@ -115,6 +119,7 @@ class CircuitBreakerStatus:
             last_failure=data.get("last_failure"),
             last_success=data.get("last_success"),
         )
+
 
 class SystemAPI:
     """

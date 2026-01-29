@@ -38,6 +38,7 @@ from aragora.server.handlers.compliance_handler import (
     ComplianceHandler,
     create_compliance_handler,
 )
+import builtins
 
 
 # ===========================================================================
@@ -67,13 +68,13 @@ class MockDeletionRequest:
     reason: str = "User request"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: MockDeletionStatus = MockDeletionStatus.PENDING
-    entities_deleted: Dict[str, int] = field(default_factory=dict)
-    errors: List[str] = field(default_factory=list)
+    entities_deleted: dict[str, int] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
     cancelled_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "request_id": self.request_id,
             "user_id": self.user_id,
@@ -94,7 +95,7 @@ class MockLegalHold:
     """Mock legal hold for testing."""
 
     hold_id: str = "hold-001"
-    user_ids: List[str] = field(default_factory=lambda: ["user-123"])
+    user_ids: list[str] = field(default_factory=lambda: ["user-123"])
     reason: str = "Litigation hold"
     created_by: str = "legal-team"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -104,7 +105,7 @@ class MockLegalHold:
     released_at: Optional[datetime] = None
     released_by: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "hold_id": self.hold_id,
             "user_ids": self.user_ids,
@@ -138,7 +139,7 @@ class MockStoredReceipt:
     signature_key_id: Optional[str] = "key-001"
     signed_at: Optional[float] = None
     audit_trail_id: Optional[str] = None
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -156,11 +157,11 @@ class MockCascadeReport:
 
     success: bool = True
     user_id: str = "user-123"
-    deleted_from: List[Any] = field(default_factory=list)
-    backup_purge_results: Dict[str, Any] = field(default_factory=dict)
-    errors: List[str] = field(default_factory=list)
+    deleted_from: list[Any] = field(default_factory=list)
+    backup_purge_results: dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "success": self.success,
             "user_id": self.user_id,
@@ -174,14 +175,14 @@ class MockAuditStore:
     """Mock audit store for testing."""
 
     def __init__(self):
-        self._events: List[Dict[str, Any]] = []
+        self._events: list[dict[str, Any]] = []
 
     def log_event(
         self,
         action: str,
         resource_type: str,
         resource_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         event_id = f"evt-{len(self._events) + 1:03d}"
         event = {
@@ -199,7 +200,7 @@ class MockAuditStore:
         self,
         action: Optional[str] = None,
         limit: int = 1000,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         events = self._events
         if action:
             events = [e for e in events if e["action"] == action]
@@ -210,7 +211,7 @@ class MockAuditStore:
         user_id: str,
         hours: int = 24,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return self._events[:limit]
 
 
@@ -218,14 +219,14 @@ class MockReceiptStore:
     """Mock receipt store for testing."""
 
     def __init__(self):
-        self._receipts: Dict[str, MockStoredReceipt] = {}
+        self._receipts: dict[str, MockStoredReceipt] = {}
 
     def list(
         self,
         limit: int = 100,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> List[MockStoredReceipt]:
+    ) -> builtins.list[MockStoredReceipt]:
         return list(self._receipts.values())[:limit]
 
     def get(self, receipt_id: str) -> Optional[MockStoredReceipt]:
@@ -239,8 +240,8 @@ class MockReceiptStore:
 
     def verify_batch(
         self,
-        receipt_ids: List[str],
-    ) -> tuple[List[MockVerificationResult], Dict[str, Any]]:
+        receipt_ids: builtins.list[str],
+    ) -> tuple[builtins.list[MockVerificationResult], dict[str, Any]]:
         results = []
         for rid in receipt_ids:
             if rid in self._receipts:
@@ -262,8 +263,8 @@ class MockDeletionStore:
     """Mock deletion store for testing."""
 
     def __init__(self):
-        self._requests: Dict[str, MockDeletionRequest] = {}
-        self._holds: Dict[str, MockLegalHold] = {}
+        self._requests: dict[str, MockDeletionRequest] = {}
+        self._holds: dict[str, MockLegalHold] = {}
 
     def get_request(self, request_id: str) -> Optional[MockDeletionRequest]:
         return self._requests.get(request_id)
@@ -272,13 +273,13 @@ class MockDeletionStore:
         self,
         status: Optional[MockDeletionStatus] = None,
         limit: int = 50,
-    ) -> List[MockDeletionRequest]:
+    ) -> list[MockDeletionRequest]:
         requests = list(self._requests.values())
         if status:
             requests = [r for r in requests if r.status == status]
         return requests[:limit]
 
-    def get_active_holds_for_user(self, user_id: str) -> List[MockLegalHold]:
+    def get_active_holds_for_user(self, user_id: str) -> list[MockLegalHold]:
         return [h for h in self._holds.values() if h.is_active and user_id in h.user_ids]
 
 
@@ -287,14 +288,14 @@ class MockDeletionScheduler:
 
     def __init__(self):
         self.store = MockDeletionStore()
-        self._requests: Dict[str, MockDeletionRequest] = {}
+        self._requests: dict[str, MockDeletionRequest] = {}
 
     def schedule_deletion(
         self,
         user_id: str,
         grace_period_days: int = 30,
         reason: str = "User request",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> MockDeletionRequest:
         request = MockDeletionRequest(
             request_id=f"del-{user_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
@@ -325,18 +326,18 @@ class MockLegalHoldManager:
 
     def __init__(self):
         self._store = MockDeletionStore()
-        self._holds: Dict[str, MockLegalHold] = {}
-        self._user_holds: Dict[str, List[str]] = {}
+        self._holds: dict[str, MockLegalHold] = {}
+        self._user_holds: dict[str, list[str]] = {}
 
     def is_user_on_hold(self, user_id: str) -> bool:
         return user_id in self._user_holds and len(self._user_holds[user_id]) > 0
 
-    def get_active_holds(self) -> List[MockLegalHold]:
+    def get_active_holds(self) -> list[MockLegalHold]:
         return [h for h in self._holds.values() if h.is_active]
 
     def create_hold(
         self,
-        user_ids: List[str],
+        user_ids: list[str],
         reason: str,
         created_by: str,
         case_reference: Optional[str] = None,
@@ -378,7 +379,7 @@ class MockDeletionCoordinator:
     """Mock deletion coordinator for testing."""
 
     def __init__(self):
-        self._exclusions: List[Dict[str, Any]] = []
+        self._exclusions: list[dict[str, Any]] = []
 
     async def execute_coordinated_deletion(
         self,
@@ -398,13 +399,13 @@ class MockDeletionCoordinator:
         self,
         include_backups: bool = True,
         limit: int = 100,
-    ) -> List[MockCascadeReport]:
+    ) -> list[MockCascadeReport]:
         return [
             MockCascadeReport(success=True, user_id="user-001"),
             MockCascadeReport(success=True, user_id="user-002"),
         ]
 
-    def get_backup_exclusion_list(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_backup_exclusion_list(self, limit: int = 100) -> list[dict[str, Any]]:
         return self._exclusions[:limit]
 
     def add_to_backup_exclusion_list(self, user_id: str, reason: str) -> None:

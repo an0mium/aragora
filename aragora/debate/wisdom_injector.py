@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class WisdomSubmission:
     """A wisdom contribution from the audience."""
@@ -51,6 +52,7 @@ class WisdomSubmission:
         content = f"{text}:{submitter_id}:{timestamp}"
         return hashlib.sha256(content.encode()).hexdigest()[:12]
 
+
 @dataclass
 class WisdomInjection:
     """Record of a wisdom injection into the debate."""
@@ -63,6 +65,7 @@ class WisdomInjection:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
 
 class WisdomInjector:
     """
@@ -389,14 +392,17 @@ class WisdomInjector:
             "total_upvotes": sum(s.get("upvotes", 0) for s in self.submitter_stats.values()),
         }
 
+
 # Per-loop injector instances
 _injectors: dict[str, WisdomInjector] = {}
+
 
 def get_wisdom_injector(loop_id: str) -> WisdomInjector:
     """Get or create a wisdom injector for a loop."""
     if loop_id not in _injectors:
         _injectors[loop_id] = WisdomInjector(loop_id)
     return _injectors[loop_id]
+
 
 def close_wisdom_injector(loop_id: str) -> None:
     """Close and remove a wisdom injector."""

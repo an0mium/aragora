@@ -55,6 +55,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentProfileWrapper:
     """
@@ -121,6 +122,7 @@ class AgentProfileWrapper:
             availability=1.0,
         )
 
+
 @dataclass
 class MoleculeExecutionResult:
     """Result of executing a molecule."""
@@ -131,6 +133,7 @@ class MoleculeExecutionResult:
     error: str | None = None
     agent: str | None = None
     duration_seconds: float = 0.0
+
 
 class MoleculeOrchestrator:
     """
@@ -550,8 +553,10 @@ class MoleculeOrchestrator:
 
         logger.info(f"Restored {len(state.get('molecules', []))} molecules for debate {debate_id}")
 
+
 # Singleton instance
 _default_orchestrator: MoleculeOrchestrator | None = None
+
 
 def get_molecule_orchestrator(
     protocol: Optional["DebateProtocol"] = None,
@@ -562,10 +567,12 @@ def get_molecule_orchestrator(
         _default_orchestrator = MoleculeOrchestrator(protocol)
     return _default_orchestrator
 
+
 def reset_molecule_orchestrator() -> None:
     """Reset the default orchestrator (for testing)."""
     global _default_orchestrator
     _default_orchestrator = None
+
 
 __all__ = [
     "AgentProfileWrapper",

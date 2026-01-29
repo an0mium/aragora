@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from .formatter import ReceiptFormatter, register_formatter
 
+
 @register_formatter
 class EmailReceiptFormatter(ReceiptFormatter):
     """Format decision receipts as HTML emails."""

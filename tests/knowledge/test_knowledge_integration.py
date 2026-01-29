@@ -100,7 +100,7 @@ def mock_embedding_service(sample_embeddings):
     service = MagicMock()
     counter = [0]  # Use list to allow modification in closure
 
-    async def mock_embed(text: str) -> List[float]:
+    async def mock_embed(text: str) -> list[float]:
         # Return unique embedding by adding small variation
         counter[0] += 1
         base = sample_embeddings["fact1"].copy()

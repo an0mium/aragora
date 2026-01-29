@@ -37,6 +37,7 @@ from .client import (
     _is_retryable_error,
 )
 
+
 class SlackMessagesMixin:
     """Mixin providing message send/update/delete, formatting, and file operations."""
 

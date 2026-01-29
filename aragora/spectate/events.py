@@ -3,6 +3,7 @@ Centralized event type constants for Spectator Mode.
 Prevents typos and ensures consistency across the codebase.
 """
 
+
 class SpectatorEvents:
     """String constants for all spectator event types."""
 
@@ -36,6 +37,7 @@ class SpectatorEvents:
     # System
     SYSTEM = "system"
     ERROR = "error"
+
 
 # Icon and color mappings for visual styling
 # Format: (emoji_icon, ansi_color_code)

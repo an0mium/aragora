@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CultureSearchResult:
     """Wrapper for culture search results with adapter metadata."""
@@ -43,6 +44,7 @@ class CultureSearchResult:
     relevance_score: float = 0.0
     workspace_id: str = ""
     observation_count: int = 0
+
 
 @dataclass
 class StoredCulturePattern:
@@ -59,6 +61,7 @@ class StoredCulturePattern:
     last_observed: str
     contributing_debates: list[str]
     metadata: dict[str, Any]
+
 
 class CultureAdapter:
     """

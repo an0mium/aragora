@@ -32,6 +32,7 @@ from aragora.nomic.cycle_store import CycleLearningStore, get_cycle_store
 
 logger = logging.getLogger(__name__)
 
+
 class NomicLoop:
     """
     Nomic Loop for autonomous self-improvement cycles.

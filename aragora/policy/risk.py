@@ -21,6 +21,7 @@ from enum import IntEnum
 
 logger = logging.getLogger(__name__)
 
+
 class RiskLevel(IntEnum):
     """Risk level for tools and actions.
 
@@ -33,6 +34,7 @@ class RiskLevel(IntEnum):
     HIGH = 3  # Significant side effects, may need human review
     CRITICAL = 4  # Major side effects, requires human approval
 
+
 class BlastRadius(IntEnum):
     """Blast radius - how far can damage spread?
 
@@ -44,6 +46,7 @@ class BlastRadius(IntEnum):
     LOCAL = 2  # Changes to local files, reversible via git
     SHARED = 3  # Changes visible to team (staging, shared DB)
     PRODUCTION = 4  # Changes affect live users
+
 
 @dataclass
 class RiskBudget:
@@ -179,6 +182,7 @@ class RiskBudget:
             "last_action_at": self.last_action_at,
         }
 
+
 # Risk level descriptions for UI/logs
 RISK_LEVEL_DESCRIPTIONS = {
     RiskLevel.NONE: "No risk - pure observation",
@@ -196,6 +200,7 @@ BLAST_RADIUS_DESCRIPTIONS = {
     BlastRadius.PRODUCTION: "Production - affects live users",
 }
 
+
 def get_risk_color(level: RiskLevel) -> str:
     """Get color for UI display."""
     colors = {
@@ -207,6 +212,7 @@ def get_risk_color(level: RiskLevel) -> str:
     }
     return colors.get(level, "gray")
 
+
 def get_blast_radius_color(radius: BlastRadius) -> str:
     """Get color for UI display."""
     colors = {
@@ -217,6 +223,7 @@ def get_blast_radius_color(radius: BlastRadius) -> str:
         BlastRadius.PRODUCTION: "red",
     }
     return colors.get(radius, "gray")
+
 
 __all__ = [
     "RiskLevel",

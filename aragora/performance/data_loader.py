@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 K = TypeVar("K")  # Key type
 V = TypeVar("V")  # Value type
 
+
 @dataclass
 class LoaderStats:
     """Statistics for a DataLoader instance."""
@@ -84,12 +85,14 @@ class LoaderStats:
             "max_queue_size_seen": self.max_queue_size_seen,
         }
 
+
 @dataclass
 class BatchRequest(Generic[K]):
     """A pending batch request."""
 
     key: K
     future: asyncio.Future[Any]
+
 
 class DataLoader(Generic[K, V]):
     """
@@ -327,6 +330,7 @@ class DataLoader(Generic[K, V]):
         self._cache.clear()
         self._stats = LoaderStats()
 
+
 class BatchResolver:
     """
     Manages multiple DataLoaders for different entity types.
@@ -376,8 +380,10 @@ class BatchResolver:
         """Get stats for all loaders."""
         return {name: loader.stats.to_dict() for name, loader in self._loaders.items()}
 
+
 # Request-scoped loader storage
 _request_loaders: WeakValueDictionary[int, BatchResolver] = WeakValueDictionary()
+
 
 def create_data_loader(
     batch_fn: Callable[[list[K]], Awaitable[list[V]]],
@@ -397,7 +403,9 @@ def create_data_loader(
     """
     return DataLoader(batch_fn, **kwargs)
 
+
 # Pre-built batch functions for common patterns
+
 
 async def batch_by_id(
     ids: list[str],
@@ -415,6 +423,7 @@ async def batch_by_id(
     """
     results = await fetch_fn(ids)
     return [results.get(id) for id in ids]
+
 
 __all__ = [
     "DataLoader",

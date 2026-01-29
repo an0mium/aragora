@@ -37,6 +37,7 @@ T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DeviceConnectorConfig:
     """Configuration for device connectors."""
@@ -61,6 +62,7 @@ class DeviceConnectorConfig:
 
     # Credentials (platform-specific)
     credentials: dict[str, Any] = field(default_factory=dict)
+
 
 class DeviceConnector(ABC):
     """

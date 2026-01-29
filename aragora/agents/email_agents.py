@@ -35,6 +35,7 @@ from aragora.agents.base import BaseDebateAgent
 
 logger = logging.getLogger(__name__)
 
+
 class EmailAgentPersona:
     """Base persona configuration for email agents."""
 
@@ -78,6 +79,7 @@ Be specific about what signals informed your decision. When uncertain, express l
 Consider how your specialized perspective complements other agents' analyses."""
 
         return prompt
+
 
 class SenderReputationAgent(BaseDebateAgent):
     """
@@ -175,6 +177,7 @@ class SenderReputationAgent(BaseDebateAgent):
             return 4  # Low
         else:
             return 5  # Defer
+
 
 class ContentUrgencyAgent(BaseDebateAgent):
     """
@@ -300,6 +303,7 @@ class ContentUrgencyAgent(BaseDebateAgent):
         else:
             return 5  # Defer
 
+
 class ContextRelevanceAgent(BaseDebateAgent):
     """
     Cross-references email with user's context and activities.
@@ -402,6 +406,7 @@ class ContextRelevanceAgent(BaseDebateAgent):
         else:
             return 5  # Defer
 
+
 class BillingCriticalityAgent(BaseDebateAgent):
     """
     Identifies financial and contract-related emails.
@@ -497,6 +502,7 @@ class BillingCriticalityAgent(BaseDebateAgent):
         else:
             return 4  # Low
 
+
 class TimelineAgent(BaseDebateAgent):
     """
     Considers user's schedule and response patterns.
@@ -527,6 +533,7 @@ class TimelineAgent(BaseDebateAgent):
             **kwargs,
         )
         self.persona = persona
+
 
 class CategorizationAgent(BaseDebateAgent):
     """
@@ -668,6 +675,7 @@ Your task is to identify the MOST appropriate category based on content, sender,
             "all_scores": scores,
         }
 
+
 def get_email_agent_team(
     knowledge_mound=None,
     include_billing: bool = True,
@@ -703,6 +711,7 @@ def get_email_agent_team(
 
     return agents
 
+
 def get_categorization_agent_team() -> list[BaseDebateAgent]:
     """
     Get the agent team for email categorization debates.
@@ -715,6 +724,7 @@ def get_categorization_agent_team() -> list[BaseDebateAgent]:
         ContentUrgencyAgent(),  # type: ignore[abstract]
         BillingCriticalityAgent(),  # type: ignore[abstract]
     ]
+
 
 # Agent configuration for AGENTS.md registration
 AGENT_CONFIGS = {

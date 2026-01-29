@@ -35,7 +35,7 @@ class MockKnowledgeMound:
 
     def __init__(self, workspace_id: str = "test-workspace"):
         self.workspace_id = workspace_id
-        self.nodes: Dict[str, Any] = {}
+        self.nodes: dict[str, Any] = {}
         self._node_counter = 0
 
     async def add_node(self, node: Any) -> str:
@@ -49,7 +49,7 @@ class MockKnowledgeMound:
         """Get a node by ID."""
         return self.nodes.get(node_id)
 
-    async def query(self, query: str, limit: int = 10) -> List[Any]:
+    async def query(self, query: str, limit: int = 10) -> list[Any]:
         """Query nodes by content."""
         results = []
         for node in self.nodes.values():

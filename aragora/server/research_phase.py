@@ -37,6 +37,7 @@ SUMMARIZATION_TIMEOUT = 60.0  # Claude summarization of search results
 # Model for research tasks (Opus 4.5 for best quality)
 RESEARCH_MODEL = "claude-opus-4-5-20251101"
 
+
 @dataclass
 class SearchResult:
     """A single search result."""
@@ -45,6 +46,7 @@ class SearchResult:
     url: str
     snippet: str
     source: str = ""
+
 
 @dataclass
 class ResearchResult:
@@ -75,6 +77,7 @@ class ResearchResult:
                 parts.append("")
 
         return "\n".join(parts)
+
 
 class PreDebateResearcher:
     """Performs web search for current events before debates."""
@@ -530,6 +533,7 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
                 is_current_event=False,
             )
 
+
 async def research_question(
     question: str,
     summarize: bool = True,
@@ -563,6 +567,7 @@ async def research_question(
         return await researcher.research_and_summarize(question, max_results)
     else:
         return await researcher.search(question, max_results)
+
 
 async def research_for_debate(question: str) -> str:
     """Research a topic and return formatted context for debate agents.

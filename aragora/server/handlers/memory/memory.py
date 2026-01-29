@@ -64,6 +64,7 @@ except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
     CritiqueStore = None  # type: ignore[misc,assignment]
 
+
 class MemoryHandler(SecureHandler):
     """Handler for memory-related endpoints.
 

@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
 
+
 class GmailThreadsHandler(SecureHandler):
     """Handler for Gmail threads and drafts endpoints.
 
@@ -766,6 +767,7 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
             return response.json()
+
 
 # Export for handler registration
 __all__ = ["GmailThreadsHandler"]

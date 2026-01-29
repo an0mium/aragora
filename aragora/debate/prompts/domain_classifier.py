@@ -89,6 +89,7 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
+
 def word_match(text: str, keywords: list[str]) -> bool:
     """Check if any keyword appears as a whole word in text.
 
@@ -106,6 +107,7 @@ def word_match(text: str, keywords: list[str]) -> bool:
         if re.search(rf"\b{re.escape(kw)}\b", text):
             return True
     return False
+
 
 def detect_question_domain_keywords(question: str) -> str:
     """Keyword-based domain detection (fallback when LLM unavailable).
@@ -135,6 +137,7 @@ def detect_question_domain_keywords(question: str) -> str:
 
     return "general"
 
+
 def get_domain_keywords(domain: str) -> set[str]:
     """Get the keywords associated with a domain.
 
@@ -145,6 +148,7 @@ def get_domain_keywords(domain: str) -> set[str]:
         Set of keywords for the domain, or empty set if unknown.
     """
     return set(DOMAIN_KEYWORDS.get(domain, []))
+
 
 def classify_by_keywords(text: str) -> dict[str, bool]:
     """Classify text against all domain keyword sets.

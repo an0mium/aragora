@@ -42,6 +42,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KafkaConfig:
     """Configuration for Kafka connector."""
@@ -76,6 +77,7 @@ class KafkaConfig:
     batch_size: int = 100
     poll_timeout_seconds: float = 1.0
     message_handler: Callable | None = None  # Custom message processor
+
 
 @dataclass
 class KafkaMessage:
@@ -122,6 +124,7 @@ class KafkaMessage:
                 "headers": self.headers,
             },
         )
+
 
 class KafkaConnector(EnterpriseConnector):
     """
@@ -378,5 +381,6 @@ class KafkaConnector(EnterpriseConnector):
         """
         async for item in self.sync(batch_size=batch_size):
             yield item
+
 
 __all__ = ["KafkaConnector", "KafkaConfig", "KafkaMessage"]

@@ -36,9 +36,9 @@ class MockDimensionScore:
     score: float = 4.0
     confidence: float = 0.85
     feedback: str = "Good relevance to the query"
-    examples: List[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "dimension": self.dimension,
             "score": self.score,
@@ -60,15 +60,15 @@ class MockEvaluationResult:
     use_case: str = "default"
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     summary: str = "Good quality response overall"
-    strengths: List[str] = field(default_factory=lambda: ["Clear explanation", "Accurate"])
-    weaknesses: List[str] = field(default_factory=lambda: ["Could be more concise"])
-    suggestions: List[str] = field(default_factory=lambda: ["Add examples"])
+    strengths: list[str] = field(default_factory=lambda: ["Clear explanation", "Accurate"])
+    weaknesses: list[str] = field(default_factory=lambda: ["Could be more concise"])
+    suggestions: list[str] = field(default_factory=lambda: ["Add examples"])
     passes_threshold: bool = True
     threshold_used: float = 3.5
-    dimension_scores: Dict[str, MockDimensionScore] = field(default_factory=dict)
-    weights_used: Dict[str, float] = field(default_factory=dict)
+    dimension_scores: dict[str, MockDimensionScore] = field(default_factory=dict)
+    weights_used: dict[str, float] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "response_id": self.response_id,
@@ -97,14 +97,14 @@ class MockPairwiseResult:
     response_b_id: str = "B"
     winner: str = "A"
     confidence: float = 0.75
-    dimension_preferences: Dict[str, str] = field(
+    dimension_preferences: dict[str, str] = field(
         default_factory=lambda: {"relevance": "A", "clarity": "tie", "accuracy": "A"}
     )
     explanation: str = "Response A is more comprehensive and better addresses the query."
     judge_model: str = "claude-sonnet-4-20250514"
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "response_a_id": self.response_a_id,
@@ -175,7 +175,7 @@ class MockJudgeConfig:
         self,
         use_case: str = "default",
         pass_threshold: float = 3.5,
-        dimensions: Optional[List] = None,
+        dimensions: Optional[list] = None,
     ):
         self.use_case = use_case
         self.pass_threshold = pass_threshold
@@ -184,7 +184,7 @@ class MockJudgeConfig:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     path: str = "/api/v1/evaluate",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

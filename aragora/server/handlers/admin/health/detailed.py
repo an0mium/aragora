@@ -27,6 +27,7 @@ from ..health_utils import (
 
 logger = logging.getLogger(__name__)
 
+
 def health_check(handler) -> HandlerResult:
     """Comprehensive health check for k8s/docker deployments.
 
@@ -232,6 +233,7 @@ def health_check(handler) -> HandlerResult:
 
     return json_response(health, status=status_code)
 
+
 def websocket_health(handler) -> HandlerResult:
     """Basic WebSocket health check for availability and client count."""
     ws_manager = handler.ctx.get("ws_manager")
@@ -253,6 +255,7 @@ def websocket_health(handler) -> HandlerResult:
             {"status": "error", "clients": 0, "message": str(e)[:120]},
             status=503,
         )
+
 
 def detailed_health_check(handler) -> HandlerResult:
     """Return detailed health status with system observer metrics.
@@ -427,6 +430,7 @@ def detailed_health_check(handler) -> HandlerResult:
         }
 
     return json_response(health)
+
 
 def deep_health_check(handler) -> HandlerResult:
     """Deep health check - verifies all external dependencies.

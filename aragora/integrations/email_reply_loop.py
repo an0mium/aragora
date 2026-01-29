@@ -64,6 +64,7 @@ DEBATE_ID_PATTERN = re.compile(r"debate[_-]?id[:=\s]*([a-zA-Z0-9_-]+)", re.IGNOR
 REPLY_MARKER_PATTERN = re.compile(r"^>.*$|^On .+ wrote:$", re.MULTILINE)
 SIGNATURE_PATTERN = re.compile(r"^--\s*$.*", re.DOTALL | re.MULTILINE)
 
+
 @dataclass
 class InboundEmail:
     """Represents a parsed inbound email."""
@@ -152,6 +153,7 @@ class InboundEmail:
             "received_at": self.received_at.isoformat(),
         }
 
+
 @dataclass
 class EmailReplyOrigin:
     """Tracks an email that expects a reply."""
@@ -198,12 +200,14 @@ class EmailReplyOrigin:
             metadata=data.get("metadata", {}),
         )
 
+
 # TTL for email origins in Redis (24 hours)
 EMAIL_ORIGIN_TTL_SECONDS = 86400
 
 # In-memory store for tracking reply origins (with Redis persistence)
 _reply_origins: dict[str, EmailReplyOrigin] = {}
 _reply_origins_lock = asyncio.Lock()
+
 
 class SQLiteEmailReplyStore:
     """SQLite-backed email reply origin store for durability without Redis."""
@@ -280,6 +284,7 @@ class SQLiteEmailReplyStore:
                 metadata=json.loads(row[7]) if row[7] else {},
             )
         return None
+
 
 class PostgresEmailReplyStore:
     """PostgreSQL-backed email reply origin store for multi-instance deployments."""
@@ -374,11 +379,13 @@ class PostgresEmailReplyStore:
             count = int(result.split()[-1]) if result else 0
             return count
 
+
 # Lazy-loaded stores with thread-safe initialization
 _sqlite_email_store: SQLiteEmailReplyStore | None = None
 _sqlite_email_store_lock = threading.Lock()
 _postgres_email_store: PostgresEmailReplyStore | None = None
 _postgres_email_store_lock = asyncio.Lock()
+
 
 def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
     """Get or create the SQLite email reply store (thread-safe)."""
@@ -391,6 +398,7 @@ def _get_sqlite_email_store() -> SQLiteEmailReplyStore:
         if _sqlite_email_store is None:
             _sqlite_email_store = SQLiteEmailReplyStore()
         return _sqlite_email_store
+
 
 async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
     """Get or create the PostgreSQL email reply store if configured (thread-safe)."""
@@ -420,6 +428,7 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
             logger.warning(f"PostgreSQL email reply store not available: {e}")
             return None
 
+
 def _get_postgres_email_store_sync() -> PostgresEmailReplyStore | None:
     """Synchronous wrapper for getting PostgreSQL email store."""
     try:
@@ -431,6 +440,7 @@ def _get_postgres_email_store_sync() -> PostgresEmailReplyStore | None:
     except RuntimeError:
         # No event loop
         return None
+
 
 def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
     """Store email origin in Redis with TTL."""
@@ -445,6 +455,7 @@ def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
     except Exception as e:
         logger.debug(f"Redis email origin store failed: {e}")
         raise
+
 
 def _load_email_origin_redis(message_id: str) -> EmailReplyOrigin | None:
     """Load email origin from Redis."""
@@ -462,6 +473,7 @@ def _load_email_origin_redis(message_id: str) -> EmailReplyOrigin | None:
     except Exception as e:
         logger.debug(f"Redis email origin load failed: {e}")
         raise
+
 
 def register_email_origin(
     debate_id: str,
@@ -540,6 +552,7 @@ def register_email_origin(
     )
     return origin
 
+
 async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
     """Get the origin for an email reply.
 
@@ -581,6 +594,7 @@ async def get_origin_by_reply(in_reply_to: str) -> EmailReplyOrigin | None:
                 logger.debug(f"SQLite email origin lookup failed: {e}")
 
         return None
+
 
 def parse_raw_email(raw_data: bytes) -> InboundEmail:
     """
@@ -659,6 +673,7 @@ def parse_raw_email(raw_data: bytes) -> InboundEmail:
         raw_data=raw_data,
     )
 
+
 def parse_sendgrid_webhook(data: dict[str, Any]) -> InboundEmail:
     """
     Parse SendGrid Inbound Parse webhook data.
@@ -702,6 +717,7 @@ def parse_sendgrid_webhook(data: dict[str, Any]) -> InboundEmail:
         headers=headers,
         attachments=[],  # Attachments require separate handling
     )
+
 
 def parse_ses_notification(data: dict[str, Any]) -> InboundEmail | None:
     """
@@ -763,6 +779,7 @@ def parse_ses_notification(data: dict[str, Any]) -> InboundEmail | None:
 
     return None
 
+
 def _parse_email_address(address: str) -> tuple[str, str]:
     """Parse email address to (email, name)."""
     if not address:
@@ -780,8 +797,10 @@ def _parse_email_address(address: str) -> tuple[str, str]:
 
     return address, ""
 
+
 # Pattern for detecting debate requests in email subject
 NEW_DEBATE_PATTERN = re.compile(r"^(?:DEBATE|DISCUSS|ASK|QUESTION)[:\s]+(.+)$", re.IGNORECASE)
+
 
 async def _try_start_new_debate(email_data: InboundEmail) -> bool:
     """
@@ -882,6 +901,7 @@ async def _try_start_new_debate(email_data: InboundEmail) -> bool:
     except Exception as e:
         logger.error(f"Failed to start email debate: {e}")
         return False
+
 
 async def process_inbound_email(email_data: InboundEmail) -> bool:
     """
@@ -997,6 +1017,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
     return False
 
+
 def verify_sendgrid_signature(payload: bytes, timestamp: str, signature: str) -> bool:
     """
     Verify SendGrid webhook signature.
@@ -1018,6 +1039,7 @@ def verify_sendgrid_signature(payload: bytes, timestamp: str, signature: str) ->
     expected = hmac.new(SENDGRID_INBOUND_SECRET.encode(), to_sign, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(signature, expected)
+
 
 def verify_ses_signature(message: dict[str, Any]) -> bool:
     """
@@ -1047,9 +1069,11 @@ def verify_ses_signature(message: dict[str, Any]) -> bool:
 
     return True
 
+
 # Reply handlers registry with thread-safe access
 _reply_handlers: list[Callable[[InboundEmail], bool]] = []
 _reply_handlers_lock = threading.Lock()
+
 
 def register_reply_handler(handler: Callable[[InboundEmail], bool]) -> None:
     """
@@ -1062,6 +1086,7 @@ def register_reply_handler(handler: Callable[[InboundEmail], bool]) -> None:
     """
     with _reply_handlers_lock:
         _reply_handlers.append(handler)
+
 
 async def handle_email_reply(email_data: InboundEmail) -> bool:
     """
@@ -1088,6 +1113,7 @@ async def handle_email_reply(email_data: InboundEmail) -> bool:
     # Default processing
     return await process_inbound_email(email_data)
 
+
 def setup_email_reply_loop() -> None:
     """
     Set up the email reply loop.
@@ -1099,6 +1125,7 @@ def setup_email_reply_loop() -> None:
 
     # Note: Actual webhook route registration happens in the handler module
     # This function initializes any required state
+
 
 __all__ = [
     "InboundEmail",

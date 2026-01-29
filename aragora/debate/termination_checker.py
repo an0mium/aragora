@@ -26,6 +26,7 @@ Usage:
         # High confidence - safe to terminate
         pass
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 # RLM Ready Signal Configuration
 RLM_HIGH_CONFIDENCE_THRESHOLD = 0.8  # Confidence needed for early termination
 RLM_MIN_CONFIDENCE_FOR_STOP = 0.6  # Minimum confidence to consider stopping
+
 
 @dataclass
 class TerminationResult:
@@ -82,6 +84,7 @@ class TerminationResult:
     def should_consider_stopping(self) -> bool:
         """Check if termination should be considered (meets minimum threshold)."""
         return self.should_terminate and self.confidence >= RLM_MIN_CONFIDENCE_FOR_STOP
+
 
 class TerminationChecker:
     """Checks if a debate should terminate early.

@@ -34,6 +34,7 @@ from .secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
+
 class PrivacyHandler(SecureHandler):
     """Handler for GDPR/CCPA privacy endpoints.
 
@@ -589,5 +590,6 @@ class PrivacyHandler(SecureHandler):
                 "preferences": privacy_prefs,
             }
         )
+
 
 __all__ = ["PrivacyHandler"]

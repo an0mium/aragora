@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class QuotaPeriod(Enum):
     """Time period for quota limits."""
 
@@ -47,6 +48,7 @@ class QuotaPeriod(Enum):
     WEEK = "week"
     MONTH = "month"
     UNLIMITED = "unlimited"
+
 
 class QuotaExceeded(Exception):
     """Raised when a quota limit is exceeded."""
@@ -68,6 +70,7 @@ class QuotaExceeded(Exception):
         self.tenant_id = tenant_id
         self.retry_after = retry_after
         super().__init__(message)
+
 
 @dataclass
 class QuotaLimit:
@@ -99,6 +102,7 @@ class QuotaLimit:
             QuotaPeriod.MONTH: 2592000,  # 30 days
             QuotaPeriod.UNLIMITED: 0,
         }.get(self.period, 86400)
+
 
 @dataclass
 class QuotaConfig:
@@ -152,6 +156,7 @@ class QuotaConfig:
             ]
         )
 
+
 @dataclass
 class UsageRecord:
     """Record of resource usage."""
@@ -162,6 +167,7 @@ class UsageRecord:
     period_start: datetime
     period: QuotaPeriod
     last_updated: datetime = field(default_factory=datetime.now)
+
 
 @dataclass
 class QuotaStatus:
@@ -176,6 +182,7 @@ class QuotaStatus:
     percentage_used: float
     is_exceeded: bool
     is_warning: bool
+
 
 class QuotaManager:
     """

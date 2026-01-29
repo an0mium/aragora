@@ -117,8 +117,8 @@ class TestConnectionPoolConcurrency:
     def test_concurrent_connections_within_limit(self, temp_db: Path):
         """Verify pool handles concurrent access within limits."""
         pool = ConnectionPool(temp_db, max_connections=10)
-        results: List[int] = []
-        errors: List[Exception] = []
+        results: list[int] = []
+        errors: list[Exception] = []
 
         def db_operation(operation_id: int) -> int:
             try:
@@ -144,9 +144,9 @@ class TestConnectionPoolConcurrency:
     def test_concurrent_connections_exceed_limit_with_wait(self, temp_db: Path):
         """Verify operations queue when pool exhausted."""
         pool = ConnectionPool(temp_db, max_connections=3, timeout=5.0)
-        results: List[int] = []
-        errors: List[Exception] = []
-        operation_times: List[float] = []
+        results: list[int] = []
+        errors: list[Exception] = []
+        operation_times: list[float] = []
 
         def db_operation(operation_id: int) -> int:
             try:
@@ -268,8 +268,8 @@ class TestWALModeConcurrentWrites:
         """Verify concurrent writes succeed with WAL mode."""
         pool = ConnectionPool(temp_db, max_connections=10)
         write_count = 50
-        results: List[bool] = []
-        errors: List[Exception] = []
+        results: list[bool] = []
+        errors: list[Exception] = []
 
         def write_operation(writer_id: int) -> bool:
             try:
@@ -304,8 +304,8 @@ class TestWALModeConcurrentWrites:
     def test_concurrent_read_write_mix(self, temp_db: Path):
         """Verify concurrent reads and writes work together."""
         pool = ConnectionPool(temp_db, max_connections=10)
-        results: List[Any] = []
-        errors: List[Exception] = []
+        results: list[Any] = []
+        errors: list[Exception] = []
 
         def read_operation() -> int:
             try:

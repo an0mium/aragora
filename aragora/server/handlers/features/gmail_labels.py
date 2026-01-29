@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
 
+
 class GmailLabelsHandler(SecureHandler):
     """Handler for Gmail labels and message modification endpoints.
 
@@ -663,6 +664,7 @@ class GmailLabelsHandler(SecureHandler):
                 headers={"Authorization": f"Bearer {token}"},
             )
             response.raise_for_status()
+
 
 # Export for handler registration
 __all__ = ["GmailLabelsHandler"]

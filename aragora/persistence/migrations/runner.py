@@ -58,6 +58,7 @@ DEFAULT_DB_PATHS = {
     "tokens": "aragora_tokens.db",
 }
 
+
 @dataclass
 class MigrationFile:
     """Represents a migration file."""
@@ -80,6 +81,7 @@ class MigrationFile:
         content = self.path.read_bytes()
         return hashlib.sha256(content).hexdigest()[:16]
 
+
 @dataclass
 class AppliedMigration:
     """Record of an applied migration with metadata."""
@@ -88,6 +90,7 @@ class AppliedMigration:
     name: str
     checksum: str
     applied_at: str
+
 
 @dataclass
 class MigrationStatus:
@@ -103,6 +106,7 @@ class MigrationStatus:
     # Enhanced tracking
     applied_details: list[AppliedMigration] = field(default_factory=list)
     checksum_mismatches: list[int] = field(default_factory=list)
+
 
 class MigrationRunner:
     """
@@ -331,7 +335,10 @@ class MigrationRunner:
                             )
                         )
                     # Check for checksum mismatch
-                    if m.version in applied_checksums and applied_checksums[m.version] != m.checksum:
+                    if (
+                        m.version in applied_checksums
+                        and applied_checksums[m.version] != m.checksum
+                    ):
                         checksum_mismatches.append(m.version)
 
             return MigrationStatus(
@@ -1106,6 +1113,7 @@ def downgrade(conn: sqlite3.Connection) -> None:
 
         return file_path
 
+
 def print_status(runner: MigrationRunner) -> None:
     """Print migration status for all databases."""
     status = runner.get_all_status()
@@ -1128,6 +1136,7 @@ def print_status(runner: MigrationRunner) -> None:
         else:
             print("  Status: Up to date")
         print()
+
 
 def main() -> int:
     """CLI entry point."""
@@ -1351,6 +1360,7 @@ def main() -> int:
     # No command specified, show help
     parser.print_help()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

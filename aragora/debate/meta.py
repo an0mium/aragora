@@ -8,6 +8,7 @@ Enables agents to analyze the debate process itself, identifying:
 - Missed opportunities
 - Process improvements
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ from aragora.core import Critique, DebateResult, Message
 from aragora.memory.embeddings import EmbeddingProvider, cosine_similarity
 from aragora.utils.async_utils import run_async
 
+
 @dataclass
 class MetaObservation:
     """An observation about the debate process."""
@@ -31,6 +33,7 @@ class MetaObservation:
     round_range: tuple[int, int]  # Which rounds this applies to
     agents_involved: list[str] = field(default_factory=list)
     evidence: list[str] = field(default_factory=list)
+
 
 @dataclass
 class MetaCritique:
@@ -58,6 +61,7 @@ class MetaCritique:
             parts.append(f"Top Recommendation: {self.recommendations[0]}")
 
         return " | ".join(parts)
+
 
 class MetaCritiqueAnalyzer:
     """

@@ -52,7 +52,7 @@ class MockSSOConfig:
     entity_id: str = "https://app.example.com"
     logout_url: str = "https://idp.example.com/logout"
     session_duration_seconds: int = 28800
-    allowed_domains: List[str] = field(default_factory=list)
+    allowed_domains: list[str] = field(default_factory=list)
     auto_provision: bool = True
 
 
@@ -65,14 +65,14 @@ class MockSSOUser:
     name: str = "SSO User"
     first_name: str = "SSO"
     last_name: str = "User"
-    roles: List[str] = field(default_factory=list)
-    groups: List[str] = field(default_factory=list)
+    roles: list[str] = field(default_factory=list)
+    groups: list[str] = field(default_factory=list)
     provider_type: str = "oidc"
     access_token: str = "access_token_123"
     refresh_token: str = "refresh_token_123"
     id_token: str = "id_token_123"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "email": self.email,
@@ -146,7 +146,7 @@ class MockHTTPHandler:
 
     def __init__(
         self,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         has_send_response: bool = True,
     ):
         self.headers = headers or {}
@@ -161,7 +161,7 @@ class MockHTTPHandler:
         return MagicMock()
 
 
-def get_result_body(result) -> Dict[str, Any]:
+def get_result_body(result) -> dict[str, Any]:
     """Extract body from handler result as dictionary."""
     if isinstance(result, dict):
         body = result.get("body", {})
@@ -181,7 +181,7 @@ def get_result_body(result) -> Dict[str, Any]:
     return {}
 
 
-def get_error_message(body: Dict[str, Any]) -> str:
+def get_error_message(body: dict[str, Any]) -> str:
     """Extract error message from body, handling both string and dict formats."""
     error = body.get("error", "")
     if isinstance(error, dict):
@@ -189,7 +189,7 @@ def get_error_message(body: Dict[str, Any]) -> str:
     return str(error).lower()
 
 
-def get_error_code(body: Dict[str, Any]) -> str:
+def get_error_code(body: dict[str, Any]) -> str:
     """Extract error code from body, handling both flat and nested formats."""
     # Check top-level code first
     code = body.get("code", "")
@@ -211,7 +211,7 @@ def get_result_status(result) -> int:
     return 200
 
 
-def get_result_headers(result) -> Dict[str, str]:
+def get_result_headers(result) -> dict[str, str]:
     """Extract headers from handler result."""
     if isinstance(result, dict):
         return result.get("headers", {})

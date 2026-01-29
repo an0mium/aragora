@@ -7,6 +7,7 @@ Provides persistence for evidence snippets including:
 - Debate-specific evidence tracking
 - Evidence deduplication
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.evidence_adapter import EvidenceAdapter
 
 logger = logging.getLogger(__name__)
+
 
 class EvidenceStore(SQLiteStore):
     """SQLite-based evidence persistence store."""
@@ -828,9 +830,24 @@ class EvidenceStore(SQLiteStore):
 
         Returns:
             Dictionary with retention statistics
+
+        Raises:
+            ValueError: If retention_days is not a valid positive integer
         """
+        # Validate and sanitize retention_days to prevent SQL injection
+        # SQLite datetime() modifiers don't support parameterization
+        try:
+            retention_days = int(retention_days)
+            if retention_days < 0:
+                raise ValueError("retention_days must be non-negative")
+            if retention_days > 36500:  # Max ~100 years
+                raise ValueError("retention_days exceeds maximum allowed value")
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Invalid retention_days: {e}") from e
+
         with self.connection() as conn:
             cursor = conn.cursor()
+            # Safe after validation - retention_days is now a bounded integer
             cutoff_query = f"datetime('now', '-{retention_days} days')"
 
             # Total expired
@@ -900,6 +917,7 @@ class EvidenceStore(SQLiteStore):
         """
         if hasattr(self, "_manager") and self._manager:
             self._manager.close()
+
 
 class InMemoryEvidenceStore:
     """In-memory evidence store for testing and ephemeral use."""

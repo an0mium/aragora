@@ -30,6 +30,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class CreditsAdminHandler(SecureHandler):
     """Handler for credit administration endpoints.
 
@@ -238,6 +239,7 @@ class CreditsAdminHandler(SecureHandler):
             }
         )
 
+
 def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHandler) -> None:
     """Register credits admin routes with the application.
 
@@ -302,6 +304,7 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
     app.router.add_get("/api/admin/credits/{org_id}/transactions", list_transactions)
     app.router.add_post("/api/admin/credits/{org_id}/adjust", adjust_balance)
     app.router.add_get("/api/admin/credits/{org_id}/expiring", get_expiring)
+
 
 __all__ = [
     "CreditsAdminHandler",

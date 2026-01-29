@@ -55,6 +55,7 @@ ANALYTICS_EXPORT_PERMISSION = "analytics:export"
 # Enums and Data Classes
 # =============================================================================
 
+
 class Platform(Enum):
     """Supported analytics platforms."""
 
@@ -64,6 +65,7 @@ class Platform(Enum):
     METABASE = "metabase"
     SEGMENT = "segment"
 
+
 class MetricType(Enum):
     """Metric types."""
 
@@ -72,6 +74,7 @@ class MetricType(Enum):
     HISTOGRAM = "histogram"
     RATE = "rate"
 
+
 class AlertSeverity(Enum):
     """Alert severity levels."""
 
@@ -79,12 +82,14 @@ class AlertSeverity(Enum):
     WARNING = "warning"
     CRITICAL = "critical"
 
+
 class AlertStatus(Enum):
     """Alert status."""
 
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
+
 
 class TimeRange(Enum):
     """Predefined time ranges."""
@@ -95,6 +100,7 @@ class TimeRange(Enum):
     LAST_MONTH = "30d"
     LAST_QUARTER = "90d"
     LAST_YEAR = "365d"
+
 
 @dataclass
 class MetricValue:
@@ -117,6 +123,7 @@ class MetricValue:
             "metric_type": self.metric_type.value,
         }
 
+
 @dataclass
 class AggregatedMetric:
     """Aggregated metric across platforms."""
@@ -137,6 +144,7 @@ class AggregatedMetric:
             "change_percent": self.change_percent,
             "period": self.period,
         }
+
 
 @dataclass
 class Anomaly:
@@ -164,6 +172,7 @@ class Anomaly:
             "severity": self.severity.value,
             "description": self.description,
         }
+
 
 @dataclass
 class AlertRule:
@@ -195,6 +204,7 @@ class AlertRule:
             "triggered_count": self.triggered_count,
             "last_triggered": self.last_triggered.isoformat() if self.last_triggered else None,
         }
+
 
 @dataclass
 class Alert:
@@ -231,6 +241,7 @@ class Alert:
             "acknowledged_at": self.acknowledged_at.isoformat() if self.acknowledged_at else None,
         }
 
+
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
@@ -239,19 +250,23 @@ _alert_rules: dict[str, dict[str, AlertRule]] = {}  # tenant_id -> rule_id -> Al
 _active_alerts: dict[str, dict[str, Alert]] = {}  # tenant_id -> alert_id -> Alert
 _metric_cache: dict[str, dict[str, list[MetricValue]]] = {}  # tenant_id -> metric_name -> values
 
+
 def _get_tenant_rules(tenant_id: str) -> dict[str, AlertRule]:
     if tenant_id not in _alert_rules:
         _alert_rules[tenant_id] = {}
     return _alert_rules[tenant_id]
+
 
 def _get_tenant_alerts(tenant_id: str) -> dict[str, Alert]:
     if tenant_id not in _active_alerts:
         _active_alerts[tenant_id] = {}
     return _active_alerts[tenant_id]
 
+
 # =============================================================================
 # Platform Data Fetchers
 # =============================================================================
+
 
 async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch internal Aragora metrics."""
@@ -268,6 +283,7 @@ async def fetch_aragora_metrics(tenant_id: str, time_range: str) -> dict[str, fl
         "knowledge_nodes": 15234,
         "deliberation_avg_rounds": 3.2,
     }
+
 
 async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Google Analytics 4 metrics."""
@@ -291,6 +307,7 @@ async def fetch_ga4_metrics(tenant_id: str, time_range: str) -> dict[str, float]
         "events": 234567,
     }
 
+
 async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Mixpanel metrics."""
     try:
@@ -310,6 +327,7 @@ async def fetch_mixpanel_metrics(tenant_id: str, time_range: str) -> dict[str, f
         "active_users_daily": 8765,
     }
 
+
 async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Metabase dashboard metrics."""
     try:
@@ -326,6 +344,7 @@ async def fetch_metabase_metrics(tenant_id: str, time_range: str) -> dict[str, f
         "active_users": 89,
         "avg_query_time_ms": 234.5,
     }
+
 
 async def fetch_segment_metrics(tenant_id: str, time_range: str) -> dict[str, float]:
     """Fetch Segment metrics."""
@@ -344,9 +363,11 @@ async def fetch_segment_metrics(tenant_id: str, time_range: str) -> dict[str, fl
         "delivery_rate": 0.9985,
     }
 
+
 # =============================================================================
 # Analytics Functions
 # =============================================================================
+
 
 def calculate_trend(current: float, previous: float) -> tuple[str, float]:
     """Calculate trend direction and change percentage."""
@@ -361,6 +382,7 @@ def calculate_trend(current: float, previous: float) -> tuple[str, float]:
         return ("down", change)
     else:
         return ("stable", change)
+
 
 def detect_anomalies(
     values: list[float],
@@ -405,6 +427,7 @@ def detect_anomalies(
 
     return anomalies
 
+
 def calculate_correlation(
     series_a: list[float],
     series_b: list[float],
@@ -426,9 +449,11 @@ def calculate_correlation(
 
     return numerator / (denom_a * denom_b)
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class CrossPlatformAnalyticsHandler(SecureHandler):
     """Handler for cross-platform analytics endpoints.
@@ -1149,11 +1174,13 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
             return dict(request.args)
         return {}
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
 _handler_instance: CrossPlatformAnalyticsHandler | None = None
+
 
 def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
     """Get or create handler instance."""
@@ -1162,10 +1189,12 @@ def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
         _handler_instance = CrossPlatformAnalyticsHandler()
     return _handler_instance
 
+
 async def handle_cross_platform_analytics(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for cross-platform analytics requests."""
     handler = get_cross_platform_analytics_handler()
     return await handler.handle(request, path, method)
+
 
 __all__ = [
     "CrossPlatformAnalyticsHandler",

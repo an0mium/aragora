@@ -19,6 +19,7 @@ DebateProtocol = None
 Environment = None
 create_agent = None
 
+
 def _ensure_imports():
     """Lazy load debate components."""
     global Arena, DebateProtocol, Environment, create_agent
@@ -36,6 +37,7 @@ def _ensure_imports():
         except ImportError as e:
             logger.error(f"Failed to import debate components: {e}")
             raise
+
 
 class ForkBridgeHandler:
     """

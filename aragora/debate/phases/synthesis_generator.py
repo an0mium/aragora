@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SynthesisGenerator:
     """Generates final synthesis for debates.
 
@@ -338,5 +339,6 @@ Create a comprehensive synthesis of **approximately 1200 words** (minimum 1000, 
 
 Write authoritatively. This is the FINAL WORD on this debate.
 Your response MUST be approximately 1200 words to provide comprehensive coverage."""
+
 
 __all__ = ["SynthesisGenerator"]

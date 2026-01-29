@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 @dataclass
 class RigSnapshot:
     """Snapshot of rig state for KM storage."""
@@ -50,6 +51,7 @@ class RigSnapshot:
     tasks_completed: int = 0
     tasks_failed: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class ConvoyOutcome:
@@ -68,6 +70,7 @@ class ConvoyOutcome:
     error_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class MergeOutcome:
     """Record of a merge queue outcome for KM storage."""
@@ -83,6 +86,7 @@ class MergeOutcome:
     review_approved: bool = False
     duration_seconds: float = 0.0
     error_message: str | None = None
+
 
 class WorkspaceAdapter(KnowledgeMoundAdapter):
     """
@@ -909,6 +913,7 @@ class WorkspaceAdapter(KnowledgeMoundAdapter):
         self._convoy_patterns_cache.clear()
         self._cache_times.clear()
         return count
+
 
 __all__ = [
     "WorkspaceAdapter",

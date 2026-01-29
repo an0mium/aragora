@@ -33,6 +33,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class AuditStatus(str, Enum):
     """Status of an audit session."""
 
@@ -43,6 +44,7 @@ class AuditStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 class AuditType(str, Enum):
     """Types of document audits."""
 
@@ -51,6 +53,7 @@ class AuditType(str, Enum):
     CONSISTENCY = "consistency"
     QUALITY = "quality"
     ALL = "all"
+
 
 class FindingSeverity(str, Enum):
     """Severity levels for audit findings."""
@@ -61,6 +64,7 @@ class FindingSeverity(str, Enum):
     LOW = "low"
     INFO = "info"
 
+
 class FindingStatus(str, Enum):
     """Status of an audit finding."""
 
@@ -69,6 +73,7 @@ class FindingStatus(str, Enum):
     RESOLVED = "resolved"
     FALSE_POSITIVE = "false_positive"
     WONT_FIX = "wont_fix"
+
 
 @dataclass
 class AuditFinding:
@@ -167,6 +172,7 @@ class AuditFinding:
             tags=data.get("tags", []),
         )
 
+
 @dataclass
 class AuditSession:
     """An audit session tracking state and progress."""
@@ -246,6 +252,7 @@ class AuditSession:
             "org_id": self.org_id,
         }
 
+
 @dataclass
 class AuditConfig:
     """Configuration for document auditing."""
@@ -281,6 +288,7 @@ class AuditConfig:
     use_knowledge_pipeline: bool = True  # Enable knowledge enrichment
     store_findings_as_facts: bool = True  # Store findings in knowledge base
     knowledge_workspace_id: str = "default"  # Workspace for knowledge operations
+
 
 class DocumentAuditor:
     """
@@ -955,8 +963,10 @@ Is this a valid finding? Respond with:
 
         return False
 
+
 # Global instance
 _auditor: DocumentAuditor | None = None
+
 
 def get_document_auditor(config: AuditConfig | None = None) -> DocumentAuditor:
     """Get or create global document auditor instance."""
@@ -964,6 +974,7 @@ def get_document_auditor(config: AuditConfig | None = None) -> DocumentAuditor:
     if _auditor is None:
         _auditor = DocumentAuditor(config)
     return _auditor
+
 
 __all__ = [
     "DocumentAuditor",

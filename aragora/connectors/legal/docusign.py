@@ -31,11 +31,13 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class DocuSignEnvironment(str, Enum):
     """DocuSign environment."""
 
     DEMO = "demo"
     PRODUCTION = "production"
+
 
 class EnvelopeStatus(str, Enum):
     """Envelope status values."""
@@ -48,6 +50,7 @@ class EnvelopeStatus(str, Enum):
     DECLINED = "declined"
     VOIDED = "voided"
 
+
 class RecipientType(str, Enum):
     """Types of envelope recipients."""
 
@@ -57,6 +60,7 @@ class RecipientType(str, Enum):
     IN_PERSON_SIGNER = "in_person_signer"
     EDITOR = "editor"
     AGENT = "agent"
+
 
 @dataclass
 class DocuSignCredentials:
@@ -75,6 +79,7 @@ class DocuSignCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
+
 
 @dataclass
 class Recipient:
@@ -102,6 +107,7 @@ class Recipient:
             "routing_order": self.routing_order,
             "recipient_id": self.recipient_id or str(self.routing_order),
         }
+
 
 @dataclass
 class SignatureTab:
@@ -139,6 +145,7 @@ class SignatureTab:
             )
         return base
 
+
 @dataclass
 class Document:
     """A document to be signed."""
@@ -152,6 +159,7 @@ class Document:
     def to_base64(self) -> str:
         """Convert content to base64."""
         return base64.b64encode(self.content).decode("utf-8")
+
 
 @dataclass
 class Envelope:
@@ -196,6 +204,7 @@ class Envelope:
             "sender_email": self.sender_email,
         }
 
+
 @dataclass
 class EnvelopeCreateRequest:
     """Request to create an envelope."""
@@ -213,6 +222,7 @@ class EnvelopeCreateRequest:
     expire_enabled: bool = True
     expire_days: int = 30
     expire_warn: int = 5
+
 
 class DocuSignConnector:
     """
@@ -710,9 +720,11 @@ class DocuSignConnector:
             raw_response=True,
         )
 
+
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
+
 
 def get_mock_envelope() -> Envelope:
     """Generate mock envelope for demo."""
@@ -744,6 +756,7 @@ def get_mock_envelope() -> Envelope:
         sender_name="Demo User",
         sender_email="demo@example.com",
     )
+
 
 __all__ = [
     "DocuSignConnector",

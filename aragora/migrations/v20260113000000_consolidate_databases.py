@@ -21,12 +21,120 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Callable
 
 logger = logging.getLogger(__name__)
+
+# Whitelist of valid table names for SQL injection prevention
+# Table names must match SQLite identifier rules: alphanumeric + underscore
+_VALID_TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+# Allowed tables in consolidated databases (exhaustive whitelist)
+_ALLOWED_TABLES = frozenset(
+    {
+        # Core tables
+        "debates",
+        "embeddings",
+        "positions",
+        "detected_flips",
+        "traces",
+        "trace_events",
+        # Memory tables
+        "continuum_memory",
+        "tier_transitions",
+        "continuum_memory_archive",
+        "meta_learning_state",
+        "memories",
+        "reflection_schedule",
+        "consensus",
+        "dissent",
+        "critiques",
+        "patterns",
+        "agent_reputation",
+        "semantic_embeddings",
+        "suggestion_injections",
+        "contributor_stats",
+        # Analytics tables
+        "ratings",
+        "matches",
+        "elo_history",
+        "calibration_predictions",
+        "domain_calibration",
+        "calibration_buckets",
+        "insights",
+        "debate_summaries",
+        "prompt_versions",
+        "evolution_history",
+        "meta_hyperparams",
+        "meta_efficiency_log",
+        # Agent tables
+        "personas",
+        "performance_history",
+        "agent_relationships",
+        "position_history",
+        "debate_outcomes",
+        "experiments",
+        "emergent_traits",
+        "genomes",
+        "populations",
+        "genesis_events",
+    }
+)
+
+
+def _validate_identifier(name: str) -> str:
+    """
+    Validate SQL identifier format to prevent SQL injection.
+
+    Use this for identifiers from legacy/external sources where
+    we can't whitelist all valid names.
+
+    Args:
+        name: Identifier (table/column name) to validate
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If identifier has invalid format
+    """
+    if not name:
+        raise ValueError("Identifier cannot be empty")
+
+    if not _VALID_TABLE_NAME_PATTERN.match(name):
+        raise ValueError(f"Invalid SQL identifier format: {name}")
+
+    return name
+
+
+def _validate_table_name(table: str) -> str:
+    """
+    Validate table name against whitelist to prevent SQL injection.
+
+    Use this for tables in our consolidated databases.
+
+    Args:
+        table: Table name to validate
+
+    Returns:
+        The validated table name
+
+    Raises:
+        ValueError: If table name is not in whitelist or has invalid format
+    """
+    # Check pattern first (defense in depth)
+    _validate_identifier(table)
+
+    # Check whitelist
+    if table not in _ALLOWED_TABLES:
+        raise ValueError(f"Table '{table}' not in allowed tables whitelist")
+
+    return table
+
 
 # Migration version
 VERSION = "20260113000000"
@@ -83,7 +191,9 @@ class DatabaseConsolidator:
 
     def _get_column_names(self, conn: sqlite3.Connection, table: str) -> list[str]:
         """Get column names for a table."""
-        cursor = conn.execute(f"PRAGMA table_info({table})")
+        # Validate identifier format to prevent SQL injection
+        validated_table = _validate_identifier(table)
+        cursor = conn.execute(f"PRAGMA table_info({validated_table})")
         return [row[1] for row in cursor.fetchall()]
 
     def _copy_table(
@@ -109,13 +219,19 @@ class DatabaseConsolidator:
         Returns:
             Number of rows copied
         """
-        if not self._table_exists(source_conn, source_table):
-            logger.debug(f"Source table {source_table} not found")
+        # Validate table names to prevent SQL injection
+        # Source table: validate identifier format (legacy tables may vary)
+        validated_source = _validate_identifier(source_table)
+        # Target table: validate against whitelist (our controlled databases)
+        validated_target = _validate_table_name(target_table)
+
+        if not self._table_exists(source_conn, validated_source):
+            logger.debug(f"Source table {validated_source} not found")
             return 0
 
         # Get source columns
-        source_cols = self._get_column_names(source_conn, source_table)
-        target_cols = self._get_column_names(target_conn, target_table)
+        source_cols = self._get_column_names(source_conn, validated_source)
+        target_cols = self._get_column_names(target_conn, validated_target)
 
         # Build column mapping
         if column_mapping is None:
@@ -129,11 +245,11 @@ class DatabaseConsolidator:
                 mapped_cols.append((src_col, tgt_col))
 
         if not mapped_cols:
-            logger.warning(f"No matching columns between {source_table} and {target_table}")
+            logger.warning(f"No matching columns between {validated_source} and {validated_target}")
             return 0
 
-        # Read source data
-        cursor = source_conn.execute(f"SELECT * FROM {source_table}")
+        # Read source data (validated_source already checked)
+        cursor = source_conn.execute(f"SELECT * FROM {validated_source}")
         rows = cursor.fetchall()
 
         if not rows:
@@ -166,8 +282,9 @@ class DatabaseConsolidator:
 
             if not self.dry_run:
                 try:
+                    # validated_target already checked against whitelist
                     target_conn.execute(
-                        f"INSERT OR REPLACE INTO {target_table} ({col_list}) VALUES ({placeholders})",
+                        f"INSERT OR REPLACE INTO {validated_target} ({col_list}) VALUES ({placeholders})",
                         values,
                     )
                     copied += 1
@@ -681,8 +798,13 @@ class DatabaseConsolidator:
 
             for table in tables:
                 if not self.dry_run:
-                    cursor.execute(f"DELETE FROM {table}")
-                    logger.info(f"Cleared {db_name}/{table}")
+                    # Validate table name against whitelist before DELETE
+                    try:
+                        validated_table = _validate_table_name(table)
+                        cursor.execute(f"DELETE FROM {validated_table}")
+                        logger.info(f"Cleared {db_name}/{validated_table}")
+                    except ValueError as e:
+                        logger.warning(f"Skipping unknown table {table}: {e}")
 
             if not self.dry_run:
                 conn.commit()

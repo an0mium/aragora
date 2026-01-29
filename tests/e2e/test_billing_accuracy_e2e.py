@@ -58,7 +58,7 @@ async def billing_harness():
 class MockUsageTracker:
     """Mock usage tracker for testing."""
 
-    events: List[Dict[str, Any]] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
     total_tokens_in: int = 0
     total_tokens_out: int = 0
     total_cost: Decimal = Decimal("0")
@@ -460,8 +460,8 @@ class TestQuotaEnforcement:
     class QuotaManager:
         """Mock quota manager for testing."""
 
-        quotas: Dict[str, Decimal] = field(default_factory=dict)
-        usage: Dict[str, Decimal] = field(default_factory=dict)
+        quotas: dict[str, Decimal] = field(default_factory=dict)
+        usage: dict[str, Decimal] = field(default_factory=dict)
 
         def set_quota(self, tenant_id: str, limit: Decimal):
             """Set quota for a tenant."""

@@ -19,6 +19,7 @@ Usage:
     if await manager.check_quota("debates", tenant_id=org_id):
         await manager.consume("debates", tenant_id=org_id)
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Global QuotaManager singleton for unified quota enforcement
 _quota_manager: Optional["QuotaManager"] = None
 
+
 def get_quota_manager() -> "QuotaManager":
     """Get or create the global QuotaManager instance.
 
@@ -45,6 +47,7 @@ def get_quota_manager() -> "QuotaManager":
 
         _quota_manager = QuotaManager()
     return _quota_manager
+
 
 async def check_org_quota_async(
     org_id: str,
@@ -84,6 +87,7 @@ async def check_org_quota_async(
         logger.error(f"Async quota check failed for org {org_id}: {e}")
         return True, None  # Fail open
 
+
 async def increment_org_usage_async(
     org_id: str,
     resource: str = "debates",
@@ -110,6 +114,7 @@ async def increment_org_usage_async(
     except Exception as e:
         logger.error(f"Async usage increment failed for org {org_id}: {e}")
         return False
+
 
 class QuotaExceededError(Exception):
     """Raised when organization has exceeded their tier quota."""
@@ -144,6 +149,7 @@ class QuotaExceededError(Exception):
             "tier": self.tier,
             "upgrade_url": "/pricing",
         }
+
 
 def check_org_quota(
     org_id: str,
@@ -198,6 +204,7 @@ def check_org_quota(
         # Fail open - don't block on quota check errors
         return True, None
 
+
 def increment_org_usage(
     org_id: str,
     resource: str = "debate",
@@ -240,6 +247,7 @@ def increment_org_usage(
     except Exception as e:
         logger.error(f"Failed to increment usage for org {org_id}: {e}")
         return False
+
 
 def require_quota(resource: str = "debate") -> Callable:
     """
@@ -319,6 +327,7 @@ def require_quota(resource: str = "debate") -> Callable:
 
     return decorator
 
+
 def get_quota_status(
     org_id: str,
     user_store: Any | None = None,
@@ -371,6 +380,7 @@ def get_quota_status(
     except Exception as e:
         logger.error(f"Failed to get quota status for org {org_id}: {e}")
         return {"error": str(e)}
+
 
 __all__ = [
     "QuotaExceededError",

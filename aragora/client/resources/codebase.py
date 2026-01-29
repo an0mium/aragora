@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Repository:
     """A connected code repository."""
@@ -34,6 +35,7 @@ class Repository:
     file_count: int = 0
     language_stats: dict[str, float] = field(default_factory=dict)
 
+
 @dataclass
 class CodeFile:
     """A file in the codebase."""
@@ -44,6 +46,7 @@ class CodeFile:
     lines: int
     last_modified: datetime | None = None
     complexity_score: float = 0.0
+
 
 @dataclass
 class DependencyInfo:
@@ -56,6 +59,7 @@ class DependencyInfo:
     latest_version: str | None = None
     has_vulnerabilities: bool = False
     vulnerability_count: int = 0
+
 
 @dataclass
 class SecurityFinding:
@@ -72,6 +76,7 @@ class SecurityFinding:
     recommendation: str | None = None
     status: str = "open"  # open, fixed, ignored
 
+
 @dataclass
 class AnalysisResult:
     """Result of a codebase analysis."""
@@ -83,6 +88,7 @@ class AnalysisResult:
     completed_at: datetime | None = None
     findings_count: int = 0
     summary: dict[str, Any] = field(default_factory=dict)
+
 
 class CodebaseAPI:
     """API interface for codebase analysis."""
@@ -590,6 +596,7 @@ class CodebaseAPI:
             findings_count=data.get("findings_count", 0),
             summary=data.get("summary", {}),
         )
+
 
 __all__ = [
     "CodebaseAPI",

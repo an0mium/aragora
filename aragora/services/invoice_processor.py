@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class InvoiceStatus(str, Enum):
     """Invoice processing status."""
 
@@ -58,6 +59,7 @@ class InvoiceStatus(str, Enum):
     REJECTED = "rejected"  # Rejected
     DUPLICATE = "duplicate"  # Duplicate invoice
 
+
 class AnomalyType(str, Enum):
     """Types of invoice anomalies."""
 
@@ -71,6 +73,7 @@ class AnomalyType(str, Enum):
     ROUND_AMOUNT = "round_amount"  # Suspiciously round number
     HIGH_VALUE = "high_value"  # Exceeds approval threshold
 
+
 class ApprovalLevel(str, Enum):
     """Approval levels based on amount."""
 
@@ -78,6 +81,7 @@ class ApprovalLevel(str, Enum):
     MANAGER = "manager"  # Manager approval
     DIRECTOR = "director"  # Director approval
     EXECUTIVE = "executive"  # Executive/CFO approval
+
 
 @dataclass
 class InvoiceLineItem:
@@ -101,6 +105,7 @@ class InvoiceLineItem:
             "unit": self.unit,
             "taxRate": self.tax_rate,
         }
+
 
 @dataclass
 class InvoiceData:
@@ -191,6 +196,7 @@ class InvoiceData:
             "updatedAt": self.updated_at.isoformat(),
         }
 
+
 @dataclass
 class PurchaseOrder:
     """Purchase order for matching."""
@@ -222,6 +228,7 @@ class PurchaseOrder:
             "receivedAmount": float(self.received_amount),
         }
 
+
 @dataclass
 class POMatch:
     """Result of PO matching."""
@@ -249,6 +256,7 @@ class POMatch:
             "issues": self.issues,
         }
 
+
 @dataclass
 class Anomaly:
     """An anomaly detected in an invoice."""
@@ -269,6 +277,7 @@ class Anomaly:
             "actualValue": self.actual_value,
             "recommendation": self.recommendation,
         }
+
 
 @dataclass
 class PaymentSchedule:
@@ -297,6 +306,7 @@ class PaymentSchedule:
             "discountAmount": float(self.discount_amount),
         }
 
+
 # Approval thresholds (configurable)
 APPROVAL_THRESHOLDS = {
     ApprovalLevel.AUTO: Decimal("500"),  # Auto-approve under $500
@@ -304,6 +314,7 @@ APPROVAL_THRESHOLDS = {
     ApprovalLevel.DIRECTOR: Decimal("25000"),  # Director up to $25,000
     ApprovalLevel.EXECUTIVE: Decimal("999999999"),  # Executive for higher
 }
+
 
 class InvoiceProcessor:
     """

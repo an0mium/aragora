@@ -107,6 +107,7 @@ if TYPE_CHECKING:
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
     from aragora.types.protocols import EventEmitterProtocol
 
+
 @register_lru_cache
 @lru_cache(maxsize=1024)
 def _compute_domain_from_task(task_lower: str) -> str:
@@ -132,6 +133,7 @@ def _compute_domain_from_task(task_lower: str) -> str:
     if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
         return "frontend"
     return "general"
+
 
 class Arena:
     """
@@ -167,9 +169,8 @@ class Arena:
         memory=None,  # CritiqueStore instance
         event_hooks: dict = None,  # Optional hooks for streaming events
         hook_manager=None,  # Optional HookManager for extended lifecycle hooks
-        event_emitter: 
-            "EventEmitterProtocol"
-         | None = None,  # Optional event emitter for subscribing to user events
+        event_emitter: "EventEmitterProtocol"
+        | None = None,  # Optional event emitter for subscribing to user events
         spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
         debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
         insight_store=None,  # Optional InsightStore for extracting learnings from debates

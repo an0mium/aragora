@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ByzantinePhase(str, Enum):
     """Phases of PBFT consensus."""
 
@@ -62,6 +63,7 @@ class ByzantinePhase(str, Enum):
     REPLY = "reply"  # Final confirmation
     VIEW_CHANGE = "view_change"  # Leader failure recovery
 
+
 class ViewChangeReason(str, Enum):
     """Reasons for triggering a view change."""
 
@@ -69,6 +71,7 @@ class ViewChangeReason(str, Enum):
     LEADER_FAILURE = "leader_failure"
     INVALID_PROPOSAL = "invalid_proposal"
     CONSENSUS_STALL = "consensus_stall"
+
 
 @dataclass
 class ByzantineMessage:
@@ -87,6 +90,7 @@ class ByzantineMessage:
         content = f"{self.phase.value}:{self.view}:{self.sequence}:{self.proposal_hash}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
+
 @dataclass
 class ByzantineConsensusConfig:
     """Configuration for Byzantine consensus."""
@@ -104,6 +108,7 @@ class ByzantineConsensusConfig:
     # Retry settings
     max_view_changes: int = 3
     max_retries_per_phase: int = 2
+
 
 @dataclass
 class ByzantineConsensusResult:
@@ -124,6 +129,7 @@ class ByzantineConsensusResult:
     def agreement_ratio(self) -> float:
         """Ratio of agents that committed."""
         return self.commit_count / self.total_agents if self.total_agents > 0 else 0.0
+
 
 @dataclass
 class ByzantineConsensus:
@@ -434,10 +440,12 @@ REASONING: [Your brief reasoning]"""
         """Compute deterministic hash of proposal."""
         return hashlib.sha256(proposal.encode()).hexdigest()[:16]
 
+
 class ConsensusFailure(Exception):
     """Exception raised when consensus fails."""
 
     pass
+
 
 async def verify_with_byzantine_consensus(
     proposal: str,

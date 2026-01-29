@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class JobStatus(str, Enum):
     """Status of a job in the queue."""
 
@@ -45,6 +46,7 @@ class JobStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     RETRYING = "retrying"
+
 
 @dataclass
 class QueuedJob:
@@ -134,6 +136,7 @@ class QueuedJob:
             user_id=row[14],
             workspace_id=row[15],
         )
+
 
 class JobStoreBackend(ABC):
     """Abstract base for job queue storage backends."""
@@ -225,6 +228,7 @@ class JobStoreBackend(ABC):
     async def close(self) -> None:
         """Close connections."""
         pass
+
 
 class SQLiteJobStore(JobStoreBackend):
     """
@@ -565,6 +569,7 @@ class SQLiteJobStore(JobStoreBackend):
         if hasattr(self._local, "conn"):
             self._local.conn.close()
             del self._local.conn
+
 
 class PostgresJobQueueStore(JobStoreBackend):
     """
@@ -915,8 +920,10 @@ class PostgresJobQueueStore(JobStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # Global store singleton
 _job_store: JobStoreBackend | None = None
+
 
 def get_job_store() -> JobStoreBackend:
     """
@@ -949,15 +956,18 @@ def get_job_store() -> JobStoreBackend:
 
     return _job_store
 
+
 def set_job_store(store: JobStoreBackend) -> None:
     """Set custom job store (for testing)."""
     global _job_store
     _job_store = store
 
+
 def reset_job_store() -> None:
     """Reset the global job store (for testing)."""
     global _job_store
     _job_store = None
+
 
 __all__ = [
     "JobStatus",

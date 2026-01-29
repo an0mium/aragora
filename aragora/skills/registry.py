@@ -46,6 +46,7 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SkillExecutionMetrics:
     """Metrics for skill executions."""
@@ -78,12 +79,14 @@ class SkillExecutionMetrics:
             return 0.0
         return (self.successful_invocations / self.total_invocations) * 100
 
+
 @dataclass
 class RateLimitState:
     """Rate limiting state for a skill."""
 
     window_start: float = 0.0
     request_count: int = 0
+
 
 class SkillRegistry:
     """
@@ -524,8 +527,10 @@ class SkillRegistry:
         """Get number of registered skills."""
         return len(self._skills)
 
+
 # Global registry singleton
 _default_registry: SkillRegistry | None = None
+
 
 def get_skill_registry() -> SkillRegistry:
     """Get the default skill registry instance."""
@@ -533,6 +538,7 @@ def get_skill_registry() -> SkillRegistry:
     if _default_registry is None:
         _default_registry = SkillRegistry()
     return _default_registry
+
 
 def reset_skill_registry() -> None:
     """Reset the default registry (for testing)."""

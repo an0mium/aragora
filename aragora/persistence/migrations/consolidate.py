@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Schema files
 SCHEMAS_DIR = Path(__file__).parent.parent / "schemas"
 
+
 @dataclass
 class MigrationStats:
     """Statistics for a single table migration."""
@@ -54,6 +55,7 @@ class MigrationStats:
     def __post_init__(self):
         if self.errors is None:
             self.errors = []
+
 
 @dataclass
 class ConsolidationResult:
@@ -86,6 +88,7 @@ class ConsolidationResult:
             ],
             "errors": self.errors[:10],  # Limit to first 10 errors
         }
+
 
 # Mapping of legacy databases to their tables and target consolidated database
 MIGRATION_MAP = {
@@ -961,6 +964,7 @@ MIGRATION_MAP = {
     },
 }
 
+
 class DatabaseConsolidator:
     """Handles migration from legacy databases to consolidated schema."""
 
@@ -1271,6 +1275,7 @@ class DatabaseConsolidator:
 
         return report
 
+
 def main() -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -1395,6 +1400,7 @@ def main() -> int:
     # No command specified
     parser.print_help()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

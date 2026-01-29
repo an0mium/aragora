@@ -16,6 +16,7 @@ Key features:
 - Conditional consensus synthesis
 - Decision tree output
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +38,7 @@ from aragora.debate.graph import (
     MergeStrategy,
 )
 
+
 class CounterfactualStatus(Enum):
     """Status of a counterfactual branch."""
 
@@ -45,6 +47,7 @@ class CounterfactualStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     MERGED = "merged"
+
 
 @dataclass
 class PivotClaim:
@@ -72,6 +75,7 @@ class PivotClaim:
         """Determine if this claim warrants branching."""
         # Branch if disagreement is high AND claim is important
         return self.disagreement_score > 0.5 and self.importance_score > 0.3
+
 
 @dataclass
 class CounterfactualBranch:
@@ -144,6 +148,7 @@ class CounterfactualBranch:
             "duration_seconds": self.duration_seconds,
         }
 
+
 @dataclass
 class BranchComparison:
     """Comparison of two counterfactual branch outcomes."""
@@ -165,6 +170,7 @@ class BranchComparison:
     # Recommendation
     recommended_branch: str | None = None  # Which branch leads to better outcome
     recommendation_reason: str = ""
+
 
 @dataclass
 class ConditionalConsensus:
@@ -223,6 +229,7 @@ class ConditionalConsensus:
             "unresolved_uncertainties": self.unresolved_uncertainties,
             "natural_language": self.to_natural_language(),
         }
+
 
 class ImpactDetector:
     """Detects when a debate has reached an impasse that warrants branching."""
@@ -335,6 +342,7 @@ class ImpactDetector:
                 mentions += 1
 
         return min(1.0, mentions / len(messages)) if messages else 0.0
+
 
 class CounterfactualOrchestrator:
     """
@@ -677,6 +685,7 @@ class CounterfactualOrchestrator:
         self.conditional_consensuses.clear()
         self._branch_counter = 0
 
+
 class CounterfactualIntegration:
     """
     Integration layer for counterfactual branching with DebateGraph.
@@ -748,6 +757,7 @@ class CounterfactualIntegration:
             )
 
         return merge_result, consensus
+
 
 # Convenience function for standalone use
 async def explore_counterfactual(

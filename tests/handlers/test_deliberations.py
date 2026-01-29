@@ -369,7 +369,7 @@ class TestBroadcast:
         import asyncio
 
         # Add a mock client queue
-        client_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+        client_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         deliberations._stream_clients.append(client_queue)
 
         event = {"type": "agent_message", "agent": "claude", "content": "Test"}

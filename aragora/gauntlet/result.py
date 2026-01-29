@@ -7,6 +7,7 @@ Combines findings from:
 - Scenario matrix
 - Risk analysis
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -29,6 +30,7 @@ from .types import RiskSummary as BaseRiskSummary
 
 # Import shared types
 from .types import SeverityLevel, Verdict
+
 
 @dataclass
 class Vulnerability:
@@ -81,8 +83,10 @@ class Vulnerability:
             "created_at": self.created_at,
         }
 
+
 # Use shared RiskSummary from types.py
 RiskSummary = BaseRiskSummary
+
 
 @dataclass
 class AttackSummary:
@@ -106,6 +110,7 @@ class AttackSummary:
             "coverage_score": self.coverage_score,
         }
 
+
 @dataclass
 class ProbeSummary:
     """Summary of capability probe results."""
@@ -125,6 +130,7 @@ class ProbeSummary:
             "elo_penalty": self.elo_penalty,
         }
 
+
 @dataclass
 class ScenarioSummary:
     """Summary of scenario matrix results."""
@@ -143,6 +149,7 @@ class ScenarioSummary:
             "universal_conclusions": self.universal_conclusions,
             "conditional_patterns": self.conditional_patterns,
         }
+
 
 @dataclass
 class GauntletResult:

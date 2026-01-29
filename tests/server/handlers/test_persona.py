@@ -43,8 +43,8 @@ class MockPersona:
 
     agent_name: str = "claude"
     description: str = "A helpful AI assistant"
-    traits: List[str] = field(default_factory=lambda: ["analytical", "thorough"])
-    expertise: Dict[str, float] = field(default_factory=lambda: {"reasoning": 0.9, "coding": 0.8})
+    traits: list[str] = field(default_factory=lambda: ["analytical", "thorough"])
+    expertise: dict[str, float] = field(default_factory=lambda: {"reasoning": 0.9, "coding": 0.8})
     created_at: str = "2024-01-15T10:30:00Z"
     updated_at: str = "2024-01-15T10:30:00Z"
 
@@ -54,7 +54,7 @@ class MockGroundedPersona:
     """Mock grounded persona for testing."""
 
     elo: int = 1650
-    domain_elos: Dict[str, int] = field(default_factory=lambda: {"reasoning": 1700, "coding": 1600})
+    domain_elos: dict[str, int] = field(default_factory=lambda: {"reasoning": 1700, "coding": 1600})
     games_played: int = 100
     win_rate: float = 0.65
     calibration_score: float = 0.85
@@ -67,10 +67,10 @@ class MockPersonaManager:
     """Mock persona manager for testing."""
 
     def __init__(self):
-        self._personas: Dict[str, MockPersona] = {}
+        self._personas: dict[str, MockPersona] = {}
         self._connection_ctx = MagicMock()
 
-    def get_all_personas(self) -> List[MockPersona]:
+    def get_all_personas(self) -> list[MockPersona]:
         return list(self._personas.values())
 
     def get_persona(self, agent_name: str) -> Optional[MockPersona]:
@@ -80,8 +80,8 @@ class MockPersonaManager:
         self,
         agent_name: str,
         description: str = "",
-        traits: List[str] = None,
-        expertise: Dict[str, float] = None,
+        traits: list[str] = None,
+        expertise: dict[str, float] = None,
     ) -> MockPersona:
         persona = MockPersona(
             agent_name=agent_name,
@@ -94,7 +94,7 @@ class MockPersonaManager:
         self._personas[agent_name] = persona
         return persona
 
-    def get_performance_summary(self, agent_name: str) -> Dict[str, Any]:
+    def get_performance_summary(self, agent_name: str) -> dict[str, Any]:
         return {
             "total_debates": 100,
             "wins": 65,
@@ -112,7 +112,7 @@ class MockPersonaManager:
 class MockEloSystem:
     """Mock ELO system for testing."""
 
-    def get_best_domains(self, agent: str, limit: int = 10) -> List[tuple]:
+    def get_best_domains(self, agent: str, limit: int = 10) -> list[tuple]:
         return [
             ("reasoning", 0.92),
             ("coding", 0.88),
@@ -132,7 +132,7 @@ class MockPositionTracker:
     def __init__(self, db_path: str = ""):
         self.db_path = db_path
 
-    def get_agent_position_accuracy(self, agent: str) -> Optional[Dict[str, Any]]:
+    def get_agent_position_accuracy(self, agent: str) -> Optional[dict[str, Any]]:
         return {
             "total_positions": 250,
             "verified_positions": 200,
@@ -204,7 +204,7 @@ def mock_http_handler():
     return MockHTTPHandler()
 
 
-def parse_handler_response(result) -> Dict[str, Any]:
+def parse_handler_response(result) -> dict[str, Any]:
     """Parse handler result body as JSON."""
     if hasattr(result, "body"):
         body = result.body

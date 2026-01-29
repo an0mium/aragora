@@ -51,6 +51,7 @@ from aragora.observability import get_logger, create_span, add_span_attributes
 
 logger = get_logger(__name__)
 
+
 class WorkflowEngine:
     """
     Executes workflows defined by WorkflowDefinition.
@@ -802,8 +803,10 @@ class WorkflowEngine:
             "termination_reason": self._termination_reason,
         }
 
+
 # Singleton instance
 _workflow_engine_instance: WorkflowEngine | None = None
+
 
 def get_workflow_engine(config: WorkflowConfig | None = None) -> WorkflowEngine:
     """
@@ -825,6 +828,7 @@ def get_workflow_engine(config: WorkflowConfig | None = None) -> WorkflowEngine:
         _workflow_engine_instance = WorkflowEngine(config=config)
 
     return _workflow_engine_instance
+
 
 def reset_workflow_engine() -> None:
     """Reset the global WorkflowEngine singleton (for testing)."""

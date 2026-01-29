@@ -21,8 +21,8 @@ class MockCoordinator:
     """Mock ControlPlaneCoordinator for testing."""
 
     def __init__(self):
-        self._agents: Dict[str, Any] = {}
-        self._tasks: Dict[str, Any] = {}
+        self._agents: dict[str, Any] = {}
+        self._tasks: dict[str, Any] = {}
         self._health_monitor = MagicMock()
         self._health_monitor.get_all_health.return_value = {}
 
@@ -162,7 +162,7 @@ class MockCoordinator:
             return health
         return None
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         return {
             "total_agents": len(self._agents),
             "total_tasks": len(self._tasks),

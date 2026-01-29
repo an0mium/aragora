@@ -62,11 +62,13 @@ BeliefPropagationAnalyzer = _belief_imports["BeliefPropagationAnalyzer"]
 _claims_imports, CLAIMS_AVAILABLE = try_import("aragora.reasoning.claims", "ClaimsKernel")
 ClaimsKernel = _claims_imports["ClaimsKernel"]
 
+
 def _enum_to_value(obj: Any) -> Any:
     """Convert Enum values to their string representation."""
     if isinstance(obj, Enum):
         return obj.value
     return obj
+
 
 def _serialize_dataclass(obj: Any) -> dict:
     """Serialize a dataclass to dict, handling Enum values."""
@@ -86,6 +88,7 @@ def _serialize_dataclass(obj: Any) -> dict:
                 result[field_name] = value
         return result
     return obj
+
 
 class DecisionExplainHandler(SecureHandler):
     """Handler for decision explainability endpoints.

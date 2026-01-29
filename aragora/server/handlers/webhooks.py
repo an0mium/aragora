@@ -15,6 +15,7 @@ All webhook payloads include HMAC-SHA256 signatures for verification.
 Webhook configurations are persisted to SQLite (default) or Redis+SQLite for
 multi-instance deployments. This ensures webhooks survive server restarts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -71,6 +72,7 @@ WEBHOOK_LIST_RPM = 60  # Max 60 list operations per minute
 # by WebhookConfigStoreBackend from aragora.storage.webhook_config_store
 WebhookStore = WebhookConfigStoreBackend
 
+
 def get_webhook_store() -> WebhookConfigStoreBackend:
     """Get or create the webhook store.
 
@@ -84,9 +86,11 @@ def get_webhook_store() -> WebhookConfigStoreBackend:
     """
     return get_webhook_config_store()
 
+
 # =============================================================================
 # Webhook Signature Utilities
 # =============================================================================
+
 
 def generate_signature(payload: str, secret: str) -> str:
     """
@@ -104,6 +108,7 @@ def generate_signature(payload: str, secret: str) -> str:
     ).hexdigest()
     return f"sha256={signature}"
 
+
 def verify_signature(payload: str, signature: str, secret: str) -> bool:
     """
     Verify webhook signature.
@@ -119,9 +124,11 @@ def verify_signature(payload: str, signature: str, secret: str) -> bool:
     expected = generate_signature(payload, secret)
     return hmac.compare_digest(signature, expected)
 
+
 # =============================================================================
 # Webhook Handler
 # =============================================================================
+
 
 class WebhookHandler(SecureHandler):
     """Handler for webhook management API endpoints.
@@ -899,6 +906,7 @@ class WebhookHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Error getting queue stats: {e}")
             return error_response(f"Failed to get queue stats: {e}", 500)
+
 
 # =============================================================================
 # Exports

@@ -43,6 +43,7 @@ from aragora.agents.personas import (
     PersonaManager,
 )
 
+
 class Vertical(Enum):
     """Industry verticals supported by the control plane."""
 
@@ -53,6 +54,7 @@ class Vertical(Enum):
     ACADEMIC = "academic"
     GENERAL = "general"
 
+
 class TaskComplexity(Enum):
     """Complexity levels for task-based model selection."""
 
@@ -60,6 +62,7 @@ class TaskComplexity(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 @dataclass
 class VerticalConfig:
@@ -77,6 +80,7 @@ class VerticalConfig:
     default_model: str = "claude"
     requires_high_accuracy: bool = False
     max_temperature: float = 0.7
+
 
 # Vertical configurations
 VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
@@ -325,6 +329,7 @@ VERTICAL_CONFIGS: dict[Vertical, VerticalConfig] = {
     ),
 }
 
+
 @dataclass
 class VerticalTeamRecommendation:
     """Recommended team configuration for a vertical task."""
@@ -338,6 +343,7 @@ class VerticalTeamRecommendation:
     max_temperature: float
     estimated_cost_tier: str  # "low", "medium", "high"
     reasoning: str
+
 
 class VerticalPersonaManager:
     """
@@ -637,6 +643,7 @@ class VerticalPersonaManager:
 
         return Vertical.GENERAL
 
+
 def get_vertical_personas(vertical: Vertical) -> list[Persona]:
     """
     Convenience function to get personas for a vertical.
@@ -649,6 +656,7 @@ def get_vertical_personas(vertical: Vertical) -> list[Persona]:
     """
     manager = VerticalPersonaManager()
     return manager.get_personas_for_vertical(vertical)
+
 
 __all__ = [
     "Vertical",

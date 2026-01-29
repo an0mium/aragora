@@ -24,6 +24,7 @@ Usage:
     )
     line = event.to_jsonl()
 """
+
 from __future__ import annotations
 
 import json
@@ -31,6 +32,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 SCHEMA_VERSION = "1.0"
+
 
 @dataclass
 class ReplayEvent:
@@ -54,6 +56,7 @@ class ReplayEvent:
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in replay event: {e}") from e
         return cls(**data)
+
 
 @dataclass
 class ReplayMeta:

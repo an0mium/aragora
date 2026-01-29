@@ -9,6 +9,7 @@ Provides common functionality for debate notifications including:
 
 All platform-specific integrations should extend BaseIntegration.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Common Data Structures
 # =============================================================================
 
+
 @dataclass
 class FormattedDebateData:
     """Common debate data structure for notifications."""
@@ -46,6 +48,7 @@ class FormattedDebateData:
     stats_line: str
     debate_url: str
 
+
 @dataclass
 class FormattedConsensusData:
     """Common consensus data structure for notifications."""
@@ -60,6 +63,7 @@ class FormattedConsensusData:
     agents_display: str
     debate_url: str
 
+
 @dataclass
 class FormattedErrorData:
     """Common error data structure for notifications."""
@@ -68,6 +72,7 @@ class FormattedErrorData:
     error: str
     error_truncated: str
     phase: str | None
+
 
 @dataclass
 class FormattedLeaderboardData:
@@ -78,9 +83,11 @@ class FormattedLeaderboardData:
     rankings: list[dict[str, Any]]
     leaderboard_url: str
 
+
 # =============================================================================
 # Base Integration Class
 # =============================================================================
+
 
 class BaseIntegration(ABC):
     """
@@ -427,6 +434,7 @@ class BaseIntegration(ABC):
             .replace(">", "&gt;")
             .replace('"', "&quot;")
         )
+
 
 # =============================================================================
 # Exports

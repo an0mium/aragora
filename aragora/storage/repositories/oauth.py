@@ -14,6 +14,7 @@ from typing import Callable, ContextManager
 
 logger = logging.getLogger(__name__)
 
+
 class OAuthRepository:
     """
     Repository for OAuth provider operations.

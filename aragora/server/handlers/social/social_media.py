@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 # Protocol Types for External Dependencies
 # =============================================================================
 
+
 class YouTubeRateLimiterProtocol(Protocol):
     """Protocol for YouTube rate limiter interface."""
 
@@ -50,6 +51,7 @@ class YouTubeRateLimiterProtocol(Protocol):
         """Check if we have quota for an upload."""
         ...
 
+
 class CircuitBreakerProtocol(Protocol):
     """Protocol for circuit breaker interface."""
 
@@ -61,6 +63,7 @@ class CircuitBreakerProtocol(Protocol):
     def can_proceed(self) -> bool:
         """Check if operation can proceed."""
         ...
+
 
 class YouTubeConnectorProtocol(Protocol):
     """Protocol for YouTube connector interface used by social media handler."""
@@ -90,6 +93,7 @@ class YouTubeConnectorProtocol(Protocol):
         """Upload a video to YouTube."""
         ...
 
+
 class TwitterConnectorProtocol(Protocol):
     """Protocol for Twitter connector interface used by social media handler."""
 
@@ -106,6 +110,7 @@ class TwitterConnectorProtocol(Protocol):
         """Post a thread (multiple connected tweets)."""
         ...
 
+
 class AudioStoreProtocol(Protocol):
     """Protocol for audio store interface used by social media handler."""
 
@@ -116,6 +121,7 @@ class AudioStoreProtocol(Protocol):
     def get_path(self, debate_id: str) -> Path | None:
         """Get the path to an audio file."""
         ...
+
 
 class VideoGeneratorProtocol(Protocol):
     """Protocol for video generator interface used by social media handler."""
@@ -135,6 +141,7 @@ class VideoGeneratorProtocol(Protocol):
     ) -> Awaitable[Path | None]:
         """Generate video with static thumbnail and audio track."""
         ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +171,7 @@ else:
         ALLOWED_OAUTH_HOSTS = frozenset(["localhost:8080", "127.0.0.1:8080"])
         logger.debug("[Social] Using localhost for OAuth hosts (dev mode)")
 
+
 def _store_oauth_state(state: str) -> None:
     """Store OAuth state for later validation."""
     with _oauth_states_lock:
@@ -183,6 +191,7 @@ def _store_oauth_state(state: str) -> None:
         # Store new state
         _oauth_states[state] = now + _OAUTH_STATE_TTL
 
+
 def _validate_oauth_state(state: str) -> bool:
     """Validate and consume OAuth state (one-time use)."""
     with _oauth_states_lock:
@@ -191,9 +200,11 @@ def _validate_oauth_state(state: str) -> bool:
             return time.time() < expiry
         return False
 
+
 def _run_async(coro):
     """Run async coroutine in sync context."""
     return run_async(coro)
+
 
 class SocialMediaHandler(BaseHandler):
     """Handler for social media publishing (Twitter, YouTube) endpoints."""

@@ -42,7 +42,7 @@ class DesignConfig:
     early_stopping: bool = True
     early_stop_threshold: float = 0.66
     min_rounds_before_early_stop: int = 1
-    protected_files: List[str] = None
+    protected_files: list[str] = None
 
     def __post_init__(self):
         if self.protected_files is None:
@@ -55,7 +55,7 @@ class BeliefContext:
 
     contested_count: int = 0
     crux_count: int = 0
-    posteriors: Dict[str, Any] = None
+    posteriors: dict[str, Any] = None
     convergence_achieved: bool = False
 
     def to_string(self) -> str:
@@ -97,7 +97,7 @@ class DesignPhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: List[Any],
+        agents: list[Any],
         arena_factory: Callable[..., Any],
         environment_factory: Callable[..., Any],
         protocol_factory: Callable[..., Any],
@@ -150,7 +150,7 @@ class DesignPhase:
         improvement: str,
         belief_context: Optional[BeliefContext] = None,
         learning_context: str = "",
-        arena_kwargs: Optional[Dict[str, Any]] = None,
+        arena_kwargs: Optional[dict[str, Any]] = None,
     ) -> DesignResult:
         """
         Execute the design phase.
@@ -253,7 +253,7 @@ class DesignPhase:
             complexity_estimate=self._estimate_complexity(result.final_answer or ""),
         )
 
-    async def _check_deep_audit(self, improvement: str) -> Optional[Dict]:
+    async def _check_deep_audit(self, improvement: str) -> Optional[dict]:
         """Check if deep audit is needed and run it."""
         try:
             should_audit, reason = self._deep_audit("check", improvement, phase="design")
@@ -264,7 +264,7 @@ class DesignPhase:
             self._log(f"  [deep-audit] Check failed: {e}")
         return None
 
-    def _rejected_result(self, phase_start: datetime, audit_result: Dict) -> DesignResult:
+    def _rejected_result(self, phase_start: datetime, audit_result: dict) -> DesignResult:
         """Create a rejected result from deep audit."""
         self._log("  [deep-audit] Design rejected - returning issues for rework")
         phase_duration = (datetime.now() - phase_start).total_seconds()
@@ -341,7 +341,7 @@ Working code snippet showing the feature in action.
 
 Designs missing any of these will be automatically rejected."""
 
-    async def _probe_agents(self) -> Dict[str, float]:
+    async def _probe_agents(self) -> dict[str, float]:
         """Probe agents for reliability weights."""
         if not self.nomic_integration:
             return {}
@@ -433,7 +433,7 @@ Designs missing any of these will be automatically rejected."""
             f"{'True assumption' if conditional.preferred_world else 'False assumption'}"
         )
 
-    def _extract_proposals(self, result: Any) -> Dict[str, str]:
+    def _extract_proposals(self, result: Any) -> dict[str, str]:
         """Extract individual proposals from messages."""
         proposals = {}
         if hasattr(result, "messages"):
@@ -442,16 +442,16 @@ Designs missing any of these will be automatically rejected."""
                     proposals[msg.agent] = msg.content
         return proposals
 
-    def _count_votes(self, result: Any) -> Dict[str, int]:
+    def _count_votes(self, result: Any) -> dict[str, int]:
         """Count votes from result."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         if hasattr(result, "votes"):
             for vote in result.votes:
                 choice = vote.choice
                 counts[choice] = counts.get(choice, 0) + 1
         return counts
 
-    async def _checkpoint(self, result: Any, agent_weights: Dict) -> None:
+    async def _checkpoint(self, result: Any, agent_weights: dict) -> None:
         """Checkpoint the design phase."""
         if not self.nomic_integration:
             return
@@ -465,7 +465,7 @@ Designs missing any of these will be automatically rejected."""
         except Exception as e:
             self._log(f"  [integration] Checkpoint failed: {e}")
 
-    def _extract_files_from_design(self, design: str) -> List[str]:
+    def _extract_files_from_design(self, design: str) -> list[str]:
         """Extract file paths mentioned in the design."""
         import re
 

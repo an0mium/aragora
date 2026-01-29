@@ -10,6 +10,7 @@ Decay models:
 - Step: Binary fresh/stale threshold
 - Platform-aware: Different decay rates per source
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +24,7 @@ from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
 
+
 class DecayModel(str, Enum):
     """Freshness decay model types."""
 
@@ -30,6 +32,7 @@ class DecayModel(str, Enum):
     LINEAR = "linear"  # f(t) = max(0, 1 - kt)
     STEP = "step"  # f(t) = 1 if t < threshold else 0
     LOGARITHMIC = "logarithmic"  # f(t) = 1 / (1 + ln(1 + kt))
+
 
 @dataclass
 class FreshnessConfig:
@@ -43,6 +46,7 @@ class FreshnessConfig:
     # Platform-specific half-lives (override global)
     platform_half_lives: Optional[dict[str, float]] = None
 
+
 # Default platform-specific half-lives (in hours)
 DEFAULT_PLATFORM_HALF_LIVES = {
     "twitter": 3.0,  # Twitter trends fade fastest
@@ -50,6 +54,7 @@ DEFAULT_PLATFORM_HALF_LIVES = {
     "reddit": 12.0,  # Reddit threads have longer life
     "github": 24.0,  # Code repos stay fresh longest
 }
+
 
 @dataclass
 class FreshnessScore:
@@ -65,6 +70,7 @@ class FreshnessScore:
     def is_stale(self) -> bool:
         """Check if topic is considered stale."""
         return self.freshness < 0.1
+
 
 class FreshnessCalculator:
     """
@@ -312,6 +318,7 @@ class FreshnessCalculator:
             "min_freshness": self.config.min_freshness,
             "platform_half_lives": self._platform_half_lives.copy(),
         }
+
 
 __all__ = [
     "DecayModel",

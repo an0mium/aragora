@@ -47,6 +47,7 @@ _HEALTH_CACHE_TTL = 5.0  # seconds for K8s probes (liveness/readiness)
 _HEALTH_CACHE_TTL_DETAILED = 2.0  # seconds for detailed health checks
 _HEALTH_CACHE_TIMESTAMPS: dict[str, float] = {}
 
+
 def _get_cached_health(key: str) -> Optional[dict[str, Any]]:
     """Get cached health result if still valid."""
     if key in _HEALTH_CACHE:
@@ -55,10 +56,12 @@ def _get_cached_health(key: str) -> Optional[dict[str, Any]]:
             return _HEALTH_CACHE[key]
     return None
 
+
 def _set_cached_health(key: str, value: dict[str, Any]) -> None:
     """Cache health check result."""
     _HEALTH_CACHE[key] = value
     _HEALTH_CACHE_TIMESTAMPS[key] = time.time()
+
 
 # Import module functions
 from .kubernetes import liveness_probe, readiness_probe_fast, readiness_dependencies
@@ -79,6 +82,7 @@ from .helpers import (
 from .probes import ProbesMixin
 from .knowledge import KnowledgeMixin
 from .stores import StoresMixin
+
 
 class HealthHandler(SecureHandler):
     """Handler for health and readiness endpoints.
@@ -278,6 +282,7 @@ class HealthHandler(SecureHandler):
         from ..health_utils import check_security_services
 
         return check_security_services()
+
 
 __all__ = [
     # Main handler

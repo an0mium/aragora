@@ -19,6 +19,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class AutomationEventType(str, Enum):
     """Events that can trigger automation workflows."""
 
@@ -53,6 +54,7 @@ class AutomationEventType(str, Enum):
     # System events
     HEALTH_CHECK = "health.check"
     TEST_EVENT = "test.event"
+
 
 @dataclass
 class WebhookSubscription:
@@ -135,6 +137,7 @@ class WebhookSubscription:
             headers=data.get("headers", {}),
         )
 
+
 @dataclass
 class WebhookDeliveryResult:
     """Result of a webhook delivery attempt."""
@@ -148,6 +151,7 @@ class WebhookDeliveryResult:
     duration_ms: float = 0
     attempt: int = 1
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class AutomationConnector(ABC):
     """

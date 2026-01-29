@@ -26,6 +26,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class CanvasStateManager:
     """
     Manages canvas state and operations for real-time collaboration.
@@ -1065,8 +1066,10 @@ class CanvasStateManager:
         )
         await self._broadcast(canvas_id, event)
 
+
 # Global manager instance
 _manager: CanvasStateManager | None = None
+
 
 def get_canvas_manager() -> CanvasStateManager:
     """Get or create the global canvas state manager."""
@@ -1074,6 +1077,7 @@ def get_canvas_manager() -> CanvasStateManager:
     if _manager is None:
         _manager = CanvasStateManager()
     return _manager
+
 
 __all__ = [
     "CanvasStateManager",

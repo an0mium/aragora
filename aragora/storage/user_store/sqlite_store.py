@@ -43,6 +43,7 @@ from aragora.storage.repositories import (
 
 logger = logging.getLogger(__name__)
 
+
 class UserStore:
     """
     SQLite-backed storage for users and organizations.
@@ -413,9 +414,7 @@ class UserStore:
         """Get organization by slug."""
         return self._org_repo.get_by_slug(slug)
 
-    def get_organization_by_stripe_customer(
-        self, stripe_customer_id: str
-    ) -> Organization | None:
+    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Organization | None:
         """Get organization by Stripe customer ID."""
         return self._org_repo.get_by_stripe_customer(stripe_customer_id)
 

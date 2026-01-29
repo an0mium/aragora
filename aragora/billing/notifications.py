@@ -42,6 +42,7 @@ SMTP_FROM = os.environ.get("ARAGORA_SMTP_FROM", "billing@aragora.ai")
 # Webhook for external notification systems (Slack, etc.)
 NOTIFICATION_WEBHOOK = os.environ.get("ARAGORA_NOTIFICATION_WEBHOOK", "")
 
+
 @dataclass
 class NotificationResult:
     """Result of sending a notification."""
@@ -49,6 +50,7 @@ class NotificationResult:
     success: bool
     method: str  # "email", "webhook", "log"
     error: str | None = None
+
 
 class BillingNotifier:
     """
@@ -1000,8 +1002,10 @@ Start a debate: https://aragora.ai/dashboard/debates/new
         )
         return NotificationResult(success=True, method="log")
 
+
 # Default notifier instance
 _default_notifier: BillingNotifier | None = None
+
 
 def get_billing_notifier() -> BillingNotifier:
     """Get the default billing notifier instance."""
@@ -1009,6 +1013,7 @@ def get_billing_notifier() -> BillingNotifier:
     if _default_notifier is None:
         _default_notifier = BillingNotifier()
     return _default_notifier
+
 
 __all__ = [
     "BillingNotifier",

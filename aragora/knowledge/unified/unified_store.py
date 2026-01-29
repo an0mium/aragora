@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KnowledgeMoundConfig:
     """Configuration for the Knowledge Mound."""
@@ -65,6 +66,7 @@ class KnowledgeMoundConfig:
 
     # Cross-reference settings
     auto_link_threshold: float = 0.85  # Similarity threshold for auto-linking
+
 
 class KnowledgeMound:
     """

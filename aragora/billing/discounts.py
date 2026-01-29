@@ -36,12 +36,14 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class DiscountType(str, Enum):
     """Types of discounts."""
 
     PERCENTAGE = "percentage"  # Percentage off (e.g., 20% off)
     FIXED_AMOUNT = "fixed_amount"  # Fixed dollar amount off
     VOLUME = "volume"  # Volume-based discount tiers
+
 
 class DiscountCodeStatus(str, Enum):
     """Status of a discount code."""
@@ -50,6 +52,7 @@ class DiscountCodeStatus(str, Enum):
     EXPIRED = "expired"
     EXHAUSTED = "exhausted"  # Max uses reached
     DISABLED = "disabled"
+
 
 @dataclass
 class DiscountCode:
@@ -127,6 +130,7 @@ class DiscountCode:
 
         return True
 
+
 @dataclass
 class DiscountUsage:
     """Record of discount code usage."""
@@ -162,12 +166,14 @@ class DiscountUsage:
             "applied_at": self.applied_at.isoformat(),
         }
 
+
 @dataclass
 class VolumeTier:
     """A volume discount tier."""
 
     min_spend_cents: int  # Minimum cumulative spend to qualify
     discount_percent: float  # Discount percentage for this tier
+
 
 @dataclass
 class VolumeDiscount:
@@ -202,6 +208,7 @@ class VolumeDiscount:
             "updated_at": self.updated_at.isoformat(),
         }
 
+
 @dataclass
 class ApplyCodeResult:
     """Result of attempting to apply a discount code."""
@@ -225,6 +232,7 @@ class ApplyCodeResult:
             "message": self.message,
             "error_code": self.error_code,
         }
+
 
 class DiscountManager:
     """
@@ -877,9 +885,11 @@ class DiscountManager:
             created_by=row["created_by"],
         )
 
+
 # Global discount manager instance
 _discount_manager: DiscountManager | None = None
 _discount_manager_lock = threading.Lock()
+
 
 def get_discount_manager(db_path: str | None = None) -> DiscountManager:
     """
@@ -897,11 +907,13 @@ def get_discount_manager(db_path: str | None = None) -> DiscountManager:
             _discount_manager = DiscountManager(db_path)
         return _discount_manager
 
+
 def reset_discount_manager() -> None:
     """Reset the global discount manager (for testing)."""
     global _discount_manager
     with _discount_manager_lock:
         _discount_manager = None
+
 
 __all__ = [
     "DiscountType",

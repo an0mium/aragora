@@ -48,6 +48,7 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+
 class SkillCapability(str, Enum):
     """Capabilities a skill can declare."""
 
@@ -79,6 +80,7 @@ class SkillCapability(str, Enum):
     SYSTEM_INFO = "system_info"  # Access system information
     NETWORK = "network"  # Network operations
 
+
 class SkillStatus(str, Enum):
     """Status of a skill execution."""
 
@@ -90,6 +92,7 @@ class SkillStatus(str, Enum):
     PERMISSION_DENIED = "permission_denied"
     INVALID_INPUT = "invalid_input"
     NOT_IMPLEMENTED = "not_implemented"
+
 
 @dataclass
 class SkillManifest:
@@ -196,7 +199,9 @@ class SkillManifest:
             output_schema=data.get("output_schema"),
         )
 
+
 T = TypeVar("T")
+
 
 @dataclass
 class SkillResult(Generic[T]):
@@ -300,6 +305,7 @@ class SkillResult(Generic[T]):
             "cost_estimate": self.cost_estimate,
         }
 
+
 @dataclass
 class SkillContext:
     """
@@ -347,6 +353,7 @@ class SkillContext:
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get a configuration value."""
         return self.config.get(key, default)
+
 
 class Skill(ABC):
     """
@@ -431,6 +438,7 @@ class Skill(ABC):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.manifest.name})"
+
 
 class SyncSkill(Skill):
     """

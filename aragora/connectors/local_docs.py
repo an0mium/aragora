@@ -9,6 +9,7 @@ Searches:
 
 Uses simple text search with optional regex support.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -25,6 +26,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 from aragora.connectors.base import BaseConnector, Evidence
+
 
 class LocalDocsConnector(BaseConnector):
     """

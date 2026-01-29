@@ -29,7 +29,7 @@ def parse_body(result: HandlerResult) -> dict:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: Optional[Dict[str, Any]] = None, client_ip: str = "127.0.0.1"):
+    def __init__(self, body: Optional[dict[str, Any]] = None, client_ip: str = "127.0.0.1"):
         self.rfile = MagicMock()
         self._body = body
         self._client_ip = client_ip
@@ -50,11 +50,11 @@ class MockEvidenceStore:
     """Mock evidence store for testing."""
 
     def __init__(self):
-        self._evidence: Dict[str, Dict] = {}
-        self._debate_evidence: Dict[str, list] = {}
+        self._evidence: dict[str, dict] = {}
+        self._debate_evidence: dict[str, list] = {}
         self._km_adapter = None  # KnowledgeMound adapter (not needed for tests)
 
-    def get_evidence(self, evidence_id: str) -> Optional[Dict]:
+    def get_evidence(self, evidence_id: str) -> Optional[dict]:
         return self._evidence.get(evidence_id)
 
     def search_evidence(
@@ -80,7 +80,7 @@ class MockEvidenceStore:
             evidence_list = [e for e in evidence_list if e.get("round") == round_number]
         return evidence_list
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         return {
             "total_evidence": len(self._evidence),
             "sources": len(set(e.get("source", "") for e in self._evidence.values())),
@@ -94,7 +94,7 @@ class MockEvidenceStore:
         snippet: str,
         url: str = "",
         reliability_score: float = 0.5,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
         debate_id: Optional[str] = None,
         round_number: Optional[int] = None,
         enrich: bool = False,

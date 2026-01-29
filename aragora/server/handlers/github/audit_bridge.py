@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Data Models
 # =============================================================================
 
+
 class IssuePriority(str, Enum):
     """Priority mapping for audit findings."""
 
@@ -50,6 +51,7 @@ class IssuePriority(str, Enum):
     LOW = "low"
     INFO = "info"
 
+
 class SyncStatus(str, Enum):
     """Status of audit-to-GitHub sync."""
 
@@ -58,6 +60,7 @@ class SyncStatus(str, Enum):
     COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"
+
 
 # Label mappings for severity levels
 SEVERITY_LABELS = {
@@ -80,6 +83,7 @@ CATEGORY_LABELS = {
     "accessibility": ["accessibility"],
 }
 
+
 @dataclass
 class GitHubIssueResult:
     """Result of creating a GitHub issue."""
@@ -98,6 +102,7 @@ class GitHubIssueResult:
             "status": self.status,
             "error": self.error,
         }
+
 
 @dataclass
 class SyncResult:
@@ -126,6 +131,7 @@ class SyncResult:
             "error": self.error,
         }
 
+
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
@@ -138,6 +144,7 @@ _storage_lock = threading.Lock()
 # =============================================================================
 # GitHub API Client
 # =============================================================================
+
 
 class GitHubAuditClient:
     """GitHub API client for audit-related operations."""
@@ -436,9 +443,11 @@ class GitHubAuditClient:
         except Exception as e:
             logger.warning(f"Failed to ensure labels: {e}")
 
+
 # =============================================================================
 # Issue Content Generators
 # =============================================================================
+
 
 def generate_issue_title(finding: dict[str, Any]) -> str:
     """Generate GitHub issue title from finding."""
@@ -449,6 +458,7 @@ def generate_issue_title(finding: dict[str, Any]) -> str:
     if severity in ("CRITICAL", "HIGH"):
         return f"[{severity}] {title}"
     return f"[{category.upper()}] {title}"
+
 
 def generate_issue_body(
     finding: dict[str, Any],
@@ -526,6 +536,7 @@ def generate_issue_body(
 
     return "\n".join(body_parts)
 
+
 def get_labels_for_finding(finding: dict[str, Any]) -> list[str]:
     """Get GitHub labels for a finding."""
     labels = []
@@ -547,9 +558,11 @@ def get_labels_for_finding(finding: dict[str, Any]) -> list[str]:
 
     return list(set(labels))  # Deduplicate
 
+
 # =============================================================================
 # Handler Functions
 # =============================================================================
+
 
 @require_permission("connectors:create")
 async def handle_create_issue(
@@ -625,6 +638,7 @@ async def handle_create_issue(
     except Exception as e:
         logger.exception(f"Failed to create issue: {e}")
         return {"success": False, "error": str(e)}
+
 
 @require_permission("audit:read")
 async def handle_bulk_create_issues(
@@ -730,6 +744,7 @@ async def handle_bulk_create_issues(
         "results": [r.to_dict() for r in results],
         "errors": errors if errors else None,
     }
+
 
 @require_permission("connectors:create")
 async def handle_create_fix_pr(
@@ -855,6 +870,7 @@ async def handle_create_fix_pr(
         logger.exception(f"Failed to create fix PR: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("audit:read")
 async def handle_sync_session(
     repository: str,
@@ -976,6 +992,7 @@ async def handle_sync_session(
         logger.exception(f"Failed to sync session: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("audit:read")
 async def handle_get_sync_status(
     session_id: str,
@@ -1016,6 +1033,7 @@ async def handle_get_sync_status(
         logger.exception(f"Failed to get sync status: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("audit:read")
 async def handle_get_finding_issues(
     session_id: str,
@@ -1052,9 +1070,11 @@ async def handle_get_finding_issues(
         logger.exception(f"Failed to get finding issues: {e}")
         return {"success": False, "error": str(e)}
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class AuditGitHubBridgeHandler(BaseHandler):
     """
@@ -1086,9 +1106,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route audit-GitHub bridge endpoint requests."""
         return None
 
@@ -1220,6 +1238,7 @@ class AuditGitHubBridgeHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
+
 
 __all__ = [
     "AuditGitHubBridgeHandler",

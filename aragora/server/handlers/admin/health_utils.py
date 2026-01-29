@@ -16,6 +16,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def check_filesystem_health(test_dir: Path | None = None) -> dict[str, Any]:
     """Check filesystem write access to data directory.
 
@@ -47,6 +48,7 @@ def check_filesystem_health(test_dir: Path | None = None) -> dict[str, Any]:
         return {"healthy": False, "error": f"Permission denied: {e}"}
     except OSError as e:
         return {"healthy": False, "error": f"Filesystem error: {e}"}
+
 
 def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
     """Check Redis connectivity if configured.
@@ -85,6 +87,7 @@ def check_redis_health(redis_url: str | None = None) -> dict[str, Any]:
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
 
+
 def check_ai_providers_health() -> dict[str, Any]:
     """Check AI provider API key availability.
 
@@ -115,6 +118,7 @@ def check_ai_providers_health() -> dict[str, Any]:
         "available_count": available_count,
         "providers": available,
     }
+
 
 def check_security_services(is_production: bool | None = None) -> dict[str, Any]:
     """Check security services health.
@@ -191,6 +195,7 @@ def check_security_services(is_production: bool | None = None) -> dict[str, Any]
 
     return result
 
+
 def check_database_health(database_url: str | None = None) -> dict[str, Any]:
     """Check database connectivity.
 
@@ -241,6 +246,7 @@ def check_database_health(database_url: str | None = None) -> dict[str, Any]:
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
 
+
 def get_uptime_info(start_time: float) -> dict[str, Any]:
     """Get server uptime information.
 
@@ -268,6 +274,7 @@ def get_uptime_info(start_time: float) -> dict[str, Any]:
         "uptime_seconds": round(uptime_seconds, 2),
         "uptime_human": uptime_str,
     }
+
 
 def check_stripe_health() -> dict[str, Any]:
     """Check Stripe API connectivity.
@@ -317,6 +324,7 @@ def check_stripe_health() -> dict[str, Any]:
             "configured": True,
             "error": f"{type(e).__name__}: {str(e)[:80]}",
         }
+
 
 def check_slack_health() -> dict[str, Any]:
     """Check Slack API connectivity.

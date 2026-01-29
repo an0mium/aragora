@@ -33,6 +33,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.params import get_clamped_int_param
 from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
@@ -347,7 +348,8 @@ class AdvertisingHandler(SecureHandler):
     async def _list_all_campaigns(self, request: Any) -> dict[str, Any]:
         """List campaigns from all connected platforms."""
         status_filter = request.query.get("status")
-        limit = int(request.query.get("limit", 100))
+        # Use safe parameter parsing with bounds
+        limit = get_clamped_int_param(dict(request.query), "limit", 100, 1, 1000)
 
         all_campaigns: list[dict[str, Any]] = []
 
@@ -587,8 +589,8 @@ class AdvertisingHandler(SecureHandler):
 
     async def _get_cross_platform_performance(self, request: Any) -> dict[str, Any]:
         """Get performance metrics across all connected platforms."""
-        # Parse date range from query params
-        days = int(request.query.get("days", 30))
+        # Parse date range from query params with bounds (1-365 days)
+        days = get_clamped_int_param(dict(request.query), "days", 30, 1, 365)
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
@@ -691,7 +693,8 @@ class AdvertisingHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        days = int(request.query.get("days", 30))
+        # Parse date range from query params with bounds (1-365 days)
+        days = get_clamped_int_param(dict(request.query), "days", 30, 1, 365)
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 

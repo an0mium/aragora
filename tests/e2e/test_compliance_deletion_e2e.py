@@ -49,7 +49,7 @@ def compliance_handler(mock_server_context):
 
 
 @pytest.fixture
-def sample_deletion_requests() -> List[Dict[str, Any]]:
+def sample_deletion_requests() -> list[dict[str, Any]]:
     """Generate sample deletion requests for testing."""
     base_time = datetime.now(timezone.utc)
     return [
@@ -86,7 +86,7 @@ def sample_deletion_requests() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_legal_holds() -> List[Dict[str, Any]]:
+def sample_legal_holds() -> list[dict[str, Any]]:
     """Generate sample legal holds for testing."""
     base_time = datetime.now(timezone.utc)
     return [

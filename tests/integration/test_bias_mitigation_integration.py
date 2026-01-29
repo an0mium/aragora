@@ -55,7 +55,7 @@ class MockEnvironment:
 class MockResult:
     """Mock result for testing."""
 
-    votes: List[Any] = field(default_factory=list)
+    votes: list[Any] = field(default_factory=list)
     final_answer: str = ""
     consensus_reached: bool = False
     confidence: float = 0.0
@@ -68,13 +68,13 @@ class MockResult:
 class MockDebateContext:
     """Mock debate context for testing."""
 
-    agents: List[MockAgent] = field(default_factory=list)
-    proposals: Dict[str, str] = field(default_factory=dict)
+    agents: list[MockAgent] = field(default_factory=list)
+    proposals: dict[str, str] = field(default_factory=dict)
     env: MockEnvironment = field(default_factory=MockEnvironment)
     result: MockResult = field(default_factory=MockResult)
-    context_messages: List[Any] = field(default_factory=list)
+    context_messages: list[Any] = field(default_factory=list)
     winner_agent: Optional[str] = None
-    vote_tally: Dict[str, float] = field(default_factory=dict)
+    vote_tally: dict[str, float] = field(default_factory=dict)
     cancellation_token: Optional[Any] = None
 
 

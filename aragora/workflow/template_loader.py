@@ -38,6 +38,7 @@ ADDITIONAL_TEMPLATE_DIRS: dict[str, WorkflowCategory] = {
     "sme": WorkflowCategory.SME,  # SME business decision templates
 }
 
+
 class TemplateLoader:
     """
     Loads workflow templates from YAML files.
@@ -178,8 +179,10 @@ class TemplateLoader:
         self._templates.clear()
         return self.load_all()
 
+
 # Global loader instance
 _loader: TemplateLoader | None = None
+
 
 def get_template_loader() -> TemplateLoader:
     """Get or create the global template loader."""
@@ -188,13 +191,16 @@ def get_template_loader() -> TemplateLoader:
         _loader = TemplateLoader()
     return _loader
 
+
 def load_templates() -> dict[str, WorkflowDefinition]:
     """Load all workflow templates."""
     return get_template_loader().load_all()
 
+
 def get_template(template_id: str) -> WorkflowDefinition | None:
     """Get a template by ID."""
     return get_template_loader().get_template(template_id)
+
 
 def list_templates(
     category: WorkflowCategory | None = None,
@@ -202,6 +208,7 @@ def list_templates(
 ) -> list[WorkflowDefinition]:
     """List templates with optional filtering."""
     return get_template_loader().list_templates(category, tags)
+
 
 __all__ = [
     "TemplateLoader",

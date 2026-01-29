@@ -323,9 +323,7 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
         )
 
         moltbot_adapter = (
-            MoltbotGatewayAdapter(gateway=canonical_gateway)
-            if MoltbotGatewayAdapter
-            else None
+            MoltbotGatewayAdapter(gateway=canonical_gateway) if MoltbotGatewayAdapter else None
         )
 
         if inbox or gateway:

@@ -23,6 +23,7 @@ Usage:
     # High-priority events can bypass batching
     dispatcher.queue_event("slo_violation", data, priority=True)
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,6 +58,7 @@ PRIORITY_EVENT_TYPES = frozenset(
 # Batch Data Structures
 # =============================================================================
 
+
 @dataclass
 class BatchedEvent:
     """A single event in a batch."""
@@ -64,6 +66,7 @@ class BatchedEvent:
     event_type: str
     data: dict[str, Any]
     timestamp: float = field(default_factory=time.time)
+
 
 @dataclass
 class EventBatch:
@@ -126,9 +129,11 @@ class EventBatch:
             "last_event_at": self.events[-1].timestamp,
         }
 
+
 # =============================================================================
 # Batch Dispatcher
 # =============================================================================
+
 
 class BatchWebhookDispatcher:
     """
@@ -328,11 +333,13 @@ class BatchWebhookDispatcher:
         self._flush_thread.join(timeout=5.0)
         logger.info("Batch webhook dispatcher shutdown")
 
+
 # =============================================================================
 # Global Dispatcher
 # =============================================================================
 
 _batch_dispatcher: BatchWebhookDispatcher | None = None
+
 
 def get_batch_dispatcher() -> BatchWebhookDispatcher:
     """Get or create the global batch dispatcher."""
@@ -355,6 +362,7 @@ def get_batch_dispatcher() -> BatchWebhookDispatcher:
 
     return _batch_dispatcher
 
+
 def queue_batched_event(
     event_type: str,
     data: dict[str, Any],
@@ -373,6 +381,7 @@ def queue_batched_event(
     dispatcher = get_batch_dispatcher()
     dispatcher.queue_event(event_type, data, priority)
 
+
 def shutdown_batch_dispatcher(flush: bool = True) -> None:
     """Shutdown the global batch dispatcher."""
     global _batch_dispatcher
@@ -380,6 +389,7 @@ def shutdown_batch_dispatcher(flush: bool = True) -> None:
     if _batch_dispatcher is not None:
         _batch_dispatcher.shutdown(flush=flush)
         _batch_dispatcher = None
+
 
 # =============================================================================
 # Exports

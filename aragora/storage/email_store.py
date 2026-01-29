@@ -29,6 +29,7 @@ from aragora.storage.schema import SchemaManager
 
 logger = logging.getLogger(__name__)
 
+
 class EmailStore(SQLiteStore):
     """
     SQLite-backed store for email management data.
@@ -1190,11 +1191,13 @@ class EmailStore(SQLiteStore):
 
         return stats
 
+
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
 _email_store: EmailStore | None = None
+
 
 def get_email_store(db_path: str | None = None) -> EmailStore:
     """Get or create the email store singleton.
@@ -1217,9 +1220,11 @@ def get_email_store(db_path: str | None = None) -> EmailStore:
 
     return _email_store
 
+
 def reset_email_store() -> None:
     """Reset the email store singleton (for testing)."""
     global _email_store
     _email_store = None
+
 
 __all__ = ["EmailStore", "get_email_store", "reset_email_store"]

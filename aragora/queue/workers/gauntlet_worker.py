@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Job type constant
 JOB_TYPE_GAUNTLET = "gauntlet"
 
+
 class GauntletWorker:
     """
     Worker that processes gauntlet jobs from the durable queue.
@@ -119,7 +120,9 @@ class GauntletWorker:
                     phrase in err_msg
                     for phrase in ("pool is closed", "connection is closed", "event loop is closed")
                 ):
-                    logger.info(f"[{self.worker_id}] Database connection unavailable, exiting worker")
+                    logger.info(
+                        f"[{self.worker_id}] Database connection unavailable, exiting worker"
+                    )
                     break
                 logger.error(f"[{self.worker_id}] Worker error: {e}", exc_info=True)
                 await asyncio.sleep(self.poll_interval)
@@ -347,6 +350,7 @@ class GauntletWorker:
             "total_findings": result.total_findings,
         }
 
+
 async def enqueue_gauntlet_job(
     gauntlet_id: str,
     input_content: str,
@@ -396,6 +400,7 @@ async def enqueue_gauntlet_job(
 
     logger.info(f"Enqueued gauntlet job: {gauntlet_id}")
     return job
+
 
 async def recover_interrupted_gauntlets() -> int:
     """

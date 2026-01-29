@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 _slack_audit: Any = None
 
+
 def _get_audit_logger() -> Any:
     """Get or create Slack audit logger (lazy initialization)."""
     global _slack_audit
@@ -32,9 +33,11 @@ def _get_audit_logger() -> Any:
             _slack_audit = None
     return _slack_audit
 
+
 # --- Lazy import for user rate limiter ---
 
 _slack_user_limiter: Any = None
+
 
 def _get_user_rate_limiter() -> Any:
     """Get or create user rate limiter for per-user rate limiting."""
@@ -51,12 +54,14 @@ def _get_user_rate_limiter() -> Any:
             _slack_user_limiter = None
     return _slack_user_limiter
 
+
 # --- Lazy import for workspace rate limiter ---
 
 _slack_workspace_limiter: Any = None
 
 # Configurable workspace rate limit (requests per minute)
 SLACK_WORKSPACE_RATE_LIMIT_RPM = int(os.environ.get("SLACK_WORKSPACE_RATE_LIMIT_RPM", "30"))
+
 
 def _get_workspace_rate_limiter() -> Any:
     """Get or create workspace rate limiter for per-workspace rate limiting."""
@@ -78,6 +83,7 @@ def _get_workspace_rate_limiter() -> Any:
             _slack_workspace_limiter = None
     return _slack_workspace_limiter
 
+
 # --- URL validation ---
 
 # Allowed domains for Slack response URLs (SSRF protection)
@@ -85,6 +91,7 @@ SLACK_ALLOWED_DOMAINS = frozenset({"hooks.slack.com", "api.slack.com"})
 
 # Base URL for internal API calls (configurable for production)
 ARAGORA_API_BASE_URL = os.environ.get("ARAGORA_API_BASE_URL", "http://localhost:8080")
+
 
 def _validate_slack_url(url: str) -> bool:
     """Validate that a URL is a legitimate Slack endpoint.
@@ -112,10 +119,12 @@ def _validate_slack_url(url: str) -> bool:
         logger.debug(f"URL validation failed for slack: {e}")
         return False
 
+
 # --- Task tracking ---
 
 import asyncio
 from typing import Coroutine
+
 
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
@@ -124,6 +133,7 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     elif task.exception():
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
+
 
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging.
@@ -134,6 +144,7 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
+
 
 # --- Handler imports ---
 
@@ -155,6 +166,7 @@ if not SLACK_BOT_TOKEN:
 
 _workspace_store = None
 
+
 def get_workspace_store():
     """Get the Slack workspace store for multi-workspace support."""
     global _workspace_store
@@ -166,6 +178,7 @@ def get_workspace_store():
         except ImportError:
             logger.debug("Slack workspace store not available")
     return _workspace_store
+
 
 def resolve_workspace(team_id: str):
     """Resolve a workspace by team_id.
@@ -185,6 +198,7 @@ def resolve_workspace(team_id: str):
 
     return None
 
+
 # --- Command parsing patterns ---
 
 COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$")
@@ -193,6 +207,7 @@ TOPIC_PATTERN = re.compile(r'^["\']?(.+?)["\']?$')
 # --- Slack integration singleton ---
 
 _slack_integration: Any | None = None
+
 
 def get_slack_integration() -> Any | None:
     """Get or create the Slack integration singleton."""
@@ -217,6 +232,7 @@ def get_slack_integration() -> Any | None:
             logger.exception(f"Unexpected error initializing Slack integration: {e}")
             return None
     return _slack_integration
+
 
 # --- Re-export common handler utilities for backward compatibility ---
 # Other modules import these from config.py

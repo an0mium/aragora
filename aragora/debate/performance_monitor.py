@@ -43,6 +43,7 @@ DEFAULT_SLOW_ROUND_THRESHOLD = 30.0
 # Maximum number of slow debates to retain in memory
 MAX_SLOW_DEBATES_HISTORY = 100
 
+
 @dataclass
 class PhaseMetric:
     """Metric for a single phase within a round."""
@@ -53,6 +54,7 @@ class PhaseMetric:
     duration_seconds: float | None = None
     agent_count: int = 0
     error: str | None = None
+
 
 @dataclass
 class RoundMetric:
@@ -78,6 +80,7 @@ class RoundMetric:
             return None
         slowest = max(self.phases.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
+
 
 @dataclass
 class DebateMetric:
@@ -113,6 +116,7 @@ class DebateMetric:
         slowest = max(self.rounds.items(), key=lambda x: x[1].duration_seconds or 0)
         return (slowest[0], slowest[1].duration_seconds or 0)
 
+
 @dataclass
 class SlowDebateRecord:
     """Record of a slow debate for diagnostics."""
@@ -140,6 +144,7 @@ class SlowDebateRecord:
             "slowest_phase": self.slowest_phase,
             "agent_count": len(self.agent_names),
         }
+
 
 class DebatePerformanceMonitor:
     """
@@ -552,8 +557,10 @@ class DebatePerformanceMonitor:
         except ImportError:
             pass
 
+
 # Global instance for convenience
 _default_monitor: DebatePerformanceMonitor | None = None
+
 
 def get_debate_monitor() -> DebatePerformanceMonitor:
     """Get the default debate performance monitor instance."""
@@ -561,6 +568,7 @@ def get_debate_monitor() -> DebatePerformanceMonitor:
     if _default_monitor is None:
         _default_monitor = DebatePerformanceMonitor()
     return _default_monitor
+
 
 __all__ = [
     "DebatePerformanceMonitor",

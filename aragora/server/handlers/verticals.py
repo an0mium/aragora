@@ -36,6 +36,7 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class VerticalsHandler(SecureHandler):
     """Handler for vertical specialist endpoints with RBAC protection."""
 

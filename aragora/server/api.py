@@ -3,6 +3,7 @@ HTTP API for debate retrieval and static file serving.
 
 Provides REST endpoints for fetching debates and serves the viewer HTML.
 """
+
 from __future__ import annotations
 
 import json
@@ -33,6 +34,7 @@ MAX_REQUEST_SIZE = 50 * 1024 * 1024
 from aragora.replay.storage import ReplayStorage
 from aragora.server.storage import DebateStorage
 from aragora.utils.paths import PathTraversalError, safe_path
+
 
 class DebateAPIHandler(BaseHTTPRequestHandler):
     """HTTP request handler for debate API."""
@@ -356,6 +358,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args) -> None:
         """Suppress default logging (too verbose)."""
         pass
+
 
 def run_api_server(
     storage: DebateStorage,

@@ -38,6 +38,7 @@ SLACK_DEBATE_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "data", "slack_debates.db"),
 )
 
+
 @dataclass
 class SlackActiveDebate:
     """Represents an active debate initiated from Slack."""
@@ -104,6 +105,7 @@ class SlackActiveDebate:
         if self.completed_at and self.created_at:
             return self.completed_at - self.created_at
         return None
+
 
 class SlackDebateStore:
     """
@@ -541,8 +543,10 @@ class SlackDebateStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_debates": 0, "active_debates": 0}
 
+
 # Singleton instance
 _debate_store: SlackDebateStore | None = None
+
 
 def get_slack_debate_store(db_path: str | None = None) -> SlackDebateStore:
     """Get or create the debate store singleton.

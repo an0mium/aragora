@@ -5,6 +5,7 @@ Provides reusable error handling patterns for async agent operations,
 implementing the "Autonomic layer" that keeps debates alive by gracefully
 handling agent failures.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +17,7 @@ from aragora.agents.types import T
 from .classifier import ErrorClassifier
 
 logger = logging.getLogger(__name__)
+
 
 async def handle_agent_operation(
     operation: Callable[[], Any],
@@ -77,6 +79,7 @@ async def handle_agent_operation(
         )
         return cast(T, fallback_message if fallback_message else fallback_value)
 
+
 class AgentErrorHandler:
     """Context manager for agent error handling with automatic fallback.
 
@@ -135,6 +138,7 @@ class AgentErrorHandler:
         )
         return True  # Suppress exception and use fallback
 
+
 def make_fallback_message(agent_name: str, operation: str = "turn") -> str:
     """Generate a standardized system fallback message.
 
@@ -146,6 +150,7 @@ def make_fallback_message(agent_name: str, operation: str = "turn") -> str:
         Formatted system message for inclusion in debate context
     """
     return f"[System: Agent {agent_name} encountered an error - skipping this {operation}]"
+
 
 def _build_error_action(e: Exception, context: str = "") -> tuple[str, str, bool]:
     """Build error action info for consistent logging.
@@ -171,6 +176,7 @@ def _build_error_action(e: Exception, context: str = "") -> tuple[str, str, bool
     should_use_exc_info = category == "unknown"
 
     return category, log_message, should_use_exc_info
+
 
 __all__ = [
     "handle_agent_operation",

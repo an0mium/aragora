@@ -37,12 +37,14 @@ from ..utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class DebateVisibility(str, Enum):
     """Visibility level for a debate."""
 
     PRIVATE = "private"  # Only creator can access
     TEAM = "team"  # Organization members can access
     PUBLIC = "public"  # Anyone with link can access
+
 
 @dataclass
 class ShareSettings:
@@ -102,7 +104,9 @@ class ShareSettings:
             org_id=data.get("org_id"),
         )
 
+
 MAX_SHARE_SETTINGS = 10000  # Prevent unbounded memory growth
+
 
 class ShareStore:
     """In-memory store for sharing settings (thread-safe).
@@ -174,11 +178,13 @@ class ShareStore:
             if settings:
                 settings.view_count += 1
 
+
 # Global store instance with thread-safe initialization
 # Can be either in-memory ShareStore or SQLite-backed ShareLinkStore
 # Use Any to allow dynamic ShareLinkStore assignment without import cycle
 _share_store: Any | None = None
 _share_store_lock = threading.Lock()
+
 
 def get_share_store() -> Any:
     """Get the global share store instance (thread-safe).
@@ -202,6 +208,7 @@ def get_share_store() -> Any:
                     logger.warning(f"Failed to init ShareLinkStore, using in-memory: {e}")
                     _share_store = ShareStore()
     return _share_store
+
 
 class SharingHandler(BaseHandler):
     """Handler for debate sharing endpoints."""
@@ -494,6 +501,7 @@ class SharingHandler(BaseHandler):
             logger.warning(f"Could not fetch debate {debate_id}: {e}")
 
         return None
+
 
 __all__ = [
     "SharingHandler",

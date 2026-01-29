@@ -30,6 +30,7 @@ _slack_token_refresh_failures: Any = None
 _slack_workspaces_active: Any = None
 _slack_refresh_duration: Any = None
 
+
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics if available."""
     global _metrics_initialized
@@ -69,10 +70,12 @@ def _init_metrics() -> bool:
         logger.debug("prometheus_client not available, metrics disabled")
         return False
 
+
 def _record_refresh_success() -> None:
     """Record a successful token refresh."""
     if _slack_token_refresh_total:
         _slack_token_refresh_total.labels(status="success").inc()
+
 
 def _record_refresh_failure(error_type: str = "unknown") -> None:
     """Record a failed token refresh."""
@@ -81,16 +84,19 @@ def _record_refresh_failure(error_type: str = "unknown") -> None:
     if _slack_token_refresh_failures:
         _slack_token_refresh_failures.labels(error_type=error_type).inc()
 
+
 def _update_active_workspaces(count: int) -> None:
     """Update the active workspaces gauge."""
     if _slack_workspaces_active:
         _slack_workspaces_active.set(count)
+
 
 # Configuration from environment
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
 SLACK_CLIENT_SECRET = os.environ.get("SLACK_CLIENT_SECRET", "")
 DEFAULT_REFRESH_INTERVAL_MINUTES = int(os.environ.get("SLACK_TOKEN_REFRESH_INTERVAL", "30"))
 DEFAULT_EXPIRY_WINDOW_HOURS = int(os.environ.get("SLACK_TOKEN_EXPIRY_WINDOW", "2"))
+
 
 class WorkspaceStoreProtocol(Protocol):
     """Protocol for workspace store to allow dependency injection."""
@@ -105,6 +111,7 @@ class WorkspaceStoreProtocol(Protocol):
         """Refresh a workspace's access token."""
         ...
 
+
 @dataclass
 class RefreshResult:
     """Result of a token refresh attempt."""
@@ -115,6 +122,7 @@ class RefreshResult:
     error: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+
 @dataclass
 class RefreshStats:
     """Statistics for a refresh cycle."""
@@ -124,6 +132,7 @@ class RefreshStats:
     failed: int = 0
     skipped: int = 0
     results: list[RefreshResult] = field(default_factory=list)
+
 
 class SlackTokenRefreshScheduler:
     """

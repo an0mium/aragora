@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class GroundedOperations:
     """Manages grounded verdicts, positions, and agent relationships.
 
@@ -184,5 +185,6 @@ class GroundedOperations:
             return
 
         await self.evidence_grounder.verify_claims_formally(result.grounded_verdict)
+
 
 __all__ = ["GroundedOperations"]

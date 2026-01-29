@@ -68,7 +68,7 @@ def reset_oauth_state_store(oauth_state_store):
     oauth_state_store._states.clear()
 
 
-def parse_handler_response(result) -> Dict[str, Any]:
+def parse_handler_response(result) -> dict[str, Any]:
     """Parse handler result body as JSON."""
     if hasattr(result, "body") and result.body:
         body = result.body

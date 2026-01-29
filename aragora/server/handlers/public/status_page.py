@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Server start time for uptime calculation
 _SERVER_START_TIME = time.time()
 
+
 class ServiceStatus(Enum):
     """Service health status levels."""
 
@@ -42,6 +43,7 @@ class ServiceStatus(Enum):
     PARTIAL_OUTAGE = "partial_outage"
     MAJOR_OUTAGE = "major_outage"
     MAINTENANCE = "maintenance"
+
 
 @dataclass
 class ComponentHealth:
@@ -52,6 +54,7 @@ class ComponentHealth:
     response_time_ms: float | None = None
     last_check: datetime | None = None
     message: str | None = None
+
 
 @dataclass
 class Incident:
@@ -66,6 +69,7 @@ class Incident:
     updated_at: datetime
     resolved_at: datetime | None = None
     updates: list[dict[str, Any]] = field(default_factory=list)
+
 
 class StatusPageHandler(BaseHandler):
     """Handler for public status page endpoints."""
@@ -102,9 +106,7 @@ class StatusPageHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES or path.startswith("/api/status/")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route status page requests."""
         handlers = {
             "/status": lambda: self._html_status_page(),
@@ -566,6 +568,7 @@ class StatusPageHandler(BaseHandler):
             parts.append(f"{minutes}m")
 
         return " ".join(parts) if parts else "< 1m"
+
 
 __all__ = [
     "StatusPageHandler",

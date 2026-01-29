@@ -12,6 +12,7 @@ Multi-Tenancy:
 - Per-org email/telegram configs stored in NotificationConfigStore
 - Backward compatible with env var configuration (used as system default)
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,6 +46,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for notification endpoints (30 requests per minute - can trigger external calls)
 _notifications_limiter = RateLimiter(requests_per_minute=30)
 
+
 def _run_async_in_thread(coro):
     """Run an async coroutine in a thread-safe manner.
 
@@ -60,6 +62,7 @@ def _run_async_in_thread(coro):
     finally:
         loop.close()
 
+
 # =============================================================================
 # Per-Organization Integration Factory
 # =============================================================================
@@ -71,6 +74,7 @@ _org_telegram_integrations: dict[str, TelegramIntegration] = {}
 # System-wide fallback from environment (for backward compatibility)
 _system_email_integration: EmailIntegration | None = None
 _system_telegram_integration: TelegramIntegration | None = None
+
 
 async def get_email_integration_for_org(org_id: str | None = None) -> EmailIntegration | None:
     """Get email integration for an organization.
@@ -129,6 +133,7 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
     # Fall back to system-wide config from environment
     return _get_system_email_integration()
 
+
 def _get_system_email_integration() -> EmailIntegration | None:
     """Get system-wide email integration from environment (backward compatibility)."""
     global _system_email_integration
@@ -154,6 +159,7 @@ def _get_system_email_integration() -> EmailIntegration | None:
             logger.warning(f"Failed to initialize system email integration: {e}")
 
     return _system_email_integration
+
 
 async def get_telegram_integration_for_org(
     org_id: str | None = None,
@@ -193,6 +199,7 @@ async def get_telegram_integration_for_org(
     # Fall back to system-wide config from environment
     return _get_system_telegram_integration()
 
+
 def _get_system_telegram_integration() -> TelegramIntegration | None:
     """Get system-wide telegram integration from environment (backward compatibility)."""
     global _system_telegram_integration
@@ -212,23 +219,28 @@ def _get_system_telegram_integration() -> TelegramIntegration | None:
 
     return _system_telegram_integration
 
+
 def invalidate_org_integration_cache(org_id: str) -> None:
     """Invalidate cached integrations when config changes."""
     _org_email_integrations.pop(org_id, None)
     _org_telegram_integrations.pop(org_id, None)
     logger.debug(f"Invalidated integration cache for org {org_id}")
 
+
 # =============================================================================
 # Backward Compatibility Functions (for utility functions and other modules)
 # =============================================================================
+
 
 def get_email_integration() -> EmailIntegration | None:
     """Get system-wide email integration (backward compatibility)."""
     return _get_system_email_integration()
 
+
 def get_telegram_integration() -> TelegramIntegration | None:
     """Get system-wide telegram integration (backward compatibility)."""
     return _get_system_telegram_integration()
+
 
 def configure_email_integration(config: EmailConfig) -> EmailIntegration:
     """Configure system-wide email integration (backward compatibility)."""
@@ -237,12 +249,14 @@ def configure_email_integration(config: EmailConfig) -> EmailIntegration:
     logger.info(f"System email integration configured with host: {config.smtp_host}")
     return _system_email_integration
 
+
 def configure_telegram_integration(config: TelegramConfig) -> TelegramIntegration:
     """Configure system-wide telegram integration (backward compatibility)."""
     global _system_telegram_integration
     _system_telegram_integration = TelegramIntegration(config)
     logger.info("System telegram integration configured")
     return _system_telegram_integration
+
 
 class NotificationsHandler(SecureHandler):
     """Handler for notification-related endpoints.
@@ -269,9 +283,7 @@ class NotificationsHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/notifications")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests.
 
         SECURITY: All GET endpoints require authentication and RBAC permissions.
@@ -994,6 +1006,7 @@ class NotificationsHandler(SecureHandler):
             }
         )
 
+
 # Utility functions for use by other handlers/orchestrator
 async def notify_debate_completed(result: Any) -> dict[str, bool]:
     """Notify all configured channels about a completed debate.
@@ -1028,6 +1041,7 @@ async def notify_debate_completed(result: Any) -> dict[str, bool]:
             results["telegram"] = False
 
     return results
+
 
 async def notify_consensus_reached(
     debate_id: str,
@@ -1068,6 +1082,7 @@ async def notify_consensus_reached(
 
     return results
 
+
 async def notify_error(
     error_type: str,
     error_message: str,
@@ -1099,6 +1114,7 @@ async def notify_error(
             results["telegram"] = False
 
     return results
+
 
 __all__ = [
     "NotificationsHandler",

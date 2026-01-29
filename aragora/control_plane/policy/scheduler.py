@@ -20,6 +20,7 @@ from .manager import ControlPlanePolicyManager
 
 logger = get_logger(__name__)
 
+
 class PolicySyncScheduler:
     """
     Background scheduler for continuous policy synchronization.

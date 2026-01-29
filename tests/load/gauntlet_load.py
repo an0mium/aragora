@@ -46,8 +46,8 @@ class GauntletMetrics:
     high_findings: int = 0
     api_requests: int = 0
     api_errors: int = 0
-    response_times: List[float] = field(default_factory=list)
-    verdicts: Dict[str, int] = field(default_factory=dict)
+    response_times: list[float] = field(default_factory=list)
+    verdicts: dict[str, int] = field(default_factory=dict)
     start_time: float = 0.0
     end_time: float = 0.0
 
@@ -68,7 +68,7 @@ class GauntletMetrics:
             return 0.0
         return self.runs_completed / total * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "runs_started": self.runs_started,
             "runs_completed": self.runs_completed,
@@ -90,7 +90,7 @@ def random_string(length: int = 10) -> str:
     return "".join(random.choices(string.ascii_lowercase, k=length))
 
 
-def get_sample_specs() -> List[str]:
+def get_sample_specs() -> list[str]:
     """Get sample specifications for testing."""
     return [
         """
@@ -198,7 +198,7 @@ class GauntletClient:
             self.session = aiohttp.ClientSession()
         return self.session
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers."""
         headers = {"Content-Type": "application/json"}
         if self.token:
@@ -248,7 +248,7 @@ class GauntletClient:
             self.metrics.api_errors += 1
             return None
 
-    async def get_gauntlet_status(self, gauntlet_id: str) -> Optional[Dict[str, Any]]:
+    async def get_gauntlet_status(self, gauntlet_id: str) -> Optional[dict[str, Any]]:
         """Get Gauntlet run status."""
         session = await self._ensure_session()
 
@@ -275,7 +275,7 @@ class GauntletClient:
         gauntlet_id: str,
         timeout: float = 120.0,
         poll_interval: float = 2.0,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         """Wait for Gauntlet run to complete."""
         end_time = time.time() + timeout
 

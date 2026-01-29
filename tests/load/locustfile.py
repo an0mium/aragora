@@ -40,7 +40,7 @@ def random_string(length: int = 10) -> str:
     return "".join(random.choices(string.ascii_lowercase, k=length))
 
 
-def get_auth_headers() -> Dict[str, str]:
+def get_auth_headers() -> dict[str, str]:
     """Get authentication headers if token is configured."""
     headers = {"Content-Type": "application/json"}
     if API_TOKEN:

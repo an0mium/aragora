@@ -53,6 +53,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TeamsConversationReference:
     """
@@ -161,6 +162,7 @@ class TeamsConversationReference:
             },
         )
 
+
 @dataclass
 class StoredConversation:
     """A stored conversation reference with timestamps."""
@@ -179,6 +181,7 @@ class StoredConversation:
             "created_at_iso": datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
             "updated_at": self.updated_at,
         }
+
 
 class TeamsConversationStore:
     """
@@ -444,8 +447,10 @@ class TeamsConversationStore:
             metadata=metadata,
         )
 
+
 # Singleton instance
 _store: TeamsConversationStore | None = None
+
 
 def get_teams_conversation_store() -> TeamsConversationStore:
     """Get or create the Teams conversation store singleton."""

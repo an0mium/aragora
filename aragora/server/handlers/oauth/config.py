@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Core configuration helpers
 # =============================================================================
 
+
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
     try:
@@ -36,6 +37,7 @@ def _is_production() -> bool:
 # =============================================================================
 # Provider-specific client credentials
 # =============================================================================
+
 
 def _get_google_client_id() -> str:
     return _get_secret("GOOGLE_OAUTH_CLIENT_ID", "")
@@ -98,6 +100,7 @@ def _get_oidc_client_secret() -> str:
 # Redirect URIs (with dev fallbacks)
 # =============================================================================
 
+
 def _get_google_redirect_uri() -> str:
     val = _get_secret("GOOGLE_OAUTH_REDIRECT_URI", "")
     if val:
@@ -147,6 +150,7 @@ def _get_oidc_redirect_uri() -> str:
 # Frontend URLs
 # =============================================================================
 
+
 def _get_oauth_success_url() -> str:
     val = _get_secret("OAUTH_SUCCESS_URL", "")
     if val:
@@ -193,6 +197,7 @@ ALLOWED_OAUTH_REDIRECT_HOSTS = _get_allowed_redirect_hosts()
 # =============================================================================
 # Configuration validation
 # =============================================================================
+
 
 def validate_oauth_config() -> list[str]:
     """

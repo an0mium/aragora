@@ -54,6 +54,7 @@ _signal_cli_default = (
 SIGNAL_CLI_URL = os.environ.get("SIGNAL_CLI_URL", _signal_cli_default)
 SIGNAL_PHONE_NUMBER = os.environ.get("SIGNAL_PHONE_NUMBER", "")
 
+
 class SignalConnector(ChatPlatformConnector):
     """
     Signal connector using signal-cli REST API.
@@ -1003,5 +1004,6 @@ class SignalConnector(ChatPlatformConnector):
         except Exception as e:
             self._record_failure(e)
             raise
+
 
 __all__ = ["SignalConnector"]

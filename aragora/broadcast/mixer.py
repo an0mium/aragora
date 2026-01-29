@@ -3,6 +3,7 @@ Audio mixing and concatenation for Aragora Broadcast.
 
 Combines individual audio segments into a single podcast file.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ except ImportError:
 
 # Maximum audio files for FFmpeg filter_complex to prevent command overflow
 MAX_AUDIO_FILES = 500
+
 
 def _detect_audio_codec(audio_file: Path) -> str | None:
     """
@@ -54,6 +56,7 @@ def _detect_audio_codec(audio_file: Path) -> str | None:
         logger.debug(f"ffprobe codec detection failed for {audio_file}: {e}")
     return None
 
+
 def _has_mixed_codecs(audio_files: list[Path]) -> bool:
     """
     Check if audio files have different codecs.
@@ -71,6 +74,7 @@ def _has_mixed_codecs(audio_files: list[Path]) -> bool:
             if codec:
                 codecs.add(codec)
     return len(codecs) > 1
+
 
 def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -> bool:
     """
@@ -125,6 +129,7 @@ def mix_audio(audio_files: list[Path], output_path: Path, format: str = "mp3") -
         # Catch pydub errors and other unexpected issues
         logger.error(f"Unexpected error mixing audio: {type(e).__name__}: {e}")
         return False
+
 
 def mix_audio_with_ffmpeg(audio_files: list[Path], output_path: Path) -> bool:
     """

@@ -37,14 +37,14 @@ class MockRequest:
 
     method: str = "GET"
     path: str = "/"
-    query: Dict[str, str] = None
-    _body: Dict[str, Any] = None
+    query: dict[str, str] = None
+    _body: dict[str, Any] = None
 
     def __post_init__(self):
         if self.query is None:
             self.query = {}
 
-    async def json(self) -> Dict[str, Any]:  # noqa: F811 - intentional method name
+    async def json(self) -> dict[str, Any]:  # noqa: F811 - intentional method name
         return self._body or {}
 
 

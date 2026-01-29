@@ -303,7 +303,7 @@ class TestKMEloBridgeIntegration:
             adjustments_applied: int = 1
             adjustments_skipped: int = 0
             total_elo_change: float = 15.0
-            agents_affected: List[str] = field(default_factory=lambda: ["claude"])
+            agents_affected: list[str] = field(default_factory=lambda: ["claude"])
 
         mock_adapter = MagicMock()
         mock_adapter.analyze_km_patterns_for_agent = AsyncMock(

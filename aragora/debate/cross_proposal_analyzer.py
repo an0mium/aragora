@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Lazy import to avoid scipy/numpy import failures
 _evidence_linker_module = None
 
+
 def _get_evidence_linker_module():
     """Lazy import of evidence_linker module."""
     global _evidence_linker_module
@@ -41,12 +42,14 @@ def _get_evidence_linker_module():
             return None
     return _evidence_linker_module
 
+
 def _get_evidence_linker_class():
     """Get EvidenceClaimLinker class if available."""
     module = _get_evidence_linker_module()
     if module:
         return module.EvidenceClaimLinker
     return None
+
 
 @dataclass
 class SharedEvidence:
@@ -62,6 +65,7 @@ class SharedEvidence:
         """Number of agents citing this evidence."""
         return len(self.agents)
 
+
 @dataclass
 class Contradiction:
     """Contradictory evidence between agents."""
@@ -73,6 +77,7 @@ class Contradiction:
     evidence2: str
     description: str  # Human-readable description
 
+
 @dataclass
 class EvidenceGap:
     """A claim made without supporting evidence."""
@@ -80,6 +85,7 @@ class EvidenceGap:
     claim: str
     agents_making_claim: list[str]
     gap_severity: float  # 0-1, higher = more severe
+
 
 @dataclass
 class CrossProposalAnalysis:
@@ -122,6 +128,7 @@ class CrossProposalAnalysis:
         if self.redundancy_score > 0.7:
             return f"Echo chamber: {self.redundancy_score:.0%} redundancy"
         return None
+
 
 class CrossProposalAnalyzer:
     """
@@ -451,6 +458,7 @@ class CrossProposalAnalyzer:
         potential_sharing = len(shared) * num_agents
 
         return max_sharing / potential_sharing if potential_sharing > 0 else 0.0
+
 
 __all__ = [
     "SharedEvidence",

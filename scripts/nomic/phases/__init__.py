@@ -40,10 +40,10 @@ class ContextResult(PhaseResult):
 
     codebase_summary: str
     recent_changes: str
-    open_issues: List[str]
+    open_issues: list[str]
     # Audit integration
-    audit_findings: List[AuditFindingSummary]
-    audit_proposals: List[str]
+    audit_findings: list[AuditFindingSummary]
+    audit_proposals: list[str]
 
 
 class DebateResult(PhaseResult):
@@ -52,21 +52,21 @@ class DebateResult(PhaseResult):
     improvement: str
     consensus_reached: bool
     confidence: float
-    votes: List[tuple]
+    votes: list[tuple]
 
 
 class DesignResult(PhaseResult):
     """Result from design phase."""
 
     design: str
-    files_affected: List[str]
+    files_affected: list[str]
     complexity_estimate: str
 
 
 class ImplementResult(PhaseResult):
     """Result from implement phase."""
 
-    files_modified: List[str]
+    files_modified: list[str]
     diff_summary: str
 
 

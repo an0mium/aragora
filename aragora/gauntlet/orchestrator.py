@@ -63,6 +63,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class GauntletOrchestrator:
     """
     Orchestrates adversarial validation pipelines.
@@ -783,6 +784,7 @@ class GauntletOrchestrator:
                 self.on_finding(finding)
             except Exception as e:
                 logger.warning(f"Finding callback failed: {e}")
+
 
 # Convenience function for quick validation
 async def run_gauntlet(

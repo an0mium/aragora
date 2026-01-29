@@ -260,7 +260,7 @@ class TestPasswordResetStore:
         # Should succeed up to max_attempts
         for i in range(3):
             token, error = store.create_token(email)
-            assert token is not None, f"Request {i+1} should succeed"
+            assert token is not None, f"Request {i + 1} should succeed"
             assert error is None
 
         # Should be rate limited

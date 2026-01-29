@@ -41,6 +41,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class SyncMode(str, Enum):
     """Federation sync mode."""
 
@@ -48,12 +49,14 @@ class SyncMode(str, Enum):
     PULL = "pull"  # Pull remote changes to local
     BIDIRECTIONAL = "bidirectional"  # Both push and pull
 
+
 class SyncScope(str, Enum):
     """Scope of data to sync."""
 
     FULL = "full"  # Full item data
     SUMMARY = "summary"  # Content summary only
     METADATA = "metadata"  # Metadata only
+
 
 class ScheduleStatus(str, Enum):
     """Status of a scheduled sync."""
@@ -64,12 +67,14 @@ class ScheduleStatus(str, Enum):
     RUNNING = "running"
     ERROR = "error"
 
+
 class TriggerType(str, Enum):
     """Types of schedule triggers."""
 
     CRON = "cron"  # Cron-based scheduling
     INTERVAL = "interval"  # Fixed interval
     MANUAL = "manual"  # Manual trigger only
+
 
 @dataclass
 class FederationScheduleConfig:
@@ -106,6 +111,7 @@ class FederationScheduleConfig:
     created_by: str | None = None
     created_at: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class ScheduledSync:
     """A scheduled federation sync job."""
@@ -139,6 +145,7 @@ class ScheduledSync:
             "error_count": self.error_count,
             "enabled": self.config.enabled,
         }
+
 
 @dataclass
 class SyncRun:
@@ -175,6 +182,7 @@ class SyncRun:
             "error_message": self.error_message,
             "duration_ms": self.duration_ms,
         }
+
 
 class CronParser:
     """Simple cron expression parser."""
@@ -257,6 +265,7 @@ class CronParser:
             return [int(v) for v in field_str.split(",")]
 
         return [int(field_str)]
+
 
 class FederationScheduler:
     """
@@ -638,8 +647,10 @@ class FederationScheduler:
             "running": self._running,
         }
 
+
 # Global scheduler instance
 _federation_scheduler: FederationScheduler | None = None
+
 
 def get_federation_scheduler() -> FederationScheduler:
     """Get the global federation scheduler instance."""
@@ -648,12 +659,14 @@ def get_federation_scheduler() -> FederationScheduler:
         _federation_scheduler = FederationScheduler()
     return _federation_scheduler
 
+
 async def init_federation_scheduler() -> FederationScheduler:
     """Initialize and start the global federation scheduler."""
     scheduler = get_federation_scheduler()
     if not scheduler._running:
         await scheduler.start()
     return scheduler
+
 
 __all__ = [
     "SyncMode",

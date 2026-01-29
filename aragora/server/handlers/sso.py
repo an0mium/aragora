@@ -35,11 +35,13 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     _get_sso_provider = None  # type: ignore[assignment]
 
+
 def get_sso_provider() -> Any:
     """Get SSO provider, raising ImportError if not available."""
     if _get_sso_provider is None:
         raise ImportError("SSO auth module not available")
     return _get_sso_provider()
+
 
 try:
     from aragora.server.auth import auth_config as auth_config
@@ -62,6 +64,7 @@ try:
     SAMLProvider: Any = _SAMLProvider
 except ImportError:  # pragma: no cover - optional dependency
     SAMLProvider = None
+
 
 class SSOHandler(SecureHandler):
     """Handler for SSO (Single Sign-On) endpoints.
@@ -155,9 +158,7 @@ class SSOHandler(SecureHandler):
             "body": self._flatten_error_body(result_body),
         }
 
-    def _format_response(
-        self, handler: Any, result: HandlerResult | dict
-    ) -> HandlerResult | dict:
+    def _format_response(self, handler: Any, result: HandlerResult | dict) -> HandlerResult | dict:
         """Return handler result or legacy dict depending on context."""
         if self._should_return_handler_result(handler):
             return result
@@ -695,5 +696,6 @@ class SSOHandler(SecureHandler):
         except Exception as e:
             logger.warning(f"SSO redirect validation error: {e}")
             return False
+
 
 __all__ = ["SSOHandler"]

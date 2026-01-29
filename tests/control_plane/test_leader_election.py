@@ -411,8 +411,8 @@ class MockInMemoryRedis:
     """Mock Redis for testing concurrent elections."""
 
     def __init__(self):
-        self._data: Dict[str, str] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._data: dict[str, str] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def set(
         self,

@@ -24,6 +24,7 @@ This file contains:
 - AdvancedConvergenceAnalyzer - Multi-metric analysis
 - ConvergenceDetector - Main convergence detection
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,6 +57,7 @@ from aragora.debate.similarity.backends import (
 # Convergence Result
 # =============================================================================
 
+
 @dataclass
 class ConvergenceResult:
     """Result of convergence detection check."""
@@ -67,9 +69,11 @@ class ConvergenceResult:
     per_agent_similarity: dict[str, float] = field(default_factory=dict)
     consecutive_stable_rounds: int = 0
 
+
 # =============================================================================
 # Advanced Convergence Metrics (G3)
 # =============================================================================
+
 
 @dataclass
 class ArgumentDiversityMetric:
@@ -89,6 +93,7 @@ class ArgumentDiversityMetric:
         """Arguments becoming less diverse suggests convergence."""
         return self.diversity_score < 0.3
 
+
 @dataclass
 class EvidenceConvergenceMetric:
     """
@@ -107,6 +112,7 @@ class EvidenceConvergenceMetric:
         """High citation overlap suggests convergence."""
         return self.overlap_score > 0.6
 
+
 @dataclass
 class StanceVolatilityMetric:
     """
@@ -124,6 +130,7 @@ class StanceVolatilityMetric:
     def is_stable(self) -> bool:
         """Low volatility indicates stable positions."""
         return self.volatility_score < 0.2
+
 
 @dataclass
 class AdvancedConvergenceMetrics:
@@ -204,9 +211,11 @@ class AdvancedConvergenceMetrics:
 
         return result
 
+
 # =============================================================================
 # Advanced Convergence Analyzer
 # =============================================================================
+
 
 class AdvancedConvergenceAnalyzer:
     """
@@ -564,9 +573,11 @@ class AdvancedConvergenceAnalyzer:
 
         return metrics
 
+
 # =============================================================================
 # Convergence Detector
 # =============================================================================
+
 
 class ConvergenceDetector:
     """
@@ -893,6 +904,7 @@ class ConvergenceDetector:
             per_agent_similarity=per_agent,
             consecutive_stable_rounds=self.consecutive_stable_count,
         )
+
 
 __all__ = [
     # Cache (re-exported)

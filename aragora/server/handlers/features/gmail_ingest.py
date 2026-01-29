@@ -49,35 +49,42 @@ logger = logging.getLogger(__name__)
 # Rate limiter for Gmail endpoints (20 requests per minute - OAuth + sync operations)
 _gmail_limiter = RateLimiter(requests_per_minute=20)
 
+
 async def get_user_state(user_id: str) -> GmailUserState | None:
     """Get Gmail state for a user."""
     store = get_gmail_token_store()
     return await store.get(user_id)
+
 
 async def save_user_state(state: GmailUserState) -> None:
     """Save Gmail state for a user."""
     store = get_gmail_token_store()
     await store.save(state)
 
+
 async def delete_user_state(user_id: str) -> bool:
     """Delete Gmail state for a user."""
     store = get_gmail_token_store()
     return await store.delete(user_id)
+
 
 async def get_sync_job(user_id: str) -> SyncJobState | None:
     """Get sync job state for a user."""
     store = get_gmail_token_store()
     return await store.get_sync_job(user_id)
 
+
 async def save_sync_job(job: SyncJobState) -> None:
     """Save sync job state."""
     store = get_gmail_token_store()
     await store.save_sync_job(job)
 
+
 async def delete_sync_job(user_id: str) -> bool:
     """Delete sync job for a user."""
     store = get_gmail_token_store()
     return await store.delete_sync_job(user_id)
+
 
 class GmailIngestHandler(SecureHandler):
     """Handler for Gmail inbox ingestion endpoints.
@@ -708,6 +715,7 @@ class GmailIngestHandler(SecureHandler):
                 "was_connected": deleted,
             }
         )
+
 
 # Export for handler registration
 __all__ = ["GmailIngestHandler"]

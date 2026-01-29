@@ -1,4 +1,5 @@
 """Alert management HTTP handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Global alert analyzer instance
 _alert_analyzer: AlertAnalyzer | None = None
 
+
 def get_alert_analyzer() -> AlertAnalyzer:
     """Get or create the global alert analyzer instance."""
     global _alert_analyzer
@@ -25,10 +27,12 @@ def get_alert_analyzer() -> AlertAnalyzer:
         _alert_analyzer = AlertAnalyzer()
     return _alert_analyzer
 
+
 def set_alert_analyzer(analyzer: AlertAnalyzer) -> None:
     """Set the global alert analyzer instance."""
     global _alert_analyzer
     _alert_analyzer = analyzer
+
 
 class AlertHandler:
     """HTTP handlers for alert operations."""

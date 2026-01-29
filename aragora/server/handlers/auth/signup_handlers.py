@@ -38,6 +38,7 @@ from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
+
 def _check_permission(
     user_id: str,
     permission: str,
@@ -62,6 +63,7 @@ def _check_permission(
         logger.error(f"RBAC check failed: {e}")
         return error_response("Authorization check failed", status=500)
 
+
 # In-memory storage (replace with DB in production)
 _pending_signups: dict[str, dict[str, Any]] = {}
 _pending_signups_lock = threading.Lock()
@@ -81,9 +83,11 @@ EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 # Password requirements
 MIN_PASSWORD_LENGTH = 8
 
+
 def _generate_verification_token() -> str:
     """Generate a secure verification token."""
     return secrets.token_urlsafe(32)
+
 
 def _hash_password(password: str) -> str:
     """Hash password using bcrypt via billing.models.
@@ -95,6 +99,7 @@ def _hash_password(password: str) -> str:
 
     hashed, _ = hash_password(password)
     return hashed
+
 
 def _validate_password(password: str) -> list[str]:
     """Validate password strength."""
@@ -113,6 +118,7 @@ def _validate_password(password: str) -> list[str]:
         errors.append("Password must contain a number")
 
     return errors
+
 
 def _cleanup_expired_tokens():
     """Remove expired verification tokens and invites."""
@@ -136,9 +142,11 @@ def _cleanup_expired_tokens():
         for token in expired:
             del _pending_invites[token]
 
+
 # =============================================================================
 # User Registration
 # =============================================================================
+
 
 @rate_limit(rpm=5, limiter_name="auth_signup")
 async def handle_signup(
@@ -258,6 +266,7 @@ async def handle_signup(
         logger.exception("Signup failed")
         return error_response(f"Signup failed: {str(e)}", status=500)
 
+
 @rate_limit(rpm=10, limiter_name="auth_verify")
 async def handle_verify_email(
     data: dict[str, Any],
@@ -330,6 +339,7 @@ async def handle_verify_email(
         logger.exception("Email verification failed")
         return error_response(f"Verification failed: {str(e)}", status=500)
 
+
 @rate_limit(rpm=2, limiter_name="auth_resend")
 async def handle_resend_verification(
     data: dict[str, Any],
@@ -379,9 +389,11 @@ async def handle_resend_verification(
         logger.exception("Resend verification failed")
         return error_response(f"Resend failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Organization Setup
 # =============================================================================
+
 
 async def handle_setup_organization(
     data: dict[str, Any],
@@ -464,9 +476,11 @@ async def handle_setup_organization(
         logger.exception("Organization setup failed")
         return error_response(f"Setup failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Team Invitations
 # =============================================================================
+
 
 @rate_limit(rpm=10, limiter_name="auth_invite")
 async def handle_invite(
@@ -566,6 +580,7 @@ async def handle_invite(
         logger.exception("Invite failed")
         return error_response(f"Invite failed: {str(e)}", status=500)
 
+
 async def handle_check_invite(
     data: dict[str, Any],
     user_id: str = "default",
@@ -605,6 +620,7 @@ async def handle_check_invite(
     except Exception as e:
         logger.exception("Check invite failed")
         return error_response(f"Check failed: {str(e)}", status=500)
+
 
 async def handle_accept_invite(
     data: dict[str, Any],
@@ -673,6 +689,7 @@ async def handle_accept_invite(
         logger.exception("Accept invite failed")
         return error_response(f"Accept failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Onboarding Completion
 # =============================================================================
@@ -680,6 +697,7 @@ async def handle_accept_invite(
 # In-memory onboarding state (replace with DB in production)
 _onboarding_status: dict[str, dict[str, Any]] = {}
 _onboarding_lock = threading.Lock()
+
 
 async def handle_onboarding_complete(
     data: dict[str, Any],
@@ -725,6 +743,7 @@ async def handle_onboarding_complete(
     except Exception as e:
         logger.exception("Onboarding completion failed")
         return error_response(f"Completion failed: {str(e)}", status=500)
+
 
 async def handle_onboarding_status(
     organization_id: str = "default",
@@ -779,9 +798,11 @@ async def handle_onboarding_status(
         logger.exception("Onboarding status check failed")
         return error_response(f"Status check failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 def get_signup_handlers() -> dict[str, Any]:
     """Get all signup handlers for registration."""
@@ -796,6 +817,7 @@ def get_signup_handlers() -> dict[str, Any]:
         "onboarding_complete": handle_onboarding_complete,
         "onboarding_status": handle_onboarding_status,
     }
+
 
 __all__ = [
     "handle_signup",

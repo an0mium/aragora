@@ -40,6 +40,7 @@ except ImportError:
     QDRANT_AVAILABLE = False
     logger.debug("qdrant-client not available - install with: pip install qdrant-client")
 
+
 class QdrantVectorStore(BaseVectorStore):
     """
     Qdrant vector store adapter.

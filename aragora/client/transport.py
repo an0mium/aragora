@@ -11,6 +11,7 @@ import time as time_module
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass
 class RetryConfig:
     """Configuration for request retry behavior.
@@ -37,6 +38,7 @@ class RetryConfig:
         if self.jitter:
             delay = delay * (0.5 + random.random())
         return delay
+
 
 class RateLimiter:
     """Simple token bucket rate limiter for client-side request throttling.
@@ -79,6 +81,7 @@ class RateLimiter:
         if elapsed < self.min_interval:
             await asyncio.sleep(self.min_interval - elapsed)
         self._last_request = asyncio.get_event_loop().time()
+
 
 __all__ = [
     "RetryConfig",

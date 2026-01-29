@@ -40,17 +40,20 @@ logger = logging.getLogger(__name__)
 # Async Workflow Execution Support
 # =============================================================================
 
+
 def _get_workflow_store():
     """Get the persistent workflow store for execution tracking."""
     from aragora.workflow.persistent_store import get_workflow_store
 
     return get_workflow_store()
 
+
 def _get_workflow_engine():
     """Get the workflow engine instance."""
     from aragora.workflow.engine import get_workflow_engine
 
     return get_workflow_engine()
+
 
 async def _execute_workflow_async(
     workflow: Any,
@@ -114,6 +117,7 @@ async def _execute_workflow_async(
             )
             store.save_execution(execution)
 
+
 def _start_workflow_execution(
     workflow: Any,
     inputs: Optional[dict[str, Any]] = None,
@@ -155,8 +159,10 @@ def _start_workflow_execution(
     logger.info(f"Started workflow execution {execution_id} for workflow {workflow.id}")
     return execution_id
 
+
 # Rate limiter (60 requests per minute)
 _template_limiter = RateLimiter(requests_per_minute=60)
+
 
 class WorkflowTemplatesHandler(BaseHandler):
     """Handler for workflow templates API endpoints."""
@@ -416,6 +422,7 @@ class WorkflowTemplatesHandler(BaseHandler):
             status=202,
         )
 
+
 # Categories endpoint
 class WorkflowCategoriesHandler(BaseHandler):
     """Handler for workflow template categories."""
@@ -451,6 +458,7 @@ class WorkflowCategoriesHandler(BaseHandler):
 
         return json_response({"categories": categories})
 
+
 # Patterns endpoint
 class WorkflowPatternsHandler(BaseHandler):
     """Handler for workflow patterns listing."""
@@ -485,6 +493,7 @@ class WorkflowPatternsHandler(BaseHandler):
             )
 
         return json_response({"patterns": patterns})
+
 
 class WorkflowPatternTemplatesHandler(BaseHandler):
     """Handler for pattern-based workflow template operations."""
@@ -647,6 +656,7 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             logger.error(f"Failed to instantiate pattern {pattern_id}: {e}")
             return error_response(f"Failed to instantiate pattern: {e}", 500)
 
+
 # =============================================================================
 # Template Recommendations for Onboarding
 # =============================================================================
@@ -762,6 +772,7 @@ USE_CASE_TEMPLATES = {
     ],
 }
 
+
 class TemplateRecommendationsHandler(BaseHandler):
     """Handler for template recommendations based on use case."""
 
@@ -823,6 +834,7 @@ class TemplateRecommendationsHandler(BaseHandler):
                 "total": len(enriched),
             }
         )
+
 
 class SMEWorkflowsHandler(BaseHandler):
     """Handler for SME-specific workflow templates and automations.

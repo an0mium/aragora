@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Version Types
 # ============================================================================
 
+
 class APIVersion(Enum):
     """Supported API versions."""
 
@@ -79,6 +80,7 @@ class APIVersion(Enum):
     def __le__(self, other: "APIVersion") -> bool:
         return self == other or self < other
 
+
 @dataclass
 class VersionInfo:
     """API version information."""
@@ -105,6 +107,7 @@ class VersionInfo:
         delta = self.sunset_date - date.today()
         return max(0, delta.days)
 
+
 # Version registry
 VERSION_INFO: dict[APIVersion, VersionInfo] = {
     APIVersion.V1: VersionInfo(
@@ -127,6 +130,7 @@ VERSION_INFO: dict[APIVersion, VersionInfo] = {
 # ============================================================================
 # Version Extraction
 # ============================================================================
+
 
 def get_version_from_request(
     path: str,
@@ -173,9 +177,11 @@ def get_version_from_request(
     # 4. Default
     return default, path
 
+
 # ============================================================================
 # Versioned Router
 # ============================================================================
+
 
 @dataclass
 class RouteEntry:
@@ -188,6 +194,7 @@ class RouteEntry:
     deprecated: bool = False
     sunset_date: date | None = None
     replacement: str | None = None
+
 
 @dataclass
 class VersionedRouter:
@@ -323,9 +330,11 @@ class VersionedRouter:
                 routes.append(entry)
         return routes
 
+
 # ============================================================================
 # Decorator Helpers
 # ============================================================================
+
 
 def version_route(
     version: APIVersion = APIVersion.V1,
@@ -356,9 +365,11 @@ def version_route(
 
     return decorator
 
+
 # ============================================================================
 # Response Helpers
 # ============================================================================
+
 
 def versioned_response(
     data: Any,
@@ -382,6 +393,7 @@ def versioned_response(
             **(meta or {}),
         },
     }
+
 
 def add_version_headers(
     headers: dict[str, str],

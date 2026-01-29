@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FeedbackLoopConfig:
     """Configuration for the selection feedback loop."""
@@ -32,6 +33,7 @@ class FeedbackLoopConfig:
     feedback_decay_factor: float = 0.9  # Decay multiplier per day
     max_adjustment: float = 0.5  # Maximum selection weight adjustment (+/-)
     recency_window_days: int = 30  # Only consider debates within this window
+
 
 @dataclass
 class AgentFeedbackState:
@@ -79,6 +81,7 @@ class AgentFeedbackState:
         total = wins + losses
         return wins / total if total > 0 else 0.5
 
+
 @dataclass
 class FeedbackLoopMetrics:
     """Metrics for the feedback loop system."""
@@ -88,6 +91,7 @@ class FeedbackLoopMetrics:
     agents_tracked: int = 0
     total_adjustment_sum: float = 0.0
     last_processed: datetime | None = None
+
 
 class SelectionFeedbackLoop:
     """
@@ -393,6 +397,7 @@ class SelectionFeedbackLoop:
         self._agent_states.clear()
         self._selection_adjustments.clear()
         self.metrics = FeedbackLoopMetrics()
+
 
 __all__ = [
     "SelectionFeedbackLoop",

@@ -36,9 +36,9 @@ class DebateRound:
     """Simulated debate round for testing."""
 
     round_num: int
-    proposals: List[str]
-    critiques: List[str]
-    votes: List[str]
+    proposals: list[str]
+    critiques: list[str]
+    votes: list[str]
 
 
 def generate_debate_content(num_rounds: int, tokens_per_round: int = 1000) -> str:

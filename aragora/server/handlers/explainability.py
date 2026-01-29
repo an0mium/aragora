@@ -47,6 +47,7 @@ _decision_cache: dict[str, Any] = {}
 _cache_timestamps: dict[str, float] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
+
 def _get_cached_decision(debate_id: str) -> Any | None:
     """Get cached decision if not expired."""
     import time
@@ -62,6 +63,7 @@ def _get_cached_decision(debate_id: str) -> Any | None:
 
     return _decision_cache[debate_id]
 
+
 def _cache_decision(debate_id: str, decision: Any) -> None:
     """Cache a decision."""
     _decision_cache[debate_id] = decision
@@ -73,9 +75,11 @@ def _cache_decision(debate_id: str, decision: Any) -> None:
         del _decision_cache[oldest]
         del _cache_timestamps[oldest]
 
+
 # ============================================================================
 # Batch Processing Types
 # ============================================================================
+
 
 class BatchStatus(Enum):
     """Status of a batch explainability job."""
@@ -85,6 +89,7 @@ class BatchStatus(Enum):
     COMPLETED = "completed"
     PARTIAL = "partial"  # Some debates failed
     FAILED = "failed"
+
 
 @dataclass
 class BatchDebateResult:
@@ -107,6 +112,7 @@ class BatchDebateResult:
         if self.error:
             result["error"] = self.error
         return result
+
 
 @dataclass
 class BatchJob:
@@ -140,9 +146,11 @@ class BatchJob:
             ),
         }
 
+
 # Batch job storage - uses backend-abstracted store
 BATCH_JOB_TTL = 3600  # 1 hour retention
 MAX_BATCH_SIZE = 100
+
 
 def _convert_to_store_job(job: BatchJob) -> StoreBatchJob:
     """Convert local BatchJob to store BatchJob."""
@@ -159,11 +167,13 @@ def _convert_to_store_job(job: BatchJob) -> StoreBatchJob:
         error=None,
     )
 
+
 async def _save_batch_job_async(job: BatchJob) -> None:
     """Save batch job to storage (async version for use in async contexts)."""
     store = get_batch_job_store()
     store_job = _convert_to_store_job(job)
     await store.save_job(store_job)
+
 
 def _save_batch_job(job: BatchJob) -> None:
     """Save batch job to storage (sync wrapper for async store)."""
@@ -180,6 +190,7 @@ def _save_batch_job(job: BatchJob) -> None:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     loop.run_until_complete(store.save_job(store_job))
+
 
 def _get_batch_job(batch_id: str) -> BatchJob | None:
     """Get batch job from storage (sync wrapper for async store)."""
@@ -215,6 +226,7 @@ def _get_batch_job(batch_id: str) -> BatchJob | None:
             )
         )
     return job
+
 
 class ExplainabilityHandler(BaseHandler):
     """Handler for debate explainability endpoints."""
@@ -1001,8 +1013,10 @@ h3 {{ color: #666; }}
             logger.error(f"Compare error: {e}")
             return error_response(f"Failed to compare debates: {str(e)[:100]}", 500)
 
+
 # Handler factory
 _explainability_handler: Optional["ExplainabilityHandler"] = None
+
 
 def get_explainability_handler(server_context: dict | None = None) -> "ExplainabilityHandler":
     """Get or create the explainability handler instance."""
@@ -1012,6 +1026,7 @@ def get_explainability_handler(server_context: dict | None = None) -> "Explainab
             server_context = {}
         _explainability_handler = ExplainabilityHandler(server_context)
     return _explainability_handler
+
 
 __all__ = [
     "ExplainabilityHandler",

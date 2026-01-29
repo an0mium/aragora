@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ConsensusVerifier:
     """Handles claim verification during consensus phase.
 
@@ -337,5 +338,6 @@ class ConsensusVerifier:
             )
         except Exception as e:
             logger.debug(f"verification_event_error: {e}")
+
 
 __all__ = ["ConsensusVerifier"]

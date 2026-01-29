@@ -46,15 +46,18 @@ logger = logging.getLogger(__name__)
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 class ProvenanceAdapterError(Exception):
     """Base exception for provenance adapter errors."""
 
     pass
 
+
 class ChainNotFoundError(ProvenanceAdapterError):
     """Raised when a provenance chain is not found."""
 
     pass
+
 
 @dataclass
 class ProvenanceIngestionResult:
@@ -85,6 +88,7 @@ class ProvenanceIngestionResult:
             "errors": self.errors,
             "success": self.success,
         }
+
 
 class ProvenanceAdapter:
     """
@@ -606,6 +610,7 @@ class ProvenanceAdapter:
             "provenance_store_connected": self._provenance_store is not None,
             "auto_ingest_enabled": self._auto_ingest,
         }
+
 
 __all__ = [
     "ProvenanceAdapter",

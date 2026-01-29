@@ -149,6 +149,7 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class ControlPlaneConfig:
     """Configuration for the control plane."""
@@ -256,6 +257,7 @@ class ControlPlaneConfig:
             watchdog_auto_escalate=os.environ.get("CP_WATCHDOG_AUTO_ESCALATE", "true").lower()
             == "true",
         )
+
 
 class ControlPlaneCoordinator:
     """
@@ -1787,6 +1789,7 @@ class ControlPlaneCoordinator:
                     error=str(e),
                 )
                 raise
+
 
 async def create_control_plane(
     config: ControlPlaneConfig | None = None,

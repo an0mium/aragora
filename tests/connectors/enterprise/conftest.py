@@ -28,7 +28,7 @@ from aragora.connectors.enterprise.base import (
 class MockCredentialProvider:
     """Mock credential provider for testing."""
 
-    def __init__(self, credentials: Optional[Dict[str, str]] = None):
+    def __init__(self, credentials: Optional[dict[str, str]] = None):
         self._credentials = credentials or {}
 
     async def get_credential(self, key: str) -> Optional[str]:
@@ -108,7 +108,7 @@ def completed_sync_state() -> SyncState:
 
 
 @pytest.fixture
-def mock_mongo_documents() -> List[Dict[str, Any]]:
+def mock_mongo_documents() -> list[dict[str, Any]]:
     """Sample MongoDB documents for testing."""
     return [
         {
@@ -158,7 +158,7 @@ def mock_mongo_client(mock_mongo_documents):
 
 
 @pytest.fixture
-def mock_slack_channels() -> List[Dict[str, Any]]:
+def mock_slack_channels() -> list[dict[str, Any]]:
     """Sample Slack channels for testing."""
     return [
         {
@@ -185,7 +185,7 @@ def mock_slack_channels() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def mock_slack_messages() -> List[Dict[str, Any]]:
+def mock_slack_messages() -> list[dict[str, Any]]:
     """Sample Slack messages for testing."""
     return [
         {
@@ -213,7 +213,7 @@ def mock_slack_messages() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def mock_slack_users() -> List[Dict[str, Any]]:
+def mock_slack_users() -> list[dict[str, Any]]:
     """Sample Slack users for testing."""
     return [
         {
@@ -267,7 +267,7 @@ def mock_slack_client(mock_slack_channels, mock_slack_messages, mock_slack_users
 
 
 @pytest.fixture
-def mock_notion_pages() -> List[Dict[str, Any]]:
+def mock_notion_pages() -> list[dict[str, Any]]:
     """Sample Notion pages for testing."""
     return [
         {
@@ -296,7 +296,7 @@ def mock_notion_pages() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def mock_notion_blocks() -> List[Dict[str, Any]]:
+def mock_notion_blocks() -> list[dict[str, Any]]:
     """Sample Notion blocks for testing."""
     return [
         {
@@ -323,7 +323,7 @@ def mock_notion_blocks() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def mock_confluence_pages() -> List[Dict[str, Any]]:
+def mock_confluence_pages() -> list[dict[str, Any]]:
     """Sample Confluence pages for testing."""
     return [
         {
@@ -357,7 +357,7 @@ def mock_confluence_pages() -> List[Dict[str, Any]]:
 class AsyncIteratorMock:
     """Mock async iterator for database cursors."""
 
-    def __init__(self, items: List[Any]):
+    def __init__(self, items: list[Any]):
         self._items = items
         self._index = 0
 
@@ -390,7 +390,7 @@ class AsyncIteratorMock:
 
 
 @pytest.fixture
-def sample_sync_items() -> List[SyncItem]:
+def sample_sync_items() -> list[SyncItem]:
     """Create sample sync items for testing."""
     return [
         SyncItem(

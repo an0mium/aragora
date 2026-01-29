@@ -143,6 +143,7 @@ qualified healthcare professionals for clinical decisions.""",
     tags=["healthcare", "medical", "clinical", "HIPAA"],
 )
 
+
 @VerticalRegistry.register(
     "healthcare",
     config=HEALTHCARE_CONFIG,

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ArenaDelegation:
     """
     Handles delegation of Arena methods to component subsystems.
@@ -216,5 +217,6 @@ class ArenaDelegation:
         if self._prompt_builder:
             return self._prompt_builder.get_flip_context(agent)
         return ""
+
 
 __all__ = ["ArenaDelegation"]

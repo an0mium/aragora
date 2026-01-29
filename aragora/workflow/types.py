@@ -20,6 +20,7 @@ from typing import Any, Callable, Literal, Optional
 
 import yaml
 
+
 class StepStatus(Enum):
     """Status of a workflow step execution."""
 
@@ -30,6 +31,7 @@ class StepStatus(Enum):
     FAILED = "failed"
     WAITING = "waiting"  # Waiting for parallel steps or conditions
 
+
 class ExecutionPattern(Enum):
     """Patterns for step execution."""
 
@@ -37,6 +39,7 @@ class ExecutionPattern(Enum):
     PARALLEL = "parallel"  # Steps run concurrently (hive-mind)
     CONDITIONAL = "conditional"  # Step runs based on condition
     LOOP = "loop"  # Step repeats until condition met
+
 
 class NodeCategory(Enum):
     """Categories of visual workflow nodes."""
@@ -49,6 +52,7 @@ class NodeCategory(Enum):
     DEBATE = "debate"  # Aragora debate execution
     INTEGRATION = "integration"  # External system integration
 
+
 class EdgeType(Enum):
     """Types of edges in workflow graph."""
 
@@ -58,9 +62,11 @@ class EdgeType(Enum):
     APPROVAL = "approval"  # Human approval path
     REJECTION = "rejection"  # Human rejection path
 
+
 # =============================================================================
 # Visual Layout Types for Workflow Builder
 # =============================================================================
+
 
 @dataclass
 class Position:
@@ -78,6 +84,7 @@ class Position:
         """Create from dictionary."""
         return cls(x=data.get("x", 0.0), y=data.get("y", 0.0))
 
+
 @dataclass
 class NodeSize:
     """Size of a workflow node."""
@@ -93,6 +100,7 @@ class NodeSize:
     def from_dict(cls, data: dict[str, float]) -> "NodeSize":
         """Create from dictionary."""
         return cls(width=data.get("width", 200.0), height=data.get("height", 100.0))
+
 
 @dataclass
 class VisualNodeData:
@@ -137,6 +145,7 @@ class VisualNodeData:
             z_index=data.get("z_index", 0),
         )
 
+
 @dataclass
 class VisualEdgeData:
     """Visual metadata for a workflow edge."""
@@ -173,6 +182,7 @@ class VisualEdgeData:
             source_handle=data.get("source_handle", ""),
             target_handle=data.get("target_handle", ""),
         )
+
 
 @dataclass
 class CanvasSettings:
@@ -223,6 +233,7 @@ class CanvasSettings:
             grid_color=data.get("grid_color", "#e2e8f0"),
         )
 
+
 @dataclass
 class StepResult:
     """Result from a single workflow step execution."""
@@ -243,6 +254,7 @@ class StepResult:
         """Check if step completed successfully."""
         return self.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
 
+
 @dataclass
 class WorkflowResult:
     """Result from full workflow execution."""
@@ -262,6 +274,7 @@ class WorkflowResult:
             if step.step_id == step_id:
                 return step
         return None
+
 
 @dataclass
 class StepDefinition:
@@ -328,6 +341,7 @@ class StepDefinition:
             outputs=data.get("outputs", {}),
         )
 
+
 @dataclass
 class TransitionRule:
     """Conditional transition between steps with visual metadata."""
@@ -376,6 +390,7 @@ class TransitionRule:
             label=data.get("label", ""),
         )
 
+
 class WorkflowCategory(Enum):
     """Industry categories for workflow templates."""
 
@@ -388,6 +403,7 @@ class WorkflowCategory(Enum):
     ACADEMIC = "academic"
     COMPLIANCE = "compliance"
     SME = "sme"
+
 
 @dataclass
 class WorkflowDefinition:
@@ -516,9 +532,7 @@ class WorkflowDefinition:
         data = yaml.safe_load(yaml_str)
         return cls.from_dict(data)
 
-    def clone(
-        self, new_id: str | None = None, new_name: str | None = None
-    ) -> "WorkflowDefinition":
+    def clone(self, new_id: str | None = None, new_name: str | None = None) -> "WorkflowDefinition":
         """Create a copy of this workflow with optional new ID/name."""
         import uuid
 
@@ -563,6 +577,7 @@ class WorkflowDefinition:
 
         return len(errors) == 0, errors
 
+
 @dataclass
 class WorkflowCheckpoint:
     """Checkpoint for workflow state persistence."""
@@ -591,6 +606,7 @@ class WorkflowCheckpoint:
             "checksum": self.checksum,
         }
 
+
 @dataclass
 class WorkflowConfig:
     """Configuration for workflow execution."""
@@ -613,6 +629,7 @@ class WorkflowConfig:
     # Parallel execution
     max_parallel_steps: int = 10
     parallel_timeout_seconds: float = 300.0
+
 
 # Type aliases
 StepType = Literal[

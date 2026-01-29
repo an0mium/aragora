@@ -31,6 +31,7 @@ from aragora.analysis.code_intelligence import (
     SymbolKind,
 )
 
+
 class EdgeType(str, Enum):
     """Type of relationship between nodes."""
 
@@ -39,6 +40,7 @@ class EdgeType(str, Enum):
     INHERITS = "inherits"  # Class inherits from another
     USES = "uses"  # Symbol uses another (field access, etc.)
     CONTAINS = "contains"  # File contains symbol
+
 
 @dataclass
 class GraphNode:
@@ -59,6 +61,7 @@ class GraphNode:
             return self.id == other.id
         return False
 
+
 @dataclass
 class GraphEdge:
     """An edge in the call/dependency graph."""
@@ -68,6 +71,7 @@ class GraphEdge:
     edge_type: EdgeType
     location: SourceLocation | None = None  # Where the reference occurs
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class CallSite:
@@ -80,6 +84,7 @@ class CallSite:
     is_method_call: bool = False
     receiver: str | None = None  # For method calls, the receiver expression
 
+
 @dataclass
 class DeadCodeResult:
     """Result of dead code analysis."""
@@ -88,6 +93,7 @@ class DeadCodeResult:
     unreachable_classes: list[GraphNode]
     unused_imports: list[ImportInfo]
     total_dead_lines: int = 0
+
 
 @dataclass
 class ImpactResult:
@@ -98,6 +104,7 @@ class ImpactResult:
     transitively_affected: list[str]  # All nodes affected (transitive closure)
     affected_files: set[str]
 
+
 @dataclass
 class CircularDependency:
     """A circular dependency in the codebase."""
@@ -105,6 +112,7 @@ class CircularDependency:
     cycle: list[str]  # Node IDs forming the cycle
     edge_type: EdgeType
     locations: list[SourceLocation]
+
 
 class CallGraph:
     """
@@ -422,6 +430,7 @@ class CallGraph:
             "entry_points": list(self._entry_points),
             "metrics": self.get_complexity_metrics(),
         }
+
 
 class CallGraphBuilder:
     """
@@ -785,6 +794,7 @@ class CallGraphBuilder:
 
         return module
 
+
 class ImportGraph:
     """
     Specialized graph for module import relationships.
@@ -858,6 +868,7 @@ class ImportGraph:
                 graph.add_import(module, imp.module, loc)
 
         return graph
+
 
 def analyze_codebase_dependencies(
     directory: str,

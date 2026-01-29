@@ -39,6 +39,7 @@ from .marketplace import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class InstallationPolicy:
     """Policy governing skill installation for a tenant."""
@@ -72,6 +73,7 @@ class InstallationPolicy:
             "auto_update_minor_only": self.auto_update_minor_only,
         }
 
+
 @dataclass
 class InstallationCheck:
     """Result of installation permission check."""
@@ -91,6 +93,7 @@ class InstallationCheck:
             "missing_permissions": self.missing_permissions,
             "missing_dependencies": self.missing_dependencies,
         }
+
 
 class SkillInstaller:
     """

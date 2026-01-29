@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 K = TypeVar("K")
 V = TypeVar("V")
 
+
 @dataclass
 class AccessPattern:
     """Tracks access patterns for a cache key."""
@@ -90,6 +91,7 @@ class AccessPattern:
         if len(self.access_times) > max_history:
             self.access_times = self.access_times[-max_history:]
 
+
 @dataclass
 class CacheEntry(Generic[V]):
     """A cached value with metadata."""
@@ -98,6 +100,7 @@ class CacheEntry(Generic[V]):
     created_at: float
     expires_at: float
     access_pattern: AccessPattern
+
 
 @dataclass
 class CacheStats:
@@ -129,6 +132,7 @@ class CacheStats:
             "hot_spots": self.hot_spots,
             "avg_ttl_seconds": round(self.avg_ttl_seconds, 1),
         }
+
 
 class AdaptiveTTLCache(Generic[K, V]):
     """
@@ -388,6 +392,7 @@ class AdaptiveTTLCache(Generic[K, V]):
         with self._lock:
             return [key for key, entry in self._cache.items() if entry.access_pattern.is_hot]
 
+
 class CacheOptimizer:
     """
     Analyzes cache performance and provides optimization recommendations.
@@ -442,6 +447,7 @@ class CacheOptimizer:
             recommendations.append("No TTL adjustments made. Access patterns may be too uniform.")
 
         return recommendations
+
 
 __all__ = [
     "AccessPattern",

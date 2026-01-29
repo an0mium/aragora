@@ -27,6 +27,7 @@ from aragora.audit.exploration.session import (
 
 logger = logging.getLogger(__name__)
 
+
 class ExplorationMode(str, Enum):
     """Mode of exploration for different purposes."""
 
@@ -35,6 +36,7 @@ class ExplorationMode(str, Enum):
     CROSS_REFERENCE = "cross_reference"  # Find connections to other documents
     VERIFY = "verify"  # Verify claims against evidence
     SUMMARIZE = "summarize"  # Produce high-level summary
+
 
 @dataclass
 class ExplorationConfig:
@@ -47,6 +49,7 @@ class ExplorationConfig:
     extract_relationships: bool = True
     confidence_threshold: float = 0.5
     response_format: str = "json"  # json or text
+
 
 class ExplorationAgent(CLIAgent):
     """Agent specialized for iterative document exploration.
@@ -518,6 +521,7 @@ Confidence: {understanding.confidence}
                 except json.JSONDecodeError:
                     pass
             raise ValueError(f"Could not parse JSON from response: {response[:200]}...")
+
 
 class VerifierAgent(ExplorationAgent):
     """Agent specialized for verifying exploration findings.

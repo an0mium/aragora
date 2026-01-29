@@ -18,6 +18,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class BreakpointTrigger(Enum):
     """Triggers for breakpoints."""
 
@@ -30,6 +31,7 @@ class BreakpointTrigger(Enum):
     SAFETY_CONCERN = "safety_concern"  # Potential safety issue detected
     HOLLOW_CONSENSUS = "hollow_consensus"  # Evidence-Powered Trickster: agreement without substance
     CUSTOM = "custom"  # Custom trigger condition
+
 
 @dataclass
 class DebateSnapshot:
@@ -55,6 +57,7 @@ class DebateSnapshot:
     # Metadata
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+
 @dataclass
 class HumanGuidance:
     """Guidance from a human reviewer."""
@@ -79,6 +82,7 @@ class HumanGuidance:
     reasoning: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+
 @dataclass
 class Breakpoint:
     """A breakpoint in the debate."""
@@ -96,6 +100,7 @@ class Breakpoint:
     # Escalation
     escalation_level: int = 1  # 1-3, higher = more urgent
     timeout_minutes: int = 30  # How long to wait for human
+
 
 @dataclass
 class BreakpointConfig:
@@ -116,6 +121,7 @@ class BreakpointConfig:
     safety_keywords: list[str] = field(
         default_factory=lambda: ["dangerous", "harmful", "illegal", "unethical", "unsafe"]
     )
+
 
 class HumanNotifier:
     """
@@ -177,6 +183,7 @@ class HumanNotifier:
         logger.info(f"Escalation level: {breakpoint.escalation_level}")
         logger.info(f"Timeout: {breakpoint.timeout_minutes} minutes")
         logger.info("=" * 60)
+
 
 class BreakpointManager:
     """
@@ -585,6 +592,7 @@ How would you like to proceed?
 
         return messages, environment
 
+
 # Decorator for marking critical decision points
 def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
     """Decorator to mark a debate point as requiring human review."""
@@ -595,6 +603,7 @@ def critical_decision(reason: str = "") -> Callable[[Callable], Callable]:
         return func
 
     return decorator
+
 
 # Example usage helper
 def breakpoint(

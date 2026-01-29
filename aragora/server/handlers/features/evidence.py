@@ -13,6 +13,7 @@ Endpoints:
 - GET  /api/evidence/statistics         - Get evidence store statistics
 - DELETE /api/evidence/:id              - Delete evidence by ID
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +59,7 @@ logger = logging.getLogger(__name__)
 _evidence_read_limiter = RateLimiter(requests_per_minute=60)
 # Write/collect operations are more restrictive (expensive external API calls)
 _evidence_write_limiter = RateLimiter(requests_per_minute=10)
+
 
 class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for evidence-related API endpoints."""
@@ -206,9 +208,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         return self._evidence_collector
 
     @require_permission("evidence:read")
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for evidence endpoints."""
         # Rate limit check for read operations
         client_ip = get_client_ip(handler)

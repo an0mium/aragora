@@ -23,6 +23,7 @@ Features:
 - Artifact hashes for verification
 - Query API for analysis
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -38,6 +39,7 @@ from pathlib import Path
 from typing import Any, Generator
 
 logger = logging.getLogger(__name__)
+
 
 class AuditEventType(Enum):
     """Types of audit events."""
@@ -70,6 +72,7 @@ class AuditEventType(Enum):
 
     # Custom events
     CUSTOM = "custom"
+
 
 @dataclass
 class AuditEvent:
@@ -117,6 +120,7 @@ class AuditEvent:
             message=data.get("message", ""),
             metadata=data.get("metadata", {}),
         )
+
 
 class AuditLogger:
     """
@@ -533,8 +537,10 @@ class AuditLogger:
             self._local.conn.close()
             self._local.conn = None
 
+
 # Global audit logger instance
 _audit_logger: AuditLogger | None = None
+
 
 def get_audit_logger(
     db_path: Path | None = None,
@@ -557,9 +563,11 @@ def get_audit_logger(
 
     return _audit_logger
 
+
 def hash_artifact(content: str) -> str:
     """Create SHA-256 hash of content for audit tracking."""
     return hashlib.sha256(content.encode()).hexdigest()[:16]
+
 
 __all__ = [
     "AuditLogger",

@@ -65,6 +65,7 @@ NON_CLAIM_PATTERNS = [
     r"^\s*(?:I think|I guess|it seems|it appears)",  # Weak assertions
 ]
 
+
 @dataclass
 class EvidenceLink:
     """A link between a claim and its supporting evidence."""
@@ -82,6 +83,7 @@ class EvidenceLink:
         """Whether this is a strong evidence-claim link."""
         return self.link_strength >= 0.6
 
+
 @dataclass
 class ClaimAnalysis:
     """Analysis of claims in a text."""
@@ -90,6 +92,7 @@ class ClaimAnalysis:
     claim_positions: list[tuple[int, int]] = field(default_factory=list)  # (start, end)
     total_sentences: int = 0
     claim_density: float = 0.0  # Fraction of sentences that are claims
+
 
 @dataclass
 class EvidenceCoverageResult:
@@ -101,6 +104,7 @@ class EvidenceCoverageResult:
     unlinked_claims: list[str]  # Claims without evidence
     evidence_gaps: list[str]  # Specific gaps identified
     links: list[EvidenceLink] = field(default_factory=list)
+
 
 class EvidenceClaimLinker:
     """
@@ -436,6 +440,7 @@ class EvidenceClaimLinker:
             evidence_gaps=gaps,
             links=links,
         )
+
 
 __all__ = [
     "EvidenceLink",

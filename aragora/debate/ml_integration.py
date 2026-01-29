@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MLIntegrationConfig:
     """Configuration for ML integration."""
@@ -65,6 +66,7 @@ class MLIntegrationConfig:
     # Performance
     cache_routing_decisions: bool = True
     cache_ttl_seconds: int = 300
+
 
 class MLDelegationStrategy(DelegationStrategy):
     """ML-powered delegation strategy using AgentRouter.
@@ -250,6 +252,7 @@ class MLDelegationStrategy(DelegationStrategy):
             logger.warning(f"Unexpected ML scoring error for {agent.name}: {e}")
             return 2.5
 
+
 class QualityGate:
     """Quality gate for filtering debate responses.
 
@@ -393,6 +396,7 @@ class QualityGate:
             results.append((message, quality))
 
         return results
+
 
 class ConsensusEstimator:
     """Estimates consensus likelihood for early termination.
@@ -562,6 +566,7 @@ class ConsensusEstimator:
         """Reset similarity history for new debate."""
         self._similarity_history = []
 
+
 class MLEnhancedTeamSelector:
     """Team selector with ML-enhanced scoring.
 
@@ -642,6 +647,7 @@ class MLEnhancedTeamSelector:
 
         return [agent_map[name] for name in sorted_names if name in agent_map]
 
+
 def create_ml_team_selector(
     elo_system=None,
     calibration_tracker=None,
@@ -671,6 +677,7 @@ def create_ml_team_selector(
         base_selector=base_selector,
         ml_weight=ml_weight,
     )
+
 
 # Export training data from debates
 class DebateTrainingExporter:
@@ -773,11 +780,13 @@ class DebateTrainingExporter:
 
         return data
 
+
 # Singleton instances for convenience
 _ml_delegation: MLDelegationStrategy | None = None
 _quality_gate: QualityGate | None = None
 _consensus_estimator: ConsensusEstimator | None = None
 _training_exporter: DebateTrainingExporter | None = None
+
 
 def get_ml_delegation() -> MLDelegationStrategy:
     """Get or create global ML delegation strategy."""
@@ -786,6 +795,7 @@ def get_ml_delegation() -> MLDelegationStrategy:
         _ml_delegation = MLDelegationStrategy()
     return _ml_delegation
 
+
 def get_quality_gate(threshold: float = 0.6) -> QualityGate:
     """Get or create global quality gate."""
     global _quality_gate
@@ -793,12 +803,14 @@ def get_quality_gate(threshold: float = 0.6) -> QualityGate:
         _quality_gate = QualityGate(threshold=threshold)
     return _quality_gate
 
+
 def get_consensus_estimator() -> ConsensusEstimator:
     """Get or create global consensus estimator."""
     global _consensus_estimator
     if _consensus_estimator is None:
         _consensus_estimator = ConsensusEstimator()
     return _consensus_estimator
+
 
 def get_training_exporter() -> DebateTrainingExporter:
     """Get or create global training exporter."""

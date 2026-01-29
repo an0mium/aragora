@@ -20,6 +20,7 @@ from aragora.client.models import (
     GauntletRunResponse,
 )
 
+
 class GauntletAPI:
     """API interface for gauntlet (adversarial validation)."""
 
@@ -287,5 +288,6 @@ class GauntletAPI:
             f"/api/v1/gauntlet/{gauntlet_id_a}/compare/{gauntlet_id_b}"
         )
         return GauntletComparison(**response)
+
 
 __all__ = ["GauntletAPI"]

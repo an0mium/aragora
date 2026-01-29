@@ -30,6 +30,7 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
+
 class CitationStyle(str, Enum):
     """Supported citation styles."""
 
@@ -41,6 +42,7 @@ class CitationStyle(str, Enum):
     VANCOUVER = "vancouver"
     AMA = "ama"
 
+
 @dataclass
 class CitationPattern:
     """Pattern for detecting citations in a specific style."""
@@ -49,6 +51,7 @@ class CitationPattern:
     in_text_pattern: re.Pattern[str]
     reference_pattern: re.Pattern[str]
     description: str
+
 
 # Citation patterns by style
 CITATION_PATTERNS = [
@@ -90,6 +93,7 @@ CITATION_PATTERNS = [
     ),
 ]
 
+
 @dataclass
 class ExtractedCitation:
     """An extracted citation from the document."""
@@ -103,6 +107,7 @@ class ExtractedCitation:
     is_reference: bool
     confidence: float
 
+
 @dataclass
 class PlagiarismIndicator:
     """An indicator of potential plagiarism."""
@@ -112,6 +117,7 @@ class PlagiarismIndicator:
     severity: FindingSeverity
     description: str
     recommendation: str
+
 
 # Plagiarism indicators
 PLAGIARISM_INDICATORS = [
@@ -151,6 +157,7 @@ PLAGIARISM_INDICATORS = [
         recommendation="Format 'et al.' citations properly",
     ),
 ]
+
 
 class AcademicAuditor(BaseAuditor):
     """
@@ -510,6 +517,7 @@ If no issues, respond with: []"""
 
         return findings
 
+
 class CitationExtractor:
     """
     Standalone citation extractor for quick analysis.
@@ -580,6 +588,7 @@ class CitationExtractor:
                     )
 
         return results
+
 
 __all__ = [
     "AcademicAuditor",

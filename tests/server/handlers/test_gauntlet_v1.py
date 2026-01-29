@@ -40,49 +40,49 @@ from aragora.server.handlers.gauntlet_v1 import (
 
 
 @pytest.fixture
-def server_context() -> Dict[str, Any]:
+def server_context() -> dict[str, Any]:
     """Create empty server context for handlers."""
     return {}
 
 
 @pytest.fixture
-def schema_handler(server_context: Dict[str, Any]) -> GauntletSchemaHandler:
+def schema_handler(server_context: dict[str, Any]) -> GauntletSchemaHandler:
     """Create schema handler instance."""
     return GauntletSchemaHandler(server_context)
 
 
 @pytest.fixture
-def all_schemas_handler(server_context: Dict[str, Any]) -> GauntletAllSchemasHandler:
+def all_schemas_handler(server_context: dict[str, Any]) -> GauntletAllSchemasHandler:
     """Create all schemas handler instance."""
     return GauntletAllSchemasHandler(server_context)
 
 
 @pytest.fixture
-def templates_list_handler(server_context: Dict[str, Any]) -> GauntletTemplatesListHandler:
+def templates_list_handler(server_context: dict[str, Any]) -> GauntletTemplatesListHandler:
     """Create templates list handler instance."""
     return GauntletTemplatesListHandler(server_context)
 
 
 @pytest.fixture
-def template_handler(server_context: Dict[str, Any]) -> GauntletTemplateHandler:
+def template_handler(server_context: dict[str, Any]) -> GauntletTemplateHandler:
     """Create single template handler instance."""
     return GauntletTemplateHandler(server_context)
 
 
 @pytest.fixture
-def receipt_export_handler(server_context: Dict[str, Any]) -> GauntletReceiptExportHandler:
+def receipt_export_handler(server_context: dict[str, Any]) -> GauntletReceiptExportHandler:
     """Create receipt export handler instance."""
     return GauntletReceiptExportHandler(server_context)
 
 
 @pytest.fixture
-def heatmap_export_handler(server_context: Dict[str, Any]) -> GauntletHeatmapExportHandler:
+def heatmap_export_handler(server_context: dict[str, Any]) -> GauntletHeatmapExportHandler:
     """Create heatmap export handler instance."""
     return GauntletHeatmapExportHandler(server_context)
 
 
 @pytest.fixture
-def validate_receipt_handler(server_context: Dict[str, Any]) -> GauntletValidateReceiptHandler:
+def validate_receipt_handler(server_context: dict[str, Any]) -> GauntletValidateReceiptHandler:
     """Create validate receipt handler instance."""
     return GauntletValidateReceiptHandler(server_context)
 
@@ -92,7 +92,7 @@ def validate_receipt_handler(server_context: Dict[str, Any]) -> GauntletValidate
 # ===========================================================================
 
 
-def parse_response_body(result) -> Dict[str, Any]:
+def parse_response_body(result) -> dict[str, Any]:
     """Parse JSON response body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
 
@@ -569,7 +569,7 @@ class TestHandlerRegistration:
         assert "GauntletHeatmapExportHandler" in handler_names
         assert "GauntletValidateReceiptHandler" in handler_names
 
-    def test_handlers_can_be_instantiated(self, server_context: Dict[str, Any]):
+    def test_handlers_can_be_instantiated(self, server_context: dict[str, Any]):
         """Test that all handlers can be instantiated."""
         for handler_cls in GAUNTLET_V1_HANDLERS:
             handler = handler_cls(server_context)

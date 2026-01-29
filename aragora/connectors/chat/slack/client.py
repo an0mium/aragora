@@ -40,6 +40,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 # Environment configuration
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
@@ -53,6 +54,7 @@ DEFAULT_TIMEOUT = 30.0  # seconds
 DEFAULT_RETRIES = 3
 CIRCUIT_BREAKER_THRESHOLD = 5
 CIRCUIT_BREAKER_COOLDOWN = 60.0  # seconds
+
 
 def _classify_slack_error(
     error_str: str,
@@ -108,6 +110,7 @@ def _classify_slack_error(
         status_code=status_code if status_code >= 400 else None,
     )
 
+
 def _is_retryable_error(status_code: int, error: str | None = None) -> bool:
     """Check if an error is retryable (transient)."""
     # Rate limited
@@ -122,10 +125,12 @@ def _is_retryable_error(status_code: int, error: str | None = None) -> bool:
         return True
     return False
 
+
 async def _exponential_backoff(attempt: int, base: float = 1.0, max_delay: float = 30.0) -> None:
     """Sleep with exponential backoff and jitter."""
     delay = min(base * (2**attempt) + random.uniform(0, 1), max_delay)
     await asyncio.sleep(delay)
+
 
 async def _wait_for_rate_limit(
     response: Any, attempt: int, base: float = 1.0, max_delay: float = 60.0
@@ -154,6 +159,7 @@ async def _wait_for_rate_limit(
 
     # Fallback to exponential backoff
     await _exponential_backoff(attempt, base, max_delay)
+
 
 @dataclass
 class WorkspaceRateLimit:
@@ -205,6 +211,7 @@ class WorkspaceRateLimit:
             "seconds_until_reset": self.seconds_until_reset,
         }
 
+
 class WorkspaceRateLimitRegistry:
     """
     Registry for tracking rate limits across multiple workspaces.
@@ -252,8 +259,10 @@ class WorkspaceRateLimitRegistry:
         """Get rate limit stats for all tracked workspaces."""
         return {wid: limit.to_dict() for wid, limit in self._limits.items()}
 
+
 # Global registry for rate limit tracking
 _rate_limit_registry = WorkspaceRateLimitRegistry()
+
 
 def get_rate_limit_registry() -> WorkspaceRateLimitRegistry:
     """Get the global rate limit registry."""

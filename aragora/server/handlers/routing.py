@@ -53,6 +53,7 @@ TaskRequirements = _routing_imports.get("TaskRequirements")
 DomainDetector = _routing_imports.get("DomainDetector")
 DEFAULT_AGENT_EXPERTISE = _routing_imports.get("DEFAULT_AGENT_EXPERTISE")
 
+
 class RoutingHandler(BaseHandler):
     """Handler for agent routing endpoints."""
 

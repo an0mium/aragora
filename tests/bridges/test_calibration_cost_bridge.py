@@ -30,7 +30,7 @@ class MockTemperatureParams:
     """Mock temperature params."""
 
     temperature: float = 1.0
-    domain_temperatures: Dict[str, float] = field(default_factory=dict)
+    domain_temperatures: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -42,7 +42,7 @@ class MockCalibrationSummary:
     total_correct: int = 85
     brier_score: float = 0.1
     ece: float = 0.08
-    buckets: List[MockCalibrationBucket] = field(default_factory=list)
+    buckets: list[MockCalibrationBucket] = field(default_factory=list)
     temperature_params: MockTemperatureParams = field(default_factory=MockTemperatureParams)
 
     @property
@@ -67,14 +67,14 @@ class MockCalibrationTracker:
     """Mock calibration tracker."""
 
     def __init__(self):
-        self._summaries: Dict[str, MockCalibrationSummary] = {}
-        self._agents: List[str] = []
+        self._summaries: dict[str, MockCalibrationSummary] = {}
+        self._agents: list[str] = []
 
     def get_calibration_summary(self, agent: str) -> Optional[MockCalibrationSummary]:
         """Get calibration summary."""
         return self._summaries.get(agent)
 
-    def get_all_agents(self) -> List[str]:
+    def get_all_agents(self) -> list[str]:
         """Get all tracked agents."""
         return self._agents
 
@@ -89,10 +89,10 @@ class MockCostTracker:
     """Mock cost tracker."""
 
     def __init__(self):
-        self._workspace_stats: Dict[str, Dict] = {}
+        self._workspace_stats: dict[str, dict] = {}
 
     def add_workspace_stats(
-        self, workspace_id: str, by_agent: Dict[str, Decimal], api_calls: int
+        self, workspace_id: str, by_agent: dict[str, Decimal], api_calls: int
     ) -> None:
         """Add workspace stats."""
         self._workspace_stats[workspace_id] = {

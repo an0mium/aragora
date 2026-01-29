@@ -33,6 +33,7 @@ from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @AgentRegistry.register(
     "ollama",
     default_model="llama3.2",
@@ -274,5 +275,6 @@ REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
         return self._parse_critique(response, target_agent or "proposal", proposal)
+
 
 __all__ = ["OllamaAgent"]

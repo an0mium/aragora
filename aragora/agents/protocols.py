@@ -22,9 +22,10 @@ Protocols defined:
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Callable
-from typing import Optional, Protocol, Union, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from aragora.core import Critique, Message
+
 
 @runtime_checkable
 class GenerativeAgent(Protocol):
@@ -53,6 +54,7 @@ class GenerativeAgent(Protocol):
             Generated text response
         """
         ...
+
 
 @runtime_checkable
 class CritiqueCapable(Protocol):
@@ -119,6 +121,7 @@ class CritiqueCapable(Protocol):
         """
         ...
 
+
 @runtime_checkable
 class StreamingAgent(Protocol):
     """
@@ -145,6 +148,7 @@ class StreamingAgent(Protocol):
             Text chunks as they are generated
         """
         ...
+
 
 @runtime_checkable
 class CircuitBreakerAware(Protocol):
@@ -177,6 +181,7 @@ class CircuitBreakerAware(Protocol):
             error: The exception that caused the failure
         """
         ...
+
 
 @runtime_checkable
 class FallbackCapable(Protocol):
@@ -219,6 +224,7 @@ class FallbackCapable(Protocol):
         """
         ...
 
+
 @runtime_checkable
 class TokenTrackingAgent(Protocol):
     """
@@ -246,6 +252,7 @@ class TokenTrackingAgent(Protocol):
             Dict with 'total_in', 'total_out', 'last_in', 'last_out'
         """
         ...
+
 
 class OpenAICompatibleBase(Protocol):
     """
@@ -284,8 +291,9 @@ class OpenAICompatibleBase(Protocol):
         """Record token usage for billing."""
         ...
 
+
 # Type alias for any agent
-AnyAgent = Union[GenerativeAgent, CritiqueCapable, StreamingAgent]
+AnyAgent = GenerativeAgent | CritiqueCapable | StreamingAgent
 
 __all__ = [
     "GenerativeAgent",

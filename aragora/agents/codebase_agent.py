@@ -23,6 +23,7 @@ from aragora.core_types import AgentRole
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CodebaseIndex:
     """Index of codebase structure and symbols."""
@@ -44,6 +45,7 @@ class CodebaseIndex:
             "symbol_counts": {k: len(v) for k, v in self.symbols.items()},
             "indexed_files": len(self.file_summaries),
         }
+
 
 @dataclass
 class CodeUnderstanding:
@@ -70,6 +72,7 @@ class CodeUnderstanding:
             "reasoning_trace": self.reasoning_trace,
             "agent_perspectives": self.agent_perspectives,
         }
+
 
 @dataclass
 class CodeAuditResult:
@@ -120,6 +123,7 @@ class CodeAuditResult:
             "error": self.error,
         }
 
+
 class CodeAnalystAgent(BaseDebateAgent):
     """Agent specialized in code structure and architecture analysis."""
 
@@ -154,6 +158,7 @@ class CodeAnalystAgent(BaseDebateAgent):
             severity=0.0,
             reasoning="Code structure analysis",
         )
+
 
 class SecurityReviewerAgent(BaseDebateAgent):
     """Agent specialized in security vulnerability analysis."""
@@ -190,6 +195,7 @@ class SecurityReviewerAgent(BaseDebateAgent):
             reasoning="Security vulnerability analysis",
         )
 
+
 class BugHunterAgent(BaseDebateAgent):
     """Agent specialized in bug pattern detection."""
 
@@ -224,6 +230,7 @@ class BugHunterAgent(BaseDebateAgent):
             severity=0.0,
             reasoning="Bug pattern analysis",
         )
+
 
 class CodebaseUnderstandingAgent:
     """
@@ -988,6 +995,7 @@ This addresses: {question}"""
         }
         return mapping.get(ext, "unknown")
 
+
 async def quick_codebase_audit(path: str) -> dict[str, Any]:
     """
     Quick codebase audit for a directory.
@@ -1001,6 +1009,7 @@ async def quick_codebase_audit(path: str) -> dict[str, Any]:
     agent = CodebaseUnderstandingAgent(root_path=path, enable_debate=False)
     result = await agent.audit(include_dead_code=False, include_quality=True)
     return result.to_dict()
+
 
 async def understand_codebase(path: str, question: str) -> dict[str, Any]:
     """

@@ -20,6 +20,7 @@ Usage:
         # Only debate owner can delete
         ...
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Access Control Types
 # =============================================================================
 
+
 class Action(str, Enum):
     """Actions that can be performed on resources."""
 
@@ -44,6 +46,7 @@ class Action(str, Enum):
     ADMIN = "admin"
     EXECUTE = "execute"
     EXPORT = "export"
+
 
 class ResourceType(str, Enum):
     """Types of resources in the system."""
@@ -59,6 +62,7 @@ class ResourceType(str, Enum):
     INSIGHT = "insight"
     TOURNAMENT = "tournament"
 
+
 class AccessLevel(str, Enum):
     """Access levels for resources."""
 
@@ -68,9 +72,11 @@ class AccessLevel(str, Enum):
     ADMIN = "admin"
     OWNER = "owner"
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class Subject:
@@ -92,6 +98,7 @@ class Subject:
     def is_workspace_admin(self) -> bool:
         return self.workspace_role in ("owner", "admin")
 
+
 @dataclass
 class Resource:
     """Resource being accessed."""
@@ -104,6 +111,7 @@ class Resource:
     shared_with: set[str] = field(default_factory=set)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class Environment:
     """Environment context for access decision."""
@@ -114,6 +122,7 @@ class Environment:
     request_method: str | None = None
     timestamp: float | None = None
 
+
 @dataclass
 class AccessRequest:
     """Complete access request for evaluation."""
@@ -122,6 +131,7 @@ class AccessRequest:
     resource: Resource
     action: Action
     environment: Environment = field(default_factory=Environment)
+
 
 @dataclass
 class AccessDecision:
@@ -132,9 +142,11 @@ class AccessDecision:
     policy_name: str | None = None
     attributes_evaluated: dict[str, Any] = field(default_factory=dict)
 
+
 # =============================================================================
 # Policy Definitions
 # =============================================================================
+
 
 @dataclass
 class ResourcePolicy:
@@ -195,6 +207,7 @@ class ResourcePolicy:
             "restricted": ["enterprise"],
         }
     )
+
 
 # =============================================================================
 # Default Policies
@@ -296,6 +309,7 @@ DEFAULT_POLICIES: dict[ResourceType, ResourcePolicy] = {
 # Policy Registry
 # =============================================================================
 
+
 class PolicyRegistry:
     """Registry for resource access policies."""
 
@@ -333,13 +347,16 @@ class PolicyRegistry:
         if cls._instance:
             cls._instance._policies = dict(DEFAULT_POLICIES)
 
+
 def get_policy_registry() -> PolicyRegistry:
     """Get the global policy registry."""
     return PolicyRegistry()
 
+
 # =============================================================================
 # Access Evaluator
 # =============================================================================
+
 
 class AccessEvaluator:
     """
@@ -479,11 +496,13 @@ class AccessEvaluator:
             attributes_evaluated=attributes,
         )
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
 
 _evaluator: AccessEvaluator | None = None
+
 
 def get_evaluator() -> AccessEvaluator:
     """Get the global access evaluator."""
@@ -491,6 +510,7 @@ def get_evaluator() -> AccessEvaluator:
     if _evaluator is None:
         _evaluator = AccessEvaluator()
     return _evaluator
+
 
 def check_resource_access(
     user_id: str,
@@ -553,15 +573,18 @@ def check_resource_access(
 
     return get_evaluator().evaluate(request)
 
+
 def is_resource_owner(user_id: str, resource_owner_id: str | None) -> bool:
     """Check if user is the owner of a resource."""
     return resource_owner_id is not None and user_id == resource_owner_id
+
 
 # =============================================================================
 # Decorators
 # =============================================================================
 
 F = TypeVar("F", bound=Callable[..., Any])
+
 
 def require_resource_owner(resource_type: str) -> Callable[[F], F]:
     """
@@ -602,6 +625,7 @@ def require_resource_owner(resource_type: str) -> Callable[[F], F]:
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
 
 def require_access(
     resource_type: ResourceType | str,
@@ -648,6 +672,7 @@ def require_access(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
 
 # =============================================================================
 # Exports

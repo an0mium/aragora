@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 class KnowledgeMoundAdapter(ResilientAdapterMixin):
     """Base class for all Knowledge Mound adapters.
 
@@ -297,6 +298,7 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
         """Reset health counters (e.g., after recovering from errors)."""
         self._error_count = 0
 
+
 class _TimedOperation:
     """Context manager for timing and tracing adapter operations."""
 
@@ -353,6 +355,7 @@ class _TimedOperation:
 
         self.adapter._record_metric(self.operation, self.success, latency)
         # Don't suppress exceptions (returning None is equivalent to False)
+
 
 __all__ = [
     "KnowledgeMoundAdapter",

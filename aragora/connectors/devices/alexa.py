@@ -38,6 +38,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class AlexaRequestType(Enum):
     """Alexa request types."""
 
@@ -49,6 +50,7 @@ class AlexaRequestType(Enum):
     # Smart Home
     DISCOVERY = "Alexa.Discovery"
     REPORT_STATE = "Alexa.ReportState"
+
 
 class AlexaIntent(Enum):
     """Built-in and custom Alexa intents."""
@@ -68,6 +70,7 @@ class AlexaIntent(Enum):
     VOTE = "VoteIntent"
     GET_STATUS = "GetStatusIntent"
 
+
 @dataclass
 class AlexaUser:
     """Alexa user information from account linking."""
@@ -79,6 +82,7 @@ class AlexaUser:
     api_endpoint: str | None = None
     permissions: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AlexaSession:
     """Alexa skill session state."""
@@ -87,6 +91,7 @@ class AlexaSession:
     is_new: bool = False
     attributes: dict[str, Any] = field(default_factory=dict)
     user: AlexaUser | None = None
+
 
 class AlexaConnector(DeviceConnector):
     """

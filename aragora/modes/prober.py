@@ -16,6 +16,7 @@ Key concepts:
 - ProbeStrategy: Different probing approaches
 - ELO integration: Penalize unreliable agents
 """
+
 from __future__ import annotations
 
 import uuid
@@ -68,6 +69,7 @@ __all__ = [
     # Utilities
     "generate_probe_report_markdown",
 ]
+
 
 class CapabilityProber:
     """
@@ -258,6 +260,7 @@ class CapabilityProber:
         rating.updated_at = datetime.now().isoformat()
         self.elo_system._save_rating(rating)
 
+
 class ProbeBeforePromote:
     """
     Middleware that requires clean probing before ELO gains.
@@ -324,6 +327,7 @@ class ProbeBeforePromote:
             del self.pending_promotions[agent.name]
 
         return approved, report
+
 
 def generate_probe_report_markdown(report: VulnerabilityReport) -> str:
     """Generate a Markdown report from a VulnerabilityReport."""

@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # MFA fields that require encryption
 _MFA_SENSITIVE_FIELDS = {"mfa_secret", "mfa_backup_codes"}
 
+
 def _encrypt_mfa_field(value: str, user_id: str) -> str:
     """Encrypt MFA-related field for storage."""
     if not value:
@@ -38,6 +39,7 @@ def _encrypt_mfa_field(value: str, user_id: str) -> str:
     except Exception as e:
         logger.warning(f"MFA field encryption failed: {e}")
         return value
+
 
 def _decrypt_mfa_field(value: str, user_id: str) -> str:
     """Decrypt MFA-related field, handling legacy unencrypted values."""
@@ -56,6 +58,7 @@ def _decrypt_mfa_field(value: str, user_id: str) -> str:
     except Exception as e:
         logger.debug(f"MFA field decryption failed (may be legacy): {e}")
         return value
+
 
 class UserRepository:
     """
@@ -493,7 +496,9 @@ class UserRepository:
             token_version=safe_get("token_version", 1) or 1,
         )
 
+
 _user_repository: UserRepository | None = None
+
 
 def get_user_repository(
     store: Optional["UserStore | PostgresUserStore"] = None,
@@ -520,6 +525,7 @@ def get_user_repository(
         )
     _user_repository = repo
     return _user_repository
+
 
 def reset_user_repository() -> None:
     """Reset the cached user repository (useful for tests)."""

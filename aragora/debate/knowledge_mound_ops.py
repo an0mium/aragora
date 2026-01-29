@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Type alias for notification callback
 NotifyCallback = Callable[[str, Any], None]
 
+
 class KnowledgeMoundOperations:
     """Operations for integrating Knowledge Mound with debate orchestration.
 

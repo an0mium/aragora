@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CostBreakdownItem:
     """A cost breakdown item."""
@@ -29,6 +30,7 @@ class CostBreakdownItem:
     cost: float
     percentage: float
 
+
 @dataclass
 class DailyCost:
     """Daily cost data point."""
@@ -36,6 +38,7 @@ class DailyCost:
     date: str
     cost: float
     tokens: int = 0
+
 
 @dataclass
 class CostAlert:
@@ -47,6 +50,7 @@ class CostAlert:
     severity: str  # critical, warning, info
     timestamp: str
     acknowledged: bool = False
+
 
 @dataclass
 class CostSummary:
@@ -62,6 +66,7 @@ class CostSummary:
     daily_costs: list[DailyCost] = field(default_factory=list)
     alerts: list[CostAlert] = field(default_factory=list)
 
+
 @dataclass
 class Budget:
     """A budget configuration."""
@@ -71,6 +76,7 @@ class Budget:
     daily_limit: float | None = None
     current_spend: float = 0.0
     alert_thresholds: list[int] = field(default_factory=lambda: [50, 80, 100])
+
 
 @dataclass
 class CostRecommendation:
@@ -85,6 +91,7 @@ class CostRecommendation:
     status: str  # pending, applied, dismissed
     created_at: datetime | None = None
 
+
 @dataclass
 class EfficiencyMetrics:
     """Efficiency metrics."""
@@ -97,6 +104,7 @@ class EfficiencyMetrics:
     total_cost: float
     model_utilization: list[dict[str, Any]] = field(default_factory=list)
 
+
 @dataclass
 class CostForecast:
     """Cost forecast data."""
@@ -107,6 +115,7 @@ class CostForecast:
     confidence_interval: tuple[float, float] = (0.0, 0.0)
     trend: str = "stable"  # increasing, decreasing, stable
     daily_projections: list[dict[str, Any]] = field(default_factory=list)
+
 
 class CostManagementAPI:
     """API interface for cost management."""
@@ -631,6 +640,7 @@ class CostManagementAPI:
             trend=data.get("trend", "stable"),
             daily_projections=data.get("daily_projections", []),
         )
+
 
 __all__ = [
     "CostManagementAPI",

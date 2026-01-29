@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 @dataclass
 class PoolSnapshot:
     """Snapshot of pool state for KM storage."""
@@ -49,6 +50,7 @@ class PoolSnapshot:
     avg_task_duration_seconds: float = 0.0
     workspace_id: str = "default"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class TaskSchedulingOutcome:
@@ -66,6 +68,7 @@ class TaskSchedulingOutcome:
     error_message: str | None = None
     workspace_id: str = "default"
 
+
 @dataclass
 class BudgetUsageSnapshot:
     """Snapshot of budget usage for KM storage."""
@@ -81,6 +84,7 @@ class BudgetUsageSnapshot:
     alerts_triggered: int = 0
     workspace_id: str = "default"
 
+
 @dataclass
 class PolicyDecisionRecord:
     """Record of a policy decision for audit trails."""
@@ -94,6 +98,7 @@ class PolicyDecisionRecord:
     timestamp: float
     context: dict[str, Any] = field(default_factory=dict)
     workspace_id: str = "default"
+
 
 class FabricAdapter(KnowledgeMoundAdapter):
     """
@@ -969,6 +974,7 @@ class FabricAdapter(KnowledgeMoundAdapter):
         self._task_patterns_cache.clear()
         self._cache_times.clear()
         return count
+
 
 __all__ = [
     "FabricAdapter",

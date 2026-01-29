@@ -51,11 +51,11 @@ class MockDecisionResult:
     confidence: float = 0.85
     consensus_reached: bool = True
     reasoning: str = "Based on multi-agent deliberation..."
-    evidence_used: List[str] = field(default_factory=list)
+    evidence_used: list[str] = field(default_factory=list)
     duration_seconds: float = 12.5
     error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "request_id": self.request_id,
             "decision_type": self.decision_type.value,
@@ -76,7 +76,7 @@ class MockDecisionContext:
 
     user_id: Optional[str] = None
     workspace_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 @dataclass
@@ -86,11 +86,11 @@ class MockDecisionRequest:
     request_id: str = "dec_abc123def456"
     content: str = "What is the best approach?"
     decision_type: str = "auto"
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     context: MockDecisionContext = field(default_factory=MockDecisionContext)
 
     @classmethod
-    def from_http(cls, body: Dict[str, Any], headers: Dict[str, str]) -> "MockDecisionRequest":
+    def from_http(cls, body: dict[str, Any], headers: dict[str, str]) -> "MockDecisionRequest":
         """Create from HTTP request body."""
         if not body.get("content"):
             raise ValueError("Missing required field: content")
@@ -128,15 +128,15 @@ class MockDecisionResultStore:
     """Mock decision result store for testing."""
 
     def __init__(self):
-        self._results: Dict[str, Dict[str, Any]] = {}
+        self._results: dict[str, dict[str, Any]] = {}
 
-    def save(self, request_id: str, data: Dict[str, Any]) -> None:
+    def save(self, request_id: str, data: dict[str, Any]) -> None:
         self._results[request_id] = data
 
-    def get(self, request_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, request_id: str) -> Optional[dict[str, Any]]:
         return self._results.get(request_id)
 
-    def get_status(self, request_id: str) -> Dict[str, Any]:
+    def get_status(self, request_id: str) -> dict[str, Any]:
         result = self._results.get(request_id)
         if result:
             return {
@@ -146,7 +146,7 @@ class MockDecisionResultStore:
             }
         return {"request_id": request_id, "status": "not_found"}
 
-    def list_recent(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def list_recent(self, limit: int = 20) -> list[dict[str, Any]]:
         decisions = list(self._results.values())[-limit:]
         return [
             {
@@ -172,9 +172,9 @@ class MockAuthContext:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     path: str = "/api/v1/decisions",
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""
     mock = MagicMock()

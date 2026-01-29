@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
 
@@ -47,6 +48,7 @@ class GmailBaseMethods(Protocol):
         self, start_history_id: str, page_token: str | None = None
     ) -> tuple[list[dict[str, Any]], str | None, str | None]: ...
     async def get_message(self, message_id: str) -> EmailMessage: ...
+
 
 class GmailWatchMixin(GmailBaseMethods):
     """Mixin providing Pub/Sub watch and push notification operations."""

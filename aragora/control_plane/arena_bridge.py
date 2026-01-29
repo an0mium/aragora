@@ -72,6 +72,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentMetrics:
     """Intermediate metrics collected during debate for a single agent."""
@@ -83,6 +84,7 @@ class AgentMetrics:
     total_confidence: float = 0.0
     position_history: list[str] = field(default_factory=list)
     contributed_to_final: bool = False
+
 
 class ArenaEventAdapter:
     """
@@ -417,6 +419,7 @@ class ArenaEventAdapter:
     def get_agent_metrics(self) -> dict[str, AgentMetrics]:
         """Get collected agent metrics."""
         return self._agent_metrics
+
 
 class ArenaControlPlaneBridge:
     """
@@ -897,17 +900,21 @@ class ArenaControlPlaneBridge:
 
         return performances
 
+
 # Singleton bridge instance
 _bridge: ArenaControlPlaneBridge | None = None
+
 
 def get_arena_bridge() -> ArenaControlPlaneBridge | None:
     """Get the global arena bridge instance."""
     return _bridge
 
+
 def set_arena_bridge(bridge: ArenaControlPlaneBridge) -> None:
     """Set the global arena bridge instance."""
     global _bridge
     _bridge = bridge
+
 
 def init_arena_bridge(
     stream_server: Optional["ControlPlaneStreamServer"] = None,
@@ -922,6 +929,7 @@ def init_arena_bridge(
     )
     set_arena_bridge(bridge)
     return bridge
+
 
 __all__ = [
     "ArenaEventAdapter",

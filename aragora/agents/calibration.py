@@ -47,10 +47,12 @@ MAX_TEMPERATURE = 2.0  # Maximum confidence expansion
 RECENCY_DECAY_DAYS = 30  # Half-life for exponential decay
 MIN_PREDICTIONS_FOR_TUNING = 20  # Minimum predictions before auto-tuning
 
+
 def _logit(p: float) -> float:
     """Convert probability to log-odds, with clamping for numerical stability."""
     p = max(1e-7, min(1 - 1e-7, p))
     return math.log(p / (1 - p))
+
 
 def _sigmoid(x: float) -> float:
     """Convert log-odds to probability."""
@@ -59,6 +61,7 @@ def _sigmoid(x: float) -> float:
     if x < -20:
         return 1e-9
     return 1 / (1 + math.exp(-x))
+
 
 def temperature_scale(confidence: float, temperature: float) -> float:
     """Apply temperature scaling to a confidence value.
@@ -83,6 +86,7 @@ def temperature_scale(confidence: float, temperature: float) -> float:
     scaled = _sigmoid(scaled_logit)
 
     return max(0.05, min(0.95, scaled))
+
 
 @dataclass
 class TemperatureParams:
@@ -109,6 +113,7 @@ class TemperatureParams:
         # Retune if older than max_age
         age = datetime.now() - self.last_tuned
         return age > timedelta(hours=max_age_hours)
+
 
 @dataclass
 class CalibrationBucket:
@@ -143,6 +148,7 @@ class CalibrationBucket:
         if self.total_predictions == 0:
             return 0.0
         return self.brier_sum / self.total_predictions
+
 
 @dataclass
 class CalibrationSummary:
@@ -265,6 +271,7 @@ class CalibrationSummary:
         # Clamp to reasonable bounds
         return max(0.05, min(0.95, adjusted))
 
+
 def adjust_agent_confidence(
     confidence: float,
     calibration_summary: Optional["CalibrationSummary"],
@@ -286,6 +293,7 @@ def adjust_agent_confidence(
     if calibration_summary is None:
         return confidence
     return calibration_summary.adjust_confidence(confidence, domain=domain)
+
 
 class CalibrationTracker(SQLiteStore):
     """
@@ -934,6 +942,7 @@ class CalibrationTracker(SQLiteStore):
                 ),
             )
             conn.commit()
+
 
 def integrate_with_position_ledger(
     calibration_tracker: CalibrationTracker,

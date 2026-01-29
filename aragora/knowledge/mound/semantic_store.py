@@ -51,6 +51,7 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SemanticIndexEntry:
     """A semantically indexed knowledge item."""
@@ -71,6 +72,7 @@ class SemanticIndexEntry:
     avg_retrieval_rank: float = 0.0
     metadata: dict = field(default_factory=dict)
 
+
 @dataclass
 class SemanticSearchResult:
     """Result of a semantic search."""
@@ -84,6 +86,7 @@ class SemanticSearchResult:
     importance: float
     tenant_id: str
     metadata: dict = field(default_factory=dict)
+
 
 class SemanticStore(SQLiteStore):
     """
@@ -763,6 +766,7 @@ class SemanticStore(SQLiteStore):
             (source_type, source_id, tenant_id),
         )
         return row is not None
+
 
 __all__ = [
     "SemanticStore",

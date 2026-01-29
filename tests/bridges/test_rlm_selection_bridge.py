@@ -21,7 +21,7 @@ class MockCompressionResult:
     estimated_fidelity: float = 0.85
     time_seconds: float = 1.5
     cache_hits: int = 3
-    compression_ratio: Dict[str, float] = field(default_factory=dict)
+    compression_ratio: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -38,8 +38,8 @@ class MockSelectionFeedbackLoop:
     """Mock selection feedback loop."""
 
     def __init__(self):
-        self._selection_adjustments: Dict[str, float] = {}
-        self._agent_states: Dict[str, object] = {}
+        self._selection_adjustments: dict[str, float] = {}
+        self._agent_states: dict[str, object] = {}
 
     def get_selection_adjustment(self, agent_name: str) -> float:
         """Get current adjustment."""

@@ -47,6 +47,7 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
 MAX_MULTIPART_PARTS = 10
 MAX_FILENAME_LENGTH = 255
 
+
 class TranscriptionErrorCode(Enum):
     """Specific error codes for transcription failures."""
 
@@ -66,6 +67,7 @@ class TranscriptionErrorCode(Enum):
     API_NOT_CONFIGURED = "api_not_configured"
     QUOTA_EXCEEDED = "quota_exceeded"
 
+
 class TranscriptionStatus(Enum):
     """Status of a transcription job."""
 
@@ -73,6 +75,7 @@ class TranscriptionStatus(Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 @dataclass
 class TranscriptionError:
@@ -91,6 +94,7 @@ class TranscriptionError:
         if self.details:
             payload["details"] = self.details
         return json_response(payload, status=status)
+
 
 @dataclass
 class TranscriptionJob:
@@ -126,6 +130,7 @@ class TranscriptionJob:
             "word_count": self.word_count,
             "segment_count": len(self.segments),
         }
+
 
 class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""

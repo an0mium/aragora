@@ -15,6 +15,7 @@ from .models import VoiceMessage
 
 logger = logging.getLogger(__name__)
 
+
 class VoiceBridge:
     """
     Bridge between chat platforms and speech-to-text services.
@@ -183,8 +184,10 @@ class VoiceBridge:
             language=language,
         )
 
+
 # Singleton instance
 _voice_bridge: VoiceBridge | None = None
+
 
 def get_voice_bridge(**config: Any) -> VoiceBridge:
     """Get or create the VoiceBridge singleton."""

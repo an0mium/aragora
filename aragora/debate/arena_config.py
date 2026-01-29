@@ -34,6 +34,7 @@ from aragora.type_protocols import (
     RelationshipTrackerProtocol,
 )
 
+
 @dataclass
 class ArenaConfig:
     """Configuration for Arena debate orchestration.
@@ -180,9 +181,7 @@ class ArenaConfig:
     enable_cross_debate_memory: bool = True  # Inject institutional knowledge from past debates
 
     # Post-debate workflow automation
-    post_debate_workflow: Any | None = (
-        None  # Workflow DAG to trigger after high-confidence debates
-    )
+    post_debate_workflow: Any | None = None  # Workflow DAG to trigger after high-confidence debates
     enable_post_debate_workflow: bool = False  # Auto-trigger workflow after debates
     post_debate_workflow_threshold: float = 0.7  # Min confidence to trigger workflow
 
@@ -596,5 +595,6 @@ class ArenaConfig:
             #     calibration_cost_min_predictions, calibration_cost_ece_threshold,
             #     calibration_cost_overconfident_multiplier, calibration_cost_weight
         }
+
 
 __all__ = ["ArenaConfig"]

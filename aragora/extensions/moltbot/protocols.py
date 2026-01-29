@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+
 @runtime_checkable
 class GatewayProtocol(Protocol):
     """Protocol for device gateway management.
@@ -78,6 +79,7 @@ class GatewayProtocol(Protocol):
     async def get_stats(self) -> dict[str, Any]:
         """Get gateway statistics."""
         ...
+
 
 @runtime_checkable
 class InboxProtocol(Protocol):
@@ -154,6 +156,7 @@ class InboxProtocol(Protocol):
         """Get inbox statistics."""
         ...
 
+
 @runtime_checkable
 class VoiceProcessorProtocol(Protocol):
     """Protocol for voice session management.
@@ -225,6 +228,7 @@ class VoiceProcessorProtocol(Protocol):
     async def get_stats(self) -> dict[str, Any]:
         """Get voice processor statistics."""
         ...
+
 
 @runtime_checkable
 class CanvasManagerProtocol(Protocol):
@@ -321,6 +325,7 @@ class CanvasManagerProtocol(Protocol):
         """Export canvas data."""
         ...
 
+
 @runtime_checkable
 class OnboardingOrchestratorProtocol(Protocol):
     """Protocol for onboarding flow management.
@@ -415,6 +420,7 @@ class OnboardingOrchestratorProtocol(Protocol):
         """Skip current step in session."""
         ...
 
+
 @runtime_checkable
 class CapabilityMatcherProtocol(Protocol):
     """Protocol for device capability matching.
@@ -456,6 +462,7 @@ class CapabilityMatcherProtocol(Protocol):
     ) -> dict[str, Any]:
         """Get capability matrix for devices."""
         ...
+
 
 __all__ = [
     "GatewayProtocol",

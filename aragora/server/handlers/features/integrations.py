@@ -16,6 +16,7 @@ Storage:
 - Integration configs are persisted to SQLite/Redis via IntegrationStore
 - Survives server restarts and supports multi-instance deployments
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,11 +45,13 @@ logger = logging.getLogger(__name__)
 
 IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
 
+
 def _cast_integration_type(value: str) -> IntegrationType:
     """Cast a string to IntegrationType after validation."""
     if value in ("slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"):
         return cast(IntegrationType, value)
     raise ValueError(f"Invalid integration type: {value}")
+
 
 @runtime_checkable
 class WebhookIntegration(Protocol):
@@ -58,6 +61,7 @@ class WebhookIntegration(Protocol):
         """Verify webhook connectivity."""
         ...
 
+
 @runtime_checkable
 class ConnectionIntegration(Protocol):
     """Protocol for integrations with connection verification."""
@@ -65,6 +69,7 @@ class ConnectionIntegration(Protocol):
     async def verify_connection(self) -> bool:
         """Verify connection to service."""
         ...
+
 
 @runtime_checkable
 class ConfigurableIntegration(Protocol):
@@ -74,6 +79,7 @@ class ConfigurableIntegration(Protocol):
     def is_configured(self) -> bool:
         """Check if integration is properly configured."""
         ...
+
 
 @dataclass
 class IntegrationStatus:
@@ -89,6 +95,7 @@ class IntegrationStatus:
     def to_dict(self) -> dict:
         return asdict(self)
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
@@ -97,6 +104,7 @@ class IntegrationStatus:
 INTEGRATION_READ_PERMISSION = "integrations:read"
 INTEGRATION_WRITE_PERMISSION = "integrations:write"
 INTEGRATION_DELETE_PERMISSION = "integrations:delete"
+
 
 class IntegrationsHandler(SecureHandler):
     """Handler for integration management endpoints.
@@ -719,14 +727,17 @@ class IntegrationsHandler(SecureHandler):
             logger.error(f"Connection test error: {e}")
             return False
 
+
 # =============================================================================
 # Route Registration Helper
 # =============================================================================
+
 
 def _get_user_id_from_request(request: Any) -> str:
     """Extract user_id from request, defaulting to 'default'."""
     user_id = request.get("user_id")
     return str(user_id) if user_id else "default"
+
 
 def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     """Register integration routes with the application.
@@ -801,6 +812,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     app.router.add_patch("/api/integrations/{type}", update_integration)
     app.router.add_delete("/api/integrations/{type}", delete_integration)
     app.router.add_post("/api/integrations/{type}/test", test_integration)
+
 
 __all__ = [
     "IntegrationsHandler",

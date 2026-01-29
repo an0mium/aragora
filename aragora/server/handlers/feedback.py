@@ -37,6 +37,7 @@ from aragora.server.handlers.base import (
 
 logger = logging.getLogger(__name__)
 
+
 def _check_permission(ctx: ServerContext, permission: str) -> HandlerResult | None:
     """
     Check if the current user has the required permission.
@@ -74,6 +75,7 @@ def _check_permission(ctx: ServerContext, permission: str) -> HandlerResult | No
 
     return None
 
+
 class FeedbackType(str, Enum):
     """Types of feedback."""
 
@@ -82,6 +84,7 @@ class FeedbackType(str, Enum):
     BUG_REPORT = "bug_report"
     GENERAL = "general"
     DEBATE_QUALITY = "debate_quality"
+
 
 @dataclass
 class FeedbackEntry:
@@ -109,6 +112,7 @@ class FeedbackEntry:
             "metadata": self.metadata,
             "created_at": self.created_at,
         }
+
 
 class FeedbackStore:
     """SQLite store for user feedback."""
@@ -194,8 +198,10 @@ class FeedbackStore:
             "period_days": days,
         }
 
+
 # Global store instance
 _feedback_store: FeedbackStore | None = None
+
 
 def get_feedback_store() -> FeedbackStore:
     """Get or create the feedback store."""
@@ -203,6 +209,7 @@ def get_feedback_store() -> FeedbackStore:
     if _feedback_store is None:
         _feedback_store = FeedbackStore()
     return _feedback_store
+
 
 async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
     """
@@ -258,6 +265,7 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
     except Exception as e:
         logger.error(f"Error submitting NPS feedback: {e}")
         return error_response(str(e), status=500)
+
 
 async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
     """
@@ -321,6 +329,7 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
         logger.error(f"Error submitting feedback: {e}")
         return error_response(str(e), status=500)
 
+
 async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
     """
     Get NPS summary (admin only).
@@ -351,6 +360,7 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
         logger.error(f"Error getting NPS summary: {e}")
         return error_response(str(e), status=500)
 
+
 async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
     """
     Get active feedback prompts for the user.
@@ -380,6 +390,7 @@ async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
     )
 
     return json_response({"prompts": prompts})
+
 
 # Route definitions for registration
 FEEDBACK_ROUTES = [

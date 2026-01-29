@@ -18,6 +18,7 @@ from .base import BaseRepository, EntityNotFoundError
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DebateEntity:
     """
@@ -71,6 +72,7 @@ class DebateEntity:
             confidence=artifact.get("confidence", 0.0),
         )
 
+
 @dataclass
 class DebateMetadata:
     """Summary metadata for a stored debate."""
@@ -83,6 +85,7 @@ class DebateMetadata:
     confidence: float
     created_at: datetime
     view_count: int = 0
+
 
 class DebateRepository(BaseRepository[DebateEntity]):
     """

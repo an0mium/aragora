@@ -88,8 +88,8 @@ class FakeRequest:
 
     def __init__(
         self,
-        body: Optional[Dict[str, Any]] = None,
-        query: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        query: Optional[dict[str, str]] = None,
         tenant_id: str = "default",
     ):
         self._body = body or {}
@@ -124,7 +124,7 @@ def _outlook_payload(
     client_state: Optional[str] = None,
 ):
     """Build an Outlook Graph change notification payload."""
-    change: Dict[str, Any] = {
+    change: dict[str, Any] = {
         "subscriptionId": subscription_id,
         "changeType": change_type,
         "resource": resource,

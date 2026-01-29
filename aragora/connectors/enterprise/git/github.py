@@ -76,6 +76,7 @@ IMPORTANT_FILES = {
 # Max file size to index (1MB)
 MAX_FILE_SIZE = 1024 * 1024
 
+
 @dataclass
 class GitHubFile:
     """A file from a GitHub repository."""
@@ -87,6 +88,7 @@ class GitHubFile:
     url: str
     last_modified: datetime | None = None
 
+
 @dataclass
 class GitHubCommit:
     """A commit from a GitHub repository."""
@@ -96,6 +98,7 @@ class GitHubCommit:
     author: str
     date: datetime
     files_changed: list[str] = field(default_factory=list)
+
 
 class GitHubEnterpriseConnector(EnterpriseConnector):
     """

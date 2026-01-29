@@ -60,11 +60,11 @@ class MockFact:
     statement: str
     confidence: float = 0.9
     workspace_id: str = "default"
-    topics: List[str] = field(default_factory=lambda: ["test"])
-    evidence_ids: List[str] = field(default_factory=list)
-    source_documents: List[str] = field(default_factory=list)
+    topics: list[str] = field(default_factory=lambda: ["test"])
+    evidence_ids: list[str] = field(default_factory=list)
+    source_documents: list[str] = field(default_factory=list)
     validation_status: str = "unverified"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     superseded_by: Optional[str] = None
@@ -96,7 +96,7 @@ class MockFactRelation:
     relation_type: str
     confidence: float = 0.5
     created_by: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
@@ -117,8 +117,8 @@ class MockQueryResult:
     """Mock query result for testing."""
 
     answer: str
-    facts: List[MockFact] = field(default_factory=list)
-    evidence_ids: List[str] = field(default_factory=list)
+    facts: list[MockFact] = field(default_factory=list)
+    evidence_ids: list[str] = field(default_factory=list)
     confidence: float = 0.85
     query: str = ""
     workspace_id: str = "default"
@@ -144,7 +144,7 @@ class MockSearchResult:
     content: str
     score: float
     document_id: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -164,8 +164,8 @@ class MockVerificationResult:
     success: bool = True
     new_status: str = "majority_agreed"
     confidence: float = 0.9
-    agent_votes: Dict[str, bool] = field(default_factory=dict)
-    dissenting_reasons: List[str] = field(default_factory=list)
+    agent_votes: dict[str, bool] = field(default_factory=dict)
+    dissenting_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {

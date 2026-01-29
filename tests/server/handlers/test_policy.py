@@ -40,9 +40,9 @@ class MockPolicyRule:
     pattern: str = ".*"
     severity: str = "medium"
     enabled: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -54,7 +54,7 @@ class MockPolicyRule:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MockPolicyRule":
+    def from_dict(cls, data: dict[str, Any]) -> "MockPolicyRule":
         return cls(
             id=data.get("id", "rule_001"),
             name=data.get("name", "Test Rule"),
@@ -78,12 +78,12 @@ class MockPolicy:
     vertical_id: str = "vertical_001"
     level: str = "recommended"
     enabled: bool = True
-    rules: List[MockPolicyRule] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    rules: list[MockPolicyRule] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -115,13 +115,13 @@ class MockViolation:
     status: str = "open"
     description: str = "Test violation"
     source: str = "manual_check"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: Optional[datetime] = None
     resolved_by: Optional[str] = None
     resolution_notes: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "policy_id": self.policy_id,
@@ -150,7 +150,7 @@ class MockComplianceIssue:
     description: str = "Compliance issue found"
     framework: str = "framework_001"
     severity: Any = None  # Will be set to mock enum
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -159,9 +159,9 @@ class MockComplianceResult:
 
     compliant: bool = True
     score: float = 0.95
-    issues: List[MockComplianceIssue] = field(default_factory=list)
+    issues: list[MockComplianceIssue] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "compliant": self.compliant,
             "score": self.score,
@@ -182,8 +182,8 @@ class MockPolicyStore:
     """Mock policy store for testing."""
 
     def __init__(self):
-        self._policies: Dict[str, MockPolicy] = {}
-        self._violations: Dict[str, MockViolation] = {}
+        self._policies: dict[str, MockPolicy] = {}
+        self._violations: dict[str, MockViolation] = {}
 
     def list_policies(
         self,
@@ -193,7 +193,7 @@ class MockPolicyStore:
         enabled_only: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[MockPolicy]:
+    ) -> list[MockPolicy]:
         policies = list(self._policies.values())
         if workspace_id:
             policies = [p for p in policies if p.workspace_id == workspace_id]
@@ -213,7 +213,7 @@ class MockPolicyStore:
         return policy
 
     def update_policy(
-        self, policy_id: str, data: Dict[str, Any], changed_by: Optional[str] = None
+        self, policy_id: str, data: dict[str, Any], changed_by: Optional[str] = None
     ) -> Optional[MockPolicy]:
         policy = self._policies.get(policy_id)
         if policy is None:
@@ -249,7 +249,7 @@ class MockPolicyStore:
         severity: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[MockViolation]:
+    ) -> list[MockViolation]:
         violations = list(self._violations.values())
         if policy_id:
             violations = [v for v in violations if v.policy_id == policy_id]
@@ -291,7 +291,7 @@ class MockPolicyStore:
 
     def count_violations(
         self, workspace_id: Optional[str] = None, status: Optional[str] = None
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         violations = list(self._violations.values())
         if workspace_id:
             violations = [v for v in violations if v.workspace_id == workspace_id]
@@ -314,14 +314,14 @@ class MockComplianceFrameworkManager:
     def check(
         self,
         content: str,
-        frameworks: Optional[List[str]] = None,
+        frameworks: Optional[list[str]] = None,
         min_severity: Any = None,
     ) -> MockComplianceResult:
         return self.check_result
 
 
 def create_mock_http_handler(
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     path: str = "/api/v1/policies",
     user_id: Optional[str] = None,
 ) -> MagicMock:

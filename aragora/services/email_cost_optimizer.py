@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CostConfig:
     """Configuration for cost optimization."""
@@ -84,6 +85,7 @@ class CostConfig:
     skip_tier_2_confidence: float = 0.85  # Skip tier 2 if tier 1 is this confident
     skip_tier_3_confidence: float = 0.75  # Skip tier 3 if tier 2 is this confident
     force_tier_1_for_bulk: bool = True  # Only use tier 1 for bulk emails
+
 
 @dataclass
 class UsageStats:
@@ -138,6 +140,7 @@ class UsageStats:
             "avg_processing_time_ms": round(self.avg_processing_time_ms, 2),
         }
 
+
 @dataclass
 class CacheEntry:
     """Cached prioritization result."""
@@ -146,6 +149,7 @@ class CacheEntry:
     timestamp: datetime
     email_hash: str
     confidence: float
+
 
 class CostOptimizedPrioritizer:
     """
@@ -591,6 +595,7 @@ class CostOptimizedPrioritizer:
             "within_daily_budget": daily_cost <= self.config.daily_budget_usd,
             "within_monthly_budget": daily_cost * 30 <= self.config.monthly_budget_usd,
         }
+
 
 # Factory function
 async def create_cost_optimized_prioritizer(

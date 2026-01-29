@@ -54,15 +54,18 @@ except ImportError:
 # Track if auth module is available
 _AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE
 
+
 def _get_error_response() -> Callable[[str, int], "HandlerResult"]:
     """Lazy import to avoid circular dependency with base module."""
     from aragora.server.handlers.base import error_response
 
     return error_response
 
+
 def error_response(message: str, status: int) -> "HandlerResult":
     """Wrapper for lazy-loaded error_response to avoid repeated imports."""
     return _get_error_response()(message, status)
+
 
 class SecureEndpointMixin:
     """
@@ -253,6 +256,7 @@ class SecureEndpointMixin:
         """
         return await self.require_permission_or_error(request, "admin:*")
 
+
 class AuthenticatedHandlerMixin:
     """
     Mixin that provides authentication context management for handlers.
@@ -292,6 +296,7 @@ class AuthenticatedHandlerMixin:
     def clear_auth_context(self) -> None:
         """Clear the authentication context."""
         self._current_auth = None
+
 
 # Convenience decorators for permission checking
 def require_permission(permission: str, handler_arg: int = 0):
@@ -352,6 +357,7 @@ def require_permission(permission: str, handler_arg: int = 0):
 
     return decorator
 
+
 def require_any_permission(*permissions: str):
     """
     Decorator that requires any of the specified permissions.
@@ -375,6 +381,7 @@ def require_any_permission(*permissions: str):
         return wrapper
 
     return decorator
+
 
 def require_all_permissions(*permissions: str):
     """

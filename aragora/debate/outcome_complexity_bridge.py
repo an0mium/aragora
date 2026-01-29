@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ComplexityStats:
     """Statistics for a complexity level."""
@@ -72,6 +73,7 @@ class ComplexityStats:
             return float("inf")
         return self.total_time_to_failure / failed
 
+
 @dataclass
 class TimeoutAdjustment:
     """Result of timeout factor adjustment."""
@@ -81,6 +83,7 @@ class TimeoutAdjustment:
     complexity: str
     reason: str
     confidence: float = 0.0
+
 
 @dataclass
 class OutcomeComplexityBridgeConfig:
@@ -106,6 +109,7 @@ class OutcomeComplexityBridgeConfig:
 
     # Weight for time_to_failure in adjustment
     time_to_failure_weight: float = 0.3
+
 
 @dataclass
 class OutcomeComplexityBridge:
@@ -324,9 +328,7 @@ class OutcomeComplexityBridge:
 
         return None
 
-    def get_adaptive_timeout_factor(
-        self, task: str, base_complexity: str | None = None
-    ) -> float:
+    def get_adaptive_timeout_factor(self, task: str, base_complexity: str | None = None) -> float:
         """Get adaptive timeout factor for a task.
 
         Args:
@@ -451,6 +453,7 @@ class OutcomeComplexityBridge:
             "failure_signals_tracked": len(self._failure_signals),
         }
 
+
 def create_outcome_complexity_bridge(
     outcome_tracker: Optional["OutcomeTracker"] = None,
     **config_kwargs: Any,
@@ -469,6 +472,7 @@ def create_outcome_complexity_bridge(
         outcome_tracker=outcome_tracker,
         config=config,
     )
+
 
 __all__ = [
     "OutcomeComplexityBridge",

@@ -346,7 +346,7 @@ def create_mock_server_context(
     audit_store: Optional[MagicMock] = None,
     critique_store: Optional[MagicMock] = None,
     **kwargs: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a complete server context with all mock dependencies.
 
     This provides the standard server_context dict used by handlers.
@@ -393,7 +393,7 @@ class MockMetaStore:
     Simulates a key-value store for metadata with in-memory storage.
     """
 
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a value by key."""
@@ -414,7 +414,7 @@ class MockMetaStore:
         """Check if key exists."""
         return key in self.data
 
-    def keys(self, pattern: str = "*") -> List[str]:
+    def keys(self, pattern: str = "*") -> list[str]:
         """Get keys matching pattern (simplified, only supports *)."""
         if pattern == "*":
             return list(self.data.keys())
@@ -437,8 +437,8 @@ class MockConnection:
     """
 
     connected: bool = True
-    executed_queries: List[str] = field(default_factory=list)
-    results: List[Any] = field(default_factory=list)
+    executed_queries: list[str] = field(default_factory=list)
+    results: list[Any] = field(default_factory=list)
 
     def execute(self, query: str, params: Optional[tuple] = None) -> "MockConnection":
         """Execute a query."""
@@ -449,11 +449,11 @@ class MockConnection:
         """Fetch one result."""
         return self.results[0] if self.results else None
 
-    def fetchall(self) -> List[tuple]:
+    def fetchall(self) -> list[tuple]:
         """Fetch all results."""
         return self.results
 
-    def fetchmany(self, size: int = 100) -> List[tuple]:
+    def fetchmany(self, size: int = 100) -> list[tuple]:
         """Fetch many results."""
         return self.results[:size]
 
@@ -477,20 +477,20 @@ class MockSemanticStore:
     """
 
     def __init__(self):
-        self.vectors: Dict[str, List[float]] = {}
-        self.metadata: Dict[str, Dict[str, Any]] = {}
+        self.vectors: dict[str, list[float]] = {}
+        self.metadata: dict[str, dict[str, Any]] = {}
 
     def add(
         self,
         id: str,
-        vector: List[float],
-        metadata: Optional[Dict[str, Any]] = None,
+        vector: list[float],
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Add a vector with optional metadata."""
         self.vectors[id] = vector
         self.metadata[id] = metadata or {}
 
-    def get(self, id: str) -> Optional[Dict[str, Any]]:
+    def get(self, id: str) -> Optional[dict[str, Any]]:
         """Get vector and metadata by ID."""
         if id not in self.vectors:
             return None
@@ -502,10 +502,10 @@ class MockSemanticStore:
 
     def search(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         k: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filter: Optional[dict[str, Any]] = None,
+    ) -> list[dict[str, Any]]:
         """Search for similar vectors (returns mock results)."""
         # Return first k items as mock results with mock scores
         results = []
@@ -619,8 +619,8 @@ def create_mock_knowledge_mound() -> MagicMock:
 
 def create_mock_http_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    body: Optional[dict[str, Any]] = None,
+    headers: Optional[dict[str, str]] = None,
     client_address: tuple = ("127.0.0.1", 12345),
 ) -> MagicMock:
     """Create a mock HTTP handler for handler testing.

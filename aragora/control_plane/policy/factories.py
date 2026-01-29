@@ -15,6 +15,7 @@ from .types import (
     SLARequirements,
 )
 
+
 # Pre-built policies for common scenarios
 def create_production_policy(
     agent_allowlist: Optional[list[str]] = None,
@@ -39,6 +40,7 @@ def create_production_policy(
         priority=100,
     )
 
+
 def create_sensitive_data_policy(
     data_regions: list[str],
     blocked_regions: Optional[list[str]] = None,
@@ -58,6 +60,7 @@ def create_sensitive_data_policy(
         priority=90,
     )
 
+
 def create_agent_tier_policy(
     tier: str,
     agents: list[str],
@@ -72,6 +75,7 @@ def create_agent_tier_policy(
         enforcement_level=EnforcementLevel.HARD,
         priority=50,
     )
+
 
 def create_sla_policy(
     name: str,

@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+
 class WebhookVerificationError(Exception):
     """
     Raised when webhook verification fails and cannot be bypassed.
@@ -47,14 +48,17 @@ class WebhookVerificationError(Exception):
             f"(development environments only)."
         )
 
+
 def get_environment() -> str:
     """Get the current environment."""
     return os.environ.get("ARAGORA_ENV", "development").lower()
+
 
 def is_production_environment() -> bool:
     """Check if running in production or staging environment."""
     env = get_environment()
     return env in ("production", "prod", "staging", "stage")
+
 
 def is_webhook_verification_required() -> bool:
     """
@@ -78,6 +82,7 @@ def is_webhook_verification_required() -> bool:
     )
 
     return not allow_unverified
+
 
 def should_allow_unverified(source: str) -> bool:
     """
@@ -117,6 +122,7 @@ def should_allow_unverified(source: str) -> bool:
 
     return allow_unverified
 
+
 @dataclass
 class WebhookVerificationResult:
     """Result of webhook verification."""
@@ -128,6 +134,7 @@ class WebhookVerificationResult:
 
     def __bool__(self) -> bool:
         return self.verified
+
 
 def log_verification_attempt(
     source: str,
@@ -162,6 +169,7 @@ def log_verification_attempt(
         )
 
     return result
+
 
 def verify_slack_signature(
     timestamp: str,
@@ -272,6 +280,7 @@ def verify_slack_signature(
             error="Signature mismatch",
         )
 
+
 __all__ = [
     "WebhookVerificationError",
     "WebhookVerificationResult",
@@ -291,6 +300,7 @@ __all__ = [
 # =============================================================================
 
 from abc import ABC, abstractmethod
+
 
 class WebhookVerifier(ABC):
     """
@@ -344,6 +354,7 @@ class WebhookVerifier(ABC):
             if k.lower() == key_lower:
                 return v
         return ""
+
 
 class HMACVerifier(WebhookVerifier):
     """
@@ -504,6 +515,7 @@ class HMACVerifier(WebhookVerifier):
                 method=f"hmac-{self.algorithm}",
                 error="Signature mismatch",
             )
+
 
 class Ed25519Verifier(WebhookVerifier):
     """

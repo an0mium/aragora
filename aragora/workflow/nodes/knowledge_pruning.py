@@ -20,6 +20,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class KnowledgePruningStep(BaseStep):
     """
     Workflow step for automatic knowledge pruning.
@@ -148,6 +149,7 @@ class KnowledgePruningStep(BaseStep):
                 "error": str(e),
             }
 
+
 class KnowledgeDedupStep(BaseStep):
     """
     Workflow step for automatic knowledge deduplication.
@@ -234,6 +236,7 @@ class KnowledgeDedupStep(BaseStep):
                 "error": str(e),
             }
 
+
 class ConfidenceDecayStep(BaseStep):
     """
     Workflow step for applying confidence decay to knowledge items.
@@ -316,6 +319,7 @@ class ConfidenceDecayStep(BaseStep):
                 "error": str(e),
             }
 
+
 # Register task handlers for use with TaskStep
 def _register_pruning_handlers():
     """Register pruning task handlers."""
@@ -350,6 +354,7 @@ def _register_pruning_handlers():
     register_task_handler("knowledge_decay", decay_handler)
 
     logger.debug("Registered knowledge maintenance task handlers")
+
 
 # Auto-register handlers on module load
 try:

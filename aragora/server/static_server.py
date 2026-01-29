@@ -7,6 +7,7 @@ Handles:
 - SPA routing fallback to index.html
 - Audio file serving for debate broadcasts
 """
+
 from __future__ import annotations
 
 import logging
@@ -49,6 +50,7 @@ CONTENT_TYPES = {
     ".zip": "application/zip",
 }
 
+
 def get_content_type(filename: str) -> str:
     """Get content type for a file based on extension."""
     ext = Path(filename).suffix.lower()
@@ -58,6 +60,7 @@ def get_content_type(filename: str) -> str:
     # Fall back to mimetypes module
     mime_type, _ = mimetypes.guess_type(filename)
     return mime_type or "application/octet-stream"
+
 
 def validate_path(
     filename: str,
@@ -93,6 +96,7 @@ def validate_path(
     except (ValueError, OSError) as e:
         logger.debug(f"Path validation error: {e}")
         return False, None, "Invalid path"
+
 
 def serve_static_file(
     handler: "BaseHTTPRequestHandler",
@@ -178,6 +182,7 @@ def serve_static_file(
         # Client disconnected, no response needed
         return False
 
+
 def serve_audio_file(
     handler: "BaseHTTPRequestHandler",
     debate_id: str,
@@ -237,6 +242,7 @@ def serve_audio_file(
     except (BrokenPipeError, ConnectionResetError):
         # Client disconnected
         return False
+
 
 class StaticFileHandler:
     """

@@ -162,6 +162,7 @@ VERTICAL_KEYWORDS: dict[str, list[str]] = {
 
 logger = logging.getLogger(__name__)
 
+
 class Vertical(str, Enum):
     """Enterprise verticals for specialist models."""
 
@@ -174,6 +175,7 @@ class Vertical(str, Enum):
     SOFTWARE = "software"
     GENERAL = "general"
 
+
 class TrainingStatus(str, Enum):
     """Status of a specialist model training job."""
 
@@ -184,6 +186,7 @@ class TrainingStatus(str, Enum):
     READY = "ready"
     FAILED = "failed"
     DEPRECATED = "deprecated"
+
 
 @dataclass
 class SpecialistModelConfig:
@@ -230,6 +233,7 @@ class SpecialistModelConfig:
             "eval_split": self.eval_split,
             "run_gauntlet": self.run_gauntlet,
         }
+
 
 @dataclass
 class SpecialistModel:
@@ -366,6 +370,7 @@ class SpecialistModel:
             tags=self.tags + [f"vertical:{self.vertical.value}"],
             notes=self.notes,
         )
+
 
 class SpecialistModelRegistry:
     """
@@ -587,6 +592,7 @@ class SpecialistModelRegistry:
             "ready_count": len(ready_models),
             "average_elo": avg_elo,
         }
+
 
 class SpecialistTrainingPipeline:
     """
@@ -959,6 +965,7 @@ class SpecialistTrainingPipeline:
             "checkpoint_path": model.checkpoint_path,
         }
 
+
 # Vertical-specific training configurations
 VERTICAL_DEFAULTS: dict[Vertical, dict[str, Any]] = {
     Vertical.LEGAL: {
@@ -1005,6 +1012,7 @@ VERTICAL_DEFAULTS: dict[Vertical, dict[str, Any]] = {
     },
 }
 
+
 def get_vertical_config(
     vertical: Vertical,
     org_id: str | None = None,
@@ -1032,8 +1040,10 @@ def get_vertical_config(
         **{k: v for k, v in overrides.items() if k not in ["base_model", "lora_rank", "max_steps"]},
     )
 
+
 # Global registry instance
 _specialist_registry: SpecialistModelRegistry | None = None
+
 
 def get_specialist_registry(
     base_registry: ModelRegistry | None = None,
@@ -1043,6 +1053,7 @@ def get_specialist_registry(
     if _specialist_registry is None:
         _specialist_registry = SpecialistModelRegistry(base_registry)
     return _specialist_registry
+
 
 __all__ = [
     "Vertical",

@@ -30,11 +30,13 @@ logger = logging.getLogger(__name__)
 # Cache TTLs
 CACHE_TTL_STATS = 300  # 5 minutes for statistics
 
+
 class SearchHandlerProtocol(Protocol):
     """Protocol for handlers that use SearchOperationsMixin."""
 
     def _get_fact_store(self) -> "FactStore": ...
     def _get_query_engine(self) -> "DatasetQueryEngine | SimpleQueryEngine": ...
+
 
 class SearchOperationsMixin:
     """Mixin providing search and stats operations for KnowledgeHandler."""

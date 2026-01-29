@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Global gateway instance (lazily initialized)
 _gateway: Optional["LocalGateway"] = None
 
+
 def get_gateway() -> "LocalGateway":
     """Get or create the gateway instance."""
     global _gateway
@@ -39,6 +40,7 @@ def get_gateway() -> "LocalGateway":
 
         _gateway = LocalGateway()
     return _gateway
+
 
 class MoltbotGatewayHandler(BaseHandler):
     """HTTP handler for Moltbot device gateway operations."""

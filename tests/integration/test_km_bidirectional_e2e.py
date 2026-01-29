@@ -22,8 +22,8 @@ from unittest.mock import MagicMock, AsyncMock
 class MockContinuumAdapter:
     """Mock ContinuumAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 10
     reverse_result: bool = True
 
@@ -35,7 +35,7 @@ class MockContinuumAdapter:
     def update_continuum_from_km(
         self,
         memory_id: str,
-        km_validation: Dict[str, Any],
+        km_validation: dict[str, Any],
     ) -> bool:
         """Reverse sync: KM → Continuum."""
         self.reverse_calls.append(
@@ -51,8 +51,8 @@ class MockContinuumAdapter:
 class MockELOAdapter:
     """Mock ELOAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 5
     reverse_adjustment: float = 10.0
 
@@ -64,7 +64,7 @@ class MockELOAdapter:
     def update_elo_from_km_patterns(
         self,
         agent_name: str,
-        km_patterns: List[Dict],
+        km_patterns: list[dict],
     ) -> float:
         """Reverse sync: KM → ELO."""
         self.reverse_calls.append(
@@ -80,10 +80,10 @@ class MockELOAdapter:
 class MockBeliefAdapter:
     """Mock BeliefAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 3
-    threshold_update: Dict = field(default_factory=dict)
+    threshold_update: dict = field(default_factory=dict)
 
     def sync_to_km(self, workspace_id: str = "default") -> int:
         """Forward sync: Belief → KM."""
@@ -93,7 +93,7 @@ class MockBeliefAdapter:
     def update_belief_thresholds_from_km(
         self,
         workspace_id: str,
-    ) -> Dict:
+    ) -> dict:
         """Reverse sync: KM → Belief."""
         self.reverse_calls.append({"workspace_id": workspace_id})
         return self.threshold_update
@@ -103,10 +103,10 @@ class MockBeliefAdapter:
 class MockInsightsAdapter:
     """Mock InsightsAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 7
-    threshold_update: Dict = field(default_factory=dict)
+    threshold_update: dict = field(default_factory=dict)
 
     def sync_to_km(self, workspace_id: str = "default") -> int:
         """Forward sync: Insights → KM."""
@@ -116,7 +116,7 @@ class MockInsightsAdapter:
     def update_flip_thresholds_from_km(
         self,
         workspace_id: str,
-    ) -> Dict:
+    ) -> dict:
         """Reverse sync: KM → Insights."""
         self.reverse_calls.append({"workspace_id": workspace_id})
         return self.threshold_update
@@ -126,8 +126,8 @@ class MockInsightsAdapter:
 class MockCritiqueAdapter:
     """Mock CritiqueAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 4
     boost_result: bool = True
 
@@ -139,7 +139,7 @@ class MockCritiqueAdapter:
     def boost_pattern_from_km(
         self,
         pattern_id: str,
-        km_validation: Dict,
+        km_validation: dict,
     ) -> bool:
         """Reverse sync: KM → Critique."""
         self.reverse_calls.append(
@@ -155,10 +155,10 @@ class MockCritiqueAdapter:
 class MockPulseAdapter:
     """Mock PulseAdapter for testing bidirectional sync."""
 
-    forward_calls: List[Dict] = field(default_factory=list)
-    reverse_calls: List[Dict] = field(default_factory=list)
+    forward_calls: list[dict] = field(default_factory=list)
+    reverse_calls: list[dict] = field(default_factory=list)
     forward_result: int = 6
-    sync_result: Dict = field(default_factory=dict)
+    sync_result: dict = field(default_factory=dict)
 
     def sync_to_km(self, workspace_id: str = "default") -> int:
         """Forward sync: Pulse → KM."""
@@ -169,7 +169,7 @@ class MockPulseAdapter:
         self,
         workspace_id: str,
         min_confidence: float = 0.7,
-    ) -> Dict:
+    ) -> dict:
         """Reverse sync: KM → Pulse."""
         self.reverse_calls.append(
             {
@@ -184,25 +184,25 @@ class MockPulseAdapter:
 class MockKnowledgeMound:
     """Mock KnowledgeMound for testing."""
 
-    items: List[Dict] = field(default_factory=list)
-    debate_end_calls: List[Dict] = field(default_factory=list)
-    consensus_calls: List[Dict] = field(default_factory=list)
+    items: list[dict] = field(default_factory=list)
+    debate_end_calls: list[dict] = field(default_factory=list)
+    consensus_calls: list[dict] = field(default_factory=list)
 
     def get_items_since(
         self,
         since: Optional[str] = None,
         limit: int = 100,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get items from KM since a timestamp."""
         return self.items
 
-    def on_debate_end(self, ctx: Dict, result: Dict) -> None:
+    def on_debate_end(self, ctx: dict, result: dict) -> None:
         """Handle debate end hook."""
         self.debate_end_calls.append({"ctx": ctx, "result": result})
 
     def on_consensus_reached(
         self,
-        ctx: Dict,
+        ctx: dict,
         consensus_text: str,
         confidence: float,
     ) -> None:
@@ -215,7 +215,7 @@ class MockKnowledgeMound:
             }
         )
 
-    def on_outcome_tracked(self, ctx: Dict, outcome: Dict) -> None:
+    def on_outcome_tracked(self, ctx: dict, outcome: dict) -> None:
         """Handle outcome tracked hook."""
         pass
 

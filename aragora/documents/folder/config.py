@@ -1,10 +1,12 @@
 """
 Configuration dataclasses for folder upload.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+
 
 class ExclusionReason(Enum):
     """Reason why a file was excluded."""
@@ -16,6 +18,7 @@ class ExclusionReason(Enum):
     PERMISSION = "permission"
     SYMLINK = "symlink"
     DEPTH = "depth"
+
 
 @dataclass
 class FolderUploadConfig:
@@ -69,6 +72,7 @@ class FolderUploadConfig:
         """Get max total size in bytes."""
         return self.max_total_size_mb * 1024 * 1024
 
+
 @dataclass
 class FileInfo:
     """Information about a file to be uploaded."""
@@ -83,6 +87,7 @@ class FileInfo:
         """Get size in megabytes."""
         return self.size_bytes / (1024 * 1024)
 
+
 @dataclass
 class ExcludedFile:
     """Information about an excluded file."""
@@ -90,6 +95,7 @@ class ExcludedFile:
     path: str  # Relative to root folder
     reason: ExclusionReason
     details: str  # e.g., "Matched pattern: **/node_modules/**"
+
 
 @dataclass
 class FolderScanResult:
@@ -178,6 +184,7 @@ class FolderScanResult:
             "scan_duration_ms": self.scan_duration_ms,
         }
 
+
 @dataclass
 class FolderUploadProgress:
     """Progress information during folder upload."""
@@ -195,6 +202,7 @@ class FolderUploadProgress:
         if self.total_files == 0:
             return 100.0
         return (self.uploaded_files / self.total_files) * 100
+
 
 @dataclass
 class FolderUploadResult:

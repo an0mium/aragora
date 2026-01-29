@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 _connector_instances: dict[str, Any] = {}  # tenant_id -> PagerDutyConnector
 _active_contexts: dict[str, Any] = {}  # tenant_id -> context manager
 
+
 async def get_pagerduty_connector(tenant_id: str):
     """Get or create PagerDuty connector for tenant."""
     if tenant_id not in _connector_instances:
@@ -91,9 +92,11 @@ async def get_pagerduty_connector(tenant_id: str):
 
     return _connector_instances.get(tenant_id)
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class DevOpsHandler(SecureHandler):
     """Handler for DevOps incident management API endpoints."""
@@ -913,14 +916,17 @@ class DevOpsHandler(SecureHandler):
         except Exception as e:
             logger.debug(f"[DevOps] Event emission skipped: {e}")
 
+
 # =============================================================================
 # Factory
 # =============================================================================
+
 
 def create_devops_handler(
     server_context: Optional[dict[str, Any]] = None,
 ) -> DevOpsHandler:
     """Create a devops handler instance."""
     return DevOpsHandler(server_context)
+
 
 __all__ = ["DevOpsHandler", "create_devops_handler"]

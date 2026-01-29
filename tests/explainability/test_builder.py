@@ -46,7 +46,7 @@ class MockClaim:
     content: str
     source: str
     confidence: float
-    cited_by: List[str] = field(default_factory=list)
+    cited_by: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -62,12 +62,12 @@ class MockDebateResult:
     consensus_type: str = "majority"
     consensus_margin: float = 0.75
     rounds_used: int = 3
-    participants: List[str] = field(default_factory=lambda: ["claude", "gpt", "gemini"])
-    proposals: Dict[str, str] = field(default_factory=dict)
-    critiques: Dict[int, Dict[str, str]] = field(default_factory=dict)
-    votes: List[MockVote] = field(default_factory=list)
-    position_history: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
-    flip_data: Dict[str, List[str]] = field(default_factory=dict)
+    participants: list[str] = field(default_factory=lambda: ["claude", "gpt", "gemini"])
+    proposals: dict[str, str] = field(default_factory=dict)
+    critiques: dict[int, dict[str, str]] = field(default_factory=dict)
+    votes: list[MockVote] = field(default_factory=list)
+    position_history: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    flip_data: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -76,7 +76,7 @@ class MockDebateContext:
 
     env: Any = None
     domain: str = "general"
-    agents: List[Any] = field(default_factory=list)
+    agents: list[Any] = field(default_factory=list)
 
 
 @dataclass

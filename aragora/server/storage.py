@@ -4,6 +4,7 @@ SQLite-backed debate storage with permalink generation.
 Provides persistent storage for debate artifacts with human-readable
 URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 """
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
+
 
 def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
     """Validate SQL identifier to prevent injection.
@@ -39,11 +41,13 @@ def _validate_sql_identifier(name: str, max_length: int = 64) -> bool:
         return False
     return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
+
 # Import from centralized location (defined here for backwards compatibility)
 from aragora.utils.sql_helpers import _escape_like_pattern
 
 # Re-export for backwards compatibility (tests expect DB_TIMEOUT from server.storage)
 from aragora.storage.schema import DB_TIMEOUT  # noqa: F401
+
 
 @dataclass
 class DebateMetadata:
@@ -58,6 +62,7 @@ class DebateMetadata:
     created_at: datetime
     view_count: int = 0
     is_public: bool = False  # If True, artifacts accessible without auth
+
 
 class DebateStorage(SQLiteStore):
     """
@@ -590,9 +595,7 @@ class DebateStorage(SQLiteStore):
 
         return results, total
 
-    def delete(
-        self, slug: str, org_id: str | None = None, require_ownership: bool = False
-    ) -> bool:
+    def delete(self, slug: str, org_id: str | None = None, require_ownership: bool = False) -> bool:
         """
         Delete a debate by slug.
 
@@ -738,8 +741,10 @@ class DebateStorage(SQLiteStore):
         """
         return self.list_recent(limit=limit, org_id=org_id)
 
+
 # Global storage instance
 _debate_storage: DebateStorage | None = None
+
 
 def get_debates_db() -> DebateStorage | None:
     """

@@ -23,6 +23,7 @@ except ImportError:
     DebateTrace = None  # type: ignore[misc,assignment]
     EventType = None  # type: ignore[misc,assignment]
 
+
 @dataclass
 class ReplayScene:
     """A single scene (round) in the debate replay."""
@@ -50,6 +51,7 @@ class ReplayScene:
             "consensus_indicators": self.consensus_indicators,
         }
 
+
 @dataclass
 class ReplayArtifact:
     """Complete debate data for HTML generation."""
@@ -69,6 +71,7 @@ class ReplayArtifact:
             "verdict": self.verdict,
             "metadata": self.metadata,
         }
+
 
 class ReplayGenerator:
     """Generates HTML replay artifacts from debate results."""

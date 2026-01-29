@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 GMAIL_READ_PERMISSION = "gmail:read"
 GMAIL_WRITE_PERMISSION = "gmail:write"
 
+
 @dataclass
 class QueryResponse:
     """Response from email Q&A."""
@@ -49,6 +50,7 @@ class QueryResponse:
             "confidence": self.confidence,
             "query": self.query,
         }
+
 
 class GmailQueryHandler(SecureHandler):
     """Handler for Gmail Q&A and priority inbox endpoints.
@@ -510,6 +512,7 @@ class GmailQueryHandler(SecureHandler):
         except Exception as e:
             logger.error(f"[GmailQuery] Feedback recording failed: {e}")
             return error_response(f"Failed to record feedback: {e}", 500)
+
 
 # Export for handler registration
 __all__ = ["GmailQueryHandler"]

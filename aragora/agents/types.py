@@ -7,7 +7,7 @@ the agents package to avoid duplication and ensure consistency.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 # Generic type variable for decorators and generic functions
 T = TypeVar("T")
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from aragora.agents.cli_agents import CLIAgent
 
     # Union type for any agent instance
-    Agent = Union[APIAgent, CLIAgent]
+    Agent = APIAgent | CLIAgent
 
     # Type alias for fallback agent references
     FallbackAgent = OpenRouterAgent | None

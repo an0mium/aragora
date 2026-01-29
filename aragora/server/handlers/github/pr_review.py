@@ -48,6 +48,7 @@ _bug_detector_imported = False
 _BugDetector = None
 _BugSeverity = None
 
+
 def _import_bug_detector():
     """Lazy import bug detector to avoid circular imports."""
     global _bug_detector_imported, _BugDetector, _BugSeverity
@@ -64,9 +65,11 @@ def _import_bug_detector():
         logger.debug(f"BugDetector not available: {e}")
         return False
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 class ReviewVerdict(str, Enum):
     """PR review verdict."""
@@ -75,6 +78,7 @@ class ReviewVerdict(str, Enum):
     REQUEST_CHANGES = "REQUEST_CHANGES"
     COMMENT = "COMMENT"
 
+
 class ReviewStatus(str, Enum):
     """Status of automated review."""
 
@@ -82,6 +86,7 @@ class ReviewStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 @dataclass
 class ReviewComment:
@@ -107,6 +112,7 @@ class ReviewComment:
             "severity": self.severity,
             "category": self.category,
         }
+
 
 @dataclass
 class PRReviewResult:
@@ -138,6 +144,7 @@ class PRReviewResult:
             "error": self.error,
             "metrics": self.metrics,
         }
+
 
 @dataclass
 class PRDetails:
@@ -173,6 +180,7 @@ class PRDetails:
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
@@ -185,6 +193,7 @@ _running_reviews: dict[str, asyncio.Task] = {}
 # =============================================================================
 # GitHub API Client (with ServiceRegistry integration)
 # =============================================================================
+
 
 class GitHubClient:
     """
@@ -392,9 +401,11 @@ class GitHubClient:
             updated_at=datetime.now(timezone.utc),
         )
 
+
 # =============================================================================
 # Review Handlers
 # =============================================================================
+
 
 @require_permission("github:create")
 async def handle_trigger_pr_review(
@@ -507,6 +518,7 @@ async def handle_trigger_pr_review(
             "success": False,
             "error": str(e),
         }
+
 
 async def _run_bug_detector_analysis(
     pr_details: PRDetails,
@@ -635,6 +647,7 @@ async def _run_bug_detector_analysis(
         logger.warning(f"Bug detector analysis failed: {e}")
 
     return comments, critical_issues
+
 
 async def _perform_review(
     pr_details: PRDetails,
@@ -774,6 +787,7 @@ async def _perform_review(
 
     return comments, verdict, summary
 
+
 async def _perform_debate_review(
     pr_details: PRDetails,
     review_type: str,
@@ -857,6 +871,7 @@ Format your response as:
         logger.warning(f"Debate review error: {e}")
         return None
 
+
 def _parse_debate_result(
     answer: str,
     pr_details: PRDetails,
@@ -913,6 +928,7 @@ def _parse_debate_result(
 
     return comments, verdict, summary
 
+
 @require_permission("github:read")
 async def handle_get_pr_details(
     repository: str,
@@ -947,6 +963,7 @@ async def handle_get_pr_details(
             "error": str(e),
         }
 
+
 @require_permission("github:read")
 async def handle_get_review_status(
     review_id: str,
@@ -974,6 +991,7 @@ async def handle_get_review_status(
             "success": False,
             "error": str(e),
         }
+
 
 @require_permission("github:read")
 async def handle_list_pr_reviews(
@@ -1006,6 +1024,7 @@ async def handle_list_pr_reviews(
             "success": False,
             "error": str(e),
         }
+
 
 @require_permission("connectors:create")
 async def handle_submit_review(
@@ -1056,9 +1075,11 @@ async def handle_submit_review(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class PRReviewHandler(BaseHandler):
     """
@@ -1088,9 +1109,7 @@ class PRReviewHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route PR review endpoint requests."""
         return None
 

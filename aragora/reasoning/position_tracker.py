@@ -22,6 +22,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class PositionStance(str, Enum):
     """Agent stance on a proposition."""
 
@@ -59,6 +60,7 @@ class PositionStance(str, Enum):
         }
         return values.get(self, 0.5)
 
+
 @dataclass
 class PositionRecord:
     """Record of an agent's position at a specific point in time."""
@@ -83,6 +85,7 @@ class PositionRecord:
             "influenced_by": self.influenced_by,
             "evidence_cited": self.evidence_cited,
         }
+
 
 @dataclass
 class PositionPivot:
@@ -130,6 +133,7 @@ class PositionPivot:
             "pivot_magnitude": self.pivot_magnitude,
             "pivot_type": self.pivot_type,
         }
+
 
 @dataclass
 class PositionEvolution:
@@ -306,6 +310,7 @@ class PositionEvolution:
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
+
 class PositionTracker:
     """
     Service for tracking position evolution across debates.
@@ -444,8 +449,10 @@ class PositionTracker:
         else:
             return "No convergence - agents maintain opposing positions"
 
+
 # Global tracker instance
 _position_tracker: PositionTracker | None = None
+
 
 def get_position_tracker() -> PositionTracker:
     """Get or create the global position tracker."""

@@ -14,6 +14,7 @@ Arena._run_inner() method, handling post-consensus processing:
 - Belief network analysis
 - Recording finalization
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Lazy import for uncertainty estimation
 _uncertainty_estimator = None
 
+
 def get_uncertainty_estimator():
     """Lazy-load the uncertainty estimator to avoid circular imports."""
     global _uncertainty_estimator
@@ -40,6 +42,7 @@ def get_uncertainty_estimator():
         except ImportError:
             logger.debug("Uncertainty estimator not available")
     return _uncertainty_estimator
+
 
 class AnalyticsPhase:
     """

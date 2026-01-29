@@ -37,7 +37,7 @@ class MockDebateResult:
     consensus_reached: bool = True
     rounds_used: int = 3
     rounds_completed: int = 3
-    participants: List[str] = field(default_factory=lambda: ["agent-1", "agent-2"])
+    participants: list[str] = field(default_factory=lambda: ["agent-1", "agent-2"])
     duration_seconds: float = 120.5
 
 
@@ -49,7 +49,7 @@ class MockChannelSubscription:
     org_id: str = "org-456"
     channel_type: str = "slack"
     channel_id: str = "C123456"
-    event_types: List[str] = field(default_factory=lambda: ["receipt"])
+    event_types: list[str] = field(default_factory=lambda: ["receipt"])
     workspace_id: Optional[str] = "T123456"
     is_active: bool = True
 

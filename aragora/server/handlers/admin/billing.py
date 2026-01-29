@@ -50,6 +50,7 @@ _billing_limiter = RateLimiter(requests_per_minute=20)
 # Webhook idempotency tracking (persistent SQLite by default)
 # Uses aragora.storage.webhook_store for persistence across restarts
 
+
 def _is_duplicate_webhook(event_id: str) -> bool:
     """Check if webhook event was already processed."""
     from aragora.storage.webhook_store import get_webhook_store
@@ -57,12 +58,14 @@ def _is_duplicate_webhook(event_id: str) -> bool:
     store = get_webhook_store()
     return store.is_processed(event_id)
 
+
 def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
     """Mark webhook event as processed."""
     from aragora.storage.webhook_store import get_webhook_store
 
     store = get_webhook_store()
     store.mark_processed(event_id, result)
+
 
 class BillingHandler(SecureHandler):
     """Handler for billing and subscription endpoints.
@@ -1274,5 +1277,6 @@ class BillingHandler(SecureHandler):
                 "usage_flushed": len(flushed_records),
             }
         )
+
 
 __all__ = ["BillingHandler"]

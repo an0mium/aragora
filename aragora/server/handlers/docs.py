@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Cache TTL for OpenAPI spec (rarely changes)
 CACHE_TTL_OPENAPI = 3600
 
+
 class DocsHandler(BaseHandler):
     """Handler for API documentation endpoints."""
 

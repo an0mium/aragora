@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Approximate chars per token (conservative estimate)
 CHARS_PER_TOKEN = 4
 
+
 @dataclass
 class CognitiveBudget:
     """Token and content budgets for agent context."""
@@ -50,6 +51,7 @@ class CognitiveBudget:
             max_patterns_chars=int(self.max_patterns_chars * factor),
             reserve_for_response=self.reserve_for_response,  # Keep response reserve
         )
+
 
 # Preset budgets for different stress levels
 STRESS_BUDGETS = {
@@ -78,6 +80,7 @@ STRESS_BUDGETS = {
         max_proposal_chars=800,
     ),
 }
+
 
 class CognitiveLoadLimiter:
     """
@@ -407,6 +410,7 @@ class CognitiveLoadLimiter:
             "critiques_truncated": 0,
             "total_chars_removed": 0,
         }
+
 
 def limit_debate_context(
     messages: list,

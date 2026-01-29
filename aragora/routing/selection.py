@@ -9,6 +9,7 @@ Routes tasks to best-fit agents by:
 - Maintaining a "bench" system with promotion/demotion
 - Auto-detecting domain from task text
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,6 +86,7 @@ DEFAULT_AGENT_EXPERTISE: dict[str, dict[str, float]] = {
 if TYPE_CHECKING:
     from aragora.routing.probe_filter import ProbeFilter
 
+
 @dataclass
 class AgentProfile:
     """Profile of an available agent."""
@@ -138,6 +140,7 @@ class AgentProfile:
             base_score *= 0.9  # 10% penalty for overconfidence
         return base_score
 
+
 @dataclass
 class TaskRequirements:
     """Requirements for a task."""
@@ -152,6 +155,7 @@ class TaskRequirements:
     quality_priority: float = 0.5  # 0 = speed/cost, 1 = quality
     diversity_preference: float = 0.5  # 0 = homogeneous, 1 = diverse
 
+
 @dataclass
 class TeamComposition:
     """A selected team of agents."""
@@ -164,6 +168,7 @@ class TeamComposition:
     expected_cost: float
     diversity_score: float
     rationale: str
+
 
 class AgentSelector:
     """
@@ -934,6 +939,7 @@ class AgentSelector:
             selector.refresh_from_elo_system()
 
         return selector
+
 
 __all__ = [
     # Core classes

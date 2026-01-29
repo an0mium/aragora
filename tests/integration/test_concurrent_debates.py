@@ -95,7 +95,7 @@ class TestConcurrentDebateExecution:
     @pytest.mark.asyncio
     async def test_debate_contexts_are_isolated(self):
         """Test that debate contexts don't leak between concurrent debates."""
-        contexts: List[DebateContext] = []
+        contexts: list[DebateContext] = []
 
         async def create_context(debate_id: int) -> DebateContext:
             env = Environment(task=f"Isolated task {debate_id}")

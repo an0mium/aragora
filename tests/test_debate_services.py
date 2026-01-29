@@ -118,7 +118,7 @@ class TestEventBus:
     async def test_subscribe_async_handler(self):
         """Test async handler subscription."""
         bus = EventBus()
-        received_events: List[DebateEvent] = []
+        received_events: list[DebateEvent] = []
 
         async def handler(event: DebateEvent):
             received_events.append(event)
@@ -133,7 +133,7 @@ class TestEventBus:
     def test_subscribe_sync_handler(self):
         """Test sync handler subscription."""
         bus = EventBus()
-        received_events: List[DebateEvent] = []
+        received_events: list[DebateEvent] = []
 
         def handler(event: DebateEvent):
             received_events.append(event)

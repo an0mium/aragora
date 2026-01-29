@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ExpenseCategory(str, Enum):
     """Standard expense categories."""
 
@@ -64,6 +65,7 @@ class ExpenseCategory(str, Enum):
     BANK_FEES = "bank_fees"
     OTHER = "other"
 
+
 class ExpenseStatus(str, Enum):
     """Expense processing status."""
 
@@ -74,6 +76,7 @@ class ExpenseStatus(str, Enum):
     SYNCED = "synced"  # Synced to accounting system
     REJECTED = "rejected"  # Rejected/deleted
     DUPLICATE = "duplicate"  # Marked as duplicate
+
 
 class PaymentMethod(str, Enum):
     """Payment methods."""
@@ -88,6 +91,7 @@ class PaymentMethod(str, Enum):
     PAYPAL = "paypal"
     VENMO = "venmo"
     OTHER = "other"
+
 
 @dataclass
 class LineItem:
@@ -107,6 +111,7 @@ class LineItem:
             "amount": float(self.amount),
             "category": self.category.value if self.category else None,
         }
+
 
 @dataclass
 class ExpenseRecord:
@@ -185,6 +190,7 @@ class ExpenseRecord:
             "tags": self.tags,
         }
 
+
 @dataclass
 class SyncResult:
     """Result of syncing expenses to accounting system."""
@@ -205,6 +211,7 @@ class SyncResult:
             "failedIds": self.failed_ids,
             "errors": self.errors,
         }
+
 
 @dataclass
 class ExpenseStats:
@@ -230,6 +237,7 @@ class ExpenseStats:
             "topVendors": self.top_vendors,
             "avgExpense": round(self.avg_expense, 2),
         }
+
 
 # Common vendor patterns for categorization
 VENDOR_CATEGORY_PATTERNS = {
@@ -332,6 +340,7 @@ VENDOR_CATEGORY_PATTERNS = {
         r"membership",
     ],
 }
+
 
 class ExpenseTracker:
     """

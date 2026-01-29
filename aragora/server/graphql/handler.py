@@ -121,6 +121,7 @@ query GetDebates {
 # GraphQL Handler
 # =============================================================================
 
+
 class GraphQLHandler(BaseHandler):
     """HTTP handler for GraphQL requests.
 
@@ -515,9 +516,11 @@ class GraphQLHandler(BaseHandler):
 
         return result
 
+
 # =============================================================================
 # Schema Introspection Handler
 # =============================================================================
+
 
 class GraphQLSchemaHandler(BaseHandler):
     """Handler for GraphQL schema introspection requests.
@@ -573,6 +576,7 @@ class GraphQLSchemaHandler(BaseHandler):
             content_type="text/plain; charset=utf-8",
             body=SCHEMA_SDL.encode("utf-8"),
         )
+
 
 # =============================================================================
 # Exports

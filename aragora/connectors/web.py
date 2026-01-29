@@ -85,6 +85,7 @@ DOMAIN_AUTHORITY = {
     "reuters.com": 0.85,
 }
 
+
 class WebConnector(BaseConnector):
     """
     Connector for live web search and content fetching.

@@ -24,6 +24,7 @@ from aragora.policy.risk import BlastRadius, RiskLevel
 
 logger = logging.getLogger(__name__)
 
+
 class ToolCategory(Enum):
     """Categories of tools for policy grouping."""
 
@@ -34,6 +35,7 @@ class ToolCategory(Enum):
     DATABASE = "database"  # Database operations
     SYSTEM = "system"  # System administration
     BILLING = "billing"  # Actions with cost
+
 
 @dataclass
 class ToolCapability:
@@ -52,6 +54,7 @@ class ToolCapability:
     requires_human_approval: bool = False
     max_uses_per_session: int | None = None  # None = unlimited
     cooldown_seconds: float = 0.0  # Minimum time between uses
+
 
 @dataclass
 class Tool:
@@ -119,6 +122,7 @@ class Tool:
             "cost_multiplier": self.cost_multiplier,
             "version": self.version,
         }
+
 
 class ToolRegistry:
     """Registry of available tools and their capabilities.
@@ -208,8 +212,10 @@ class ToolRegistry:
             "capability_index": self._capability_index,
         }
 
+
 # Global registry singleton
 _global_registry: ToolRegistry | None = None
+
 
 def get_tool_registry() -> ToolRegistry:
     """Get the global tool registry."""
@@ -218,6 +224,7 @@ def get_tool_registry() -> ToolRegistry:
         _global_registry = ToolRegistry()
         _register_builtin_tools(_global_registry)
     return _global_registry
+
 
 def _register_builtin_tools(registry: ToolRegistry) -> None:
     """Register built-in Aragora tools."""
@@ -426,6 +433,7 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
             ],
         )
     )
+
 
 __all__ = [
     "ToolCategory",

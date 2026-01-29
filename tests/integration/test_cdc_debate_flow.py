@@ -34,14 +34,14 @@ class MockCDCKnowledgeAgent(Agent):
         self,
         name: str = "cdc_aware_agent",
         knowledge_mound: Optional[MagicMock] = None,
-        responses: Optional[List[str]] = None,
+        responses: Optional[list[str]] = None,
     ):
         super().__init__(name, "mock-model", "proposer")
         self.agent_type = "mock"
         self.knowledge_mound = knowledge_mound
         self._responses = responses or []
         self._call_count = 0
-        self._queried_knowledge: List[Dict[str, Any]] = []
+        self._queried_knowledge: list[dict[str, Any]] = []
 
     async def generate(self, prompt: str, context: list | None = None) -> str:
         # Query knowledge mound for relevant CDC data if available

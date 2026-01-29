@@ -7,6 +7,7 @@ Provides:
 - Default plugin configuration
 - Type-safe plugin retrieval
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 ScorerT = TypeVar("ScorerT", bound=ScorerProtocol)
 TeamSelectorT = TypeVar("TeamSelectorT", bound=TeamSelectorProtocol)
 RoleAssignerT = TypeVar("RoleAssignerT", bound=RoleAssignerProtocol)
+
 
 class SelectionPluginRegistry:
     """
@@ -178,8 +180,10 @@ class SelectionPluginRegistry:
             "role_assigners": [self.get_role_assigner_info(name) for name in self._role_assigners],
         }
 
+
 # Global registry instance
 _registry: SelectionPluginRegistry | None = None
+
 
 def get_selection_registry() -> SelectionPluginRegistry:
     """Get the global selection plugin registry."""
@@ -190,10 +194,12 @@ def get_selection_registry() -> SelectionPluginRegistry:
         _register_builtins(_registry)
     return _registry
 
+
 def reset_selection_registry() -> None:
     """Reset the global registry (for testing)."""
     global _registry
     _registry = None
+
 
 def _register_builtins(registry: SelectionPluginRegistry) -> None:
     """Register built-in selection strategies."""
@@ -217,6 +223,7 @@ def _register_builtins(registry: SelectionPluginRegistry) -> None:
     # Role assigners
     registry.register_role_assigner("domain-based", DomainBasedRoleAssigner, set_default=True)
     registry.register_role_assigner("simple", SimpleRoleAssigner)
+
 
 def register_scorer(
     name: str,
@@ -246,6 +253,7 @@ def register_scorer(
 
     return decorator
 
+
 def register_team_selector(
     name: str,
     set_default: bool = False,
@@ -266,6 +274,7 @@ def register_team_selector(
         return cls
 
     return decorator
+
 
 def register_role_assigner(
     name: str,

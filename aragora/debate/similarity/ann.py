@@ -21,6 +21,7 @@ Usage:
     # Early termination check
     converged, min_sim = find_convergence_threshold(embeddings, threshold=0.85)
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +29,7 @@ import logging
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
 
 def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
     """Compute full pairwise cosine similarity matrix using vectorized operations.
@@ -56,6 +58,7 @@ def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
     similarity_matrix = np.dot(normalized, normalized.T)
 
     return similarity_matrix
+
 
 def compute_batch_similarity_fast(
     embeddings: np.ndarray,
@@ -87,6 +90,7 @@ def compute_batch_similarity_fast(
 
     return float(np.mean(similarities)) if len(similarities) > 0 else 0.0
 
+
 def compute_min_similarity(embeddings: np.ndarray) -> float:
     """Compute minimum pairwise similarity.
 
@@ -107,6 +111,7 @@ def compute_min_similarity(embeddings: np.ndarray) -> float:
     similarities = matrix[upper_indices]
 
     return float(np.min(similarities)) if len(similarities) > 0 else 0.0
+
 
 def find_convergence_threshold(
     embeddings: np.ndarray,
@@ -157,6 +162,7 @@ def find_convergence_threshold(
 
     return True, min_sim
 
+
 def cluster_by_similarity(
     embeddings: np.ndarray,
     threshold: float = 0.8,
@@ -202,6 +208,7 @@ def cluster_by_similarity(
             used.add(i)
 
     return clusters
+
 
 class FAISSIndex:
     """Optional FAISS wrapper for very large scale similarity search.
@@ -327,6 +334,7 @@ class FAISSIndex:
             self._index.reset()
         self._fallback_data = None
 
+
 def count_unique_fast(
     embeddings: np.ndarray,
     threshold: float = 0.7,
@@ -397,6 +405,7 @@ def count_unique_fast(
     diversity_score = unique_count / n if n > 0 else 0.0
     return (unique_count, n, diversity_score)
 
+
 def compute_argument_diversity_optimized(
     embeddings: np.ndarray,
     threshold: float = 0.7,
@@ -414,6 +423,7 @@ def compute_argument_diversity_optimized(
         Tuple of (unique_arguments, total_arguments, diversity_score)
     """
     return count_unique_fast(embeddings, threshold=threshold)
+
 
 __all__ = [
     "compute_pairwise_matrix",

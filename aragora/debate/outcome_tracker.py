@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Default database path
 DEFAULT_OUTCOMES_DB = Path(".nomic/outcomes.db")
 
+
 @dataclass
 class ConsensusOutcome:
     """Record of a consensus decision and its implementation outcome."""
@@ -70,6 +71,7 @@ class ConsensusOutcome:
         d["agents_participating"] = json.loads(d.get("agents_participating", "[]"))
         return cls(**d)
 
+
 @dataclass
 class CalibrationBucket:
     """Statistics for a confidence bucket."""
@@ -93,6 +95,7 @@ class CalibrationBucket:
     def calibration_error(self) -> float:
         """How miscalibrated this bucket is (positive = overconfident)."""
         return self.expected_rate - self.success_rate
+
 
 class OutcomeTracker:
     """Tracks consensus decision outcomes for calibration and learning.

@@ -32,6 +32,7 @@ from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -40,11 +41,13 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
+
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
+
 
 from ..base import (
     BaseHandler,
@@ -107,6 +110,7 @@ if not TELEGRAM_BOT_TOKEN:
 if not TELEGRAM_WEBHOOK_SECRET:
     logger.warning("TELEGRAM_WEBHOOK_SECRET not configured - webhook verification disabled")
 
+
 class TelegramHandler(BaseHandler):
     """Handler for Telegram Bot integration endpoints."""
 
@@ -163,9 +167,7 @@ class TelegramHandler(BaseHandler):
 
         return None
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route Telegram requests to appropriate methods."""
         logger.debug(f"Telegram request: {path}")
 
@@ -1297,8 +1299,10 @@ class TelegramHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error sending Telegram voice: {e}")
 
+
 # Export handler factory
 _telegram_handler: Optional["TelegramHandler"] = None
+
 
 def get_telegram_handler(server_context: dict | None = None) -> "TelegramHandler":
     """Get or create the Telegram handler instance."""
@@ -1308,5 +1312,6 @@ def get_telegram_handler(server_context: dict | None = None) -> "TelegramHandler
             server_context = {}
         _telegram_handler = TelegramHandler(server_context)  # type: ignore[arg-type]
     return _telegram_handler
+
 
 __all__ = ["TelegramHandler", "get_telegram_handler"]

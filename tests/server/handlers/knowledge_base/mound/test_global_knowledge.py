@@ -64,7 +64,7 @@ class MockUser:
 
     id: str = "user-123"
     user_id: str = "user-123"
-    permissions: List[str] = field(default_factory=lambda: ["global_write"])
+    permissions: list[str] = field(default_factory=lambda: ["global_write"])
 
 
 @dataclass
@@ -75,7 +75,7 @@ class MockFact:
     content: str
     importance: float = 0.5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "content": self.content, "importance": self.importance}
 
 
@@ -95,7 +95,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

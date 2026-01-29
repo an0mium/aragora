@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 from aragora.client.models import Replay, ReplaySummary
 
+
 class ReplayAPI:
     """API interface for debate replays."""
 
@@ -108,5 +109,6 @@ class ReplayAPI:
             f"/api/replays/{replay_id}/export", params={"format": format}
         )
         return response.get("data", "") if isinstance(response, dict) else str(response)
+
 
 __all__ = ["ReplayAPI"]

@@ -18,6 +18,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 def knowledge_mound_health(handler) -> HandlerResult:
     """Comprehensive health check for Knowledge Mound subsystem.
 
@@ -464,6 +465,7 @@ def knowledge_mound_health(handler) -> HandlerResult:
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         }
     )
+
 
 def decay_health(handler) -> HandlerResult:
     """Confidence decay scheduler health - dedicated endpoint for decay monitoring.

@@ -48,6 +48,7 @@ _ml_limiter = RateLimiter(requests_per_minute=60)
 # Lazy load ML components
 _ml_components = {}
 
+
 def _get_ml_component(name: str):
     """Lazy load ML components to avoid import overhead."""
     if name not in _ml_components:
@@ -76,6 +77,7 @@ def _get_ml_component(name: str):
             logger.warning(f"ML component {name} not available: {e}")
             _ml_components[name] = None
     return _ml_components.get(name)
+
 
 class MLHandler(BaseHandler):
     """Handler for ML endpoints."""

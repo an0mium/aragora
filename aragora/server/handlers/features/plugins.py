@@ -52,6 +52,7 @@ SUBMISSION_STATUS_PENDING = "pending"
 SUBMISSION_STATUS_APPROVED = "approved"
 SUBMISSION_STATUS_REJECTED = "rejected"
 
+
 class PluginsHandler(BaseHandler):
     """Handler for plugins endpoints."""
 

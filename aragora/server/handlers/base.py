@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, TypedDict
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -67,6 +67,7 @@ if TYPE_CHECKING:
     from aragora.storage.webhooks import WebhookStore
     from aragora.users.store import UserStore
     from aragora.billing.usage import UsageTracker
+
 
 class ServerContext(TypedDict, total=False):
     """Type definition for server context passed to handlers.
@@ -143,6 +144,7 @@ class ServerContext(TypedDict, total=False):
     raw_body: bytes  # Raw request body for signature verification
     user_id: str  # Authenticated user ID
     query: dict[str, str]  # Query string parameters
+
 
 # Import from extracted utility modules (re-exported for backwards compatibility)
 from aragora.server.errors import safe_error_message
@@ -287,6 +289,7 @@ __all__ = [
     # Note: validate_json_content_type and read_json_body_validated are BaseHandler methods
 ]
 
+
 def feature_unavailable_response(
     feature_id: str,
     message: str | None = None,
@@ -315,6 +318,7 @@ def feature_unavailable_response(
 
     return _feature_unavailable(feature_id, message)
 
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -331,6 +335,7 @@ logger = logging.getLogger(__name__)
 
 # Default host from environment (used when Host header is missing)
 _DEFAULT_HOST = os.environ.get("ARAGORA_DEFAULT_HOST", "localhost:8080")
+
 
 def get_host_header(handler: HTTPRequestHandler | None, default: str | None = None) -> str:
     """Extract Host header from request handler.
@@ -356,6 +361,7 @@ def get_host_header(handler: HTTPRequestHandler | None, default: str | None = No
         return default
     return handler.headers.get("Host", default) if hasattr(handler, "headers") else default
 
+
 def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     """Extract agent name from dict or object.
 
@@ -380,6 +386,7 @@ def get_agent_name(agent: dict | AgentRating | Any | None) -> str | None:
     if isinstance(agent, dict):
         return agent.get("agent_name") or agent.get("name")
     return getattr(agent, "agent_name", None) or getattr(agent, "name", None)
+
 
 def agent_to_dict(agent: dict | AgentRating | Any | None, include_name: bool = True) -> dict:
     """Convert agent object or dict to standardized dict with ELO fields.
@@ -431,6 +438,7 @@ def agent_to_dict(agent: dict | AgentRating | Any | None, include_name: bool = T
 
     return result
 
+
 # =============================================================================
 # Response Builders (imported from utils/responses.py)
 # =============================================================================
@@ -447,7 +455,8 @@ from aragora.server.handlers.utils.responses import (
 # Type alias for handlers that may be sync or async.
 # This allows child classes to override with async methods while maintaining
 # type safety. The registry dynamically awaits coroutines at runtime.
-MaybeAsyncHandlerResult = Union[HandlerResult | None, Awaitable[HandlerResult | None]]
+MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
+
 
 def safe_error_response(
     exception: Exception,
@@ -494,11 +503,13 @@ def safe_error_response(
 
     return json_response(error_dict, status=status)
 
+
 # Note: Exception handling, tracing, decorators, and RBAC are all imported from
 # utils/decorators.py. See that module for: generate_trace_id, map_exception_to_status,
 # validate_params, handle_errors, auto_error_response, log_request, PERMISSION_MATRIX,
 # has_permission, require_permission, require_user_auth, require_auth, require_storage,
 # require_feature, safe_fetch, with_error_recovery
+
 
 def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
     """
@@ -657,6 +668,7 @@ def require_quota(debate_count: int = 1) -> Callable[[Callable], Callable]:
 
     return decorator
 
+
 def api_endpoint(
     *,
     method: str,
@@ -681,6 +693,7 @@ def api_endpoint(
 
     return decorator
 
+
 def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
     """Async-friendly wrapper around middleware rate limiting."""
     from aragora.server.middleware.rate_limit.decorators import rate_limit as _rate_limit
@@ -702,6 +715,7 @@ def rate_limit(*args, **kwargs) -> Callable[[Callable], Callable]:
         return decorated
 
     return wrapper
+
 
 def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
     """Validate JSON request body has required fields for async handlers."""
@@ -753,12 +767,14 @@ def validate_body(required_fields: list[str]) -> Callable[[Callable], Callable]:
 
     return decorator
 
+
 # =============================================================================
 # Handler Mixins
 # =============================================================================
 # These mixins provide reusable patterns for common handler operations.
 # Handlers can inherit from these in addition to BaseHandler to get
 # standardized implementations of common operations.
+
 
 class PaginatedHandlerMixin:
     """Mixin for standardized pagination handling.
@@ -835,6 +851,7 @@ class PaginatedHandlerMixin:
             }
         )
 
+
 class CachedHandlerMixin:
     """Mixin for cached response generation.
 
@@ -902,6 +919,7 @@ class CachedHandlerMixin:
         cache.set(cache_key, value)
         return value
 
+
 class AuthenticatedHandlerMixin:
     """Mixin for requiring authenticated access.
 
@@ -947,6 +965,7 @@ class AuthenticatedHandlerMixin:
             return error_response("Authentication required", 401)
         return user_ctx
 
+
 class BaseHandler:
     """
     Base class for endpoint handlers.
@@ -972,9 +991,7 @@ class BaseHandler:
         self._current_handler = None
         self._current_query_params = {}
 
-    def set_request_context(
-        self, handler: Any, query_params: dict[str, Any] | None = None
-    ) -> None:
+    def set_request_context(self, handler: Any, query_params: dict[str, Any] | None = None) -> None:
         """Set the current request context for helper methods.
 
         Call this at the start of request handling to enable helper methods

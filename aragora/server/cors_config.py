@@ -40,6 +40,7 @@ if _IS_PRODUCTION:
 else:
     DEFAULT_ORIGINS = _DEV_ORIGINS | _PROD_ORIGINS
 
+
 class CORSConfig:
     """Centralized CORS configuration with environment variable support."""
 
@@ -94,6 +95,7 @@ class CORSConfig:
     def remove_origin(self, origin: str) -> None:
         """Remove an origin from the allowlist at runtime."""
         self.allowed_origins.discard(origin)
+
 
 # Singleton instance for import
 cors_config = CORSConfig()

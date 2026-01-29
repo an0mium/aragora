@@ -20,6 +20,7 @@ from aragora.bots.base import (
 
 logger = logging.getLogger(__name__)
 
+
 def _get_api_base(ctx: "CommandContext") -> str:
     """Get API base URL from command context.
 
@@ -43,8 +44,10 @@ def _get_api_base(ctx: "CommandContext") -> str:
         api_base = "http://localhost:8080"
     return api_base
 
+
 # Type alias for command handlers
 CommandHandler = Callable[[CommandContext], Coroutine[Any, Any, CommandResult]]
+
 
 @dataclass
 class BotCommand:
@@ -80,6 +83,7 @@ class BotCommand:
         if self.max_args is not None and len(args) > self.max_args:
             return f"Command '{self.name}' accepts at most {self.max_args} argument(s)."
         return None
+
 
 class CommandRegistry:
     """Registry for bot commands."""
@@ -258,8 +262,10 @@ class CommandRegistry:
 
         return decorator
 
+
 # Global default registry
 _default_registry: CommandRegistry | None = None
+
 
 def get_default_registry() -> CommandRegistry:
     """Get or create the default command registry."""
@@ -269,6 +275,7 @@ def get_default_registry() -> CommandRegistry:
         _register_builtin_commands(_default_registry)
     return _default_registry
 
+
 def command(
     name: str,
     description: str = "",
@@ -276,6 +283,7 @@ def command(
 ) -> Callable[[CommandHandler], CommandHandler]:
     """Shorthand decorator using the default registry."""
     return get_default_registry().command(name, description, **kwargs)
+
 
 def _register_builtin_commands(registry: CommandRegistry) -> None:
     """Register built-in commands."""

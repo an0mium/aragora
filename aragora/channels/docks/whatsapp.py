@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["WhatsAppDock"]
 
+
 class WhatsAppDock(ChannelDock):
     """
     WhatsApp Business platform dock.

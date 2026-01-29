@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class MoleculeStatus(Enum):
     """Status of a work molecule."""
 
@@ -37,6 +38,7 @@ class MoleculeStatus(Enum):
     COMPLETED = "completed"  # Successfully finished
     FAILED = "failed"  # Failed, needs reassignment
     BLOCKED = "blocked"  # Blocked by dependencies
+
 
 class MoleculeType(Enum):
     """Types of debate work molecules."""
@@ -50,6 +52,7 @@ class MoleculeType(Enum):
     QUALITY_REVIEW = "quality_review"  # Review argument quality
     FACT_CHECK = "fact_check"  # Verify claims
 
+
 # Capability requirements for each molecule type
 MOLECULE_CAPABILITIES = {
     MoleculeType.PROPOSAL: {"reasoning", "creativity"},
@@ -61,6 +64,7 @@ MOLECULE_CAPABILITIES = {
     MoleculeType.QUALITY_REVIEW: {"quality_assessment"},
     MoleculeType.FACT_CHECK: {"research"},
 }
+
 
 @dataclass
 class Molecule:
@@ -212,6 +216,7 @@ class Molecule:
             error_message=data.get("error_message"),
             agent_affinity=data.get("agent_affinity", {}),
         )
+
 
 class MoleculeTracker:
     """
@@ -488,6 +493,7 @@ class MoleculeTracker:
                     0, self._agent_workload.get(mol.assigned_agent, 1) - 1
                 )
 
+
 # Convenience functions
 def create_round_molecules(
     tracker: MoleculeTracker,
@@ -537,6 +543,7 @@ def create_round_molecules(
     molecules.append(synthesis_mol)
 
     return molecules
+
 
 __all__ = [
     "Molecule",

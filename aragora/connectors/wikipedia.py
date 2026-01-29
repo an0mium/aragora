@@ -8,6 +8,7 @@ Provides access to Wikipedia's knowledge base for:
 
 The Wikipedia API is free and requires no authentication.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ except ImportError:
 # Wikipedia API endpoints
 WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
 WIKIPEDIA_REST_URL = "https://en.wikipedia.org/api/rest_v1"
+
 
 class WikipediaConnector(BaseConnector):
     """

@@ -14,6 +14,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def send_message_tool(
     channel_id: str,
     content: str,
@@ -73,6 +74,7 @@ async def send_message_tool(
             "channel_id": channel_id,
             "platform": platform,
         }
+
 
 async def create_poll_tool(
     channel_id: str,
@@ -147,6 +149,7 @@ async def create_poll_tool(
     except Exception as e:
         logger.error(f"Failed to create poll: {e}")
         return {"error": str(e), "channel_id": channel_id}
+
 
 async def trigger_debate_tool(
     channel_id: str,
@@ -234,6 +237,7 @@ async def trigger_debate_tool(
         logger.error(f"Failed to trigger debate: {e}")
         return {"error": str(e), "channel_id": channel_id}
 
+
 async def post_receipt_tool(
     channel_id: str,
     debate_id: str,
@@ -313,6 +317,7 @@ async def post_receipt_tool(
         logger.error(f"Failed to post receipt: {e}")
         return {"error": str(e), "debate_id": debate_id}
 
+
 async def update_message_tool(
     message_id: str,
     channel_id: str,
@@ -354,6 +359,7 @@ async def update_message_tool(
         logger.error(f"Failed to update message: {e}")
         return {"error": str(e), "message_id": message_id}
 
+
 async def add_reaction_tool(
     message_id: str,
     channel_id: str,
@@ -394,6 +400,7 @@ async def add_reaction_tool(
         logger.error(f"Failed to add reaction: {e}")
         return {"error": str(e), "message_id": message_id}
 
+
 async def create_thread_tool(
     channel_id: str,
     parent_message_id: str,
@@ -418,6 +425,7 @@ async def create_thread_tool(
         platform=platform,
         thread_id=parent_message_id,
     )
+
 
 async def stream_progress_tool(
     channel_id: str,
@@ -451,7 +459,9 @@ async def stream_progress_tool(
         platform=platform,
     )
 
+
 # Helper functions
+
 
 async def _get_chat_connector(platform: str) -> Any | None:
     """Get the chat connector for a platform."""
@@ -479,6 +489,7 @@ async def _get_chat_connector(platform: str) -> Any | None:
         logger.warning(f"Could not import connector for {platform}: {e}")
         return None
 
+
 def _format_message(content: str, platform: str, format_type: str) -> str:
     """Format message content for platform."""
     if format_type == "text":
@@ -493,6 +504,7 @@ def _format_message(content: str, platform: str, format_type: str) -> str:
         # Discord and others use standard markdown
 
     return content
+
 
 def _format_poll(question: str, options: list[str], platform: str) -> str:
     """Format poll as message."""
@@ -510,6 +522,7 @@ def _format_poll(question: str, options: list[str], platform: str) -> str:
     lines.append("_React to vote!_")
 
     return "\n".join(lines)
+
 
 def _format_receipt(
     receipt: dict[str, Any],
@@ -532,6 +545,7 @@ def _format_receipt(
         lines.append(f"**Timestamp:** {receipt.get('timestamp', 'N/A')}")
 
     return "\n".join(lines)
+
 
 def _create_progress_bar(progress: float, width: int = 20) -> str:
     """Create a text progress bar."""

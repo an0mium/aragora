@@ -25,9 +25,11 @@ from .policy import ControlPlanePolicy, PolicyViolation
 
 logger = get_logger(__name__)
 
+
 def _get_default_db_path() -> Path:
     """Get the default database path for control plane policy store."""
     return get_db_path("control_plane/policies.db")
+
 
 class ControlPlanePolicyStore(SQLiteStore):
     """
@@ -448,6 +450,7 @@ class ControlPlanePolicyStore(SQLiteStore):
             "metadata": json.loads(row["metadata"]) if row["metadata"] else {},
         }
 
+
 class PostgresControlPlanePolicyStore:
     """PostgreSQL-backed store for control plane policies (production)."""
 
@@ -867,8 +870,10 @@ class PostgresControlPlanePolicyStore:
             "metadata": row["metadata"] if isinstance(row["metadata"], dict) else {},
         }
 
+
 # Factory function
 _policy_store_instance: ControlPlanePolicyStore | None = None
+
 
 def get_control_plane_policy_store(
     db_path: Path | None = None,
@@ -908,6 +913,7 @@ def get_control_plane_policy_store(
         path=str(db_path or _get_default_db_path()),
     )
     return _policy_store_instance
+
 
 def reset_control_plane_policy_store() -> None:
     """Reset the policy store singleton (for testing)."""

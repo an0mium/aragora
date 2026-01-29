@@ -13,6 +13,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def run_debate_tool(
     question: str,
     agents: str | None = None,
@@ -101,6 +102,7 @@ async def run_debate_tool(
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
+
 async def get_debate_tool(debate_id: str) -> dict[str, Any]:
     """
     Get results of a previous debate.
@@ -127,6 +129,7 @@ async def get_debate_tool(debate_id: str) -> dict[str, Any]:
         logger.warning(f"Could not fetch debate from storage: {e}")
 
     return {"error": f"Debate {debate_id} not found"}
+
 
 async def search_debates_tool(
     query: str = "",
@@ -197,6 +200,7 @@ async def search_debates_tool(
             "date_range": f"{start_date or '*'} to {end_date or '*'}",
         },
     }
+
 
 async def fork_debate_tool(
     debate_id: str,
@@ -272,6 +276,7 @@ async def fork_debate_tool(
     except Exception as e:
         return {"error": f"Fork creation failed: {e}"}
 
+
 async def get_forks_tool(
     debate_id: str,
     include_nested: bool = False,
@@ -324,6 +329,7 @@ async def get_forks_tool(
 
     except Exception as e:
         return {"error": f"Failed to get forks: {e}"}
+
 
 __all__ = [
     "run_debate_tool",

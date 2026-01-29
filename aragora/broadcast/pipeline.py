@@ -13,6 +13,7 @@ Usage:
     pipeline = BroadcastPipeline(nomic_dir=Path(".nomic"))
     result = await pipeline.run("debate-123", BroadcastOptions(video_enabled=True))
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     from aragora.debate.traces import DebateTrace
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BroadcastOptions:
@@ -48,6 +50,7 @@ class BroadcastOptions:
     episode_number: int | None = None
     season_number: int | None = None
 
+
 @dataclass
 class PipelineResult:
     """Result of the broadcast pipeline."""
@@ -61,6 +64,7 @@ class PipelineResult:
     error_message: str | None = None
     generated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     steps_completed: list[str] = field(default_factory=list)
+
 
 class BroadcastPipeline:
     """
@@ -338,6 +342,7 @@ class BroadcastPipeline:
         except Exception as e:
             logger.error(f"Failed to generate RSS feed: {e}")
             return None
+
 
 async def run_pipeline(
     debate_id: str,

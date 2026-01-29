@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Batch Export Types
 # =============================================================================
 
+
 class BatchExportStatus(Enum):
     """Status of a batch export job."""
 
@@ -44,6 +45,7 @@ class BatchExportStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class BatchExportItem:
@@ -56,6 +58,7 @@ class BatchExportItem:
     error: str | None = None
     started_at: float | None = None
     completed_at: float | None = None
+
 
 @dataclass
 class BatchExportJob:
@@ -93,9 +96,11 @@ class BatchExportJob:
             "completed_at": self.completed_at,
         }
 
+
 # In-memory job storage (production would use Redis)
 _batch_export_jobs: dict[str, BatchExportJob] = {}
 _batch_export_events: dict[str, asyncio.Queue] = {}
+
 
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by ExportOperationsMixin.
@@ -109,6 +114,7 @@ class _DebatesHandlerProtocol(Protocol):
     def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
+
 
 class ExportOperationsMixin:
     """Mixin providing export formatting operations for DebatesHandler."""
@@ -270,16 +276,32 @@ class ExportOperationsMixin:
             return json.dumps(debate, indent=2, default=str)
         elif format == "csv":
             result = format_debate_csv(debate, "messages")
-            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
+            return (
+                result.content.decode("utf-8")
+                if isinstance(result.content, bytes)
+                else result.content
+            )
         elif format == "html":
             result = format_debate_html(debate)
-            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
+            return (
+                result.content.decode("utf-8")
+                if isinstance(result.content, bytes)
+                else result.content
+            )
         elif format == "txt":
             result = format_debate_txt(debate)
-            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
+            return (
+                result.content.decode("utf-8")
+                if isinstance(result.content, bytes)
+                else result.content
+            )
         elif format == "md":
             result = format_debate_md(debate)
-            return result.content.decode("utf-8") if isinstance(result.content, bytes) else result.content
+            return (
+                result.content.decode("utf-8")
+                if isinstance(result.content, bytes)
+                else result.content
+            )
         else:
             return json.dumps(debate, indent=2, default=str)
 
@@ -465,6 +487,7 @@ class ExportOperationsMixin:
             logger.warning("Export failed for %s - invalid format: %s", debate_id, e)
             return error_response(f"Invalid export format: {e}", 400)
 
+
 def _format_csv(debate: dict, table: str) -> HandlerResult:
     """Format debate as CSV for the specified table type."""
     from aragora.server.debate_export import format_debate_csv
@@ -476,6 +499,7 @@ def _format_csv(debate: dict, table: str) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
+
 
 def _format_html(debate: dict) -> HandlerResult:
     """Format debate as standalone HTML page."""
@@ -489,6 +513,7 @@ def _format_html(debate: dict) -> HandlerResult:
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
 
+
 def _format_txt(debate: dict) -> HandlerResult:
     """Format debate as plain text transcript."""
     from aragora.server.debate_export import format_debate_txt
@@ -500,6 +525,7 @@ def _format_txt(debate: dict) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
+
 
 def _format_md(debate: dict) -> HandlerResult:
     """Format debate as Markdown transcript."""
@@ -513,6 +539,7 @@ def _format_md(debate: dict) -> HandlerResult:
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
 
+
 def _format_latex(debate: dict) -> HandlerResult:
     """Format debate as LaTeX document."""
     from aragora.server.debate_export import format_debate_latex
@@ -524,5 +551,6 @@ def _format_latex(debate: dict) -> HandlerResult:
         body=result.content,
         headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
     )
+
 
 __all__ = ["ExportOperationsMixin"]

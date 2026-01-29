@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Organization:
     """An organization."""
@@ -35,6 +36,7 @@ class Organization:
     settings: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
 
+
 @dataclass
 class OrganizationMember:
     """A member of an organization."""
@@ -46,6 +48,7 @@ class OrganizationMember:
     is_active: bool = True
     created_at: datetime | None = None
     last_login_at: datetime | None = None
+
 
 @dataclass
 class OrganizationInvitation:
@@ -61,6 +64,7 @@ class OrganizationInvitation:
     created_at: datetime | None = None
     accepted_at: datetime | None = None
 
+
 @dataclass
 class UserOrganizationMembership:
     """A user's membership in an organization."""
@@ -71,6 +75,7 @@ class UserOrganizationMembership:
     role: str
     is_default: bool = False
     joined_at: datetime | None = None
+
 
 class OrganizationsAPI:
     """API interface for organization management."""
@@ -506,6 +511,7 @@ class OrganizationsAPI:
             is_default=data.get("is_default", False),
             joined_at=joined_at,
         )
+
 
 __all__ = [
     "OrganizationsAPI",

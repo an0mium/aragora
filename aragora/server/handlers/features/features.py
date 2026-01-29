@@ -36,6 +36,7 @@ _features_limiter = RateLimiter(requests_per_minute=100)
 # Feature Registry
 # =============================================================================
 
+
 @dataclass
 class FeatureInfo:
     """Information about an optional feature."""
@@ -47,6 +48,7 @@ class FeatureInfo:
     install_hint: str = ""  # How to enable the feature
     status: str = "optional"  # "optional", "coming_soon", "deprecated"
     category: str = "general"  # "analysis", "evolution", "memory", etc.
+
 
 # Registry of all optional features
 FEATURE_REGISTRY: dict[str, FeatureInfo] = {
@@ -213,6 +215,7 @@ FEATURE_REGISTRY: dict[str, FeatureInfo] = {
 # Feature Detection
 # =============================================================================
 
+
 def _check_feature_available(feature_id: str) -> tuple[bool, str | None]:
     """
     Check if a feature's required components are available.
@@ -238,6 +241,7 @@ def _check_feature_available(feature_id: str) -> tuple[bool, str | None]:
             return False, reason
 
     return True, None
+
 
 def _check_requirement(requirement: str) -> tuple[bool, str | None]:
     """Check if a specific requirement is available."""
@@ -276,6 +280,7 @@ def _check_requirement(requirement: str) -> tuple[bool, str | None]:
     except Exception as e:
         return False, str(e)
 
+
 # Individual requirement checks
 def _check_pulse() -> tuple[bool, str | None]:
     import os
@@ -295,6 +300,7 @@ def _check_pulse() -> tuple[bool, str | None]:
     except ImportError:
         return False, "Pulse module not installed"
 
+
 def _check_genesis() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.genesis.ledger")
@@ -302,12 +308,14 @@ def _check_genesis() -> tuple[bool, str | None]:
     except ImportError:
         return False, "Genesis module not installed"
 
+
 def _check_z3() -> tuple[bool, str | None]:
     try:
         importlib.import_module("z3")
         return True, None
     except ImportError:
         return False, "z3-solver not installed"
+
 
 def _check_lean() -> tuple[bool, str | None]:
     """Check if Lean 4 theorem prover is available."""
@@ -331,12 +339,14 @@ def _check_lean() -> tuple[bool, str | None]:
     except Exception as e:
         return False, f"Lean initialization error: {e}"
 
+
 def _check_laboratory() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.genesis.laboratory")
         return True, None
     except ImportError:
         return False, "PersonaLaboratory not available"
+
 
 def _check_calibration() -> tuple[bool, str | None]:
     try:
@@ -345,12 +355,14 @@ def _check_calibration() -> tuple[bool, str | None]:
     except ImportError:
         return False, "CalibrationTracker not available"
 
+
 def _check_evolution() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.genesis.prompt_evolver")
         return True, None
     except ImportError:
         return False, "PromptEvolver not available"
+
 
 def _check_red_team() -> tuple[bool, str | None]:
     try:
@@ -359,12 +371,14 @@ def _check_red_team() -> tuple[bool, str | None]:
     except ImportError:
         return False, "RedTeamMode not available"
 
+
 def _check_probes() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.debate.capability_probes")
         return True, None
     except ImportError:
         return False, "ProbeRunner not available"
+
 
 def _check_continuum() -> tuple[bool, str | None]:
     try:
@@ -373,12 +387,14 @@ def _check_continuum() -> tuple[bool, str | None]:
     except ImportError:
         return False, "ContinuumMemory not available"
 
+
 def _check_consensus() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.memory.consensus")
         return True, None
     except ImportError:
         return False, "ConsensusMemory not available"
+
 
 def _check_insights() -> tuple[bool, str | None]:
     try:
@@ -387,12 +403,14 @@ def _check_insights() -> tuple[bool, str | None]:
     except ImportError:
         return False, "InsightStore not available"
 
+
 def _check_moments() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.debate.moments")
         return True, None
     except ImportError:
         return False, "MomentDetector not available"
+
 
 def _check_tournaments() -> tuple[bool, str | None]:
     try:
@@ -401,12 +419,14 @@ def _check_tournaments() -> tuple[bool, str | None]:
     except ImportError:
         return False, "TournamentManager not available"
 
+
 def _check_elo() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.ranking.elo")
         return True, None
     except ImportError:
         return False, "EloSystem not available"
+
 
 def _check_crux() -> tuple[bool, str | None]:
     try:
@@ -415,12 +435,14 @@ def _check_crux() -> tuple[bool, str | None]:
     except ImportError:
         return False, "CruxAnalyzer not available"
 
+
 def _check_rhetorical() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.debate.rhetorical_observer")
         return True, None
     except ImportError:
         return False, "RhetoricalAnalysisObserver not available"
+
 
 def _check_trickster() -> tuple[bool, str | None]:
     try:
@@ -429,6 +451,7 @@ def _check_trickster() -> tuple[bool, str | None]:
     except ImportError:
         return False, "Trickster not available"
 
+
 def _check_plugin_runner() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.plugins.runner")
@@ -436,12 +459,14 @@ def _check_plugin_runner() -> tuple[bool, str | None]:
     except ImportError:
         return False, "Plugin runner not available"
 
+
 def _check_memory_manager() -> tuple[bool, str | None]:
     try:
         importlib.import_module("aragora.memory.manager")
         return True, None
     except ImportError:
         return False, "Memory manager not available"
+
 
 def get_all_features() -> dict[str, dict[str, Any]]:
     """Get full feature matrix with availability status."""
@@ -461,11 +486,13 @@ def get_all_features() -> dict[str, dict[str, Any]]:
         }
     return result
 
+
 def get_available_features() -> list[str]:
     """Get list of feature IDs that are currently available."""
     return [
         feature_id for feature_id in FEATURE_REGISTRY if _check_feature_available(feature_id)[0]
     ]
+
 
 def get_unavailable_features() -> dict[str, str]:
     """Get dict of unavailable feature IDs with reasons."""
@@ -476,9 +503,11 @@ def get_unavailable_features() -> dict[str, str]:
             result[feature_id] = reason or "Unknown"
     return result
 
+
 # =============================================================================
 # Standard Error Helper
 # =============================================================================
+
 
 def feature_unavailable_response(
     feature_id: str,
@@ -519,9 +548,11 @@ def feature_unavailable_response(
             details={"feature": feature_id},
         )
 
+
 # =============================================================================
 # Handler
 # =============================================================================
+
 
 class FeaturesHandler(BaseHandler):
     """Handler for feature availability endpoints."""
@@ -1056,6 +1087,7 @@ class FeaturesHandler(BaseHandler):
                     "is_authenticated": False,
                 }
             )
+
 
 # Export for use by other handlers
 __all__ = [

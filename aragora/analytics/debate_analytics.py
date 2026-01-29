@@ -25,6 +25,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class DebateTimeGranularity(str, Enum):
     """Time granularity for debate analytics."""
 
@@ -32,6 +33,7 @@ class DebateTimeGranularity(str, Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
+
 
 class DebateMetricType(str, Enum):
     """Types of debate metrics tracked."""
@@ -46,6 +48,7 @@ class DebateMetricType(str, Enum):
     COST_TOTAL = "cost_total"
     USER_ACTIVITY = "user_activity"
     ERROR_RATE = "error_rate"
+
 
 @dataclass
 class DebateStats:
@@ -82,6 +85,7 @@ class DebateStats:
             "period_end": self.period_end.isoformat() if self.period_end else None,
             "by_protocol": self.by_protocol,
         }
+
 
 @dataclass
 class AgentPerformance:
@@ -137,6 +141,7 @@ class AgentPerformance:
             "rank": self.rank,
         }
 
+
 @dataclass
 class UsageTrendPoint:
     """Usage trend data point."""
@@ -152,6 +157,7 @@ class UsageTrendPoint:
             "value": self.value,
             "metric": self.metric.value,
         }
+
 
 @dataclass
 class CostBreakdown:
@@ -184,6 +190,7 @@ class CostBreakdown:
             "cost_per_debate": str(self.cost_per_debate),
             "cost_per_consensus": str(self.cost_per_consensus),
         }
+
 
 @dataclass
 class DebateDashboardSummary:
@@ -220,6 +227,7 @@ class DebateDashboardSummary:
             "cost_trend": [t.to_dict() for t in self.cost_trend],
             "alerts": self.alerts,
         }
+
 
 class DebateAnalytics:
     """
@@ -785,9 +793,11 @@ class DebateAnalytics:
             alerts=alerts,
         )
 
+
 # Global instance
 _debate_analytics: DebateAnalytics | None = None
 _lock = threading.Lock()
+
 
 def get_debate_analytics(db_path: str | None = None) -> DebateAnalytics:
     """Get or create global debate analytics instance."""
@@ -797,6 +807,7 @@ def get_debate_analytics(db_path: str | None = None) -> DebateAnalytics:
             if _debate_analytics is None:
                 _debate_analytics = DebateAnalytics(db_path=db_path)
     return _debate_analytics
+
 
 __all__ = [
     "DebateAnalytics",

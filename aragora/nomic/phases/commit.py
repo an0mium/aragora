@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 NOMIC_AUTO_COMMIT = os.environ.get("NOMIC_AUTO_COMMIT", "0") == "1"
 
+
 class CommitPhase:
     """
     Handles committing verified changes to git.
@@ -263,5 +264,6 @@ class CommitPhase:
         except Exception as e:
             self._log(f"  [git] Failed to get changed files: {e}")
         return []
+
 
 __all__ = ["CommitPhase"]

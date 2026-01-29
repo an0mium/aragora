@@ -47,6 +47,7 @@ from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
+
 def _record_governance_verification(verification_type: str, result: str) -> None:
     """Record governance verification metric if available."""
     try:
@@ -55,6 +56,7 @@ def _record_governance_verification(verification_type: str, result: str) -> None
         record_governance_verification(verification_type, result)
     except ImportError:
         pass
+
 
 def _record_governance_decision(decision_type: str, outcome: str) -> None:
     """Record governance decision metric if available."""
@@ -65,6 +67,7 @@ def _record_governance_decision(decision_type: str, outcome: str) -> None:
     except ImportError:
         pass
 
+
 def _record_governance_approval(approval_type: str, status: str) -> None:
     """Record governance approval metric if available."""
     try:
@@ -73,6 +76,7 @@ def _record_governance_approval(approval_type: str, status: str) -> None:
         record_governance_approval(approval_type, status)
     except ImportError:
         pass
+
 
 @dataclass
 class ApprovalRecord:
@@ -122,6 +126,7 @@ class ApprovalRecord:
             "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
         }
 
+
 @dataclass
 class VerificationRecord:
     """Persistent verification history entry."""
@@ -157,6 +162,7 @@ class VerificationRecord:
             "org_id": self.org_id,
             "workspace_id": self.workspace_id,
         }
+
 
 @dataclass
 class DecisionRecord:
@@ -203,6 +209,7 @@ class DecisionRecord:
             "workspace_id": self.workspace_id,
             "metadata": json.loads(self.metadata_json) if self.metadata_json else {},
         }
+
 
 class GovernanceStore:
     """
@@ -973,6 +980,7 @@ class GovernanceStore:
     def close(self) -> None:
         """Close database connection."""
         self._backend.close()
+
 
 class PostgresGovernanceStore:
     """
@@ -1769,9 +1777,11 @@ class PostgresGovernanceStore:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # Module-level singleton
 _default_store: GovernanceStore | None = None
 _postgres_store: PostgresGovernanceStore | None = None
+
 
 def get_governance_store(
     db_path: str = "aragora_governance.db",
@@ -1872,6 +1882,7 @@ def get_governance_store(
         )
     return _default_store
 
+
 def reset_governance_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store, _postgres_store
@@ -1881,6 +1892,7 @@ def reset_governance_store() -> None:
     if _postgres_store is not None:
         _postgres_store.close()
         _postgres_store = None
+
 
 __all__ = [
     "GovernanceStore",

@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+
 @dataclass
 class TracingConfig:
     """Configuration for OpenTelemetry distributed tracing."""
@@ -52,6 +53,7 @@ class TracingConfig:
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be positive, got {self.batch_size}")
 
+
 @dataclass
 class MetricsConfig:
     """Configuration for Prometheus metrics."""
@@ -64,9 +66,11 @@ class MetricsConfig:
         default_factory=lambda: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
     )
 
+
 # Global configuration instances
 _tracing_config: TracingConfig | None = None
 _metrics_config: MetricsConfig | None = None
+
 
 def get_tracing_config() -> TracingConfig:
     """Get tracing configuration from environment variables."""
@@ -80,6 +84,7 @@ def get_tracing_config() -> TracingConfig:
         )
     return _tracing_config
 
+
 def get_metrics_config() -> MetricsConfig:
     """Get metrics configuration from environment variables."""
     global _metrics_config
@@ -90,15 +95,18 @@ def get_metrics_config() -> MetricsConfig:
         )
     return _metrics_config
 
+
 def set_tracing_config(config: TracingConfig) -> None:
     """Set custom tracing configuration (for testing)."""
     global _tracing_config
     _tracing_config = config
 
+
 def set_metrics_config(config: MetricsConfig) -> None:
     """Set custom metrics configuration (for testing)."""
     global _metrics_config
     _metrics_config = config
+
 
 def reset_config() -> None:
     """Reset configuration to defaults (for testing)."""
@@ -106,13 +114,16 @@ def reset_config() -> None:
     _tracing_config = None
     _metrics_config = None
 
+
 def is_tracing_enabled() -> bool:
     """Check if tracing is enabled."""
     return get_tracing_config().enabled
 
+
 def is_metrics_enabled() -> bool:
     """Check if metrics are enabled."""
     return get_metrics_config().enabled
+
 
 def is_otlp_enabled() -> bool:
     """Check if OTLP export is enabled.

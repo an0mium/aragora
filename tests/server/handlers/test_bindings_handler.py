@@ -48,14 +48,14 @@ class MockMessageBinding:
     priority: int = 0
     time_window_start: Optional[int] = None
     time_window_end: Optional[int] = None
-    allowed_users: Optional[Set[str]] = None
-    blocked_users: Optional[Set[str]] = None
-    config_overrides: Dict[str, Any] = field(default_factory=dict)
+    allowed_users: Optional[set[str]] = None
+    blocked_users: Optional[set[str]] = None
+    config_overrides: dict[str, Any] = field(default_factory=dict)
     name: Optional[str] = None
     description: Optional[str] = None
     enabled: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "provider": self.provider,
@@ -82,7 +82,7 @@ class MockBindingResolution:
     matched: bool
     agent_binding: Optional[str] = None
     binding_type: Optional[MockBindingType] = None
-    config_overrides: Dict[str, Any] = field(default_factory=dict)
+    config_overrides: dict[str, Any] = field(default_factory=dict)
     match_reason: Optional[str] = None
     candidates_checked: int = 0
     binding: Optional[MockMessageBinding] = None
@@ -92,8 +92,8 @@ class MockBindingRouter:
     """Mock binding router for testing."""
 
     def __init__(self):
-        self._bindings: List[MockMessageBinding] = []
-        self._stats: Dict[str, Any] = {
+        self._bindings: list[MockMessageBinding] = []
+        self._stats: dict[str, Any] = {
             "total_bindings": 0,
             "total_resolutions": 0,
             "cache_hits": 0,
@@ -116,12 +116,12 @@ class MockBindingRouter:
                 return True
         return False
 
-    def list_bindings(self, provider: Optional[str] = None) -> List[MockMessageBinding]:
+    def list_bindings(self, provider: Optional[str] = None) -> list[MockMessageBinding]:
         if provider:
             return [b for b in self._bindings if b.provider == provider]
         return self._bindings
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return self._stats
 
     def resolve(

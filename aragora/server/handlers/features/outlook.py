@@ -55,9 +55,11 @@ _storage_lock = threading.Lock()
 # Handler Functions
 # =============================================================================
 
+
 def _get_connector_key(workspace_id: str, user_id: str) -> str:
     """Generate unique key for connector storage."""
     return f"{workspace_id}:{user_id}"
+
 
 async def _get_or_create_connector(
     workspace_id: str,
@@ -90,6 +92,7 @@ async def _get_or_create_connector(
     except ImportError:
         logger.error("OutlookConnector not available")
         return None
+
 
 async def handle_get_oauth_url(
     workspace_id: str,
@@ -134,6 +137,7 @@ async def handle_get_oauth_url(
     except Exception as e:
         logger.exception(f"Failed to get OAuth URL: {e}")
         return {"success": False, "error": str(e)}
+
 
 async def handle_oauth_callback(
     code: str,
@@ -196,6 +200,7 @@ async def handle_oauth_callback(
         logger.exception(f"OAuth callback failed: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:read")
 async def handle_list_folders(
     workspace_id: str,
@@ -232,6 +237,7 @@ async def handle_list_folders(
     except Exception as e:
         logger.exception(f"Failed to list folders: {e}")
         return {"success": False, "error": str(e)}
+
 
 @require_permission("connectors:read")
 async def handle_list_messages(
@@ -301,6 +307,7 @@ async def handle_list_messages(
         logger.exception(f"Failed to list messages: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:read")
 async def handle_get_message(
     workspace_id: str,
@@ -356,6 +363,7 @@ async def handle_get_message(
         logger.exception(f"Failed to get message: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:read")
 async def handle_get_conversation(
     workspace_id: str,
@@ -406,6 +414,7 @@ async def handle_get_conversation(
         logger.exception(f"Failed to get conversation: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:write")
 async def handle_send_message(
     workspace_id: str,
@@ -455,6 +464,7 @@ async def handle_send_message(
         logger.exception(f"Failed to send message: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:write")
 async def handle_reply_message(
     workspace_id: str,
@@ -500,6 +510,7 @@ async def handle_reply_message(
         logger.exception(f"Failed to reply to message: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:read")
 async def handle_search_messages(
     workspace_id: str,
@@ -539,6 +550,7 @@ async def handle_search_messages(
     except Exception as e:
         logger.exception(f"Failed to search messages: {e}")
         return {"success": False, "error": str(e)}
+
 
 @require_permission("connectors:write")
 async def handle_mark_read(
@@ -582,6 +594,7 @@ async def handle_mark_read(
         logger.exception(f"Failed to mark message: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:write")
 async def handle_move_message(
     workspace_id: str,
@@ -623,6 +636,7 @@ async def handle_move_message(
     except Exception as e:
         logger.exception(f"Failed to move message: {e}")
         return {"success": False, "error": str(e)}
+
 
 @require_permission("connectors:delete")
 async def handle_delete_message(
@@ -676,6 +690,7 @@ async def handle_delete_message(
         logger.exception(f"Failed to delete message: {e}")
         return {"success": False, "error": str(e)}
 
+
 @require_permission("connectors:read")
 async def handle_get_status(
     workspace_id: str,
@@ -722,9 +737,11 @@ async def handle_get_status(
         logger.exception(f"Failed to get status: {e}")
         return {"success": False, "error": str(e)}
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class OutlookHandler(BaseHandler):
     """
@@ -762,9 +779,7 @@ class OutlookHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route Outlook endpoint requests."""
         return None
 
@@ -993,6 +1008,7 @@ class OutlookHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
+
 
 __all__ = [
     "OutlookHandler",

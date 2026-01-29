@@ -45,6 +45,7 @@ CalibrationTracker, CALIBRATION_AVAILABLE = try_import_class(
     "aragora.agents.calibration", "CalibrationTracker"
 )
 
+
 class CalibrationHandler(SecureHandler):
     """Handler for calibration-related endpoints.
 
@@ -123,9 +124,7 @@ class CalibrationHandler(SecureHandler):
         return None
 
     @handle_errors("calibration curve retrieval")
-    def _get_calibration_curve(
-        self, agent: str, buckets: int, domain: str | None
-    ) -> HandlerResult:
+    def _get_calibration_curve(self, agent: str, buckets: int, domain: str | None) -> HandlerResult:
         """Get calibration curve (expected vs actual accuracy per bucket)."""
         if not CALIBRATION_AVAILABLE or not CalibrationTracker:
             return error_response("Calibration tracker not available", 503)

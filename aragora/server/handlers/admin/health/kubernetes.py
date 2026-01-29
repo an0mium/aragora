@@ -23,6 +23,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 def liveness_probe(handler) -> HandlerResult:
     """Kubernetes liveness probe - lightweight check that server is alive.
 
@@ -53,6 +54,7 @@ def liveness_probe(handler) -> HandlerResult:
         pass
 
     return json_response({"status": "ok"})
+
 
 def readiness_probe_fast(handler) -> HandlerResult:
     """Fast Kubernetes readiness probe - check if ready to serve traffic.
@@ -161,6 +163,7 @@ def readiness_probe_fast(handler) -> HandlerResult:
     _set_cached_health("readiness_fast", result)
 
     return json_response(result, status=status_code)
+
 
 def readiness_dependencies(handler) -> HandlerResult:
     """Full dependency validation probe - checks all external connections.

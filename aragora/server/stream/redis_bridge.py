@@ -48,6 +48,7 @@ except ImportError:
     aioredis = None
     REDIS_AVAILABLE = False
 
+
 class RedisBroadcastBridge:
     """
     Bridge between local WebSocket broadcaster and Redis Pub/Sub.
@@ -316,8 +317,10 @@ class RedisBroadcastBridge:
 
         return result
 
+
 # Singleton bridge instance
 _bridge: RedisBroadcastBridge | None = None
+
 
 async def get_broadcast_bridge(
     broadcaster: Any = None,
@@ -345,6 +348,7 @@ async def get_broadcast_bridge(
 
     return _bridge
 
+
 async def reset_broadcast_bridge() -> None:
     """Reset the global broadcast bridge (for testing)."""
     global _bridge
@@ -352,6 +356,7 @@ async def reset_broadcast_bridge() -> None:
     if _bridge is not None:
         await _bridge.disconnect()
         _bridge = None
+
 
 __all__ = [
     "RedisBroadcastBridge",

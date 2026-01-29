@@ -4,6 +4,7 @@ Telegram Bot integration for aragora debates.
 Posts debate summaries, consensus alerts, and error notifications to Telegram chats.
 Uses Telegram's HTML formatting and inline keyboards for rich messages.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ from aragora.core import DebateResult
 from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TelegramConfig:
@@ -55,6 +57,7 @@ class TelegramConfig:
         """Get the Telegram Bot API base URL."""
         return f"https://api.telegram.org/bot{self.bot_token}"
 
+
 @dataclass
 class InlineButton:
     """An inline keyboard button."""
@@ -71,6 +74,7 @@ class InlineButton:
         elif self.callback_data:
             button["callback_data"] = self.callback_data
         return button
+
 
 @dataclass
 class TelegramMessage:
@@ -99,6 +103,7 @@ class TelegramMessage:
             }
 
         return payload
+
 
 class TelegramIntegration:
     """
@@ -450,6 +455,7 @@ class TelegramIntegration:
 
         message = TelegramMessage(text=text, reply_markup=buttons)
         return await self._send_message(message)
+
 
 __all__ = [
     "TelegramConfig",

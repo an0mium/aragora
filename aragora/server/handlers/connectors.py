@@ -42,15 +42,18 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+
 def _record_rbac_check(*args: Any, **kwargs: Any) -> None:
     """No-op fallback for when metrics module is not available."""
     pass
+
 
 # Metrics imports (optional)
 try:
     from aragora.observability.metrics import record_rbac_check
 except ImportError:
     record_rbac_check = _record_rbac_check
+
 
 def _check_permission(
     auth_context: Any | None, permission_key: str, resource_id: str | None = None
@@ -85,6 +88,7 @@ def _check_permission(
 
     return None
 
+
 def _resolve_tenant_id(
     auth_context: Any | None,
     fallback_tenant_id: str = "default",
@@ -112,8 +116,10 @@ def _resolve_tenant_id(
             return auth_context.org_id
     return fallback_tenant_id
 
+
 # Global scheduler instance (initialized on first use)
 _scheduler: SyncScheduler | None = None
+
 
 def get_scheduler() -> SyncScheduler:
     """Get or create the global sync scheduler."""
@@ -122,9 +128,11 @@ def get_scheduler() -> SyncScheduler:
         _scheduler = SyncScheduler(max_concurrent_syncs=5)
     return _scheduler
 
+
 # =============================================================================
 # Connector Management Handlers
 # =============================================================================
+
 
 async def handle_list_connectors(
     tenant_id: str = "default",
@@ -161,6 +169,7 @@ async def handle_list_connectors(
         ],
         "total": len(jobs),
     }
+
 
 async def handle_get_connector(
     connector_id: str,
@@ -199,6 +208,7 @@ async def handle_get_connector(
         "consecutive_failures": job.consecutive_failures,
         "is_running": job.current_run_id is not None,
     }
+
 
 async def handle_create_connector(
     connector_type: str,
@@ -258,6 +268,7 @@ async def handle_create_connector(
         "status": "registered",
     }
 
+
 async def handle_update_connector(
     connector_id: str,
     updates: dict[str, Any],
@@ -308,6 +319,7 @@ async def handle_update_connector(
         "schedule": job.schedule.to_dict(),
     }
 
+
 @require_permission("connectors:delete")
 async def handle_delete_connector(
     connector_id: str,
@@ -339,6 +351,7 @@ async def handle_delete_connector(
         tenant_id=tenant_id,
     )
     return True
+
 
 def _create_connector(connector_type: str, config: dict[str, Any]):
     """Create a connector instance based on type."""
@@ -399,9 +412,11 @@ def _create_connector(connector_type: str, config: dict[str, Any]):
     else:
         raise ValueError(f"Unknown connector type: {connector_type}")
 
+
 # =============================================================================
 # Sync Operation Handlers
 # =============================================================================
+
 
 async def handle_trigger_sync(
     connector_id: str,
@@ -454,6 +469,7 @@ async def handle_trigger_sync(
         "full_sync": full_sync,
     }
 
+
 async def handle_get_sync_status(
     connector_id: str,
     tenant_id: str = "default",
@@ -489,6 +505,7 @@ async def handle_get_sync_status(
         "next_run": job.next_run.isoformat() if job.next_run else None,
         "consecutive_failures": job.consecutive_failures,
     }
+
 
 async def handle_get_sync_history(
     connector_id: str | None = None,
@@ -530,9 +547,11 @@ async def handle_get_sync_history(
         "total": len(history),
     }
 
+
 # =============================================================================
 # Webhook Handlers
 # =============================================================================
+
 
 async def handle_webhook(
     connector_id: str,
@@ -566,9 +585,11 @@ async def handle_webhook(
         "connector_id": connector_id,
     }
 
+
 # =============================================================================
 # Scheduler Handlers
 # =============================================================================
+
 
 async def handle_start_scheduler(
     auth_context: Any | None = None,
@@ -600,6 +621,7 @@ async def handle_start_scheduler(
         "status": "started",
     }
 
+
 async def handle_stop_scheduler(
     auth_context: Any | None = None,
 ) -> dict[str, Any]:
@@ -630,6 +652,7 @@ async def handle_stop_scheduler(
         "status": "stopped",
     }
 
+
 async def handle_get_scheduler_stats(
     tenant_id: str | None = None,
     auth_context: Any | None = None,
@@ -649,9 +672,11 @@ async def handle_get_scheduler_stats(
     scheduler = get_scheduler()
     return scheduler.get_stats(tenant_id=tenant_id)
 
+
 # =============================================================================
 # Template Handlers
 # =============================================================================
+
 
 async def handle_list_workflow_templates(
     category: str | None = None,
@@ -677,6 +702,7 @@ async def handle_list_workflow_templates(
         "total": len(templates),
         "categories": list(set(t["category"] for t in templates)),
     }
+
 
 async def handle_get_workflow_template(
     template_id: str,
@@ -704,9 +730,11 @@ async def handle_get_workflow_template(
         "template": template,
     }
 
+
 # =============================================================================
 # MongoDB Aggregation Handlers
 # =============================================================================
+
 
 async def handle_mongodb_aggregate(
     connector_id: str,
@@ -797,6 +825,7 @@ async def handle_mongodb_aggregate(
         "results": results,
     }
 
+
 async def handle_mongodb_collections(
     connector_id: str,
     tenant_id: str = "default",
@@ -838,9 +867,11 @@ async def handle_mongodb_collections(
         "collections": collections,
     }
 
+
 # =============================================================================
 # Health Check
 # =============================================================================
+
 
 async def handle_connector_health(
     auth_context: Any | None = None,

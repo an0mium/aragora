@@ -20,6 +20,7 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ScheduledDebateRecord:
     """Record of a scheduled debate from a trending topic."""
@@ -41,6 +42,7 @@ class ScheduledDebateRecord:
     def hours_ago(self) -> float:
         """Hours since this debate was created."""
         return (time.time() - self.created_at) / 3600
+
 
 class ScheduledDebateStore(SQLiteStore):
     """
@@ -414,5 +416,6 @@ class ScheduledDebateStore(SQLiteStore):
             rounds_used=row[10] or 0,
             scheduler_run_id=row[11] or "",
         )
+
 
 __all__ = ["ScheduledDebateStore", "ScheduledDebateRecord"]

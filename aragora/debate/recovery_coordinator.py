@@ -29,6 +29,7 @@ from aragora.debate.protocol_messages.messages import agent_event_message
 
 logger = logging.getLogger(__name__)
 
+
 class RecoveryAction(str, Enum):
     """Types of recovery actions."""
 
@@ -42,6 +43,7 @@ class RecoveryAction(str, Enum):
     ESCALATE = "escalate"  # Escalate to human operator
     ABORT = "abort"  # Abort the debate
 
+
 @dataclass
 class RecoveryDecision:
     """A decision on how to recover from an issue."""
@@ -53,6 +55,7 @@ class RecoveryDecision:
     confidence: float = 1.0
     requires_approval: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class RecoveryEvent:
@@ -68,6 +71,7 @@ class RecoveryEvent:
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     details: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class RecoveryConfig:
@@ -91,6 +95,7 @@ class RecoveryConfig:
 
     # Callbacks
     emit_protocol_messages: bool = True
+
 
 class RecoveryCoordinator:
     """
@@ -607,6 +612,7 @@ class RecoveryCoordinator:
                 for action in RecoveryAction
             },
         }
+
 
 # Factory function for integrated witness + recovery setup
 async def create_debate_observer(

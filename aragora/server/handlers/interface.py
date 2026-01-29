@@ -18,7 +18,6 @@ from typing import (
     Optional,
     Protocol,
     TypedDict,
-    Union,
     runtime_checkable,
 )
 
@@ -28,6 +27,7 @@ if TYPE_CHECKING:
 # =============================================================================
 # Response Types
 # =============================================================================
+
 
 class HandlerResult(TypedDict, total=False):
     """Standard result type returned by handlers.
@@ -42,18 +42,17 @@ class HandlerResult(TypedDict, total=False):
     status: int
     headers: dict[str, str]
 
+
 # Type alias for handlers that may be sync or async.
 # This allows both sync handlers returning HandlerResult | None and
 # async handlers returning Awaitable[HandlerResult | None] to satisfy
 # the same protocol, avoiding MyPy override errors.
-MaybeAsyncHandlerResult = Union[
-    HandlerResult | None,
-    Awaitable[HandlerResult | None],
-]
+MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
 
 # =============================================================================
 # Handler Protocol
 # =============================================================================
+
 
 @runtime_checkable
 class HandlerInterface(Protocol):
@@ -119,6 +118,7 @@ class HandlerInterface(Protocol):
         """Handle a PUT request. May be sync or async."""
         ...
 
+
 @runtime_checkable
 class AuthenticatedHandlerInterface(Protocol):
     """Protocol for handlers that require authentication.
@@ -150,6 +150,7 @@ class AuthenticatedHandlerInterface(Protocol):
             or (None, HandlerResult) with 401 error if not
         """
         ...
+
 
 @runtime_checkable
 class PaginatedHandlerInterface(Protocol):
@@ -195,6 +196,7 @@ class PaginatedHandlerInterface(Protocol):
         """
         ...
 
+
 @runtime_checkable
 class CachedHandlerInterface(Protocol):
     """Protocol for handlers that support caching."""
@@ -217,9 +219,11 @@ class CachedHandlerInterface(Protocol):
         """
         ...
 
+
 # =============================================================================
 # Server Context Interface
 # =============================================================================
+
 
 class MinimalServerContext(TypedDict, total=False):
     """Minimal server context for handler initialization.
@@ -233,6 +237,7 @@ class MinimalServerContext(TypedDict, total=False):
     storage: Any  # DebateStorage
     user_store: Any  # UserStore
     elo_system: Any  # EloSystem
+
 
 class StorageAccessInterface(Protocol):
     """Protocol for accessing storage resources.
@@ -248,9 +253,11 @@ class StorageAccessInterface(Protocol):
         """Get ELO system instance."""
         ...
 
+
 # =============================================================================
 # Handler Registration Types
 # =============================================================================
+
 
 class RouteConfig(TypedDict, total=False):
     """Configuration for a registered route.
@@ -264,6 +271,7 @@ class RouteConfig(TypedDict, total=False):
     requires_auth: bool
     rate_limit: int | None
 
+
 class HandlerRegistration(TypedDict):
     """Handler registration entry.
 
@@ -274,9 +282,11 @@ class HandlerRegistration(TypedDict):
     routes: list  # List of RouteConfig
     lazy: bool  # If True, handler is instantiated on first use
 
+
 # =============================================================================
 # Factory Functions
 # =============================================================================
+
 
 def is_handler(obj: Any) -> bool:
     """Check if an object implements the HandlerInterface.
@@ -289,6 +299,7 @@ def is_handler(obj: Any) -> bool:
     """
     return isinstance(obj, HandlerInterface)
 
+
 def is_authenticated_handler(obj: Any) -> bool:
     """Check if an object implements AuthenticatedHandlerInterface.
 
@@ -299,6 +310,7 @@ def is_authenticated_handler(obj: Any) -> bool:
         True if obj implements AuthenticatedHandlerInterface
     """
     return isinstance(obj, AuthenticatedHandlerInterface)
+
 
 __all__ = [
     # Result types

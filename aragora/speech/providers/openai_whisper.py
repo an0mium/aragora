@@ -18,6 +18,7 @@ from aragora.speech.providers.base import (
     TranscriptionSegment,
 )
 
+
 class OpenAIWhisperProvider(STTProvider):
     """Speech-to-text provider using OpenAI's Whisper API."""
 

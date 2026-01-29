@@ -21,6 +21,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class TestType(Enum):
     """Type of test to generate."""
 
@@ -32,6 +33,7 @@ class TestType(Enum):
     ERROR_HANDLING = "error_handling"
     PROPERTY = "property"
     PERFORMANCE = "performance"
+
 
 @dataclass
 class TestCase:
@@ -69,6 +71,7 @@ class TestCase:
             "priority": self.priority,
         }
 
+
 @dataclass
 class FunctionSpec:
     """Specification for a function to test."""
@@ -94,6 +97,7 @@ class FunctionSpec:
             "raises": self.raises,
             "side_effects": self.side_effects,
         }
+
 
 @dataclass
 class TestSuite:
@@ -135,6 +139,7 @@ class TestSuite:
         """Generate Python test code."""
         generator = TestCodeGenerator()
         return generator.generate_suite(self)
+
 
 class TestGenerator:
     """
@@ -392,6 +397,7 @@ class TestGenerator:
 
         return imports
 
+
 class TestCodeGenerator:
     """Generates Python test code from TestSuite."""
 
@@ -475,6 +481,7 @@ class TestCodeGenerator:
 
         return lines
 
+
 def extract_function_specs(source_code: str, module_name: str) -> list[FunctionSpec]:
     """
     Extract function specifications from source code.
@@ -538,6 +545,7 @@ def extract_function_specs(source_code: str, module_name: str) -> list[FunctionS
             )
 
     return specs
+
 
 def generate_tests_for_file(file_path: Path) -> TestSuite | None:
     """

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class CostEnforcementMode(str, Enum):
     """How to handle cost limit violations."""
 
@@ -29,6 +30,7 @@ class CostEnforcementMode(str, Enum):
     SOFT = "soft"  # Allow with warning
     THROTTLE = "throttle"  # Queue with reduced priority
     ESTIMATE = "estimate"  # Warn based on estimated cost
+
 
 class ThrottleLevel(str, Enum):
     """Throttle severity based on budget consumption."""
@@ -38,6 +40,7 @@ class ThrottleLevel(str, Enum):
     MEDIUM = "medium"  # 75-90% - reduce priority moderately
     HEAVY = "heavy"  # 90-100% - reduce priority significantly
     BLOCKED = "blocked"  # > 100% - block new tasks
+
 
 @dataclass
 class CostEstimate:
@@ -64,6 +67,7 @@ class CostEstimate:
                 str(self.estimated_savings_usd) if self.estimated_savings_usd else None
             ),
         }
+
 
 @dataclass
 class CostConstraintResult:
@@ -93,6 +97,7 @@ class CostConstraintResult:
             "priority_adjustment": self.priority_adjustment,
         }
 
+
 # Default cost estimates by task type (USD per task)
 DEFAULT_TASK_COST_ESTIMATES: dict[str, Decimal] = {
     "debate": Decimal("0.50"),
@@ -104,6 +109,7 @@ DEFAULT_TASK_COST_ESTIMATES: dict[str, Decimal] = {
     "embedding": Decimal("0.01"),
     "default": Decimal("0.10"),
 }
+
 
 @dataclass
 class CostEnforcementConfig:
@@ -134,6 +140,7 @@ class CostEnforcementConfig:
 
     # Grace period after budget reset (hours)
     grace_period_hours: float = 1.0
+
 
 class CostEnforcer:
     """
@@ -331,8 +338,11 @@ class CostEnforcer:
             if len(history) > 1:
                 variance = sum((float(c) - avg_cost) ** 2 for c in history) / len(history)
                 std_dev = variance**0.5
-                # Lower confidence if high variance
-                confidence = min(1.0, 1.0 / (1.0 + std_dev / avg_cost))
+                # Lower confidence if high variance (guard against zero avg_cost)
+                if avg_cost > 0:
+                    confidence = min(1.0, 1.0 / (1.0 + std_dev / avg_cost))
+                else:
+                    confidence = 0.5 if std_dev == 0 else 0.1
             else:
                 confidence = 0.5
 
@@ -455,6 +465,7 @@ class CostEnforcer:
             "enforcement_mode": self._config.mode.value,
         }
 
+
 class BudgetAwareSchedulerMixin:
     """
     Mixin for TaskScheduler to add cost-aware scheduling.
@@ -492,6 +503,7 @@ class BudgetAwareSchedulerMixin:
             task_type=task_type,
             estimated_cost=estimated_cost,
         )
+
 
 # Exception for cost-related rejections
 class CostLimitExceededError(Exception):

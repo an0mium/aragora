@@ -48,12 +48,14 @@ DOMAIN_CAPABILITY_MAP: dict[str, list[str]] = {
     "general": [],
 }
 
+
 class AgentScorer(Protocol):
     """Protocol for agent scoring systems."""
 
     def get_rating(self, agent_name: str) -> float:
         """Get agent's rating score."""
         ...
+
 
 class CalibrationScorer(Protocol):
     """Protocol for calibration scoring systems."""
@@ -85,6 +87,7 @@ class CalibrationScorer(Protocol):
         # Default implementation falls back to individual calls
         return {name: self.get_brier_score(name, domain) for name in agent_names}
 
+
 @dataclass
 class TeamSelectionConfig:
     """Configuration for team selection behavior."""
@@ -114,6 +117,7 @@ class TeamSelectionConfig:
     cv_reliability_threshold: float = 0.7  # Min reliability for agent inclusion
     cv_filter_unreliable: bool = False  # Filter out unreliable agents entirely
     cv_cache_ttl: int = 60  # CV cache TTL in seconds (1 minute)
+
 
 class TeamSelector:
     """Selects and scores agents for debate participation.
@@ -485,9 +489,7 @@ class TeamSelector:
             caps.update({"analysis", "quality_assessment"})
         return caps
 
-    def _get_agent_hierarchy_role(
-        self, agent: "Agent", debate_id: str | None = None
-    ) -> str | None:
+    def _get_agent_hierarchy_role(self, agent: "Agent", debate_id: str | None = None) -> str | None:
         """Get the Gastown hierarchy role for an agent.
 
         Checks multiple sources for the hierarchy role:

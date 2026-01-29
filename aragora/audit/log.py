@@ -61,6 +61,7 @@ try:
 except ImportError:
     POSTGRESQL_AVAILABLE = False
 
+
 class AuditCategory(Enum):
     """Categories of audit events."""
 
@@ -74,6 +75,7 @@ class AuditCategory(Enum):
     SECURITY = "security"  # Security events
     SYSTEM = "system"  # System events
 
+
 class AuditOutcome(Enum):
     """Outcome of audited action."""
 
@@ -81,6 +83,7 @@ class AuditOutcome(Enum):
     FAILURE = "failure"
     DENIED = "denied"
     ERROR = "error"
+
 
 AUDIT_COLUMNS = [
     "id",
@@ -177,6 +180,7 @@ POSTGRES_SCHEMA_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_audit_outcome ON audit_events(outcome)",
 ]
 
+
 @dataclass
 class AuditEvent:
     """An audit log event."""
@@ -270,6 +274,7 @@ class AuditEvent:
             event_hash=data.get("event_hash", ""),
         )
 
+
 @dataclass
 class AuditQuery:
     """Query parameters for audit log search."""
@@ -287,6 +292,7 @@ class AuditQuery:
     search_text: str | None = None
     limit: int = 1000
     offset: int = 0
+
 
 class SQLiteBackend:
     """SQLite backend for audit log storage.
@@ -334,11 +340,13 @@ class SQLiteBackend:
             conn.close()
             self._local.conn = None
 
+
 class PostgreSQLBackend:
     """PostgreSQL backend for audit log storage (enterprise deployments)."""
 
     def __init__(self, database_url: str):
         self.database_url = database_url
+
 
 class AuditLog:
     """
@@ -914,6 +922,7 @@ class AuditLog:
             "retention_days": self.retention_days,
         }
 
+
 # Convenience functions for common audit events
 def audit_auth_login(
     audit: AuditLog,
@@ -935,6 +944,7 @@ def audit_auth_login(
         )
     )
 
+
 def audit_data_access(
     audit: AuditLog,
     user_id: str,
@@ -954,6 +964,7 @@ def audit_data_access(
             org_id=org_id,
         )
     )
+
 
 def audit_admin_action(
     audit: AuditLog,
@@ -975,8 +986,10 @@ def audit_admin_action(
         )
     )
 
+
 # Singleton management
 _audit_log_instance: AuditLog | None = None
+
 
 def get_audit_log(
     db_path: Path | None = None,
@@ -1017,10 +1030,12 @@ def get_audit_log(
     _audit_log_instance = AuditLog(db_path=db_path, retention_days=retention_days)
     return _audit_log_instance
 
+
 def reset_audit_log() -> None:
     """Reset the singleton audit log instance (for testing)."""
     global _audit_log_instance
     _audit_log_instance = None
+
 
 __all__ = [
     "AuditCategory",

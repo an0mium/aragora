@@ -18,6 +18,7 @@ Usage:
     ))
     await matrix.post_debate_summary(debate_result)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ from aragora.core import DebateResult
 from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class MatrixConfig:
@@ -75,6 +77,7 @@ class MatrixConfig:
 
         # Ensure homeserver URL doesn't end with /
         self.homeserver_url = self.homeserver_url.rstrip("/")
+
 
 class MatrixIntegration:
     """

@@ -6,6 +6,7 @@ Phase 0: Gather codebase understanding
 - Each agent uses its native codebase exploration harness
 - Prevents proposals for features that already exist
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ from . import ContextResult
 _metrics_recorder: Optional[Callable[[str, str, float], None]] = None
 _agent_metrics_recorder: Optional[Callable[[str, str, float], None]] = None
 
+
 def set_metrics_recorder(
     phase_recorder: Optional[Callable[[str, str, float], None]] = None,
     agent_recorder: Optional[Callable[[str, str, float], None]] = None,
@@ -33,6 +35,7 @@ def set_metrics_recorder(
     global _metrics_recorder, _agent_metrics_recorder
     _metrics_recorder = phase_recorder
     _agent_metrics_recorder = agent_recorder
+
 
 class ContextPhase:
     """
@@ -359,5 +362,6 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             if _agent_metrics_recorder:
                 agent_duration = time.perf_counter() - agent_start
                 _agent_metrics_recorder("context", name, agent_duration)
+
 
 __all__ = ["ContextPhase", "set_metrics_recorder"]

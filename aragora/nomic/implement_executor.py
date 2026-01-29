@@ -40,6 +40,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ImplementationBead:
     """An atomic implementation task derived from a design spec."""
@@ -56,6 +57,7 @@ class ImplementationBead:
     result: str | None = None
     review_result: str | None = None
 
+
 @dataclass
 class BeadTaskResult:
     """Result compatible with ImplementPhase's execute_plan() interface."""
@@ -64,6 +66,7 @@ class BeadTaskResult:
     error: str | None = None
     task_id: str = ""
     files_modified: list[str] = field(default_factory=list)
+
 
 @dataclass
 class ConvoyResult:
@@ -78,10 +81,12 @@ class ConvoyResult:
     duration_seconds: float = 0.0
     errors: list[str] = field(default_factory=list)
 
+
 def _generate_bead_id(title: str) -> str:
     """Generate a short bead ID from title."""
     h = hashlib.sha256(f"{time.time()}-{title}".encode()).hexdigest()[:6]
     return f"impl-{h}"
+
 
 class ConvoyImplementExecutor:
     """

@@ -108,11 +108,11 @@ class MockWorkspace:
     organization_id: str = "org-123"
     created_by: str = "user-123"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    members: List[str] = field(default_factory=lambda: ["user-123"])
+    members: list[str] = field(default_factory=lambda: ["user-123"])
     rbac_profile: str = "lite"
-    member_roles: Dict[str, str] = field(default_factory=lambda: {"user-123": "owner"})
+    member_roles: dict[str, str] = field(default_factory=lambda: {"user-123": "owner"})
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -135,12 +135,12 @@ class MockRetentionPolicy:
     retention_days: int = 90
     action: Any = field(default_factory=lambda: MagicMock(value="delete"))
     enabled: bool = True
-    applies_to: List[str] = field(default_factory=lambda: ["documents", "findings"])
-    workspace_ids: Optional[List[str]] = None
+    applies_to: list[str] = field(default_factory=lambda: ["documents", "findings"])
+    workspace_ids: Optional[list[str]] = None
     grace_period_days: int = 7
     notify_before_days: int = 7
-    exclude_sensitivity_levels: List[str] = field(default_factory=list)
-    exclude_tags: List[str] = field(default_factory=list)
+    exclude_sensitivity_levels: list[str] = field(default_factory=list)
+    exclude_tags: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_run: Optional[datetime] = None
 
@@ -153,9 +153,9 @@ class MockRetentionReport:
     items_deleted: int = 25
     items_archived: int = 0
     items_anonymized: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "items_evaluated": self.items_evaluated,
             "items_deleted": self.items_deleted,
@@ -171,9 +171,9 @@ class MockClassificationResult:
 
     level: Any = field(default_factory=lambda: MagicMock(value="internal"))
     confidence: float = 0.85
-    indicators: List[str] = field(default_factory=lambda: ["keyword_match"])
+    indicators: list[str] = field(default_factory=lambda: ["keyword_match"])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "level": self.level.value,
             "confidence": self.confidence,
@@ -192,7 +192,7 @@ class MockAuditEntry:
     actor_id: str = "user-123"
     resource_id: str = "workspace-001"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
@@ -207,7 +207,7 @@ class MockUserStore:
     """Mock user store for testing."""
 
     def __init__(self):
-        self.users: Dict[str, MockUser] = {"user-123": MockUser()}
+        self.users: dict[str, MockUser] = {"user-123": MockUser()}
 
     def get_user_by_id(self, user_id: str) -> MockUser | None:
         return self.users.get(user_id)
@@ -217,7 +217,7 @@ class MockIsolationManager:
     """Mock data isolation manager."""
 
     def __init__(self):
-        self.workspaces: Dict[str, MockWorkspace] = {
+        self.workspaces: dict[str, MockWorkspace] = {
             "workspace-001": MockWorkspace(),
         }
 
@@ -226,7 +226,7 @@ class MockIsolationManager:
         organization_id: str,
         name: str,
         created_by: str,
-        initial_members: List[str] = None,
+        initial_members: list[str] = None,
     ) -> MockWorkspace:
         workspace = MockWorkspace(
             id=f"workspace-{len(self.workspaces) + 1:03d}",
@@ -238,7 +238,7 @@ class MockIsolationManager:
         self.workspaces[workspace.id] = workspace
         return workspace
 
-    async def list_workspaces(self, actor: str, organization_id: str = None) -> List[MockWorkspace]:
+    async def list_workspaces(self, actor: str, organization_id: str = None) -> list[MockWorkspace]:
         return list(self.workspaces.values())
 
     async def get_workspace(self, workspace_id: str, actor: str) -> MockWorkspace:
@@ -271,7 +271,7 @@ class MockIsolationManager:
         self,
         workspace_id: str,
         user_id: str,
-        permissions: List[Any],
+        permissions: list[Any],
         added_by: str,
     ) -> None:
         if workspace_id not in self.workspaces:
@@ -303,11 +303,11 @@ class MockRetentionManager:
     """Mock retention policy manager."""
 
     def __init__(self):
-        self.policies: Dict[str, MockRetentionPolicy] = {
+        self.policies: dict[str, MockRetentionPolicy] = {
             "policy-001": MockRetentionPolicy(),
         }
 
-    def list_policies(self, workspace_id: str = None) -> List[MockRetentionPolicy]:
+    def list_policies(self, workspace_id: str = None) -> list[MockRetentionPolicy]:
         return list(self.policies.values())
 
     def get_policy(self, policy_id: str) -> MockRetentionPolicy | None:
@@ -318,9 +318,9 @@ class MockRetentionManager:
         name: str,
         retention_days: int,
         action: Any,
-        workspace_ids: List[str] = None,
+        workspace_ids: list[str] = None,
         description: str = "",
-        applies_to: List[str] = None,
+        applies_to: list[str] = None,
     ) -> MockRetentionPolicy:
         policy = MockRetentionPolicy(
             id=f"policy-{len(self.policies) + 1:03d}",
@@ -354,7 +354,7 @@ class MockRetentionManager:
 
     async def check_expiring_soon(
         self, workspace_id: str = None, days: int = 14
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return [
             {
                 "id": "doc-001",
@@ -371,11 +371,11 @@ class MockClassifier:
     """Mock sensitivity classifier."""
 
     async def classify(
-        self, content: str, document_id: str = "", metadata: Dict = None
+        self, content: str, document_id: str = "", metadata: dict = None
     ) -> MockClassificationResult:
         return MockClassificationResult()
 
-    def get_level_policy(self, level: Any) -> Dict[str, Any]:
+    def get_level_policy(self, level: Any) -> dict[str, Any]:
         return {
             "encryption_required": True,
             "retention_max_days": 365,
@@ -387,7 +387,7 @@ class MockAuditLog:
     """Mock privacy audit log."""
 
     def __init__(self):
-        self.entries: List[MockAuditEntry] = [MockAuditEntry()]
+        self.entries: list[MockAuditEntry] = [MockAuditEntry()]
 
     async def log(self, **kwargs) -> None:
         entry = MockAuditEntry(
@@ -407,7 +407,7 @@ class MockAuditLog:
         action: Any = None,
         outcome: Any = None,
         limit: int = 100,
-    ) -> List[MockAuditEntry]:
+    ) -> list[MockAuditEntry]:
         return self.entries[:limit]
 
     async def generate_compliance_report(
@@ -416,7 +416,7 @@ class MockAuditLog:
         end_date: datetime = None,
         workspace_id: str = None,
         format: str = "json",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         return {
             "report_id": "report-001",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -426,16 +426,16 @@ class MockAuditLog:
 
     async def verify_integrity(
         self, start_date: datetime = None, end_date: datetime = None
-    ) -> tuple[bool, List[str]]:
+    ) -> tuple[bool, list[str]]:
         return True, []
 
-    async def get_actor_history(self, actor_id: str, days: int = 30) -> List[MockAuditEntry]:
+    async def get_actor_history(self, actor_id: str, days: int = 30) -> list[MockAuditEntry]:
         return [e for e in self.entries if e.actor_id == actor_id]
 
-    async def get_resource_history(self, resource_id: str, days: int = 30) -> List[MockAuditEntry]:
+    async def get_resource_history(self, resource_id: str, days: int = 30) -> list[MockAuditEntry]:
         return [e for e in self.entries if e.resource_id == resource_id]
 
-    async def get_denied_access_attempts(self, days: int = 7) -> List[MockAuditEntry]:
+    async def get_denied_access_attempts(self, days: int = 7) -> list[MockAuditEntry]:
         return [e for e in self.entries if e.outcome == "denied"]
 
 

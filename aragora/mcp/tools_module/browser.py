@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Global connector instance for session persistence across tool calls
 _browser_connector = None
 
+
 async def _get_connector(
     headless: bool = True,
     browser_type: str = "chromium",
@@ -49,12 +50,14 @@ async def _get_connector(
 
     return _browser_connector
 
+
 async def _close_connector() -> None:
     """Close the global browser connector."""
     global _browser_connector
     if _browser_connector:
         await _browser_connector.close()
         _browser_connector = None
+
 
 async def browser_navigate_tool(
     url: str,
@@ -112,6 +115,7 @@ async def browser_navigate_tool(
         logger.error(f"Browser navigation failed: {e}")
         return {"success": False, "error": f"Navigation failed: {str(e)}"}
 
+
 async def browser_click_tool(
     selector: str,
     timeout_ms: int = 30000,
@@ -143,6 +147,7 @@ async def browser_click_tool(
         logger.error(f"Browser click failed: {e}")
         return {"success": False, "error": f"Click failed: {str(e)}"}
 
+
 async def browser_fill_tool(
     selector: str,
     value: str,
@@ -173,6 +178,7 @@ async def browser_fill_tool(
     except Exception as e:
         logger.error(f"Browser fill failed: {e}")
         return {"success": False, "error": f"Fill failed: {str(e)}"}
+
 
 async def browser_screenshot_tool(
     selector: str = "",
@@ -207,6 +213,7 @@ async def browser_screenshot_tool(
         logger.error(f"Browser screenshot failed: {e}")
         return {"success": False, "error": f"Screenshot failed: {str(e)}"}
 
+
 async def browser_get_text_tool(
     selector: str,
     timeout_ms: int = 30000,
@@ -234,6 +241,7 @@ async def browser_get_text_tool(
     except Exception as e:
         logger.error(f"Browser get_text failed: {e}")
         return {"success": False, "error": f"Get text failed: {str(e)}"}
+
 
 async def browser_extract_tool(
     selectors: str,
@@ -272,6 +280,7 @@ async def browser_extract_tool(
         logger.error(f"Browser extract failed: {e}")
         return {"success": False, "error": f"Extract failed: {str(e)}"}
 
+
 async def browser_execute_script_tool(
     script: str,
 ) -> dict[str, Any]:
@@ -296,6 +305,7 @@ async def browser_execute_script_tool(
     except Exception as e:
         logger.error(f"Browser execute_script failed: {e}")
         return {"success": False, "error": f"Script execution failed: {str(e)}"}
+
 
 async def browser_wait_for_tool(
     selector: str,
@@ -328,6 +338,7 @@ async def browser_wait_for_tool(
         logger.error(f"Browser wait_for failed: {e}")
         return {"success": False, "error": f"Wait failed: {str(e)}"}
 
+
 async def browser_get_html_tool(
     selector: str = "",
 ) -> dict[str, Any]:
@@ -355,6 +366,7 @@ async def browser_get_html_tool(
         logger.error(f"Browser get_html failed: {e}")
         return {"success": False, "error": f"Get HTML failed: {str(e)}"}
 
+
 async def browser_close_tool() -> dict[str, Any]:
     """
     Close the browser session.
@@ -372,6 +384,7 @@ async def browser_close_tool() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Browser close failed: {e}")
         return {"success": False, "error": f"Close failed: {str(e)}"}
+
 
 async def browser_get_cookies_tool(
     url: str = "",
@@ -399,6 +412,7 @@ async def browser_get_cookies_tool(
         logger.error(f"Browser get_cookies failed: {e}")
         return {"success": False, "error": f"Get cookies failed: {str(e)}"}
 
+
 async def browser_clear_cookies_tool() -> dict[str, Any]:
     """
     Clear all cookies from the browser session.
@@ -418,6 +432,7 @@ async def browser_clear_cookies_tool() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Browser clear_cookies failed: {e}")
         return {"success": False, "error": f"Clear cookies failed: {str(e)}"}
+
 
 # Export all tools
 __all__ = [

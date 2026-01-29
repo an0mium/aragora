@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
+
 class TaskStatus(str, Enum):
     """Status of an A2A task."""
 
@@ -21,6 +22,7 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
     WAITING_INPUT = "waiting_input"  # Agent needs more info
 
+
 class TaskPriority(str, Enum):
     """Priority level for A2A tasks."""
 
@@ -28,6 +30,7 @@ class TaskPriority(str, Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
+
 
 class AgentCapability(str, Enum):
     """Standard capabilities an agent can advertise."""
@@ -42,6 +45,7 @@ class AgentCapability(str, Enum):
     DOCUMENT_ANALYSIS = "document_analysis"
     RESEARCH = "research"
     REASONING = "reasoning"
+
 
 @dataclass
 class SecurityCard:
@@ -75,6 +79,7 @@ class SecurityCard:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "permissions": self.permissions,
         }
+
 
 @dataclass
 class AgentCard:
@@ -155,6 +160,7 @@ class AgentCard:
             estimated_response_time_ms=data.get("estimated_response_time_ms", 5000),
         )
 
+
 @dataclass
 class ContextItem:
     """
@@ -176,6 +182,7 @@ class ContextItem:
             "mime_type": self.mime_type,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class TaskRequest:
@@ -253,6 +260,7 @@ class TaskRequest:
             return_intermediate=data.get("return_intermediate", False),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class TaskResult:
@@ -336,6 +344,7 @@ class TaskResult:
             subtasks=data.get("subtasks", []),
             metadata=data.get("metadata", {}),
         )
+
 
 # Pre-defined Aragora agent cards
 ARAGORA_AGENT_CARDS = {

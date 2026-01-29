@@ -41,6 +41,7 @@ MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 # Supported extensions
 SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".webm", ".mpga", ".mpeg", ".ogg", ".flac"}
 
+
 class SpeechHandler(BaseHandler):
     """Handler for speech-to-text endpoints."""
 

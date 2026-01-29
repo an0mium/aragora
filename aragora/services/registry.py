@@ -38,11 +38,13 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
 class ServiceScope(Enum):
     """Service lifecycle scope."""
 
     SINGLETON = "singleton"  # One instance for entire application
     TRANSIENT = "transient"  # New instance on each resolve
+
 
 @dataclass
 class ServiceDescriptor:
@@ -70,6 +72,7 @@ class ServiceDescriptor:
             "last_resolved_at": self.last_resolved_at,
         }
 
+
 @dataclass
 class RegistryStats:
     """Statistics about the service registry."""
@@ -94,12 +97,14 @@ class RegistryStats:
             "services": self.services,
         }
 
+
 class ServiceNotFoundError(Exception):
     """Raised when a requested service is not registered."""
 
     def __init__(self, service_type: type) -> None:
         self.service_type = service_type
         super().__init__(f"Service not found: {service_type.__name__}")
+
 
 class ServiceRegistry:
     """
@@ -386,13 +391,17 @@ class ServiceRegistry:
             logger.info(f"ServiceRegistry shutdown complete ({hooks_called} hooks called)")
             return hooks_called
 
+
 # Module-level convenience functions
+
 
 @overload
 def get_service(service_type: type[T]) -> T: ...
 
+
 @overload
 def get_service(service_type: type[T], default: T | None) -> T | None: ...
+
 
 def get_service(service_type: type[T], default: T | None = None) -> T | None:
     """
@@ -410,6 +419,7 @@ def get_service(service_type: type[T], default: T | None = None) -> T | None:
     """
     return ServiceRegistry.get().resolve(service_type, default)
 
+
 def register_service(service_type: type[T], instance: T) -> None:
     """
     Register a service in the global registry.
@@ -419,6 +429,7 @@ def register_service(service_type: type[T], instance: T) -> None:
         instance: The service instance.
     """
     ServiceRegistry.get().register(service_type, instance)
+
 
 def has_service(service_type: type) -> bool:
     """

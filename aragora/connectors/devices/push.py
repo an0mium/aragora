@@ -35,6 +35,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class FCMConnector(DeviceConnector):
     """
     Firebase Cloud Messaging (FCM) connector.
@@ -347,6 +348,7 @@ class FCMConnector(DeviceConnector):
             tokens_to_remove=tokens_to_remove,
         )
 
+
 class APNsConnector(DeviceConnector):
     """
     Apple Push Notification service (APNs) connector.
@@ -602,6 +604,7 @@ class APNsConnector(DeviceConnector):
             return True
         except ValueError:
             return False
+
 
 class WebPushConnector(DeviceConnector):
     """

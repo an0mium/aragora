@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class CultureProtocol(Protocol):
     """Protocol defining expected interface for Culture mixin."""
 
@@ -35,6 +36,7 @@ class CultureProtocol(Protocol):
     _org_culture_manager: Optional["OrganizationCultureManager"]
 
     def _ensure_initialized(self) -> None: ...
+
 
 class CultureOperationsMixin:
     """Mixin providing culture management for KnowledgeMound."""

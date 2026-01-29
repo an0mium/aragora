@@ -47,6 +47,7 @@ from aragora.connectors.automation.base import (
 
 logger = logging.getLogger(__name__)
 
+
 class ZapierConnector(AutomationConnector):
     """
     Zapier-specific webhook connector.

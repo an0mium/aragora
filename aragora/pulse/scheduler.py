@@ -34,12 +34,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SchedulerState(str, Enum):
     """State of the pulse debate scheduler."""
 
     STOPPED = "stopped"
     RUNNING = "running"
     PAUSED = "paused"
+
 
 @dataclass
 class SchedulerConfig:
@@ -103,6 +105,7 @@ class SchedulerConfig:
             consensus_threshold=data.get("consensus_threshold", 0.7),
         )
 
+
 @dataclass
 class TopicScore:
     """Scored topic for debate selection."""
@@ -115,6 +118,7 @@ class TopicScore:
     def is_viable(self) -> bool:
         """Check if the topic is viable for debate."""
         return self.score > 0
+
 
 @dataclass
 class SchedulerMetrics:
@@ -148,11 +152,13 @@ class SchedulerMetrics:
             "uptime_seconds": uptime,
         }
 
+
 # Type alias for debate creator callback
 DebateCreatorFn = Callable[
     [str, int, float],  # topic_text, rounds, consensus_threshold
     Coroutine[Any, Any, Optional[dict[str, Any]]],  # Returns debate result or None
 ]
+
 
 class TopicSelector:
     """Selects and scores topics for debate suitability."""
@@ -284,6 +290,7 @@ class TopicSelector:
         viable.sort(key=lambda x: x.score, reverse=True)
 
         return viable[:limit]
+
 
 class PulseDebateScheduler:
     """
@@ -724,6 +731,7 @@ class PulseDebateScheduler:
                 return False
 
         return True
+
 
 __all__ = [
     "PulseDebateScheduler",

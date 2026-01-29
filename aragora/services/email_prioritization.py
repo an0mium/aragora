@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class EmailPriority(Enum):
     """Email priority levels."""
 
@@ -61,12 +62,14 @@ class EmailPriority(Enum):
     DEFER = 5  # Archive or auto-file
     BLOCKED = 6  # Sender is blocked, auto-archive/delete
 
+
 class ScoringTier(Enum):
     """Which scoring tier was used."""
 
     TIER_1_RULES = "tier_1_rules"
     TIER_2_LIGHTWEIGHT = "tier_2_lightweight"
     TIER_3_DEBATE = "tier_3_debate"
+
 
 @dataclass
 class SenderProfile:
@@ -107,6 +110,7 @@ class SenderProfile:
                 score -= 0.1
 
         return max(0.0, min(1.0, score))
+
 
 @dataclass
 class EmailPriorityResult:
@@ -173,6 +177,7 @@ class EmailPriorityResult:
             "auto_archive": self.auto_archive,
         }
 
+
 @dataclass
 class EmailPrioritizationConfig:
     """Configuration for email prioritization."""
@@ -223,6 +228,7 @@ class EmailPrioritizationConfig:
     debate_agent_count: int = 3
     debate_timeout_seconds: float = 30.0
 
+
 # Urgency detection patterns
 DEADLINE_PATTERNS = [
     r"by\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)",
@@ -232,6 +238,7 @@ DEADLINE_PATTERNS = [
     r"need\s+by\s+",
     r"respond\s+by\s+",
 ]
+
 
 class EmailPrioritizer:
     """
@@ -917,6 +924,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                 profile.last_interaction = datetime.now()
             except Exception as e:
                 logger.debug(f"Failed to update sender profile: {e}")
+
 
 # Convenience function for quick access
 async def prioritize_inbox(

@@ -12,6 +12,7 @@ Regular Nodes:
 - Aragora: CRUD operations on debates, agents, evidence
 - Aragora Gauntlet: Stress-testing operations
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 # n8n Data Models
 # =============================================================================
 
+
 class N8nResourceType(str, Enum):
     """n8n resource types for Aragora node."""
 
@@ -43,6 +45,7 @@ class N8nResourceType(str, Enum):
     GAUNTLET = "gauntlet"
     KNOWLEDGE = "knowledge"
 
+
 class N8nOperation(str, Enum):
     """n8n operations for Aragora node."""
 
@@ -52,6 +55,7 @@ class N8nOperation(str, Enum):
     UPDATE = "update"
     DELETE = "delete"
     EXECUTE = "execute"
+
 
 @dataclass
 class N8nWebhook:
@@ -82,6 +86,7 @@ class N8nWebhook:
 
         return True
 
+
 @dataclass
 class N8nCredential:
     """n8n credential configuration for Aragora."""
@@ -97,6 +102,7 @@ class N8nCredential:
     # Usage tracking
     operation_count: int = 0
     last_operation_at: float | None = None
+
 
 # =============================================================================
 # n8n Node Definitions
@@ -207,6 +213,7 @@ N8N_TRIGGER_NODE_DEFINITION = {
 # =============================================================================
 # n8n Integration
 # =============================================================================
+
 
 class N8nIntegration(BaseIntegration):
     """
@@ -668,11 +675,13 @@ class N8nIntegration(BaseIntegration):
             ],
         }
 
+
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
 _n8n_integration: N8nIntegration | None = None
+
 
 def get_n8n_integration() -> N8nIntegration:
     """Get or create the global n8n integration instance."""
@@ -680,6 +689,7 @@ def get_n8n_integration() -> N8nIntegration:
     if _n8n_integration is None:
         _n8n_integration = N8nIntegration()
     return _n8n_integration
+
 
 # =============================================================================
 # Exports

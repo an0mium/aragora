@@ -36,6 +36,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ExternalIdentity:
     """Represents a mapping from external identity to Aragora user."""
@@ -69,6 +70,7 @@ class ExternalIdentity:
             "last_seen_at": self.last_seen_at,
             "is_active": self.is_active,
         }
+
 
 class ExternalIdentityRepository:
     """
@@ -247,9 +249,7 @@ class ExternalIdentityRepository:
             return self._row_to_identity(row)
         return None
 
-    def get_by_user_id(
-        self, user_id: str, provider: str | None = None
-    ) -> list[ExternalIdentity]:
+    def get_by_user_id(self, user_id: str, provider: str | None = None) -> list[ExternalIdentity]:
         """Get all external identities for a user.
 
         Args:
@@ -474,8 +474,10 @@ class ExternalIdentityRepository:
             is_active=bool(row["is_active"]),
         )
 
+
 # Singleton instance
 _repository: ExternalIdentityRepository | None = None
+
 
 def get_external_identity_repository(
     db_path: str | None = None,

@@ -61,6 +61,7 @@ MAX_FILE_SIZE_MB = 500
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class TranscriptionSegment:
     """A segment of transcribed audio with timestamps."""
@@ -78,6 +79,7 @@ class TranscriptionSegment:
     @property
     def duration(self) -> float:
         return self.end - self.start
+
 
 @dataclass
 class TranscriptionResult:
@@ -112,6 +114,7 @@ class TranscriptionResult:
             "model": self.model,
             "processing_time": self.processing_time,
         }
+
 
 @dataclass
 class TranscriptionConfig:
@@ -161,9 +164,11 @@ class TranscriptionConfig:
             == "true",
         )
 
+
 # =============================================================================
 # Abstract Backend
 # =============================================================================
+
 
 class TranscriptionBackend(ABC):
     """Abstract base class for transcription backends."""
@@ -210,9 +215,11 @@ class TranscriptionBackend(ABC):
                 f"File too large: {size_mb:.1f}MB (max: {self.config.max_file_size_mb}MB)"
             )
 
+
 # =============================================================================
 # OpenAI Whisper API Backend
 # =============================================================================
+
 
 class OpenAIWhisperBackend(TranscriptionBackend):
     """OpenAI Whisper API backend (cloud-based)."""
@@ -323,9 +330,11 @@ class OpenAIWhisperBackend(TranscriptionBackend):
             processing_time=processing_time,
         )
 
+
 # =============================================================================
 # Faster-Whisper Backend (Local)
 # =============================================================================
+
 
 class FasterWhisperBackend(TranscriptionBackend):
     """Local transcription using faster-whisper (CTranslate2 optimized)."""
@@ -425,9 +434,11 @@ class FasterWhisperBackend(TranscriptionBackend):
             processing_time=processing_time,
         )
 
+
 # =============================================================================
 # Whisper.cpp Backend (Local C++)
 # =============================================================================
+
 
 class WhisperCppBackend(TranscriptionBackend):
     """Local transcription using whisper.cpp."""
@@ -549,6 +560,7 @@ class WhisperCppBackend(TranscriptionBackend):
         )
         await process.communicate()
 
+
 # =============================================================================
 # Backend Registry and Factory
 # =============================================================================
@@ -562,6 +574,7 @@ _BACKENDS: dict[str, type[TranscriptionBackend]] = {
 
 # Singleton instances
 _backend_instances: dict[str, TranscriptionBackend] = {}
+
 
 def _normalize_backend_name(name: str) -> str | None:
     """Normalize backend name aliases.
@@ -582,6 +595,7 @@ def _normalize_backend_name(name: str) -> str | None:
     }
     return aliases.get(lower_name, lower_name)
 
+
 def get_available_backends() -> list[str]:
     """Get list of available transcription backends."""
     config = TranscriptionConfig.from_env()
@@ -591,6 +605,7 @@ def get_available_backends() -> list[str]:
         if backend.is_available():
             available.append(name)
     return available
+
 
 def get_transcription_backend(
     name: str | None = None,
@@ -651,9 +666,11 @@ def get_transcription_backend(
     # Fallback to first available
     return _BACKENDS[available[0]](config)
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 async def transcribe_audio(
     audio_path: str | Path,
@@ -672,6 +689,7 @@ async def transcribe_audio(
     """
     transcriber = get_transcription_backend(backend)
     return await transcriber.transcribe(audio_path, language)
+
 
 async def transcribe_video(
     video_path: str | Path,

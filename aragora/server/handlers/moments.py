@@ -59,6 +59,7 @@ SignificantMoment = _moment_imports["SignificantMoment"]
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
+
 class MomentsHandler(SecureHandler):
     """Handler for moments endpoints with RBAC protection."""
 

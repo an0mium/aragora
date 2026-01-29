@@ -28,6 +28,7 @@ from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 logger = logging.getLogger(__name__)
 
+
 # Event types emitted by MemoryManager (for documentation and consistency)
 class MemoryEventType:
     """Constants for memory-related event types."""
@@ -37,6 +38,7 @@ class MemoryEventType:
     MEMORY_PROMOTED = "memory:promoted"
     PATTERN_CACHED = "pattern:cached"
     PATTERN_RETRIEVED = "pattern:retrieved"
+
 
 class MemoryManager:
     """Manages debate memory operations across multiple memory systems.

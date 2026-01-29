@@ -32,6 +32,7 @@ from aragora.nomic.meta_planner import PrioritizedGoal, Track
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TrackAssignment:
     """Assignment of a goal to a track for parallel execution."""
@@ -44,6 +45,7 @@ class TrackAssignment:
     result: Optional[dict[str, Any]] = None
     error: str | None = None
 
+
 @dataclass
 class ConflictReport:
     """Report of potential merge conflicts."""
@@ -53,6 +55,7 @@ class ConflictReport:
     conflicting_files: list[str]
     severity: str  # low, medium, high
     resolution_hint: str = ""
+
 
 @dataclass
 class MergeResult:
@@ -64,6 +67,7 @@ class MergeResult:
     commit_sha: str | None = None
     error: str | None = None
     conflicts: list[str] = field(default_factory=list)
+
 
 @dataclass
 class CoordinationResult:
@@ -78,6 +82,7 @@ class CoordinationResult:
     success: bool
     summary: str = ""
 
+
 @dataclass
 class BranchCoordinatorConfig:
     """Configuration for BranchCoordinator."""
@@ -87,6 +92,7 @@ class BranchCoordinatorConfig:
     auto_merge_safe: bool = True
     require_tests_pass: bool = True
     max_parallel_branches: int = 3
+
 
 class BranchCoordinator:
     """Manages parallel development branches.
@@ -526,6 +532,7 @@ class BranchCoordinator:
                 logger.info(f"Deleted merged branch: {branch}")
 
         return deleted
+
 
 __all__ = [
     "BranchCoordinator",

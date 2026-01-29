@@ -27,6 +27,7 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 
+
 def create_self_development_workflow(
     objective: str,
     tracks: Optional[list[str]] = None,
@@ -241,6 +242,7 @@ Consider dependencies and order goals by priority.""",
         },
     )
 
+
 # Template dictionary for registration
 SELF_DEVELOPMENT_TEMPLATE: dict[str, Any] = {
     "name": "Self-Development Pipeline",
@@ -272,6 +274,7 @@ SELF_DEVELOPMENT_TEMPLATE: dict[str, Any] = {
         },
     },
 }
+
 
 # Register task handlers
 def _register_self_dev_handlers():
@@ -404,6 +407,7 @@ def _register_self_dev_handlers():
 
     except ImportError:
         pass
+
 
 _register_self_dev_handlers()
 

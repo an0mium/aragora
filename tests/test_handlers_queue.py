@@ -36,7 +36,7 @@ class MockJob:
         self,
         id: str,
         status: MockJobStatus = MockJobStatus.PENDING,
-        payload: Dict[str, Any] = None,
+        payload: dict[str, Any] = None,
     ):
         self.id = id
         self.status = status
@@ -56,12 +56,12 @@ class MockQueue:
     """Mock queue for testing."""
 
     def __init__(self):
-        self._jobs: Dict[str, MockJob] = {}
+        self._jobs: dict[str, MockJob] = {}
         self._status_tracker = MagicMock()
         self._redis = MagicMock()
         self.stream_key = "aragora:jobs"
 
-    async def get_queue_stats(self) -> Dict[str, int]:
+    async def get_queue_stats(self) -> dict[str, int]:
         pending = sum(1 for j in self._jobs.values() if j.status == MockJobStatus.PENDING)
         processing = sum(1 for j in self._jobs.values() if j.status == MockJobStatus.PROCESSING)
         completed = sum(1 for j in self._jobs.values() if j.status == MockJobStatus.COMPLETED)

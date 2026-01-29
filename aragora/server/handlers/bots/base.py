@@ -39,6 +39,7 @@ T = TypeVar("T")
 # Default RBAC permission for bot status endpoints
 DEFAULT_BOTS_READ_PERMISSION = "bots.read"
 
+
 class BotHandlerMixin:
     """Mixin providing shared patterns for bot integration handlers.
 
@@ -306,6 +307,7 @@ class BotHandlerMixin:
             )
         except ImportError:
             pass  # Audit not available
+
 
 __all__ = [
     "BotHandlerMixin",

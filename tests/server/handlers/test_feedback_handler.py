@@ -59,11 +59,11 @@ def feedback_store(temp_db):
 def make_server_context(
     user_id: Optional[str] = "test-user-001",
     org_id: Optional[str] = "org-001",
-    roles: Optional[Set[str]] = None,
-    permissions: Optional[Set[str]] = None,
-    body: Optional[Dict[str, Any]] = None,
-    query: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    roles: Optional[set[str]] = None,
+    permissions: Optional[set[str]] = None,
+    body: Optional[dict[str, Any]] = None,
+    query: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """Create a mock server context for testing."""
     return {
         "user_id": user_id,

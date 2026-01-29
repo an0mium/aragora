@@ -44,6 +44,7 @@ _gt_dashboard_cache_lock = threading.Lock()
 # Cache TTL (15 seconds for near-real-time)
 CACHE_TTL = 15
 
+
 def _get_cached_data(key: str) -> Optional[dict[str, Any]]:
     """Get cached dashboard data if not expired."""
     with _gt_dashboard_cache_lock:
@@ -53,6 +54,7 @@ def _get_cached_data(key: str) -> Optional[dict[str, Any]]:
                 return cached.get("data")
     return None
 
+
 def _set_cached_data(key: str, data: dict[str, Any]) -> None:
     """Cache dashboard data."""
     with _gt_dashboard_cache_lock:
@@ -60,6 +62,7 @@ def _set_cached_data(key: str, data: dict[str, Any]) -> None:
             "data": data,
             "cached_at": datetime.now(timezone.utc).timestamp(),
         }
+
 
 class GasTownDashboardHandler(SecureHandler):
     """Handler for Gas Town dashboard endpoints."""

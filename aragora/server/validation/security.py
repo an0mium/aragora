@@ -59,6 +59,7 @@ DEFAULT_OPERATION_TIMEOUT = 30.0
 # Validation Error
 # =============================================================================
 
+
 class ValidationError(Exception):
     """Exception raised when validation fails."""
 
@@ -72,9 +73,11 @@ class ValidationError(Exception):
             return f"ValidationError(field={self.field!r}, message={self.message!r})"
         return f"ValidationError({self.message!r})"
 
+
 # =============================================================================
 # Validation Result
 # =============================================================================
+
 
 @dataclass
 class SecurityValidationResult:
@@ -86,9 +89,7 @@ class SecurityValidationResult:
     sanitized: str | None = None
 
     @classmethod
-    def success(
-        cls, value: Any = None, sanitized: str | None = None
-    ) -> "SecurityValidationResult":
+    def success(cls, value: Any = None, sanitized: str | None = None) -> "SecurityValidationResult":
         """Create a successful validation result."""
         return cls(is_valid=True, value=value, sanitized=sanitized)
 
@@ -96,6 +97,7 @@ class SecurityValidationResult:
     def failure(cls, error: str) -> "SecurityValidationResult":
         """Create a failed validation result."""
         return cls(is_valid=False, error=error)
+
 
 # =============================================================================
 # ReDoS Protection
@@ -132,6 +134,7 @@ _DANGEROUS_PATTERN_REGEX = re.compile(
     r")",
     re.IGNORECASE,
 )
+
 
 def is_safe_regex_pattern(pattern: str) -> tuple[bool, str | None]:
     """
@@ -182,6 +185,7 @@ def is_safe_regex_pattern(pattern: str) -> tuple[bool, str | None]:
 
     return True, None
 
+
 def execute_regex_with_timeout(
     pattern: str | Pattern[str],
     text: str,
@@ -231,6 +235,7 @@ def execute_regex_with_timeout(
         except Exception as e:
             logger.warning(f"Regex execution failed: {e}")
             return None
+
 
 def execute_regex_finditer_with_timeout(
     pattern: str | Pattern[str],
@@ -287,6 +292,7 @@ def execute_regex_finditer_with_timeout(
         except Exception as e:
             logger.warning(f"Regex finditer failed: {e}")
             return []
+
 
 def validate_search_query_redos_safe(
     query: str,
@@ -367,9 +373,11 @@ def validate_search_query_redos_safe(
 
     return SecurityValidationResult.success(value=query, sanitized=escaped)
 
+
 # =============================================================================
 # Input Length Validation
 # =============================================================================
+
 
 def validate_debate_title(title: str) -> SecurityValidationResult:
     """
@@ -393,6 +401,7 @@ def validate_debate_title(title: str) -> SecurityValidationResult:
 
     return SecurityValidationResult.success(value=title, sanitized=title)
 
+
 def validate_task_content(task: str) -> SecurityValidationResult:
     """
     Validate debate task content.
@@ -414,6 +423,7 @@ def validate_task_content(task: str) -> SecurityValidationResult:
         )
 
     return SecurityValidationResult.success(value=task, sanitized=task)
+
 
 def validate_context_size(context: str | bytes | dict | list) -> SecurityValidationResult:
     """
@@ -450,6 +460,7 @@ def validate_context_size(context: str | bytes | dict | list) -> SecurityValidat
 
     return SecurityValidationResult.success(value=context)
 
+
 def validate_agent_count(count: int) -> SecurityValidationResult:
     """
     Validate the number of agents for a debate.
@@ -470,9 +481,11 @@ def validate_agent_count(count: int) -> SecurityValidationResult:
 
     return SecurityValidationResult.success(value=count)
 
+
 # =============================================================================
 # User Input Sanitization
 # =============================================================================
+
 
 def sanitize_user_input(
     text: str,
@@ -521,6 +534,7 @@ def sanitize_user_input(
         result = result[:max_length]
 
     return result
+
 
 # =============================================================================
 # Exports

@@ -31,6 +31,7 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
+
 class HealthStatus(Enum):
     """Health status for agents and the control plane."""
 
@@ -38,6 +39,7 @@ class HealthStatus(Enum):
     DEGRADED = "degraded"  # Some issues but operational
     UNHEALTHY = "unhealthy"  # Significant issues
     CRITICAL = "critical"  # System is failing
+
 
 @dataclass
 class HealthCheck:
@@ -70,6 +72,7 @@ class HealthCheck:
             "error": self.error,
             "metadata": self.metadata,
         }
+
 
 class HealthMonitor:
     """

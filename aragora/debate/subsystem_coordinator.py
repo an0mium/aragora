@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
     from aragora.relationships.tracker import RelationshipTracker
 
+
 @runtime_checkable
 class Resettable(Protocol):
     """Protocol for objects that can be reset."""
@@ -57,7 +58,9 @@ class Resettable(Protocol):
         """Reset internal state."""
         ...
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class SubsystemCoordinator:
@@ -1141,6 +1144,7 @@ class SubsystemCoordinator:
             "initialized": self._initialized,
         }
 
+
 @dataclass
 class SubsystemConfig:
     """Configuration for creating SubsystemCoordinator.
@@ -1289,5 +1293,6 @@ class SubsystemConfig:
             km_min_confidence_for_reverse=self.km_min_confidence_for_reverse,
             km_parallel_sync=self.km_parallel_sync,
         )
+
 
 __all__ = ["SubsystemCoordinator", "SubsystemConfig"]

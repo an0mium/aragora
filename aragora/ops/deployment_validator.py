@@ -55,12 +55,14 @@ WEAK_JWT_SECRETS = {
     "aragora",
 }
 
+
 class Severity(str, Enum):
     """Issue severity levels."""
 
     CRITICAL = "critical"  # Blocks deployment
     WARNING = "warning"  # Should be addressed
     INFO = "info"  # Informational
+
 
 class ComponentStatus(str, Enum):
     """Component health status."""
@@ -69,6 +71,7 @@ class ComponentStatus(str, Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class ValidationIssue:
@@ -79,6 +82,7 @@ class ValidationIssue:
     severity: Severity
     suggestion: str | None = None
 
+
 @dataclass
 class ComponentHealth:
     """Health status of a single component."""
@@ -88,6 +92,7 @@ class ComponentHealth:
     latency_ms: float | None = None
     message: str | None = None
     metadata: dict = field(default_factory=dict)
+
 
 @dataclass
 class ValidationResult:
@@ -127,6 +132,7 @@ class ValidationResult:
             "validated_at": self.validated_at,
             "validation_duration_ms": self.validation_duration_ms,
         }
+
 
 class DeploymentValidator:
     """Validates deployment readiness with runtime checks."""
@@ -1190,6 +1196,7 @@ class DeploymentValidator:
             )
         )
 
+
 async def validate_deployment() -> ValidationResult:
     """Run deployment validation.
 
@@ -1198,6 +1205,7 @@ async def validate_deployment() -> ValidationResult:
     """
     validator = DeploymentValidator()
     return await validator.validate()
+
 
 def quick_health_check() -> bool:
     """Quick synchronous health check for startup.
@@ -1220,6 +1228,7 @@ def quick_health_check() -> bool:
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return False
+
 
 __all__ = [
     "DeploymentValidator",

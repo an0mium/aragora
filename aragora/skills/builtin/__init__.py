@@ -10,6 +10,7 @@ These skills provide core functionality:
 
 from ..base import Skill
 
+
 def register_skills() -> list[Skill]:
     """
     Register all built-in skills.

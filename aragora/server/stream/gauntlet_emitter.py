@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GauntletPhase:
     """Gauntlet execution phase."""
@@ -50,6 +51,7 @@ class GauntletPhase:
     AGGREGATION = "aggregation"
     VERDICT = "verdict"
     COMPLETE = "complete"
+
 
 class GauntletStreamEmitter:
     """
@@ -374,6 +376,7 @@ class GauntletStreamEmitter:
                 "message": f"Verdict: {verdict} ({confidence:.0%} confidence)",
             },
         )
+
 
 def create_gauntlet_emitter(
     broadcast_fn: Optional[Callable[[StreamEvent], None]] = None,

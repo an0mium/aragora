@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SyncProtocol(Protocol):
     """Protocol defining expected interface for Sync mixin."""
 
@@ -44,6 +45,7 @@ class SyncProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
     async def store(self, request: "IngestionRequest") -> Any: ...
+
 
 class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""

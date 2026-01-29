@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _default_agent_list() -> list[str]:
     return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+
 
 @dataclass
 class DecisionConfig:
@@ -33,6 +35,7 @@ class DecisionConfig:
     consensus: str = DEFAULT_CONSENSUS
     timeout_seconds: int = 300
 
+
 @dataclass
 class DecisionContext:
     """Context for a decision request."""
@@ -41,6 +44,7 @@ class DecisionContext:
     workspace_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ResponseChannel:
     """A response channel for delivering results."""
@@ -48,6 +52,7 @@ class ResponseChannel:
     platform: str  # http_api, slack, email, webhook
     target: str | None = None
     options: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class DecisionResult:
@@ -63,6 +68,7 @@ class DecisionResult:
     completed_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class DecisionStatus:
     """Status of a decision request."""
@@ -72,6 +78,7 @@ class DecisionStatus:
     progress: float = 0.0
     current_stage: str | None = None
     estimated_remaining_seconds: int | None = None
+
 
 class DecisionsAPI:
     """API interface for unified decision-making."""
@@ -406,6 +413,7 @@ class DecisionsAPI:
             current_stage=data.get("current_stage"),
             estimated_remaining_seconds=data.get("estimated_remaining_seconds"),
         )
+
 
 __all__ = [
     "DecisionsAPI",

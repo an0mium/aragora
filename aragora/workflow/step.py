@@ -16,6 +16,7 @@ from typing import Any, Optional, Protocol, runtime_checkable
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 
+
 @runtime_checkable
 class WorkflowStep(Protocol):
     """
@@ -41,6 +42,7 @@ class WorkflowStep(Protocol):
             Step output (will be stored in context.step_outputs)
         """
         ...
+
 
 @dataclass
 class WorkflowContext:
@@ -84,6 +86,7 @@ class WorkflowContext:
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get current step configuration value."""
         return self.current_step_config.get(key, default)
+
 
 class BaseStep(ABC):
     """
@@ -137,6 +140,7 @@ class BaseStep(ABC):
         Override to add custom validation logic.
         """
         return True
+
 
 class AgentStep(BaseStep):
     """
@@ -222,6 +226,7 @@ class AgentStep(BaseStep):
             prompt = prompt.replace(f"{{step.{step_id}}}", str(output))
         return prompt
 
+
 class ParallelStep(BaseStep):
     """
     Step that executes multiple sub-steps in parallel.
@@ -255,6 +260,7 @@ class ParallelStep(BaseStep):
                 outputs[step_name] = result  # type: ignore[assignment]
 
         return outputs
+
 
 class ConditionalStep(BaseStep):
     """
@@ -297,6 +303,7 @@ class ConditionalStep(BaseStep):
             return safe_eval_bool(self.condition, namespace)
         except SafeEvalError:
             return False
+
 
 class LoopStep(BaseStep):
     """

@@ -31,6 +31,7 @@ Usage:
     router = RoleBasedRouter(hierarchy)
     agent_id = await router.route_task(task)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +45,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
 
 class AgentRole(str, Enum):
     """
@@ -60,6 +62,7 @@ class AgentRole(str, Enum):
     WITNESS = "witness"
     POLECAT = "polecat"
     CREW = "crew"
+
 
 class RoleCapability(str, Enum):
     """Capabilities that can be associated with roles."""
@@ -86,6 +89,7 @@ class RoleCapability(str, Enum):
     MAINTAIN_CONTEXT = "maintain_context"
     COLLABORATE = "collaborate"
     MENTOR = "mentor"
+
 
 # Default capabilities per role
 ROLE_CAPABILITIES: dict[AgentRole, set[RoleCapability]] = {
@@ -118,6 +122,7 @@ ROLE_CAPABILITIES: dict[AgentRole, set[RoleCapability]] = {
         RoleCapability.MENTOR,
     },
 }
+
 
 @dataclass
 class RoleAssignment:
@@ -193,6 +198,7 @@ class RoleAssignment:
             ),
             metadata=data.get("metadata", {}),
         )
+
 
 class AgentHierarchy:
     """
@@ -432,6 +438,7 @@ class AgentHierarchy:
             "ephemeral_count": len([a for a in assignments if a.is_ephemeral]),
         }
 
+
 class RoleBasedRouter:
     """
     Routes tasks to appropriate agents based on roles.
@@ -542,8 +549,10 @@ class RoleBasedRouter:
         )
         return assignment.agent_id
 
+
 # Singleton instance
 _default_hierarchy: AgentHierarchy | None = None
+
 
 async def get_agent_hierarchy(hierarchy_dir: Path | None = None) -> AgentHierarchy:
     """Get the default agent hierarchy instance."""
@@ -552,6 +561,7 @@ async def get_agent_hierarchy(hierarchy_dir: Path | None = None) -> AgentHierarc
         _default_hierarchy = AgentHierarchy(hierarchy_dir)
         await _default_hierarchy.initialize()
     return _default_hierarchy
+
 
 def reset_agent_hierarchy() -> None:
     """Reset the default hierarchy (for testing)."""

@@ -35,9 +35,11 @@ _shared_pool: Optional["Pool"] = None
 _pool_event_loop: asyncio.AbstractEventLoop | None = None
 _pool_config: dict[str, Any] = {}
 
+
 def _is_shared_pool_enabled() -> bool:
     """Check if shared pool feature is enabled via environment variable."""
     return os.environ.get("ARAGORA_USE_SHARED_POOL", "true").lower() in ("true", "1", "yes")
+
 
 async def initialize_shared_pool(
     dsn: str | None = None,
@@ -52,6 +54,10 @@ async def initialize_shared_pool(
     MUST be called from within an async context (after asyncio.run() starts).
     The pool will be bound to the current event loop and cannot be used
     from other event loops.
+
+    If a stale pool exists (e.g., created on a temporary event loop during
+    module imports), it will be closed and replaced with a fresh pool
+    bound to the current (correct) event loop.
 
     Args:
         dsn: PostgreSQL connection string. If not provided, uses environment.
@@ -74,10 +80,12 @@ async def initialize_shared_pool(
         logger.info("[pool_manager] Shared pool disabled via ARAGORA_USE_SHARED_POOL=false")
         return None
 
-    # Check if already initialized
+    # Check if already initialized on THIS event loop
     if _shared_pool is not None:
-        logger.debug("[pool_manager] Shared pool already initialized")
-        return _shared_pool
+        current_loop = asyncio.get_running_loop()
+        if _pool_event_loop is current_loop:
+            logger.debug("[pool_manager] Shared pool already initialized on this loop")
+            return _shared_pool
 
     # Check if PostgreSQL is configured
     from aragora.storage.connection_factory import (
@@ -92,40 +100,65 @@ async def initialize_shared_pool(
 
     # Create pool in current event loop
     try:
-        from aragora.storage.postgres_store import get_postgres_pool
+        from aragora.storage import postgres_store as _ps_mod
 
         effective_dsn = dsn or config.dsn
+        current_loop = asyncio.get_running_loop()
 
-        # --- DIAGNOSTIC: Check if _pool global is already set ---
-        from aragora.storage import postgres_store as _ps_mod
+        # Close any stale pool created on a different event loop.
+        # This happens when module-level code (e.g., workflows.py template
+        # registration) triggers get_postgres_pool() via run_async() /
+        # asyncio.run(), which creates a temporary event loop. That pool
+        # is then bound to the now-closed temp loop and is unusable.
         if _ps_mod._pool is not None:
             logger.warning(
-                f"[pool_manager] WARNING: postgres_store._pool already set "
-                f"BEFORE shared pool creation: {_ps_mod._pool}"
+                "[pool_manager] Clearing stale postgres_store._pool "
+                "(created on different event loop) before shared pool init"
             )
+            # Don't terminate() the stale pool - it was created on a now-dead
+            # temporary event loop (from asyncio.run() during module import).
+            # Calling terminate() sends disconnect commands to the database
+            # server which can cause Supabase to temporarily reject new
+            # connections ("Tenant or user not found"). Just null the reference
+            # and let GC collect it - the dead loop means its connections are
+            # already effectively orphaned.
+            _ps_mod._pool = None
 
-        _shared_pool = await get_postgres_pool(
-            dsn=effective_dsn,
-            min_size=min_size,
-            max_size=max_size,
-            command_timeout=command_timeout,
-            statement_timeout=statement_timeout,
-        )
-        _pool_event_loop = asyncio.get_running_loop()
+        # Also reset _shared_pool if it references the same stale pool
+        if _shared_pool is not None:
+            _shared_pool = None
+            _pool_event_loop = None
+
+        # Now create a fresh pool on the current event loop (with retry)
+        from aragora.storage.postgres_store import get_postgres_pool
+
+        last_err = None
+        for attempt in range(3):
+            try:
+                _ps_mod._pool = None  # Ensure clean state for each attempt
+                _shared_pool = await get_postgres_pool(
+                    dsn=effective_dsn,
+                    min_size=min_size,
+                    max_size=max_size,
+                    command_timeout=command_timeout,
+                    statement_timeout=statement_timeout,
+                )
+                break
+            except Exception as e:
+                last_err = e
+                logger.warning(f"[pool_manager] Pool creation attempt {attempt + 1}/3 failed: {e}")
+                _ps_mod._pool = None
+                if attempt < 2:
+                    await asyncio.sleep(2.0 * (attempt + 1))
+        else:
+            raise last_err  # type: ignore[misc]
+        _pool_event_loop = current_loop
         _pool_config = {
             "dsn_hash": hash(effective_dsn) if effective_dsn else None,
             "min_size": min_size,
             "max_size": max_size,
             "is_supabase": config.is_supabase,
         }
-
-        # --- DIAGNOSTIC: Health check right after pool creation ---
-        try:
-            async with _shared_pool.acquire() as conn:
-                v = await conn.fetchval("SELECT 1")
-            logger.warning(f"[pool_manager] Post-creation health: OK (val={v})")
-        except Exception as e:
-            logger.warning(f"[pool_manager] Post-creation health: FAIL ({type(e).__name__}: {e})")
 
         # Apply nest_asyncio to allow nested run_until_complete() calls.
         # This is required because PostgreSQL store sync wrappers use
@@ -143,13 +176,22 @@ async def initialize_shared_pool(
                 "Install with: pip install nest_asyncio"
             )
 
-        # --- DIAGNOSTIC: Health check after nest_asyncio ---
+        # Verify pool health
         try:
             async with _shared_pool.acquire() as conn:
-                v = await conn.fetchval("SELECT 1")
-            logger.warning(f"[pool_manager] Post-nest_asyncio health: OK (val={v})")
+                await conn.fetchval("SELECT 1")
         except Exception as e:
-            logger.warning(f"[pool_manager] Post-nest_asyncio health: FAIL ({type(e).__name__}: {e})")
+            logger.error(f"[pool_manager] Pool health check failed after creation: {e}")
+            # Pool is broken, clean up and fall back
+            try:
+                _shared_pool.terminate()
+            except Exception:
+                pass
+            _shared_pool = None
+            _pool_event_loop = None
+            _pool_config = {}
+            _ps_mod._pool = None
+            return None
 
         pool_size = _shared_pool.get_size() if hasattr(_shared_pool, "get_size") else "unknown"
         backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
@@ -163,6 +205,7 @@ async def initialize_shared_pool(
         logger.error(f"[pool_manager] Failed to initialize shared pool: {e}")
         # Don't raise - let caller handle fallback to SQLite
         return None
+
 
 def get_shared_pool() -> Optional["Pool"]:
     """
@@ -197,9 +240,11 @@ def get_shared_pool() -> Optional["Pool"]:
 
     return _shared_pool
 
+
 def is_pool_initialized() -> bool:
     """Check if the shared pool has been initialized."""
     return _shared_pool is not None and _is_shared_pool_enabled()
+
 
 def get_pool_event_loop() -> asyncio.AbstractEventLoop | None:
     """Get the event loop the shared pool was created in (the main event loop).
@@ -211,6 +256,7 @@ def get_pool_event_loop() -> asyncio.AbstractEventLoop | None:
         The main event loop if pool is initialized, None otherwise.
     """
     return _pool_event_loop
+
 
 def get_pool_info() -> dict[str, Any]:
     """Get information about the shared pool for diagnostics."""
@@ -236,6 +282,7 @@ def get_pool_info() -> dict[str, Any]:
         "max_size": _pool_config.get("max_size"),
     }
 
+
 async def close_shared_pool() -> None:
     """
     Close the shared pool during shutdown.
@@ -258,6 +305,7 @@ async def close_shared_pool() -> None:
         _pool_event_loop = None
         _pool_config = {}
 
+
 def reset_shared_pool() -> None:
     """
     Reset pool state without closing (for testing only).
@@ -268,6 +316,7 @@ def reset_shared_pool() -> None:
     _shared_pool = None
     _pool_event_loop = None
     _pool_config = {}
+
 
 __all__ = [
     "initialize_shared_pool",

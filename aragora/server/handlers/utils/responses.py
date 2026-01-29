@@ -17,6 +17,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+
 @dataclass
 class HandlerResult:
     """Result of handling an HTTP request.
@@ -36,6 +37,7 @@ class HandlerResult:
     def __post_init__(self) -> None:
         if self.headers is None:
             self.headers = {}
+
 
 def json_response(
     data: Any,
@@ -63,6 +65,7 @@ def json_response(
         body=body,
         headers=headers or {},
     )
+
 
 def error_response(
     message: str,
@@ -124,6 +127,7 @@ def error_response(
 
     return json_response(payload, status=status, headers=headers)
 
+
 def success_response(
     data: Any,
     message: str | None = None,
@@ -153,6 +157,7 @@ def success_response(
         payload["message"] = message
     return json_response(payload, status=200, headers=headers)
 
+
 def html_response(
     content: str,
     status: int = 200,
@@ -174,6 +179,7 @@ def html_response(
         body=content.encode("utf-8"),
         headers=headers or {},
     )
+
 
 def redirect_response(
     location: str,

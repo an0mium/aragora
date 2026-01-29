@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RetrievalMetrics:
     """Aggregated retrieval metrics for analysis."""
@@ -51,6 +52,7 @@ class RetrievalMetrics:
     by_domain: dict[str, int] = field(default_factory=dict)
     by_tier: dict[str, int] = field(default_factory=dict)
 
+
 @dataclass
 class TierOptimizationRecommendation:
     """Recommendation for tier threshold adjustment."""
@@ -63,6 +65,7 @@ class TierOptimizationRecommendation:
     reasoning: str
     confidence: float
 
+
 @dataclass
 class CoalescenceResult:
     """Result of duplicate coalescing operation."""
@@ -72,6 +75,7 @@ class CoalescenceResult:
     items_merged: int
     storage_saved_bytes: int
     merge_details: list[dict[str, Any]] = field(default_factory=list)
+
 
 class KnowledgeMoundMetaLearner:
     """
@@ -567,6 +571,7 @@ class KnowledgeMoundMetaLearner:
             "continuum_connected": self._continuum is not None,
             "tenant_id": self._tenant_id,
         }
+
 
 __all__ = [
     "KnowledgeMoundMetaLearner",

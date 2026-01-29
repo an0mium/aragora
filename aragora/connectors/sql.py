@@ -40,6 +40,7 @@ from aragora.reasoning.provenance import ProvenanceManager, SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SQLQueryResult:
     """Result from a SQL query."""
@@ -49,6 +50,7 @@ class SQLQueryResult:
     row_count: int
     query_time_ms: float
     database_type: str
+
 
 class SQLConnector(BaseConnector):
     """
@@ -469,5 +471,6 @@ class SQLConnector(BaseConnector):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
+
 
 __all__ = ["SQLConnector", "SQLQueryResult"]

@@ -357,7 +357,7 @@ def create_agent_with_fallback(config: AgentConfig):
         return None, None
 
 
-async def create_all_agents() -> List[tuple]:
+async def create_all_agents() -> list[tuple]:
     """Create all agents with fallbacks."""
     agents = []
 
@@ -377,12 +377,12 @@ async def create_all_agents() -> List[tuple]:
 
 
 async def run_single_phase(
-    agents: List[tuple],
+    agents: list[tuple],
     phase: DebatePhase,
-    previous_responses: Dict[str, str],
+    previous_responses: dict[str, str],
     task: str,
     context: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Run a single phase of the debate."""
     from aragora.core import Environment
 
@@ -447,7 +447,7 @@ Respond with your {phase.name} contribution. Be specific and actionable.
     return responses
 
 
-async def run_epic_debate() -> Dict[str, Any]:
+async def run_epic_debate() -> dict[str, Any]:
     """Run the full multi-phase strategic debate."""
     logger.info("\n" + "=" * 70)
     logger.info("ARAGORA EPIC STRATEGIC POSITIONING DEBATE")
@@ -507,7 +507,7 @@ async def run_epic_debate() -> Dict[str, Any]:
 # =============================================================================
 
 
-async def generate_debate_audio(result: Dict[str, Any], output_dir: Path) -> Optional[Path]:
+async def generate_debate_audio(result: dict[str, Any], output_dir: Path) -> Optional[Path]:
     """Generate ElevenLabs audio from debate result."""
     try:
         import httpx
@@ -647,7 +647,7 @@ Thank you for listening to Aragora Debates.
 # =============================================================================
 
 
-def save_results(result: Dict[str, Any], output_dir: Path):
+def save_results(result: dict[str, Any], output_dir: Path):
     """Save debate results to files."""
     output_dir.mkdir(parents=True, exist_ok=True)
 

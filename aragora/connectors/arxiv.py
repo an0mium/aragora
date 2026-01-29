@@ -8,6 +8,7 @@ Provides access to ArXiv's preprint repository for:
 
 The ArXiv API is free and requires no authentication.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +50,7 @@ ARXIV_CATEGORIES = {
     "econ": "Economics",
     "eess": "Electrical Engineering and Systems Science",
 }
+
 
 class ArXivConnector(BaseConnector):
     """
@@ -430,5 +432,6 @@ class ArXivConnector(BaseConnector):
     def get_categories(self) -> dict[str, str]:
         """Return available ArXiv category codes and descriptions."""
         return ARXIV_CATEGORIES.copy()
+
 
 __all__ = ["ArXivConnector", "ARXIV_CATEGORIES"]

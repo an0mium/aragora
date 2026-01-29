@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")  # Input type
 R = TypeVar("R")  # Result type
 
+
 class BatchItemStatus(Enum):
     """Status of an individual batch item."""
 
@@ -68,6 +69,7 @@ class BatchItemStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
+
 
 @dataclass
 class BatchConfig:
@@ -94,6 +96,7 @@ class BatchConfig:
     preserve_order: bool = True
     """Return results in original input order."""
 
+
 @dataclass
 class BatchItemResult(Generic[T, R]):
     """Result for a single batch item."""
@@ -118,6 +121,7 @@ class BatchItemResult(Generic[T, R]):
 
     attempts: int = 0
     """Number of processing attempts."""
+
 
 @dataclass
 class BatchResult(Generic[T, R]):
@@ -163,6 +167,7 @@ class BatchResult(Generic[T, R]):
     def errors(self) -> list[tuple[int, Exception]]:
         """Get all errors with their indices."""
         return [(item.index, item.error) for item in self.items if item.error is not None]
+
 
 async def llm_batch(
     items: list[T],
@@ -218,6 +223,7 @@ async def llm_batch(
     )
 
     return batch_result.results
+
 
 async def llm_batch_detailed(
     items: list[T],
@@ -356,6 +362,7 @@ async def llm_batch_detailed(
 
     return batch_result
 
+
 async def llm_batch_with_progress(
     items: list[T],
     process_fn: Callable[[T], Awaitable[R]],
@@ -398,7 +405,9 @@ async def llm_batch_with_progress(
 
     return batch_result
 
+
 # Convenience functions for common patterns
+
 
 async def batch_map(
     items: list[T],
@@ -411,6 +420,7 @@ async def batch_map(
     Simple wrapper around llm_batch for map-style operations.
     """
     return await llm_batch(items, fn, max_concurrent=concurrency)
+
 
 async def batch_filter(
     items: list[T],
@@ -432,6 +442,7 @@ async def batch_filter(
     )
 
     return [item for item, passed in results if passed]
+
 
 async def batch_first(
     items: list[T],
@@ -459,6 +470,7 @@ async def batch_first(
     )
 
     return found[0] if found else None
+
 
 async def batch_race(
     callables: list[Callable[[], Awaitable[R]]],
@@ -494,6 +506,7 @@ async def batch_race(
     )
 
     return winners[0] if winners else None
+
 
 __all__ = [
     # Core types

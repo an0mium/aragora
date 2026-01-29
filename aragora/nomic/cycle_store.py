@@ -21,6 +21,7 @@ from aragora.nomic.cycle_record import NomicCycleRecord
 
 logger = logging.getLogger(__name__)
 
+
 class CycleLearningStore:
     """SQLite-backed storage for Nomic cycle records.
 
@@ -375,8 +376,10 @@ class CycleLearningStore:
         finally:
             conn.close()
 
+
 # Module-level singleton
 _cycle_store: CycleLearningStore | None = None
+
 
 def get_cycle_store() -> CycleLearningStore:
     """Get or create the singleton CycleLearningStore instance."""
@@ -385,9 +388,11 @@ def get_cycle_store() -> CycleLearningStore:
         _cycle_store = CycleLearningStore()
     return _cycle_store
 
+
 def save_cycle(record: NomicCycleRecord) -> None:
     """Convenience function to save a cycle."""
     get_cycle_store().save_cycle(record)
+
 
 def get_recent_cycles(n: int = 10) -> list[NomicCycleRecord]:
     """Convenience function to get recent cycles."""

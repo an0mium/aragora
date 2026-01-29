@@ -539,7 +539,7 @@ class TestConcurrentMemoryAccess:
         """Verify concurrent writes succeed with WAL mode."""
         import threading
 
-        errors: List[Exception] = []
+        errors: list[Exception] = []
         write_count = 50
 
         def write_entry(entry_id: int):
@@ -577,7 +577,7 @@ class TestConcurrentMemoryAccess:
         """Verify concurrent read and write operations succeed."""
         import threading
 
-        errors: List[Exception] = []
+        errors: list[Exception] = []
 
         # Pre-populate some entries
         conn = sqlite3.connect(str(temp_db))

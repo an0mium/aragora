@@ -1,6 +1,7 @@
 """
 Folder scanner for recursive directory traversal with filtering.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +18,7 @@ from .config import (
     FolderUploadConfig,
 )
 from .filters import PatternMatcher, SizeFilter
+
 
 class FolderScanner:
     """
@@ -411,6 +413,7 @@ class FolderScanner:
                     reason=ExclusionReason.PERMISSION,
                     details="Permission denied",
                 )
+
 
 def get_folder_scanner(config: FolderUploadConfig | None = None) -> FolderScanner:
     """

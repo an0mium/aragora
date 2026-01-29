@@ -50,7 +50,7 @@ class MockContradiction:
     severity: str
     status: str = "unresolved"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "item_a_id": self.item_a_id,
@@ -67,9 +67,9 @@ class MockContradictionReport:
 
     workspace_id: str
     contradictions_found: int
-    contradictions: List[MockContradiction] = field(default_factory=list)
+    contradictions: list[MockContradiction] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "workspace_id": self.workspace_id,
             "contradictions_found": self.contradictions_found,

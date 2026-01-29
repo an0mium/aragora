@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SlackActivitySignal:
     """Signal from Slack activity."""
@@ -58,6 +59,7 @@ class SlackActivitySignal:
     last_activity: datetime | None = None
     activity_score: float = 0.0
 
+
 @dataclass
 class DriveActivitySignal:
     """Signal from Google Drive activity."""
@@ -68,6 +70,7 @@ class DriveActivitySignal:
     shared_with_me_recent: list[str] = field(default_factory=list)
     activity_score: float = 0.0
 
+
 @dataclass
 class CalendarSignal:
     """Signal from Google Calendar."""
@@ -77,6 +80,7 @@ class CalendarSignal:
     busy_periods: list[tuple[datetime, datetime]] = field(default_factory=list)
     next_free_slot: datetime | None = None
     meeting_density_score: float = 0.0  # 0=free, 1=back-to-back meetings
+
 
 @dataclass
 class ChannelContext:
@@ -143,6 +147,7 @@ class ChannelContext:
             ),
         }
 
+
 @dataclass
 class EmailContextBoost:
     """Context-based priority boosts for an email."""
@@ -168,6 +173,7 @@ class EmailContextBoost:
     def total_boost(self) -> float:
         """Total combined boost."""
         return self.slack_activity_boost + self.drive_relevance_boost + self.calendar_urgency_boost
+
 
 class CrossChannelContextService:
     """
@@ -656,6 +662,7 @@ class CrossChannelContextService:
         except Exception as e:
             logger.warning(f"Failed to load mappings from store: {e}")
             return 0
+
 
 # Factory function for easy instantiation
 async def create_context_service(

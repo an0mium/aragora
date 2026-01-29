@@ -417,7 +417,9 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
                 for adapter_name, result in results.items():
                     status = result.get("status", "unknown")
-                    record_km_adapter_sync(adapter_name, "to_mound", str(status), duration_ms / 1000)
+                    record_km_adapter_sync(
+                        adapter_name, "to_mound", str(status), duration_ms / 1000
+                    )
             except ImportError:
                 pass
 

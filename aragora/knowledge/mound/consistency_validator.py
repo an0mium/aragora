@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ConsistencyCheckType(str, Enum):
     """Types of consistency checks available."""
 
@@ -38,6 +39,7 @@ class ConsistencyCheckType(str, Enum):
     SYNC = "sync"  # Adapter synchronization status
     ALL = "all"  # Run all checks
 
+
 class ConsistencySeverity(str, Enum):
     """Severity levels for consistency issues."""
 
@@ -46,6 +48,7 @@ class ConsistencySeverity(str, Enum):
     MEDIUM = "medium"  # Issues that should be addressed
     LOW = "low"  # Minor issues, cosmetic
     INFO = "info"  # Informational, no action required
+
 
 @dataclass
 class ConsistencyIssue:
@@ -73,6 +76,7 @@ class ConsistencyIssue:
             "auto_fixable": self.auto_fixable,
         }
 
+
 @dataclass
 class ConsistencyCheckResult:
     """Result of a single consistency check."""
@@ -96,6 +100,7 @@ class ConsistencyCheckResult:
             "duration_ms": round(self.duration_ms, 2),
             "error": self.error,
         }
+
 
 @dataclass
 class ConsistencyReport:
@@ -153,6 +158,7 @@ class ConsistencyReport:
             self.overall_healthy = False
         if self.critical_issues > 0 or self.high_issues > 0:
             self.overall_healthy = False
+
 
 class ConsistencyValidator:
     """
@@ -820,6 +826,7 @@ class ConsistencyValidator:
                 "failed": fixes_failed,
             },
         }
+
 
 __all__ = [
     "ConsistencyValidator",

@@ -44,6 +44,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class RLMProtocol(Protocol):
     """Protocol defining expected interface for RLM mixin."""
 
@@ -59,6 +60,7 @@ class RLMProtocol(Protocol):
         min_confidence: float = 0.0,
         workspace_id: str | None = None,
     ) -> list["KnowledgeItem"]: ...
+
 
 class RLMOperationsMixin:
     """Mixin providing RLM operations for KnowledgeMound."""

@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 P = ParamSpec("P")
 
+
 class RetryStrategy(str, Enum):
     """Retry backoff strategies."""
 
@@ -60,6 +61,7 @@ class RetryStrategy(str, Enum):
     LINEAR = "linear"  # n * base_delay
     CONSTANT = "constant"  # base_delay always
     FIBONACCI = "fibonacci"  # Fibonacci sequence * base_delay
+
 
 class JitterMode(str, Enum):
     """Jitter application modes to prevent thundering herd."""
@@ -69,6 +71,7 @@ class JitterMode(str, Enum):
     MULTIPLICATIVE = "multiplicative"  # delay * random(1-jitter_factor, 1+jitter_factor)
     FULL = "full"  # random(0, delay) - decorrelated jitter
 
+
 # Default exceptions that are considered retryable
 DEFAULT_RETRYABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     ConnectionError,
@@ -76,6 +79,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: tuple[type[Exception], ...] = (
     OSError,
     IOError,
 )
+
 
 @dataclass
 class RetryConfig:
@@ -102,6 +106,13 @@ class RetryConfig:
     retryable_exceptions: tuple[type[Exception], ...] = DEFAULT_RETRYABLE_EXCEPTIONS
     on_retry: Optional[Callable[[int, Exception, float], None]] = None
     should_retry: Optional[Callable[[Exception], bool]] = None
+    # Backward-compat alias: jitter=True maps to MULTIPLICATIVE, False to NONE
+    jitter: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        """Apply backward-compat jitter alias if set."""
+        if self.jitter is not None:
+            self.jitter_mode = JitterMode.MULTIPLICATIVE if self.jitter else JitterMode.NONE
 
     def calculate_delay(self, attempt: int) -> float:
         """Calculate delay for a given attempt number (0-indexed).
@@ -133,6 +144,7 @@ class RetryConfig:
         if self.should_retry is not None:
             return self.should_retry(exception)
         return isinstance(exception, self.retryable_exceptions)
+
 
 def calculate_backoff_delay(
     attempt: int,
@@ -185,6 +197,7 @@ def calculate_backoff_delay(
 
     return max(0, delay)
 
+
 def _fibonacci(n: int) -> int:
     """Calculate nth Fibonacci number."""
     if n <= 0:
@@ -195,6 +208,7 @@ def _fibonacci(n: int) -> int:
     for _ in range(2, n + 1):
         a, b = b, a + b
     return b
+
 
 class ExponentialBackoff:
     """Iterator-based exponential backoff for manual retry loops.
@@ -253,6 +267,7 @@ class ExponentialBackoff:
     def reset(self) -> None:
         """Reset the backoff iterator."""
         self._attempt = 0
+
 
 def with_retry(
     config: RetryConfig | None = None,
@@ -329,6 +344,7 @@ def with_retry(
         return wrapper
 
     return decorator
+
 
 def with_retry_sync(
     config: RetryConfig | None = None,

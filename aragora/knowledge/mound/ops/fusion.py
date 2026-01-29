@@ -37,6 +37,7 @@ from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
+
 class FusionStrategy(Enum):
     """Strategy for fusing multiple adapter validations."""
 
@@ -57,6 +58,7 @@ class FusionStrategy(Enum):
 
     MEDIAN = "median"
     """Use the median confidence value across adapters."""
+
 
 class ConflictResolution(Enum):
     """Strategy for resolving conflicting adapter validations."""
@@ -79,6 +81,7 @@ class ConflictResolution(Enum):
     ESCALATE = "escalate"
     """Escalate to human review when conflicts cannot be resolved."""
 
+
 class FusionOutcome(Enum):
     """Outcome of a fusion operation."""
 
@@ -96,6 +99,7 @@ class FusionOutcome(Enum):
 
     INSUFFICIENT_DATA = "insufficient_data"
     """Not enough adapter validations to perform fusion."""
+
 
 @dataclass
 class AdapterValidation:
@@ -145,6 +149,7 @@ class AdapterValidation:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class FusedValidation:
@@ -215,6 +220,7 @@ class FusedValidation:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class FusionConfig:
     """Configuration for fusion operations."""
@@ -249,6 +255,7 @@ class FusionConfig:
     max_escalation_wait_seconds: float = 86400.0
     """Maximum time to wait for escalation resolution (24 hours)."""
 
+
 class AdapterFusionCapable(Protocol):
     """Protocol for adapters that support fusion operations."""
 
@@ -266,6 +273,7 @@ class AdapterFusionCapable(Protocol):
     def supports_fusion(self) -> bool:
         """Return whether this adapter supports fusion operations."""
         ...
+
 
 class AdapterFusionProtocol(ABC):
     """Abstract base class for fusion-capable adapters.
@@ -340,6 +348,7 @@ class AdapterFusionProtocol(ABC):
             True if the result was successfully applied.
         """
         raise NotImplementedError(f"{self.adapter_name} must implement apply_fused_result()")
+
 
 class FusionCoordinator:
     """Coordinates fusion operations across multiple adapters.
@@ -730,8 +739,10 @@ class FusionCoordinator:
             counts[strategy] = counts.get(strategy, 0) + 1
         return counts
 
+
 # Singleton coordinator instance
 _fusion_coordinator: FusionCoordinator | None = None
+
 
 def get_fusion_coordinator(config: FusionConfig | None = None) -> FusionCoordinator:
     """Get or create the singleton fusion coordinator.
@@ -746,6 +757,7 @@ def get_fusion_coordinator(config: FusionConfig | None = None) -> FusionCoordina
     if _fusion_coordinator is None:
         _fusion_coordinator = FusionCoordinator(config)
     return _fusion_coordinator
+
 
 __all__ = [
     # Enums

@@ -170,11 +170,19 @@ class AsyncBatchAPI:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Submit a batch of debates for processing."""
-        data: dict[str, Any] = {"debates": debates}
+        items = []
+        for item in debates:
+            if priority and "priority" not in item:
+                item = {**item, "priority": priority}
+            if metadata and "metadata" not in item:
+                item = {**item, "metadata": metadata}
+            items.append(item)
+
+        data: dict[str, Any] = {"items": items}
         if priority:
             data["priority"] = priority
         if callback_url:
-            data["callback_url"] = callback_url
+            data["webhook_url"] = callback_url
         if metadata:
             data["metadata"] = metadata
 

@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SyncStatus(Enum):
     """Status of a sync operation."""
 
@@ -35,6 +36,7 @@ class SyncStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class SyncState:
@@ -128,6 +130,7 @@ class SyncState:
             logger.warning(f"Failed to load sync state from {path}: {e}")
             return None
 
+
 @dataclass
 class SyncResult:
     """Result of a sync operation."""
@@ -161,6 +164,7 @@ class SyncResult:
             "new_cursor": self.new_cursor,
         }
 
+
 # Import credential providers from dedicated module
 try:
     from aragora.connectors.credentials import (
@@ -185,6 +189,7 @@ except ImportError:
     def get_credential_provider(**kwargs) -> "EnvCredentialProvider":  # type: ignore[misc,no-redef]
         return EnvCredentialProvider()
 
+
 class EnvCredentialProvider:
     """Credential provider using environment variables (backwards compatibility)."""
 
@@ -200,6 +205,7 @@ class EnvCredentialProvider:
         """Set credential as environment variable (in-memory only)."""
         env_key = f"{self.prefix}{key.upper()}"
         os.environ[env_key] = value
+
 
 @dataclass
 class SyncItem:
@@ -269,6 +275,7 @@ class SyncItem:
         if self.content_hash:
             return self.content_hash
         return hashlib.sha256(self.content.encode("utf-8")).hexdigest()
+
 
 class EnterpriseConnector(BaseConnector):
     """

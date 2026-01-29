@@ -37,6 +37,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 @dataclass
 class PostDebateConfig:
     """Configuration for post-debate workflow."""
@@ -46,6 +47,7 @@ class PostDebateConfig:
     notify_webhook: str | None = None  # Optional webhook URL
     generate_summary: bool = True  # Generate human-readable summary
     workspace_id: str | None = None  # Target workspace for storage
+
 
 class PostDebatePattern(WorkflowPattern):
     """
@@ -309,6 +311,7 @@ class PostDebatePattern(WorkflowPattern):
         pattern = cls(name=name, config=config, **kwargs)
         return pattern.create_workflow()
 
+
 def get_default_post_debate_workflow(
     workspace_id: str | None = None,
 ) -> WorkflowDefinition:
@@ -331,6 +334,7 @@ def get_default_post_debate_workflow(
         generate_summary=True,
         workspace_id=workspace_id,
     )
+
 
 __all__ = [
     "PostDebatePattern",

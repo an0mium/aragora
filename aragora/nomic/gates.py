@@ -9,6 +9,7 @@ Gate Types:
 - TestQualityGate: Validates test quality thresholds after verification
 - CommitGate: Structured approval before committing changes
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -51,6 +52,7 @@ DEFAULT_DANGEROUS_PATTERNS = [
     "compile(",
 ]
 
+
 @dataclass
 class GateConfig:
     """Configuration for simple gate functions."""
@@ -61,8 +63,10 @@ class GateConfig:
     max_lines: int = 1000
     max_duration_seconds: int = 600
 
+
 # Module-level config (can be overridden in tests)
 _gate_config: GateConfig | None = None
+
 
 def _get_config() -> GateConfig:
     """Get the current gate configuration."""
@@ -70,6 +74,7 @@ def _get_config() -> GateConfig:
     if _gate_config is None:
         _gate_config = GateConfig()
     return _gate_config
+
 
 def is_protected_file(file_path: str) -> bool:
     """
@@ -97,6 +102,7 @@ def is_protected_file(file_path: str) -> bool:
             return True
 
     return False
+
 
 def check_change_volume(
     files_changed: list[str],
@@ -139,6 +145,7 @@ def check_change_volume(
 
     return {"allowed": True, "reason": ""}
 
+
 def check_dangerous_patterns(code: str) -> dict[str, Any]:
     """
     Check for dangerous code patterns.
@@ -162,6 +169,7 @@ def check_dangerous_patterns(code: str) -> dict[str, Any]:
         "safe": len(patterns_found) == 0,
         "patterns_found": patterns_found,
     }
+
 
 def check_resource_limits(
     estimated_duration_seconds: int,
@@ -189,6 +197,7 @@ def check_resource_limits(
         }
 
     return {"allowed": True, "reason": ""}
+
 
 def check_all_gates(changes: dict[str, Any]) -> dict[str, Any]:
     """
@@ -240,9 +249,11 @@ def check_all_gates(changes: dict[str, Any]) -> dict[str, Any]:
         "blocked_by": blocked_by,
     }
 
+
 # =============================================================================
 # Approval Gate Classes (structured decision points)
 # =============================================================================
+
 
 class ApprovalStatus(Enum):
     """Status of a gate approval."""
@@ -252,12 +263,14 @@ class ApprovalStatus(Enum):
     REJECTED = "rejected"
     SKIPPED = "skipped"  # When gates are disabled
 
+
 class GateType(Enum):
     """Types of approval gates."""
 
     DESIGN = "design"
     TEST_QUALITY = "test_quality"
     COMMIT = "commit"
+
 
 @dataclass
 class ApprovalDecision:
@@ -283,6 +296,7 @@ class ApprovalDecision:
             "metadata": self.metadata,
         }
 
+
 class ApprovalRequired(Exception):
     """Raised when a gate requires approval before proceeding."""
 
@@ -297,6 +311,7 @@ class ApprovalRequired(Exception):
         self.artifact = artifact
         self.recoverable = recoverable
         super().__init__(f"[{gate_type.value}] Approval required: {message}")
+
 
 class ApprovalGate(ABC):
     """
@@ -404,6 +419,7 @@ class ApprovalGate(ABC):
     def get_decisions(self) -> list[ApprovalDecision]:
         """Get all decisions made by this gate."""
         return self._decisions.copy()
+
 
 class DesignGate(ApprovalGate):
     """
@@ -523,6 +539,7 @@ class DesignGate(ApprovalGate):
         response = input("\nApprove this design? [y/N]: ")
         return response.lower() == "y"
 
+
 class TestQualityGate(ApprovalGate):
     """
     Gate that validates test quality after verification.
@@ -615,6 +632,7 @@ class TestQualityGate(ApprovalGate):
                 "warnings_count": warnings_count,
             },
         )
+
 
 class CommitGate(ApprovalGate):
     """
@@ -736,6 +754,7 @@ class CommitGate(ApprovalGate):
         response = input("\nCommit these changes? [y/N]: ")
         return response.lower() == "y"
 
+
 # Gate factory for common configurations
 def create_standard_gates(
     aragora_path: Path | None = None,
@@ -767,6 +786,7 @@ def create_standard_gates(
             aragora_path=aragora_path,
         ),
     }
+
 
 __all__ = [
     # Simple gate functions

@@ -22,6 +22,7 @@ EventData = dict[str, Any]
 EventHandlerProtocol = Callable[[Any], Coroutine[Any, Any, None]]
 SyncEventHandlerProtocol = Callable[[Any], None]
 
+
 @runtime_checkable
 class EventEmitterProtocol(Protocol):
     """
@@ -82,6 +83,7 @@ class EventEmitterProtocol(Protocol):
         """Emit an event synchronously."""
         ...
 
+
 @runtime_checkable
 class StorageProtocol(Protocol):
     """
@@ -106,6 +108,7 @@ class StorageProtocol(Protocol):
         """Check if a key exists."""
         ...
 
+
 @runtime_checkable
 class CacheProtocol(Protocol):
     """
@@ -129,6 +132,7 @@ class CacheProtocol(Protocol):
     def clear(self) -> None:
         """Clear all cached values."""
         ...
+
 
 @runtime_checkable
 class AgentProtocol(Protocol):
@@ -155,6 +159,7 @@ class AgentProtocol(Protocol):
     ) -> str:
         """Generate a response to a prompt."""
         ...
+
 
 @runtime_checkable
 class MemoryProtocol(Protocol):

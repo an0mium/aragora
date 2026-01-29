@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SyncManager:
     """
     Orchestrates directory synchronization with document storage.
@@ -380,6 +381,7 @@ class SyncManager:
             except Exception as e:
                 logger.error(f"Failed to delete {change.path}: {e}")
                 raise
+
 
 __all__ = [
     "SyncManager",

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class StoredTemplate:
     """Template stored in the marketplace."""
@@ -75,6 +76,7 @@ class StoredTemplate:
         result["workflow_definition"] = self.workflow_definition
         return result
 
+
 @dataclass
 class StoredReview:
     """Review stored in the marketplace."""
@@ -102,6 +104,7 @@ class StoredReview:
             "helpful_count": self.helpful_count,
             "created_at": self.created_at,
         }
+
 
 class MarketplaceStore(SQLiteStore):
     """
@@ -812,6 +815,7 @@ class MarketplaceStore(SQLiteStore):
             created_at=row[8],
         )
 
+
 class PostgresMarketplaceStore:
     """
     PostgreSQL-backed marketplace store.
@@ -1496,8 +1500,10 @@ class PostgresMarketplaceStore:
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # Default instance
 _marketplace_store: Optional[MarketplaceStore | PostgresMarketplaceStore] = None
+
 
 def get_marketplace_store() -> MarketplaceStore | PostgresMarketplaceStore:
     """
@@ -1547,15 +1553,18 @@ def get_marketplace_store() -> MarketplaceStore | PostgresMarketplaceStore:
 
     return _marketplace_store
 
+
 def set_marketplace_store(store: MarketplaceStore | PostgresMarketplaceStore) -> None:
     """Set a custom marketplace store instance."""
     global _marketplace_store
     _marketplace_store = store
 
+
 def reset_marketplace_store() -> None:
     """Reset the global marketplace store (for testing)."""
     global _marketplace_store
     _marketplace_store = None
+
 
 __all__ = [
     "StoredTemplate",

@@ -33,22 +33,28 @@ if "aragora.server.handlers.social._slack_impl" not in sys.modules:
 # Bypass RBAC decorator by patching it before import
 def _bypass_require_permission(permission):
     """No-op decorator for testing."""
+
     def decorator(func):
         return func
+
     return decorator
 
 
 # Also bypass ttl_cache to avoid caching issues in tests
 def _bypass_ttl_cache(**kwargs):
     """No-op decorator for testing."""
+
     def decorator(func):
         return func
+
     return decorator
 
 
 # Patch decorators before importing the mixin
 patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
-patch("aragora.server.handlers.knowledge_base.search.require_permission", _bypass_require_permission).start()
+patch(
+    "aragora.server.handlers.knowledge_base.search.require_permission", _bypass_require_permission
+).start()
 patch("aragora.server.handlers.base.ttl_cache", _bypass_ttl_cache).start()
 patch("aragora.server.handlers.knowledge_base.search.ttl_cache", _bypass_ttl_cache).start()
 
@@ -60,7 +66,7 @@ from aragora.server.handlers.knowledge_base.search import (
 )
 
 
-def parse_response(result) -> Dict[str, Any]:
+def parse_response(result) -> dict[str, Any]:
     """Parse HandlerResult body to dict."""
     body = result.body
     if isinstance(body, bytes):
@@ -80,9 +86,9 @@ class MockSearchResult:
     chunk_id: str
     content: str
     score: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "chunk_id": self.chunk_id,
             "content": self.content,
@@ -94,13 +100,11 @@ class MockSearchResult:
 class MockQueryEngine:
     """Mock query engine for testing."""
 
-    def __init__(self, results: Optional[List[MockSearchResult]] = None):
+    def __init__(self, results: Optional[list[MockSearchResult]] = None):
         self._results = results or []
         self._search_error: Optional[Exception] = None
 
-    async def search(
-        self, query: str, workspace_id: str, limit: int
-    ) -> List[MockSearchResult]:
+    async def search(self, query: str, workspace_id: str, limit: int) -> list[MockSearchResult]:
         if self._search_error:
             raise self._search_error
         return self._results[:limit]
@@ -109,14 +113,14 @@ class MockQueryEngine:
 class MockFactStore:
     """Mock fact store for testing."""
 
-    def __init__(self, stats: Optional[Dict[str, Any]] = None):
+    def __init__(self, stats: Optional[dict[str, Any]] = None):
         self._stats = stats or {
             "total_chunks": 100,
             "total_facts": 50,
             "indexed_workspaces": 3,
         }
 
-    def get_statistics(self, workspace_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_statistics(self, workspace_id: Optional[str] = None) -> dict[str, Any]:
         result = self._stats.copy()
         if workspace_id:
             result["workspace_id"] = workspace_id

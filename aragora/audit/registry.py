@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AuditTypeInfo:
     """Information about a registered audit type."""
@@ -47,6 +48,7 @@ class AuditTypeInfo:
     author: str
     capabilities: dict[str, Any]
     is_builtin: bool = True
+
 
 @dataclass
 class PresetConfig:
@@ -79,6 +81,7 @@ class PresetConfig:
         """Load preset from YAML file."""
         with open(path, "r") as f:
             return cls.from_yaml(f.read())
+
 
 class AuditRegistry:
     """
@@ -514,22 +517,28 @@ class AuditRegistry:
         self._presets.clear()
         self._legacy_auditors.clear()
 
+
 # Global registry instance
 audit_registry = AuditRegistry()
+
 
 def get_registry() -> AuditRegistry:
     """Get the global audit registry."""
     return audit_registry
 
+
 # Convenience functions
+
 
 def register_auditor(auditor: "BaseAuditor", override: bool = False) -> None:
     """Register an auditor with the global registry."""
     audit_registry.register(auditor, override=override)
 
+
 def get_auditor(audit_type_id: str) -> Optional["BaseAuditor"]:
     """Get an auditor from the global registry."""
     return audit_registry.get(audit_type_id)
+
 
 def list_audit_types() -> list[AuditTypeInfo]:
     """List all audit types in the global registry."""

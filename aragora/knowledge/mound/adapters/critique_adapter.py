@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Reverse Flow Dataclasses (KM → CritiqueStore)
 # ============================================================================
 
+
 @dataclass
 class KMPatternBoost:
     """Result of boosting a critique pattern from KM validation."""
@@ -39,6 +40,7 @@ class KMPatternBoost:
     was_applied: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class KMReputationAdjustment:
     """KM-driven reputation adjustment for an agent."""
@@ -49,6 +51,7 @@ class KMReputationAdjustment:
     km_confidence: float = 0.7
     recommendation: str = "keep"  # "boost", "penalize", "keep"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class KMPatternValidation:
@@ -62,6 +65,7 @@ class KMPatternValidation:
     boost_amount: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class CritiqueKMSyncResult:
     """Result of syncing KM validations to CritiqueStore."""
@@ -73,6 +77,7 @@ class CritiqueKMSyncResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
 
+
 @dataclass
 class CritiqueSearchResult:
     """Wrapper for critique pattern search results."""
@@ -80,6 +85,7 @@ class CritiqueSearchResult:
     pattern: "Pattern"
     relevance_score: float = 0.0
     matched_category: bool = False
+
 
 class CritiqueAdapter:
     """
@@ -792,6 +798,7 @@ class CritiqueAdapter:
         self._km_reputation_adjustments = 0
         self._km_validations = []
         self._pattern_usage = {}
+
 
 __all__ = [
     "CritiqueAdapter",

@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 _approval_request_store: Optional["ApprovalRequestStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 @dataclass
 class ApprovalRequestItem:
     """
@@ -141,6 +142,7 @@ class ApprovalRequestItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
+
 class ApprovalRequestStoreBackend(ABC):
     """Abstract base class for approval request storage backends."""
 
@@ -199,6 +201,7 @@ class ApprovalRequestStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
     """
@@ -289,6 +292,7 @@ class InMemoryApprovalRequestStore(ApprovalRequestStoreBackend):
     async def close(self) -> None:
         """No-op for in-memory store."""
         pass
+
 
 class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
     """
@@ -569,6 +573,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
+
 class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
     """
     Redis-backed approval request store with SQLite fallback.
@@ -828,6 +833,7 @@ class RedisApprovalRequestStore(ApprovalRequestStoreBackend):
                 logger.debug(f"Redis close failed (connection already closed): {e}")
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
+
 
 class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
     """
@@ -1115,6 +1121,7 @@ class PostgresApprovalRequestStore(ApprovalRequestStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 def get_approval_request_store() -> ApprovalRequestStoreBackend:
     """
     Get the global approval request store instance.
@@ -1159,6 +1166,7 @@ def get_approval_request_store() -> ApprovalRequestStoreBackend:
 
         return _approval_request_store
 
+
 def set_approval_request_store(store: ApprovalRequestStoreBackend) -> None:
     """Set a custom approval request store instance."""
     global _approval_request_store
@@ -1166,12 +1174,14 @@ def set_approval_request_store(store: ApprovalRequestStoreBackend) -> None:
     with _store_lock:
         _approval_request_store = store
 
+
 def reset_approval_request_store() -> None:
     """Reset the global approval request store (for testing)."""
     global _approval_request_store
 
     with _store_lock:
         _approval_request_store = None
+
 
 __all__ = [
     "ApprovalRequestItem",

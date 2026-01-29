@@ -48,6 +48,7 @@ ENDPOINT_CATEGORIES = {
     "/api/workflows": "workflows",
 }
 
+
 def _categorize_endpoint(path: str) -> str:
     """Categorize an endpoint path for metric labels."""
     for prefix, category in ENDPOINT_CATEGORIES.items():
@@ -59,6 +60,7 @@ def _categorize_endpoint(path: str) -> str:
     if len(parts) >= 2:
         return f"{parts[0]}.{parts[1]}"
     return "other"
+
 
 def _safe_record_request(
     method: str,
@@ -76,6 +78,7 @@ def _safe_record_request(
     except Exception as e:
         logger.debug(f"Failed to record request metrics: {e}")
 
+
 def _safe_start_span(name: str, attributes: Optional[dict[str, Any]] = None) -> Any:
     """Safely start a tracing span."""
     try:
@@ -91,6 +94,7 @@ def _safe_start_span(name: str, attributes: Optional[dict[str, Any]] = None) -> 
     except Exception as e:
         logger.debug(f"Failed to start span: {e}")
         return _NoOpContextManager()
+
 
 class _NoOpContextManager:
     """No-op context manager for when observability is disabled."""
@@ -109,6 +113,7 @@ class _NoOpContextManager:
 
     def record_exception(self, exc: BaseException) -> None:
         pass
+
 
 @contextmanager
 def track_request(
@@ -159,6 +164,7 @@ def track_request(
 
         if span and hasattr(span, "__exit__"):
             span.__exit__(None, None, None)
+
 
 def instrument_handler(
     name: str,
@@ -249,6 +255,7 @@ def instrument_handler(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
 
 class MetricsMiddleware:
     """Middleware for automatic handler instrumentation.
@@ -359,6 +366,7 @@ class MetricsMiddleware:
             if span and hasattr(span, "__exit__"):
                 span.__exit__(None, None, None)
 
+
 # Control Plane specific metrics recording functions
 def record_control_plane_operation(
     operation: str,
@@ -389,6 +397,7 @@ def record_control_plane_operation(
     except Exception as e:
         logger.debug(f"Failed to record control plane operation: {e}")
 
+
 def record_agent_registration(
     agent_id: str,
     success: bool,
@@ -400,6 +409,7 @@ def record_agent_registration(
         "success" if success else "failure",
         latency,
     )
+
 
 def record_task_submission(
     task_type: str,
@@ -413,6 +423,7 @@ def record_task_submission(
         latency,
     )
 
+
 def record_deliberation_start(
     request_id: str,
     agent_count: int,
@@ -422,6 +433,7 @@ def record_deliberation_start(
         "deliberation_start",
         "started",
     )
+
 
 def record_deliberation_complete(
     request_id: str,
@@ -446,6 +458,7 @@ def record_deliberation_complete(
         record_control_plane_operation("deliberation_sla", "compliant")
     else:
         record_control_plane_operation("deliberation_sla", "violated")
+
 
 __all__ = [
     # Decorators

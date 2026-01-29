@@ -323,7 +323,7 @@ class TestBackupRestorationDrill:
         backup_files = list(restore_path.parent.glob("existing.backup_*"))
         assert len(backup_files) == 1, "Should create backup of existing file"
 
-    def _get_table_counts(self, db_path: Path) -> Dict[str, int]:
+    def _get_table_counts(self, db_path: Path) -> dict[str, int]:
         """Get row counts for all tables."""
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
@@ -497,7 +497,7 @@ class TestDataIntegrityVerification:
         assert verification.verified
         assert verification.tables_valid or verification.row_counts_valid
 
-    def _get_schema(self, db_path: Path) -> Dict[str, str]:
+    def _get_schema(self, db_path: Path) -> dict[str, str]:
         """Extract table schemas from database."""
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
@@ -861,7 +861,7 @@ class TestEmergencyRecoveryScenarios:
         assert "users" in tables
         assert user_count == 100  # Original count
 
-    def _get_counts(self, db_path: Path) -> Dict[str, int]:
+    def _get_counts(self, db_path: Path) -> dict[str, int]:
         """Get row counts."""
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()

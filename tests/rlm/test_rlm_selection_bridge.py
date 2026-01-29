@@ -31,7 +31,7 @@ class MockCompressionResult:
     estimated_fidelity: float = 0.85
     time_seconds: float = 0.5
     cache_hits: int = 2
-    compression_ratio: Dict[str, float] = None
+    compression_ratio: dict[str, float] = None
 
     def __post_init__(self):
         if self.compression_ratio is None:
@@ -60,8 +60,8 @@ class MockSelectionFeedbackLoop:
     """Mock selection feedback loop for testing."""
 
     def __init__(self):
-        self._agents: Dict[str, MockAgentState] = {}
-        self._selection_adjustments: Dict[str, float] = {}
+        self._agents: dict[str, MockAgentState] = {}
+        self._selection_adjustments: dict[str, float] = {}
 
     def get_agent_state(self, agent_name: str) -> Optional[MockAgentState]:
         return self._agents.get(agent_name)

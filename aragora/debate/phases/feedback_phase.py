@@ -27,6 +27,7 @@ Arena._run_inner() method, handling post-debate updates:
 22. Selection feedback loop (performance → selection)
 23. Knowledge extraction (claims, relationships from debates)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -63,6 +64,7 @@ if TYPE_CHECKING:
     from aragora.memory.consensus import ConsensusStrength
 
 logger = logging.getLogger(__name__)
+
 
 class FeedbackPhase:
     """
@@ -133,9 +135,8 @@ class FeedbackPhase:
         enable_coordinated_writes: bool = True,  # Use coordinator instead of individual writes
         coordinator_options: Any | None = None,  # CoordinatorOptions for behavior
         # Selection Feedback Loop
-        selection_feedback_loop: 
-            Any
-         | None = None,  # SelectionFeedbackLoop for performance feedback
+        selection_feedback_loop: Any
+        | None = None,  # SelectionFeedbackLoop for performance feedback
         enable_performance_feedback: bool = True,  # Update selection weights based on performance
         # Post-debate workflow automation
         post_debate_workflow: Any | None = None,  # Workflow DAG to trigger after debates

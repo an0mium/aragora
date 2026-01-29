@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SyncStatus(Enum):
     """Status of a sync job."""
 
@@ -29,6 +30,7 @@ class SyncStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class RetryPolicy:
@@ -106,6 +108,7 @@ class RetryPolicy:
         # This shouldn't happen, but satisfy type checker
         raise RuntimeError("Unexpected retry state")
 
+
 @dataclass
 class SyncSchedule:
     """
@@ -165,6 +168,7 @@ class SyncSchedule:
             retry_delay_minutes=data.get("retry_delay_minutes", 5),
         )
 
+
 @dataclass
 class SyncHistory:
     """Record of a sync execution."""
@@ -202,6 +206,7 @@ class SyncHistory:
             "duration_seconds": self.duration_seconds,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class SyncJob:
@@ -279,6 +284,7 @@ class SyncJob:
             "next_run": self.next_run.isoformat() if self.next_run else None,
             "consecutive_failures": self.consecutive_failures,
         }
+
 
 class SyncScheduler:
     """

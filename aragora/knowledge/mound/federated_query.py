@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class QuerySource(str, Enum):
     """Available query sources (adapters)."""
 
@@ -45,6 +46,7 @@ class QuerySource(str, Enum):
     CONSENSUS = "consensus"
     CRITIQUE = "critique"
     ALL = "all"
+
 
 @dataclass
 class FederatedResult:
@@ -83,6 +85,7 @@ class FederatedResult:
             "adapter_metadata": self.adapter_metadata,
         }
 
+
 @dataclass
 class FederatedQueryResult:
     """Result of a federated query across adapters."""
@@ -109,6 +112,7 @@ class FederatedQueryResult:
             "errors": self.errors,
         }
 
+
 @dataclass
 class AdapterRegistration:
     """Registration info for an adapter."""
@@ -120,8 +124,10 @@ class AdapterRegistration:
     weight: float = 1.0  # Weight for ranking results
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 # Type for custom relevance scoring functions
 RelevanceScorer = Callable[[Any, str], float]
+
 
 class EmbeddingRelevanceScorer:
     """
@@ -310,6 +316,7 @@ class EmbeddingRelevanceScorer:
         except (ImportError, ValueError, TypeError, ZeroDivisionError) as e:
             logger.debug(f"Cosine similarity failed: {e}")
             return self._keyword_score(item, query)
+
 
 class FederatedQueryAggregator:
     """
@@ -685,6 +692,7 @@ class FederatedQueryAggregator:
     def get_registered_sources(self) -> list[str]:
         """Get list of registered source names."""
         return [s.value for s in self._adapters.keys()]
+
 
 __all__ = [
     "FederatedQueryAggregator",

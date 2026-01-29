@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 _ar_automation: Any | None = None
 _ar_automation_lock = threading.Lock()
 
+
 def get_ar_automation():
     """Get or create AR automation service (thread-safe singleton)."""
     global _ar_automation
@@ -56,9 +57,11 @@ def get_ar_automation():
             _ar_automation = ARAutomation()
         return _ar_automation
 
+
 # =============================================================================
 # Invoice Management
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_create_invoice(
@@ -119,6 +122,7 @@ async def handle_create_invoice(
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
 
+
 @require_permission("ar:read")
 async def handle_list_invoices(
     data: dict[str, Any],
@@ -177,6 +181,7 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
+
 @require_permission("ar:read")
 async def handle_get_invoice(
     data: dict[str, Any],
@@ -200,6 +205,7 @@ async def handle_get_invoice(
     except Exception as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
+
 
 @require_permission("finance:write")
 async def handle_send_invoice(
@@ -234,6 +240,7 @@ async def handle_send_invoice(
     except Exception as e:
         logger.exception(f"Error sending invoice {invoice_id}")
         return error_response(f"Failed to send invoice: {e}", status=500)
+
 
 @require_permission("ar:read")
 async def handle_send_reminder(
@@ -278,6 +285,7 @@ async def handle_send_reminder(
     except Exception as e:
         logger.exception(f"Error sending reminder for invoice {invoice_id}")
         return error_response(f"Failed to send reminder: {e}", status=500)
+
 
 @require_permission("finance:write")
 async def handle_record_payment(
@@ -330,9 +338,11 @@ async def handle_record_payment(
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
 
+
 # =============================================================================
 # AR Reporting
 # =============================================================================
+
 
 @require_permission("ar:read")
 async def handle_get_aging_report(
@@ -360,6 +370,7 @@ async def handle_get_aging_report(
         logger.exception("Error generating aging report")
         return error_response(f"Failed to generate aging report: {e}", status=500)
 
+
 @require_permission("ar:read")
 async def handle_get_collections(
     data: dict[str, Any],
@@ -386,9 +397,11 @@ async def handle_get_collections(
         logger.exception("Error getting collection suggestions")
         return error_response(f"Failed to get suggestions: {e}", status=500)
 
+
 # =============================================================================
 # Customer Management
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_add_customer(
@@ -437,6 +450,7 @@ async def handle_add_customer(
         logger.exception("Error adding customer")
         return error_response(f"Failed to add customer: {e}", status=500)
 
+
 @require_permission("ar:read")
 async def handle_get_customer_balance(
     data: dict[str, Any],
@@ -464,9 +478,11 @@ async def handle_get_customer_balance(
         logger.exception(f"Error getting balance for customer {customer_id}")
         return error_response(f"Failed to get balance: {e}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 class ARAutomationHandler(BaseHandler):
     """Handler class for AR automation endpoints."""

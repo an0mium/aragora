@@ -8,6 +8,7 @@ Provides:
 - Merkle tree verification for batch integrity
 - Export to JSON, Markdown, and HTML
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,6 +32,7 @@ from aragora.reasoning.provenance import (
     SourceType,
     TransformationType,
 )
+
 
 class GenesisEventType(Enum):
     """Types of events in the genesis ledger."""
@@ -58,6 +60,7 @@ class GenesisEventType(Enum):
     POPULATION_CREATED = "population_created"
     POPULATION_EVOLVED = "population_evolved"
     GENERATION_ADVANCE = "generation_advance"
+
 
 @dataclass
 class GenesisEvent:
@@ -109,6 +112,7 @@ class GenesisEvent:
             data=data.get("data", {}),
         )
 
+
 @dataclass
 class FractalTree:
     """Tree structure of debates and sub-debates."""
@@ -152,6 +156,7 @@ class FractalTree:
             }
 
         return build_subtree(self.root_id)
+
 
 class GenesisLedger:
     """

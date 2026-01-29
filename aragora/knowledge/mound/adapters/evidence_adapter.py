@@ -44,20 +44,24 @@ try:
 except ImportError:
     SLO_AVAILABLE = False
 
+
 class EvidenceAdapterError(Exception):
     """Base exception for evidence adapter errors."""
 
     pass
+
 
 class EvidenceStoreUnavailableError(EvidenceAdapterError):
     """Raised when evidence store is not configured."""
 
     pass
 
+
 class EvidenceNotFoundError(EvidenceAdapterError):
     """Raised when evidence item is not found."""
 
     pass
+
 
 @dataclass
 class EvidenceSearchResult:
@@ -70,6 +74,7 @@ class EvidenceSearchResult:
     def __post_init__(self) -> None:
         if self.matched_topics is None:
             self.matched_topics = []
+
 
 class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -815,6 +820,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         except Exception as e:
             logger.error(f"Failed to get debate evidence for {debate_id}: {e}")
             raise EvidenceAdapterError(f"Debate evidence retrieval failed: {e}") from e
+
 
 __all__ = [
     "EvidenceAdapter",

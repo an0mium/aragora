@@ -128,6 +128,7 @@ SERVICENOW_TABLES = {
     },
 }
 
+
 @dataclass
 class ServiceNowRecord:
     """A ServiceNow record."""
@@ -151,6 +152,7 @@ class ServiceNowRecord:
     url: str = ""
     additional_fields: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ServiceNowComment:
     """A ServiceNow work note or comment."""
@@ -160,6 +162,7 @@ class ServiceNowComment:
     value: str
     author: str = ""
     created_at: datetime | None = None
+
 
 class ServiceNowConnector(EnterpriseConnector):
     """
@@ -879,5 +882,6 @@ class ServiceNowConnector(EnterpriseConnector):
                 "department": record.get("department", {}).get("display_value", ""),
             }
         return None
+
 
 __all__ = ["ServiceNowConnector", "ServiceNowRecord", "ServiceNowComment", "SERVICENOW_TABLES"]

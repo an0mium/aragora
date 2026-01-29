@@ -83,6 +83,7 @@ Rate each finding:
 # Combined default prompt
 DEFAULT_FOCUS_AREAS = ["security", "performance", "quality"]
 
+
 def get_focus_prompts(focus_areas: list[str] | None = None) -> str:
     """Get combined focus prompts for specified areas.
 
@@ -104,6 +105,7 @@ def get_focus_prompts(focus_areas: list[str] | None = None) -> str:
         prompts.append(QUALITY_PROMPT)
 
     return "\n\n".join(prompts)
+
 
 def build_review_prompt(
     diff: str,
@@ -163,6 +165,7 @@ For each issue found, provide:
 
 Begin your review:"""
 
+
 # Agent role-specific prompts
 SECURITY_REVIEWER_ROLE = """
 You are a senior security engineer specializing in application security.
@@ -181,6 +184,7 @@ You are a senior software architect specializing in code quality and maintainabi
 Your expertise includes design patterns, error handling, and testing strategies.
 Focus primarily on quality issues but note security and performance concerns.
 """
+
 
 def get_role_prompt(role: str) -> str:
     """Get role-specific system prompt for an agent.

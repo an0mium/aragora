@@ -32,6 +32,7 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+
 def _get_real_consensus_rate(
     org_id: str,
     start_time: datetime,
@@ -70,6 +71,7 @@ def _get_real_consensus_rate(
     except Exception as e:
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
+
 
 # Rate limiter for success dashboard (60 requests per minute)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
@@ -165,6 +167,7 @@ MILESTONES = [
         "metric": "cost_saved_usd",
     },
 ]
+
 
 class SMESuccessDashboardHandler(SecureHandler):
     """Handler for SME success dashboard endpoints.
@@ -802,5 +805,6 @@ class SMESuccessDashboardHandler(SecureHandler):
                 }
             }
         )
+
 
 __all__ = ["SMESuccessDashboardHandler"]

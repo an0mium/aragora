@@ -33,12 +33,14 @@ logger = logging.getLogger(__name__)
 # Deprecation Types
 # ============================================================================
 
+
 class DeprecationLevel(Enum):
     """Deprecation severity levels."""
 
     WARNING = "warning"  # Still functional, will be removed
     CRITICAL = "critical"  # Imminent removal
     SUNSET = "sunset"  # Past sunset date, may fail
+
 
 @dataclass
 class DeprecationWarning:
@@ -71,9 +73,11 @@ class DeprecationWarning:
             "migration_guide": self.migration_guide,
         }
 
+
 # ============================================================================
 # Deprecation Registry
 # ============================================================================
+
 
 @dataclass
 class DeprecationRegistry:
@@ -148,16 +152,20 @@ class DeprecationRegistry:
             if w.level in (DeprecationLevel.CRITICAL, DeprecationLevel.SUNSET)
         ]
 
+
 # Global registry
 _registry = DeprecationRegistry()
+
 
 def get_deprecation_registry() -> DeprecationRegistry:
     """Get global deprecation registry."""
     return _registry
 
+
 # ============================================================================
 # Deprecation Middleware
 # ============================================================================
+
 
 @dataclass
 class DeprecationMiddleware:
@@ -243,9 +251,11 @@ class DeprecationMiddleware:
 
         return headers
 
+
 # ============================================================================
 # Decorators
 # ============================================================================
+
 
 def deprecated(
     sunset_date: date | None = None,
@@ -295,6 +305,7 @@ def deprecated(
 
     return decorator
 
+
 def sunset_date(d: date) -> Callable:
     """
     Set sunset date for a deprecated handler.
@@ -308,9 +319,11 @@ def sunset_date(d: date) -> Callable:
     """
     return deprecated(sunset_date=d)
 
+
 # ============================================================================
 # Metrics Integration
 # ============================================================================
+
 
 def get_deprecation_metrics() -> dict[str, Any]:
     """Get metrics for deprecated endpoint usage."""
@@ -337,9 +350,11 @@ def get_deprecation_metrics() -> dict[str, Any]:
         ],
     }
 
+
 # ============================================================================
 # Startup Registration
 # ============================================================================
+
 
 def register_deprecations(deprecations: list[dict[str, Any]]) -> None:
     """

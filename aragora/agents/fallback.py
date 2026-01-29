@@ -7,6 +7,7 @@ to OpenRouter when the primary provider is unavailable.
 Also provides AgentFallbackChain for multi-provider sequencing with
 CircuitBreaker integration.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -71,6 +72,7 @@ QUOTA_ERROR_KEYWORDS = frozenset(
         "purchase credits",
     ]
 )
+
 
 class QuotaFallbackMixin:
     """Mixin providing shared quota detection and OpenRouter fallback logic.
@@ -335,6 +337,7 @@ class QuotaFallbackMixin:
             record_fallback_success("openrouter", success=False, latency_seconds=latency)
             raise
 
+
 @dataclass
 class FallbackMetrics:
     """Metrics for tracking fallback chain behavior."""
@@ -382,6 +385,7 @@ class FallbackMetrics:
             return 0.0
         return total / attempts
 
+
 class AllProvidersExhaustedError(RuntimeError):
     """Raised when all providers in a fallback chain have failed."""
 
@@ -391,6 +395,7 @@ class AllProvidersExhaustedError(RuntimeError):
         super().__init__(
             f"All providers exhausted: {', '.join(providers)}. Last error: {last_error}"
         )
+
 
 class FallbackTimeoutError(Exception):
     """Raised when fallback chain exceeds time limit."""
@@ -403,6 +408,7 @@ class FallbackTimeoutError(Exception):
             f"Fallback chain timeout after {elapsed:.1f}s (limit {limit}s). "
             f"Tried: {', '.join(tried)}"
         )
+
 
 class AgentFallbackChain:
     """Sequences agent providers with automatic fallback and CircuitBreaker integration.
@@ -778,6 +784,7 @@ class AgentFallbackChain:
             },
         }
 
+
 def get_local_fallback_providers() -> list[str]:
     """Get list of available local LLM providers for fallback.
 
@@ -795,6 +802,7 @@ def get_local_fallback_providers() -> list[str]:
     except Exception as e:
         logger.debug(f"Could not detect local LLMs: {e}")
         return []
+
 
 def build_fallback_chain_with_local(
     primary_providers: list[str],
@@ -861,6 +869,7 @@ def build_fallback_chain_with_local(
             unique_result.append(p)
     return unique_result
 
+
 def is_local_llm_available() -> bool:
     """Check if any local LLM server is available.
 
@@ -876,6 +885,7 @@ def is_local_llm_available() -> bool:
     except Exception as e:
         logger.warning(f"Failed to check local LLM availability: {e}")
         return False
+
 
 def get_default_fallback_enabled() -> bool:
     """Get the default value for enable_fallback from config.

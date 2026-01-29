@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EchoChamberRisk:
     """Assessment of echo chamber risk for a team."""
@@ -51,6 +52,7 @@ class EchoChamberRisk:
     high_alliance_pairs: list[tuple[str, str]]  # Pairs with alliance_score > threshold
     agreement_stats: dict[str, float]  # Pair -> agreement_rate
     recommendation: str  # "safe", "caution", "high_risk"
+
 
 @dataclass
 class RelationshipBiasBridgeConfig:
@@ -77,6 +79,7 @@ class RelationshipBiasBridgeConfig:
 
     # Diversity bonus for teams with varied relationships
     diversity_bonus: float = 0.1
+
 
 @dataclass
 class RelationshipBiasBridge:
@@ -422,6 +425,7 @@ class RelationshipBiasBridge:
             "echo_threshold_agreement": self.config.echo_chamber_agreement_threshold,
         }
 
+
 def create_relationship_bias_bridge(
     relationship_tracker: Optional["RelationshipTracker"] = None,
     **config_kwargs: Any,
@@ -440,6 +444,7 @@ def create_relationship_bias_bridge(
         relationship_tracker=relationship_tracker,
         config=config,
     )
+
 
 __all__ = [
     "RelationshipBiasBridge",

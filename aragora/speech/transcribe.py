@@ -25,6 +25,7 @@ __all__ = [
     "TranscriptionSegment",
 ]
 
+
 def get_provider(
     provider_name: str | None = None,
     config: STTProviderConfig | None = None,
@@ -53,6 +54,7 @@ def get_provider(
         raise ValueError(f"Unknown STT provider: {name}. Available providers: {available}")
 
     return provider_class(config=config)
+
 
 async def transcribe_audio(
     audio_file: Path | BinaryIO,
@@ -92,6 +94,7 @@ async def transcribe_audio(
         )
 
     return await provider.transcribe(audio_file, language, prompt)
+
 
 async def transcribe_audio_file(
     file_path: str | Path,

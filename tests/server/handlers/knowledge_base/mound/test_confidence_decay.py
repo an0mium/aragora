@@ -49,7 +49,7 @@ class MockDecayReport:
     items_processed: int
     items_decayed: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "workspace_id": self.workspace_id,
             "items_processed": self.items_processed,
@@ -67,7 +67,7 @@ class MockConfidenceAdjustment:
     new_confidence: float
     reason: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "event": self.event,

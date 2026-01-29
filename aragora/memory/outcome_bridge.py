@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MemoryUsageRecord:
     """Record of a memory item's usage in a debate."""
@@ -43,6 +44,7 @@ class MemoryUsageRecord:
     memory_id: str
     debate_id: str
     used_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 @dataclass
 class PromotionResult:
@@ -54,6 +56,7 @@ class PromotionResult:
     to_tier: str | None = None
     reason: str = ""
 
+
 @dataclass
 class ProcessingResult:
     """Result of processing an outcome."""
@@ -63,6 +66,7 @@ class ProcessingResult:
     memories_promoted: int
     memories_demoted: int
     promotions: list[PromotionResult] = field(default_factory=list)
+
 
 @dataclass
 class OutcomeMemoryBridge:
@@ -465,6 +469,7 @@ class OutcomeMemoryBridge:
         self._memory_failure_counts.clear()
         logger.debug("outcome_bridge tracking data cleared")
 
+
 def create_outcome_bridge(
     outcome_tracker: Optional["OutcomeTracker"] = None,
     continuum_memory: Optional["ContinuumMemory"] = None,
@@ -485,6 +490,7 @@ def create_outcome_bridge(
         continuum_memory=continuum_memory,
         **kwargs,
     )
+
 
 __all__ = [
     "OutcomeMemoryBridge",

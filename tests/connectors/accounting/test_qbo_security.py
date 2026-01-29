@@ -42,11 +42,12 @@ class TestQBOQuerySanitization:
 
     def test_sanitize_query_value_injection_attempt(self, qbo_connector):
         """Test SQL injection attempt is neutralized."""
-        # Classic SQL injection payload
+        # Classic SQL injection payload - semicolons stripped by allowlist
         malicious = "'; DROP TABLE Customer; --"
         result = qbo_connector._sanitize_query_value(malicious)
-        # Single quote at start becomes '' (escaped), rendering the injection harmless
-        assert result == "''; DROP TABLE Customer; --"
+        # Semicolons are stripped, then quotes doubled
+        assert ";" not in result
+        assert "''" in result
 
     def test_sanitize_query_value_nested_quotes(self, qbo_connector):
         """Test nested quote injection is handled."""
@@ -62,6 +63,45 @@ class TestQBOQuerySanitization:
         """Test empty string is handled."""
         result = qbo_connector._sanitize_query_value("")
         assert result == ""
+
+    def test_sanitize_strips_semicolons(self, qbo_connector):
+        """Test that semicolons are stripped from values."""
+        result = qbo_connector._sanitize_query_value("test;value")
+        assert ";" not in result
+        assert result == "testvalue"
+
+    def test_sanitize_strips_backticks(self, qbo_connector):
+        """Test that backticks are stripped from values."""
+        result = qbo_connector._sanitize_query_value("test`value")
+        assert "`" not in result
+        assert result == "testvalue"
+
+    def test_sanitize_strips_comment_sequences(self, qbo_connector):
+        """Test that SQL comment markers are handled."""
+        # * is stripped (not in allowlist), / is preserved
+        result = qbo_connector._sanitize_query_value("test/*comment*/end")
+        assert "*" not in result
+        assert result == "test/comment/end"
+
+    def test_sanitize_length_limit(self, qbo_connector):
+        """Test that values exceeding 500 chars raise ValueError."""
+        long_value = "A" * 501
+        with pytest.raises(ValueError, match="too long"):
+            qbo_connector._sanitize_query_value(long_value)
+
+    def test_sanitize_unicode_control_chars(self, qbo_connector):
+        """Test that unicode control characters are stripped."""
+        result = qbo_connector._sanitize_query_value("test\x00\x01value")
+        assert "\x00" not in result
+        assert "\x01" not in result
+        assert result == "testvalue"
+
+    def test_sanitize_preserves_business_chars(self, qbo_connector):
+        """Test that common business characters are preserved."""
+        result = qbo_connector._sanitize_query_value("O'Brien & Sons, Inc. #123")
+        assert "O''Brien" in result
+        assert "&" in result
+        assert "#123" in result
 
 
 class TestQBONumericIdValidation:
@@ -231,13 +271,13 @@ class TestQBOListAccountsInjectionPrevention:
 
         with patch.object(qbo_connector, "_request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
-            # Injection attempt - should be escaped
+            # Injection attempt - semicolons stripped, quotes escaped
             await qbo_connector.list_accounts(account_type="'; DROP TABLE Account; --")
 
             call_args = mock_request.call_args
-            # The injection should be escaped, not executed
+            # Semicolons should be stripped by allowlist sanitizer
             query_param = call_args[0][1]
-            assert "'''; DROP TABLE Account; --" in query_param
+            assert ";" not in query_param
 
     @pytest.mark.asyncio
     async def test_list_accounts_valid_account_type(self, qbo_connector):
@@ -305,5 +345,5 @@ class TestQBOGetVendorByNameSanitization:
             await qbo_connector.get_vendor_by_name("'; DROP TABLE Vendor; --")
 
             call_args = mock_request.call_args
-            # The injection should be escaped
-            assert "'''; DROP TABLE Vendor; --" in call_args[0][1]
+            # Semicolons should be stripped by allowlist sanitizer
+            assert ";" not in call_args[0][1]

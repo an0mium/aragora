@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for budget APIs (60 requests per minute)
 _budget_limiter = RateLimiter(requests_per_minute=60)
 
+
 class BudgetControlsHandler(SecureHandler):
     """Handler for budget control endpoints.
 
@@ -683,5 +684,6 @@ class BudgetControlsHandler(SecureHandler):
                 "budget": budget.to_dict(),
             }
         )
+
 
 __all__ = ["BudgetControlsHandler"]

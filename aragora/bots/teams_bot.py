@@ -52,6 +52,7 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
+
 def _check_botframework_available() -> tuple[bool, str | None]:
     """Check if Bot Framework SDK is available."""
     try:
@@ -64,6 +65,7 @@ def _check_botframework_available() -> tuple[bool, str | None]:
             "botbuilder-core is required. Install with: "
             "pip install botbuilder-core botbuilder-schema"
         )
+
 
 class AragoraTeamsBot:
     """Microsoft Teams bot for Aragora platform integration.
@@ -415,6 +417,7 @@ class AragoraTeamsBot:
 
         return None
 
+
 def create_teams_bot(
     app_id: str | None = None,
     app_password: str | None = None,
@@ -437,6 +440,7 @@ def create_teams_bot(
         )
 
     return AragoraTeamsBot(app_id, app_password)
+
 
 __all__ = [
     "AragoraTeamsBot",

@@ -43,7 +43,7 @@ import pytest
 class MockHandler:
     """Mock handler for testing helper functions."""
 
-    def __init__(self, ctx: Dict[str, Any] | None = None):
+    def __init__(self, ctx: dict[str, Any] | None = None):
         self.ctx = ctx or {}
 
 

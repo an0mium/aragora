@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for Teams workspace APIs (30 requests per minute)
 _teams_limiter = RateLimiter(requests_per_minute=30)
 
+
 class TeamsWorkspaceHandler(SecureHandler):
     """Handler for Teams workspace management endpoints.
 
@@ -646,5 +647,6 @@ class TeamsWorkspaceHandler(SecureHandler):
                 "subscription_id": subscription_id,
             }
         )
+
 
 __all__ = ["TeamsWorkspaceHandler"]

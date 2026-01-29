@@ -41,6 +41,7 @@ CALENDAR_SCOPES_FULL = [
 # Default to read-only for inbox integration
 CALENDAR_SCOPES = CALENDAR_SCOPES_READONLY
 
+
 @dataclass
 class OutlookCalendarEvent:
     """Represents an Outlook calendar event."""
@@ -105,6 +106,7 @@ class OutlookCalendarEvent:
             "last_modified": self.last_modified.isoformat() if self.last_modified else None,
         }
 
+
 @dataclass
 class OutlookFreeBusySlot:
     """Represents a busy time slot from schedule info."""
@@ -119,6 +121,7 @@ class OutlookFreeBusySlot:
             "end": self.end.isoformat(),
             "status": self.status,
         }
+
 
 @dataclass
 class OutlookCalendarInfo:
@@ -146,6 +149,7 @@ class OutlookCalendarInfo:
             "owner_email": self.owner_email,
             "owner_name": self.owner_name,
         }
+
 
 class OutlookCalendarConnector(EnterpriseConnector):
     """
@@ -595,9 +599,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
         return events
 
-    def _parse_event(
-        self, item: dict[str, Any], calendar_id: str
-    ) -> OutlookCalendarEvent | None:
+    def _parse_event(self, item: dict[str, Any], calendar_id: str) -> OutlookCalendarEvent | None:
         """Parse API response into OutlookCalendarEvent."""
         try:
             # Parse start time
@@ -1041,6 +1043,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                     )
             except Exception as e:
                 logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
+
 
 __all__ = [
     "OutlookCalendarConnector",

@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+
 class GauntletErrorCode(str, Enum):
     """Standardized error codes for Gauntlet API responses."""
 
@@ -65,6 +66,7 @@ class GauntletErrorCode(str, Enum):
     CONFIGURATION_ERROR = "GAUNTLET_503"
     SIGNING_ERROR = "GAUNTLET_504"
 
+
 @dataclass
 class GauntletError:
     """Structured error response for Gauntlet API."""
@@ -84,6 +86,7 @@ class GauntletError:
         if self.details:
             result["details"] = self.details
         return result
+
 
 # Pre-defined error instances for common cases
 ERRORS = {
@@ -160,6 +163,7 @@ ERRORS = {
         http_status=500,
     ),
 }
+
 
 def gauntlet_error_response(
     error_key: str,

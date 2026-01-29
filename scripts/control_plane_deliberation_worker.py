@@ -17,12 +17,12 @@ import uuid
 from typing import List
 
 
-def _parse_capabilities(raw: str) -> List[str]:
+def _parse_capabilities(raw: str) -> list[str]:
     return [cap.strip() for cap in raw.split(",") if cap.strip()]
 
 
 async def run_worker(
-    agent_id: str, capabilities: List[str], block_ms: int, idle_sleep: float
+    agent_id: str, capabilities: list[str], block_ms: int, idle_sleep: float
 ) -> None:
     from aragora.control_plane import ControlPlaneCoordinator
     from aragora.core.decision import DecisionRequest, get_decision_router

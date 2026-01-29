@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class AudienceManager:
     """
     Manages audience participation in debates.
@@ -210,5 +211,6 @@ class AudienceManager:
         """Get count of processed suggestions (thread-safe)."""
         with self._data_lock:
             return len(self._suggestions)
+
 
 __all__ = ["AudienceManager"]

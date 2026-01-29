@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 
+
 class InputType(Enum):
     """Types of inputs that can be stress-tested."""
 
@@ -27,6 +28,7 @@ class InputType(Enum):
     STRATEGY = "strategy"  # Business strategy
     CONTRACT = "contract"  # Legal contract
     CUSTOM = "custom"  # Custom input type
+
 
 class Verdict(Enum):
     """
@@ -71,6 +73,7 @@ class Verdict(Enum):
         """Check if verdict indicates rejection."""
         return self in (Verdict.FAIL, Verdict.REJECTED)
 
+
 class SeverityLevel(Enum):
     """Severity levels for findings/vulnerabilities."""
 
@@ -105,6 +108,7 @@ class SeverityLevel(Enum):
             return cls.LOW
         return cls.INFO
 
+
 class GauntletPhase(Enum):
     """Phases of the Gauntlet validation pipeline."""
 
@@ -119,6 +123,7 @@ class GauntletPhase(Enum):
     SYNTHESIS = "synthesis"
     COMPLETE = "complete"
     FAILED = "failed"
+
 
 @dataclass
 class BaseFinding:
@@ -170,6 +175,7 @@ class BaseFinding:
             "created_at": self.created_at,
         }
 
+
 @dataclass
 class RiskSummary:
     """Summary of risk findings by severity."""
@@ -214,6 +220,7 @@ class RiskSummary:
             "total": self.total,
             "weighted_score": self.weighted_score,
         }
+
 
 # Type aliases for compatibility
 GauntletSeverity = SeverityLevel  # Alias for backward compatibility

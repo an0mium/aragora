@@ -40,6 +40,7 @@ _action_extractor_lock = threading.Lock()
 _meeting_detector: Any | None = None
 _meeting_detector_lock = threading.Lock()
 
+
 def _check_inbox_permission(
     user_id: str,
     action: str = "read",
@@ -65,9 +66,11 @@ def _check_inbox_permission(
         logger.error(f"RBAC check failed: {e}")
         return error_response("Authorization check failed", status=500)
 
+
 # In-memory action item storage (replace with DB in production)
 _action_items: dict[str, dict[str, Any]] = {}
 _action_items_lock = threading.Lock()
+
 
 def get_action_extractor():
     """Get or create action item extractor (thread-safe)."""
@@ -82,6 +85,7 @@ def get_action_extractor():
             _action_extractor = ActionItemExtractor()
         return _action_extractor
 
+
 def get_meeting_detector():
     """Get or create meeting detector (thread-safe)."""
     global _meeting_detector
@@ -95,9 +99,11 @@ def get_meeting_detector():
             _meeting_detector = MeetingDetector()
         return _meeting_detector
 
+
 # =============================================================================
 # Action Item Extraction Handlers
 # =============================================================================
+
 
 async def handle_extract_action_items(
     data: dict[str, Any],
@@ -163,6 +169,7 @@ async def handle_extract_action_items(
     except Exception as e:
         logger.exception("Failed to extract action items")
         return error_response(f"Extraction failed: {str(e)}", status=500)
+
 
 async def handle_list_pending_actions(
     data: dict[str, Any],
@@ -263,6 +270,7 @@ async def handle_list_pending_actions(
         logger.exception("Failed to list pending actions")
         return error_response(f"List failed: {str(e)}", status=500)
 
+
 async def handle_complete_action(
     data: dict[str, Any],
     action_id: str = "",
@@ -312,6 +320,7 @@ async def handle_complete_action(
     except Exception as e:
         logger.exception("Failed to complete action")
         return error_response(f"Complete failed: {str(e)}", status=500)
+
 
 async def handle_update_action_status(
     data: dict[str, Any],
@@ -385,6 +394,7 @@ async def handle_update_action_status(
     except Exception as e:
         logger.exception("Failed to update action status")
         return error_response(f"Update failed: {str(e)}", status=500)
+
 
 async def handle_get_due_soon(
     data: dict[str, Any],
@@ -461,6 +471,7 @@ async def handle_get_due_soon(
     except Exception as e:
         logger.exception("Failed to get due soon items")
         return error_response(f"Query failed: {str(e)}", status=500)
+
 
 async def handle_batch_extract(
     data: dict[str, Any],
@@ -556,9 +567,11 @@ async def handle_batch_extract(
         logger.exception("Failed batch extraction")
         return error_response(f"Batch extraction failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Meeting Detection Handlers
 # =============================================================================
+
 
 async def handle_detect_meeting(
     data: dict[str, Any],
@@ -613,6 +626,7 @@ async def handle_detect_meeting(
     except Exception as e:
         logger.exception("Failed to detect meeting")
         return error_response(f"Detection failed: {str(e)}", status=500)
+
 
 async def handle_auto_snooze_meeting(
     data: dict[str, Any],
@@ -712,9 +726,11 @@ async def handle_auto_snooze_meeting(
         logger.exception("Failed to auto-snooze meeting")
         return error_response(f"Auto-snooze failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 def get_action_items_handlers() -> dict[str, Any]:
     """Get all action items handlers for registration."""
@@ -728,6 +744,7 @@ def get_action_items_handlers() -> dict[str, Any]:
         "detect_meeting": handle_detect_meeting,
         "auto_snooze_meeting": handle_auto_snooze_meeting,
     }
+
 
 __all__ = [
     "handle_extract_action_items",

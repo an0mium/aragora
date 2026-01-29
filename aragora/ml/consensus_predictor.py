@@ -29,6 +29,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ConsensusPrediction:
     """Prediction of consensus likelihood."""
@@ -65,6 +66,7 @@ class ConsensusPrediction:
             "key_factors": self.key_factors,
         }
 
+
 @dataclass
 class ConsensusPredictorConfig:
     """Configuration for consensus predictor."""
@@ -84,6 +86,7 @@ class ConsensusPredictorConfig:
     # Use embeddings for semantic similarity
     use_embeddings: bool = True
 
+
 @dataclass
 class ResponseFeatures:
     """Features extracted from a single response."""
@@ -94,6 +97,7 @@ class ResponseFeatures:
     confidence: float = 0.5
     quality_score: float = 0.5
     embedding: Optional[list[float]] = None
+
 
 class ConsensusPredictor:
     """Predicts consensus likelihood in multi-agent debates.
@@ -506,8 +510,10 @@ class ConsensusPredictor:
             "samples": total,
         }
 
+
 # Global instance
 _consensus_predictor: ConsensusPredictor | None = None
+
 
 def get_consensus_predictor() -> ConsensusPredictor:
     """Get or create the global consensus predictor instance."""

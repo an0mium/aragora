@@ -25,12 +25,14 @@ AB_TEST_COLUMNS = """id, agent, baseline_prompt_version, evolved_prompt_version,
     baseline_wins, evolved_wins, baseline_debates, evolved_debates,
     started_at, concluded_at, status, metadata"""
 
+
 class ABTestStatus(Enum):
     """Status of an A/B test."""
 
     ACTIVE = "active"
     CONCLUDED = "concluded"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class ABTest:
@@ -134,6 +136,7 @@ class ABTest:
             metadata=json.loads(row[11]) if row[11] else {},
         )
 
+
 @dataclass
 class ABTestResult:
     """Result of concluding an A/B test."""
@@ -143,6 +146,7 @@ class ABTestResult:
     confidence: float
     recommendation: str
     stats: dict = field(default_factory=dict)
+
 
 class ABTestManager(SQLiteStore):
     """

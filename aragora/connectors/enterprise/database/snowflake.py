@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Optional
@@ -36,6 +37,7 @@ DEFAULT_TIMESTAMP_COLUMNS = [
     "_updated_at",
     "metadata$action",
 ]
+
 
 class SnowflakeConnector(EnterpriseConnector):
     """
@@ -100,10 +102,10 @@ class SnowflakeConnector(EnterpriseConnector):
 
         self.account = account
         self.warehouse = warehouse
-        self.database = database
-        self.schema = schema
+        self.database = self._validate_identifier(database, "database")
+        self.schema = self._validate_identifier(schema, "schema")
         self.role = role
-        self.tables = tables or []
+        self.tables = [self._validate_identifier(t, "table") for t in (tables or [])]
         self.timestamp_column = timestamp_column
         self.primary_key_column = primary_key_column
         self.content_columns = content_columns
@@ -112,6 +114,39 @@ class SnowflakeConnector(EnterpriseConnector):
 
         self._connection = None
         self._executor = ThreadPoolExecutor(max_workers=pool_size)
+
+    _IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]{0,254}$")
+
+    @staticmethod
+    def _validate_identifier(value: str, name: str) -> str:
+        """Validate a Snowflake identifier (table, schema, database name).
+
+        Snowflake identifiers must start with a letter or underscore and
+        contain only alphanumeric characters, underscores, and dollar signs.
+        Maximum length is 255 characters.
+
+        Args:
+            value: The identifier to validate
+            name: Description of the identifier (for error messages)
+
+        Returns:
+            The validated identifier
+
+        Raises:
+            ValueError: If the identifier is invalid
+        """
+        if not SnowflakeConnector._IDENTIFIER_PATTERN.match(value):
+            raise ValueError(
+                f"Invalid Snowflake identifier for {name}: {value!r}. "
+                "Must start with a letter or underscore and contain only "
+                "alphanumeric, underscore, or dollar sign characters (max 255)."
+            )
+        return value
+
+    def _build_table_ref(self, table: str) -> str:
+        """Build a validated, quoted table reference."""
+        self._validate_identifier(table, "table")
+        return f"{self.database}.{self.schema}.{table}"
 
     @property
     def source_type(self) -> SourceType:
@@ -208,9 +243,7 @@ class SnowflakeConnector(EnterpriseConnector):
         finally:
             cursor.close()
 
-    async def _async_query(
-        self, query: str, params: tuple | None = None
-    ) -> list[dict[str, Any]]:
+    async def _async_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute a query asynchronously via thread pool."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -247,9 +280,11 @@ class SnowflakeConnector(EnterpriseConnector):
         if not self.use_change_tracking:
             return False
 
+        self._validate_identifier(table, "table")
         try:
+            table_ref = self._build_table_ref(table)
             query = f"""
-                SELECT SYSTEM$STREAM_HAS_DATA('{self.database}.{self.schema}.{table}_CHANGES') as has_data
+                SELECT SYSTEM$STREAM_HAS_DATA('{table_ref}_CHANGES') as has_data
             """
             await self._async_query(query)
             return True
@@ -329,6 +364,8 @@ class SnowflakeConnector(EnterpriseConnector):
 
         for table in tables:
             try:
+                self._validate_identifier(table, "table")
+                table_ref = self._build_table_ref(table)
                 columns = await self._get_table_columns(table)
                 ts_column = self._find_timestamp_column(columns)
                 has_change_tracking = await self._check_change_tracking(table)
@@ -338,7 +375,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     # Use change tracking stream
                     query = f"""
                         SELECT *
-                        FROM {self.database}.{self.schema}.{table}_CHANGES
+                        FROM {table_ref}_CHANGES
                         LIMIT {batch_size}
                     """
                     rows = await self._async_query(query)
@@ -347,7 +384,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     # Incremental sync using timestamp
                     query = f"""
                         SELECT *
-                        FROM {self.database}.{self.schema}.{table}
+                        FROM {table_ref}
                         WHERE "{ts_column}" > %s
                         ORDER BY "{ts_column}" ASC
                         LIMIT {batch_size}
@@ -360,7 +397,7 @@ class SnowflakeConnector(EnterpriseConnector):
                         last_id = state.cursor.split(":", 1)[1]
                         query = f"""
                             SELECT *
-                            FROM {self.database}.{self.schema}.{table}
+                            FROM {table_ref}
                             WHERE "{self.primary_key_column}" > %s
                             ORDER BY "{self.primary_key_column}" ASC
                             LIMIT {batch_size}
@@ -369,7 +406,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     else:
                         query = f"""
                             SELECT *
-                            FROM {self.database}.{self.schema}.{table}
+                            FROM {table_ref}
                             ORDER BY "{self.primary_key_column}" ASC
                             LIMIT {batch_size}
                         """
@@ -504,9 +541,7 @@ class SnowflakeConnector(EnterpriseConnector):
         logger.debug(f"[{self.name}] Fetch not implemented for hash-based IDs")
         return None
 
-    async def execute_query(
-        self, query: str, params: tuple | None = None
-    ) -> list[dict[str, Any]]:
+    async def execute_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """
         Execute a custom query.
 
@@ -601,5 +636,6 @@ class SnowflakeConnector(EnterpriseConnector):
             return True
 
         return False
+
 
 __all__ = ["SnowflakeConnector"]

@@ -8,6 +8,7 @@ Provides storage and retrieval for:
 
 Enables surfacing "what changed and why" for debugging and learning.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ from aragora.persistence.models import (
 logger = logging.getLogger(__name__)
 
 EVOLUTION_SCHEMA_VERSION = 1
+
 
 class EvolutionRepository:
     """
@@ -495,5 +497,6 @@ class EvolutionRepository:
                 "rollback_counts": rollback_counts,
                 "total_rollbacks": sum(rollback_counts.values()),
             }
+
 
 __all__ = ["EvolutionRepository"]

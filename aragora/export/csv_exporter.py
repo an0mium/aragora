@@ -10,6 +10,7 @@ Provides multiple export formats:
 - votes: Vote breakdown for consensus analysis
 - summary: High-level debate statistics
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -23,6 +24,7 @@ from io import StringIO
 from pathlib import Path
 
 from aragora.export.artifact import DebateArtifact
+
 
 class CSVExporter:
     """
@@ -267,6 +269,7 @@ class CSVExporter:
 
         return outputs
 
+
 def export_debate_to_csv(
     artifact: DebateArtifact,
     output_path: Path,
@@ -299,6 +302,7 @@ def export_debate_to_csv(
         raise ValueError(
             f"Unknown table: {table}. Use 'messages', 'critiques', 'votes', 'summary', or 'verifications'"
         )
+
 
 def export_multiple_debates(
     artifacts: list[DebateArtifact],

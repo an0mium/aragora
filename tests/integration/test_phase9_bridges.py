@@ -37,7 +37,7 @@ class MockPerformanceMonitor:
     """Mock PerformanceMonitor for testing."""
 
     def __init__(self):
-        self._metrics: Dict[str, MockPerformanceMetrics] = {}
+        self._metrics: dict[str, MockPerformanceMetrics] = {}
 
     def get_agent_metrics(self, agent_name: str) -> Optional[MockPerformanceMetrics]:
         """Get metrics for an agent."""
@@ -55,15 +55,15 @@ class MockConsensusOutcome:
     debate_id: str = ""
     confidence: float = 0.8
     was_correct: bool = True
-    participants: List[str] = field(default_factory=list)
+    participants: list[str] = field(default_factory=list)
 
 
 class MockOutcomeTracker:
     """Mock OutcomeTracker for testing."""
 
     def __init__(self):
-        self._outcomes: List[MockConsensusOutcome] = []
-        self._agent_stats: Dict[str, Dict[str, Any]] = {}
+        self._outcomes: list[MockConsensusOutcome] = []
+        self._agent_stats: dict[str, dict[str, Any]] = {}
 
     def record_outcome(self, outcome: MockConsensusOutcome) -> None:
         """Record an outcome."""
@@ -91,8 +91,8 @@ class MockNoveltyTracker:
     """Mock NoveltyTracker for testing."""
 
     def __init__(self):
-        self._results: Dict[str, List[MockNoveltyResult]] = {}
-        self._low_novelty_agents: List[str] = []
+        self._results: dict[str, list[MockNoveltyResult]] = {}
+        self._low_novelty_agents: list[str] = []
 
     def record_result(self, result: MockNoveltyResult) -> None:
         """Record a novelty result."""
@@ -100,11 +100,11 @@ class MockNoveltyTracker:
             self._results[result.agent_name] = []
         self._results[result.agent_name].append(result)
 
-    def get_agent_novelty_results(self, agent_name: str) -> List[MockNoveltyResult]:
+    def get_agent_novelty_results(self, agent_name: str) -> list[MockNoveltyResult]:
         """Get novelty results for an agent."""
         return self._results.get(agent_name, [])
 
-    def get_low_novelty_agents(self) -> List[str]:
+    def get_low_novelty_agents(self) -> list[str]:
         """Get agents with consistently low novelty."""
         return self._low_novelty_agents
 
@@ -123,7 +123,7 @@ class MockRelationshipTracker:
     """Mock RelationshipTracker for testing."""
 
     def __init__(self):
-        self._relationships: Dict[tuple, MockRelationshipMetrics] = {}
+        self._relationships: dict[tuple, MockRelationshipMetrics] = {}
 
     def compute_metrics(self, agent_a: str, agent_b: str) -> Optional[MockRelationshipMetrics]:
         """Compute relationship metrics between agents."""
@@ -142,7 +142,7 @@ class MockRLMBridge:
     """Mock RLMBridge for testing."""
 
     def __init__(self):
-        self._compression_results: List[Any] = []
+        self._compression_results: list[Any] = []
 
     def compress(self, content: str) -> Any:
         """Compress content."""
@@ -172,7 +172,7 @@ class MockCalibrationTracker:
     """Mock CalibrationTracker for testing."""
 
     def __init__(self):
-        self._summaries: Dict[str, MockCalibrationSummary] = {}
+        self._summaries: dict[str, MockCalibrationSummary] = {}
 
     def get_calibration_summary(self, agent_name: str) -> Optional[MockCalibrationSummary]:
         """Get calibration summary for an agent."""
@@ -182,7 +182,7 @@ class MockCalibrationTracker:
         """Add a calibration summary."""
         self._summaries[summary.agent] = summary
 
-    def get_all_agents(self) -> List[str]:
+    def get_all_agents(self) -> list[str]:
         """Get all tracked agents."""
         return list(self._summaries.keys())
 

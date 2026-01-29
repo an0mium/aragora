@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ContinuumSnapshotMixin:
     """
     Mixin providing snapshot export/restore for ContinuumMemory.
@@ -261,5 +262,6 @@ class ContinuumSnapshotMixin:
         )
 
         return {"restored": restored, "skipped": skipped, "updated": updated}
+
 
 __all__ = ["ContinuumSnapshotMixin"]

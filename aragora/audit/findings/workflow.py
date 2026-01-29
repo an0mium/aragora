@@ -22,6 +22,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class WorkflowState(str, Enum):
     """Workflow states for audit findings."""
 
@@ -46,6 +47,7 @@ class WorkflowState(str, Enum):
     # Legacy states (for backward compatibility)
     ACKNOWLEDGED = "acknowledged"  # Maps to TRIAGING
     WONT_FIX = "wont_fix"  # Maps to ACCEPTED_RISK
+
 
 # Valid state transitions
 VALID_TRANSITIONS: dict[WorkflowState, set[WorkflowState]] = {
@@ -96,6 +98,7 @@ VALID_TRANSITIONS: dict[WorkflowState, set[WorkflowState]] = {
     },
 }
 
+
 class WorkflowEventType(str, Enum):
     """Types of workflow events."""
 
@@ -109,6 +112,7 @@ class WorkflowEventType(str, Enum):
     LINKED = "linked"
     UNLINKED = "unlinked"
     SEVERITY_CHANGE = "severity_change"
+
 
 @dataclass
 class WorkflowEvent:
@@ -174,6 +178,7 @@ class WorkflowEvent:
             comment=data.get("comment", ""),
         )
 
+
 @dataclass
 class WorkflowTransition:
     """Record of a state transition."""
@@ -185,10 +190,12 @@ class WorkflowTransition:
     comment: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 class WorkflowError(Exception):
     """Error in workflow operation."""
 
     pass
+
 
 class InvalidTransitionError(WorkflowError):
     """Invalid state transition attempted."""
@@ -197,6 +204,7 @@ class InvalidTransitionError(WorkflowError):
         self.from_state = from_state
         self.to_state = to_state
         super().__init__(f"Cannot transition from {from_state.value} to {to_state.value}")
+
 
 @dataclass
 class FindingWorkflowData:
@@ -274,6 +282,7 @@ class FindingWorkflowData:
             time_in_states=data.get("time_in_states", {}),
             state_entered_at=parse_dt(data.get("state_entered_at")) or datetime.now(timezone.utc),
         )
+
 
 class FindingWorkflow:
     """
@@ -708,7 +717,9 @@ class FindingWorkflow:
         """Get all state change events."""
         return [e for e in self.data.history if e.event_type == WorkflowEventType.STATE_CHANGE]
 
+
 # State machine visualization helpers
+
 
 def get_workflow_diagram() -> str:
     """Get ASCII representation of workflow states."""
@@ -737,6 +748,7 @@ def get_workflow_diagram() -> str:
     │   Note: Terminal states can transition back to OPEN           │
     └───────────────────────────────────────────────────────────────┘
     """
+
 
 def map_legacy_status(status: str) -> WorkflowState:
     """Map legacy FindingStatus values to WorkflowState."""

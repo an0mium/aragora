@@ -36,6 +36,7 @@ from aragora.debate.similarity.backends import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BackendInfo:
     """Information about a registered backend."""
@@ -48,6 +49,7 @@ class BackendInfo:
     max_input_size: int = 10000  # Maximum recommended input size
     accuracy: str = "medium"  # low, medium, high
     speed: str = "medium"  # slow, medium, fast
+
 
 class SimilarityFactory:
     """
@@ -272,6 +274,7 @@ class SimilarityFactory:
         # Ultimate fallback
         return cls.create("jaccard")
 
+
 class _FAISSBackendWrapper(SimilarityBackend):
     """
     FAISS-backed similarity backend for large-scale comparisons.
@@ -343,6 +346,7 @@ class _FAISSBackendWrapper(SimilarityBackend):
         # Use optimized batch computation
         return compute_batch_similarity_fast(embeddings)
 
+
 def get_backend(
     preferred: str = "auto",
     input_size: int = 10,
@@ -381,6 +385,7 @@ def get_backend(
         )
 
     return SimilarityFactory.create(preferred, debate_id=debate_id, **kwargs)
+
 
 __all__ = [
     "SimilarityFactory",

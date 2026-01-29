@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 _AUDIT_SIGNING_KEY: bytes | None = None
 _signing_key_lock = threading.Lock()
 
+
 def get_audit_signing_key() -> bytes:
     """
     Get or generate the HMAC signing key for audit events.
@@ -96,6 +97,7 @@ def get_audit_signing_key() -> bytes:
                     logger.debug("Generated ephemeral audit signing key for development")
         return _AUDIT_SIGNING_KEY
 
+
 def set_audit_signing_key(key: bytes) -> None:
     """
     Set the HMAC signing key for audit events.
@@ -108,6 +110,7 @@ def set_audit_signing_key(key: bytes) -> None:
         raise ValueError("Audit signing key must be at least 32 bytes")
     with _signing_key_lock:
         _AUDIT_SIGNING_KEY = key
+
 
 def compute_event_signature(event_data: dict[str, Any]) -> str:
     """
@@ -127,6 +130,7 @@ def compute_event_signature(event_data: dict[str, Any]) -> str:
     signature = hmac.new(key, canonical.encode("utf-8"), hashlib.sha256).hexdigest()
     return signature
 
+
 def verify_event_signature(event_data: dict[str, Any], signature: str) -> bool:
     """
     Verify HMAC-SHA256 signature for an audit event.
@@ -140,6 +144,7 @@ def verify_event_signature(event_data: dict[str, Any], signature: str) -> bool:
     """
     computed = compute_event_signature(event_data)
     return hmac.compare_digest(computed, signature)
+
 
 class AuditEventType(str, Enum):
     """Types of authorization audit events."""
@@ -183,6 +188,7 @@ class AuditEventType(str, Enum):
 
     # Generic custom event
     CUSTOM = "custom"
+
 
 @dataclass
 class AuditEvent:
@@ -319,6 +325,7 @@ class AuditEvent:
             metadata=data.get("metadata", {}),
             signature=data.get("signature"),
         )
+
 
 class AuthorizationAuditor:
     """
@@ -634,8 +641,10 @@ class AuthorizationAuditor:
             },
         )
 
+
 # Global auditor instance
 _auditor: AuthorizationAuditor | None = None
+
 
 def get_auditor() -> AuthorizationAuditor:
     """Get or create the global auditor instance."""
@@ -644,10 +653,12 @@ def get_auditor() -> AuthorizationAuditor:
         _auditor = AuthorizationAuditor()
     return _auditor
 
+
 def set_auditor(auditor: AuthorizationAuditor) -> None:
     """Set the global auditor instance."""
     global _auditor
     _auditor = auditor
+
 
 # Convenience functions
 def log_permission_check(
@@ -674,9 +685,11 @@ def log_permission_check(
     )
     get_auditor()._emit_event(event)
 
+
 # =============================================================================
 # Persistent Audit Storage
 # =============================================================================
+
 
 class PersistentAuditHandler:
     """
@@ -1003,9 +1016,11 @@ class PersistentAuditHandler:
         """Flush pending events and close the handler."""
         self.flush()
 
+
 # Module-level persistent handler singleton
 _persistent_handler: PersistentAuditHandler | None = None
 _handler_lock = threading.Lock()
+
 
 def get_persistent_handler() -> PersistentAuditHandler:
     """
@@ -1021,11 +1036,13 @@ def get_persistent_handler() -> PersistentAuditHandler:
                 _persistent_handler = PersistentAuditHandler()
     return _persistent_handler
 
+
 def set_persistent_handler(handler: PersistentAuditHandler) -> None:
     """Set the global persistent audit handler."""
     global _persistent_handler
     with _handler_lock:
         _persistent_handler = handler
+
 
 def enable_persistent_auditing() -> PersistentAuditHandler:
     """

@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.core import DebateResult
 
+
 @dataclass
 class DebateREPLContext:
     """
@@ -63,6 +64,7 @@ class DebateREPLContext:
 
     # Original debate result (for full access)
     _raw: Optional["DebateResult"] = None
+
 
 def load_debate_context(debate_result: "DebateResult") -> DebateREPLContext:
     """
@@ -146,6 +148,7 @@ def load_debate_context(debate_result: "DebateResult") -> DebateREPLContext:
         _raw=debate_result,
     )
 
+
 def get_round(context: DebateREPLContext, round_num: int) -> list[dict[str, Any]]:
     """
     Get all messages from a specific round.
@@ -163,6 +166,7 @@ def get_round(context: DebateREPLContext, round_num: int) -> list[dict[str, Any]
         ...     print(f"{msg['agent']}: {msg['content'][:100]}...")
     """
     return context.rounds.get(round_num, [])
+
 
 def get_proposals_by_agent(
     context: DebateREPLContext,
@@ -188,6 +192,7 @@ def get_proposals_by_agent(
     if round_num is not None:
         messages = [m for m in messages if m.get("round", m.get("round_num")) == round_num]
     return messages
+
 
 def search_debate(
     context: DebateREPLContext,
@@ -222,6 +227,7 @@ def search_debate(
             matching.append(msg)
 
     return matching
+
 
 def get_evidence_snippets(
     context: DebateREPLContext,
@@ -261,6 +267,7 @@ def get_evidence_snippets(
 
     return snippets
 
+
 def get_critiques(
     context: DebateREPLContext,
     target_agent: str | None = None,
@@ -298,6 +305,7 @@ def get_critiques(
 
     return critiques
 
+
 def summarize_round(context: DebateREPLContext, round_num: int) -> str:
     """
     Get a textual summary of a single round.
@@ -322,6 +330,7 @@ def summarize_round(context: DebateREPLContext, round_num: int) -> str:
         f"Round {round_num}: {len(agents)} agents participated ({', '.join(agents)}). "
         f"{len(messages)} messages total."
     )
+
 
 def partition_debate(
     context: DebateREPLContext,
@@ -354,7 +363,9 @@ def partition_debate(
         # Default: single partition
         return {0: context.all_messages}
 
+
 # RLM Primitives (for use in REPL)
+
 
 def RLM_M(query: str, subset: list[dict[str, Any] | None] = None) -> str:
     """
@@ -382,6 +393,7 @@ def RLM_M(query: str, subset: list[dict[str, Any] | None] = None) -> str:
         "Install with: pip install aragora[rlm]"
     )
 
+
 def FINAL(answer: str) -> str:
     """
     Signal final answer in RLM.
@@ -399,6 +411,7 @@ def FINAL(answer: str) -> str:
     """
     # Placeholder - the RLM runtime captures this
     return answer
+
 
 def get_debate_helpers(include_rlm_primitives: bool = False) -> dict[str, Any]:
     """
@@ -439,6 +452,7 @@ def get_debate_helpers(include_rlm_primitives: bool = False) -> dict[str, Any]:
         helpers["RLM_M"] = RLM_M
         helpers["FINAL"] = FINAL
     return helpers
+
 
 __all__ = [
     "DebateREPLContext",

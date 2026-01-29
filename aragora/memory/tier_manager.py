@@ -28,6 +28,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class MemoryTier(str, Enum):
     """Memory update frequency tiers.
 
@@ -50,6 +51,7 @@ class MemoryTier(str, Enum):
     SLOW = "slow"  # Updates per nomic cycle
     GLACIAL = "glacial"  # Updates monthly
 
+
 # Tier ordering from slowest to fastest
 TIER_ORDER: list[MemoryTier] = [
     MemoryTier.GLACIAL,
@@ -57,6 +59,7 @@ TIER_ORDER: list[MemoryTier] = [
     MemoryTier.MEDIUM,
     MemoryTier.FAST,
 ]
+
 
 @dataclass
 class TierConfig:
@@ -74,6 +77,7 @@ class TierConfig:
     def half_life_seconds(self) -> float:
         """Half-life in seconds."""
         return self.half_life_hours * 3600
+
 
 # Default tier configurations (HOPE-inspired nested learning)
 DEFAULT_TIER_CONFIGS: dict[MemoryTier, TierConfig] = {
@@ -117,6 +121,7 @@ DEFAULT_TIER_CONFIGS: dict[MemoryTier, TierConfig] = {
 
 # Backwards compatibility alias
 TIER_CONFIGS = DEFAULT_TIER_CONFIGS
+
 
 @dataclass
 class TierTransitionMetrics:
@@ -162,6 +167,7 @@ class TierTransitionMetrics:
             self.total_promotions = 0
             self.total_demotions = 0
             self.last_reset = datetime.now().isoformat()
+
 
 class TierManager:
     """
@@ -358,8 +364,10 @@ class TierManager:
         """Set minimum updates required for demotion."""
         self._min_updates_for_demotion = max(1, value)
 
+
 # Use ServiceRegistry for singleton management
 # Backward-compatible - these functions still work but delegate to registry
+
 
 def get_tier_manager() -> TierManager:
     """Get the default TierManager instance.
@@ -372,6 +380,7 @@ def get_tier_manager() -> TierManager:
     if not registry.has(TierManager):
         registry.register(TierManager, TierManager())
     return registry.resolve(TierManager)
+
 
 def reset_tier_manager() -> None:
     """Reset the default TierManager (useful for testing).

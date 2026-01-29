@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SelectionBoost:
     """Computed selection boost for an agent."""
@@ -53,6 +54,7 @@ class SelectionBoost:
     domain_expertise_component: float = 0.0
     confidence: float = 0.0  # Based on data quantity
 
+
 @dataclass
 class DomainExpertise:
     """Inferred domain expertise from finding distribution."""
@@ -60,6 +62,7 @@ class DomainExpertise:
     agent_name: str
     primary_domain: str
     domain_scores: dict[str, float] = field(default_factory=dict)
+
 
 @dataclass
 class AnalyticsSelectionBridgeConfig:
@@ -88,6 +91,7 @@ class AnalyticsSelectionBridgeConfig:
 
     # Cache TTL for metrics (seconds)
     cache_ttl_seconds: int = 300
+
 
 @dataclass
 class AnalyticsSelectionBridge:
@@ -380,6 +384,7 @@ class AnalyticsSelectionBridge:
             "agents_with_expertise": len(self._domain_expertise_cache),
         }
 
+
 def create_analytics_selection_bridge(
     analytics_dashboard: Optional["AnalyticsDashboard"] = None,
     **config_kwargs: Any,
@@ -398,6 +403,7 @@ def create_analytics_selection_bridge(
         analytics_dashboard=analytics_dashboard,
         config=config,
     )
+
 
 __all__ = [
     "AnalyticsSelectionBridge",

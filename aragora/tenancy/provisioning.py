@@ -28,6 +28,7 @@ from aragora.tenancy.tenant import (
 
 logger = logging.getLogger(__name__)
 
+
 class TenantProvisioner:
     """
     Manages tenant provisioning and lifecycle.

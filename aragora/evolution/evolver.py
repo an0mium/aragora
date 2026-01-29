@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class EvolutionStrategy(Enum):
     """Strategies for prompt evolution."""
 
@@ -32,6 +33,7 @@ class EvolutionStrategy(Enum):
     REPLACE = "replace"  # Replace sections of the prompt
     REFINE = "refine"  # Use LLM to refine the prompt
     HYBRID = "hybrid"  # Combination of strategies
+
 
 @dataclass
 class PromptVersion:
@@ -44,6 +46,7 @@ class PromptVersion:
     debates_count: int = 0
     consensus_rate: float = 0.0
     metadata: dict = field(default_factory=dict)
+
 
 class PromptEvolver(SQLiteStore):
     """

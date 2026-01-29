@@ -38,6 +38,7 @@ TTS_DEFAULT_VOICE = os.environ.get("ARAGORA_TTS_DEFAULT_VOICE", "narrator")
 TTS_MAX_TEXT_LENGTH = int(os.environ.get("ARAGORA_TTS_MAX_TEXT", "4000"))
 TTS_CACHE_DIR = os.environ.get("ARAGORA_TTS_CACHE_DIR", "")
 
+
 @dataclass
 class TTSConfig:
     """Configuration for TTS bridge."""
@@ -59,6 +60,7 @@ class TTSConfig:
             "error": "moderator",
         }
     )
+
 
 class TTSBridge:
     """
@@ -326,8 +328,10 @@ class TTSBridge:
             except Exception as e:
                 logger.warning(f"Failed to cleanup TTS temp dir: {e}")
 
+
 # Singleton instance
 _tts_bridge: TTSBridge | None = None
+
 
 def get_tts_bridge(**config: Any) -> TTSBridge:
     """Get or create the TTS Bridge singleton."""
@@ -335,6 +339,7 @@ def get_tts_bridge(**config: Any) -> TTSBridge:
     if _tts_bridge is None:
         _tts_bridge = TTSBridge(**config)
     return _tts_bridge
+
 
 def clear_tts_bridge() -> None:
     """Clear the TTS bridge singleton (for testing)."""

@@ -124,7 +124,7 @@ MOCK_JWKS = {
 
 
 def create_mock_id_token(
-    claims: Dict[str, Any],
+    claims: dict[str, Any],
     kid: str = "test-key-id-1",
     alg: str = "RS256",
 ) -> str:

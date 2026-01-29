@@ -35,12 +35,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class GovernanceHandlerProtocol(Protocol):
     """Protocol for handlers that use GovernanceOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class GovernanceOperationsMixin:
     """Mixin providing governance (RBAC + audit) API endpoints."""

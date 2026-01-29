@@ -22,6 +22,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def _dispatch_chat_event(event_type: str, data: dict[str, Any]) -> None:
     """
     Dispatch a chat event to the webhook system.
@@ -39,6 +40,7 @@ def _dispatch_chat_event(event_type: str, data: dict[str, Any]) -> None:
         logger.debug("Event dispatcher not available")
     except Exception as e:
         logger.warning(f"Failed to dispatch chat event {event_type}: {e}")
+
 
 def emit_message_received(
     platform: str,
@@ -72,6 +74,7 @@ def emit_message_received(
         },
     )
 
+
 def emit_command_received(
     platform: str,
     chat_id: str,
@@ -104,6 +107,7 @@ def emit_command_received(
         },
     )
 
+
 def emit_debate_started(
     platform: str,
     chat_id: str,
@@ -135,6 +139,7 @@ def emit_debate_started(
             "timestamp": time.time(),
         },
     )
+
 
 def emit_debate_completed(
     platform: str,
@@ -174,6 +179,7 @@ def emit_debate_completed(
         },
     )
 
+
 def emit_gauntlet_started(
     platform: str,
     chat_id: str,
@@ -205,6 +211,7 @@ def emit_gauntlet_started(
             "timestamp": time.time(),
         },
     )
+
 
 def emit_gauntlet_completed(
     platform: str,
@@ -244,6 +251,7 @@ def emit_gauntlet_completed(
         },
     )
 
+
 def emit_vote_received(
     platform: str,
     chat_id: str,
@@ -275,6 +283,7 @@ def emit_vote_received(
             "timestamp": time.time(),
         },
     )
+
 
 __all__ = [
     "emit_message_received",

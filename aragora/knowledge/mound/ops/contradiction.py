@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ContradictionType(str, Enum):
     """Types of contradictions detected."""
 
@@ -32,6 +33,7 @@ class ContradictionType(str, Enum):
     TEMPORAL = "temporal"  # Same claim, different time validity
     NUMERICAL = "numerical"  # Conflicting numerical values
     AUTHORITY = "authority"  # Conflicting authoritative sources
+
 
 class ResolutionStrategy(str, Enum):
     """Strategies for resolving contradictions."""
@@ -42,6 +44,7 @@ class ResolutionStrategy(str, Enum):
     MERGE = "merge"  # Combine into nuanced item
     HUMAN_REVIEW = "human_review"  # Flag for manual review
     KEEP_BOTH = "keep_both"  # Mark as disputed
+
 
 @dataclass
 class ValidatorVote:
@@ -78,6 +81,7 @@ class ValidatorVote:
             "weight": self.weight,
             "voted_at": self.voted_at.isoformat(),
         }
+
 
 @dataclass
 class Contradiction:
@@ -221,6 +225,7 @@ class Contradiction:
 
         return None
 
+
 @dataclass
 class ContradictionReport:
     """Report of contradiction detection results."""
@@ -246,6 +251,7 @@ class ContradictionReport:
             "scan_duration_ms": self.scan_duration_ms,
             "scanned_at": self.scanned_at.isoformat(),
         }
+
 
 @dataclass
 class ContradictionConfig:
@@ -285,6 +291,7 @@ class ContradictionConfig:
             "obsolete",
         ]
     )
+
 
 class ContradictionDetector:
     """Detects contradictions in knowledge items."""
@@ -605,6 +612,7 @@ class ContradictionDetector:
             "by_severity": by_severity,
         }
 
+
 class ContradictionOperationsMixin:
     """Mixin for contradiction detection operations on KnowledgeMound."""
 
@@ -684,8 +692,10 @@ class ContradictionOperationsMixin:
                     results.append(c)
             return results
 
+
 # Singleton instance
 _detector: ContradictionDetector | None = None
+
 
 def get_contradiction_detector() -> ContradictionDetector:
     """Get the global contradiction detector instance."""

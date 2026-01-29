@@ -48,6 +48,7 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
+
 class Track(Enum):
     """Development tracks for domain-based routing."""
 
@@ -56,6 +57,7 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"  # Docker, deployment, ops
     QA = "qa"  # Tests, CI/CD
     CORE = "core"  # Core debate engine (requires approval)
+
 
 # Agents that have dedicated agentic coding harnesses (can edit files autonomously)
 AGENTS_WITH_CODING_HARNESS = {"claude", "codex"}
@@ -71,6 +73,7 @@ KILOCODE_PROVIDER_MAPPING = {
     "qwen": "openrouter-qwen",  # Qwen via OpenRouter
 }
 
+
 @dataclass
 class TrackConfig:
     """Configuration for a development track."""
@@ -82,6 +85,7 @@ class TrackConfig:
     max_concurrent_tasks: int = 2
     # Whether to use KiloCode as coding harness for models without one
     use_kilocode_harness: bool = True
+
 
 # Default track configurations aligned with AGENT_ASSIGNMENTS.md
 DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
@@ -122,6 +126,7 @@ DEFAULT_TRACK_CONFIGS: dict[Track, TrackConfig] = {
     ),
 }
 
+
 @dataclass
 class AgentAssignment:
     """Assignment of a subtask to an agent."""
@@ -137,6 +142,7 @@ class AgentAssignment:
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
+
 @dataclass
 class OrchestrationResult:
     """Result of an orchestration run."""
@@ -151,6 +157,7 @@ class OrchestrationResult:
     success: bool
     error: str | None = None
     summary: str = ""
+
 
 class AgentRouter:
     """
@@ -301,6 +308,7 @@ class AgentRouter:
 
         return conflicts
 
+
 class FeedbackLoop:
     """
     Manages feedback from verification back to earlier phases.
@@ -375,6 +383,7 @@ class FeedbackLoop:
                 hints.append(line.strip())
 
         return "\n".join(hints[:5]) if hints else "Review test output"
+
 
 class AutonomousOrchestrator:
     """
@@ -845,8 +854,10 @@ class AutonomousOrchestrator:
         """Get completed assignments."""
         return self._completed_assignments.copy()
 
+
 # Singleton instance
 _orchestrator_instance: AutonomousOrchestrator | None = None
+
 
 def get_orchestrator(
     **kwargs: Any,
@@ -859,10 +870,12 @@ def get_orchestrator(
 
     return _orchestrator_instance
 
+
 def reset_orchestrator() -> None:
     """Reset the singleton (for testing)."""
     global _orchestrator_instance
     _orchestrator_instance = None
+
 
 __all__ = [
     "AutonomousOrchestrator",

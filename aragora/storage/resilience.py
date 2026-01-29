@@ -4,6 +4,7 @@ Database connection resilience with retry logic.
 Provides ResilientConnection for automatic retry on transient SQLite errors
 like "database is locked" and "database is busy".
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -39,10 +40,12 @@ TRANSIENT_ERRORS = (
     "disk i/o error",
 )
 
+
 def is_transient_error(error: Exception) -> bool:
     """Check if an error is transient and can be retried."""
     error_msg = str(error).lower()
     return any(te in error_msg for te in TRANSIENT_ERRORS)
+
 
 class ResilientConnection:
     """
@@ -194,6 +197,7 @@ class ResilientConnection:
             cursor.executemany(query, params_list)
             return cursor.rowcount
 
+
 def with_retry(
     max_retries: int = 3,
     base_delay: float = 0.1,
@@ -248,6 +252,7 @@ def with_retry(
         return wrapper
 
     return decorator
+
 
 @contextmanager
 def atomic_transaction(
@@ -326,6 +331,7 @@ def atomic_transaction(
     # Should not reach here, but just in case
     if last_error:
         raise last_error
+
 
 class ConnectionPool:
     """

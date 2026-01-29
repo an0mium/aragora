@@ -46,12 +46,14 @@ CapabilityProber = _prober_imports.get("CapabilityProber")
 _agent_imports, AGENT_AVAILABLE = try_import("aragora.agents.base", "create_agent")
 create_agent = _agent_imports.get("create_agent")
 
+
 def _safe_int(value, default: int = 0) -> int:
     """Safely convert value to int, returning default on failure."""
     try:
         return int(value)
     except (ValueError, TypeError):
         return default
+
 
 class ProbesHandler(BaseHandler):
     """Handler for capability probing endpoints."""

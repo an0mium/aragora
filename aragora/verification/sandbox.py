@@ -13,6 +13,7 @@ Usage:
     result = await sandbox.execute_lean(lean_code)
     result = await sandbox.execute_z3(smtlib_code)
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -43,6 +44,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 class SandboxStatus(Enum):
     """Status of sandbox execution."""
 
@@ -52,6 +54,7 @@ class SandboxStatus(Enum):
     EXECUTION_ERROR = "execution_error"
     SETUP_FAILED = "setup_failed"
     KILLED = "killed"
+
 
 @dataclass
 class SandboxResult:
@@ -69,6 +72,7 @@ class SandboxResult:
     def is_success(self) -> bool:
         return self.status == SandboxStatus.SUCCESS and self.exit_code == 0
 
+
 @dataclass
 class SandboxConfig:
     """Configuration for sandbox execution."""
@@ -79,6 +83,7 @@ class SandboxConfig:
     cleanup_on_exit: bool = True
     allow_network: bool = False
     working_dir: Path | None = None
+
 
 class ProofSandbox:
     """
@@ -428,6 +433,7 @@ class ProofSandbox:
                 status=SandboxStatus.SETUP_FAILED,
                 error_message=f"Unknown language: {language}. Supported: z3, lean",
             )
+
 
 # Convenience function
 async def run_sandboxed(

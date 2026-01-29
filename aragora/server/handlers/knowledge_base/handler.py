@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for knowledge endpoints (60 requests per minute)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
 
+
 class KnowledgeHandler(
     FactsOperationsMixin,
     QueryOperationsMixin,

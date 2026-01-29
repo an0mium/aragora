@@ -12,6 +12,7 @@ Note: LLM outputs are inherently non-deterministic even with
 temperature=0. "Reproducibility" here means same configuration,
 not identical outputs.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -24,6 +25,7 @@ from typing import Any
 from aragora.config import resolve_db_path
 from aragora.storage.base_store import SQLiteStore
 from aragora.utils.json_helpers import safe_json_loads
+
 
 @dataclass
 class ModelConfig:
@@ -94,6 +96,7 @@ class ModelConfig:
             "cost_per_1k_input": self.cost_per_1k_input,
             "cost_per_1k_output": self.cost_per_1k_output,
         }
+
 
 @dataclass
 class DebateMetadata:
@@ -264,6 +267,7 @@ class DebateMetadata:
             }
 
         return diffs
+
 
 class MetadataStore(SQLiteStore):
     """

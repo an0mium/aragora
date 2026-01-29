@@ -81,8 +81,8 @@ class MockDebateRound:
     """Mock debate round for testing RLM compression."""
 
     round_number: int
-    proposals: List[dict] = field(default_factory=list)
-    critiques: List[dict] = field(default_factory=list)
+    proposals: list[dict] = field(default_factory=list)
+    critiques: list[dict] = field(default_factory=list)
     votes: Optional[dict] = None
 
 
@@ -90,7 +90,7 @@ class MockDebateRound:
 class MockDebateResult:
     """Mock debate result for testing RLM adapters."""
 
-    rounds: List[MockDebateRound] = field(default_factory=list)
+    rounds: list[MockDebateRound] = field(default_factory=list)
     consensus: Optional[str] = None
     final_answer: Optional[str] = None
 

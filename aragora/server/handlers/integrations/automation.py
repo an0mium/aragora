@@ -49,6 +49,7 @@ WEBHOOKS_DELETE = "webhooks.delete"
 WEBHOOKS_DISPATCH = "webhooks.all"  # Admin-level: dispatch events
 INTEGRATIONS_ADMIN = "connectors.authorize"  # Admin-level: n8n definitions
 
+
 class AutomationHandler(SecureHandler):
     """
     HTTP handler for automation webhook management.

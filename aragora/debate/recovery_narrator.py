@@ -22,6 +22,7 @@ from aragora.serialization import SerializableMixin
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RecoveryNarrative(SerializableMixin):
     """A narrative for a recovery event."""
@@ -34,6 +35,7 @@ class RecoveryNarrative(SerializableMixin):
     timestamp: float = field(default_factory=time.time)
 
     # to_dict() inherited from SerializableMixin
+
 
 class RecoveryNarrator:
     """
@@ -402,8 +404,10 @@ class RecoveryNarrator:
             "distribution": distribution,
         }
 
+
 # Global narrator instance
 _narrator: RecoveryNarrator | None = None
+
 
 def get_narrator() -> RecoveryNarrator:
     """Get the global narrator instance."""
@@ -412,10 +416,12 @@ def get_narrator() -> RecoveryNarrator:
         _narrator = RecoveryNarrator()
     return _narrator
 
+
 def reset_narrator() -> None:
     """Reset the global narrator (for testing)."""
     global _narrator
     _narrator = None
+
 
 def setup_narrator_with_immune_system() -> RecoveryNarrator:
     """Set up narrator integrated with the immune system."""
@@ -443,6 +449,7 @@ def setup_narrator_with_immune_system() -> RecoveryNarrator:
         logger.warning("narrator_immune_integration_failed immune_system_not_available")
 
     return narrator
+
 
 def setup_narrator_with_checkpoint_manager(
     narrator: RecoveryNarrator | None = None,
@@ -513,6 +520,7 @@ def setup_narrator_with_checkpoint_manager(
 
     logger.info("narrator_checkpoint_handlers_configured")
     return narrator
+
 
 def integrate_narrator_with_checkpoint_webhook(
     webhook: Any,

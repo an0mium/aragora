@@ -16,7 +16,7 @@ __all__ = [
 
 import re
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from aragora.agents.cli_agents import CLIAgent
 
     # Type alias for agent instances
-    Agent = Union[APIAgent, CLIAgent]  # type: ignore[misc,no-redef,assignment]
+    Agent = APIAgent | CLIAgent  # type: ignore[misc,no-redef,assignment]
 
 
 # Context window limits (in characters, ~4 chars per token)

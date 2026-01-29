@@ -62,6 +62,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 
+
 @dataclass
 class DebateBatchConfig:
     """Configuration for debate-specific batch operations."""
@@ -93,6 +94,7 @@ class DebateBatchConfig:
     record_to_breaker: bool = True
     """Record success/failure to circuit breaker."""
 
+
 @dataclass
 class DebateBatchResult(Generic[R]):
     """Result of a debate batch operation with debate-specific metadata."""
@@ -121,6 +123,7 @@ class DebateBatchResult(Generic[R]):
         if self.total_agents == 0:
             return 0.0
         return len(self.successful_agents) / self.total_agents
+
 
 async def batch_with_agents(
     agents: list["Agent"],
@@ -264,6 +267,7 @@ async def batch_with_agents(
         failed_agents=failed_agents,
     )
 
+
 async def batch_generate_critiques(
     critics: list["Agent"],
     proposals: dict[str, str],
@@ -336,6 +340,7 @@ async def batch_generate_critiques(
 
     logger.info(f"batch_critique_results count={len(results)} tasks={len(critique_tasks)}")
     return results
+
 
 async def batch_collect_votes(
     agents: list["Agent"],
@@ -450,6 +455,7 @@ async def batch_collect_votes(
         )
 
     return votes, early_stopped, winning_choice
+
 
 __all__ = [
     "DebateBatchConfig",

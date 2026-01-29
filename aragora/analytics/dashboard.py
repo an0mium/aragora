@@ -45,6 +45,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+
 class TimeRange(str, Enum):
     """Predefined time ranges for analytics."""
 
@@ -67,6 +68,7 @@ class TimeRange(str, Enum):
         }
         return mapping.get(self.value)
 
+
 class Granularity(str, Enum):
     """Time granularity for trend data."""
 
@@ -74,6 +76,7 @@ class Granularity(str, Enum):
     DAILY = "day"
     WEEKLY = "week"
     MONTHLY = "month"
+
 
 @dataclass
 class FindingTrend:
@@ -94,6 +97,7 @@ class FindingTrend:
             "by_category": self.by_category,
             "by_status": self.by_status,
         }
+
 
 @dataclass
 class RemediationMetrics:
@@ -116,6 +120,7 @@ class RemediationMetrics:
             "false_positive_rate": round(self.false_positive_rate, 4),
             "accepted_risk_rate": round(self.accepted_risk_rate, 4),
         }
+
 
 @dataclass
 class AgentMetrics:
@@ -141,6 +146,7 @@ class AgentMetrics:
             "avg_response_time_ms": round(self.avg_response_time_ms, 2),
         }
 
+
 @dataclass
 class AuditCostMetrics:
     """Cost metrics for audits."""
@@ -160,6 +166,7 @@ class AuditCostMetrics:
             "cost_by_type": {k: round(v, 2) for k, v in self.cost_by_type.items()},
             "token_usage": self.token_usage,
         }
+
 
 @dataclass
 class ComplianceScore:
@@ -183,6 +190,7 @@ class ComplianceScore:
             "critical_gaps": self.critical_gaps,
         }
 
+
 @dataclass
 class RiskHeatmapCell:
     """A cell in the risk heatmap."""
@@ -200,6 +208,7 @@ class RiskHeatmapCell:
             "count": self.count,
             "trend": self.trend,
         }
+
 
 @dataclass
 class DashboardSummary:
@@ -238,6 +247,7 @@ class DashboardSummary:
             "top_categories": [{"category": c, "count": n} for c, n in self.top_categories],
             "recent_critical": self.recent_critical,
         }
+
 
 class AnalyticsDashboard:
     """
@@ -903,9 +913,11 @@ class AnalyticsDashboard:
         else:  # MONTHLY
             return datetime.strptime(key + "-01", "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
+
 # Global instance
 _dashboard: AnalyticsDashboard | None = None
 _lock = threading.Lock()
+
 
 def get_analytics_dashboard() -> AnalyticsDashboard:
     """Get the global analytics dashboard instance."""

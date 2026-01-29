@@ -27,6 +27,7 @@ Usage:
                     (item_id, name)
                 )
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +40,7 @@ from aragora.storage.base_database import BaseDatabase
 from aragora.storage.schema import SchemaManager, safe_add_column
 
 logger = logging.getLogger(__name__)
+
 
 class SQLiteStore(BaseDatabase, ABC):
     """
@@ -315,5 +317,6 @@ class SQLiteStore(BaseDatabase, ABC):
             }
             for row in rows
         ]
+
 
 __all__ = ["SQLiteStore"]

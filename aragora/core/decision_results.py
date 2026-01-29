@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 _decision_result_store = None
 _decision_results_fallback: dict[str, dict[str, Any]] = {}
 
+
 def _get_result_store():
     """Get the decision result store for persistence."""
     global _decision_result_store
@@ -27,6 +28,7 @@ def _get_result_store():
             logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
     return _decision_result_store
 
+
 def save_decision_result(request_id: str, data: dict[str, Any]) -> None:
     """Save a decision result to persistent store with fallback."""
     store = _get_result_store()
@@ -37,6 +39,7 @@ def save_decision_result(request_id: str, data: dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"Failed to persist result, using fallback: {e}")
     _decision_results_fallback[request_id] = data
+
 
 def get_decision_result(request_id: str) -> Optional[dict[str, Any]]:
     """Get a decision result from persistent store with fallback."""
@@ -49,6 +52,7 @@ def get_decision_result(request_id: str) -> Optional[dict[str, Any]]:
         except Exception as e:
             logger.warning(f"Failed to retrieve from store: {e}")
     return _decision_results_fallback.get(request_id)
+
 
 def get_decision_status(request_id: str) -> dict[str, Any]:
     """Get decision status for polling with fallback."""
@@ -70,6 +74,7 @@ def get_decision_status(request_id: str) -> dict[str, Any]:
         "request_id": request_id,
         "status": "not_found",
     }
+
 
 __all__ = [
     "save_decision_result",

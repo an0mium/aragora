@@ -6,6 +6,7 @@ in real-time. Works with the existing DebateStreamServer infrastructure.
 
 Refactored to use category-based organization for improved maintainability.
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -13,6 +14,7 @@ from typing import Callable
 from aragora.config import DEFAULT_ROUNDS
 
 from .stream import StreamEvent, StreamEventType, SyncEventEmitter
+
 
 def _emit(emitter: SyncEventEmitter, event_type: StreamEventType, data: dict, **kwargs) -> None:
     """Helper to emit a stream event with optional round/agent fields."""
@@ -24,6 +26,7 @@ def _emit(emitter: SyncEventEmitter, event_type: StreamEventType, data: dict, **
             agent=kwargs.get("agent", ""),
         )
     )
+
 
 def _create_cycle_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for cycle lifecycle events."""
@@ -52,6 +55,7 @@ def _create_cycle_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         )
 
     return {"on_cycle_start": on_cycle_start, "on_cycle_end": on_cycle_end}
+
 
 def _create_phase_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for phase lifecycle events."""
@@ -87,6 +91,7 @@ def _create_phase_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         )
 
     return {"on_phase_start": on_phase_start, "on_phase_end": on_phase_end}
+
 
 def _create_task_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for implementation task events."""
@@ -149,6 +154,7 @@ def _create_task_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_task_retry": on_task_retry,
     }
 
+
 def _create_verification_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for verification phase events."""
 
@@ -170,6 +176,7 @@ def _create_verification_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]
         "on_verification_start": on_verification_start,
         "on_verification_result": on_verification_result,
     }
+
 
 def _create_backup_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for backup/commit events."""
@@ -212,6 +219,7 @@ def _create_backup_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_backup_created": on_backup_created,
         "on_backup_restored": on_backup_restored,
     }
+
 
 def _create_log_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for logging and error events."""
@@ -267,6 +275,7 @@ def _create_log_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_log_message": on_log_message,
         "on_match_recorded": on_match_recorded,
     }
+
 
 def _create_probe_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for capability probing events."""
@@ -335,6 +344,7 @@ def _create_probe_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_probe_result": on_probe_result,
         "on_probe_complete": on_probe_complete,
     }
+
 
 def _create_audit_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """Create hooks for deep audit events."""
@@ -453,6 +463,7 @@ def _create_audit_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
         "on_audit_cross_exam": on_audit_cross_exam,
         "on_audit_verdict": on_audit_verdict,
     }
+
 
 def create_nomic_hooks(emitter: SyncEventEmitter) -> dict[str, Callable]:
     """

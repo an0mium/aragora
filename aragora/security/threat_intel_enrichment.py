@@ -51,6 +51,7 @@ ENRICHMENT_ENABLED = os.getenv("ARAGORA_THREAT_INTEL_ENRICHMENT_ENABLED", "true"
 )
 MAX_INDICATORS = int(os.getenv("ARAGORA_THREAT_INTEL_MAX_INDICATORS", "10"))
 
+
 @dataclass
 class ThreatIndicator:
     """Represents a threat indicator from intelligence feeds."""
@@ -86,6 +87,7 @@ class ThreatIndicator:
             "tags": self.tags,
         }
 
+
 @dataclass
 class ThreatContext:
     """Aggregated threat context for debate enrichment."""
@@ -107,6 +109,7 @@ class ThreatContext:
             "risk_summary": self.risk_summary,
             "enrichment_timestamp": self.enrichment_timestamp.isoformat(),
         }
+
 
 class ThreatIntelEnrichment:
     """
@@ -784,6 +787,7 @@ class ThreatIntelEnrichment:
             except Exception:
                 pass
 
+
 # Convenience function for quick enrichment
 async def enrich_security_context(
     topic: str,
@@ -819,6 +823,7 @@ async def enrich_security_context(
         return None
     finally:
         await enrichment.close()
+
 
 __all__ = [
     "ThreatIndicator",

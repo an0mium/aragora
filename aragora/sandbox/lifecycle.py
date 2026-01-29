@@ -47,6 +47,7 @@ from aragora.sandbox.pool import (
 
 logger = logging.getLogger(__name__)
 
+
 class SessionState(str, Enum):
     """State of a container session."""
 
@@ -55,6 +56,7 @@ class SessionState(str, Enum):
     SUSPENDED = "suspended"
     TERMINATING = "terminating"
     TERMINATED = "terminated"
+
 
 @dataclass
 class SessionConfig:
@@ -92,6 +94,7 @@ class SessionConfig:
             "network_enabled": self.network_enabled,
             "file_persistence": self.file_persistence,
         }
+
 
 @dataclass
 class ContainerSession:
@@ -169,6 +172,7 @@ class ContainerSession:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class SessionExecutionResult:
     """Result of a session execution."""
@@ -199,25 +203,30 @@ class SessionExecutionResult:
             "error_message": self.error_message,
         }
 
+
 class SessionError(Exception):
     """Base exception for session errors."""
 
     pass
+
 
 class SessionNotFoundError(SessionError):
     """Session not found."""
 
     pass
 
+
 class SessionExpiredError(SessionError):
     """Session has expired."""
 
     pass
 
+
 class ExecutionDeniedError(SessionError):
     """Execution denied by policy."""
 
     pass
+
 
 class SessionContainerManager:
     """
@@ -776,11 +785,13 @@ class SessionContainerManager:
             "pool_stats": self.pool.stats.to_dict() if self._pool else None,
         }
 
+
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
 _manager_instance: SessionContainerManager | None = None
+
 
 def get_session_manager() -> SessionContainerManager:
     """Get or create the global session container manager."""
@@ -789,10 +800,12 @@ def get_session_manager() -> SessionContainerManager:
         _manager_instance = SessionContainerManager()
     return _manager_instance
 
+
 def set_session_manager(manager: SessionContainerManager) -> None:
     """Set the global session container manager."""
     global _manager_instance
     _manager_instance = manager
+
 
 __all__ = [
     "ContainerSession",

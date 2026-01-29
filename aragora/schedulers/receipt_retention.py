@@ -41,6 +41,7 @@ DEFAULT_RETENTION_DAYS = int(
     os.environ.get("ARAGORA_RECEIPT_RETENTION_DAYS", "2555")  # ~7 years
 )
 
+
 @dataclass
 class CleanupResult:
     """Result of a retention cleanup operation."""
@@ -63,6 +64,7 @@ class CleanupResult:
             "success": self.error is None,
             "error": self.error,
         }
+
 
 @dataclass
 class CleanupStats:
@@ -103,6 +105,7 @@ class CleanupStats:
             ),
             "last_result": self.last_result.to_dict() if self.last_result else None,
         }
+
 
 class ReceiptRetentionScheduler:
     """
@@ -282,8 +285,10 @@ class ReceiptRetentionScheduler:
             "stats": self._stats.to_dict(),
         }
 
+
 # Global instance management
 _scheduler: ReceiptRetentionScheduler | None = None
+
 
 def get_receipt_retention_scheduler(
     store: Optional["ReceiptStore"] = None,  # noqa: F821
@@ -308,10 +313,12 @@ def get_receipt_retention_scheduler(
     _scheduler = ReceiptRetentionScheduler(store)
     return _scheduler
 
+
 def set_receipt_retention_scheduler(scheduler: ReceiptRetentionScheduler | None) -> None:
     """Set the global scheduler (for testing)."""
     global _scheduler
     _scheduler = scheduler
+
 
 __all__ = [
     "ReceiptRetentionScheduler",

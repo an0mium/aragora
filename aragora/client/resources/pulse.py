@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
+
 @dataclass
 class TrendingTopic:
     """A trending topic for debates."""
@@ -39,6 +40,7 @@ class TrendingTopic:
             summary=data.get("summary"),
             suggested_agents=data.get("suggested_agents", []),
         )
+
 
 @dataclass
 class DebateSuggestion:
@@ -68,6 +70,7 @@ class DebateSuggestion:
             related_topics=data.get("related_topics", []),
         )
 
+
 @dataclass
 class PulseAnalytics:
     """Analytics about trending topics."""
@@ -87,6 +90,7 @@ class PulseAnalytics:
             top_categories=data.get("top_categories", []),
             freshness_hours=data.get("freshness_hours", 24.0),
         )
+
 
 class PulseAPI:
     """

@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Global voice processor instance (lazily initialized)
 _voice_processor: Optional["VoiceProcessor"] = None
 
+
 def get_voice_processor() -> "VoiceProcessor":
     """Get or create the voice processor instance."""
     global _voice_processor
@@ -43,6 +44,7 @@ def get_voice_processor() -> "VoiceProcessor":
 
         _voice_processor = VoiceProcessor()
     return _voice_processor
+
 
 class MoltbotVoiceHandler(BaseHandler):
     """HTTP handler for Moltbot voice operations."""

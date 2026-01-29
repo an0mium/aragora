@@ -32,6 +32,7 @@ Usage:
         if bead:
             await process_bead(bead)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,6 +49,7 @@ from aragora.nomic.beads import Bead, BeadStatus, BeadStore
 
 logger = logging.getLogger(__name__)
 
+
 class HookEntryStatus(str, Enum):
     """Status of a hook entry."""
 
@@ -56,6 +58,7 @@ class HookEntryStatus(str, Enum):
     COMPLETED = "completed"  # Successfully processed
     FAILED = "failed"  # Processing failed
     SKIPPED = "skipped"  # Skipped (e.g., bead no longer exists)
+
 
 @dataclass
 class HookEntry:
@@ -145,6 +148,7 @@ class HookEntry:
     def can_retry(self) -> bool:
         """Check if entry can be retried based on attempt count."""
         return self.attempt_count < self.max_attempts
+
 
 class HookQueue:
     """
@@ -476,6 +480,7 @@ class HookQueue:
 
             return len(to_remove)
 
+
 class HookQueueRegistry:
     """
     Registry for managing multiple agent hook queues.
@@ -553,8 +558,10 @@ class HookQueueRegistry:
             "queues": stats,
         }
 
+
 # Singleton registry
 _default_registry: HookQueueRegistry | None = None
+
 
 async def get_hook_queue_registry(bead_store: BeadStore) -> HookQueueRegistry:
     """Get the default hook queue registry."""
@@ -562,6 +569,7 @@ async def get_hook_queue_registry(bead_store: BeadStore) -> HookQueueRegistry:
     if _default_registry is None:
         _default_registry = HookQueueRegistry(bead_store)
     return _default_registry
+
 
 def reset_hook_queue_registry() -> None:
     """Reset the default registry (for testing)."""

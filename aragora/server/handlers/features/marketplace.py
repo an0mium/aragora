@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Enums and Data Classes
 # =============================================================================
 
+
 class TemplateCategory(Enum):
     """Template categories for industry verticals."""
 
@@ -55,6 +56,7 @@ class TemplateCategory(Enum):
     DEVOPS = "devops"
     MARKETING = "marketing"
 
+
 class DeploymentStatus(Enum):
     """Deployment status."""
 
@@ -63,6 +65,7 @@ class DeploymentStatus(Enum):
     PAUSED = "paused"
     ARCHIVED = "archived"
     FAILED = "failed"
+
 
 @dataclass
 class TemplateMetadata:
@@ -113,6 +116,7 @@ class TemplateMetadata:
             "estimated_duration": self.estimated_duration,
         }
 
+
 @dataclass
 class TemplateDeployment:
     """Record of a deployed template."""
@@ -141,6 +145,7 @@ class TemplateDeployment:
             "run_count": self.run_count,
         }
 
+
 @dataclass
 class TemplateRating:
     """Template rating from a user."""
@@ -163,6 +168,7 @@ class TemplateRating:
             "created_at": self.created_at.isoformat(),
         }
 
+
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
@@ -183,9 +189,11 @@ _download_counts: dict[str, int] = {}
 # Template Discovery
 # =============================================================================
 
+
 def _get_templates_dir() -> Path:
     """Get the workflow templates directory."""
     return Path(__file__).parent.parent.parent.parent / "workflow" / "templates"
+
 
 def _load_templates() -> dict[str, TemplateMetadata]:
     """Load all templates from the templates directory."""
@@ -210,6 +218,7 @@ def _load_templates() -> dict[str, TemplateMetadata]:
 
     logger.info(f"Loaded {len(_templates_cache)} templates from {templates_dir}")
     return _templates_cache
+
 
 def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
     """Parse a YAML template file into metadata."""
@@ -264,6 +273,7 @@ def _parse_template_file(file_path: Path) -> TemplateMetadata | None:
         logger.warning(f"Error parsing template {file_path}: {e}")
         return None
 
+
 def _get_full_template(template_id: str) -> Optional[dict[str, Any]]:
     """Load the full template content."""
     templates = _load_templates()
@@ -279,11 +289,13 @@ def _get_full_template(template_id: str) -> Optional[dict[str, Any]]:
         logger.warning(f"Error loading template {template_id}: {e}")
         return None
 
+
 def _get_tenant_deployments(tenant_id: str) -> dict[str, TemplateDeployment]:
     """Get deployments for a tenant."""
     if tenant_id not in _deployments:
         _deployments[tenant_id] = {}
     return _deployments[tenant_id]
+
 
 # =============================================================================
 # Category Information
@@ -355,6 +367,7 @@ CATEGORY_INFO = {
 # =============================================================================
 # Handler
 # =============================================================================
+
 
 class MarketplaceHandler(BaseHandler):
     """Handler for marketplace API endpoints."""
@@ -912,13 +925,16 @@ class MarketplaceHandler(BaseHandler):
             }
         )
 
+
 # =============================================================================
 # Module-level helpers
 # =============================================================================
 
+
 def get_marketplace_handler() -> MarketplaceHandler:
     """Get a MarketplaceHandler instance."""
     return MarketplaceHandler()
+
 
 async def handle_marketplace(request: Any, path: str, method: str) -> HandlerResult:
     """Handle a marketplace request."""

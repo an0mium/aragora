@@ -38,10 +38,12 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ConditionError(Exception):
     """Error evaluating a condition."""
 
     pass
+
 
 @dataclass
 class ConditionResult:
@@ -51,6 +53,7 @@ class ConditionResult:
     condition_name: str
     reason: str
     details: dict[str, Any] = field(default_factory=dict)
+
 
 class Condition(ABC):
     """Abstract base class for conditions."""
@@ -68,6 +71,7 @@ class Condition(ABC):
         """
         pass
 
+
 class EqualityCondition(Condition):
     """Simple equality condition (default behavior)."""
 
@@ -83,6 +87,7 @@ class EqualityCondition(Condition):
             reason=f"{'Matched' if satisfied else 'Mismatched'}: {actual} {'==' if satisfied else '!='} {expected}",
             details={"expected": expected, "actual": actual},
         )
+
 
 class TimeCondition(Condition):
     """Time-based access condition.
@@ -158,6 +163,7 @@ class TimeCondition(Condition):
             condition_name="time",
             reason="Time conditions satisfied",
         )
+
 
 class IPCondition(Condition):
     """IP-based access condition.
@@ -269,6 +275,7 @@ class IPCondition(Condition):
         except ValueError:
             return False
 
+
 class ResourceOwnerCondition(Condition):
     """Resource ownership condition.
 
@@ -319,6 +326,7 @@ class ResourceOwnerCondition(Condition):
             reason=f"Actor {actor} is not the owner ({owner}) or in group",
         )
 
+
 class ResourceStatusCondition(Condition):
     """Resource status condition.
 
@@ -354,6 +362,7 @@ class ResourceStatusCondition(Condition):
             condition_name="status",
             reason=f"Resource status '{status}' not in allowed: {expected}",
         )
+
 
 class TagCondition(Condition):
     """Resource tag condition.
@@ -444,6 +453,7 @@ class TagCondition(Condition):
             condition_name="tags",
             reason="Tag conditions satisfied",
         )
+
 
 class ConditionEvaluator:
     """
@@ -561,8 +571,10 @@ class ConditionEvaluator:
             reason=f"{'Matched' if satisfied else 'Mismatched'}: {actual} {'==' if satisfied else '!='} {expected}",
         )
 
+
 # Global instance
 _condition_evaluator: ConditionEvaluator | None = None
+
 
 def get_condition_evaluator() -> ConditionEvaluator:
     """Get the global condition evaluator."""
@@ -570,6 +582,7 @@ def get_condition_evaluator() -> ConditionEvaluator:
     if _condition_evaluator is None:
         _condition_evaluator = ConditionEvaluator()
     return _condition_evaluator
+
 
 __all__ = [
     "Condition",

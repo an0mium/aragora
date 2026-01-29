@@ -62,6 +62,7 @@ class ReviewSummary(TypedDict):
 
 class _ReviewSummaryBuilder(TypedDict):
     """Internal builder type for summary before final conversion."""
+
     total_items: int
     by_risk: RiskCounts
     by_type: dict[str, int]
@@ -69,11 +70,13 @@ class _ReviewSummaryBuilder(TypedDict):
     unique_users: set[str]
     stale_count: int
 
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Types and Enums
 # =============================================================================
+
 
 class ReviewType(Enum):
     """Types of access reviews."""
@@ -84,6 +87,7 @@ class ReviewType(Enum):
     STALE_CREDENTIALS = "stale_credentials"  # 90+ day unused
     ORPHANED_ACCOUNTS = "orphaned_accounts"  # No manager/inactive
     PRIVILEGE_ESCALATION = "privilege_escalation"  # High privilege review
+
 
 class ReviewStatus(Enum):
     """Status of an access review."""
@@ -96,6 +100,7 @@ class ReviewStatus(Enum):
     EXPIRED = "expired"
     CANCELLED = "cancelled"
 
+
 class ReviewItemStatus(Enum):
     """Status of a review item."""
 
@@ -104,6 +109,7 @@ class ReviewItemStatus(Enum):
     REVOKED = "revoked"
     MODIFIED = "modified"
     SKIPPED = "skipped"
+
 
 @dataclass
 class AccessReviewItem:
@@ -124,6 +130,7 @@ class AccessReviewItem:
     decision_at: datetime | None = None
     decision_notes: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class AccessReview:
@@ -159,9 +166,11 @@ class AccessReview:
             "summary": self.summary,
         }
 
+
 # =============================================================================
 # Configuration
 # =============================================================================
+
 
 @dataclass
 class AccessReviewConfig:
@@ -183,9 +192,11 @@ class AccessReviewConfig:
     # Storage
     storage_path: str | None = None
 
+
 # =============================================================================
 # Storage Layer
 # =============================================================================
+
 
 class AccessReviewStorage:
     """SQLite-backed storage for access reviews."""
@@ -548,9 +559,11 @@ class AccessReviewStorage:
         )
         conn.commit()
 
+
 # =============================================================================
 # Access Review Scheduler
 # =============================================================================
+
 
 class AccessReviewScheduler:
     """Main access review scheduler."""
@@ -1059,12 +1072,14 @@ class AccessReviewScheduler:
         """Record user access for tracking."""
         self._storage.record_user_access(user_id, resource_type, resource_id)
 
+
 # =============================================================================
 # Global Instance
 # =============================================================================
 
 _scheduler: AccessReviewScheduler | None = None
 _scheduler_lock = threading.Lock()
+
 
 def get_access_review_scheduler(
     config: AccessReviewConfig | None = None,
@@ -1076,6 +1091,7 @@ def get_access_review_scheduler(
             _scheduler = AccessReviewScheduler(config)
         return _scheduler
 
+
 async def schedule_access_review(
     review_type: ReviewType = ReviewType.MONTHLY,
     scope_workspaces: Optional[list[str]] = None,
@@ -1085,6 +1101,7 @@ async def schedule_access_review(
         review_type=review_type,
         scope_workspaces=scope_workspaces,
     )
+
 
 __all__ = [
     # Types

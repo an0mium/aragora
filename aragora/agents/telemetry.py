@@ -37,6 +37,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 AsyncFunc = Callable[P, Awaitable[T]]
 
+
 def _get_callable_name(func: Callable) -> str:
     """Safely get a callable's name for logging.
 
@@ -48,6 +49,7 @@ def _get_callable_name(func: Callable) -> str:
     if hasattr(func, "__class__"):
         return func.__class__.__name__
     return repr(func)
+
 
 @dataclass
 class AgentTelemetry:
@@ -84,9 +86,11 @@ class AgentTelemetry:
         """Estimate token count from text (~4 chars per token)."""
         return len(text) // 4 if text else 0
 
+
 # Global telemetry collectors (thread-safe)
 _telemetry_lock = threading.Lock()
 _telemetry_collectors: list[Callable[[AgentTelemetry], None]] = []
+
 
 def register_telemetry_collector(collector: Callable[[AgentTelemetry], None]) -> None:
     """Register a collector to receive telemetry events. Thread-safe.
@@ -104,11 +108,13 @@ def register_telemetry_collector(collector: Callable[[AgentTelemetry], None]) ->
             _telemetry_collectors.append(collector)
             logger.debug(f"telemetry_collector_registered total={len(_telemetry_collectors)}")
 
+
 def unregister_telemetry_collector(collector: Callable[[AgentTelemetry], None]) -> None:
     """Unregister a telemetry collector. Thread-safe."""
     with _telemetry_lock:
         if collector in _telemetry_collectors:
             _telemetry_collectors.remove(collector)
+
 
 def _emit_telemetry(telemetry: AgentTelemetry) -> None:
     """Emit telemetry to all registered collectors. Thread-safe."""
@@ -122,6 +128,7 @@ def _emit_telemetry(telemetry: AgentTelemetry) -> None:
             logger.warning(
                 f"telemetry_collector_error collector={_get_callable_name(collector)} error={e}"
             )
+
 
 def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:
     """Default collector that records to Prometheus metrics."""
@@ -146,6 +153,7 @@ def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:
             )
     except ImportError:
         pass  # Prometheus not available
+
 
 def _default_immune_system_collector(telemetry: AgentTelemetry) -> None:
     """Default collector that emits to the immune system."""
@@ -176,6 +184,7 @@ def _default_immune_system_collector(telemetry: AgentTelemetry) -> None:
     except ImportError:
         pass  # Immune system not available
 
+
 def _default_blackbox_collector(telemetry: AgentTelemetry) -> None:
     """Default collector that records to the blackbox."""
     try:
@@ -201,12 +210,14 @@ def _default_blackbox_collector(telemetry: AgentTelemetry) -> None:
     except ImportError:
         pass  # Blackbox not available
 
+
 def setup_default_collectors() -> None:
     """Set up the default telemetry collectors."""
     register_telemetry_collector(_default_prometheus_collector)
     register_telemetry_collector(_default_immune_system_collector)
     register_telemetry_collector(_default_blackbox_collector)
     logger.info("telemetry_default_collectors_registered")
+
 
 def with_telemetry(
     operation: str = "generate",
@@ -350,6 +361,7 @@ def with_telemetry(
 
     return decorator
 
+
 class TelemetryContext:
     """Context manager for manual telemetry recording.
 
@@ -392,6 +404,7 @@ class TelemetryContext:
         self.telemetry.complete(success=success)
         _emit_telemetry(self.telemetry)
 
+
 def get_telemetry_stats() -> dict:
     """Get telemetry statistics summary. Thread-safe."""
     with _telemetry_lock:
@@ -399,6 +412,7 @@ def get_telemetry_stats() -> dict:
             "collectors_count": len(_telemetry_collectors),
             "collectors": [_get_callable_name(c) for c in _telemetry_collectors],
         }
+
 
 def reset_telemetry() -> None:
     """Reset telemetry system (for testing). Thread-safe."""

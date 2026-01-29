@@ -4,6 +4,7 @@ Nomic Loop Event Definitions.
 Events are the triggers that cause state transitions. Each event
 carries data needed for the transition and can be logged for auditing.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -11,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any
+
 
 class EventType(Enum):
     """Types of events that can trigger state transitions."""
@@ -56,6 +58,7 @@ class EventType(Enum):
     GATE_APPROVED = auto()  # Gate approved
     GATE_REJECTED = auto()  # Gate rejected
     GATE_SKIPPED = auto()  # Gate skipped (disabled)
+
 
 @dataclass
 class Event:
@@ -144,6 +147,7 @@ class Event:
             agent_error=data.get("agent_error"),
         )
 
+
 # Factory functions for common events
 def start_event(trigger: str = "manual", config: dict | None = None) -> Event:
     """Create a START event."""
@@ -153,6 +157,7 @@ def start_event(trigger: str = "manual", config: dict | None = None) -> Event:
         data={"config": config or {}},
     )
 
+
 def stop_event(reason: str = "manual") -> Event:
     """Create a STOP event."""
     return Event(
@@ -160,6 +165,7 @@ def stop_event(reason: str = "manual") -> Event:
         source="user",
         data={"reason": reason},
     )
+
 
 def pause_event(reason: str = "manual") -> Event:
     """Create a PAUSE event."""
@@ -169,12 +175,14 @@ def pause_event(reason: str = "manual") -> Event:
         data={"reason": reason},
     )
 
+
 def resume_event() -> Event:
     """Create a RESUME event."""
     return Event(
         event_type=EventType.RESUME,
         source="user",
     )
+
 
 def phase_complete_event(
     phase: str,
@@ -201,6 +209,7 @@ def phase_complete_event(
         },
     )
 
+
 def error_event(
     phase: str,
     error: Exception,
@@ -216,6 +225,7 @@ def error_event(
         data={"traceback": getattr(error, "__traceback__", None) is not None},
     )
 
+
 def timeout_event(phase: str, timeout_seconds: int) -> Event:
     """Create a TIMEOUT event."""
     return Event(
@@ -225,6 +235,7 @@ def timeout_event(phase: str, timeout_seconds: int) -> Event:
         recoverable=True,
         data={"timeout_seconds": timeout_seconds},
     )
+
 
 def retry_event(phase: str, attempt: int, max_attempts: int) -> Event:
     """Create a RETRY event."""
@@ -236,6 +247,7 @@ def retry_event(phase: str, attempt: int, max_attempts: int) -> Event:
             "max_attempts": max_attempts,
         },
     )
+
 
 def agent_failed_event(
     agent_name: str,
@@ -251,6 +263,7 @@ def agent_failed_event(
         data={"failure_count": failure_count},
     )
 
+
 def circuit_open_event(agent_name: str, failures: int) -> Event:
     """Create a CIRCUIT_OPEN event."""
     return Event(
@@ -259,6 +272,7 @@ def circuit_open_event(agent_name: str, failures: int) -> Event:
         agent_name=agent_name,
         data={"failures": failures},
     )
+
 
 def rollback_event(reason: str, files_affected: list[str]) -> Event:
     """Create a ROLLBACK event."""
@@ -271,6 +285,7 @@ def rollback_event(reason: str, files_affected: list[str]) -> Event:
         },
     )
 
+
 def checkpoint_loaded_event(checkpoint_path: str, state: str) -> Event:
     """Create a CHECKPOINT_LOADED event."""
     return Event(
@@ -281,6 +296,7 @@ def checkpoint_loaded_event(checkpoint_path: str, state: str) -> Event:
             "state": state,
         },
     )
+
 
 def gate_approved_event(
     gate_type: str,
@@ -300,6 +316,7 @@ def gate_approved_event(
         },
     )
 
+
 def gate_rejected_event(
     gate_type: str,
     reason: str,
@@ -317,6 +334,7 @@ def gate_rejected_event(
             "reason": reason,
         },
     )
+
 
 @dataclass
 class EventLog:

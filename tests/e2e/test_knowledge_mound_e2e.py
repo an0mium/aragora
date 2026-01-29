@@ -32,8 +32,8 @@ pytestmark = [pytest.mark.e2e, pytest.mark.knowledge]
 def mock_meta_store():
     """Create a mock metadata store with access grant support."""
     store = MagicMock()
-    store._grants: Dict[str, List[Any]] = {}  # item_id -> list of grants
-    store._grantee_grants: Dict[str, List[Any]] = {}  # grantee_id -> list of grants
+    store._grants: dict[str, list[Any]] = {}  # item_id -> list of grants
+    store._grantee_grants: dict[str, list[Any]] = {}  # grantee_id -> list of grants
 
     async def save_access_grant_async(grant):
         item_id = grant.item_id
@@ -119,7 +119,7 @@ def mock_knowledge_mound(mock_meta_store, sample_knowledge_item):
     mound.config = MagicMock()
 
     # Store items in memory
-    mound._items: Dict[str, Any] = {sample_knowledge_item.id: sample_knowledge_item}
+    mound._items: dict[str, Any] = {sample_knowledge_item.id: sample_knowledge_item}
 
     def _ensure_initialized():
         pass

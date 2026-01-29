@@ -61,6 +61,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class GatewayHandler(BaseHandler):
     """
     HTTP request handler for gateway API endpoints.
@@ -144,9 +145,7 @@ class GatewayHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/gateway/")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -499,5 +498,6 @@ class GatewayHandler(BaseHandler):
                 "rule_id": getattr(result, "rule_id", None),
             }
         )
+
 
 __all__ = ["GatewayHandler"]

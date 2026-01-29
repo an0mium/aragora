@@ -27,6 +27,7 @@ from aragora.persistence.db_config import DatabaseType, get_db_path, get_nomic_d
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class UsageSyncRecord:
     """Record of a usage sync operation."""
@@ -40,6 +41,7 @@ class UsageSyncRecord:
     stripe_record_id: str = ""
     success: bool = True
     error: str = ""
+
 
 @dataclass
 class OrgBillingConfig:
@@ -55,6 +57,7 @@ class OrgBillingConfig:
     tokens_input_item_id: str | None = None
     tokens_output_item_id: str | None = None
     debates_item_id: str | None = None
+
 
 class UsageSyncService:
     """
@@ -1052,8 +1055,10 @@ class UsageSyncService:
 
         return records
 
+
 # Default service instance
 _default_service: UsageSyncService | None = None
+
 
 def get_usage_sync_service() -> UsageSyncService:
     """Get the default usage sync service instance."""
@@ -1062,17 +1067,20 @@ def get_usage_sync_service() -> UsageSyncService:
         _default_service = UsageSyncService()
     return _default_service
 
+
 def start_usage_sync() -> UsageSyncService:
     """Start the usage sync service."""
     service = get_usage_sync_service()
     service.start()
     return service
 
+
 def stop_usage_sync() -> None:
     """Stop the usage sync service."""
     global _default_service
     if _default_service is not None:
         _default_service.stop()
+
 
 __all__ = [
     "UsageSyncService",

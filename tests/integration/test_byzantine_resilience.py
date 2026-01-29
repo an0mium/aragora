@@ -125,7 +125,7 @@ def create_stress_agents():
         byzantine_mode: str = "disagree",
         response_delay: float = 0.0,
         failure_probability: float = 0.0,
-    ) -> List[StressTestAgent]:
+    ) -> list[StressTestAgent]:
         agents = []
 
         # Create honest agents
@@ -187,7 +187,7 @@ class TestConcurrentByzantineProtocols:
     async def test_parallel_consensus_20_protocols(self, create_stress_agents):
         """Run 20 Byzantine consensus protocols in parallel."""
 
-        async def run_protocol(idx: int) -> Tuple[int, bool]:
+        async def run_protocol(idx: int) -> tuple[int, bool]:
             agents = create_stress_agents(n_honest=4, n_byzantine=0)
             config = ByzantineConsensusConfig(
                 phase_timeout_seconds=5.0,

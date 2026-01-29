@@ -71,18 +71,18 @@ class MockSlackRequest:
 class SlackResponseCapture:
     """Capture Slack API responses for verification."""
 
-    responses: List[Dict[str, Any]] = field(default_factory=list)
-    response_url_posts: List[Dict[str, Any]] = field(default_factory=list)
+    responses: list[dict[str, Any]] = field(default_factory=list)
+    response_url_posts: list[dict[str, Any]] = field(default_factory=list)
 
-    def add_response(self, response: Dict[str, Any]) -> None:
+    def add_response(self, response: dict[str, Any]) -> None:
         """Add a direct response."""
         self.responses.append(response)
 
-    def add_response_url_post(self, data: Dict[str, Any]) -> None:
+    def add_response_url_post(self, data: dict[str, Any]) -> None:
         """Add a response_url POST."""
         self.response_url_posts.append(data)
 
-    def get_final_result(self) -> Optional[Dict[str, Any]]:
+    def get_final_result(self) -> Optional[dict[str, Any]]:
         """Get the final debate result message."""
         for post in reversed(self.response_url_posts):
             text = post.get("text", "")
@@ -90,7 +90,7 @@ class SlackResponseCapture:
                 return post
         return None
 
-    def get_progress_updates(self) -> List[Dict[str, Any]]:
+    def get_progress_updates(self) -> list[dict[str, Any]]:
         """Get all progress update messages."""
         return [post for post in self.response_url_posts if "Round" in post.get("text", "")]
 
@@ -532,7 +532,7 @@ class TestSlackFullDebateFlow:
         handler = SlackHandler({})
         captured_posts = []
 
-        async def mock_post(response_url: str, data: Dict[str, Any]) -> None:
+        async def mock_post(response_url: str, data: dict[str, Any]) -> None:
             captured_posts.append({"url": response_url, "data": data})
 
         # Patch the post method
@@ -591,7 +591,7 @@ class TestSlackFullDebateFlow:
         handler = SlackHandler({})
         captured_posts = []
 
-        async def mock_post(response_url: str, data: Dict[str, Any]) -> None:
+        async def mock_post(response_url: str, data: dict[str, Any]) -> None:
             captured_posts.append(data)
 
         handler._post_to_response_url = mock_post

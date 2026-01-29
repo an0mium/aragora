@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Type alias for the debate executor function
 DebateExecutor = Callable[[Job], Coroutine[Any, Any, dict[str, Any]]]
 
+
 class DebateWorker:
     """
     Worker that processes debate jobs from the queue.
@@ -283,6 +284,7 @@ class DebateWorker:
                 break
             except Exception as e:
                 logger.error(f"Error claiming stale jobs: {e}")
+
 
 async def create_default_executor() -> DebateExecutor:
     """

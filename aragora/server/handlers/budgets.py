@@ -41,6 +41,7 @@ BUDGET_READ_PERMISSION = "budget.read"
 BUDGET_WRITE_PERMISSION = "budget.write"
 BUDGET_DELETE_PERMISSION = "budget.delete"
 
+
 class BudgetHandler(BaseHandler):
     """Handler for budget management endpoints."""
 
@@ -265,9 +266,7 @@ class BudgetHandler(BaseHandler):
             logger.error(f"Failed to list budgets: {e}")
             return error_response(f"Failed to list budgets: {str(e)[:100]}", 500)
 
-    async def _create_budget(
-        self, org_id: str, user_id: str | None, handler: Any
-    ) -> HandlerResult:
+    async def _create_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
         """Create a new budget."""
         try:
             from aragora.billing.budget_manager import BudgetPeriod
@@ -400,9 +399,7 @@ class BudgetHandler(BaseHandler):
             logger.error(f"Failed to get summary: {e}")
             return error_response(f"Failed to get summary: {str(e)[:100]}", 500)
 
-    async def _check_budget(
-        self, org_id: str, user_id: str | None, handler: Any
-    ) -> HandlerResult:
+    async def _check_budget(self, org_id: str, user_id: str | None, handler: Any) -> HandlerResult:
         """Pre-flight cost check."""
         try:
             body = self.read_json_body(handler)
@@ -720,6 +717,7 @@ class BudgetHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Failed to get org trends: {e}")
             return error_response(f"Failed to get trends: {str(e)[:100]}", 500)
+
 
 # Handler factory function
 def create_budget_handler(server_context: Any) -> BudgetHandler:

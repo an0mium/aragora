@@ -56,8 +56,8 @@ class MockAuthorizationContext:
     user_email: str = "test@example.com"
     org_id: str = "test-org-001"
     workspace_id: str = "test-ws-001"
-    roles: Set[str] = field(default_factory=lambda: {"admin"})
-    permissions: Set[str] = field(default_factory=set)
+    roles: set[str] = field(default_factory=lambda: {"admin"})
+    permissions: set[str] = field(default_factory=set)
     api_key_scope: Optional[str] = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
@@ -86,17 +86,17 @@ class MockAuthorizationContext:
         """Check if context has a specific role."""
         return role in self.roles
 
-    def has_any_permission(self, permissions: List[str]) -> bool:
+    def has_any_permission(self, permissions: list[str]) -> bool:
         """Check if context has any of the specified permissions."""
         return any(self.has_permission(p) for p in permissions)
 
-    def has_all_permissions(self, permissions: List[str]) -> bool:
+    def has_all_permissions(self, permissions: list[str]) -> bool:
         """Check if context has all of the specified permissions."""
         return all(self.has_permission(p) for p in permissions)
 
 
 # Default permissions for test contexts
-DEFAULT_TEST_PERMISSIONS: Set[str] = {
+DEFAULT_TEST_PERMISSIONS: set[str] = {
     "debates:read",
     "debates:write",
     "debates:create",
@@ -136,8 +136,8 @@ def create_mock_auth_context(
     user_email: str = "test@example.com",
     org_id: str = "test-org-001",
     workspace_id: str = "test-ws-001",
-    roles: Optional[Set[str]] = None,
-    permissions: Optional[Set[str]] = None,
+    roles: Optional[set[str]] = None,
+    permissions: Optional[set[str]] = None,
     **kwargs: Any,
 ) -> MockAuthorizationContext:
     """Create a mock authorization context with custom settings.
@@ -425,8 +425,8 @@ def authenticated_handler_context(
     handler_instance: Any,
     user_id: str = "test-user-001",
     org_id: str = "test-org-001",
-    roles: Optional[Set[str]] = None,
-    permissions: Optional[Set[str]] = None,
+    roles: Optional[set[str]] = None,
+    permissions: Optional[set[str]] = None,
 ):
     """Context manager that patches a handler instance to bypass RBAC.
 

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def get_stats(cms: "ContinuumMemory") -> dict[str, Any]:
     """Get statistics about the continuum memory system."""
     with cms.connection() as conn:
@@ -58,6 +59,7 @@ def get_stats(cms: "ContinuumMemory") -> dict[str, Any]:
 
     return stats
 
+
 def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, Any]]:
     """Export all memories for a specific tier."""
     entries = cms.retrieve(tiers=[tier], limit=1000)
@@ -73,6 +75,7 @@ def export_for_tier(cms: "ContinuumMemory", tier: MemoryTier) -> list[dict[str, 
         }
         for e in entries
     ]
+
 
 def get_memory_pressure(cms: "ContinuumMemory") -> float:
     """
@@ -113,6 +116,7 @@ def get_memory_pressure(cms: "ContinuumMemory") -> float:
         max_pressure = max(max_pressure, pressure)
 
     return min(max_pressure, 1.0)
+
 
 def cleanup_expired_memories(
     cms: "ContinuumMemory",
@@ -208,6 +212,7 @@ def cleanup_expired_memories(
     )
     return results
 
+
 def delete_memory(
     cms: "ContinuumMemory",
     memory_id: str,
@@ -294,6 +299,7 @@ def delete_memory(
         )
 
     return result
+
 
 def enforce_tier_limits(
     cms: "ContinuumMemory",
@@ -388,6 +394,7 @@ def enforce_tier_limits(
         conn.commit()
 
     return results
+
 
 def get_archive_stats(cms: "ContinuumMemory") -> dict[str, Any]:
     """Get statistics about archived memories."""

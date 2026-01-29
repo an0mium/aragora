@@ -33,6 +33,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 class MapReducePattern(WorkflowPattern):
     """
     Split work, parallel processing, aggregate results.
@@ -190,6 +191,7 @@ Instructions:
 
 Aggregated Analysis:"""
 
+
 # Register built-in handlers for map-reduce operations
 def _register_map_reduce_handlers():
     """Register map-reduce task handlers."""
@@ -280,6 +282,7 @@ def _register_map_reduce_handlers():
 
     except ImportError:
         pass
+
 
 # Import visual types needed
 from aragora.workflow.types import VisualNodeData

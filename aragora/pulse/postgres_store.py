@@ -20,6 +20,7 @@ from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ScheduledDebateRecord:
     """Record of a scheduled debate from a trending topic."""
@@ -41,6 +42,7 @@ class ScheduledDebateRecord:
     def hours_ago(self) -> float:
         """Hours since this debate was created."""
         return (time.time() - self.created_at) / 3600
+
 
 class PostgresScheduledDebateStore(PostgresStore):
     """PostgreSQL persistence for scheduled debate outcomes.
@@ -447,5 +449,6 @@ class PostgresScheduledDebateStore(PostgresStore):
     def close(self) -> None:
         """No-op for pool-based store (pool managed externally)."""
         pass
+
 
 __all__ = ["PostgresScheduledDebateStore", "ScheduledDebateRecord"]

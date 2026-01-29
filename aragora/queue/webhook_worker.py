@@ -25,6 +25,7 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DeliveryResult:
     """Result of a webhook delivery attempt."""
@@ -37,6 +38,7 @@ class DeliveryResult:
     response_time_ms: float = 0.0
     attempt: int = 1
     delivered_at: float = field(default_factory=time.time)
+
 
 @dataclass
 class EndpointHealth:
@@ -57,6 +59,7 @@ class EndpointHealth:
         if self.total_deliveries == 0:
             return 100.0
         return (self.successful_deliveries / self.total_deliveries) * 100
+
 
 class WebhookDeliveryWorker:
     """
@@ -441,6 +444,7 @@ class WebhookDeliveryWorker:
         if circuit:
             health.circuit_state = circuit.state
 
+
 async def enqueue_webhook_delivery(
     queue: JobQueue,
     webhook_id: str,
@@ -486,6 +490,7 @@ async def enqueue_webhook_delivery(
     )
 
     return job
+
 
 __all__ = [
     "WebhookDeliveryWorker",

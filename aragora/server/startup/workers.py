@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Module-level reference for shutdown coordination
 _gauntlet_worker: GauntletWorker | None = None
 
+
 def get_gauntlet_worker() -> GauntletWorker | None:
     """Get the running gauntlet worker instance (if any).
 
@@ -26,6 +27,7 @@ def get_gauntlet_worker() -> GauntletWorker | None:
     before closing database connections.
     """
     return _gauntlet_worker
+
 
 def init_slo_webhooks() -> bool:
     """Initialize SLO violation webhook notifications.
@@ -53,6 +55,7 @@ def init_slo_webhooks() -> bool:
 
     return False
 
+
 def init_webhook_dispatcher() -> bool:
     """Initialize the webhook dispatcher for outbound notifications.
 
@@ -79,6 +82,7 @@ def init_webhook_dispatcher() -> bool:
 
     return False
 
+
 def init_gauntlet_run_recovery() -> int:
     """Recover stale gauntlet runs after server restart.
 
@@ -103,6 +107,7 @@ def init_gauntlet_run_recovery() -> int:
         logger.warning(f"Failed to recover stale gauntlet runs: {e}")
 
     return 0
+
 
 async def init_durable_job_queue_recovery() -> int:
     """Recover interrupted jobs from the durable job queue.
@@ -133,6 +138,7 @@ async def init_durable_job_queue_recovery() -> int:
         logger.warning(f"Failed to recover durable job queue: {e}")
 
     return 0
+
 
 async def init_gauntlet_worker() -> bool:
     """Initialize and start the gauntlet job queue worker.
@@ -179,6 +185,7 @@ async def init_gauntlet_worker() -> bool:
         logger.warning(f"Failed to start gauntlet worker: {e}")
 
     return False
+
 
 async def init_notification_worker() -> bool:
     """Initialize the notification dispatcher worker for queue processing.
@@ -262,6 +269,7 @@ async def init_notification_worker() -> bool:
 
     return False
 
+
 def init_workflow_checkpoint_persistence() -> bool:
     """Wire Knowledge Mound to workflow checkpoint persistence.
 
@@ -292,6 +300,7 @@ def init_workflow_checkpoint_persistence() -> bool:
         logger.warning(f"Failed to wire checkpoint persistence: {e}")
 
     return False
+
 
 async def init_backup_scheduler() -> bool:
     """Initialize the backup scheduler for automated backups and DR drills.

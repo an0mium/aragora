@@ -64,7 +64,7 @@ def dc_connector():
     return conn
 
 
-def make_api_response(data: Dict[str, Any]) -> Dict[str, Any]:
+def make_api_response(data: dict[str, Any]) -> dict[str, Any]:
     """Create a mock API response."""
     return data
 
@@ -73,7 +73,7 @@ def make_project_data(
     project_id: str = "10001",
     key: str = "PROJ",
     name: str = "Test Project",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock project data."""
     return {
         "id": project_id,
@@ -90,7 +90,7 @@ def make_issue_data(
     key: str = "PROJ-123",
     summary: str = "Test Issue",
     description: str = "Issue description",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock issue data."""
     return {
         "id": issue_id,
@@ -116,7 +116,7 @@ def make_comment_data(
     comment_id: str = "20001",
     body: str = "Test comment",
     author: str = "Commenter",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock comment data."""
     return {
         "id": comment_id,

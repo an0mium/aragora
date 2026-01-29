@@ -691,6 +691,7 @@ if PROMETHEUS_AVAILABLE:
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
 
+
 @dataclass
 class SimpleMetrics:
     """Simple metrics storage when prometheus_client is not available."""
@@ -752,12 +753,14 @@ class SimpleMetrics:
 
         return "\n".join(lines) + "\n"
 
+
 # Global simple metrics instance (fallback)
 _simple_metrics = SimpleMetrics()
 
 # ============================================================================
 # Public API
 # ============================================================================
+
 
 def get_metrics_output() -> tuple[str, str]:
     """
@@ -771,18 +774,22 @@ def get_metrics_output() -> tuple[str, str]:
     else:
         return _simple_metrics.generate_output(), CONTENT_TYPE_LATEST
 
+
 def is_prometheus_available() -> bool:
     """Check if prometheus_client is installed."""
     return PROMETHEUS_AVAILABLE
+
 
 def get_prometheus_metrics() -> str:
     """Get metrics text in Prometheus format."""
     content, _ = get_metrics_output()
     return content
 
+
 # ============================================================================
 # Recording Functions
 # ============================================================================
+
 
 def record_debate_completed(
     duration_seconds: float,
@@ -805,6 +812,7 @@ def record_debate_completed(
         )
         _simple_metrics.inc_counter("aragora_debates_total", {"outcome": outcome})
 
+
 def record_tokens_used(model: str, input_tokens: int, output_tokens: int) -> None:
     """Record token usage."""
     if PROMETHEUS_AVAILABLE:
@@ -822,6 +830,7 @@ def record_tokens_used(model: str, input_tokens: int, output_tokens: int) -> Non
             output_tokens,
         )
 
+
 def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
     """Record cost in USD.
 
@@ -837,6 +846,7 @@ def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -
             micro_dollars,
         )
 
+
 def record_debate_cost(provider: str, cost_usd: float) -> None:
     """Record cost for a completed debate."""
     micro_dollars = int(cost_usd * 1_000_000)
@@ -848,6 +858,7 @@ def record_debate_cost(provider: str, cost_usd: float) -> None:
             micro_dollars,
             {"provider": provider},
         )
+
 
 def set_budget_utilization(workspace_id: str, budget_type: str, utilization_percent: float) -> None:
     """Set current budget utilization percentage."""
@@ -862,6 +873,7 @@ def set_budget_utilization(workspace_id: str, budget_type: str, utilization_perc
             {"workspace_id": workspace_id, "budget_type": budget_type},
         )
 
+
 def record_agent_generation(agent_type: str, model: str, duration_seconds: float) -> None:
     """Record agent generation time."""
     if PROMETHEUS_AVAILABLE:
@@ -875,6 +887,7 @@ def record_agent_generation(agent_type: str, model: str, duration_seconds: float
             {"agent_type": agent_type, "model": model},
         )
 
+
 def record_agent_failure(agent_type: str, error_type: str) -> None:
     """Record an agent failure."""
     if PROMETHEUS_AVAILABLE:
@@ -884,6 +897,7 @@ def record_agent_failure(agent_type: str, error_type: str) -> None:
             "aragora_agent_failures_total",
             {"agent_type": agent_type, "error_type": error_type},
         )
+
 
 def set_circuit_breaker_state(agent_type: str, state: int) -> None:
     """Set circuit breaker state (0=closed, 1=open, 2=half-open)."""
@@ -895,6 +909,7 @@ def set_circuit_breaker_state(agent_type: str, state: int) -> None:
             state,
             {"agent_type": agent_type},
         )
+
 
 def initialize_circuit_breaker_metrics() -> None:
     """Initialize circuit breaker metrics integration.
@@ -911,6 +926,7 @@ def initialize_circuit_breaker_metrics() -> None:
         logger.info("Circuit breaker metrics integration initialized")
     except ImportError:
         logger.debug("Resilience module not available for metrics integration")
+
 
 def export_circuit_breaker_metrics() -> None:
     """Export all circuit breaker states to Prometheus.
@@ -937,6 +953,7 @@ def export_circuit_breaker_metrics() -> None:
     except Exception as e:
         logger.debug(f"Error exporting circuit breaker metrics: {e}")
 
+
 def record_http_request(method: str, endpoint: str, status: int, duration_seconds: float) -> None:
     """Record an HTTP request."""
     if PROMETHEUS_AVAILABLE:
@@ -955,12 +972,14 @@ def record_http_request(method: str, endpoint: str, status: int, duration_second
             {"method": method, "endpoint": endpoint, "status": str(status)},
         )
 
+
 def set_websocket_connections(count: int) -> None:
     """Set active WebSocket connection count."""
     if PROMETHEUS_AVAILABLE:
         WEBSOCKET_CONNECTIONS.set(count)
     else:
         _simple_metrics.set_gauge("aragora_websocket_connections_active", count)
+
 
 def record_websocket_message(direction: str, message_type: str) -> None:
     """Record a WebSocket message."""
@@ -972,12 +991,14 @@ def record_websocket_message(direction: str, message_type: str) -> None:
             {"direction": direction, "message_type": message_type},
         )
 
+
 def record_rate_limit_hit(limit_type: str) -> None:
     """Record a rate limit hit."""
     if PROMETHEUS_AVAILABLE:
         RATE_LIMIT_HITS.labels(limit_type=limit_type).inc()
     else:
         _simple_metrics.inc_counter("aragora_rate_limit_hits_total", {"limit_type": limit_type})
+
 
 def set_rate_limit_tokens_tracked(count: int) -> None:
     """Set number of tokens being tracked for rate limiting."""
@@ -986,12 +1007,14 @@ def set_rate_limit_tokens_tracked(count: int) -> None:
     else:
         _simple_metrics.set_gauge("aragora_rate_limit_tokens_tracked", count)
 
+
 def set_cache_size(cache_name: str, size: int) -> None:
     """Set cache size."""
     if PROMETHEUS_AVAILABLE:
         CACHE_SIZE.labels(cache_name=cache_name).set(size)
     else:
         _simple_metrics.set_gauge("aragora_cache_size_entries", size, {"cache_name": cache_name})
+
 
 def record_cache_hit(cache_name: str) -> None:
     """Record a cache hit."""
@@ -1000,12 +1023,14 @@ def record_cache_hit(cache_name: str) -> None:
     else:
         _simple_metrics.inc_counter("aragora_cache_hits_total", {"cache_name": cache_name})
 
+
 def record_cache_miss(cache_name: str) -> None:
     """Record a cache miss."""
     if PROMETHEUS_AVAILABLE:
         CACHE_MISSES.labels(cache_name=cache_name).inc()
     else:
         _simple_metrics.inc_counter("aragora_cache_misses_total", {"cache_name": cache_name})
+
 
 def set_server_info(version: str, python_version: str, start_time: float) -> None:
     """Set server information."""
@@ -1026,6 +1051,7 @@ def set_server_info(version: str, python_version: str, start_time: float) -> Non
                 "start_time": str(int(start_time)),
             },
         )
+
 
 def record_db_query(operation: str, table: str, duration_seconds: float) -> None:
     """Record a database query.
@@ -1049,6 +1075,7 @@ def record_db_query(operation: str, table: str, duration_seconds: float) -> None
             {"operation": operation, "table": table},
         )
 
+
 def record_db_error(error_type: str, operation: str) -> None:
     """Record a database error.
 
@@ -1064,6 +1091,7 @@ def record_db_error(error_type: str, operation: str) -> None:
             {"error_type": error_type, "operation": operation},
         )
 
+
 def set_db_pool_size(active: int, idle: int) -> None:
     """Set database connection pool sizes.
 
@@ -1078,6 +1106,7 @@ def set_db_pool_size(active: int, idle: int) -> None:
         _simple_metrics.set_gauge("aragora_db_connection_pool_size", active, {"state": "active"})
         _simple_metrics.set_gauge("aragora_db_connection_pool_size", idle, {"state": "idle"})
 
+
 def set_memory_tier_size(tier: str, size: int) -> None:
     """Set the number of memories in a tier.
 
@@ -1089,6 +1118,7 @@ def set_memory_tier_size(tier: str, size: int) -> None:
         MEMORY_TIER_SIZE.labels(tier=tier).set(size)
     else:
         _simple_metrics.set_gauge("aragora_memory_tier_size", size, {"tier": tier})
+
 
 def record_memory_tier_transition(from_tier: str, to_tier: str) -> None:
     """Record a memory tier transition.
@@ -1105,6 +1135,7 @@ def record_memory_tier_transition(from_tier: str, to_tier: str) -> None:
             {"from_tier": from_tier, "to_tier": to_tier},
         )
 
+
 def record_memory_operation(operation: str) -> None:
     """Record a memory operation.
 
@@ -1119,9 +1150,11 @@ def record_memory_operation(operation: str) -> None:
             {"operation": operation},
         )
 
+
 # ============================================================================
 # Decorators for Easy Instrumentation
 # ============================================================================
+
 
 def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
     """Decorator to time HTTP request handlers.
@@ -1153,6 +1186,7 @@ def timed_http_request(endpoint: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
+
 def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], Callable]:
     """Decorator to time agent generation.
 
@@ -1182,6 +1216,7 @@ def timed_agent_generation(agent_type: str, model: str) -> Callable[[Callable], 
         return wrapper
 
     return decorator
+
 
 def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]:
     """Decorator to time database query execution.
@@ -1218,6 +1253,7 @@ def timed_db_query(operation: str, table: str) -> Callable[[Callable], Callable]
 
     return decorator
 
+
 def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Callable]:
     """Async decorator to time database query execution.
 
@@ -1252,6 +1288,7 @@ def timed_db_query_async(operation: str, table: str) -> Callable[[Callable], Cal
         return wrapper
 
     return decorator
+
 
 # ============================================================================
 # Extracted modules (import directly to avoid circular imports)

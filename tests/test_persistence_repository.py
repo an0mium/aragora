@@ -171,7 +171,7 @@ class SampleRepository(BaseRepository[SampleEntity]):
             value=row["value"],
         )
 
-    def _from_entity(self, entity: SampleEntity) -> Dict[str, Any]:
+    def _from_entity(self, entity: SampleEntity) -> dict[str, Any]:
         return {
             "id": entity.id,
             "name": entity.name,

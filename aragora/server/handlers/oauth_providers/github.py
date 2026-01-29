@@ -29,6 +29,7 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USERINFO_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
 
+
 class GitHubOAuthProvider(OAuthProvider):
     """
     GitHub OAuth 2.0 provider.
@@ -241,5 +242,6 @@ class GitHubOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Failed to fetch repos: {e}")
             return []
+
 
 __all__ = ["GitHubOAuthProvider"]

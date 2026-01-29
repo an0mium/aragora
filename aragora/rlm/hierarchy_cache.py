@@ -4,6 +4,7 @@ RLM hierarchy cache.
 Extracted from bridge.py for maintainability.
 Provides RLMHierarchyCache for caching compression hierarchies.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,6 +17,7 @@ from .types import AbstractionLevel, AbstractionNode, CompressionResult, RLMCont
 
 logger = logging.getLogger(__name__)
 
+
 # Import metrics for cache tracking (lazy to avoid circular imports)
 def _record_rlm_cache_hit() -> None:
     try:
@@ -25,6 +27,7 @@ def _record_rlm_cache_hit() -> None:
     except ImportError:
         pass
 
+
 def _record_rlm_cache_miss() -> None:
     try:
         from aragora.observability.metrics import record_rlm_cache_miss
@@ -32,6 +35,7 @@ def _record_rlm_cache_miss() -> None:
         record_rlm_cache_miss()
     except ImportError:
         pass
+
 
 class RLMHierarchyCache:
     """
@@ -289,5 +293,6 @@ class RLMHierarchyCache:
         """Clear the local in-memory cache."""
         self._local_cache.clear()
         logger.debug("[RLMHierarchyCache] Local cache cleared")
+
 
 __all__ = ["RLMHierarchyCache"]

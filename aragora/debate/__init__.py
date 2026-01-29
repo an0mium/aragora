@@ -213,7 +213,6 @@ _EXPORT_MAP = {
     "EventType": ("aragora.debate.decision_service", "EventType"),
     "StateStore": ("aragora.debate.decision_service", "StateStore"),
     "InMemoryStateStore": ("aragora.debate.decision_service", "InMemoryStateStore"),
-    "EventBus": ("aragora.debate.decision_service", "EventBus"),
     "get_decision_service": ("aragora.debate.decision_service", "get_decision_service"),
     "reset_decision_service": ("aragora.debate.decision_service", "reset_decision_service"),
 }

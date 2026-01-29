@@ -39,6 +39,7 @@ MemoryT = TypeVar("MemoryT", bound="MemoryProtocol")
 # Agent Protocols
 # =============================================================================
 
+
 @runtime_checkable
 class AgentProtocol(Protocol):
     """Protocol for agent implementations.
@@ -62,6 +63,7 @@ class AgentProtocol(Protocol):
         """Generate a response to the given prompt."""
         ...
 
+
 @runtime_checkable
 class StreamingAgentProtocol(AgentProtocol, Protocol):
     """Protocol for agents that support streaming responses."""
@@ -69,6 +71,7 @@ class StreamingAgentProtocol(AgentProtocol, Protocol):
     async def stream(self, prompt: str, context: str | None = None) -> AsyncIterator[str]:
         """Stream response tokens."""
         ...
+
 
 @runtime_checkable
 class ToolUsingAgentProtocol(AgentProtocol, Protocol):
@@ -85,9 +88,11 @@ class ToolUsingAgentProtocol(AgentProtocol, Protocol):
         """Generate response with tool use."""
         ...
 
+
 # =============================================================================
 # Memory Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class MemoryProtocol(Protocol):
@@ -103,6 +108,7 @@ class MemoryProtocol(Protocol):
     def query(self, **kwargs: Any) -> list[Any]:
         """Query stored content."""
         ...
+
 
 @runtime_checkable
 class TieredMemoryProtocol(MemoryProtocol, Protocol):
@@ -144,6 +150,7 @@ class TieredMemoryProtocol(MemoryProtocol, Protocol):
         """Enforce tier size limits by evicting excess entries."""
         ...
 
+
 @runtime_checkable
 class CritiqueStoreProtocol(Protocol):
     """Protocol for critique/pattern storage."""
@@ -164,9 +171,11 @@ class CritiqueStoreProtocol(Protocol):
         """Get reputation data for an agent."""
         ...
 
+
 # =============================================================================
 # Event Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class EventEmitterProtocol(Protocol):
@@ -180,6 +189,7 @@ class EventEmitterProtocol(Protocol):
         """Register an event listener."""
         ...
 
+
 @runtime_checkable
 class AsyncEventEmitterProtocol(Protocol):
     """Protocol for async event emission."""
@@ -188,9 +198,11 @@ class AsyncEventEmitterProtocol(Protocol):
         """Emit an event asynchronously."""
         ...
 
+
 # =============================================================================
 # Handler Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class HandlerProtocol(Protocol):
@@ -209,6 +221,7 @@ class HandlerProtocol(Protocol):
         """Handle the request and return result."""
         ...
 
+
 @runtime_checkable
 class BaseHandlerProtocol(HandlerProtocol, Protocol):
     """Extended handler protocol with common patterns."""
@@ -220,9 +233,11 @@ class BaseHandlerProtocol(HandlerProtocol, Protocol):
         """Read and parse JSON body from request."""
         ...
 
+
 # =============================================================================
 # Debate Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class DebateResultProtocol(Protocol):
@@ -232,6 +247,7 @@ class DebateResultProtocol(Protocol):
     consensus_reached: bool
     final_answer: str | None
     messages: list[Any]
+
 
 @runtime_checkable
 class ConsensusDetectorProtocol(Protocol):
@@ -249,9 +265,11 @@ class ConsensusDetectorProtocol(Protocol):
         """Get the winning choice if any."""
         ...
 
+
 # =============================================================================
 # Ranking Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class RankingSystemProtocol(Protocol):
@@ -275,9 +293,11 @@ class RankingSystemProtocol(Protocol):
         """Get top agents by rating."""
         ...
 
+
 # =============================================================================
 # Tracker Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class EloSystemProtocol(Protocol):
@@ -316,6 +336,7 @@ class EloSystemProtocol(Protocol):
         """Get ratings for multiple agents in a single call."""
         ...
 
+
 @runtime_checkable
 class CalibrationTrackerProtocol(Protocol):
     """Protocol for prediction calibration tracking.
@@ -343,6 +364,7 @@ class CalibrationTrackerProtocol(Protocol):
     def get_calibration_score(self, agent: str) -> float:
         """Get overall calibration score (0-1, lower is better calibrated)."""
         ...
+
 
 @runtime_checkable
 class PositionLedgerProtocol(Protocol):
@@ -397,6 +419,7 @@ class PositionLedgerProtocol(Protocol):
         """Record a position resolution outcome."""
         ...
 
+
 @runtime_checkable
 class RelationshipTrackerProtocol(Protocol):
     """Protocol for agent relationship tracking.
@@ -438,6 +461,7 @@ class RelationshipTrackerProtocol(Protocol):
     ) -> None:
         """Update relationships based on debate voting patterns."""
         ...
+
 
 @runtime_checkable
 class MomentDetectorProtocol(Protocol):
@@ -490,6 +514,7 @@ class MomentDetectorProtocol(Protocol):
         """Record a significant moment. Returns moment ID."""
         ...
 
+
 @runtime_checkable
 class PersonaManagerProtocol(Protocol):
     """Protocol for agent persona management.
@@ -521,6 +546,7 @@ class PersonaManagerProtocol(Protocol):
         """Record a performance event to update expertise."""
         ...
 
+
 @runtime_checkable
 class DissentRetrieverProtocol(Protocol):
     """Protocol for retrieving dissenting positions.
@@ -547,9 +573,11 @@ class DissentRetrieverProtocol(Protocol):
         """Store a dissenting position for future retrieval."""
         ...
 
+
 # =============================================================================
 # Infrastructure Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class RedisClientProtocol(Protocol):
@@ -669,9 +697,11 @@ class RedisClientProtocol(Protocol):
         """Get pipeline for batch operations."""
         ...
 
+
 # =============================================================================
 # Storage Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class DebateStorageProtocol(Protocol):
@@ -724,6 +754,7 @@ class DebateStorageProtocol(Protocol):
         """Search debates."""
         ...
 
+
 @runtime_checkable
 class UserStoreProtocol(Protocol):
     """Protocol for user storage backends."""
@@ -750,9 +781,11 @@ class UserStoreProtocol(Protocol):
         """Update user attributes."""
         ...
 
+
 # =============================================================================
 # Verification Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class VerificationBackendProtocol(Protocol):
@@ -775,9 +808,11 @@ class VerificationBackendProtocol(Protocol):
         """Attempt to prove the formal statement."""
         ...
 
+
 # =============================================================================
 # Feedback Phase Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class DebateEmbeddingsProtocol(Protocol):
@@ -808,6 +843,7 @@ class DebateEmbeddingsProtocol(Protocol):
     ) -> list[dict[str, Any]]:
         """Find debates similar to query."""
         ...
+
 
 @runtime_checkable
 class FlipDetectorProtocol(Protocol):
@@ -846,6 +882,7 @@ class FlipDetectorProtocol(Protocol):
     ) -> list[dict[str, Any]]:
         """Detect all position flips for an agent in a debate."""
         ...
+
 
 @runtime_checkable
 class ConsensusMemoryProtocol(Protocol):
@@ -934,6 +971,7 @@ class ConsensusMemoryProtocol(Protocol):
         """Store a dissenting opinion."""
         ...
 
+
 @runtime_checkable
 class PopulationManagerProtocol(Protocol):
     """Protocol for Genesis agent population management.
@@ -991,6 +1029,7 @@ class PopulationManagerProtocol(Protocol):
         """Evolve a population to the next generation."""
         ...
 
+
 @runtime_checkable
 class PulseManagerProtocol(Protocol):
     """Protocol for Pulse trending topic management.
@@ -1028,6 +1067,7 @@ class PulseManagerProtocol(Protocol):
     ) -> dict[str, Any]:
         """Get analytics on debated trending topics."""
         ...
+
 
 @runtime_checkable
 class PromptEvolverProtocol(Protocol):
@@ -1090,6 +1130,7 @@ class PromptEvolverProtocol(Protocol):
         """Update performance metrics for prompt evolution."""
         ...
 
+
 @runtime_checkable
 class InsightStoreProtocol(Protocol):
     """Protocol for storing and tracking insight application.
@@ -1143,6 +1184,7 @@ class InsightStoreProtocol(Protocol):
         """Record usage of an insight in a debate."""
         ...
 
+
 @runtime_checkable
 class BroadcastPipelineProtocol(Protocol):
     """Protocol for debate broadcast/publication pipeline.
@@ -1187,6 +1229,7 @@ class BroadcastPipelineProtocol(Protocol):
         """Run the broadcast pipeline for a debate."""
         ...
 
+
 @runtime_checkable
 class ContinuumMemoryProtocol(Protocol):
     """Protocol for cross-debate learning memory.
@@ -1230,6 +1273,7 @@ class ContinuumMemoryProtocol(Protocol):
         """Get formatted context for a task from historical memories."""
         ...
 
+
 @runtime_checkable
 class PositionTrackerProtocol(Protocol):
     """Protocol for tracking agent positions over time.
@@ -1271,6 +1315,7 @@ class PositionTrackerProtocol(Protocol):
         """Check if agent's position has changed significantly."""
         ...
 
+
 @runtime_checkable
 class EvidenceCollectorProtocol(Protocol):
     """Protocol for automatic evidence collection.
@@ -1300,6 +1345,7 @@ class EvidenceCollectorProtocol(Protocol):
         """Get list of available evidence sources."""
         ...
 
+
 # =============================================================================
 # Callback Types
 # =============================================================================
@@ -1319,6 +1365,7 @@ VoteCallback = Callable[[Any], None]
 # =============================================================================
 # Result Types
 # =============================================================================
+
 
 @dataclass
 class Result(Generic[T]):
@@ -1345,6 +1392,7 @@ class Result(Generic[T]):
     def fail(cls, error: str) -> "Result[T]":
         """Create failed result."""
         return cls(success=False, error=error)
+
 
 __all__ = [
     # Type variables

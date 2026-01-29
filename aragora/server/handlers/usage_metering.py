@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for usage endpoints (30 requests per minute)
 _usage_limiter = RateLimiter(requests_per_minute=30)
 
+
 class UsageMeteringHandler(SecureHandler):
     """Handler for usage metering endpoints.
 
@@ -551,5 +552,6 @@ class UsageMeteringHandler(SecureHandler):
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
+
 
 __all__ = ["UsageMeteringHandler"]

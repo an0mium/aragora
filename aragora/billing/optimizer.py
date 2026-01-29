@@ -71,6 +71,7 @@ COMPLEX_TASK_INDICATORS = [
     "complex",
 ]
 
+
 @dataclass
 class UsagePattern:
     """Aggregated usage pattern for analysis."""
@@ -85,6 +86,7 @@ class UsagePattern:
     avg_tokens_in: float = 0.0
     avg_tokens_out: float = 0.0
     avg_latency_ms: float = 0.0
+
 
 @dataclass
 class ModelDowngradeAnalyzer:
@@ -260,6 +262,7 @@ class ModelDowngradeAnalyzer:
             return RecommendationPriority.MEDIUM
         return RecommendationPriority.LOW
 
+
 @dataclass
 class CachingRecommender:
     """
@@ -366,6 +369,7 @@ class CachingRecommender:
         elif savings >= Decimal("10"):
             return RecommendationPriority.MEDIUM
         return RecommendationPriority.LOW
+
 
 @dataclass
 class BatchingOptimizer:
@@ -477,6 +481,7 @@ class BatchingOptimizer:
             recommendations.append(rec)
 
         return recommendations
+
 
 class CostOptimizer:
     """
@@ -691,8 +696,10 @@ class CostOptimizer:
 
         return summary
 
+
 # Global optimizer instance
 _optimizer: CostOptimizer | None = None
+
 
 def get_cost_optimizer() -> CostOptimizer:
     """Get or create the global cost optimizer."""
@@ -706,6 +713,7 @@ def get_cost_optimizer() -> CostOptimizer:
         except ImportError:
             _optimizer = CostOptimizer()
     return _optimizer
+
 
 __all__ = [
     "CostOptimizer",

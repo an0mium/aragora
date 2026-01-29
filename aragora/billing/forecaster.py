@@ -24,12 +24,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class TrendDirection(str, Enum):
     """Direction of cost trend."""
 
     INCREASING = "increasing"
     DECREASING = "decreasing"
     STABLE = "stable"
+
 
 class SeasonalPattern(str, Enum):
     """Seasonal patterns in cost data."""
@@ -39,12 +41,14 @@ class SeasonalPattern(str, Enum):
     MONTHLY = "monthly"  # Time-of-month patterns
     NONE = "none"  # No clear pattern
 
+
 class AlertSeverity(str, Enum):
     """Severity of forecast alerts."""
 
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
+
 
 @dataclass
 class DailyForecast:
@@ -55,6 +59,7 @@ class DailyForecast:
     lower_bound: Decimal  # 95% confidence interval
     upper_bound: Decimal
     confidence: float  # 0-1
+
 
 @dataclass
 class ForecastAlert:
@@ -84,6 +89,7 @@ class ForecastAlert:
             "created_at": self.created_at.isoformat(),
         }
 
+
 @dataclass
 class TrendAnalysis:
     """Analysis of cost trends."""
@@ -103,6 +109,7 @@ class TrendAnalysis:
             "r_squared": round(self.r_squared, 3),
             "description": self.description,
         }
+
 
 @dataclass
 class ForecastReport:
@@ -185,6 +192,7 @@ class ForecastReport:
             },
         }
 
+
 @dataclass
 class SimulationScenario:
     """A what-if simulation scenario."""
@@ -192,6 +200,7 @@ class SimulationScenario:
     name: str
     description: str
     changes: dict[str, Any]  # e.g., {"model_change": "haiku", "request_reduction": 0.2}
+
 
 @dataclass
 class SimulationResult:
@@ -218,6 +227,7 @@ class SimulationResult:
             "percentage_change": round(self.percentage_change, 1),
             "daily_breakdown": self.daily_breakdown,
         }
+
 
 class CostForecaster:
     """
@@ -689,6 +699,7 @@ class CostForecaster:
             ],
         )
 
+
 async def send_forecast_notifications(
     report: ForecastReport,
     org_id: str,
@@ -737,8 +748,10 @@ async def send_forecast_notifications(
 
     return True
 
+
 # Global forecaster instance
 _forecaster: CostForecaster | None = None
+
 
 def get_cost_forecaster() -> CostForecaster:
     """Get or create the global cost forecaster."""
@@ -752,6 +765,7 @@ def get_cost_forecaster() -> CostForecaster:
         except ImportError:
             _forecaster = CostForecaster()
     return _forecaster
+
 
 __all__ = [
     "CostForecaster",

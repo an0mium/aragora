@@ -86,6 +86,7 @@ from aragora.server.initialization import init_persistence
 # Server startup time for uptime tracking
 _server_start_time: float = time.time()
 
+
 class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
     """HTTP handler with API endpoints and static file serving.
 
@@ -338,9 +339,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             return None
         return value
 
-    def _extract_path_segment(
-        self, path: str, index: int, segment_name: str = "id"
-    ) -> str | None:
+    def _extract_path_segment(self, path: str, index: int, segment_name: str = "id") -> str | None:
         """Safely extract path segment with bounds checking.
 
         Returns None and sends 400 error if segment is missing.
@@ -865,6 +864,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         """Suppress default logging."""
         pass
 
+
 class UnifiedServer:
     """
     Combined HTTP + WebSocket server for the nomic loop dashboard.
@@ -1207,6 +1207,7 @@ class UnifiedServer:
     def is_shutting_down(self) -> bool:
         """Check if server is in shutdown mode."""
         return getattr(self, "_shutting_down", False)
+
 
 async def run_unified_server(
     http_port: int = 8080,

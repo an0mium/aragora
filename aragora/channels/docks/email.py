@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["EmailDock"]
 
+
 class EmailDock(ChannelDock):
     """
     Email platform dock.

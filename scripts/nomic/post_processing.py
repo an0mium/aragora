@@ -69,7 +69,7 @@ class ProcessingContext:
     """
 
     result: Any  # DebateResult
-    agents: List[Any]
+    agents: list[Any]
     topic: str = ""
     domain: str = "general"
     cycle: int = 0
@@ -284,9 +284,9 @@ class PostDebateProcessor:
         except Exception as e:
             self._log(f"  [patterns] Extraction failed: {e}")
 
-    def _identify_winning_patterns(self, result: Any) -> List[dict]:
+    def _identify_winning_patterns(self, result: Any) -> list[dict]:
         """Identify argument patterns that led to consensus."""
-        patterns: List[dict] = []
+        patterns: list[dict] = []
         if not hasattr(result, "messages"):
             return patterns
 

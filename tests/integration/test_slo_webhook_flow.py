@@ -51,7 +51,7 @@ class TestSLOWebhookIntegrationFlow:
         )
 
         # Track notifications
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         # Create a mock dispatcher that has an enqueue method
         mock_dispatcher = MagicMock()
@@ -139,7 +139,7 @@ class TestSLOWebhookIntegrationFlow:
             init_slo_webhooks,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = (
@@ -183,7 +183,7 @@ class TestSLOWebhookIntegrationFlow:
             notify_slo_violation,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = (
@@ -228,7 +228,7 @@ class TestSLOWebhookIntegrationFlow:
         """Test the webhook handler SLO endpoints."""
         from aragora.server.handlers.webhooks import WebhookHandler
 
-        ctx: Dict[str, Any] = {}
+        ctx: dict[str, Any] = {}
         handler = WebhookHandler(ctx)
 
         # Test status endpoint when not initialized
@@ -255,7 +255,7 @@ class TestSLOWebhookIntegrationFlow:
         )
         from aragora.server.handlers.webhooks import WebhookHandler
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = (
@@ -269,7 +269,7 @@ class TestSLOWebhookIntegrationFlow:
             config = SLOWebhookConfig(enabled=True, cooldown_seconds=0.0)
             init_slo_webhooks(config)
 
-            ctx: Dict[str, Any] = {}
+            ctx: dict[str, Any] = {}
             handler = WebhookHandler(ctx)
 
             # Test status endpoint after initialization
@@ -301,7 +301,7 @@ class TestSLOWebhookIntegrationFlow:
             init_slo_webhooks,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = (
@@ -393,7 +393,7 @@ class TestSLOWebhookCooldownIntegration:
             init_slo_webhooks,
         )
 
-        notifications: List[Dict[str, Any]] = []
+        notifications: list[dict[str, Any]] = []
 
         mock_dispatcher = MagicMock()
         mock_dispatcher.enqueue = (

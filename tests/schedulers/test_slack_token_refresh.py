@@ -28,12 +28,12 @@ class MockWorkspace:
 class MockWorkspaceStore:
     """Mock workspace store for testing."""
 
-    def __init__(self, workspaces: Optional[List[MockWorkspace]] = None):
+    def __init__(self, workspaces: Optional[list[MockWorkspace]] = None):
         self.workspaces = workspaces or []
-        self.refresh_calls: List[str] = []
+        self.refresh_calls: list[str] = []
         self.should_fail_refresh: bool = False
 
-    def get_expiring_tokens(self, hours: int = 2) -> List[MockWorkspace]:
+    def get_expiring_tokens(self, hours: int = 2) -> list[MockWorkspace]:
         """Return workspaces with expiring tokens."""
         return self.workspaces
 
@@ -178,7 +178,7 @@ class TestSlackTokenRefreshScheduler:
         store = MockWorkspaceStore(workspaces=workspaces)
         store.should_fail_refresh = True
 
-        failures: List[RefreshResult] = []
+        failures: list[RefreshResult] = []
 
         def on_failure(result: RefreshResult):
             failures.append(result)

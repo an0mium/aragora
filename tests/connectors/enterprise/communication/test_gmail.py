@@ -722,7 +722,6 @@ class TestBatchMessageFetching:
         self, authenticated_connector, sample_gmail_message
     ):
         """Test get_messages respects max_concurrent limit."""
-        import asyncio
 
         concurrent_count = 0
         max_concurrent_observed = 0
@@ -737,9 +736,7 @@ class TestBatchMessageFetching:
 
         with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
             message_ids = [f"msg_{i}" for i in range(20)]
-            messages = await authenticated_connector.get_messages(
-                message_ids, max_concurrent=5
-            )
+            messages = await authenticated_connector.get_messages(message_ids, max_concurrent=5)
 
             assert len(messages) == 20
             # max_concurrent should have limited concurrent requests

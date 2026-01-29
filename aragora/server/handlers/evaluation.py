@@ -54,6 +54,7 @@ DEFAULT_RUBRICS = _judge_imports.get("DEFAULT_RUBRICS")
 WEIGHT_PROFILES = _judge_imports.get("WEIGHT_PROFILES")
 DEFAULT_WEIGHTS = _judge_imports.get("DEFAULT_WEIGHTS")
 
+
 class EvaluationHandler(BaseHandler):
     """Handler for LLM-as-Judge evaluation endpoints."""
 

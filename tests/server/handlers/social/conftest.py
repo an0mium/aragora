@@ -45,11 +45,11 @@ class MockHandler:
 
     def __init__(
         self,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: bytes = b"",
         path: str = "/",
         method: str = "GET",
-        client_address: Optional[Tuple[str, int]] = None,
+        client_address: Optional[tuple[str, int]] = None,
     ):
         self.headers = headers or {}
         self._body = body
@@ -58,7 +58,7 @@ class MockHandler:
         self.rfile = BytesIO(body)
         self.client_address = client_address or ("127.0.0.1", 12345)
         self.response_code: Optional[int] = None
-        self._response_headers: Dict[str, str] = {}
+        self._response_headers: dict[str, str] = {}
 
     def send_response(self, code: int) -> None:
         self.response_code = code
@@ -72,11 +72,11 @@ class MockHandler:
     @classmethod
     def with_json_body(
         cls,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         path: str = "/",
         method: str = "POST",
-        headers: Optional[Dict[str, str]] = None,
-        client_address: Optional[Tuple[str, int]] = None,
+        headers: Optional[dict[str, str]] = None,
+        client_address: Optional[tuple[str, int]] = None,
     ) -> "MockHandler":
         """Create a MockHandler with a JSON body.
 
@@ -108,11 +108,11 @@ class MockHandler:
     @classmethod
     def with_form_body(
         cls,
-        data: Dict[str, str],
+        data: dict[str, str],
         path: str = "/",
         method: str = "POST",
-        headers: Optional[Dict[str, str]] = None,
-        client_address: Optional[Tuple[str, int]] = None,
+        headers: Optional[dict[str, str]] = None,
+        client_address: Optional[tuple[str, int]] = None,
     ) -> "MockHandler":
         """Create a MockHandler with form-encoded body (for Slack commands).
 
@@ -149,7 +149,7 @@ class MockHandler:
 # ===========================================================================
 
 
-def parse_result(result: HandlerResult) -> Tuple[int, Dict[str, Any]]:
+def parse_result(result: HandlerResult) -> tuple[int, dict[str, Any]]:
     """Parse HandlerResult into (status_code, body_dict).
 
     Args:
@@ -172,12 +172,12 @@ def get_status_code(result: HandlerResult) -> int:
     return result.status_code
 
 
-def get_json(result: HandlerResult) -> Dict[str, Any]:
+def get_json(result: HandlerResult) -> dict[str, Any]:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
 
 
-def get_data(result: HandlerResult) -> Dict[str, Any]:
+def get_data(result: HandlerResult) -> dict[str, Any]:
     """Get 'data' field from success response."""
     body = get_json(result)
     return body.get("data", body)
@@ -279,7 +279,7 @@ def create_slack_interactive_handler(
     team_id: str = "T12345",
     response_url: str = "https://hooks.slack.com/actions/T12345/12345/token",
     signing_secret: str = "test_signing_secret",
-    payload_extras: Optional[Dict[str, Any]] = None,
+    payload_extras: Optional[dict[str, Any]] = None,
 ) -> MockHandler:
     """Create a MockHandler for Slack interactive component testing.
 
@@ -327,7 +327,7 @@ def create_slack_interactive_handler(
 def create_slack_event_handler(
     event_type: str = "message",
     team_id: str = "T12345",
-    event_data: Optional[Dict[str, Any]] = None,
+    event_data: Optional[dict[str, Any]] = None,
     signing_secret: str = "test_signing_secret",
 ) -> MockHandler:
     """Create a MockHandler for Slack Events API testing.
@@ -400,8 +400,8 @@ class MockUser:
     org_id: str = "test-org-id"
     email: str = "test@example.com"
     name: str = "Test User"
-    roles: List[str] = field(default_factory=lambda: ["member"])
-    permissions: List[str] = field(default_factory=list)
+    roles: list[str] = field(default_factory=lambda: ["member"])
+    permissions: list[str] = field(default_factory=list)
 
 
 @pytest.fixture

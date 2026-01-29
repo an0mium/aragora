@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+
 @dataclass
 class EmailAttachment:
     """An email attachment."""
@@ -20,6 +21,7 @@ class EmailAttachment:
     size: int
     data: bytes | None = None  # Populated on demand
 
+
 @dataclass
 class GmailLabel:
     """A Gmail label/folder."""
@@ -29,6 +31,7 @@ class GmailLabel:
     type: str = "user"  # "system" or "user"
     message_list_visibility: str = "show"
     label_list_visibility: str = "labelShow"
+
 
 @dataclass
 class EmailMessage:
@@ -131,6 +134,7 @@ class EmailMessage:
             importance_reason=data.get("importance_reason", ""),
         )
 
+
 @dataclass
 class EmailThread:
     """An email thread/conversation."""
@@ -158,6 +162,7 @@ class EmailThread:
             "snippet": self.snippet,
             "message_count": self.message_count,
         }
+
 
 @dataclass
 class GmailWebhookPayload:
@@ -217,6 +222,7 @@ class GmailWebhookPayload:
             history_id=str(data.get("historyId", "")),
             raw_data=payload,
         )
+
 
 @dataclass
 class GmailSyncState:
@@ -289,6 +295,7 @@ class GmailSyncState:
             last_error=data.get("last_error"),
         )
 
+
 @dataclass
 class OutlookFolder:
     """An Outlook mail folder."""
@@ -300,6 +307,7 @@ class OutlookFolder:
     unread_item_count: int = 0
     total_item_count: int = 0
     is_hidden: bool = False
+
 
 @dataclass
 class OutlookSyncState:

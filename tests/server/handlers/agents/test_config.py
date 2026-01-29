@@ -49,9 +49,9 @@ class MockAgentConfig:
     role: str = "proposer"
     priority: str = "normal"
     description: str = ""
-    expertise_domains: List[str] = field(default_factory=list)
-    capabilities: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
+    expertise_domains: list[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     def to_dict(self):
         return {

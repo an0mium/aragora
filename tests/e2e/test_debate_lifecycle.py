@@ -392,9 +392,9 @@ class TestDebateStreamingE2E:
 
         mock_agents = [create_mock_agent(f"agent_{i}", f"Response {i}") for i in range(3)]
 
-        events: List[Dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
 
-        def event_handler(event_type: str, data: Dict[str, Any]):
+        def event_handler(event_type: str, data: dict[str, Any]):
             events.append({"type": event_type, **data})
 
         # Pass event hooks through Arena constructor

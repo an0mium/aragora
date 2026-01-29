@@ -31,11 +31,13 @@ logger = logging.getLogger(__name__)
 # Enums
 # =============================================================================
 
+
 class SquareEnvironment(str, Enum):
     """Square environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
+
 
 class PaymentStatus(str, Enum):
     """Square payment status."""
@@ -45,6 +47,7 @@ class PaymentStatus(str, Enum):
     COMPLETED = "COMPLETED"
     CANCELED = "CANCELED"
     FAILED = "FAILED"
+
 
 class CardBrand(str, Enum):
     """Card brands."""
@@ -60,6 +63,7 @@ class CardBrand(str, Enum):
     SQUARE_CAPITAL_CARD = "SQUARE_CAPITAL_CARD"
     OTHER_BRAND = "OTHER_BRAND"
 
+
 class SubscriptionStatus(str, Enum):
     """Square subscription status."""
 
@@ -68,6 +72,7 @@ class SubscriptionStatus(str, Enum):
     CANCELED = "CANCELED"
     DEACTIVATED = "DEACTIVATED"
     PAUSED = "PAUSED"
+
 
 class InvoiceStatus(str, Enum):
     """Square invoice status."""
@@ -83,6 +88,7 @@ class InvoiceStatus(str, Enum):
     FAILED = "FAILED"
     UNPAID = "UNPAID"
 
+
 class CatalogObjectType(str, Enum):
     """Catalog object types."""
 
@@ -95,9 +101,11 @@ class CatalogObjectType(str, Enum):
     MODIFIER_LIST = "MODIFIER_LIST"
     IMAGE = "IMAGE"
 
+
 # =============================================================================
 # Credentials
 # =============================================================================
+
 
 @dataclass
 class SquareCredentials:
@@ -138,9 +146,11 @@ class SquareCredentials:
             webhook_signature_key=webhook_signature_key,
         )
 
+
 # =============================================================================
 # Error Handling
 # =============================================================================
+
 
 class SquareError(Exception):
     """Square API error."""
@@ -159,9 +169,11 @@ class SquareError(Exception):
         self.category = category
         self.detail = detail
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class Money:
@@ -191,6 +203,7 @@ class Money:
     def as_dollars(self) -> float:
         """Get amount in dollars."""
         return self.amount / 100
+
 
 @dataclass
 class Address:
@@ -230,6 +243,7 @@ class Address:
             result["postal_code"] = self.postal_code
         return result
 
+
 @dataclass
 class Card:
     """Card details."""
@@ -255,6 +269,7 @@ class Card:
             billing_address=Address.from_api(data.get("billing_address")),
             fingerprint=data.get("fingerprint"),
         )
+
 
 @dataclass
 class Customer:
@@ -296,6 +311,7 @@ class Customer:
     def full_name(self) -> str:
         parts = [p for p in [self.given_name, self.family_name] if p]
         return " ".join(parts)
+
 
 @dataclass
 class Payment:
@@ -343,6 +359,7 @@ class Payment:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
+
 @dataclass
 class Refund:
     """Square refund."""
@@ -371,6 +388,7 @@ class Refund:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
+
 @dataclass
 class SubscriptionPlan:
     """Square subscription plan (catalog item with subscription data)."""
@@ -393,6 +411,7 @@ class SubscriptionPlan:
             created_at=_parse_datetime(data.get("created_at")),
             updated_at=_parse_datetime(data.get("updated_at")),
         )
+
 
 @dataclass
 class Subscription:
@@ -434,6 +453,7 @@ class Subscription:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
+
 @dataclass
 class Invoice:
     """Square invoice."""
@@ -473,6 +493,7 @@ class Invoice:
             created_at=_parse_datetime(data.get("created_at")),
             updated_at=_parse_datetime(data.get("updated_at")),
         )
+
 
 @dataclass
 class CatalogItem:
@@ -515,9 +536,11 @@ class CatalogItem:
             updated_at=_parse_datetime(data.get("updated_at")),
         )
 
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse RFC 3339 datetime from API response."""
@@ -528,13 +551,16 @@ def _parse_datetime(value: str | None) -> datetime | None:
     except (ValueError, TypeError):
         return None
 
+
 def _generate_idempotency_key() -> str:
     """Generate a unique idempotency key."""
     return str(uuid.uuid4())
 
+
 # =============================================================================
 # Square Client
 # =============================================================================
+
 
 class SquareClient:
     """
@@ -1214,9 +1240,11 @@ class SquareClient:
 
         return hmac.compare_digest(expected_signature, signature)
 
+
 # =============================================================================
 # Mock Data Generators
 # =============================================================================
+
 
 def get_mock_customer() -> Customer:
     """Get a mock customer for testing."""
@@ -1229,6 +1257,7 @@ def get_mock_customer() -> Customer:
         created_at=datetime.now(timezone.utc),
     )
 
+
 def get_mock_payment() -> Payment:
     """Get a mock payment for testing."""
     return Payment(
@@ -1239,6 +1268,7 @@ def get_mock_payment() -> Payment:
         source_type="CARD",
         created_at=datetime.now(timezone.utc),
     )
+
 
 def get_mock_subscription() -> Subscription:
     """Get a mock subscription for testing."""

@@ -29,6 +29,7 @@ Metrics:
     with track_debate():
         await arena.run()
 """
+
 from __future__ import annotations
 
 from aragora.observability.config import (
@@ -68,6 +69,7 @@ from aragora.logging_config import (
 # LogConfig doesn't exist in new module - create minimal stub for backward compat
 from dataclasses import dataclass
 
+
 @dataclass
 class LogConfig:
     """Minimal backward-compatible LogConfig stub.
@@ -78,6 +80,7 @@ class LogConfig:
     level: str = "INFO"
     format: str = "json"
     file_path: str | None = None
+
 
 from aragora.observability.metrics import (
     measure_async_latency,

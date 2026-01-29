@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 
+
 @dataclass
 class DelegationConfig:
     """Configuration for delegation operations."""
@@ -74,6 +75,7 @@ class DelegationConfig:
     max_retries: int = 1
     """Maximum retry attempts."""
 
+
 @dataclass
 class DelegationResult(Generic[R]):
     """Result of a delegation operation."""
@@ -92,6 +94,7 @@ class DelegationResult(Generic[R]):
 
     duration_seconds: float = 0.0
     """Total delegation time."""
+
 
 @dataclass
 class AnalysisResult:
@@ -112,6 +115,7 @@ class AnalysisResult:
     raw_response: str = ""
     """Full response from the agent."""
 
+
 @dataclass
 class SynthesisResult:
     """Result of synthesizing multiple analyses."""
@@ -130,6 +134,7 @@ class SynthesisResult:
 
     confidence: float = 0.5
     """Confidence in the synthesis."""
+
 
 class DebateDelegator:
     """
@@ -514,6 +519,7 @@ CONFIDENCE: <0.0-1.0>"""
         # For now, just check if they exist - semantic similarity
         # would require additional infrastructure
         return True, high_confidence[0] if high_confidence else None
+
 
 __all__ = [
     "DebateDelegator",

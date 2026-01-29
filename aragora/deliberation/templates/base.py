@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+
 class TeamStrategy(Enum):
     """Strategy for selecting the agent team."""
 
@@ -16,6 +17,7 @@ class TeamStrategy(Enum):
     DIVERSE = "diverse"  # Maximize agent diversity
     FAST = "fast"  # Optimize for speed
     RANDOM = "random"  # Random selection
+
 
 class OutputFormat(Enum):
     """Format for deliberation output."""
@@ -30,6 +32,7 @@ class OutputFormat(Enum):
     EMAIL = "email"  # Email format
     COMPLIANCE_REPORT = "compliance_report"  # Compliance audit report
 
+
 class TemplateCategory(Enum):
     """Category for organizing templates."""
 
@@ -40,6 +43,7 @@ class TemplateCategory(Enum):
     COMPLIANCE = "compliance"
     ACADEMIC = "academic"
     GENERAL = "general"
+
 
 @dataclass
 class DeliberationTemplate:

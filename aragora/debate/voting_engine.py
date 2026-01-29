@@ -48,6 +48,7 @@ __all__ = [
 # Core Types (from consensus.py, preserved as canonical)
 # =============================================================================
 
+
 class VoteType(Enum):
     """Types of votes."""
 
@@ -55,6 +56,7 @@ class VoteType(Enum):
     DISAGREE = "disagree"
     ABSTAIN = "abstain"
     CONDITIONAL = "conditional"  # Agree with reservations
+
 
 class ConsensusStrength(Enum):
     """Strength classification for consensus."""
@@ -65,9 +67,11 @@ class ConsensusStrength(Enum):
     WEAK = "weak"  # Variance >= 2
     NONE = "none"  # No votes or no clear winner
 
+
 # =============================================================================
 # Weight Configuration
 # =============================================================================
+
 
 class WeightSource(Protocol):
     """Protocol for vote weight providers."""
@@ -75,6 +79,7 @@ class WeightSource(Protocol):
     def get_weight(self, agent_name: str) -> float:
         """Return weight for agent (typically 0.5-1.5 range)."""
         ...
+
 
 @dataclass
 class WeightConfig:
@@ -100,9 +105,11 @@ class WeightConfig:
     consistency_contribution: float = 1.0
     calibration_contribution: float = 1.0
 
+
 # =============================================================================
 # Vote Result (unified from WeightedVoteResult and AggregatedVotes)
 # =============================================================================
+
 
 @dataclass
 class VoteResult:
@@ -163,9 +170,11 @@ class VoteResult:
         runner_up_pct = runner_up[1] / self.total_weighted_votes
         return winner_pct - runner_up_pct
 
+
 # =============================================================================
 # Vote Weight Calculator
 # =============================================================================
+
 
 class VoteWeightCalculator:
     """Calculates vote weights from multiple sources.
@@ -269,9 +278,11 @@ class VoteWeightCalculator:
         """Clear the weight cache."""
         self._cache.clear()
 
+
 # =============================================================================
 # Unified Voting Engine
 # =============================================================================
+
 
 class VotingEngine:
     """Unified voting engine for debate consensus.

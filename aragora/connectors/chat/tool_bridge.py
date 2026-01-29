@@ -36,6 +36,7 @@ from typing import Any, AsyncIterator, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ToolStatus(str, Enum):
     """Status of tool execution."""
 
@@ -46,6 +47,7 @@ class ToolStatus(str, Enum):
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
+
 class Platform(str, Enum):
     """Supported chat platforms."""
 
@@ -55,6 +57,7 @@ class Platform(str, Enum):
     TEAMS = "teams"
     WHATSAPP = "whatsapp"
     GENERIC = "generic"
+
 
 @dataclass
 class ToolInvocation:
@@ -75,6 +78,7 @@ class ToolInvocation:
     progress_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ProgressUpdate:
     """Progress update for streaming."""
@@ -84,6 +88,7 @@ class ProgressUpdate:
     status: ToolStatus
     timestamp: datetime
     partial_result: Optional[dict[str, Any]] = None
+
 
 class ResultFormatter:
     """Formats tool results for different platforms."""
@@ -218,6 +223,7 @@ class ResultFormatter:
         empty = width - filled
         return f"[{'=' * filled}{' ' * empty}]"
 
+
 class ErrorHandler:
     """Handles errors with user-friendly messages."""
 
@@ -271,6 +277,7 @@ class ErrorHandler:
             "ServiceUnavailable",
         )
         return type(error).__name__ in retryable
+
 
 class ToolBridge:
     """
@@ -536,8 +543,10 @@ class ToolBridge:
             return True
         return False
 
+
 # Singleton instance per platform
 _bridges: dict[Platform, ToolBridge] = {}
+
 
 def get_tool_bridge(platform: str = "generic") -> ToolBridge:
     """Get the tool bridge for a platform."""
@@ -550,6 +559,7 @@ def get_tool_bridge(platform: str = "generic") -> ToolBridge:
         _bridges[p] = ToolBridge(platform=p)
 
     return _bridges[p]
+
 
 def reset_tool_bridges() -> None:
     """Reset all tool bridges (for testing)."""

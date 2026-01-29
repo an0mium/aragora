@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 # Service Registry Integration (Lazy Loading)
 # =============================================================================
 
+
 def _get_code_intelligence():
     """Get or create CodeIntelligence from service registry."""
     registry = ServiceRegistry.get()
@@ -65,6 +66,7 @@ def _get_code_intelligence():
     except ImportError:
         logger.warning("CodeIntelligence not available")
         return None
+
 
 def _get_call_graph_builder():
     """Get or create CallGraphBuilder from service registry."""
@@ -82,6 +84,7 @@ def _get_call_graph_builder():
         logger.warning("CallGraphBuilder not available")
         return None
 
+
 def _get_security_scanner():
     """Get or create SecurityScanner from service registry."""
     registry = ServiceRegistry.get()
@@ -96,6 +99,7 @@ def _get_security_scanner():
     except ImportError:
         logger.warning("SecurityScanner not available")
         return None
+
 
 def _get_bug_detector():
     """Get or create BugDetector from service registry."""
@@ -112,6 +116,7 @@ def _get_bug_detector():
         logger.warning("BugDetector not available")
         return None
 
+
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
@@ -127,12 +132,14 @@ _audit_results: dict[str, dict[str, Any]] = {}  # repo_id -> {audit_id -> result
 _audit_lock = threading.Lock()
 _running_audits: dict[str, asyncio.Task] = {}
 
+
 def _get_or_create_repo_analyses(repo_id: str) -> dict[str, Any]:
     """Get or create analysis storage for a repository."""
     with _analysis_lock:
         if repo_id not in _analysis_results:
             _analysis_results[repo_id] = {}
         return _analysis_results[repo_id]
+
 
 def _get_or_create_repo_audits(repo_id: str) -> dict[str, Any]:
     """Get or create audit storage for a repository."""
@@ -141,9 +148,11 @@ def _get_or_create_repo_audits(repo_id: str) -> dict[str, Any]:
             _audit_results[repo_id] = {}
         return _audit_results[repo_id]
 
+
 # =============================================================================
 # Code Intelligence Handlers
 # =============================================================================
+
 
 class IntelligenceHandler(SecureHandler):
     """Handler class for code intelligence endpoints."""
@@ -291,9 +300,11 @@ class IntelligenceHandler(SecureHandler):
                 return error_response(str(e), 403)
         return await handle_get_audit_status(repo_id, audit_id, params)
 
+
 # =============================================================================
 # Analyze Codebase Handler
 # =============================================================================
+
 
 async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
@@ -446,9 +457,11 @@ async def handle_analyze_codebase(repo_id: str, body: dict[str, Any]) -> Handler
         logger.error(f"Analysis failed: {e}")
         return error_response(f"Analysis failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Get Symbols Handler
 # =============================================================================
+
 
 async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
@@ -536,9 +549,11 @@ async def handle_get_symbols(repo_id: str, params: dict[str, Any]) -> HandlerRes
         logger.error(f"Symbol extraction failed: {e}")
         return error_response(f"Symbol extraction failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Call Graph Handler
 # =============================================================================
+
 
 async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
@@ -624,9 +639,11 @@ async def handle_get_callgraph(repo_id: str, params: dict[str, Any]) -> HandlerR
         logger.error(f"Call graph construction failed: {e}")
         return error_response(f"Call graph construction failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Dead Code Handler
 # =============================================================================
+
 
 async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerResult:
     """
@@ -698,9 +715,11 @@ async def handle_find_deadcode(repo_id: str, params: dict[str, Any]) -> HandlerR
         logger.error(f"Dead code analysis failed: {e}")
         return error_response(f"Dead code analysis failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Impact Analysis Handler
 # =============================================================================
+
 
 async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
@@ -769,9 +788,11 @@ async def handle_analyze_impact(repo_id: str, body: dict[str, Any]) -> HandlerRe
         logger.error(f"Impact analysis failed: {e}")
         return error_response(f"Impact analysis failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Understand Handler
 # =============================================================================
+
 
 async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
@@ -831,9 +852,11 @@ async def handle_understand(repo_id: str, body: dict[str, Any]) -> HandlerResult
         logger.error(f"Understanding query failed: {e}")
         return error_response(f"Understanding query failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Audit Handler
 # =============================================================================
+
 
 async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
     """
@@ -988,6 +1011,7 @@ async def handle_audit(repo_id: str, body: dict[str, Any]) -> HandlerResult:
         result = await run_audit()
         return success_response(result)
 
+
 async def handle_get_audit_status(
     repo_id: str, audit_id: str, params: dict[str, Any]
 ) -> HandlerResult:
@@ -999,9 +1023,11 @@ async def handle_get_audit_status(
 
     return success_response(repo_audits[audit_id])
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 async def quick_analyze(path: str) -> dict[str, Any]:
     """Quick helper to analyze a path."""
@@ -1010,6 +1036,7 @@ async def quick_analyze(path: str) -> dict[str, Any]:
     result = await handle_analyze_codebase("default", {"path": path})
     body = json.loads(result.body.decode("utf-8"))
     return body.get("data", {})
+
 
 async def quick_audit(path: str) -> dict[str, Any]:
     """Quick helper to audit a path."""

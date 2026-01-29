@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TrainerConfig:
     """Configuration for the RL trainer."""
@@ -69,6 +70,7 @@ class TrainerConfig:
     # Logging
     log_interval: int = 10
     checkpoint_interval: int = 100
+
 
 @dataclass
 class TrainingMetrics:
@@ -115,6 +117,7 @@ class TrainingMetrics:
             "training_time_seconds": self.training_time_seconds,
             "collection_time_seconds": self.collection_time_seconds,
         }
+
 
 class Trainer:
     """
@@ -528,6 +531,7 @@ class Trainer:
                 "max_iterations": self.refinement_policy.max_iterations,
             },
         }
+
 
 __all__ = [
     "TrainerConfig",

@@ -34,6 +34,7 @@ from .config import ExcludedFile, ExclusionReason, FileInfo
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FilterDecision:
     """Result of agent evaluation for a single file."""
@@ -42,6 +43,7 @@ class FilterDecision:
     include: bool
     reason: str
     confidence: float = 1.0
+
 
 class AgentFileFilter:
     """
@@ -392,6 +394,7 @@ Provide a decision for every file listed above."""
                 )
 
         return included, excluded
+
 
 def get_agent_filter(
     model: str = "gemini-2.0-flash",

@@ -6,6 +6,7 @@ task descriptions. Uses Claude Haiku for fast, accurate classification.
 
 Includes TTL caching to reduce API costs for repeated queries.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Default cache settings
 DEFAULT_CACHE_TTL = 3600  # 1 hour
 DEFAULT_CACHE_SIZE = 500  # Max entries
+
 
 class _DomainCache:
     """Simple TTL cache for domain detection results."""
@@ -89,6 +91,7 @@ class _DomainCache:
         count = len(self._cache)
         self._cache.clear()
         return count
+
 
 # Global cache instance (shared across DomainDetector instances)
 _domain_cache = _DomainCache()
@@ -364,6 +367,7 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
         "package",
     ],
 }
+
 
 class DomainDetector:
     """
@@ -644,6 +648,7 @@ Return up to {top_n} domains, sorted by confidence. Be conservative with technic
             secondary_domains=secondary,
             required_traits=traits,
         )
+
 
 __all__ = [
     "DOMAIN_KEYWORDS",

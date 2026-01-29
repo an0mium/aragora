@@ -35,17 +35,17 @@ class MockTeamsActivity:
     """Mock Teams Bot Framework activity."""
 
     text: str = "@aragora debate 'Should AI be regulated?'"
-    from_user: Dict[str, str] = field(
+    from_user: dict[str, str] = field(
         default_factory=lambda: {"id": "user-123", "name": "Test User"}
     )
-    conversation: Dict[str, str] = field(
+    conversation: dict[str, str] = field(
         default_factory=lambda: {
             "id": "conv-123",
             "tenantId": "tenant-123",
             "conversationType": "channel",
         }
     )
-    channel_data: Dict[str, Any] = field(
+    channel_data: dict[str, Any] = field(
         default_factory=lambda: {
             "team": {"id": "team-123", "name": "Test Team"},
             "channel": {"id": "channel-123", "name": "general"},
@@ -53,7 +53,7 @@ class MockTeamsActivity:
     )
     service_url: str = "https://smba.trafficmanager.net/amer/"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to activity dict."""
         return {
             "type": "message",
@@ -69,10 +69,10 @@ class MockTeamsActivity:
 class TeamsResponseCapture:
     """Capture Teams API responses for verification."""
 
-    activities_sent: List[Dict[str, Any]] = field(default_factory=list)
-    cards_sent: List[Dict[str, Any]] = field(default_factory=list)
+    activities_sent: list[dict[str, Any]] = field(default_factory=list)
+    cards_sent: list[dict[str, Any]] = field(default_factory=list)
 
-    def add_activity(self, activity: Dict[str, Any]) -> None:
+    def add_activity(self, activity: dict[str, Any]) -> None:
         """Add a sent activity."""
         self.activities_sent.append(activity)
         # Extract adaptive cards
@@ -81,7 +81,7 @@ class TeamsResponseCapture:
                 if attachment.get("contentType") == "application/vnd.microsoft.card.adaptive":
                     self.cards_sent.append(attachment.get("content", {}))
 
-    def get_final_result(self) -> Optional[Dict[str, Any]]:
+    def get_final_result(self) -> Optional[dict[str, Any]]:
         """Get the final debate result message."""
         for activity in reversed(self.activities_sent):
             text = activity.get("text", "")
@@ -89,7 +89,7 @@ class TeamsResponseCapture:
                 return activity
         return None
 
-    def get_progress_updates(self) -> List[Dict[str, Any]]:
+    def get_progress_updates(self) -> list[dict[str, Any]]:
         """Get all progress update messages."""
         return [a for a in self.activities_sent if "Round" in a.get("text", "")]
 
@@ -112,7 +112,7 @@ def response_capture() -> TeamsResponseCapture:
 
 
 def _create_mock_http_handler(
-    body: Dict[str, Any], path: str = "/api/v1/integrations/teams/commands"
+    body: dict[str, Any], path: str = "/api/v1/integrations/teams/commands"
 ):
     """Create a mock HTTP handler for testing."""
     mock_http = MagicMock()

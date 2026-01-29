@@ -21,22 +21,28 @@ from unittest.mock import MagicMock, patch
 # Bypass RBAC decorator by patching it before import
 def _bypass_require_permission(permission):
     """No-op decorator for testing."""
+
     def decorator(func):
         return func
+
     return decorator
 
 
 # Also bypass ttl_cache and handle_errors to simplify testing
 def _bypass_ttl_cache(**kwargs):
     """No-op decorator for testing."""
+
     def decorator(func):
         return func
+
     return decorator
 
 
 # Patch decorators before importing the mixin
 patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
-patch("aragora.server.handlers.knowledge_base.facts.require_permission", _bypass_require_permission).start()
+patch(
+    "aragora.server.handlers.knowledge_base.facts.require_permission", _bypass_require_permission
+).start()
 patch("aragora.server.handlers.base.ttl_cache", _bypass_ttl_cache).start()
 patch("aragora.server.handlers.knowledge_base.facts.ttl_cache", _bypass_ttl_cache).start()
 
@@ -114,18 +120,18 @@ class MockFact:
     id: str
     statement: str
     confidence: float = 0.5
-    evidence_ids: List[str] = field(default_factory=list)
+    evidence_ids: list[str] = field(default_factory=list)
     consensus_proof_id: Optional[str] = None
-    source_documents: List[str] = field(default_factory=list)
+    source_documents: list[str] = field(default_factory=list)
     workspace_id: str = "default"
     validation_status: ValidationStatus = ValidationStatus.UNVERIFIED
-    topics: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    topics: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     superseded_by: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "statement": self.statement,
@@ -153,10 +159,10 @@ class MockFactRelation:
     relation_type: FactRelationType
     confidence: float = 0.5
     created_by: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "source_fact_id": self.source_fact_id,
@@ -176,10 +182,10 @@ class MockVerificationResult:
     fact_id: str
     verified: bool
     confidence: float
-    agents_agreed: List[str] = field(default_factory=list)
-    agents_disagreed: List[str] = field(default_factory=list)
+    agents_agreed: list[str] = field(default_factory=list)
+    agents_disagreed: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "fact_id": self.fact_id,
             "verified": self.verified,
@@ -199,7 +205,7 @@ class MockContradiction:
     severity: str = "medium"
     reason: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "fact_a_id": self.fact_a_id,
@@ -286,8 +292,8 @@ class FactsHandlerNoAuth(FactsOperationsMixin):
 
 def create_mock_http_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    body: Optional[dict[str, Any]] = None,
+    headers: Optional[dict[str, str]] = None,
 ) -> MagicMock:
     """Create a mock HTTP handler."""
     mock = MagicMock()
@@ -919,9 +925,7 @@ class TestGetRelations:
         call_kwargs = mock_store.get_relations.call_args[1]
         assert call_kwargs["relation_type"].value == "supports"
 
-    def test_get_relations_as_source_only(
-        self, handler, mock_store, sample_fact, sample_relation
-    ):
+    def test_get_relations_as_source_only(self, handler, mock_store, sample_fact, sample_relation):
         """Should get relations where fact is source only."""
         mock_store.get_fact.return_value = sample_fact
         mock_store.get_relations.return_value = [sample_relation]
@@ -935,9 +939,7 @@ class TestGetRelations:
         assert call_kwargs["as_source"] is True
         assert call_kwargs["as_target"] is False
 
-    def test_get_relations_as_target_only(
-        self, handler, mock_store, sample_fact, sample_relation
-    ):
+    def test_get_relations_as_target_only(self, handler, mock_store, sample_fact, sample_relation):
         """Should get relations where fact is target only."""
         mock_store.get_fact.return_value = sample_fact
         mock_store.get_relations.return_value = [sample_relation]

@@ -99,7 +99,7 @@ class MockSnoozeSuggestion:
 class MockSnoozeRecommendation:
     """Mock snooze recommendation for testing."""
 
-    suggestions: List[MockSnoozeSuggestion] = field(default_factory=list)
+    suggestions: list[MockSnoozeSuggestion] = field(default_factory=list)
     recommended: Optional[MockSnoozeSuggestion] = None
 
     def __post_init__(self):
@@ -120,7 +120,7 @@ class MockFollowUpTracker:
     """Mock follow-up tracker for testing."""
 
     def __init__(self):
-        self._followups: Dict[str, MockFollowUpItem] = {}
+        self._followups: dict[str, MockFollowUpItem] = {}
 
     async def mark_awaiting_reply(
         self,
@@ -149,7 +149,7 @@ class MockFollowUpTracker:
         user_id: str = "default",
         include_resolved: bool = False,
         sort_by: str = "urgency",
-    ) -> List[MockFollowUpItem]:
+    ) -> list[MockFollowUpItem]:
         items = list(self._followups.values())
         if not include_resolved:
             items = [
@@ -171,7 +171,7 @@ class MockFollowUpTracker:
             item.resolved_at = datetime.now()
         return item
 
-    async def check_for_replies(self, thread_ids: List[str]) -> List[MockFollowUpItem]:
+    async def check_for_replies(self, thread_ids: list[str]) -> list[MockFollowUpItem]:
         # Return empty list - no replies detected
         return []
 
@@ -179,7 +179,7 @@ class MockFollowUpTracker:
         self,
         days_back: int = 7,
         user_id: str = "default",
-    ) -> List[MockFollowUpItem]:
+    ) -> list[MockFollowUpItem]:
         # Return one detected email
         item = MockFollowUpItem(
             id="fu_auto_detected",
@@ -196,7 +196,7 @@ class MockSnoozeRecommender:
 
     async def recommend_snooze(
         self,
-        email: Dict[str, Any],
+        email: dict[str, Any],
         priority_result: Optional[Any] = None,
         max_suggestions: int = 5,
     ) -> MockSnoozeRecommendation:
@@ -218,7 +218,7 @@ class MockEmailCategorizer:
 
 def create_mock_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     path: str = "/api/v1/email/followups/pending",
 ) -> MagicMock:
     """Create a mock HTTP handler for testing."""

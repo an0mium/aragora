@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # Types and Enums
 # =============================================================================
 
+
 class DrillType(Enum):
     """Types of DR drills."""
 
@@ -59,6 +60,7 @@ class DrillType(Enum):
     NETWORK_FAILOVER = "network_failover"  # Quarterly
     MANUAL = "manual"  # Ad-hoc
 
+
 class DrillStatus(Enum):
     """Status of a DR drill."""
 
@@ -68,6 +70,7 @@ class DrillStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     PARTIAL = "partial"  # Some tests passed, some failed
+
 
 class ComponentType(Enum):
     """Types of components that can be tested."""
@@ -81,6 +84,7 @@ class ComponentType(Enum):
     AUTH = "auth"
     SEARCH = "search"
     FULL_SYSTEM = "full_system"
+
 
 @dataclass
 class DrillStep:
@@ -96,6 +100,7 @@ class DrillStep:
     duration_seconds: float = 0.0
     error_message: str | None = None
     metrics: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class DRDrillResult:
@@ -155,9 +160,11 @@ class DRDrillResult:
             "recommendations": self.recommendations,
         }
 
+
 # =============================================================================
 # Configuration
 # =============================================================================
+
 
 @dataclass
 class DRDrillConfig:
@@ -182,9 +189,11 @@ class DRDrillConfig:
     # Execution
     dry_run: bool = False  # If True, simulate drills without actual operations
 
+
 # =============================================================================
 # Storage Layer
 # =============================================================================
+
 
 class DRDrillStorage:
     """SQLite-backed storage for DR drills."""
@@ -539,9 +548,11 @@ class DRDrillStorage:
         )
         conn.commit()
 
+
 # =============================================================================
 # DR Drill Scheduler
 # =============================================================================
+
 
 class DRDrillScheduler:
     """Main DR drill scheduler and executor."""
@@ -1059,12 +1070,14 @@ class DRDrillScheduler:
             "last_drill": recent[0].to_dict() if recent else None,
         }
 
+
 # =============================================================================
 # Global Instance
 # =============================================================================
 
 _scheduler: DRDrillScheduler | None = None
 _scheduler_lock = threading.Lock()
+
 
 def get_dr_drill_scheduler(
     config: DRDrillConfig | None = None,
@@ -1076,6 +1089,7 @@ def get_dr_drill_scheduler(
             _scheduler = DRDrillScheduler(config)
         return _scheduler
 
+
 async def schedule_dr_drill(
     drill_type: DrillType = DrillType.BACKUP_RESTORATION,
     components: Optional[list[ComponentType]] = None,
@@ -1085,6 +1099,7 @@ async def schedule_dr_drill(
         drill_type=drill_type,
         components=components,
     )
+
 
 __all__ = [
     # Types

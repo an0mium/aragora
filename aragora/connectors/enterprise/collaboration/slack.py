@@ -30,6 +30,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SlackChannel:
     """A Slack channel."""
@@ -42,6 +43,7 @@ class SlackChannel:
     purpose: str = ""
     member_count: int = 0
     created: datetime | None = None
+
 
 @dataclass
 class SlackMessage:
@@ -58,6 +60,7 @@ class SlackMessage:
     files: list[dict[str, Any]] = field(default_factory=list)
     created_at: datetime | None = None
 
+
 @dataclass
 class SlackUser:
     """A Slack user."""
@@ -68,6 +71,7 @@ class SlackUser:
     display_name: str = ""
     email: str = ""
     is_bot: bool = False
+
 
 class SlackConnector(EnterpriseConnector):
     """
@@ -867,5 +871,6 @@ class SlackConnector(EnterpriseConnector):
         except Exception as e:
             logger.error(f"[{self.name}] Failed to post message: {e}")
             return None
+
 
 __all__ = ["SlackConnector", "SlackChannel", "SlackMessage", "SlackUser"]

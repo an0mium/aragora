@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class EHRVendor(str, Enum):
     """Supported EHR vendors."""
 
@@ -35,6 +36,7 @@ class EHRVendor(str, Enum):
     ATHENAHEALTH = "athenahealth"
     NEXTGEN = "nextgen"
     UNKNOWN = "unknown"
+
 
 class EHRCapability(str, Enum):
     """EHR system capabilities."""
@@ -63,6 +65,7 @@ class EHRCapability(str, Enum):
     EPIC_CARE_EVERYWHERE = "epic_care_everywhere"
     CERNER_MILLENNIUM = "cerner_millennium"
     CERNER_POWERCHART = "cerner_powerchart"
+
 
 @dataclass
 class EHRConnectionConfig:
@@ -104,6 +107,7 @@ class EHRConnectionConfig:
     enable_phi_redaction: bool = True
     audit_all_access: bool = True
 
+
 @dataclass
 class SMARTConfiguration:
     """SMART on FHIR configuration discovered from well-known endpoint."""
@@ -134,6 +138,7 @@ class SMARTConfiguration:
             capabilities=data.get("capabilities", []),
             code_challenge_methods_supported=data.get("code_challenge_methods_supported", []),
         )
+
 
 @dataclass
 class TokenResponse:
@@ -168,6 +173,7 @@ class TokenResponse:
             patient=data.get("patient"),
             id_token=data.get("id_token"),
         )
+
 
 class EHRAdapter(ABC):
     """
@@ -552,6 +558,7 @@ class EHRAdapter(ABC):
             "capabilities": [c.value for c in self.capabilities],
         }
 
+
 def detect_vendor(base_url: str, metadata: Optional[dict[str, Any]] = None) -> EHRVendor:
     """
     Detect EHR vendor from URL patterns or FHIR metadata.
@@ -604,6 +611,7 @@ def detect_vendor(base_url: str, metadata: Optional[dict[str, Any]] = None) -> E
                         return EHRVendor.CERNER
 
     return EHRVendor.UNKNOWN
+
 
 def create_adapter(config: EHRConnectionConfig) -> EHRAdapter:
     """

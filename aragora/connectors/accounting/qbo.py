@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -39,11 +40,13 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
+
 class QBOEnvironment(str, Enum):
     """QuickBooks environment."""
 
     SANDBOX = "sandbox"
     PRODUCTION = "production"
+
 
 class TransactionType(str, Enum):
     """Transaction types."""
@@ -56,6 +59,7 @@ class TransactionType(str, Enum):
     SALES_RECEIPT = "SalesReceipt"
     PURCHASE = "Purchase"
     JOURNAL_ENTRY = "JournalEntry"
+
 
 @dataclass
 class QBOCredentials:
@@ -73,6 +77,7 @@ class QBOCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
+
 
 @dataclass
 class QBOCustomer(ConnectorDataclass):
@@ -96,6 +101,7 @@ class QBOCustomer(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class QBOTransaction(ConnectorDataclass):
@@ -136,6 +142,7 @@ class QBOTransaction(ConnectorDataclass):
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
+
 @dataclass
 class QBOAccount(ConnectorDataclass):
     """QuickBooks account (chart of accounts)."""
@@ -156,6 +163,7 @@ class QBOAccount(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 class QuickBooksConnector:
     """
@@ -774,22 +782,36 @@ class QuickBooksConnector:
 
         return vendors[0] if vendors else None
 
+    # Allowlist: alphanumeric, spaces, common business characters
+    _QBO_SAFE_VALUE_PATTERN = re.compile(r"^[a-zA-Z0-9 ._@&,\-'()#/]+$")
+
     def _sanitize_query_value(self, value: str) -> str:
         """
         Sanitize a value for use in QuickBooks Query Language.
 
-        QBO Query Language uses single quotes for strings. To include a literal
-        single quote, it must be doubled (e.g., 'O''Brien').
+        QBO Query Language uses single quotes for strings. This method
+        provides defense-in-depth by:
+        1. Rejecting values exceeding 500 characters
+        2. Stripping characters outside the allowlist
+        3. Doubling single quotes (QBO's escaping mechanism)
 
         Args:
             value: The value to sanitize
 
         Returns:
             Sanitized value safe for use in QBO queries
+
+        Raises:
+            ValueError: If the value exceeds 500 characters
         """
         if not isinstance(value, str):
             value = str(value)
-        # Double single quotes for QBO query language (standard SQL-like escaping)
+        if len(value) > 500:
+            raise ValueError(f"Query value too long ({len(value)} chars, max 500)")
+        # Strip characters not in the allowlist
+        if value and not self._QBO_SAFE_VALUE_PATTERN.match(value):
+            value = re.sub(r"[^a-zA-Z0-9 ._@&,\-'()#/]", "", value)
+        # Double single quotes for QBO query language
         return value.replace("'", "''")
 
     def _validate_numeric_id(self, value: str, field_name: str) -> str:
@@ -1122,9 +1144,11 @@ class QuickBooksConnector:
         response = await self._request("POST", "billpayment", payment_data)
         return response.get("BillPayment", {})
 
+
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
+
 
 def get_mock_customers() -> list[QBOCustomer]:
     """Generate mock customer data for demo."""
@@ -1157,6 +1181,7 @@ def get_mock_customers() -> list[QBOCustomer]:
             active=True,
         ),
     ]
+
 
 def get_mock_transactions() -> list[QBOTransaction]:
     """Generate mock transaction data for demo."""

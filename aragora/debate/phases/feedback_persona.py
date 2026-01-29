@@ -4,6 +4,7 @@ Persona feedback methods for FeedbackPhase.
 Extracted from feedback_phase.py for maintainability.
 Handles persona performance updates and trait emergence detection.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from aragora.type_protocols import EventEmitterProtocol, PersonaManagerProtocol
 
 logger = logging.getLogger(__name__)
+
 
 class PersonaFeedback:
     """Handles persona-related feedback operations."""
@@ -158,5 +160,6 @@ class PersonaFeedback:
             logger.debug(f"Trait detection error for {agent_name}: {e}")
 
         return traits
+
 
 __all__ = ["PersonaFeedback"]

@@ -17,6 +17,7 @@ from .base import BaseHandler, HandlerResult
 
 logger = logging.getLogger(__name__)
 
+
 class CompositeHandler(BaseHandler):
     """
     Handler for composite API endpoints that aggregate multiple data sources.
@@ -47,9 +48,7 @@ class CompositeHandler(BaseHandler):
         return False
 
     @require_permission("composite:read")
-    def handle(
-        self, path: str, query_params: dict[str, str], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, str], handler: Any) -> HandlerResult | None:
         """Route to appropriate handler method."""
         if path.endswith("/full-context"):
             debate_id = self._extract_id(path, "/api/v1/debates/", "/full-context")

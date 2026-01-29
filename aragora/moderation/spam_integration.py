@@ -41,12 +41,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SpamVerdict(str, Enum):
     """Verdict from spam content check."""
 
     CLEAN = "clean"
     SUSPICIOUS = "suspicious"
     SPAM = "spam"
+
 
 class ContentModerationError(Exception):
     """Raised when content is blocked by moderation."""
@@ -62,6 +64,7 @@ class ContentModerationError(Exception):
         self.verdict = verdict
         self.confidence = confidence
         self.reasons = reasons or []
+
 
 @dataclass
 class SpamCheckResult:
@@ -105,6 +108,7 @@ class SpamCheckResult:
             },
         }
 
+
 @dataclass
 class SpamModerationConfig:
     """Configuration for spam moderation."""
@@ -138,6 +142,7 @@ class SpamModerationConfig:
             fail_open=os.getenv("ARAGORA_SPAM_FAIL_OPEN", "true").lower() == "true",
             log_all_checks=os.getenv("ARAGORA_SPAM_LOG_ALL", "false").lower() == "true",
         )
+
 
 class SpamModerationIntegration:
     """
@@ -490,8 +495,10 @@ class SpamModerationIntegration:
                 logger.warning(f"Error closing classifier: {e}")
         self._initialized = False
 
+
 # Global instance management
 _global_moderation: SpamModerationIntegration | None = None
+
 
 def get_spam_moderation() -> SpamModerationIntegration:
     """
@@ -508,6 +515,7 @@ def get_spam_moderation() -> SpamModerationIntegration:
         _global_moderation = SpamModerationIntegration()
     return _global_moderation
 
+
 def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     """
     Set the global spam moderation instance.
@@ -516,6 +524,7 @@ def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     """
     global _global_moderation
     _global_moderation = moderation
+
 
 async def check_debate_content(
     proposal: str,
@@ -547,6 +556,7 @@ async def check_debate_content(
     if not moderation._initialized:
         await moderation.initialize()
     return await moderation.check_debate_input(proposal, context, metadata)
+
 
 __all__ = [
     "SpamVerdict",

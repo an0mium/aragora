@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ContextDelegator:
     """Handles context gathering and caching delegations for Arena.
 
@@ -162,5 +163,6 @@ class ContextDelegator:
         if not self.memory_manager:
             return ""
         return self.memory_manager.get_successful_patterns(limit)
+
 
 __all__ = ["ContextDelegator"]

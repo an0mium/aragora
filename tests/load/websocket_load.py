@@ -42,8 +42,8 @@ class WebSocketMetrics:
     messages_sent: int = 0
     messages_received: int = 0
     bytes_received: int = 0
-    connection_times: List[float] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    connection_times: list[float] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     start_time: float = 0.0
     end_time: float = 0.0
 
@@ -71,7 +71,7 @@ class WebSocketMetrics:
             return 0.0
         return self.messages_received / self.duration
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "connections_attempted": self.connections_attempted,
             "connections_successful": self.connections_successful,
@@ -138,7 +138,7 @@ class WebSocketClient:
             self.metrics.errors.append(f"Client {self.client_id}: {str(e)[:100]}")
             return False
 
-    async def send_message(self, message: Dict[str, Any]) -> None:
+    async def send_message(self, message: dict[str, Any]) -> None:
         """Send message to server."""
         if not self.ws or not self.connected:
             return
@@ -198,7 +198,7 @@ async def run_websocket_load_test(
     metrics = WebSocketMetrics()
     metrics.start_time = time.time()
 
-    clients: List[WebSocketClient] = []
+    clients: list[WebSocketClient] = []
 
     # Create clients
     for i in range(concurrent):

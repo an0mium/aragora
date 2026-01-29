@@ -17,6 +17,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class GauntletStep(BaseStep):
     """
     Workflow step that executes Gauntlet adversarial validation.

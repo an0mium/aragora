@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DiscrepancyType(str, Enum):
     """Types of reconciliation discrepancies."""
 
@@ -60,6 +61,7 @@ class DiscrepancyType(str, Enum):
     POTENTIAL_DUPLICATE = "potential_duplicate"  # Possible duplicate entry
     CATEGORIZATION = "categorization"  # Category/account mismatch
 
+
 class DiscrepancySeverity(str, Enum):
     """Severity of discrepancy."""
 
@@ -67,6 +69,7 @@ class DiscrepancySeverity(str, Enum):
     MEDIUM = "medium"  # Should be reviewed
     HIGH = "high"  # Requires attention
     CRITICAL = "critical"  # Potential error or fraud
+
 
 class ResolutionStatus(str, Enum):
     """Status of discrepancy resolution."""
@@ -76,6 +79,7 @@ class ResolutionStatus(str, Enum):
     USER_RESOLVED = "user_resolved"
     AUTO_RESOLVED = "auto_resolved"
     IGNORED = "ignored"
+
 
 @dataclass
 class MatchedTransaction:
@@ -105,6 +109,7 @@ class MatchedTransaction:
             "match_confidence": self.match_confidence,
             "match_method": self.match_method,
         }
+
 
 @dataclass
 class Discrepancy:
@@ -148,6 +153,7 @@ class Discrepancy:
             "resolution_suggestion": self.resolution_suggestion,
             "resolution_confidence": self.resolution_confidence,
         }
+
 
 @dataclass
 class ReconciliationResult:
@@ -213,6 +219,7 @@ class ReconciliationResult:
             "is_reconciled": self.is_reconciled,
             "created_at": self.created_at.isoformat(),
         }
+
 
 class ReconciliationService:
     """
@@ -654,9 +661,11 @@ Format: EXPLANATION: ... ACTION: ... CONFIDENCE: ..."""
         results.sort(key=lambda r: r.created_at, reverse=True)
         return results[:limit]
 
+
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
+
 
 def get_mock_reconciliation_result() -> ReconciliationResult:
     """Generate mock reconciliation result."""
@@ -717,6 +726,7 @@ def get_mock_reconciliation_result() -> ReconciliationResult:
             ),
         ],
     )
+
 
 __all__ = [
     "ReconciliationService",

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from aragora.billing.models import Organization, User
 
+
 class InMemoryUserStore:
     """
     Simple in-memory user store for development/testing.
@@ -51,5 +52,6 @@ class InMemoryUserStore:
     def get_organization_by_id(self, org_id: str) -> Organization | None:
         """Get organization by ID."""
         return self.organizations.get(org_id)
+
 
 __all__ = ["InMemoryUserStore"]

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Job type constants
 JOB_TYPE_CONSENSUS_HEAL = "consensus_heal"
 
+
 class HealingAction(str, Enum):
     """Types of healing actions."""
 
@@ -39,6 +40,7 @@ class HealingAction(str, Enum):
     ARCHIVE = "archive"  # Archive as unresolved
     ESCALATE = "escalate"  # Escalate to human review
 
+
 class HealingReason(str, Enum):
     """Reasons for healing intervention."""
 
@@ -48,6 +50,7 @@ class HealingReason(str, Enum):
     TIMEOUT = "timeout"  # Debate timed out
     ERROR = "error"  # Debate ended in error
     LOW_QUALITY = "low_quality"  # Low quality consensus
+
 
 @dataclass
 class HealingCandidate:
@@ -63,6 +66,7 @@ class HealingCandidate:
     consensus_probability: float = 0.0
     convergence_trend: str = "unknown"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class HealingResult:
@@ -87,6 +91,7 @@ class HealingResult:
             "timestamp": self.timestamp,
         }
 
+
 @dataclass
 class HealingConfig:
     """Configuration for consensus healing."""
@@ -105,6 +110,7 @@ class HealingConfig:
     auto_redebate_enabled: bool = False  # Require user approval by default
     notify_on_stuck: bool = True
     archive_after_max_attempts: bool = True
+
 
 class ConsensusHealingWorker:
     """
@@ -493,8 +499,10 @@ class ConsensusHealingWorker:
             "metrics": self.get_metrics(),
         }
 
+
 # Global worker instance
 _global_worker: ConsensusHealingWorker | None = None
+
 
 def get_consensus_healing_worker() -> ConsensusHealingWorker:
     """Get or create global consensus healing worker."""
@@ -503,17 +511,20 @@ def get_consensus_healing_worker() -> ConsensusHealingWorker:
         _global_worker = ConsensusHealingWorker()
     return _global_worker
 
+
 async def start_consensus_healing() -> ConsensusHealingWorker:
     """Start the global consensus healing worker."""
     worker = get_consensus_healing_worker()
     asyncio.create_task(worker.start())
     return worker
 
+
 async def stop_consensus_healing() -> None:
     """Stop the global consensus healing worker."""
     global _global_worker
     if _global_worker:
         await _global_worker.stop()
+
 
 __all__ = [
     "ConsensusHealingWorker",

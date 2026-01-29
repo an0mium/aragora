@@ -38,6 +38,7 @@ from aragora.storage.webhook_config_store import (
     WEBHOOK_EVENTS,
     WebhookConfig,
 )
+import builtins
 
 
 # ===========================================================================
@@ -48,7 +49,7 @@ from aragora.storage.webhook_config_store import (
 def _make_webhook(
     webhook_id: str = "wh-001",
     url: str = "https://example.com/hook",
-    events: Optional[List[str]] = None,
+    events: Optional[list[str]] = None,
     secret: str = "test-secret-key",
     active: bool = True,
     user_id: Optional[str] = "user-1",
@@ -83,12 +84,12 @@ class MockWebhookStore:
     """Mock webhook config store for testing."""
 
     def __init__(self):
-        self._webhooks: Dict[str, WebhookConfig] = {}
+        self._webhooks: dict[str, WebhookConfig] = {}
 
     def register(
         self,
         url: str,
-        events: List[str],
+        events: builtins.list[str],
         name: Optional[str] = None,
         description: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -111,7 +112,7 @@ class MockWebhookStore:
         self,
         user_id: Optional[str] = None,
         active_only: bool = False,
-    ) -> List[WebhookConfig]:
+    ) -> builtins.list[WebhookConfig]:
         result = list(self._webhooks.values())
         if user_id:
             result = [w for w in result if w.user_id == user_id]
@@ -129,7 +130,7 @@ class MockWebhookStore:
         self,
         webhook_id: str,
         url: Optional[str] = None,
-        events: Optional[List[str]] = None,
+        events: Optional[builtins.list[str]] = None,
         active: Optional[bool] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -154,7 +155,7 @@ def _make_handler_instance(
 ) -> WebhookHandler:
     """Create a WebhookHandler with mocked dependencies."""
     store = webhook_store or MockWebhookStore()
-    ctx: Dict[str, Any] = {"webhook_store": store}
+    ctx: dict[str, Any] = {"webhook_store": store}
     handler = WebhookHandler(ctx)  # type: ignore[arg-type]
     return handler
 

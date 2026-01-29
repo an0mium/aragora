@@ -5,6 +5,7 @@ Handles debate lifecycle orchestration using DebateFactory for creation
 and debate_utils for state management. Extracted from unified_server.py
 for better modularity and testability.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,6 +53,7 @@ if TYPE_CHECKING:
     from aragora.server.stream import SyncEventEmitter
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DebateRequest:
@@ -114,6 +116,7 @@ class DebateRequest:
             trending_category=data.get("trending_category"),
         )
 
+
 @dataclass
 class DebateResponse:
     """Response from debate controller."""
@@ -137,6 +140,7 @@ class DebateResponse:
         if self.error:
             result["error"] = str(self.error)
         return result
+
 
 class DebateController:
     """

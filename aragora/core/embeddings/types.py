@@ -1,4 +1,5 @@
 """Type definitions for the unified embedding service."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from enum import Enum
 # =============================================================================
 # Embedding Exception Hierarchy
 # =============================================================================
+
 
 class EmbeddingError(Exception):
     """Base exception for embedding operations.
@@ -32,6 +34,7 @@ class EmbeddingError(Exception):
         self.status_code = status_code
         self.original_error = original_error
 
+
 class EmbeddingRateLimitError(EmbeddingError):
     """Rate limit exceeded - retryable after backoff."""
 
@@ -47,6 +50,7 @@ class EmbeddingRateLimitError(EmbeddingError):
         super().__init__(message, provider=provider, status_code=429, **kwargs)
         self.retry_after = retry_after
 
+
 class EmbeddingAuthError(EmbeddingError):
     """Authentication/authorization error - not retryable."""
 
@@ -59,6 +63,7 @@ class EmbeddingAuthError(EmbeddingError):
         **kwargs,
     ):
         super().__init__(message, provider=provider, status_code=401, **kwargs)
+
 
 class EmbeddingTimeoutError(EmbeddingError):
     """Request timeout - retryable."""
@@ -75,6 +80,7 @@ class EmbeddingTimeoutError(EmbeddingError):
         super().__init__(message, provider=provider, **kwargs)
         self.timeout = timeout
 
+
 class EmbeddingConnectionError(EmbeddingError):
     """Connection error - retryable."""
 
@@ -90,6 +96,7 @@ class EmbeddingConnectionError(EmbeddingError):
         super().__init__(message, provider=provider, **kwargs)
         self.host = host
 
+
 class EmbeddingQuotaError(EmbeddingError):
     """Quota exceeded - not immediately retryable."""
 
@@ -102,6 +109,7 @@ class EmbeddingQuotaError(EmbeddingError):
         **kwargs,
     ):
         super().__init__(message, provider=provider, status_code=402, **kwargs)
+
 
 class EmbeddingModelError(EmbeddingError):
     """Invalid model or model unavailable - not retryable."""
@@ -118,6 +126,7 @@ class EmbeddingModelError(EmbeddingError):
         super().__init__(message, provider=provider, **kwargs)
         self.model = model
 
+
 class EmbeddingCircuitOpenError(EmbeddingError):
     """Circuit breaker is open - retryable after cooldown."""
 
@@ -133,9 +142,11 @@ class EmbeddingCircuitOpenError(EmbeddingError):
         super().__init__(message, provider=provider, **kwargs)
         self.cooldown_remaining = cooldown_remaining
 
+
 # =============================================================================
 # Enums and Configuration
 # =============================================================================
+
 
 class EmbeddingProvider(str, Enum):
     """Available embedding providers."""
@@ -144,6 +155,7 @@ class EmbeddingProvider(str, Enum):
     GEMINI = "gemini"
     OLLAMA = "ollama"
     HASH = "hash"  # Fallback hash-based embeddings
+
 
 @dataclass
 class EmbeddingConfig:
@@ -189,6 +201,7 @@ class EmbeddingConfig:
         if self.model and self.model in model_dimensions:
             self.dimension = model_dimensions[self.model]
 
+
 @dataclass
 class EmbeddingResult:
     """Result of an embedding operation.
@@ -212,6 +225,7 @@ class EmbeddingResult:
     def __post_init__(self):
         if self.dimension == 0 and self.embedding:
             self.dimension = len(self.embedding)
+
 
 @dataclass
 class CacheStats:

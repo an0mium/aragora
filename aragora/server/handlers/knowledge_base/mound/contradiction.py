@@ -30,12 +30,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ContradictionHandlerProtocol(Protocol):
     """Protocol for handlers that use ContradictionOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class ContradictionOperationsMixin:
     """Mixin providing contradiction detection API endpoints."""

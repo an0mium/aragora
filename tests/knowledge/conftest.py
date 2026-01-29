@@ -13,9 +13,9 @@ class MockMetaStore:
     """Mock metadata store for testing."""
 
     def __init__(self):
-        self._nodes: Dict[str, Any] = {}
-        self._relationships: List[Dict[str, Any]] = []
-        self._content_hashes: Dict[str, str] = {}  # hash -> node_id
+        self._nodes: dict[str, Any] = {}
+        self._relationships: list[dict[str, Any]] = []
+        self._content_hashes: dict[str, str] = {}  # hash -> node_id
 
     def save_node(self, node: Any) -> None:
         """Save a node."""
@@ -55,7 +55,7 @@ class MockMetaStore:
             }
         )
 
-    def get_relationships(self, node_id: str) -> List[Any]:
+    def get_relationships(self, node_id: str) -> list[Any]:
         """Get relationships for a node."""
         return [
             r
@@ -63,11 +63,11 @@ class MockMetaStore:
             if r["from_node_id"] == node_id or r["to_node_id"] == node_id
         ]
 
-    def query_nodes(self, workspace_id: str, limit: int = 100) -> List[Any]:
+    def query_nodes(self, workspace_id: str, limit: int = 100) -> list[Any]:
         """Query nodes."""
         return list(self._nodes.values())[:limit]
 
-    def get_stats(self, workspace_id: str) -> Dict[str, Any]:
+    def get_stats(self, workspace_id: str) -> dict[str, Any]:
         """Get statistics."""
         return {
             "total_nodes": len(self._nodes),
@@ -115,7 +115,7 @@ class MockSemanticStore:
     """Mock semantic store for testing."""
 
     def __init__(self, db_path: str = "", default_tenant_id: str = "default"):
-        self._items: Dict[str, Any] = {}
+        self._items: dict[str, Any] = {}
         self.default_tenant_id = default_tenant_id
 
     def initialize(self):
@@ -146,7 +146,7 @@ class MockSemanticStore:
         tenant_id: str,
         limit: int = 10,
         min_similarity: float = 0.0,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Search for similar items."""
         results = []
         query_lower = query.lower()
@@ -165,9 +165,9 @@ class MockRedisCache:
     """Mock Redis cache for testing."""
 
     def __init__(self):
-        self._nodes: Dict[str, Any] = {}
-        self._queries: Dict[str, Any] = {}
-        self._culture: Dict[str, Any] = {}
+        self._nodes: dict[str, Any] = {}
+        self._queries: dict[str, Any] = {}
+        self._culture: dict[str, Any] = {}
 
     async def connect(self) -> None:
         """Connect to cache."""

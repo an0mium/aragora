@@ -11,6 +11,7 @@ Production features:
 - Caching with configurable TTL
 - Parallel fetching with concurrency control
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,6 +30,7 @@ import httpx
 from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class FeedEntry:
@@ -69,6 +71,7 @@ class FeedEntry:
         content = f"{self.title}|{self.link}|{self.summary or self.content}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
 
+
 @dataclass
 class FeedSource:
     """Configuration for a feed source."""
@@ -87,6 +90,7 @@ class FeedSource:
 
             parsed = urlparse(self.url)
             self.name = parsed.netloc or self.url[:30]
+
 
 class FeedIngestor:
     """Ingests content from RSS/Atom feeds.

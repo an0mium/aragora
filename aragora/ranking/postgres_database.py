@@ -128,6 +128,7 @@ POSTGRES_ELO_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_elo_ratings_elo ON elo_ratings(elo DESC);
 """
 
+
 class PostgresEloDatabase(PostgresStore):
     """
     PostgreSQL implementation of ELO database.
@@ -600,8 +601,10 @@ class PostgresEloDatabase(PostgresStore):
             row = await conn.fetchrow("SELECT COUNT(*) as count FROM elo_matches")
             return row["count"] if row else 0
 
+
 # Singleton instance
 _postgres_elo_db: PostgresEloDatabase | None = None
+
 
 async def get_postgres_elo_database() -> PostgresEloDatabase:
     """

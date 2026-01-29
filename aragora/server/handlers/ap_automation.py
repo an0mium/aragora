@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 _ap_automation: Any | None = None
 _ap_automation_lock = threading.Lock()
 
+
 def get_ap_automation():
     """Get or create AP automation service (thread-safe singleton)."""
     global _ap_automation
@@ -54,9 +55,11 @@ def get_ap_automation():
             _ap_automation = APAutomation()
         return _ap_automation
 
+
 # =============================================================================
 # Invoice Management
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_add_invoice(
@@ -132,6 +135,7 @@ async def handle_add_invoice(
         logger.exception("Error adding invoice")
         return error_response(f"Failed to add invoice: {e}", status=500)
 
+
 @require_permission("ap:read")
 async def handle_list_invoices(
     data: dict[str, Any],
@@ -193,6 +197,7 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
+
 @require_permission("ap:read")
 async def handle_get_invoice(
     data: dict[str, Any],
@@ -216,6 +221,7 @@ async def handle_get_invoice(
     except Exception as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
+
 
 @require_permission("finance:write")
 async def handle_record_payment(
@@ -268,9 +274,11 @@ async def handle_record_payment(
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
 
+
 # =============================================================================
 # Payment Optimization
 # =============================================================================
+
 
 @require_permission("finance:approve")
 async def handle_optimize_payments(
@@ -331,6 +339,7 @@ async def handle_optimize_payments(
         logger.exception("Error optimizing payments")
         return error_response(f"Failed to optimize payments: {e}", status=500)
 
+
 @require_permission("finance:approve")
 async def handle_batch_payments(
     data: dict[str, Any],
@@ -383,9 +392,11 @@ async def handle_batch_payments(
         logger.exception("Error creating batch payment")
         return error_response(f"Failed to create batch: {e}", status=500)
 
+
 # =============================================================================
 # Forecasting and Analysis
 # =============================================================================
+
 
 @require_permission("ap:read")
 async def handle_get_forecast(
@@ -421,6 +432,7 @@ async def handle_get_forecast(
         logger.exception("Error generating forecast")
         return error_response(f"Failed to generate forecast: {e}", status=500)
 
+
 @require_permission("ap:read")
 async def handle_get_discounts(
     data: dict[str, Any],
@@ -447,9 +459,11 @@ async def handle_get_discounts(
         logger.exception("Error getting discount opportunities")
         return error_response(f"Failed to get discounts: {e}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 class APAutomationHandler(BaseHandler):
     """Handler class for AP automation endpoints."""

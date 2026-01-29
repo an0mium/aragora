@@ -4,6 +4,7 @@ Selection Plugin Protocols - Interfaces for custom selection algorithms.
 Protocols define the contracts that selection plugins must implement.
 Uses Python's Protocol (structural subtyping) for flexibility.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.routing.selection import AgentProfile, TaskRequirements, TeamComposition
+
 
 @dataclass
 class SelectionContext:
@@ -42,6 +44,7 @@ class SelectionContext:
 
     # Plugin-specific config
     config: dict = field(default_factory=dict)
+
 
 @runtime_checkable
 class ScorerProtocol(Protocol):
@@ -84,6 +87,7 @@ class ScorerProtocol(Protocol):
         """Human-readable description of the scoring algorithm."""
         ...
 
+
 @runtime_checkable
 class TeamSelectorProtocol(Protocol):
     """
@@ -124,6 +128,7 @@ class TeamSelectorProtocol(Protocol):
     def description(self) -> str:
         """Human-readable description of the selection algorithm."""
         ...
+
 
 @runtime_checkable
 class RoleAssignerProtocol(Protocol):
@@ -167,6 +172,7 @@ class RoleAssignerProtocol(Protocol):
     def description(self) -> str:
         """Human-readable description of the role assignment algorithm."""
         ...
+
 
 @runtime_checkable
 class SelectionPipelineProtocol(Protocol):

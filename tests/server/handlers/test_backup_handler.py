@@ -46,8 +46,8 @@ class MockBackupMetadata:
     size_bytes: int = 1048576
     compressed_size_bytes: int = 524288
     checksum: str = "sha256:abc123"
-    row_counts: Dict[str, int] = field(default_factory=dict)
-    tables: List[str] = field(default_factory=list)
+    row_counts: dict[str, int] = field(default_factory=dict)
+    tables: list[str] = field(default_factory=list)
     duration_seconds: float = 5.0
     verified: bool = True
     verified_at: Optional[datetime] = None
@@ -55,13 +55,13 @@ class MockBackupMetadata:
     error: Optional[str] = None
     storage_backend: str = "local"
     encryption_key_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     schema_hash: str = ""
-    table_checksums: Dict[str, str] = field(default_factory=dict)
-    foreign_keys: List[tuple] = field(default_factory=list)
-    indexes: List[tuple] = field(default_factory=list)
+    table_checksums: dict[str, str] = field(default_factory=dict)
+    foreign_keys: list[tuple] = field(default_factory=list)
+    indexes: list[tuple] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "created_at": self.created_at.isoformat(),
@@ -99,8 +99,8 @@ class MockVerificationResult:
     restore_tested: bool
     tables_valid: bool
     row_counts_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 1.0
 
@@ -115,13 +115,13 @@ class MockComprehensiveResult:
     schema_validation: Optional[Any] = None
     integrity_check: Optional[Any] = None
     table_checksums_valid: bool = True
-    table_checksum_errors: List[str] = field(default_factory=list)
-    all_errors: List[str] = field(default_factory=list)
-    all_warnings: List[str] = field(default_factory=list)
+    table_checksum_errors: list[str] = field(default_factory=list)
+    all_errors: list[str] = field(default_factory=list)
+    all_warnings: list[str] = field(default_factory=list)
     verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 2.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "backup_id": self.backup_id,
             "verified": self.verified,
@@ -156,7 +156,7 @@ class MockBackupManager:
     """Mock backup manager for testing."""
 
     def __init__(self):
-        self._backups: Dict[str, MockBackupMetadata] = {}
+        self._backups: dict[str, MockBackupMetadata] = {}
         self.retention_policy = MockRetentionPolicy()
         self.compression = True
         self.verify_after_backup = True
@@ -169,7 +169,7 @@ class MockBackupManager:
         source_path: Optional[str] = None,
         status: Optional[Any] = None,
         since: Optional[datetime] = None,
-    ) -> List[MockBackupMetadata]:
+    ) -> list[MockBackupMetadata]:
         return list(self._backups.values())
 
     def get_latest_backup(self, source_path: Optional[str] = None) -> Optional[MockBackupMetadata]:
@@ -180,7 +180,7 @@ class MockBackupManager:
         self,
         source_path: str,
         backup_type: Any = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> MockBackupMetadata:
         backup = MockBackupMetadata(
             id="new-backup-001",
@@ -230,7 +230,7 @@ class MockBackupManager:
     ) -> bool:
         return True
 
-    def apply_retention_policy(self, dry_run: bool = False) -> List[str]:
+    def apply_retention_policy(self, dry_run: bool = False) -> list[str]:
         return []
 
     def _save_manifest(self) -> None:

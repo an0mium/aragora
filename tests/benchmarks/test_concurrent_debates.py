@@ -42,7 +42,7 @@ class MockAgent:
 class MockDebate:
     """Mock debate for benchmark testing."""
 
-    def __init__(self, debate_id: str, agents: List[MockAgent], rounds: int = 3):
+    def __init__(self, debate_id: str, agents: list[MockAgent], rounds: int = 3):
         self.debate_id = debate_id
         self.agents = agents
         self.rounds = rounds

@@ -322,7 +322,7 @@ class TestBackupCodeJSONStorage:
 
     def test_empty_backup_codes_valid_json(self):
         """Test that empty backup codes array is valid JSON."""
-        backup_hashes: List[str] = []
+        backup_hashes: list[str] = []
         json_storage = json.dumps(backup_hashes)
 
         loaded = json.loads(json_storage)

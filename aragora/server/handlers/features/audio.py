@@ -63,6 +63,7 @@ except ImportError:
     PodcastConfig: type[PodcastConfigType] | None = None  # type: ignore[name-defined,misc,no-redef]
     PodcastEpisode: type[PodcastEpisodeType] | None = None  # type: ignore[name-defined,misc,no-redef]
 
+
 class AudioHandler(BaseHandler):
     """Handler for audio file serving and podcast endpoints.
 

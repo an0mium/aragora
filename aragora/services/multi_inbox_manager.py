@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class AccountType(Enum):
     """Type of email account for context-aware prioritization."""
 
@@ -50,6 +51,7 @@ class AccountType(Enum):
     BUSINESS = "business"
     SHARED = "shared"
     OTHER = "other"
+
 
 @dataclass
 class InboxAccount:
@@ -89,6 +91,7 @@ class InboxAccount:
             "unread_count": self.unread_count,
         }
 
+
 @dataclass
 class UnifiedEmail:
     """Email with multi-account context."""
@@ -126,6 +129,7 @@ class UnifiedEmail:
             "priority": self.priority_result.priority.value if self.priority_result else None,
             "confidence": self.priority_result.confidence if self.priority_result else None,
         }
+
 
 @dataclass
 class CrossAccountSenderProfile:
@@ -205,6 +209,7 @@ class CrossAccountSenderProfile:
         self.importance_reasons = reasons
 
         return self.cross_account_importance
+
 
 class MultiInboxManager:
     """
@@ -730,6 +735,7 @@ class MultiInboxManager:
                 1 for p in self._sender_profiles.values() if p.account_count > 1
             ),
         }
+
 
 # Factory function
 async def create_multi_inbox_manager(

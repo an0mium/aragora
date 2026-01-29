@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentRLMStats:
     """RLM performance statistics for a single agent."""
@@ -115,6 +116,7 @@ class AgentRLMStats:
             fidelity_score * 0.3 + confidence_score * 0.3 + sub_call_score * 0.3 + cache_bonus + 0.1
         )
 
+
 @dataclass
 class RLMSelectionBridgeConfig:
     """Configuration for the RLM-selection bridge."""
@@ -136,6 +138,7 @@ class RLMSelectionBridgeConfig:
 
     # Penalty for low fidelity
     low_fidelity_penalty: float = 0.1
+
 
 @dataclass
 class RLMSelectionBridge:
@@ -468,6 +471,7 @@ class RLMSelectionBridge:
         self._rlm_adjustments.clear()
         logger.debug("RLMSelectionBridge reset")
 
+
 def create_rlm_selection_bridge(
     rlm_bridge: Optional["RLMBridge"] = None,
     selection_feedback: Optional["SelectionFeedbackLoop"] = None,
@@ -489,6 +493,7 @@ def create_rlm_selection_bridge(
         selection_feedback=selection_feedback,
         config=config,
     )
+
 
 __all__ = [
     "RLMSelectionBridge",

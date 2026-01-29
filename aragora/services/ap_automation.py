@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class PaymentPriority(str, Enum):
     """Payment priority levels."""
 
@@ -47,6 +48,7 @@ class PaymentPriority(str, Enum):
     LOW = "low"  # Can delay if needed
     HOLD = "hold"  # On hold (dispute, etc.)
 
+
 class PaymentMethod(str, Enum):
     """Payment methods."""
 
@@ -55,6 +57,7 @@ class PaymentMethod(str, Enum):
     CHECK = "check"
     CREDIT_CARD = "credit_card"
     VIRTUAL_CARD = "virtual_card"
+
 
 @dataclass
 class PayableInvoice:
@@ -134,6 +137,7 @@ class PayableInvoice:
             "isOverdue": self.is_overdue,
         }
 
+
 @dataclass
 class PaymentSchedule:
     """Optimized payment schedule."""
@@ -152,6 +156,7 @@ class PaymentSchedule:
             "byDate": {k: v for k, v in self.by_date.items()},
             "optimizationNotes": self.optimization_notes,
         }
+
 
 @dataclass
 class BatchPayment:
@@ -178,6 +183,7 @@ class BatchPayment:
             "createdAt": self.created_at.isoformat(),
         }
 
+
 @dataclass
 class CashForecast:
     """Cash flow forecast."""
@@ -202,6 +208,7 @@ class CashForecast:
             "dailyForecast": self.daily_forecast,
             "warnings": self.warnings,
         }
+
 
 class APAutomation:
     """

@@ -7,6 +7,7 @@ Chains together:
 3. Scenario matrix testing
 4. Risk aggregation
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -44,6 +45,7 @@ except ImportError:
     create_strict_policy = None
 
 logger = logging.getLogger(__name__)
+
 
 class GauntletRunner:
     """
@@ -752,6 +754,7 @@ class GauntletRunner:
         if hasattr(agent, "run"):
             return await agent.run(prompt)
         return f"[No response - agent {agent} not callable]"
+
 
 async def run_gauntlet(
     input_content: str,

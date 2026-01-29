@@ -45,6 +45,7 @@ DEBATES_CREATE_PERMISSION = "debates:create"
 # Rate limiter for graph debates (5 requests per minute - branching debates are expensive)
 _graph_limiter = RateLimiter(requests_per_minute=5)
 
+
 class GraphDebatesHandler(SecureHandler):
     """Handler for graph debate endpoints.
 

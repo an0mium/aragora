@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
+
 class RedisClientProtocol(Protocol):
     """Protocol for Redis client operations we use."""
 
@@ -43,7 +44,9 @@ class RedisClientProtocol(Protocol):
     def setex(self, key: str, ttl: int, value: str) -> Any: ...
     def delete(self, key: str) -> Any: ...
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class LockoutEntry:
@@ -65,6 +68,7 @@ class LockoutEntry:
             return 0
         remaining = self.lockout_until - time.time()
         return max(0, int(remaining))
+
 
 class LockoutBackend(ABC):
     """Abstract base class for lockout storage backends."""
@@ -88,6 +92,7 @@ class LockoutBackend(ABC):
     def is_available(self) -> bool:
         """Check if the backend is available."""
         pass
+
 
 class InMemoryLockoutBackend(LockoutBackend):
     """
@@ -138,6 +143,7 @@ class InMemoryLockoutBackend(LockoutBackend):
                 del self._store[key]
                 removed += 1
         return removed
+
 
 class RedisLockoutBackend(LockoutBackend):
     """
@@ -260,6 +266,7 @@ class RedisLockoutBackend(LockoutBackend):
             logger.debug(f"Redis ping failed: {e}")
             self._available = False
             return False
+
 
 class LockoutTracker:
     """
@@ -567,9 +574,11 @@ class LockoutTracker:
             return "redis"
         return "memory"
 
+
 # Global lockout tracker instance
 _lockout_tracker: LockoutTracker | None = None
 _tracker_lock = threading.Lock()
+
 
 def get_lockout_tracker(
     redis_url: str | None = None,
@@ -596,11 +605,13 @@ def get_lockout_tracker(
 
     return _lockout_tracker
 
+
 def reset_lockout_tracker() -> None:
     """Reset the global lockout tracker (for testing)."""
     global _lockout_tracker
     with _tracker_lock:
         _lockout_tracker = None
+
 
 __all__ = [
     "LockoutTracker",

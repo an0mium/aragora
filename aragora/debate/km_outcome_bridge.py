@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class OutcomeValidation:
     """Result of validating KM entries based on debate outcome.
@@ -62,6 +63,7 @@ class OutcomeValidation:
     propagated_from: str | None = None  # If this came from propagation
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class PropagationResult:
     """Result of propagating validation through KM graph."""
@@ -72,6 +74,7 @@ class PropagationResult:
     validations: list[OutcomeValidation] = field(default_factory=list)
     depth_reached: int = 0
     errors: list[str] = field(default_factory=list)
+
 
 @dataclass
 class KMOutcomeBridgeConfig:
@@ -89,6 +92,7 @@ class KMOutcomeBridgeConfig:
     # Behavior
     auto_propagate: bool = True  # Auto-propagate validations
     track_usage: bool = True  # Track which KM items are used in debates
+
 
 class KMOutcomeBridge:
     """
@@ -531,6 +535,7 @@ class KMOutcomeBridge:
         self._debate_km_usage.clear()
         self._validations_applied.clear()
         self._total_validations = 0
+
 
 __all__ = [
     "KMOutcomeBridge",

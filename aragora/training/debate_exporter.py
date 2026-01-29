@@ -12,6 +12,7 @@ Features:
 - Configurable confidence thresholds
 - Automatic path management
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DebateTrainingConfig:
@@ -51,6 +53,7 @@ class DebateTrainingConfig:
     include_agent_names: bool = True
     include_debate_id: bool = True
     include_domain: bool = True
+
 
 class DebateTrainingExporter:
     """
@@ -296,6 +299,7 @@ class DebateTrainingExporter:
         self._sft_count = 0
         self._dpo_count = 0
         self._skipped_count = 0
+
 
 # Convenience function for one-off exports
 def export_debate_to_training(

@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 SCAN_READ_PERMISSION = "codebase:scan:read"
 SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
 
+
 async def _check_permission(request: web.Request, permission: str) -> web.Response | None:
     """Check if user has required permission. Returns error response if denied."""
     try:
@@ -60,8 +61,10 @@ async def _check_permission(request: web.Request, permission: str) -> web.Respon
             status=401,
         )
 
+
 # In-memory storage for scan results
 _quick_scan_results: dict[str, dict[str, Any]] = {}
+
 
 async def run_quick_scan(
     repo_path: str,
@@ -188,6 +191,7 @@ async def run_quick_scan(
     _quick_scan_results[scan_id] = result
     return result
 
+
 def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) -> dict[str, Any]:
     """Generate mock scan result for demo/testing."""
     return {
@@ -249,9 +253,11 @@ def _generate_mock_result(scan_id: str, repo_path: str, start_time: datetime) ->
         "error": None,
     }
 
+
 async def get_quick_scan_result(scan_id: str) -> Optional[dict[str, Any]]:
     """Get a quick scan result by ID."""
     return _quick_scan_results.get(scan_id)
+
 
 async def list_quick_scans(
     limit: int = 20,
@@ -282,9 +288,11 @@ async def list_quick_scans(
         "offset": offset,
     }
 
+
 # =============================================================================
 # HTTP Handlers
 # =============================================================================
+
 
 class QuickScanHandler:
     """Handler for quick scan API endpoints."""
@@ -396,6 +404,7 @@ class QuickScanHandler:
                 {"success": False, "error": str(e)},
                 status=500,
             )
+
 
 def register_routes(app: web.Application) -> None:
     """Register quick scan routes."""

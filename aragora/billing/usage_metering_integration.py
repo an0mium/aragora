@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 async def record_debate_tokens(
     org_id: str,
     debate_id: str,
@@ -155,6 +156,7 @@ async def record_debate_tokens(
         "debate_recorded": debate_recorded,
     }
 
+
 async def record_agent_tokens(
     org_id: str,
     agent_name: str,
@@ -225,6 +227,7 @@ async def record_agent_tokens(
             "error": str(e),
         }
 
+
 async def record_api_call(
     org_id: str,
     endpoint: str,
@@ -276,6 +279,7 @@ async def record_api_call(
             "record_id": None,
             "error": str(e),
         }
+
 
 class MeteredUsageTracker:
     """
@@ -514,6 +518,7 @@ class MeteredUsageTracker:
             )
         return None
 
+
 def get_metered_usage_tracker(
     org_id: str,
     user_id: str | None = None,
@@ -538,6 +543,7 @@ def get_metered_usage_tracker(
         user_id=user_id,
         legacy_tracker=legacy_tracker,
     )
+
 
 __all__ = [
     "record_debate_tokens",

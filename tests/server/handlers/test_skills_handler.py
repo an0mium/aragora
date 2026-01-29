@@ -52,12 +52,12 @@ class MockSkillManifest:
     name: str
     version: str = "1.0.0"
     description: Optional[str] = None
-    capabilities: List[MockSkillCapability] = field(default_factory=list)
-    input_schema: Optional[Dict] = None
-    output_schema: Optional[Dict] = None
+    capabilities: list[MockSkillCapability] = field(default_factory=list)
+    input_schema: Optional[dict] = None
+    output_schema: Optional[dict] = None
     rate_limit_per_minute: int = 60
     max_execution_time_seconds: float = 30.0  # Changed from timeout_seconds
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -67,7 +67,7 @@ class MockSkillResult:
     status: MockSkillStatus
     data: Any = None  # Changed from output
     error_message: Optional[str] = None  # Changed from error
-    metadata: Optional[Dict] = None
+    metadata: Optional[dict] = None
     duration_seconds: Optional[float] = None  # Changed from execution_time_ms
 
 
@@ -93,8 +93,8 @@ class MockSkillRegistry:
     """Mock skill registry for testing."""
 
     def __init__(self):
-        self._skills: Dict[str, MockSkill] = {}
-        self._metrics: Dict[str, MockSkillMetrics] = {}
+        self._skills: dict[str, MockSkill] = {}
+        self._metrics: dict[str, MockSkillMetrics] = {}
 
     def register(self, skill: MockSkill) -> None:
         self._skills[skill.manifest.name] = skill
@@ -102,11 +102,11 @@ class MockSkillRegistry:
     def get(self, name: str) -> Optional[MockSkill]:
         return self._skills.get(name)
 
-    def list_skills(self) -> List[MockSkillManifest]:
+    def list_skills(self) -> list[MockSkillManifest]:
         """Return list of manifests (matches real SkillRegistry behavior)."""
         return [skill.manifest for skill in self._skills.values()]
 
-    def get_metrics(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_metrics(self, name: str) -> Optional[dict[str, Any]]:
         """Return metrics as dict (matches real SkillRegistry behavior)."""
         metrics = self._metrics.get(name)
         if metrics is None:
@@ -125,7 +125,7 @@ class MockSkillRegistry:
     async def invoke(
         self,
         name: str,
-        input_data: Dict,
+        input_data: dict,
         ctx: Any,
     ) -> MockSkillResult:
         skill = self.get(name)
@@ -148,8 +148,8 @@ class MockSkillContext:
     """Mock skill context for testing (matches real SkillContext interface)."""
 
     user_id: str = "test-user"
-    permissions: List[str] = field(default_factory=lambda: ["skills:invoke"])  # Changed to List
-    config: Dict[str, Any] = field(default_factory=dict)  # Changed from metadata
+    permissions: list[str] = field(default_factory=lambda: ["skills:invoke"])  # Changed to List
+    config: dict[str, Any] = field(default_factory=dict)  # Changed from metadata
 
 
 @pytest.fixture

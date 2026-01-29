@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # In production, rules would be stored in a database
 _rules_store: dict[str, dict[str, Any]] = {}
 
+
 def _get_routing_engine():
     """Get or create the routing rules engine."""
     from aragora.core.routing_rules import RoutingRule, RoutingRulesEngine
@@ -57,6 +58,7 @@ def _get_routing_engine():
             logger.error(f"Failed to load rule {rule_id}: {e}")
 
     return engine
+
 
 class RoutingRulesHandler(SecureHandler):
     """
@@ -460,6 +462,7 @@ class RoutingRulesHandler(SecureHandler):
             "error": f"Method {method} not allowed for {path}",
             "code": 405,
         }
+
 
 # Handler class (instantiated by server with context)
 # Note: Do not instantiate at module level - requires server_context

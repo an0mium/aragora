@@ -67,8 +67,8 @@ class MockHookManager:
     """Mock HookManager for testing."""
 
     def __init__(self):
-        self._handlers: Dict[str, List] = {}
-        self._fired_events: List[str] = []
+        self._handlers: dict[str, list] = {}
+        self._fired_events: list[str] = []
 
     def register(self, hook_type: str, handler, name: str = None, priority: Any = None):
         """Register a handler, returning an unregister function."""

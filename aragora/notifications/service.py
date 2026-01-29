@@ -54,6 +54,7 @@ from aragora.exceptions import SlackNotificationError, WebhookDeliveryError
 
 logger = logging.getLogger(__name__)
 
+
 def _record_notification_metric(
     channel: str,
     severity: str,
@@ -75,6 +76,7 @@ def _record_notification_metric(
     except ImportError:
         pass  # Metrics not available
 
+
 class NotificationChannel(str, Enum):
     """Available notification channels."""
 
@@ -83,6 +85,7 @@ class NotificationChannel(str, Enum):
     WEBHOOK = "webhook"
     IN_APP = "in_app"
 
+
 class NotificationPriority(str, Enum):
     """Notification priority levels."""
 
@@ -90,6 +93,7 @@ class NotificationPriority(str, Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
+
 
 @dataclass
 class Notification:
@@ -131,6 +135,7 @@ class Notification:
             "action_label": self.action_label,
         }
 
+
 @dataclass
 class NotificationResult:
     """Result of sending a notification."""
@@ -153,6 +158,7 @@ class NotificationResult:
             "external_id": self.external_id,
         }
 
+
 @dataclass
 class SlackConfig:
     """Slack integration configuration."""
@@ -171,6 +177,7 @@ class SlackConfig:
             bot_token=os.environ.get("SLACK_BOT_TOKEN"),
             default_channel=os.environ.get("SLACK_DEFAULT_CHANNEL", "#notifications"),
         )
+
 
 @dataclass
 class EmailConfig:
@@ -197,6 +204,7 @@ class EmailConfig:
             from_name=os.environ.get("SMTP_FROM_NAME", "Aragora Notifications"),
         )
 
+
 @dataclass
 class WebhookEndpoint:
     """A configured webhook endpoint."""
@@ -214,6 +222,7 @@ class WebhookEndpoint:
         if not self.events:
             return True  # All events
         return event_type in self.events
+
 
 class NotificationProvider(ABC):
     """Abstract base class for notification providers."""
@@ -237,6 +246,7 @@ class NotificationProvider(ABC):
     def is_configured(self) -> bool:
         """Check if the provider is properly configured."""
         ...
+
 
 class SlackProvider(NotificationProvider):
     """Slack notification provider."""
@@ -417,6 +427,7 @@ class SlackProvider(NotificationProvider):
                         error_code=data.get("error"),
                     )
 
+
 class EmailProvider(NotificationProvider):
     """Email notification provider."""
 
@@ -581,6 +592,7 @@ class EmailProvider(NotificationProvider):
         </html>
         """
 
+
 class WebhookProvider(NotificationProvider):
     """Webhook notification provider."""
 
@@ -727,6 +739,7 @@ class WebhookProvider(NotificationProvider):
                 result = await self.send(notification, endpoint.id)
                 results.append(result)
         return results
+
 
 class NotificationService:
     """
@@ -879,6 +892,7 @@ class NotificationService:
 
         return history
 
+
 # Convenience notification functions
 async def notify_finding_created(
     finding_id: str,
@@ -905,6 +919,7 @@ async def notify_finding_created(
     await service.notify_all_webhooks(notification, "finding.created")
 
     return results
+
 
 async def notify_audit_completed(
     session_id: str,
@@ -934,6 +949,7 @@ async def notify_audit_completed(
 
     return results
 
+
 def _severity_to_priority(severity: str) -> NotificationPriority:
     """Map severity to notification priority."""
     mapping = {
@@ -945,9 +961,11 @@ def _severity_to_priority(severity: str) -> NotificationPriority:
     }
     return mapping.get(severity.lower(), NotificationPriority.NORMAL)
 
+
 # =============================================================================
 # Human Checkpoint Notifications
 # =============================================================================
+
 
 async def notify_checkpoint_approval_requested(
     request_id: str,
@@ -1028,6 +1046,7 @@ async def notify_checkpoint_approval_requested(
 
     return results
 
+
 async def notify_checkpoint_escalation(
     request_id: str,
     workflow_id: str,
@@ -1102,6 +1121,7 @@ async def notify_checkpoint_escalation(
 
     return results
 
+
 async def notify_checkpoint_resolved(
     request_id: str,
     workflow_id: str,
@@ -1168,9 +1188,11 @@ async def notify_checkpoint_resolved(
 
     return results
 
+
 # =============================================================================
 # Webhook Delivery Failure Notifications
 # =============================================================================
+
 
 async def notify_webhook_delivery_failure(
     webhook_id: str,
@@ -1249,6 +1271,7 @@ async def notify_webhook_delivery_failure(
 
     return results
 
+
 async def notify_webhook_circuit_breaker_opened(
     webhook_id: str,
     webhook_url: str,
@@ -1311,6 +1334,7 @@ async def notify_webhook_circuit_breaker_opened(
     await service.notify_all_webhooks(notification, "webhook.circuit_breaker_opened")
 
     return results
+
 
 async def notify_batch_job_failed(
     job_id: str,
@@ -1391,6 +1415,7 @@ async def notify_batch_job_failed(
 
     return results
 
+
 async def notify_batch_job_completed(
     job_id: str,
     total_debates: int,
@@ -1450,9 +1475,11 @@ async def notify_batch_job_completed(
 
     return results
 
+
 # Global instance
 _notification_service: NotificationService | None = None
 _lock = threading.Lock()
+
 
 def get_notification_service() -> NotificationService:
     """Get the global notification service instance."""
@@ -1464,6 +1491,7 @@ def get_notification_service() -> NotificationService:
                 _notification_service = NotificationService()
 
     return _notification_service
+
 
 def init_notification_service(
     slack_config: SlackConfig | None = None,

@@ -51,6 +51,7 @@ from ..error_codes import ErrorCode, get_status_for_code
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class APIError(Exception):
     """
@@ -78,9 +79,7 @@ class APIError(Exception):
             self.status = get_status_for_code(self.code)
         super().__init__(self.message)
 
-    def to_dict(
-        self, request_id: str | None = None, path: str | None = None
-    ) -> dict[str, Any]:
+    def to_dict(self, request_id: str | None = None, path: str | None = None) -> dict[str, Any]:
         """Convert to standardized error response dict."""
         error_dict: dict[str, Any] = {
             "code": self.code,
@@ -98,6 +97,7 @@ class APIError(Exception):
             error_dict["path"] = path
 
         return {"error": error_dict}
+
 
 def raise_api_error(
     code: str,
@@ -121,6 +121,7 @@ def raise_api_error(
     """
     raise APIError(code=code, message=message, details=details, status=status)
 
+
 # Exception to error code mapping for common Python exceptions
 EXCEPTION_ERROR_MAP: dict[type[Exception], str] = {
     ValueError: ErrorCode.VALIDATION_ERROR,
@@ -132,6 +133,7 @@ EXCEPTION_ERROR_MAP: dict[type[Exception], str] = {
     ConnectionError: ErrorCode.EXTERNAL_SERVICE_ERROR,
 }
 
+
 @dataclass
 class ErrorResponse:
     """Represents a standardized error response."""
@@ -139,6 +141,7 @@ class ErrorResponse:
     status: int
     body: dict[str, Any]
     headers: dict[str, str] = field(default_factory=dict)
+
 
 class ErrorHandlerMiddleware:
     """
@@ -252,6 +255,7 @@ class ErrorHandlerMiddleware:
             headers={},
         )
 
+
 def create_error_response(
     code: str,
     message: str,
@@ -294,6 +298,7 @@ def create_error_response(
 
     return {"error": error_dict}
 
+
 # Pre-built common error responses
 def validation_error(
     message: str,
@@ -313,6 +318,7 @@ def validation_error(
         details=details if details else None,
     )
 
+
 def not_found_error(
     resource: str,
     resource_id: str | None = None,
@@ -327,6 +333,7 @@ def not_found_error(
         message=message,
         details={"resource": resource, "id": resource_id} if resource_id else None,
     )
+
 
 def permission_error(
     action: str,
@@ -343,6 +350,7 @@ def permission_error(
         details={"action": action, "resource": resource} if resource else None,
     )
 
+
 def rate_limit_error(
     retry_after: int | None = None,
 ) -> APIError:
@@ -357,6 +365,7 @@ def rate_limit_error(
         details={"retry_after_seconds": retry_after} if retry_after else None,
         headers=headers,
     )
+
 
 __all__ = [
     "APIError",

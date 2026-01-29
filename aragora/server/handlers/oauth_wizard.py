@@ -157,6 +157,7 @@ PROVIDERS: dict[str, dict[str, Any]] = {
     },
 }
 
+
 class OAuthWizardHandler(SecureHandler):
     """
     Unified OAuth wizard handler for SME onboarding.
@@ -848,6 +849,7 @@ class OAuthWizardHandler(SecureHandler):
         store.deactivate(tenant_id)
         logger.info(f"Disconnected Teams tenant: {tenant_id}")
         return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
+
 
 # Handler factory function for registration
 def create_oauth_wizard_handler(server_context: ServerContext) -> OAuthWizardHandler:

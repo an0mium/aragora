@@ -6,6 +6,7 @@ Inspired by UniversalBackrooms' branching conversations, this module provides:
 - Running parallel branches to explore alternatives
 - Comparing and merging branch outcomes
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, DebateResult, Environment, Message
 
+
 @dataclass
 class ForkPoint:
     """A point where the debate forked."""
@@ -30,6 +32,7 @@ class ForkPoint:
     parent_debate_id: str
     branch_ids: list[str]
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 @dataclass
 class Branch:
@@ -48,6 +51,7 @@ class Branch:
     def is_complete(self) -> bool:
         return self.result is not None
 
+
 @dataclass
 class ForkDecision:
     """Decision about whether and how to fork."""
@@ -56,6 +60,7 @@ class ForkDecision:
     reason: str
     branches: list[dict]  # [{hypothesis: str, lead_agent: str}, ...]
     disagreement_score: float  # 0-1
+
 
 @dataclass
 class MergeResult:
@@ -66,6 +71,7 @@ class MergeResult:
     comparison_summary: str
     all_branch_results: dict[str, DebateResult]
     merged_insights: list[str]
+
 
 class ForkDetector:
     """
@@ -252,6 +258,7 @@ class ForkDetector:
 
         # Fall back to first sentence
         return content[:100].split(".")[0] + "..."
+
 
 class DebateForker:
     """
@@ -485,6 +492,7 @@ class DebateForker:
         """Get all branches for a debate."""
         return self.branches.get(parent_debate_id, [])
 
+
 @dataclass
 class DeadlockSignal:
     """Signal indicating a debate is deadlocked."""
@@ -496,6 +504,7 @@ class DeadlockSignal:
     pattern: str  # "positional", "circular", "exhaustion"
     recommendation: str  # "fork", "conclude", "inject_perspective"
     detected_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 class DeadlockResolver:
     """

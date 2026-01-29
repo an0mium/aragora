@@ -45,6 +45,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+
 class CancellationReason(Enum):
     """Standard reasons for cancellation."""
 
@@ -54,6 +55,7 @@ class CancellationReason(Enum):
     PARENT_CANCELLED = "parent_cancelled"
     ERROR = "error"
     SHUTDOWN = "shutdown"
+
 
 class DebateCancelled(Exception):
     """Exception raised when a debate is cancelled."""
@@ -68,6 +70,7 @@ class DebateCancelled(Exception):
         self.reason_type = reason_type
         self.partial_result = partial_result
         super().__init__(f"Debate cancelled: {reason}")
+
 
 @dataclass
 class CancellationToken:
@@ -238,6 +241,7 @@ class CancellationToken:
         """Allow using token in boolean context: if token: ..."""
         return not self.is_cancelled
 
+
 def create_linked_token(parent: CancellationToken | None = None) -> CancellationToken:
     """
     Create a cancellation token, optionally linked to a parent.
@@ -252,6 +256,7 @@ def create_linked_token(parent: CancellationToken | None = None) -> Cancellation
     if parent is not None:
         parent.link_child(token)
     return token
+
 
 class CancellationScope:
     """

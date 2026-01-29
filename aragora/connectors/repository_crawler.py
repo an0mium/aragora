@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class FileType(str, Enum):
     """Recognized file types for specialized parsing."""
 
@@ -58,6 +59,7 @@ class FileType(str, Enum):
     DOCKERFILE = "dockerfile"
     MAKEFILE = "makefile"
     OTHER = "other"
+
 
 # Extension to file type mapping
 EXTENSION_MAP: dict[str, FileType] = {
@@ -101,6 +103,7 @@ EXTENSION_MAP: dict[str, FileType] = {
     ".bash": FileType.SHELL,
     ".zsh": FileType.SHELL,
 }
+
 
 @dataclass
 class CrawlConfig:
@@ -149,6 +152,7 @@ class CrawlConfig:
     chunk_size_lines: int = 500
     chunk_overlap_lines: int = 50
 
+
 @dataclass
 class FileSymbol:
     """A symbol extracted from source code."""
@@ -161,6 +165,7 @@ class FileSymbol:
     docstring: str | None = None
     parent: str | None = None
 
+
 @dataclass
 class FileDependency:
     """A dependency reference from source code."""
@@ -169,6 +174,7 @@ class FileDependency:
     target: str
     kind: str  # import, require, include
     line: int
+
 
 @dataclass
 class CrawledFile:
@@ -221,6 +227,7 @@ class CrawledFile:
             "last_modified": self.last_modified.isoformat() if self.last_modified else None,
         }
 
+
 @dataclass
 class CrawlResult:
     """Result of a repository crawl."""
@@ -259,6 +266,7 @@ class CrawlResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+
 @dataclass
 class CrawlState:
     """Persisted state for incremental crawling."""
@@ -289,6 +297,7 @@ class CrawlState:
             file_hashes=data.get("file_hashes", {}),
             total_crawls=data.get("total_crawls", 0),
         )
+
 
 class RepositoryCrawler:
     """
@@ -1098,6 +1107,7 @@ class RepositoryCrawler:
         """Get current crawl state."""
         return self._state
 
+
 async def crawl_repository(
     source: str,
     config: CrawlConfig | None = None,
@@ -1116,6 +1126,7 @@ async def crawl_repository(
     """
     crawler = RepositoryCrawler(config=config, workspace_id=workspace_id)
     return await crawler.crawl(source)
+
 
 __all__ = [
     "RepositoryCrawler",

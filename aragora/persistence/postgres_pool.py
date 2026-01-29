@@ -46,11 +46,13 @@ REPLICA_DSNS_RAW = os.environ.get("ARAGORA_POSTGRES_REPLICAS", "")
 POOL_MIN_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MIN", "2"))
 POOL_MAX_SIZE = int(os.environ.get("ARAGORA_POSTGRES_POOL_MAX", "10"))
 
+
 def _parse_replica_dsns(raw: str) -> list[str]:
     """Parse comma-separated replica DSNs."""
     if not raw.strip():
         return []
     return [dsn.strip() for dsn in raw.split(",") if dsn.strip()]
+
 
 @dataclass
 class PoolStats:
@@ -76,6 +78,7 @@ class PoolStats:
             "write_queries": self.write_queries,
         }
 
+
 @dataclass
 class ReplicaHealth:
     """Health status of a replica."""
@@ -85,6 +88,7 @@ class ReplicaHealth:
     last_check: float = 0.0
     consecutive_failures: int = 0
     latency_ms: float = 0.0
+
 
 class ConnectionWrapper:
     """Wrapper around a database connection for metrics and tracing."""
@@ -135,6 +139,7 @@ class ConnectionWrapper:
     def __getattr__(self, name: str) -> Any:
         """Forward other attributes to underlying connection."""
         return getattr(self._conn, name)
+
 
 class ReplicaAwarePool:
     """
@@ -410,8 +415,10 @@ class ReplicaAwarePool:
             },
         }
 
+
 # Global pool instance
 _pool: ReplicaAwarePool | None = None
+
 
 def configure_pool(
     primary_dsn: str = "",
@@ -440,6 +447,7 @@ def configure_pool(
     )
     return _pool
 
+
 def get_pool() -> ReplicaAwarePool:
     """
     Get the global PostgreSQL pool.
@@ -452,12 +460,14 @@ def get_pool() -> ReplicaAwarePool:
         _pool = ReplicaAwarePool()
     return _pool
 
+
 async def close_pool() -> None:
     """Close the global pool."""
     global _pool
     if _pool:
         await _pool.close()
         _pool = None
+
 
 __all__ = [
     "ReplicaAwarePool",

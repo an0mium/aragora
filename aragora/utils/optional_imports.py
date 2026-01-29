@@ -4,6 +4,7 @@ Optional dependency import utilities.
 Provides consistent, DRY handling of optional imports across the codebase.
 Replaces repeated try/except ImportError patterns with reusable functions.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -11,6 +12,7 @@ import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 def try_import(
     module_path: str,
@@ -77,6 +79,7 @@ def try_import(
             _log(f"Error importing {module_path}: {e}", log_level)
         return result, False
 
+
 def try_import_class(
     module_path: str,
     class_name: str,
@@ -100,6 +103,7 @@ def try_import_class(
     """
     imported, available = try_import(module_path, class_name, log_on_failure=log_on_failure)
     return imported[class_name], available
+
 
 class LazyImport:
     """
@@ -150,6 +154,7 @@ class LazyImport:
         """Get all imports and availability flag."""
         self._ensure_imported()
         return self._imported or {}, bool(self._available)
+
 
 def _log(message: str, level: str) -> None:
     """Log at the specified level."""

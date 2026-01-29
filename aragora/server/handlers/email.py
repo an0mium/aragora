@@ -45,6 +45,7 @@ try:
 except ImportError:
     RBAC_AVAILABLE = False
 
+
 def _check_email_permission(
     auth_context: Any | None, permission_key: str
 ) -> Optional[dict[str, Any]]:
@@ -85,12 +86,14 @@ def _check_email_permission(
 
     return None
 
+
 # =============================================================================
 # Persistent Storage
 # =============================================================================
 
 _email_store = None
 _email_store_lock = threading.Lock()
+
 
 def get_email_store():
     """Get or create the email store (lazy init, thread-safe)."""
@@ -109,6 +112,7 @@ def get_email_store():
                 logger.warning(f"[EmailHandler] Failed to init email store: {e}")
         return _email_store
 
+
 def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
     """Load config from persistent store into memory cache."""
     store = get_email_store()
@@ -121,6 +125,7 @@ def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict
             logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
     return {}
 
+
 def _save_config_to_store(
     user_id: str, config: dict[str, Any], workspace_id: str = "default"
 ) -> None:
@@ -132,6 +137,7 @@ def _save_config_to_store(
         except Exception as e:
             logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
 
+
 # Global instances (initialized lazily) with thread-safe access
 _gmail_connector: Any | None = None
 _gmail_connector_lock = threading.Lock()
@@ -141,6 +147,7 @@ _context_service: Any | None = None
 _context_service_lock = threading.Lock()
 _user_configs: dict[str, dict[str, Any]] = {}
 _user_configs_lock = threading.Lock()
+
 
 def get_gmail_connector(user_id: str = "default"):
     """Get or create Gmail connector for a user (thread-safe)."""
@@ -155,6 +162,7 @@ def get_gmail_connector(user_id: str = "default"):
 
             _gmail_connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
         return _gmail_connector
+
 
 def get_prioritizer(user_id: str = "default"):
     """Get or create email prioritizer for a user (thread-safe)."""
@@ -187,6 +195,7 @@ def get_prioritizer(user_id: str = "default"):
             )
         return _prioritizer
 
+
 def get_context_service():
     """Get or create cross-channel context service (thread-safe)."""
     global _context_service
@@ -201,9 +210,11 @@ def get_context_service():
             _context_service = CrossChannelContextService()
         return _context_service
 
+
 # =============================================================================
 # Email Prioritization Handlers
 # =============================================================================
+
 
 async def handle_prioritize_email(
     email_data: dict[str, Any],
@@ -291,6 +302,7 @@ async def handle_prioritize_email(
             "error": str(e),
         }
 
+
 async def handle_rank_inbox(
     emails: list[dict[str, Any]],
     user_id: str = "default",
@@ -363,6 +375,7 @@ async def handle_rank_inbox(
             "error": str(e),
         }
 
+
 async def handle_email_feedback(
     email_id: str,
     action: str,
@@ -430,9 +443,11 @@ async def handle_email_feedback(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Cross-Channel Context Handlers
 # =============================================================================
+
 
 async def handle_get_context(
     email_address: str,
@@ -467,6 +482,7 @@ async def handle_get_context(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_get_email_context_boost(
     email_data: dict[str, Any],
@@ -540,6 +556,7 @@ async def handle_get_email_context_boost(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Email Categorization Handlers
 # =============================================================================
@@ -547,6 +564,7 @@ async def handle_get_email_context_boost(
 # Global categorizer instance
 _categorizer: Any | None = None
 _categorizer_lock = threading.Lock()
+
 
 def get_categorizer():
     """Get or create email categorizer (thread-safe)."""
@@ -560,6 +578,7 @@ def get_categorizer():
 
             _categorizer = EmailCategorizer(gmail_connector=get_gmail_connector())
         return _categorizer
+
 
 async def handle_categorize_email(
     email_data: dict[str, Any],
@@ -630,6 +649,7 @@ async def handle_categorize_email(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_categorize_batch(
     emails: list[dict[str, Any]],
@@ -708,6 +728,7 @@ async def handle_categorize_batch(
             "error": str(e),
         }
 
+
 async def handle_feedback_batch(
     feedback_items: list[dict[str, Any]],
     user_id: str = "default",
@@ -771,6 +792,7 @@ async def handle_feedback_batch(
             "error": str(e),
         }
 
+
 async def handle_apply_category_label(
     email_id: str,
     category: str,
@@ -819,9 +841,11 @@ async def handle_apply_category_label(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Gmail OAuth Handlers
 # =============================================================================
+
 
 async def handle_gmail_oauth_url(
     redirect_uri: str,
@@ -872,6 +896,7 @@ async def handle_gmail_oauth_url(
             "error": str(e),
         }
 
+
 async def handle_gmail_oauth_callback(
     code: str,
     redirect_uri: str,
@@ -913,6 +938,7 @@ async def handle_gmail_oauth_callback(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_gmail_status(
     user_id: str = "default",
@@ -965,9 +991,11 @@ async def handle_gmail_status(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Inbox Fetch and Rank Handler
 # =============================================================================
+
 
 async def handle_fetch_and_rank_inbox(
     user_id: str = "default",
@@ -1071,9 +1099,11 @@ async def handle_fetch_and_rank_inbox(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Configuration Handlers
 # =============================================================================
+
 
 async def handle_get_config(
     user_id: str = "default",
@@ -1118,6 +1148,7 @@ async def handle_get_config(
             "enable_drive_signals": config.get("enable_drive_signals", True),
         },
     }
+
 
 @require_permission("admin:system")
 async def handle_update_config(
@@ -1195,9 +1226,11 @@ async def handle_update_config(
             "error": str(e),
         }
 
+
 # =============================================================================
 # VIP Management Handlers
 # =============================================================================
+
 
 async def handle_add_vip(
     user_id: str = "default",
@@ -1278,6 +1311,7 @@ async def handle_add_vip(
             "error": str(e),
         }
 
+
 async def handle_remove_vip(
     user_id: str = "default",
     email: str | None = None,
@@ -1353,9 +1387,11 @@ async def handle_remove_vip(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Handler Class (for integration with server routing)
 # =============================================================================
+
 
 class EmailHandler(BaseHandler):
     """
@@ -1398,9 +1434,7 @@ class EmailHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route email endpoint requests."""
         # This handler uses async methods, so we return None here
         # and let the server's async handling mechanism process it

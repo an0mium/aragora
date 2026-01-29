@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+
 class VerticalDomain(str, Enum):
     """Supported vertical domains for compliance templates."""
 
@@ -40,6 +41,7 @@ class VerticalDomain(str, Enum):
     AI_GOVERNANCE = "ai_governance"
     CUSTOM = "custom"
 
+
 @dataclass
 class ComplianceMapping:
     """Maps findings to compliance controls."""
@@ -49,6 +51,7 @@ class ComplianceMapping:
     control_name: str
     description: str
     severity_weight: float = 1.0
+
 
 @dataclass
 class VerticalTemplate:
@@ -101,6 +104,7 @@ class VerticalTemplate:
             "severity_thresholds": self.severity_thresholds,
             "metadata": self.metadata,
         }
+
 
 # ============================================================================
 # GDPR COMPLIANCE TEMPLATE
@@ -565,9 +569,11 @@ VERTICAL_TEMPLATES: dict[str, VerticalTemplate] = {
     "ai-ml-governance": TEMPLATE_AI_GOVERNANCE,
 }
 
+
 def get_template(template_id: str) -> VerticalTemplate | None:
     """Get a vertical template by ID."""
     return VERTICAL_TEMPLATES.get(template_id)
+
 
 def list_templates() -> list[dict[str, Any]]:
     """List all available templates with summary info."""
@@ -584,9 +590,11 @@ def list_templates() -> list[dict[str, Any]]:
         for t in VERTICAL_TEMPLATES.values()
     ]
 
+
 def get_templates_for_domain(domain: VerticalDomain) -> list[VerticalTemplate]:
     """Get all templates for a specific domain."""
     return [t for t in VERTICAL_TEMPLATES.values() if t.domain == domain]
+
 
 def create_custom_template(
     id: str,

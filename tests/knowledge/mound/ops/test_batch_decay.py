@@ -87,7 +87,7 @@ def custom_decay_manager():
     return ConfidenceDecayManager(config)
 
 
-def generate_mock_items(count: int, base_age_days: float = 30.0) -> List[MockKnowledgeItem]:
+def generate_mock_items(count: int, base_age_days: float = 30.0) -> list[MockKnowledgeItem]:
     """Generate mock knowledge items with varying ages."""
     items = []
     for i in range(count):
@@ -170,7 +170,7 @@ class TestConcurrentWorkspaceDecay:
             "ws-3": generate_mock_items(100, base_age_days=90),
         }
 
-        async def process_workspace(ws_id: str, items: List[MockKnowledgeItem]) -> DecayReport:
+        async def process_workspace(ws_id: str, items: list[MockKnowledgeItem]) -> DecayReport:
             """Process decay for a single workspace."""
             import time
 
@@ -281,7 +281,7 @@ class TestBatchMixedDomains:
 
         # Create items with different domains (all 30 days old)
         domains = ["technology", "science", "news", None]  # None = default
-        items_by_domain: Dict[str, List[float]] = {d or "default": [] for d in domains}
+        items_by_domain: dict[str, list[float]] = {d or "default": [] for d in domains}
 
         for domain in domains:
             for i in range(10):
@@ -348,7 +348,7 @@ class TestBatchTransactionAtomicity:
         original_confidences = {item.id: item.confidence for item in items}
 
         # Track which items were "committed"
-        committed_updates: Dict[str, float] = {}
+        committed_updates: dict[str, float] = {}
 
         async def process_batch_with_failure():
             """Process batch that fails midway."""

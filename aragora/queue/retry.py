@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from aragora.queue.config import get_queue_config
 
+
 @dataclass
 class RetryPolicy:
     """
@@ -108,6 +109,7 @@ class RetryPolicy:
         """
         return max(0, self.max_attempts - current_attempt)
 
+
 # Non-retryable exceptions (validation, configuration errors)
 NON_RETRYABLE_EXCEPTIONS = (
     ValueError,
@@ -117,6 +119,7 @@ NON_RETRYABLE_EXCEPTIONS = (
     ImportError,
     SyntaxError,
 )
+
 
 def is_retryable_error(error: Exception) -> bool:
     """

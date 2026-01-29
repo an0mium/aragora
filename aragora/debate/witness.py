@@ -28,6 +28,7 @@ from aragora.debate.protocol_messages import (
 
 logger = logging.getLogger(__name__)
 
+
 class ProgressStatus(str, Enum):
     """Status of agent progress in a debate round."""
 
@@ -37,6 +38,7 @@ class ProgressStatus(str, Enum):
     REPEATED = "repeated"  # Repeating previous content
     FAILED = "failed"  # Agent failed to respond
 
+
 class StallReason(str, Enum):
     """Reason for a detected stall."""
 
@@ -45,6 +47,7 @@ class StallReason(str, Enum):
     CIRCULAR_ARGUMENTS = "circular_arguments"  # Arguments forming a cycle
     NO_PROGRESS = "no_progress"  # Round not advancing
     AGENT_FAILURE = "agent_failure"  # Agent threw an error
+
 
 @dataclass
 class AgentProgress:
@@ -83,6 +86,7 @@ class AgentProgress:
             return None
         return (datetime.now(timezone.utc) - self.last_activity).total_seconds()
 
+
 @dataclass
 class RoundProgress:
     """Track progress for a debate round."""
@@ -111,6 +115,7 @@ class RoundProgress:
             return None
         return (self.completed_at - self.started_at).total_seconds()
 
+
 @dataclass
 class WitnessConfig:
     """Configuration for the debate witness."""
@@ -132,6 +137,7 @@ class WitnessConfig:
     emit_protocol_messages: bool = True
     check_interval_seconds: float = 5.0
 
+
 @dataclass
 class StallEvent:
     """Event representing a detected stall."""
@@ -144,6 +150,7 @@ class StallEvent:
     details: dict[str, Any] = field(default_factory=dict)
     resolved: bool = False
     resolution: str | None = None
+
 
 class DebateWitness:
     """
@@ -612,9 +619,11 @@ class DebateWitness:
 
         return resolved_count
 
+
 # Global witness registry
 _witnesses: dict[str, DebateWitness] = {}
 _witnesses_lock = asyncio.Lock()
+
 
 async def get_witness(debate_id: str, config: WitnessConfig | None = None) -> DebateWitness:
     """Get or create a witness for a debate."""
@@ -622,6 +631,7 @@ async def get_witness(debate_id: str, config: WitnessConfig | None = None) -> De
         if debate_id not in _witnesses:
             _witnesses[debate_id] = DebateWitness(debate_id, config)
         return _witnesses[debate_id]
+
 
 async def remove_witness(debate_id: str) -> bool:
     """Remove a witness when debate is complete."""
@@ -632,6 +642,7 @@ async def remove_witness(debate_id: str) -> bool:
             del _witnesses[debate_id]
             return True
         return False
+
 
 def reset_witnesses() -> None:
     """Reset all witnesses (for testing)."""

@@ -39,7 +39,7 @@ class EndpointDoc:
     has_responses_docs: bool = False
     has_security: bool = False
     has_examples: bool = False
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     file: str = ""
 
     @property
@@ -69,7 +69,7 @@ class EndpointDoc:
 class AuditReport:
     """Complete audit report."""
 
-    endpoints: List[EndpointDoc] = field(default_factory=list)
+    endpoints: list[EndpointDoc] = field(default_factory=list)
     files_scanned: int = 0
     total_endpoints: int = 0
 
@@ -87,19 +87,19 @@ class AuditReport:
         return sum(1 for e in self.endpoints if e.is_fully_documented)
 
     @property
-    def missing_description(self) -> List[EndpointDoc]:
+    def missing_description(self) -> list[EndpointDoc]:
         """Endpoints missing descriptions."""
         return [e for e in self.endpoints if not e.has_description]
 
     @property
-    def missing_operation_id(self) -> List[EndpointDoc]:
+    def missing_operation_id(self) -> list[EndpointDoc]:
         """Endpoints missing operationId."""
         return [e for e in self.endpoints if not e.has_operation_id]
 
     @property
-    def by_file(self) -> Dict[str, List[EndpointDoc]]:
+    def by_file(self) -> dict[str, list[EndpointDoc]]:
         """Group endpoints by source file."""
-        result: Dict[str, List[EndpointDoc]] = {}
+        result: dict[str, list[EndpointDoc]] = {}
         for e in self.endpoints:
             if e.file not in result:
                 result[e.file] = []
@@ -107,9 +107,9 @@ class AuditReport:
         return result
 
     @property
-    def by_tag(self) -> Dict[str, List[EndpointDoc]]:
+    def by_tag(self) -> dict[str, list[EndpointDoc]]:
         """Group endpoints by tag."""
-        result: Dict[str, List[EndpointDoc]] = {}
+        result: dict[str, list[EndpointDoc]] = {}
         for e in self.endpoints:
             for tag in e.tags or ["Untagged"]:
                 if tag not in result:
@@ -119,7 +119,7 @@ class AuditReport:
 
 
 def analyze_endpoint_operation(
-    path: str, method: str, spec: Dict[str, Any], file: str
+    path: str, method: str, spec: dict[str, Any], file: str
 ) -> EndpointDoc:
     """Analyze a single endpoint operation for documentation completeness."""
     doc = EndpointDoc(
@@ -158,13 +158,13 @@ def analyze_endpoint_operation(
     return doc
 
 
-def scan_endpoint_file(file_path: Path) -> List[EndpointDoc]:
+def scan_endpoint_file(file_path: Path) -> list[EndpointDoc]:
     """Scan a single endpoint definition file."""
     endpoints = []
 
     try:
         # Read and exec the file to get endpoint definitions
-        file_globals: Dict[str, Any] = {}
+        file_globals: dict[str, Any] = {}
         exec(file_path.read_text(), file_globals)
 
         # Find endpoint dictionaries (named *_ENDPOINTS)

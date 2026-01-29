@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FlipEvent:
     """A detected position reversal."""
@@ -61,6 +62,7 @@ class FlipEvent:
             "domain": self.domain,
             "detected_at": self.detected_at,
         }
+
 
 @dataclass
 class AgentConsistencyScore:
@@ -112,6 +114,7 @@ class AgentConsistencyScore:
             "avg_confidence_on_flip": self.avg_confidence_on_flip,
             "domains_with_flips": self.domains_with_flips,
         }
+
 
 class FlipDetector:
     """
@@ -580,6 +583,7 @@ class FlipDetector:
             "recent_24h": recent_24h,
         }
 
+
 def format_flip_for_ui(flip: FlipEvent) -> dict:
     """Format a flip event for UI display."""
     return {
@@ -608,6 +612,7 @@ def format_flip_for_ui(flip: FlipEvent) -> dict:
         "domain": flip.domain,
         "timestamp": flip.detected_at,
     }
+
 
 def format_consistency_for_ui(score: AgentConsistencyScore) -> dict:
     """Format agent consistency score for UI display."""

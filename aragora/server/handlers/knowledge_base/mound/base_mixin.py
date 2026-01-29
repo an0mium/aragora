@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
 
+
 @runtime_checkable
 class KnowledgeMoundHandlerProtocol(Protocol):
     """
@@ -38,6 +39,7 @@ class KnowledgeMoundHandlerProtocol(Protocol):
             KnowledgeMound instance or None if not available
         """
         ...
+
 
 # Backward compatibility alias
 KnowledgeMoundMixinBase = KnowledgeMoundHandlerProtocol

@@ -107,7 +107,7 @@ def print_result(result: OrchestrationResult) -> None:
 def create_checkpoint_handler(require_approval: bool):
     """Create a checkpoint callback handler."""
 
-    def on_checkpoint(phase: str, data: Dict[str, Any]) -> None:
+    def on_checkpoint(phase: str, data: dict[str, Any]) -> None:
         print_header(f"CHECKPOINT: {phase.upper()}")
 
         # Print checkpoint data

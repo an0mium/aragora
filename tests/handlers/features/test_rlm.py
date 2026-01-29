@@ -24,9 +24,9 @@ import pytest
 class MockHandler:
     """Mock HTTP handler for tests."""
 
-    headers: Dict[str, str] = None
+    headers: dict[str, str] = None
     rfile: BytesIO = None
-    _json_body: Dict[str, Any] = None
+    _json_body: dict[str, Any] = None
 
     def __post_init__(self):
         if self.headers is None:
@@ -34,7 +34,7 @@ class MockHandler:
         if self.rfile is None:
             self.rfile = BytesIO(b"{}")
 
-    def get_json_body(self) -> Optional[Dict[str, Any]]:
+    def get_json_body(self) -> Optional[dict[str, Any]]:
         """Return mock JSON body."""
         return self._json_body
 

@@ -8,6 +8,7 @@ DeepSeek-Prover-V2 is specifically trained for mathematical reasoning
 and formal proof generation, making it superior to general-purpose LLMs
 for this task.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ from datetime import datetime
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TranslationResult:
@@ -43,6 +45,7 @@ class TranslationResult:
             "timestamp": self.timestamp.isoformat(),
             "confidence": self.confidence,
         }
+
 
 class DeepSeekProverTranslator:
     """
@@ -341,6 +344,7 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
         tasks = [translate_with_limit(claim) for claim in claims]
         return await asyncio.gather(*tasks)
 
+
 # Convenience function
 async def translate_to_lean(
     claim: str,
@@ -360,6 +364,7 @@ async def translate_to_lean(
     """
     translator = DeepSeekProverTranslator(api_key=api_key)
     return await translator.translate(claim, context)
+
 
 __all__ = [
     "DeepSeekProverTranslator",

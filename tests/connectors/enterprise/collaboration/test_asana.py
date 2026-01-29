@@ -57,7 +57,7 @@ class ConcreteAsanaConnector(AsanaConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Evidence]:
+    ) -> list[Evidence]:
         """Implement abstract search method."""
         # For testing - returns empty list
         return []
@@ -97,7 +97,7 @@ def mock_client():
     return client
 
 
-def make_api_response(data: Any) -> Dict[str, Any]:
+def make_api_response(data: Any) -> dict[str, Any]:
     """Create a mock API response."""
     return {"data": data}
 
@@ -105,7 +105,7 @@ def make_api_response(data: Any) -> Dict[str, Any]:
 def make_workspace_data(
     gid: str = "12345",
     name: str = "Test Workspace",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock workspace data."""
     return {
         "gid": gid,
@@ -118,7 +118,7 @@ def make_project_data(
     gid: str = "proj-123",
     name: str = "Test Project",
     workspace_gid: str = "12345",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock project data."""
     return {
         "gid": gid,
@@ -138,7 +138,7 @@ def make_project_data(
 def make_task_data(
     gid: str = "task-123",
     name: str = "Test Task",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock task data."""
     return {
         "gid": gid,
@@ -163,7 +163,7 @@ def make_task_data(
 def make_section_data(
     gid: str = "section-123",
     name: str = "To Do",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock section data."""
     return {
         "gid": gid,
@@ -175,7 +175,7 @@ def make_section_data(
 def make_comment_data(
     gid: str = "comment-123",
     text: str = "Test comment",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock comment data."""
     return {
         "gid": gid,

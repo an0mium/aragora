@@ -13,6 +13,7 @@ Usage:
     ))
     await teams.post_debate_summary(debate_result)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,7 +35,9 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TeamsConfig:
@@ -63,6 +66,7 @@ class TeamsConfig:
             self.webhook_url = os.environ.get("TEAMS_WEBHOOK_URL", "")
         if not self.webhook_url:
             logger.warning("Teams webhook URL not configured")
+
 
 @dataclass
 class AdaptiveCard:
@@ -103,6 +107,7 @@ class AdaptiveCard:
                 }
             ],
         }
+
 
 class TeamsIntegration:
     """

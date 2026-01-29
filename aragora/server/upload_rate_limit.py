@@ -4,6 +4,7 @@ Upload rate limiting for DoS protection.
 This module provides IP-based upload rate limiting using sliding windows
 to prevent abuse of file upload endpoints.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
 logger = logging.getLogger(__name__)
+
 
 class UploadRateLimiter:
     """IP-based upload rate limiter using sliding window.
@@ -147,8 +149,10 @@ class UploadRateLimiter:
 
         return True, None
 
+
 # Global upload rate limiter instance
 _upload_limiter: UploadRateLimiter | None = None
+
 
 def get_upload_limiter() -> UploadRateLimiter:
     """Get or create the global upload rate limiter."""
@@ -162,5 +166,6 @@ def get_upload_limiter() -> UploadRateLimiter:
         )
         _upload_limiter = UploadRateLimiter(trusted_proxies=trusted_proxies)
     return _upload_limiter
+
 
 __all__ = ["UploadRateLimiter", "get_upload_limiter"]

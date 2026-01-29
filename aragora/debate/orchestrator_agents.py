@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = get_structured_logger(__name__)
 
+
 def select_debate_team(
     agents: list["Agent"],
     env: Any,
@@ -79,6 +80,7 @@ def select_debate_team(
 
     return agents
 
+
 def filter_responses_by_quality(
     responses: list[tuple[str, str]],
     enable_quality_gates: bool,
@@ -113,6 +115,7 @@ def filter_responses_by_quality(
     except Exception as e:
         logger.exception(f"[ml] Unexpected quality gate error, keeping all responses: {e}")
         return responses
+
 
 def should_terminate_early(
     responses: list[tuple[str, str]],
@@ -158,6 +161,7 @@ def should_terminate_early(
         logger.exception(f"[ml] Unexpected consensus estimation error: {e}")
         return False
 
+
 def init_agent_hierarchy(
     enable_agent_hierarchy: bool,
     hierarchy_config: Optional["HierarchyConfig"],
@@ -184,6 +188,7 @@ def init_agent_hierarchy(
         f"max_monitors={config.max_monitors})"
     )
     return hierarchy
+
 
 def assign_hierarchy_roles(
     ctx: "DebateContext",
@@ -236,6 +241,7 @@ def assign_hierarchy_roles(
     except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.warning(f"[hierarchy] Role assignment failed: {e}")
         ctx.hierarchy_assignments = {}
+
 
 def get_fabric_agents_sync(fabric: Any, fabric_config: Any) -> list:
     """Get agents from fabric pool synchronously.

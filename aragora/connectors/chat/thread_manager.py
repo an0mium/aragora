@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .models import ChatMessage
 
+
 @dataclass
 class ThreadInfo:
     """Thread metadata across platforms.
@@ -70,6 +71,7 @@ class ThreadInfo:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ThreadStats:
     """Thread statistics for analytics and monitoring."""
@@ -104,6 +106,7 @@ class ThreadStats:
             "total_attachments": self.total_attachments,
         }
 
+
 @dataclass
 class ThreadParticipant:
     """Information about a thread participant."""
@@ -115,6 +118,7 @@ class ThreadParticipant:
     first_message_at: datetime | None = None
     last_message_at: datetime | None = None
     is_bot: bool = False
+
 
 class ThreadManager(ABC):
     """
@@ -332,6 +336,7 @@ class ThreadManager(ABC):
                 for m in messages[-max_messages:]
             ],
         }
+
 
 class ThreadNotFoundError(Exception):
     """Raised when a thread cannot be found."""

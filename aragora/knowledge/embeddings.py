@@ -4,6 +4,7 @@ Weaviate Embedding Service for vector-based semantic search.
 Provides hybrid search (vector + BM25) over document chunks
 using Weaviate as the vector database.
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +31,7 @@ except ImportError:
         """Fallback exception when Weaviate is not available."""
 
         pass
+
 
 @dataclass
 class ChunkMatch:
@@ -70,6 +72,7 @@ class ChunkMatch:
             },
         )
 
+
 @dataclass
 class EmbeddingConfig:
     """Configuration for embedding service."""
@@ -80,6 +83,7 @@ class EmbeddingConfig:
     vectorizer: str = "text2vec-transformers"  # or "text2vec-openai"
     openai_api_key: str | None = None
     batch_size: int = 100
+
 
 class WeaviateEmbeddingService:
     """Generate and store embeddings using Weaviate.
@@ -455,6 +459,7 @@ class WeaviateEmbeddingService:
             "vectorizer": self.config.vectorizer,
             "weaviate_url": self.config.weaviate_url,
         }
+
 
 class InMemoryEmbeddingService:
     """In-memory embedding service for testing without Weaviate.

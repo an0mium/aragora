@@ -54,6 +54,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class AccessTier(Enum):
     """Access recency tiers for cross-debate context.
 
@@ -72,8 +73,10 @@ class AccessTier(Enum):
     COLD = "cold"  # Old debates, abstract level
     ARCHIVE = "archive"  # Very old, minimal context
 
+
 # Backward compatibility alias
 MemoryTier = AccessTier
+
 
 @dataclass
 class DebateMemoryEntry:
@@ -132,6 +135,7 @@ class DebateMemoryEntry:
                 datetime.fromisoformat(data["last_accessed"]) if data.get("last_accessed") else None
             ),
         )
+
 
 @dataclass
 class CrossDebateConfig:
@@ -199,6 +203,7 @@ class CrossDebateConfig:
                     stacklevel=2,
                 )
                 self.persist_to_disk = False
+
 
 class CrossDebateMemory:
     """

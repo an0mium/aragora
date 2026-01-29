@@ -52,6 +52,7 @@ from aragora.control_plane.registry import AgentInfo, AgentRegistry
 
 logger = logging.getLogger(__name__)
 
+
 class LoadBalanceStrategy(str, Enum):
     """Strategy for selecting agents from the federated pool."""
 
@@ -61,12 +62,14 @@ class LoadBalanceStrategy(str, Enum):
     RANDOM = "random"
     PREFER_LOCAL = "prefer_local"
 
+
 class FederationMode(str, Enum):
     """Mode of agent federation."""
 
     DISABLED = "disabled"  # Only use local agents
     READONLY = "readonly"  # Discover but don't execute remotely
     FULL = "full"  # Full federation with remote execution
+
 
 @dataclass
 class FederatedAgentConfig:
@@ -81,6 +84,7 @@ class FederatedAgentConfig:
     discovery_interval: float = 30.0  # Seconds between remote discovery
     health_check_interval: float = 10.0  # Seconds between health checks
     max_concurrent_remotes: int = 10  # Max concurrent remote agent calls
+
 
 @dataclass
 class FederatedAgent:
@@ -125,6 +129,7 @@ class FederatedAgent:
         """Record a failed execution."""
         self.last_failure_at = time.time()
         self.consecutive_failures += 1
+
 
 class FederatedAgentPool:
     """

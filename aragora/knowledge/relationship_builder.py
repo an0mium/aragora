@@ -30,6 +30,7 @@ from aragora.connectors.repository_crawler import (
 
 logger = logging.getLogger(__name__)
 
+
 class RelationshipKind(str, Enum):
     """Types of relationships between code entities."""
 
@@ -41,6 +42,7 @@ class RelationshipKind(str, Enum):
     CONTAINS = "contains"  # File contains symbol
     MEMBER_OF = "member_of"  # Method member of class
     USES = "uses"  # Generic usage
+
 
 @dataclass
 class CodeEntity:
@@ -93,6 +95,7 @@ class CodeEntity:
             parent_id=f"{repository}:{file_path}:{symbol.parent}" if symbol.parent else None,
         )
 
+
 @dataclass
 class Relationship:
     """A relationship between two code entities."""
@@ -114,6 +117,7 @@ class Relationship:
             "line": self.line,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class RelationshipGraph:
@@ -182,6 +186,7 @@ class RelationshipGraph:
             },
             "relationships": [r.to_dict() for r in self.relationships],
         }
+
 
 class RelationshipBuilder:
     """

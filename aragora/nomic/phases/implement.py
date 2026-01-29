@@ -8,6 +8,7 @@ Phase 3: Code generation
 - Pre-verification review
 - Design approval gate
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,6 +40,7 @@ SAFETY RULES:
 2. NEVER remove existing functionality - only ADD new code
 3. NEVER simplify code by removing features
 4. Preserve ALL existing imports, classes, and functions"""
+
 
 class ImplementPhase:
     """
@@ -831,5 +833,6 @@ CRITICAL SAFETY RULES:
             return "; ".join(violations[:3])  # Limit to first 3 violations
 
         return None
+
 
 __all__ = ["ImplementPhase"]

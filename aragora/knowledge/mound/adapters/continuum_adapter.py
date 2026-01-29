@@ -37,6 +37,7 @@ from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
+
 @dataclass
 class KMValidationResult:
     """Result of Knowledge Mound validation for a memory item.
@@ -54,6 +55,7 @@ class KMValidationResult:
     recommendation: str = "keep"  # "promote", "demote", "keep", "review"
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ValidationSyncResult:
     """Result of batch syncing KM validations to ContinuumMemory."""
@@ -66,6 +68,7 @@ class ValidationSyncResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
 
+
 @dataclass
 class ContinuumSearchResult:
     """Wrapper for continuum memory search results with adapter metadata."""
@@ -77,6 +80,7 @@ class ContinuumSearchResult:
     def __post_init__(self) -> None:
         if self.matched_keywords is None:
             self.matched_keywords = []
+
 
 class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """

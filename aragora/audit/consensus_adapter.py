@@ -34,6 +34,7 @@ from aragora.debate.consensus import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class VerificationConfig:
     """Configuration for finding verification."""
@@ -56,6 +57,7 @@ class VerificationConfig:
     include_document_context: bool = True
     max_context_tokens: int = 4000
 
+
 @dataclass
 class VerificationResult:
     """Result of finding verification."""
@@ -68,6 +70,7 @@ class VerificationResult:
     severity_changed: bool = False
     verification_notes: list[str] = field(default_factory=list)
     duration_ms: int = 0
+
 
 class FindingVerifier:
     """
@@ -517,6 +520,7 @@ class FindingVerifier:
 
         return "\n".join(parts)
 
+
 # Convenience function for quick verification
 async def verify_finding(
     finding: Any,
@@ -536,6 +540,7 @@ async def verify_finding(
     """
     verifier = FindingVerifier(agents=agents)
     return await verifier.verify_finding(finding, document_context)
+
 
 __all__ = [
     "FindingVerifier",

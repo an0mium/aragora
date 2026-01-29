@@ -23,6 +23,7 @@ Usage:
         # ... operation code ...
         span.set_tag("debate_id", debate_id)
 """
+
 from __future__ import annotations
 
 import time
@@ -48,6 +49,7 @@ _span_id: ContextVar[str | None] = ContextVar("span_id", default=None)
 _parent_span_id: ContextVar[str | None] = ContextVar("parent_span_id", default=None)
 _span_stack: ContextVar[list["Span"]] = ContextVar("span_stack", default=[])
 
+
 def generate_trace_id() -> str:
     """Generate a unique trace ID.
 
@@ -58,6 +60,7 @@ def generate_trace_id() -> str:
         32-character hex trace ID
     """
     return uuid.uuid4().hex
+
 
 def generate_span_id() -> str:
     """Generate a unique span ID.
@@ -70,6 +73,7 @@ def generate_span_id() -> str:
     """
     return uuid.uuid4().hex[:16]
 
+
 def get_trace_id() -> str | None:
     """Get the current trace ID.
 
@@ -77,6 +81,7 @@ def get_trace_id() -> str | None:
         Current trace ID or None if not in trace context
     """
     return _trace_id.get()
+
 
 def get_span_id() -> str | None:
     """Get the current span ID.
@@ -86,6 +91,7 @@ def get_span_id() -> str | None:
     """
     return _span_id.get()
 
+
 def get_parent_span_id() -> str | None:
     """Get the parent span ID.
 
@@ -93,6 +99,7 @@ def get_parent_span_id() -> str | None:
         Parent span ID or None if no parent
     """
     return _parent_span_id.get()
+
 
 def set_trace_id(trace_id: str) -> None:
     """Set the current trace ID.
@@ -102,6 +109,7 @@ def set_trace_id(trace_id: str) -> None:
     """
     _trace_id.set(trace_id)
 
+
 def set_span_id(span_id: str) -> None:
     """Set the current span ID.
 
@@ -109,6 +117,7 @@ def set_span_id(span_id: str) -> None:
         span_id: The span ID to set
     """
     _span_id.set(span_id)
+
 
 @dataclass
 class Span:
@@ -198,6 +207,7 @@ class Span:
             "events": self.events,
         }
 
+
 @contextmanager
 def trace_context(
     operation: str,
@@ -269,6 +279,7 @@ def trace_context(
         _parent_span_id.reset(old_parent)
         _span_stack.reset(old_stack)
 
+
 def traced(operation: str | None = None) -> Callable:
     """Decorator for tracing function execution.
 
@@ -316,6 +327,7 @@ def traced(operation: str | None = None) -> Callable:
         return sync_wrapper
 
     return decorator
+
 
 class TracingMiddleware:
     """HTTP middleware for distributed tracing.
@@ -467,7 +479,9 @@ class TracingMiddleware:
 
         span.finish()
 
+
 # WebSocket tracing support
+
 
 def trace_websocket_event(
     event_type: str,
@@ -496,6 +510,7 @@ def trace_websocket_event(
 
     return data
 
+
 def extract_websocket_trace(event_data: dict[str, Any]) -> str | None:
     """Extract trace ID from WebSocket event data.
 
@@ -508,7 +523,9 @@ def extract_websocket_trace(event_data: dict[str, Any]) -> str | None:
     trace_info = event_data.get("_trace", {})
     return trace_info.get("trace_id")
 
+
 # Error response tracing
+
 
 def add_trace_to_error(error_response: dict[str, Any]) -> dict[str, Any]:
     """Add tracing context to error response.
@@ -523,6 +540,7 @@ def add_trace_to_error(error_response: dict[str, Any]) -> dict[str, Any]:
     if trace_id:
         error_response["trace_id"] = trace_id
     return error_response
+
 
 __all__ = [
     # Header constants

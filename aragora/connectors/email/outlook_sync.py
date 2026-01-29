@@ -60,6 +60,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class OutlookSyncStatus(Enum):
     """Status of the sync service."""
 
@@ -68,6 +69,7 @@ class OutlookSyncStatus(Enum):
     WATCHING = "watching"
     ERROR = "error"
     STOPPED = "stopped"
+
 
 @dataclass
 class OutlookSyncConfig:
@@ -100,6 +102,7 @@ class OutlookSyncConfig:
     state_backend: str = "memory"  # "memory", "redis", "postgres"
     redis_url: str | None = None
     postgres_dsn: str | None = None
+
 
 @dataclass
 class OutlookSyncState:
@@ -174,6 +177,7 @@ class OutlookSyncState:
 
         return state
 
+
 @dataclass
 class OutlookWebhookPayload:
     """Parsed webhook payload from Microsoft Graph."""
@@ -214,6 +218,7 @@ class OutlookWebhookPayload:
             raw_data=notification,
         )
 
+
 @dataclass
 class OutlookSyncedMessage:
     """A message that was synced and prioritized."""
@@ -224,6 +229,7 @@ class OutlookSyncedMessage:
     account_id: str = ""
     is_new: bool = True
     change_type: str = "created"  # created, updated
+
 
 class OutlookSyncService:
     """
@@ -955,6 +961,7 @@ class OutlookSyncService:
             "last_error": self._state.last_error if self._state else None,
         }
 
+
 # Factory function
 async def start_outlook_sync(
     tenant_id: str,
@@ -985,6 +992,7 @@ async def start_outlook_sync(
 
     await service.start(refresh_token=refresh_token)
     return service
+
 
 __all__ = [
     "OutlookSyncService",

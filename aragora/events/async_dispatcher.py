@@ -17,6 +17,7 @@ Usage:
     async with AsyncWebhookDispatcher() as dispatcher:
         result = await dispatcher.dispatch(webhook, payload)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,6 +57,7 @@ USER_AGENT = "Aragora-Webhooks/1.0 (async)"
 # Result Types
 # =============================================================================
 
+
 @dataclass
 class AsyncDeliveryResult:
     """Result of an async webhook delivery attempt."""
@@ -66,9 +68,11 @@ class AsyncDeliveryResult:
     retry_count: int = 0
     duration_ms: float = 0.0
 
+
 # =============================================================================
 # Async Dispatcher
 # =============================================================================
+
 
 class AsyncWebhookDispatcher:
     """
@@ -305,11 +309,13 @@ class AsyncWebhookDispatcher:
         else:
             return await _deliver_with_trace()
 
+
 # =============================================================================
 # Global Async Dispatcher
 # =============================================================================
 
 _async_dispatcher: AsyncWebhookDispatcher | None = None
+
 
 async def get_async_dispatcher() -> AsyncWebhookDispatcher:
     """Get or create the global async dispatcher."""
@@ -320,6 +326,7 @@ async def get_async_dispatcher() -> AsyncWebhookDispatcher:
         await _async_dispatcher._ensure_client()
 
     return _async_dispatcher
+
 
 async def dispatch_webhook_async(
     webhook: "WebhookConfig",
@@ -340,6 +347,7 @@ async def dispatch_webhook_async(
     dispatcher = await get_async_dispatcher()
     return await dispatcher.dispatch(webhook, payload)
 
+
 async def dispatch_webhook_async_with_retry(
     webhook: "WebhookConfig",
     payload: dict[str, Any],
@@ -359,6 +367,7 @@ async def dispatch_webhook_async_with_retry(
     dispatcher = await get_async_dispatcher()
     return await dispatcher.dispatch_with_retry(webhook, payload, max_retries=max_retries)
 
+
 async def shutdown_async_dispatcher() -> None:
     """Shutdown the global async dispatcher."""
     global _async_dispatcher
@@ -366,6 +375,7 @@ async def shutdown_async_dispatcher() -> None:
     if _async_dispatcher is not None:
         await _async_dispatcher.close()
         _async_dispatcher = None
+
 
 # =============================================================================
 # Exports

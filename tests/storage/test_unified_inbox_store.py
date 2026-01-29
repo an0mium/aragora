@@ -32,7 +32,7 @@ def _make_account(
     provider: str = "gmail",
     email: str = "user@example.com",
     **overrides: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base = {
         "id": account_id,
         "provider": provider,
@@ -52,7 +52,7 @@ def _make_message(
     account_id: str = "acct_1",
     external_id: str = "ext_1",
     **overrides: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base = {
         "id": message_id,
         "account_id": account_id,
@@ -75,7 +75,7 @@ def _make_message(
 def _make_triage(
     message_id: str = "msg_1",
     **overrides: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base = {
         "message_id": message_id,
         "recommended_action": "reply",

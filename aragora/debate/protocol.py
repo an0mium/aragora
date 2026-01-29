@@ -37,6 +37,7 @@ __all__ = [
     "user_vote_multiplier",
 ]
 
+
 @dataclass
 class RoundPhase:
     """Configuration for a structured debate round phase."""
@@ -46,6 +47,7 @@ class RoundPhase:
     description: str  # What this phase accomplishes
     focus: str  # Key focus area for agents
     cognitive_mode: str  # Analyst, Skeptic, Lateral, Synthesizer, etc.
+
 
 # Default structured debate format for aragora.ai (defaults to ARAGORA_DEFAULT_ROUNDS=9)
 # Round 0 (Context Gathering) runs parallel with Round 1
@@ -119,6 +121,7 @@ STRUCTURED_ROUND_PHASES: list[RoundPhase] = [
 
 # Derived defaults (kept in sync with config)
 DEFAULT_MIN_ROUNDS_BEFORE_EARLY_STOP = max(DEFAULT_ROUNDS - 1, 1)
+
 
 @dataclass
 class DebateProtocol:
@@ -392,6 +395,7 @@ class DebateProtocol:
             return phases[round_number]
         return None
 
+
 def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
     """
     Calculate conviction-weighted vote multiplier based on intensity.
@@ -426,6 +430,7 @@ def user_vote_multiplier(intensity: int, protocol: DebateProtocol) -> float:
         # intensity=neutral -> 1.0, intensity=scale -> max_multiplier
         ratio = (intensity - neutral) / (scale - neutral) if scale > neutral else 0
         return 1.0 + (protocol.user_vote_intensity_max_multiplier - 1.0) * ratio
+
 
 # =============================================================================
 # Aragora.ai Web UI Default Protocol
@@ -549,6 +554,7 @@ ARAGORA_AI_LIGHT_PROTOCOL = DebateProtocol(
     # No breakpoints in light mode
     enable_breakpoints=False,
 )
+
 
 def resolve_default_protocol(
     protocol: DebateProtocol | None = None,

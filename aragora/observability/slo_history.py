@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Default retention: 90 days
 DEFAULT_RETENTION_DAYS = 90
 
+
 @dataclass
 class SLOViolationRecord:
     """A persisted SLO violation record."""
@@ -72,6 +73,7 @@ class SLOViolationRecord:
             except (json.JSONDecodeError, TypeError):
                 result["metadata"] = self.metadata
         return result
+
 
 class SLOHistoryStore:
     """
@@ -347,12 +349,14 @@ class SLOHistoryStore:
             "by_severity": {row["severity"]: row["cnt"] for row in by_severity},
         }
 
+
 # ---------------------------------------------------------------------------
 # Global singleton
 # ---------------------------------------------------------------------------
 
 _global_store: SLOHistoryStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_slo_history_store(db_path: str | None = None) -> SLOHistoryStore:
     """Get or create the global SLO history store."""
@@ -362,15 +366,18 @@ def get_slo_history_store(db_path: str | None = None) -> SLOHistoryStore:
             _global_store = SLOHistoryStore(db_path=db_path)
         return _global_store
 
+
 def reset_slo_history_store() -> None:
     """Reset the global store (for testing)."""
     global _global_store
     with _store_lock:
         _global_store = None
 
+
 # ---------------------------------------------------------------------------
 # SLOAlertMonitor callback
 # ---------------------------------------------------------------------------
+
 
 def slo_history_callback(breach) -> None:
     """
@@ -393,6 +400,7 @@ def slo_history_callback(breach) -> None:
         )
     except Exception as e:
         logger.error(f"Failed to persist SLO violation: {e}")
+
 
 __all__ = [
     "SLOHistoryStore",

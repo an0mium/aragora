@@ -144,6 +144,7 @@ EXCEPTION_STATUS_MAP: dict[str, int] = {
     "OperationalError": 503,
 }
 
+
 def map_exception_to_status(exc: Exception, default: int = 500) -> int:
     """
     Map an exception to its appropriate HTTP status code.
@@ -174,13 +175,16 @@ def map_exception_to_status(exc: Exception, default: int = 500) -> int:
 
     return default
 
+
 def generate_trace_id() -> str:
     """Generate a unique trace ID for request tracking."""
     return str(uuid.uuid4())[:8]
 
+
 # =============================================================================
 # Error Response Builder
 # =============================================================================
+
 
 @dataclass
 class ErrorResponse:
@@ -210,6 +214,7 @@ class ErrorResponse:
             self.status,
             {"X-Trace-Id": self.trace_id},
         )
+
 
 def build_error_response(
     exc: Exception,
@@ -243,9 +248,11 @@ def build_error_response(
         context=context,
     )
 
+
 # =============================================================================
 # Exception Handler Context Manager
 # =============================================================================
+
 
 class ExceptionHandler:
     """
@@ -330,6 +337,7 @@ class ExceptionHandler:
         """Get HTTP status code (200 if success, error status otherwise)."""
         return self.error.status if self.error else 200
 
+
 @asynccontextmanager
 async def async_exception_handler(
     context: str,
@@ -366,11 +374,13 @@ async def async_exception_handler(
         else:
             logger.info(log_msg)
 
+
 # =============================================================================
 # Decorator-based Exception Handling
 # =============================================================================
 
 F = TypeVar("F", bound=Callable[..., Any])
+
 
 def handle_exceptions(
     context: str,
@@ -436,6 +446,7 @@ def handle_exceptions(
 
     return decorator
 
+
 def async_handle_exceptions(
     context: str,
     default_status: int = 500,
@@ -486,19 +497,23 @@ def async_handle_exceptions(
 
     return decorator
 
+
 # =============================================================================
 # Exception Type Checker Utilities
 # =============================================================================
+
 
 def is_client_error(exc: Exception) -> bool:
     """Check if exception represents a client error (4xx)."""
     status = map_exception_to_status(exc, 500)
     return 400 <= status < 500
 
+
 def is_server_error(exc: Exception) -> bool:
     """Check if exception represents a server error (5xx)."""
     status = map_exception_to_status(exc, 500)
     return status >= 500
+
 
 def is_retryable(exc: Exception) -> bool:
     """
@@ -513,10 +528,12 @@ def is_retryable(exc: Exception) -> bool:
     status = map_exception_to_status(exc, 500)
     return status in (429, 502, 503, 504)
 
+
 def is_authentication_error(exc: Exception) -> bool:
     """Check if exception is an authentication/authorization error."""
     status = map_exception_to_status(exc, 500)
     return status in (401, 403)
+
 
 # =============================================================================
 # Exports

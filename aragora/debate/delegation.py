@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DelegationStrategy(ABC):
     """Abstract base class for delegation strategies."""
 
@@ -98,6 +99,7 @@ class DelegationStrategy(ABC):
             Score (higher is better)
         """
         ...
+
 
 @dataclass
 class ContentBasedDelegation(DelegationStrategy):
@@ -183,6 +185,7 @@ class ContentBasedDelegation(DelegationStrategy):
         )
         return selected
 
+
 @dataclass
 class LoadBalancedDelegation(DelegationStrategy):
     """
@@ -252,6 +255,7 @@ class LoadBalancedDelegation(DelegationStrategy):
             f"(loads: {[(a.name, self.get_load(a.name, context)) for a in selected[:5]]})"
         )
         return selected
+
 
 @dataclass
 class ExpertiseDelegation(DelegationStrategy):
@@ -377,6 +381,7 @@ class ExpertiseDelegation(DelegationStrategy):
         )
         return selected
 
+
 @dataclass
 class RoundRobinDelegation(DelegationStrategy):
     """
@@ -423,6 +428,7 @@ class RoundRobinDelegation(DelegationStrategy):
 
         logger.debug(f"RoundRobinDelegation selected {len(selected)} agents (cursor={self.cursor})")
         return selected
+
 
 @dataclass
 class HybridDelegation(DelegationStrategy):
@@ -487,6 +493,7 @@ class HybridDelegation(DelegationStrategy):
             f"using {len(self.strategies)} strategies"
         )
         return selected
+
 
 def create_default_delegation(
     include_content: bool = True,

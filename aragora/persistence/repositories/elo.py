@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ELO = ELO_INITIAL_RATING
 
+
 @dataclass
 class RatingEntity:
     """
@@ -72,6 +73,7 @@ class RatingEntity:
             return 0.0
         return self.critiques_accepted / self.critiques_total
 
+
 @dataclass
 class MatchEntity:
     """
@@ -89,6 +91,7 @@ class MatchEntity:
     elo_changes: dict[str, float] = field(default_factory=dict)
     created_at: datetime | None = None
 
+
 @dataclass
 class LeaderboardEntry:
     """Entry in the leaderboard."""
@@ -101,6 +104,7 @@ class LeaderboardEntry:
     draws: int
     win_rate: float
     games_played: int
+
 
 class EloRepository(BaseRepository[RatingEntity]):
     """

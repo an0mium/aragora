@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = get_structured_logger(__name__)
 
+
 async def create_debate_bead(
     result: "DebateResult",
     protocol: Any,
@@ -100,6 +101,7 @@ async def create_debate_bead(
         logger.warning(f"Failed to create debate bead: {e}")
         return None
 
+
 async def create_pending_debate_bead(
     debate_id: str,
     task: str,
@@ -170,6 +172,7 @@ async def create_pending_debate_bead(
         logger.warning(f"Failed to create pending debate bead: {e}")
         return None
 
+
 async def update_debate_bead(
     bead_id: str,
     result: "DebateResult",
@@ -238,6 +241,7 @@ async def update_debate_bead(
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"Failed to update debate bead: {e}")
 
+
 async def init_hook_tracking(
     debate_id: str,
     bead_id: str,
@@ -303,6 +307,7 @@ async def init_hook_tracking(
         logger.warning(f"Failed to initialize hook tracking: {e}")
         return {}
 
+
 async def complete_hook_tracking(
     bead_id: str,
     hook_entries: dict[str, str],
@@ -343,6 +348,7 @@ async def complete_hook_tracking(
         pass
     except (OSError, ValueError, TypeError, AttributeError) as e:
         logger.warning(f"Failed to complete hook tracking: {e}")
+
 
 async def recover_pending_debates(
     bead_store: Any = None,

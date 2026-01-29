@@ -3,6 +3,7 @@ Gauntlet Configuration.
 
 Defines the configuration for a Gauntlet validation run.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -23,6 +24,7 @@ from .types import (
     GauntletPhase,
     GauntletSeverity,  # Alias for SeverityLevel
 )
+
 
 class AttackCategory(Enum):
     """Categories of adversarial attacks to run."""
@@ -63,6 +65,7 @@ class AttackCategory(Enum):
     RACE_CONDITION = "race_condition"
     RACE_CONDITIONS = "race_conditions"
 
+
 class ProbeCategory(Enum):
     """Categories of capability probes to run."""
 
@@ -75,6 +78,7 @@ class ProbeCategory(Enum):
     EDGE_CASE = "edge_case"
     INSTRUCTION_INJECTION = "instruction_injection"
     CAPABILITY_EXAGGERATION = "capability_exaggeration"
+
 
 @dataclass
 class PassFailCriteria:
@@ -112,6 +116,7 @@ class PassFailCriteria:
             require_consensus=False,
             min_confidence=0.5,
         )
+
 
 @dataclass
 class GauntletConfig:
@@ -337,6 +342,7 @@ class GauntletConfig:
             run_scenario_matrix=False,
         )
 
+
 @dataclass
 class GauntletFinding:
     """A finding from the Gauntlet validation process."""
@@ -362,6 +368,7 @@ class GauntletFinding:
     # Metadata
     metadata: dict = field(default_factory=dict)
 
+
 @dataclass
 class PhaseResult:
     """Result from a single Gauntlet phase."""
@@ -372,6 +379,7 @@ class PhaseResult:
     findings: list[GauntletFinding] = field(default_factory=list)
     metrics: dict = field(default_factory=dict)
     error: str | None = None
+
 
 @dataclass
 class GauntletResult:

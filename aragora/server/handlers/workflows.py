@@ -57,17 +57,21 @@ except ImportError:
     def record_rbac_check(*args, **kwargs):
         pass
 
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Persistent Storage (SQLite-backed)
 # =============================================================================
 
+
 def _get_store() -> PersistentWorkflowStore:
     """Get the persistent workflow store."""
     return get_workflow_store()  # type: ignore[return-value]
 
+
 _engine = WorkflowEngine()
+
 
 # In-memory template store for built-in and YAML templates
 class _TemplateStore:
@@ -76,11 +80,13 @@ class _TemplateStore:
     def __init__(self) -> None:
         self.templates: dict[str, WorkflowDefinition] = {}
 
+
 _store = _TemplateStore()
 
 # =============================================================================
 # CRUD Operations
 # =============================================================================
+
 
 async def list_workflows(
     tenant_id: str = "default",
@@ -118,11 +124,13 @@ async def list_workflows(
         "offset": offset,
     }
 
+
 async def get_workflow(workflow_id: str, tenant_id: str = "default") -> Optional[dict[str, Any]]:
     """Get a workflow by ID."""
     store = _get_store()
     workflow = store.get_workflow(workflow_id, tenant_id)
     return workflow.to_dict() if workflow else None
+
 
 async def create_workflow(
     data: dict[str, Any],
@@ -173,6 +181,7 @@ async def create_workflow(
         tenant_id=tenant_id,
     )
     return workflow.to_dict()
+
 
 async def update_workflow(
     workflow_id: str,
@@ -232,6 +241,7 @@ async def update_workflow(
     )
     return workflow.to_dict()
 
+
 async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
     """
     Delete a workflow.
@@ -258,9 +268,11 @@ async def delete_workflow(workflow_id: str, tenant_id: str = "default") -> bool:
 
     return deleted
 
+
 # =============================================================================
 # Version Management
 # =============================================================================
+
 
 async def get_workflow_versions(
     workflow_id: str,
@@ -270,6 +282,7 @@ async def get_workflow_versions(
     """Get version history for a workflow."""
     store = _get_store()
     return store.get_versions(workflow_id, tenant_id, limit)
+
 
 async def restore_workflow_version(
     workflow_id: str,
@@ -287,9 +300,11 @@ async def restore_workflow_version(
 
     return None
 
+
 # =============================================================================
 # Execution
 # =============================================================================
+
 
 async def execute_workflow(
     workflow_id: str,
@@ -386,10 +401,12 @@ async def execute_workflow(
         store.save_execution(execution)
         raise
 
+
 async def get_execution(execution_id: str) -> Optional[dict[str, Any]]:
     """Get execution status and result."""
     store = _get_store()
     return store.get_execution(execution_id)
+
 
 async def list_executions(
     workflow_id: str | None = None,
@@ -404,6 +421,7 @@ async def list_executions(
         limit=limit,
     )
     return executions
+
 
 async def terminate_execution(execution_id: str) -> bool:
     """Request termination of a running execution."""
@@ -422,9 +440,11 @@ async def terminate_execution(execution_id: str) -> bool:
 
     return True
 
+
 # =============================================================================
 # Templates
 # =============================================================================
+
 
 async def list_templates(
     category: str | None = None,
@@ -435,11 +455,13 @@ async def list_templates(
     templates = store.list_templates(category=category, tags=tags)
     return [t.to_dict() for t in templates]
 
+
 async def get_template(template_id: str) -> Optional[dict[str, Any]]:
     """Get a workflow template by ID."""
     store = _get_store()
     template = store.get_template(template_id)
     return template.to_dict() if template else None
+
 
 async def create_workflow_from_template(
     template_id: str,
@@ -468,15 +490,18 @@ async def create_workflow_from_template(
 
     return await create_workflow(workflow.to_dict(), tenant_id, created_by)
 
+
 def register_template(workflow: WorkflowDefinition) -> None:
     """Register a workflow as a template."""
     workflow.is_template = True
     store = _get_store()
     store.save_template(workflow)
 
+
 # =============================================================================
 # Human Approvals
 # =============================================================================
+
 
 async def list_pending_approvals(
     workflow_id: str | None = None,
@@ -487,6 +512,7 @@ async def list_pending_approvals(
 
     approvals = get_pending_approvals(workflow_id)
     return [a.to_dict() for a in approvals]
+
 
 async def resolve_approval(
     request_id: str,
@@ -508,6 +534,7 @@ async def resolve_approval(
 
     return _resolve(request_id, approval_status, responder_id, notes, checklist_updates)
 
+
 async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
     """Get an approval request by ID."""
     from aragora.workflow.nodes.human_checkpoint import get_approval_request
@@ -515,9 +542,11 @@ async def get_approval(request_id: str) -> Optional[dict[str, Any]]:
     approval = get_approval_request(request_id)
     return approval.to_dict() if approval else None
 
+
 # =============================================================================
 # Built-in Templates
 # =============================================================================
+
 
 def _create_contract_review_template() -> WorkflowDefinition:
     """Create contract review workflow template."""
@@ -661,6 +690,7 @@ def _create_contract_review_template() -> WorkflowDefinition:
         ],
     )
 
+
 def _create_code_review_template() -> WorkflowDefinition:
     """Create code review workflow template."""
     from aragora.workflow.types import Position, VisualNodeData, NodeCategory
@@ -726,9 +756,11 @@ def _create_code_review_template() -> WorkflowDefinition:
         ],
     )
 
+
 # Register built-in templates (Python-defined)
 register_template(_create_contract_review_template())
 register_template(_create_code_review_template())
+
 
 # Load YAML templates from disk
 def _load_yaml_templates() -> None:
@@ -754,12 +786,14 @@ def _load_yaml_templates() -> None:
     except (ValueError, KeyError, TypeError) as e:
         logger.warning(f"Failed to parse YAML templates: {e}")
 
+
 # Load templates on module import
 _load_yaml_templates()
 
 # =============================================================================
 # HTTP Route Handlers (for integration with unified_server)
 # =============================================================================
+
 
 class WorkflowHandlers:
     """HTTP handlers for workflow API."""
@@ -846,6 +880,7 @@ class WorkflowHandlers:
             checklist_updates=data.get("checklist"),
         )
 
+
 # =============================================================================
 # BaseHandler Integration for Unified Server
 # =============================================================================
@@ -859,6 +894,7 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
+
 
 class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     """
@@ -990,9 +1026,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return context.org_id
         return get_string_param(query_params, "tenant_id", "default")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None

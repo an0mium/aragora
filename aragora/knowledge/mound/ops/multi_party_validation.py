@@ -39,6 +39,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ValidationVoteType(Enum):
     """Types of validation votes."""
 
@@ -57,6 +58,7 @@ class ValidationVoteType(Enum):
     REQUEST_INFO = "request_info"
     """Request more information before voting."""
 
+
 class ValidationConsensusStrategy(Enum):
     """Strategies for determining validation consensus."""
 
@@ -74,6 +76,7 @@ class ValidationConsensusStrategy(Enum):
 
     QUORUM = "quorum"
     """Minimum number of accept votes required."""
+
 
 class ValidationState(Enum):
     """States of a validation request."""
@@ -98,6 +101,7 @@ class ValidationState(Enum):
 
     CANCELLED = "cancelled"
     """Validation was cancelled."""
+
 
 @dataclass
 class ValidationVote:
@@ -139,6 +143,7 @@ class ValidationVote:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class ValidationRequest:
@@ -233,6 +238,7 @@ class ValidationRequest:
             return False
         return datetime.now(timezone.utc) > self.deadline
 
+
 @dataclass
 class ValidationResult:
     """Result of a completed validation."""
@@ -294,6 +300,7 @@ class ValidationResult:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class EscalationResult:
     """Result of escalating a deadlocked validation."""
@@ -327,6 +334,7 @@ class EscalationResult:
             "escalated_at": self.escalated_at.isoformat(),
         }
 
+
 @dataclass
 class ValidatorConfig:
     """Configuration for the multi-party validator."""
@@ -355,8 +363,10 @@ class ValidatorConfig:
     allow_vote_change: bool = False
     """Whether validators can change their votes."""
 
+
 # Type alias for notification callbacks
 NotificationCallback = Callable[[str, str, dict[str, Any]], None]
+
 
 class MultiPartyValidator:
     """Orchestrates multi-party validation workflows.
@@ -1014,8 +1024,10 @@ class MultiPartyValidator:
             counts[outcome] = counts.get(outcome, 0) + 1
         return counts
 
+
 # Singleton instance
 _multi_party_validator: MultiPartyValidator | None = None
+
 
 def get_multi_party_validator(
     config: ValidatorConfig | None = None,
@@ -1032,6 +1044,7 @@ def get_multi_party_validator(
     if _multi_party_validator is None:
         _multi_party_validator = MultiPartyValidator(config)
     return _multi_party_validator
+
 
 __all__ = [
     # Enums

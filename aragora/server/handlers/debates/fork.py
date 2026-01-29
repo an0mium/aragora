@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by ForkOperationsMixin.
 
@@ -37,9 +38,7 @@ class _DebatesHandlerProtocol(Protocol):
 
     ctx: dict[str, Any]
 
-    def read_json_body(
-        self, handler: Any, max_size: int | None = None
-    ) -> Optional[dict[str, Any]]:
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> Optional[dict[str, Any]]:
         """Read and parse JSON body from request handler."""
         ...
 
@@ -50,6 +49,7 @@ class _DebatesHandlerProtocol(Protocol):
     def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path."""
         ...
+
 
 class ForkOperationsMixin:
     """Mixin providing fork and follow-up operations for DebatesHandler."""
@@ -575,6 +575,7 @@ class ForkOperationsMixin:
             logger.error("Failed to list forks for %s: %s", debate_id, e)
             return error_response(safe_error_message(e, "list forks"), 500)
 
+
 def _build_fork_tree(
     root_id: str,
     forks: list[dict[str, Any]],
@@ -647,5 +648,6 @@ def _build_fork_tree(
     tree["max_depth"] = max_depth
 
     return tree
+
 
 __all__ = ["ForkOperationsMixin"]

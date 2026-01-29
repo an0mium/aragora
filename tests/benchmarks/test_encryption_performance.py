@@ -32,7 +32,7 @@ def _generate_test_data(size_bytes: int) -> str:
     return secrets.token_urlsafe(size_bytes)
 
 
-def _generate_test_record(num_fields: int = 5, field_size: int = 100) -> Dict[str, Any]:
+def _generate_test_record(num_fields: int = 5, field_size: int = 100) -> dict[str, Any]:
     """Generate test record with multiple fields."""
     return {
         "id": secrets.token_hex(8),

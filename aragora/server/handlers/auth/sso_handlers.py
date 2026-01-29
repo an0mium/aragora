@@ -45,6 +45,7 @@ _auth_sessions_lock = threading.Lock()
 # Session TTL (10 minutes)
 AUTH_SESSION_TTL = 600
 
+
 def _get_sso_provider(provider_type: str = "oidc"):
     """Get or create SSO provider for type."""
     with _sso_providers_lock:
@@ -125,6 +126,7 @@ def _get_sso_provider(provider_type: str = "oidc"):
             logger.warning(f"Failed to initialize SSO provider {provider_type}: {e}")
             return None
 
+
 def _cleanup_expired_sessions():
     """Remove expired auth sessions."""
     now = time.time()
@@ -138,9 +140,11 @@ def _cleanup_expired_sessions():
         for state in expired:
             del _auth_sessions[state]
 
+
 # =============================================================================
 # SSO Login Flow
 # =============================================================================
+
 
 # NOTE: SSO login is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_login(
@@ -196,6 +200,7 @@ async def handle_sso_login(
     except Exception as e:
         logger.exception("SSO login initiation failed")
         return error_response(f"SSO login failed: {str(e)}", status=500)
+
 
 # NOTE: SSO callback is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_callback(
@@ -272,6 +277,7 @@ async def handle_sso_callback(
         logger.exception("SSO callback failed")
         return error_response(f"SSO authentication failed: {str(e)}", status=401)
 
+
 @require_permission("auth:read")
 async def handle_sso_refresh(
     data: dict[str, Any],
@@ -323,6 +329,7 @@ async def handle_sso_refresh(
         logger.exception("SSO refresh failed")
         return error_response(f"Token refresh failed: {str(e)}", status=401)
 
+
 @require_permission("auth:read")
 async def handle_sso_logout(
     data: dict[str, Any],
@@ -365,9 +372,11 @@ async def handle_sso_logout(
         logger.exception("SSO logout failed")
         return error_response(f"Logout failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Provider Configuration
 # =============================================================================
+
 
 # NOTE: List providers is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_list_providers(
@@ -426,6 +435,7 @@ async def handle_list_providers(
     except Exception as e:
         logger.exception("Failed to list providers")
         return error_response(f"List providers failed: {str(e)}", status=500)
+
 
 @require_permission("admin:system")
 async def handle_get_sso_config(
@@ -489,9 +499,11 @@ async def handle_get_sso_config(
         logger.exception("Failed to get SSO config")
         return error_response(f"Get config failed: {str(e)}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 def get_sso_handlers() -> dict[str, Any]:
     """Get all SSO handlers for registration."""
@@ -503,6 +515,7 @@ def get_sso_handlers() -> dict[str, Any]:
         "sso_list_providers": handle_list_providers,
         "sso_get_config": handle_get_sso_config,
     }
+
 
 __all__ = [
     "handle_sso_login",

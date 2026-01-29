@@ -16,6 +16,7 @@ from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
 
+
 class BlocksMixin(MessagingMixin):
     """Mixin providing Slack Block Kit message building."""
 

@@ -36,6 +36,7 @@ LEARNING_PERMISSION = "memory:write"
 # Rate limiter for learning endpoints (30 requests per minute - ML operations)
 _learning_limiter = RateLimiter(requests_per_minute=30)
 
+
 class LearningHandler(SecureHandler):
     """Handler for cross-cycle learning analytics endpoints.
 

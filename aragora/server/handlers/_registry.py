@@ -26,6 +26,7 @@ ALL_HANDLERS: list[type["BaseHandler"]] = []
 # Handler stability classifications - populated by __init__.py
 HANDLER_STABILITY: dict[str, Stability] = {}
 
+
 def get_handler_stability(handler_name: str) -> Stability:
     """Get the stability level for a handler.
 
@@ -37,9 +38,11 @@ def get_handler_stability(handler_name: str) -> Stability:
     """
     return HANDLER_STABILITY.get(handler_name, Stability.EXPERIMENTAL)
 
+
 def get_all_handler_stability() -> dict[str, str]:
     """Get all handler stability levels as strings for API response."""
     return {name: stability.value for name, stability in HANDLER_STABILITY.items()}
+
 
 __all__ = [
     "ALL_HANDLERS",

@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded router instance
 _decision_router = None
 
+
 def _get_decision_router():
     """Get or create the decision router singleton."""
     global _decision_router
@@ -45,8 +46,10 @@ def _get_decision_router():
             logger.warning(f"DecisionRouter not available: {e}")
     return _decision_router
 
+
 # Lazy-loaded result store instance
 _decision_result_store = None
+
 
 def _get_result_store():
     """Get the decision result store for persistence."""
@@ -60,8 +63,10 @@ def _get_result_store():
             logger.warning(f"DecisionResultStore not available, using in-memory: {e}")
     return _decision_result_store
 
+
 # Fallback in-memory cache (used only if persistent store fails)
 _decision_results_fallback: dict[str, dict[str, Any]] = {}
+
 
 def _save_result(request_id: str, data: dict[str, Any]) -> None:
     """Save a decision result to persistent store with fallback."""
@@ -75,6 +80,7 @@ def _save_result(request_id: str, data: dict[str, Any]) -> None:
     # Fallback to in-memory
     _decision_results_fallback[request_id] = data
 
+
 def _get_result(request_id: str) -> Optional[dict[str, Any]]:
     """Get a decision result from persistent store with fallback."""
     store = _get_result_store()
@@ -87,6 +93,7 @@ def _get_result(request_id: str) -> Optional[dict[str, Any]]:
             logger.warning(f"Failed to retrieve from store: {e}")
     # Fallback to in-memory
     return _decision_results_fallback.get(request_id)
+
 
 class DecisionHandler(BaseHandler):
     """
@@ -551,5 +558,6 @@ class DecisionHandler(BaseHandler):
                 },
             )
             return error_response(f"Decision retry failed: {e}", 500)
+
 
 __all__ = ["DecisionHandler"]

@@ -30,6 +30,7 @@ F = TypeVar("F", bound=Callable)
 _registered_caches: list[Callable] = []
 _registry_lock = threading.Lock()
 
+
 def register_lru_cache(func: F) -> F:
     """Register an LRU cache function for periodic cleanup.
 
@@ -54,6 +55,7 @@ def register_lru_cache(func: F) -> F:
             logger.debug(f"Registered LRU cache: {getattr(func, '__name__', repr(func))}")
     return func
 
+
 def unregister_lru_cache(func: Callable) -> bool:
     """Unregister an LRU cache function.
 
@@ -68,6 +70,7 @@ def unregister_lru_cache(func: Callable) -> bool:
             _registered_caches.remove(func)
             return True
         return False
+
 
 def clear_all_lru_caches() -> int:
     """Clear all registered LRU caches.
@@ -94,6 +97,7 @@ def clear_all_lru_caches() -> int:
         logger.info(f"Cleared {total_cleared} total LRU cache entries")
 
     return total_cleared
+
 
 def get_lru_cache_stats() -> dict[str, dict]:
     """Get statistics for all registered LRU caches.
@@ -127,6 +131,7 @@ def get_lru_cache_stats() -> dict[str, dict]:
 
     return stats
 
+
 def get_total_cache_entries() -> int:
     """Get total number of entries across all registered caches.
 
@@ -143,6 +148,7 @@ def get_total_cache_entries() -> int:
                     pass
     return total
 
+
 def get_registered_cache_count() -> int:
     """Get the number of registered LRU caches.
 
@@ -151,6 +157,7 @@ def get_registered_cache_count() -> int:
     """
     with _registry_lock:
         return len(_registered_caches)
+
 
 __all__ = [
     "register_lru_cache",

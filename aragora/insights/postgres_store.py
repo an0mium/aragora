@@ -6,6 +6,7 @@ Provides async storage for insights with:
 - Aggregation queries
 - Pattern clustering
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.insights_adapter import InsightsAdapter
 
 logger = logging.getLogger(__name__)
+
 
 class PostgresInsightStore(PostgresStore):
     """PostgreSQL-backed storage for debate insights.

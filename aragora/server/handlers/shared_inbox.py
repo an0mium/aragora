@@ -69,17 +69,21 @@ _activity_store = LazyStoreFactory(
     logger_context="SharedInbox",
 )
 
+
 def _get_email_store():
     """Get the email store (lazy init, thread-safe)."""
     return _email_store.get()
+
 
 def _get_rules_store():
     """Get the rules store (lazy init, thread-safe)."""
     return _rules_store.get()
 
+
 def _get_activity_store():
     """Get the activity store (lazy init, thread-safe)."""
     return _activity_store.get()
+
 
 def _log_activity(
     inbox_id: str,
@@ -107,12 +111,14 @@ def _log_activity(
         except Exception as e:
             logger.debug(f"[SharedInbox] Failed to log activity: {e}")
 
+
 # Storage configuration
 USE_PERSISTENT_STORAGE = True  # Set to False for in-memory only (testing)
 
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 class MessageStatus(str, Enum):
     """Status of a message in the shared inbox."""
@@ -123,6 +129,7 @@ class MessageStatus(str, Enum):
     WAITING = "waiting"
     RESOLVED = "resolved"
     CLOSED = "closed"
+
 
 class RuleConditionField(str, Enum):
     """Fields that can be used in routing rule conditions."""
@@ -135,6 +142,7 @@ class RuleConditionField(str, Enum):
     PRIORITY = "priority"
     SENDER_DOMAIN = "sender_domain"
 
+
 class RuleConditionOperator(str, Enum):
     """Operators for routing rule conditions."""
 
@@ -146,6 +154,7 @@ class RuleConditionOperator(str, Enum):
     GREATER_THAN = "greater_than"
     LESS_THAN = "less_than"
 
+
 class RuleActionType(str, Enum):
     """Actions that routing rules can perform."""
 
@@ -155,6 +164,7 @@ class RuleActionType(str, Enum):
     ARCHIVE = "archive"
     NOTIFY = "notify"
     FORWARD = "forward"
+
 
 @dataclass
 class RuleCondition:
@@ -179,6 +189,7 @@ class RuleCondition:
             value=data["value"],
         )
 
+
 @dataclass
 class RuleAction:
     """An action to perform when a routing rule matches."""
@@ -201,6 +212,7 @@ class RuleAction:
             target=data.get("target"),
             params=data.get("params", {}),
         )
+
 
 @dataclass
 class RoutingRule:
@@ -263,6 +275,7 @@ class RoutingRule:
             stats=data.get("stats", {}),
         )
 
+
 @dataclass
 class SharedInboxMessage:
     """A message in a shared inbox with collaboration metadata."""
@@ -308,6 +321,7 @@ class SharedInboxMessage:
             "resolved_by": self.resolved_by,
         }
 
+
 @dataclass
 class SharedInbox:
     """A shared inbox for team collaboration."""
@@ -345,6 +359,7 @@ class SharedInbox:
             "unread_count": self.unread_count,
         }
 
+
 # =============================================================================
 # In-Memory Storage (fallback when USE_PERSISTENT_STORAGE=False)
 # =============================================================================
@@ -354,15 +369,18 @@ _inbox_messages: dict[str, dict[str, SharedInboxMessage]] = {}  # inbox_id -> {m
 _routing_rules: dict[str, RoutingRule] = {}
 _storage_lock = threading.Lock()
 
+
 def _get_store():
     """Get the persistent storage instance if enabled."""
     if not USE_PERSISTENT_STORAGE:
         return None
     return _get_email_store()
 
+
 # =============================================================================
 # Shared Inbox Handlers
 # =============================================================================
+
 
 async def handle_create_shared_inbox(
     workspace_id: str,
@@ -446,6 +464,7 @@ async def handle_create_shared_inbox(
             "error": str(e),
         }
 
+
 async def handle_list_shared_inboxes(
     workspace_id: str,
     user_id: str | None = None,
@@ -500,6 +519,7 @@ async def handle_list_shared_inboxes(
             "error": str(e),
         }
 
+
 async def handle_get_shared_inbox(
     inbox_id: str,
 ) -> dict[str, Any]:
@@ -544,6 +564,7 @@ async def handle_get_shared_inbox(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_get_inbox_messages(
     inbox_id: str,
@@ -647,6 +668,7 @@ async def handle_get_inbox_messages(
             "error": str(e),
         }
 
+
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,
@@ -723,6 +745,7 @@ async def handle_assign_message(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_update_message_status(
     inbox_id: str,
@@ -801,6 +824,7 @@ async def handle_update_message_status(
             "error": str(e),
         }
 
+
 async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,
@@ -851,6 +875,7 @@ async def handle_add_message_tag(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_add_message_to_inbox(
     inbox_id: str,
@@ -932,9 +957,11 @@ async def handle_add_message_to_inbox(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Routing Rule Handlers
 # =============================================================================
+
 
 async def handle_create_routing_rule(
     workspace_id: str,
@@ -1049,6 +1076,7 @@ async def handle_create_routing_rule(
             "error": str(e),
         }
 
+
 async def handle_list_routing_rules(
     workspace_id: str,
     enabled_only: bool = False,
@@ -1143,6 +1171,7 @@ async def handle_list_routing_rules(
             "error": str(e),
         }
 
+
 async def handle_update_routing_rule(
     rule_id: str,
     updates: dict[str, Any],
@@ -1236,6 +1265,7 @@ async def handle_update_routing_rule(
             "error": str(e),
         }
 
+
 async def handle_delete_routing_rule(
     rule_id: str,
 ) -> dict[str, Any]:
@@ -1288,6 +1318,7 @@ async def handle_delete_routing_rule(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_test_routing_rule(
     rule_id: str,
@@ -1357,6 +1388,7 @@ async def handle_test_routing_rule(
             "error": str(e),
         }
 
+
 def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
     """Evaluate if a routing rule matches a message."""
     import re
@@ -1401,6 +1433,7 @@ def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
         return all(results) if results else False
     else:  # OR
         return any(results) if results else False
+
 
 async def get_matching_rules_for_email(
     inbox_id: str,
@@ -1468,6 +1501,7 @@ async def get_matching_rules_for_email(
                 matching_rules.append(rule.to_dict())
 
     return matching_rules
+
 
 async def apply_routing_rules_to_message(
     inbox_id: str,
@@ -1552,9 +1586,11 @@ async def apply_routing_rules_to_message(
         "changes": changes_made,
     }
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class SharedInboxHandler(BaseHandler):
     """
@@ -1586,9 +1622,7 @@ class SharedInboxHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route shared inbox endpoint requests."""
         return None
 

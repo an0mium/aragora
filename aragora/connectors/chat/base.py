@@ -37,6 +37,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class ChatPlatformConnector(ABC):
     """
     Abstract base class for chat platform integrations.

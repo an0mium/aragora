@@ -16,6 +16,7 @@ from aragora.queue.config import get_queue_config
 
 logger = logging.getLogger(__name__)
 
+
 class JobStatusTracker:
     """
     Tracks job status in Redis for fast queries and updates.

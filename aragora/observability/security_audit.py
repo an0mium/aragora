@@ -108,6 +108,7 @@ SECURITY_EVENTS = {
 # Authentication Audit Functions
 # =============================================================================
 
+
 async def audit_auth_success(
     user_id: str,
     method: str,
@@ -151,6 +152,7 @@ async def audit_auth_success(
         workspace_id=workspace_id,
         correlation_id=correlation_id,
     )
+
 
 async def audit_auth_failure(
     user_id: str | None,
@@ -197,6 +199,7 @@ async def audit_auth_failure(
         correlation_id=correlation_id,
     )
 
+
 async def audit_session_created(
     session_id: str,
     user_id: str,
@@ -233,6 +236,7 @@ async def audit_session_created(
         },
         ip_address=ip_address,
     )
+
 
 async def audit_token_issued(
     token_id: str,
@@ -271,9 +275,11 @@ async def audit_token_issued(
         },
     )
 
+
 # =============================================================================
 # RBAC Audit Functions
 # =============================================================================
+
 
 async def audit_rbac_decision(
     user_id: str,
@@ -321,6 +327,7 @@ async def audit_rbac_decision(
         },
     )
 
+
 async def audit_role_change(
     target_user_id: str,
     actor_id: str,
@@ -362,9 +369,11 @@ async def audit_role_change(
         },
     )
 
+
 # =============================================================================
 # Encryption Audit Functions
 # =============================================================================
+
 
 async def audit_encryption_operation(
     actor: str,
@@ -418,6 +427,7 @@ async def audit_encryption_operation(
         },
     )
 
+
 async def audit_key_rotation(
     actor: str,
     key_id: str,
@@ -463,6 +473,7 @@ async def audit_key_rotation(
         },
     )
 
+
 async def audit_key_generated(
     actor: str,
     key_id: str,
@@ -494,9 +505,11 @@ async def audit_key_generated(
         },
     )
 
+
 # =============================================================================
 # Secret Access Audit Functions
 # =============================================================================
+
 
 async def audit_secret_access(
     actor: str,
@@ -538,6 +551,7 @@ async def audit_secret_access(
             **details,
         },
     )
+
 
 async def audit_secret_modified(
     actor: str,
@@ -585,9 +599,11 @@ async def audit_secret_modified(
         },
     )
 
+
 # =============================================================================
 # Migration Audit Functions
 # =============================================================================
+
 
 async def audit_migration_started(
     actor: str,
@@ -624,6 +640,7 @@ async def audit_migration_started(
             **details,
         },
     )
+
 
 async def audit_migration_completed(
     actor: str,
@@ -668,9 +685,11 @@ async def audit_migration_completed(
         },
     )
 
+
 # =============================================================================
 # Security Incident Audit Functions
 # =============================================================================
+
 
 async def audit_security_incident(
     severity: str,
@@ -716,6 +735,7 @@ async def audit_security_incident(
         },
     )
 
+
 async def audit_security_alert(
     alert_type: str,
     destination: str,
@@ -754,6 +774,7 @@ async def audit_security_alert(
             **details,
         },
     )
+
 
 async def audit_request_blocked(
     reason: str,
@@ -799,9 +820,11 @@ async def audit_request_blocked(
         },
     )
 
+
 # =============================================================================
 # Query Functions
 # =============================================================================
+
 
 async def get_security_events(
     start_time: datetime | None = None,
@@ -849,6 +872,7 @@ async def get_security_events(
 
     return entries
 
+
 async def get_auth_failures(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
@@ -878,6 +902,7 @@ async def get_auth_failures(
         entries = [e for e in entries if e.ip_address == ip_address]
 
     return entries
+
 
 async def get_security_incidents(
     start_time: datetime | None = None,

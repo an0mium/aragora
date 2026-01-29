@@ -21,6 +21,7 @@ from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
+
 def _check_permission(
     user_id: str,
     permission: str,
@@ -47,6 +48,7 @@ def _check_permission(
     except Exception as e:
         logger.error(f"RBAC check failed: {e}")
         return {"error": "Authorization check failed", "status": 500}
+
 
 class CollaborationHandlers:
     """
@@ -447,8 +449,10 @@ class CollaborationHandlers:
             "online_count": session.online_count,
         }
 
+
 # Singleton handler instance
 _handlers: CollaborationHandlers | None = None
+
 
 def get_collaboration_handlers() -> CollaborationHandlers:
     """Get the global collaboration handlers instance."""
@@ -456,6 +460,7 @@ def get_collaboration_handlers() -> CollaborationHandlers:
     if _handlers is None:
         _handlers = CollaborationHandlers()
     return _handlers
+
 
 __all__ = [
     "CollaborationHandlers",

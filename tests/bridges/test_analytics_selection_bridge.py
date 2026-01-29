@@ -26,16 +26,16 @@ class MockAgentMetrics:
     agreement_rate: float = 0.75
     avg_response_time_ms: float = 3000.0
     total_findings: int = 50
-    finding_distribution: Dict[str, int] = field(default_factory=dict)
+    finding_distribution: dict[str, int] = field(default_factory=dict)
 
 
 class MockAnalyticsDashboard:
     """Mock analytics dashboard."""
 
     def __init__(self):
-        self._metrics: List[MockAgentMetrics] = []
+        self._metrics: list[MockAgentMetrics] = []
 
-    async def get_agent_metrics(self, workspace_id: Optional[str] = None) -> List[MockAgentMetrics]:
+    async def get_agent_metrics(self, workspace_id: Optional[str] = None) -> list[MockAgentMetrics]:
         """Get agent metrics."""
         return self._metrics
 

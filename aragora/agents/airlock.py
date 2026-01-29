@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AirlockMetrics:
     """Metrics collected by the airlock wrapper."""
@@ -70,6 +71,7 @@ class AirlockMetrics:
             "avg_latency_ms": round(self.avg_latency_ms, 2),
         }
 
+
 @dataclass
 class AirlockConfig:
     """Configuration for the airlock wrapper."""
@@ -90,6 +92,7 @@ class AirlockConfig:
     # Fallback settings
     fallback_on_timeout: bool = True
     fallback_on_error: bool = True
+
 
 class AirlockProxy:
     """
@@ -454,6 +457,7 @@ class AirlockProxy:
             "continue_debate": False,
         }
 
+
 def wrap_agent(
     agent: "Agent",
     config: AirlockConfig | None = None,
@@ -471,6 +475,7 @@ def wrap_agent(
     if isinstance(agent, AirlockProxy):
         return agent
     return AirlockProxy(agent, config)
+
 
 def wrap_agents(
     agents: list["Agent"],

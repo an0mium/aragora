@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 async def run_security_debate(
     event: "SecurityEvent",
     agents: list["Agent"] | None = None,
@@ -130,6 +131,7 @@ async def run_security_debate(
     )
 
     return result
+
 
 async def get_security_debate_agents() -> list["Agent"]:
     """Get agents suitable for security debates.

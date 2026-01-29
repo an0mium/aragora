@@ -13,6 +13,7 @@ from typing import Any
 
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
 
+
 @dataclass
 class DeviceNodeRuntimeConfig:
     """Configuration for a device node runtime."""
@@ -22,6 +23,7 @@ class DeviceNodeRuntimeConfig:
     capabilities: list[str] = field(default_factory=list)
     allowed_channels: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class DeviceNodeRuntime:
     """

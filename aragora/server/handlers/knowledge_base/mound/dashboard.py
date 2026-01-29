@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DashboardOperationsMixin:
     """Mixin providing dashboard and metrics endpoints for Knowledge Mound."""
 

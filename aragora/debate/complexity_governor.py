@@ -31,6 +31,7 @@ COMPLEXITY_TIMEOUT_FACTORS = {
     TaskComplexity.UNKNOWN: 0.75,  # 135s (conservative for unknown)
 }
 
+
 def classify_task_complexity(task: str) -> TaskComplexity:
     """Classify task complexity based on text signals.
 
@@ -100,6 +101,7 @@ def classify_task_complexity(task: str) -> TaskComplexity:
 
     return TaskComplexity.MODERATE
 
+
 class StressLevel(Enum):
     """System stress levels."""
 
@@ -107,6 +109,7 @@ class StressLevel(Enum):
     ELEVATED = "elevated"  # Some pressure, slight adjustments
     HIGH = "high"  # Significant pressure, major adjustments
     CRITICAL = "critical"  # Emergency mode, minimal operation
+
 
 @dataclass
 class GovernorConstraints:
@@ -155,6 +158,7 @@ class GovernorConstraints:
             "enable_formal_verification": self.enable_formal_verification,
         }
 
+
 @dataclass
 class AgentPerformanceMetrics:
     """Performance metrics for an agent."""
@@ -184,6 +188,7 @@ class AgentPerformanceMetrics:
         if self.total_requests == 0:
             return 0.0
         return self.timeout_count / self.total_requests
+
 
 class AdaptiveComplexityGovernor:
     """
@@ -580,8 +585,10 @@ class AdaptiveComplexityGovernor:
         self.current_constraints = self.CONSTRAINT_PRESETS[StressLevel.NOMINAL]
         logger.info("governor_reset")
 
+
 # Global governor instance
 _governor: AdaptiveComplexityGovernor | None = None
+
 
 def get_complexity_governor() -> AdaptiveComplexityGovernor:
     """Get the global complexity governor instance."""
@@ -589,6 +596,7 @@ def get_complexity_governor() -> AdaptiveComplexityGovernor:
     if _governor is None:
         _governor = AdaptiveComplexityGovernor()
     return _governor
+
 
 def reset_complexity_governor() -> None:
     """Reset the global complexity governor (for testing)."""

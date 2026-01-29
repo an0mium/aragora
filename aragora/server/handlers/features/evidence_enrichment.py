@@ -31,13 +31,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _get_evidence_enrichment(finding: "AuditFinding") -> Any:
     """Get evidence enrichment from finding using getattr to avoid type errors."""
     return getattr(finding, "_evidence_enrichment", None)
 
+
 def _set_evidence_enrichment(finding: "AuditFinding", enrichment: Any) -> None:
     """Set evidence enrichment on finding using setattr to avoid type errors."""
     setattr(finding, "_evidence_enrichment", enrichment)
+
 
 class EvidenceEnrichmentHandler(BaseHandler):
     """Handler for evidence enrichment endpoints."""

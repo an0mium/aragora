@@ -26,6 +26,7 @@ from typing import Any, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class QualityScore:
     """Quality assessment scores."""
@@ -58,6 +59,7 @@ class QualityScore:
         """Check if response needs human/LLM review."""
         return self.overall < 0.5 or self.confidence < 0.3
 
+
 @dataclass
 class QualityScorerConfig:
     """Configuration for quality scorer."""
@@ -75,6 +77,7 @@ class QualityScorerConfig:
 
     # Use embedding similarity for relevance
     use_embeddings: bool = True
+
 
 class QualityScorer:
     """Fast quality scorer for response evaluation.
@@ -378,8 +381,10 @@ class QualityScorer:
         scores = self.score_batch(texts, contexts)
         return [(text, score) for text, score in zip(texts, scores) if score.overall >= threshold]
 
+
 # Global instance
 _quality_scorer: QualityScorer | None = None
+
 
 def get_quality_scorer() -> QualityScorer:
     """Get or create the global quality scorer instance."""

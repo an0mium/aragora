@@ -13,6 +13,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def fetch_channel_context_tool(
     channel_id: str,
     platform: str = "slack",
@@ -79,6 +80,7 @@ async def fetch_channel_context_tool(
             "channel_id": channel_id,
             "platform": platform,
         }
+
 
 async def fetch_debate_context_tool(
     debate_id: str,
@@ -149,6 +151,7 @@ async def fetch_debate_context_tool(
             "debate_id": debate_id,
         }
 
+
 async def analyze_conversation_tool(
     messages: list[dict[str, Any]],
     analyze_sentiment: bool = True,
@@ -207,6 +210,7 @@ async def analyze_conversation_tool(
 
     return result
 
+
 async def get_thread_context_tool(
     thread_id: str,
     platform: str = "slack",
@@ -248,6 +252,7 @@ async def get_thread_context_tool(
     except Exception as e:
         logger.error(f"Failed to fetch thread context: {e}")
         return {"error": str(e), "thread_id": thread_id}
+
 
 async def get_user_context_tool(
     user_id: str,
@@ -294,7 +299,9 @@ async def get_user_context_tool(
         logger.error(f"Failed to fetch user context: {e}")
         return {"error": str(e), "user_id": user_id}
 
+
 # Helper functions
+
 
 async def _get_chat_connector(platform: str) -> Any | None:
     """Get the chat connector for a platform."""
@@ -322,6 +329,7 @@ async def _get_chat_connector(platform: str) -> Any | None:
         logger.warning(f"Could not import connector for {platform}: {e}")
         return None
 
+
 async def _fetch_channel_messages(
     connector: Any,
     channel_id: str,
@@ -332,6 +340,7 @@ async def _fetch_channel_messages(
         result = await connector.get_channel_messages(channel_id, limit=limit)
         return list(result) if result else []
     return []
+
 
 async def _extract_topics(messages: list[dict[str, Any]]) -> list[str]:
     """Extract topics from messages using keyword extraction."""
@@ -413,6 +422,7 @@ async def _extract_topics(messages: list[dict[str, Any]]) -> list[str]:
     counter = Counter(words)
     return [word for word, _ in counter.most_common(10)]
 
+
 def _analyze_activity(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """Analyze activity patterns in messages."""
     if not messages:
@@ -450,6 +460,7 @@ def _analyze_activity(messages: list[dict[str, Any]]) -> dict[str, Any]:
         activity["peak_hour"] = hour_counts.most_common(1)[0][0] if hour_counts else None
 
     return activity
+
 
 async def _analyze_sentiment(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """Simple sentiment analysis."""
@@ -528,6 +539,7 @@ async def _analyze_sentiment(messages: list[dict[str, Any]]) -> dict[str, Any]:
         ),
     }
 
+
 def _extract_questions(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract questions from messages."""
     questions = []
@@ -568,6 +580,7 @@ def _extract_questions(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             )
 
     return questions
+
 
 def _extract_decisions(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract decisions and conclusions from messages."""

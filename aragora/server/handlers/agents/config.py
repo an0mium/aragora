@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Global config loader instance
 _config_loader: Any = None
 
+
 def get_config_loader() -> Any:
     """Get or create the global AgentConfigLoader instance."""
     global _config_loader
@@ -53,6 +54,7 @@ def get_config_loader() -> Any:
         except ImportError as e:
             logger.warning(f"AgentConfigLoader not available: {e}")
     return _config_loader
+
 
 class AgentConfigHandler(SecureHandler):
     """Handler for agent configuration endpoints.

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Coverage Analytics
 # =============================================================================
 
+
 @dataclass
 class DomainCoverage:
     """Coverage metrics for a domain."""
@@ -71,6 +72,7 @@ class DomainCoverage:
             "coverage_score": round(self.coverage_score, 3),
         }
 
+
 @dataclass
 class CoverageReport:
     """Full coverage analysis report."""
@@ -95,9 +97,11 @@ class CoverageReport:
             "analyzed_at": self.analyzed_at.isoformat(),
         }
 
+
 # =============================================================================
 # Usage Analytics
 # =============================================================================
+
 
 class UsageEventType(str, Enum):
     """Types of usage events tracked."""
@@ -107,6 +111,7 @@ class UsageEventType(str, Enum):
     CITE = "cite"
     SHARE = "share"
     EXPORT = "export"
+
 
 @dataclass
 class UsageEvent:
@@ -120,6 +125,7 @@ class UsageEvent:
     query: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class ItemUsageStats:
@@ -154,6 +160,7 @@ class ItemUsageStats:
             "engagement_score": round(self.engagement_score, 2),
         }
 
+
 @dataclass
 class UsageReport:
     """Usage analytics report."""
@@ -184,9 +191,11 @@ class UsageReport:
             "generated_at": self.generated_at.isoformat(),
         }
 
+
 # =============================================================================
 # Quality Analytics
 # =============================================================================
+
 
 @dataclass
 class QualitySnapshot:
@@ -210,6 +219,7 @@ class QualitySnapshot:
             "high_quality_count": self.high_quality_count,
         }
 
+
 @dataclass
 class QualityTrend:
     """Quality trend over time."""
@@ -228,9 +238,11 @@ class QualityTrend:
             "period_days": self.period_days,
         }
 
+
 # =============================================================================
 # Growth Analytics
 # =============================================================================
+
 
 @dataclass
 class GrowthMetrics:
@@ -260,9 +272,11 @@ class GrowthMetrics:
             "velocity": round(self.velocity, 2),
         }
 
+
 # =============================================================================
 # Analytics Manager
 # =============================================================================
+
 
 class KnowledgeAnalytics:
     """Manages analytics for Knowledge Mound."""
@@ -630,9 +644,11 @@ class KnowledgeAnalytics:
             "workspaces_with_snapshots": len(self._quality_snapshots),
         }
 
+
 # =============================================================================
 # Analytics Mixin
 # =============================================================================
+
 
 class AnalyticsMixin:
     """Mixin for analytics operations on KnowledgeMound."""
@@ -697,8 +713,10 @@ class AnalyticsMixin:
         """Get analytics statistics."""
         return self._get_analytics().get_stats()
 
+
 # Singleton instance
 _analytics: KnowledgeAnalytics | None = None
+
 
 def get_knowledge_analytics() -> KnowledgeAnalytics:
     """Get the global knowledge analytics instance."""

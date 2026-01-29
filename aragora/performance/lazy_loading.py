@@ -74,6 +74,7 @@ _prefetch_operations_counter: Optional["Counter"] = None
 _auto_prefetch_counter: Optional["Counter"] = None
 _load_duration_histogram: Optional["Histogram"] = None
 
+
 def _init_metrics() -> None:
     """Initialize Prometheus metrics lazily."""
     global _metrics_initialized, _n_plus_one_detections_counter
@@ -111,8 +112,10 @@ def _init_metrics() -> None:
         logger.debug("prometheus_client not available, metrics disabled")
         _metrics_initialized = True  # Don't retry
 
+
 T = TypeVar("T")
 R = TypeVar("R")
+
 
 @dataclass
 class LazyLoadStats:
@@ -129,6 +132,7 @@ class LazyLoadStats:
         if not self.load_times_ms:
             return 0.0
         return sum(self.load_times_ms) / len(self.load_times_ms)
+
 
 # Global stats
 _lazy_load_stats = LazyLoadStats()
@@ -151,6 +155,7 @@ _n_plus_one_lock = threading.Lock()
 _auto_prefetch_pending: dict[str, tuple[list[Any], float]] = {}
 _auto_prefetch_lock = threading.Lock()
 AUTO_PREFETCH_BATCH_DELAY_MS = 10  # Wait this long to collect batch
+
 
 def _detect_n_plus_one(property_name: str) -> bool:
     """
@@ -180,6 +185,7 @@ def _detect_n_plus_one(property_name: str) -> bool:
 
     return False
 
+
 def get_n_plus_one_config() -> dict[str, Any]:
     """Get current N+1 detection configuration."""
     return {
@@ -187,6 +193,7 @@ def get_n_plus_one_config() -> dict[str, Any]:
         "window_ms": N_PLUS_ONE_WINDOW_MS,
         "auto_prefetch_enabled": N_PLUS_ONE_AUTO_PREFETCH,
     }
+
 
 class AutoPrefetchBatcher:
     """
@@ -285,8 +292,10 @@ class AutoPrefetchBatcher:
             if future and not future.done():
                 future.set_exception(e)
 
+
 # Global auto-prefetch batcher
 _auto_prefetch_batcher = AutoPrefetchBatcher()
+
 
 class LazyValue(Generic[T]):
     """
@@ -367,6 +376,7 @@ class LazyValue(Generic[T]):
         self._value = value
         self._loaded = True
 
+
 class LazyDescriptor(Generic[T]):
     """
     Descriptor for lazy property access.
@@ -417,14 +427,17 @@ class LazyDescriptor(Generic[T]):
         """Get the prefetch key for this property."""
         return self._prefetch_key
 
+
 @overload
 def lazy_property(func: Callable[[Any], Awaitable[T]]) -> LazyDescriptor[T]: ...
+
 
 @overload
 def lazy_property(
     *,
     prefetch_key: str | None = None,
 ) -> Callable[[Callable[[Any], Awaitable[T]]], LazyDescriptor[T]]: ...
+
 
 def lazy_property(
     func: Optional[Callable[[Any], Awaitable[T]]] = None,
@@ -458,6 +471,7 @@ def lazy_property(
         return LazyDescriptor(f, prefetch_key=prefetch_key)
 
     return decorator
+
 
 class LazyLoader:
     """
@@ -548,8 +562,10 @@ class LazyLoader:
                 ]
                 await asyncio.gather(*[lv.get() for lv in lazy_values])
 
+
 # Global lazy loader instance
 _lazy_loader = LazyLoader()
+
 
 async def prefetch(objects: list[Any], *property_names: str) -> None:
     """
@@ -568,6 +584,7 @@ async def prefetch(objects: list[Any], *property_names: str) -> None:
     """
     await _lazy_loader.prefetch(objects, *property_names)
 
+
 def register_prefetch(
     key: str,
     fn: Callable[[list[Any]], Awaitable[dict[Any, Any]]],
@@ -581,6 +598,7 @@ def register_prefetch(
     """
     _lazy_loader.register_prefetch(key, fn)
 
+
 def get_lazy_load_stats() -> dict[str, Any]:
     """Get lazy loading statistics including N+1 detection config."""
     return {
@@ -591,10 +609,12 @@ def get_lazy_load_stats() -> dict[str, Any]:
         "config": get_n_plus_one_config(),
     }
 
+
 def reset_lazy_load_stats() -> None:
     """Reset lazy loading statistics."""
     global _lazy_load_stats
     _lazy_load_stats = LazyLoadStats()
+
 
 __all__ = [
     "lazy_property",

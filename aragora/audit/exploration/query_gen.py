@@ -21,6 +21,7 @@ from aragora.audit.exploration.agents import ExplorationAgent
 
 logger = logging.getLogger(__name__)
 
+
 class QuestionType:
     """Types of follow-up questions."""
 
@@ -33,6 +34,7 @@ class QuestionType:
     SCOPE = "scope"  # What are the boundaries of X?
     TEMPORAL = "temporal"  # When did X occur/change?
 
+
 @dataclass
 class UnderstandingGap:
     """Represents a gap in current understanding."""
@@ -41,6 +43,7 @@ class UnderstandingGap:
     gap_type: str  # missing_info, unclear, contradictory
     related_chunks: list[str] = field(default_factory=list)
     priority: float = 0.5
+
 
 class QueryGenerator:
     """Generates follow-up questions based on understanding gaps.

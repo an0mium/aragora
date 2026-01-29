@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Memory Entities
 # =============================================================================
 
+
 @dataclass
 class MemoryEntity:
     """A single memory unit stored in the database."""
@@ -64,6 +65,7 @@ class MemoryEntity:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ReflectionSchedule:
     """Tracks when an agent should perform reflection."""
@@ -71,6 +73,7 @@ class ReflectionSchedule:
     agent_name: str
     last_reflection: str | None = None
     memories_since_reflection: int = 0
+
 
 @dataclass
 class RetrievedMemory:
@@ -86,9 +89,11 @@ class RetrievedMemory:
         """Combined retrieval score with default weights."""
         return 0.3 * self.recency_score + 0.3 * self.importance_score + 0.4 * self.relevance_score
 
+
 # =============================================================================
 # Memory Repository
 # =============================================================================
+
 
 class MemoryRepository(BaseRepository[MemoryEntity]):
     """

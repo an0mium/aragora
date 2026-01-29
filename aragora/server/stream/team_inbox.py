@@ -19,6 +19,7 @@ Events:
 - team_inbox_note_added: Internal note added
 - team_inbox_comment: Comment on message thread
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,6 +33,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
 
 class TeamInboxEventType(str, Enum):
     """Types of team inbox collaboration events."""
@@ -62,6 +64,7 @@ class TeamInboxEventType(str, Enum):
     ACTIVITY = "team_inbox_activity"
     NOTIFICATION = "team_inbox_notification"
 
+
 @dataclass
 class TeamMember:
     """A team member in a shared inbox."""
@@ -82,6 +85,7 @@ class TeamMember:
             "joinedAt": self.joined_at.isoformat(),
             "avatarUrl": self.avatar_url,
         }
+
 
 @dataclass
 class Mention:
@@ -109,6 +113,7 @@ class Mention:
             "acknowledged": self.acknowledged,
             "acknowledgedAt": self.acknowledged_at.isoformat() if self.acknowledged_at else None,
         }
+
 
 @dataclass
 class InternalNote:
@@ -139,6 +144,7 @@ class InternalNote:
             "isPinned": self.is_pinned,
         }
 
+
 @dataclass
 class TeamInboxEvent:
     """A team inbox collaboration event."""
@@ -166,6 +172,7 @@ class TeamInboxEvent:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
+
 
 class TeamInboxEmitter:
     """
@@ -644,8 +651,10 @@ class TeamInboxEmitter:
         if callback in self._event_callbacks:
             self._event_callbacks.remove(callback)
 
+
 # Global emitter instance
 _team_inbox_emitter: TeamInboxEmitter | None = None
+
 
 def get_team_inbox_emitter() -> TeamInboxEmitter:
     """Get the global team inbox emitter instance."""
@@ -654,26 +663,32 @@ def get_team_inbox_emitter() -> TeamInboxEmitter:
         _team_inbox_emitter = TeamInboxEmitter()
     return _team_inbox_emitter
 
+
 # Convenience functions
 async def emit_message_assigned(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit message assignment event."""
     return await get_team_inbox_emitter().emit_message_assigned(inbox_id, message_id, **kwargs)
 
+
 async def emit_message_unassigned(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit message unassignment event."""
     return await get_team_inbox_emitter().emit_message_unassigned(inbox_id, message_id, **kwargs)
+
 
 async def emit_status_changed(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit status change event."""
     return await get_team_inbox_emitter().emit_status_changed(inbox_id, message_id, **kwargs)
 
+
 async def emit_user_viewing(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit user viewing event."""
     return await get_team_inbox_emitter().emit_user_viewing(inbox_id, message_id, **kwargs)
 
+
 async def emit_user_typing(inbox_id: str, message_id: str, **kwargs) -> int:
     """Emit user typing event."""
     return await get_team_inbox_emitter().emit_user_typing(inbox_id, message_id, **kwargs)
+
 
 __all__ = [
     # Classes

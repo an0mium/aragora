@@ -30,6 +30,7 @@ from ..utils.rate_limit import rate_limit, user_rate_limit
 if TYPE_CHECKING:
     from aragora.server.debate_queue import BatchItem
 
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface that BatchOperationsMixin expects from its host class."""
 
@@ -43,7 +44,9 @@ class _DebatesHandlerProtocol(Protocol):
         """Create a debate executor function for the batch queue."""
         ...
 
+
 logger = logging.getLogger(__name__)
+
 
 class BatchOperationsMixin:
     """Mixin providing batch debate operations for DebatesHandler."""
@@ -413,5 +416,6 @@ class BatchOperationsMixin:
                 "status_counts": status_counts,
             }
         )
+
 
 __all__ = ["BatchOperationsMixin"]

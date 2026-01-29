@@ -55,6 +55,7 @@ CP_POLICY_DECISIONS: Any = None
 CP_POLICY_VIOLATIONS: Any = None
 CP_POLICY_CHECK_LATENCY: Any = None
 
+
 def _init_control_plane_metrics() -> bool:
     """Initialize control plane metrics lazily."""
     global _initialized
@@ -216,6 +217,7 @@ def _init_control_plane_metrics() -> bool:
         _initialized = True
         return False
 
+
 def _init_noop_metrics() -> None:
     """Initialize no-op metrics when Prometheus is unavailable."""
     global CP_AGENTS_REGISTERED, CP_AGENTS_ACTIVE, CP_AGENT_HEARTBEATS, CP_AGENT_HEALTH_CHECKS
@@ -247,6 +249,7 @@ def _init_noop_metrics() -> None:
     CP_POLICY_VIOLATIONS = noop
     CP_POLICY_CHECK_LATENCY = noop
 
+
 class _NoOpMetric:
     """No-op metric for when Prometheus is unavailable."""
 
@@ -265,9 +268,11 @@ class _NoOpMetric:
     def observe(self, value: float) -> None:
         pass
 
+
 # ============================================================================
 # Recording Functions
 # ============================================================================
+
 
 def record_agent_registered(agent_id: str, success: bool) -> None:
     """Record agent registration event."""
@@ -275,11 +280,13 @@ def record_agent_registered(agent_id: str, success: bool) -> None:
     if CP_AGENTS_REGISTERED:
         CP_AGENTS_REGISTERED.labels(status="success" if success else "failure").inc()
 
+
 def set_active_agents(capability: str, count: int) -> None:
     """Set the number of active agents with a capability."""
     _init_control_plane_metrics()
     if CP_AGENTS_ACTIVE:
         CP_AGENTS_ACTIVE.labels(capability=capability).set(count)
+
 
 def record_agent_heartbeat(agent_id: str, status: str) -> None:
     """Record agent heartbeat."""
@@ -287,17 +294,20 @@ def record_agent_heartbeat(agent_id: str, status: str) -> None:
     if CP_AGENT_HEARTBEATS:
         CP_AGENT_HEARTBEATS.labels(agent_id=agent_id, status=status).inc()
 
+
 def record_agent_health_check(status: str) -> None:
     """Record agent health check result."""
     _init_control_plane_metrics()
     if CP_AGENT_HEALTH_CHECKS:
         CP_AGENT_HEALTH_CHECKS.labels(status=status).inc()
 
+
 def record_task_submitted(task_type: str, priority: str = "normal") -> None:
     """Record task submission."""
     _init_control_plane_metrics()
     if CP_TASKS_SUBMITTED:
         CP_TASKS_SUBMITTED.labels(task_type=task_type, priority=priority).inc()
+
 
 def record_task_completed(task_type: str, duration_seconds: float) -> None:
     """Record successful task completion."""
@@ -307,11 +317,13 @@ def record_task_completed(task_type: str, duration_seconds: float) -> None:
     if CP_TASK_DURATION:
         CP_TASK_DURATION.labels(task_type=task_type).observe(duration_seconds)
 
+
 def record_task_failed(task_type: str, failure_reason: str) -> None:
     """Record task failure."""
     _init_control_plane_metrics()
     if CP_TASKS_FAILED:
         CP_TASKS_FAILED.labels(task_type=task_type, failure_reason=failure_reason).inc()
+
 
 def set_task_queue_depth(priority: str, depth: int) -> None:
     """Set current task queue depth."""
@@ -319,17 +331,20 @@ def set_task_queue_depth(priority: str, depth: int) -> None:
     if CP_TASK_QUEUE_DEPTH:
         CP_TASK_QUEUE_DEPTH.labels(priority=priority).set(depth)
 
+
 def record_task_wait_time(wait_seconds: float) -> None:
     """Record task wait time in queue."""
     _init_control_plane_metrics()
     if CP_TASK_WAIT_TIME:
         CP_TASK_WAIT_TIME.observe(wait_seconds)
 
+
 def record_deliberation_started(mode: str = "sync") -> None:
     """Record deliberation start."""
     _init_control_plane_metrics()
     if CP_DELIBERATIONS_STARTED:
         CP_DELIBERATIONS_STARTED.labels(mode=mode).inc()
+
 
 def record_deliberation_completed(
     success: bool,
@@ -358,6 +373,7 @@ def record_deliberation_completed(
     if agent_count is not None and CP_DELIBERATION_AGENT_COUNT:
         CP_DELIBERATION_AGENT_COUNT.observe(agent_count)
 
+
 def record_deliberation_sla(level: str) -> None:
     """Record deliberation SLA compliance level.
 
@@ -367,6 +383,7 @@ def record_deliberation_sla(level: str) -> None:
     _init_control_plane_metrics()
     if CP_DELIBERATION_SLA_STATUS:
         CP_DELIBERATION_SLA_STATUS.labels(level=level).inc()
+
 
 def record_policy_decision(
     policy_type: str,
@@ -386,6 +403,7 @@ def record_policy_decision(
     if latency_seconds is not None and CP_POLICY_CHECK_LATENCY:
         CP_POLICY_CHECK_LATENCY.observe(latency_seconds)
 
+
 def record_policy_violation(policy_type: str, severity: str) -> None:
     """Record policy violation.
 
@@ -396,6 +414,7 @@ def record_policy_violation(policy_type: str, severity: str) -> None:
     _init_control_plane_metrics()
     if CP_POLICY_VIOLATIONS:
         CP_POLICY_VIOLATIONS.labels(policy_type=policy_type, severity=severity).inc()
+
 
 __all__ = [
     # Metrics

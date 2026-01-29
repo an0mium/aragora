@@ -64,6 +64,7 @@ _shared_debate_store = None
 
 MAX_TOPIC_LENGTH = 200
 
+
 def get_pulse_manager():
     """Get or create the shared PulseManager singleton.
 
@@ -94,6 +95,7 @@ def get_pulse_manager():
                     return None
     return _shared_pulse_manager
 
+
 def get_scheduled_debate_store():
     """Get or create the shared ScheduledDebateStore singleton."""
     global _shared_debate_store
@@ -110,6 +112,7 @@ def get_scheduled_debate_store():
                     logger.warning(f"Failed to initialize ScheduledDebateStore: {e}")
                     return None
     return _shared_debate_store
+
 
 def get_pulse_scheduler():
     """Get or create the shared PulseDebateScheduler singleton.
@@ -167,6 +170,7 @@ def get_pulse_scheduler():
                     logger.warning(f"Failed to initialize PulseDebateScheduler: {e}")
                     return None
     return _shared_scheduler
+
 
 class PulseHandler(BaseHandler):
     """Handler for pulse/trending topic endpoints."""

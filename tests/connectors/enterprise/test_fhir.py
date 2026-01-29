@@ -28,7 +28,7 @@ class FHIRResource:
 
     id: str
     resource_type: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     last_updated: Optional[datetime] = None
     version_id: Optional[str] = None
 
@@ -58,7 +58,7 @@ class MockFHIRConnector:
         fhir_base_url: str,
         client_id: str = "",
         client_secret: str = "",
-        resource_types: List[str] = None,
+        resource_types: list[str] = None,
         redact_phi: bool = True,
         **kwargs,
     ):
@@ -71,7 +71,7 @@ class MockFHIRConnector:
 
         self._access_token: Optional[str] = None
         self._token_expires: Optional[datetime] = None
-        self._resources_cache: Dict[str, FHIRResource] = {}
+        self._resources_cache: dict[str, FHIRResource] = {}
 
     @property
     def name(self) -> str:
@@ -97,14 +97,14 @@ class MockFHIRConnector:
         self,
         endpoint: str,
         method: str = "GET",
-        params: Dict[str, Any] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] = None,
+    ) -> dict[str, Any]:
         """Make authenticated FHIR API request."""
         await self._authenticate()
         # This would be mocked in tests
         raise NotImplementedError("Mock this method")
 
-    def _redact_phi(self, resource: Dict[str, Any]) -> Dict[str, Any]:
+    def _redact_phi(self, resource: dict[str, Any]) -> dict[str, Any]:
         """Redact PHI from resource."""
         if not self.redact_phi:
             return resource
@@ -117,7 +117,7 @@ class MockFHIRConnector:
 
         return redacted
 
-    def _extract_resource_text(self, resource: Dict[str, Any]) -> str:
+    def _extract_resource_text(self, resource: dict[str, Any]) -> str:
         """Extract human-readable text from resource."""
         parts = []
 
@@ -156,8 +156,8 @@ class MockFHIRConnector:
     async def _search_resources(
         self,
         resource_type: str,
-        params: Dict[str, Any] = None,
-    ) -> tuple[List[FHIRResource], Optional[str]]:
+        params: dict[str, Any] = None,
+    ) -> tuple[list[FHIRResource], Optional[str]]:
         """Search for resources of a given type."""
         params = params or {}
         endpoint = f"/{resource_type}"
@@ -293,7 +293,7 @@ class MockFHIRConnector:
             },
         )
 
-    async def search(self, query: str, limit: int = 10) -> List[Any]:
+    async def search(self, query: str, limit: int = 10) -> list[Any]:
         """Search across resources."""
         results = []
 

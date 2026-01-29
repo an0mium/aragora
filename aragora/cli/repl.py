@@ -4,6 +4,7 @@ Aragora REPL command - Interactive debate mode.
 Provides an interactive shell for running debates, querying memory,
 and exploring the Aragora system.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ COMMANDS = {
     "/config": "Show current configuration",
     "/memory": "Query memory for a topic",
 }
+
 
 class AragoraREPL:
     """Interactive Aragora REPL."""
@@ -285,6 +287,7 @@ class AragoraREPL:
                 break
 
         self._save_history()
+
 
 def cmd_repl(args) -> None:
     """Handle 'repl' command."""

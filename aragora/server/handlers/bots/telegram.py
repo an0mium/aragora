@@ -50,6 +50,7 @@ TELEGRAM_WEBHOOK_TOKEN = ""
 if TELEGRAM_BOT_TOKEN:
     TELEGRAM_WEBHOOK_TOKEN = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).hexdigest()[:32]
 
+
 def _verify_telegram_secret(secret_token: str) -> bool:
     """Verify Telegram X-Telegram-Bot-Api-Secret-Token header.
 
@@ -62,6 +63,7 @@ def _verify_telegram_secret(secret_token: str) -> bool:
 
     return hmac.compare_digest(secret_token, TELEGRAM_WEBHOOK_SECRET)
 
+
 def _verify_webhook_token(token: str) -> bool:
     """Verify token in webhook URL path.
 
@@ -71,6 +73,7 @@ def _verify_webhook_token(token: str) -> bool:
         return True
 
     return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)
+
 
 class TelegramHandler(BotHandlerMixin, SecureHandler):
     """Handler for Telegram Bot API webhook endpoints.

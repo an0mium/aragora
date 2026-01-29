@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class FollowUpStatus(str, Enum):
     """Status of a follow-up item."""
 
@@ -44,6 +45,7 @@ class FollowUpStatus(str, Enum):
     RESOLVED = "resolved"  # Manually marked as resolved
     CANCELLED = "cancelled"  # No longer tracking
 
+
 class FollowUpPriority(str, Enum):
     """Priority level for follow-ups."""
 
@@ -51,6 +53,7 @@ class FollowUpPriority(str, Enum):
     HIGH = "high"  # Important, check soon
     NORMAL = "normal"  # Standard follow-up
     LOW = "low"  # Can wait
+
 
 @dataclass
 class FollowUpItem:
@@ -110,6 +113,7 @@ class FollowUpItem:
             "reminder_count": self.reminder_count,
         }
 
+
 @dataclass
 class FollowUpStats:
     """Statistics about follow-ups."""
@@ -130,6 +134,7 @@ class FollowUpStats:
             "resolved_this_week": self.resolved_this_week,
             "top_recipients": self.top_recipients,
         }
+
 
 class FollowUpTracker:
     """

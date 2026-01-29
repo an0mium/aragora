@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
+
 class PostgreSQLConnector(EnterpriseConnector):
     """
     PostgreSQL connector for enterprise data sync.

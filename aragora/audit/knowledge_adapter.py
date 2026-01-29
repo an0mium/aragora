@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KnowledgeAuditConfig:
     """Configuration for knowledge-audit integration."""
@@ -39,6 +40,7 @@ class KnowledgeAuditConfig:
     # Workspace isolation
     workspace_id: str = "default"
 
+
 @dataclass
 class EnrichedChunk:
     """Document chunk enriched with knowledge base facts."""
@@ -52,6 +54,7 @@ class EnrichedChunk:
     related_facts: list[dict[str, Any]] = field(default_factory=list)
     fact_count: int = 0
     relevance_score: float = 0.0
+
 
 class AuditKnowledgeAdapter:
     """
@@ -417,8 +420,10 @@ class AuditKnowledgeAdapter:
             logger.warning(f"Knowledge validation failed: {e}")
             return {"validated": False, "reason": str(e)}
 
+
 # Global adapter instance
 _adapter: AuditKnowledgeAdapter | None = None
+
 
 def get_audit_knowledge_adapter(
     config: KnowledgeAuditConfig | None = None,
@@ -428,6 +433,7 @@ def get_audit_knowledge_adapter(
     if _adapter is None:
         _adapter = AuditKnowledgeAdapter(config)
     return _adapter
+
 
 __all__ = [
     "AuditKnowledgeAdapter",

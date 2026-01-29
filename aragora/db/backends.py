@@ -11,6 +11,7 @@ Features:
 - Context managers for transaction handling
 - Health checks and connection validation
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,15 +22,16 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generator, Protocol, Union
+from typing import Any, Generator, Protocol
 
 from aragora.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
 # Type aliases
-Params = Union[tuple, dict]
+Params = tuple | dict
 Row = tuple[Any, ...]
+
 
 class ConnectionProtocol(Protocol):
     """Protocol for database connections."""
@@ -54,6 +56,7 @@ class ConnectionProtocol(Protocol):
         """Close the connection."""
         ...
 
+
 class CursorProtocol(Protocol):
     """Protocol for database cursors."""
 
@@ -73,6 +76,7 @@ class CursorProtocol(Protocol):
     def rowcount(self) -> int:
         """Number of affected rows."""
         ...
+
 
 @dataclass
 class DatabaseConfig:
@@ -185,6 +189,7 @@ class DatabaseConfig:
             f"user={self.pg_user} password={self.pg_password} sslmode={self.pg_ssl_mode}"
         )
 
+
 class DatabaseBackend(ABC):
     """Abstract base class for database backends."""
 
@@ -248,6 +253,7 @@ class DatabaseBackend(ABC):
     def placeholder(self) -> str:
         """Parameter placeholder for this backend (? or %s)."""
         pass
+
 
 class SQLiteBackend(DatabaseBackend):
     """SQLite database backend with WAL mode and connection pooling."""
@@ -374,6 +380,7 @@ class SQLiteBackend(DatabaseBackend):
                     pass
             self._pool.clear()
 
+
 class PostgresBackend(DatabaseBackend):
     """PostgreSQL database backend with asyncpg connection pooling.
 
@@ -452,9 +459,7 @@ class PostgresBackend(DatabaseBackend):
         finally:
             self._return_to_pool(conn)
 
-    def execute(
-        self, sql: str, params: Params = (), *, fetch: bool = False
-    ) -> Any | list[Row]:
+    def execute(self, sql: str, params: Params = (), *, fetch: bool = False) -> Any | list[Row]:
         """Execute a SQL statement."""
         sql = self.translate_sql(sql)
         with self.connection() as conn:
@@ -507,9 +512,11 @@ class PostgresBackend(DatabaseBackend):
         if self._sync_pool:
             self._sync_pool.closeall()
 
+
 # Global database instance
 _database: DatabaseBackend | None = None
 _database_lock = threading.Lock()
+
 
 def configure_database(config: DatabaseConfig | None = None) -> DatabaseBackend:
     """Configure and return the global database instance.
@@ -536,6 +543,7 @@ def configure_database(config: DatabaseConfig | None = None) -> DatabaseBackend:
 
         logger.info(f"Database configured: {config.backend}")
         return _database
+
 
 def get_database() -> DatabaseBackend:
     """Get the global database instance.

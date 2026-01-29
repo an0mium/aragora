@@ -40,6 +40,7 @@ register_all_builtins()
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
+
 def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | None:
     """
     Try to connect to the streaming server for audience participation.
@@ -64,6 +65,7 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
         pass
     return None
 
+
 def parse_agents(agents_str: str) -> list[AgentSpec]:
     """Parse agent string using unified AgentSpec.
 
@@ -80,6 +82,7 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
     from aragora.agents.spec import AgentSpec
 
     return AgentSpec.parse_list(agents_str)
+
 
 async def run_debate(
     task: str,
@@ -199,6 +202,7 @@ async def run_debate(
 
     return result
 
+
 def cmd_ask(args: argparse.Namespace) -> None:
     """Handle 'ask' command."""
     agents = args.agents
@@ -260,6 +264,7 @@ def cmd_ask(args: argparse.Namespace) -> None:
         for view in result.dissenting_views:
             print(f"\n{view}")
 
+
 def cmd_stats(args: argparse.Namespace) -> None:
     """Handle 'stats' command."""
     store = CritiqueStore(args.db)
@@ -280,6 +285,7 @@ def cmd_stats(args: argparse.Namespace) -> None:
 
     # Cross-pollination statistics (v2.0.3)
     _print_cross_pollination_stats(args)
+
 
 def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
     """Print cross-pollination statistics."""
@@ -338,6 +344,7 @@ def _print_cross_pollination_stats(args: argparse.Namespace) -> None:
     except (OSError, TypeError) as e:
         logger.warning("Calibration unavailable: %s", e)
         print("\nCalibration: unavailable")
+
 
 def cmd_status(args: argparse.Namespace) -> None:
     """Handle 'status' command - show environment health and agent availability."""
@@ -435,11 +442,13 @@ def cmd_status(args: argparse.Namespace) -> None:
     print("\n" + "=" * 60)
     print("Run 'aragora ask' to start a debate or 'aragora serve' to start the server")
 
+
 def cmd_agents(args: argparse.Namespace) -> None:
     """Handle 'agents' command - list available agents and their configuration."""
     from aragora.cli.agents import main as agents_main
 
     agents_main(args)
+
 
 def cmd_control_plane(args: argparse.Namespace) -> None:
     """Handle 'control-plane' command - show control plane status and management."""
@@ -540,6 +549,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
 
     print("\n" + "=" * 60)
 
+
 def cmd_modes(args: argparse.Namespace) -> None:
     """Handle 'modes' command - list available operational modes."""
     modes = ModeRegistry.get_all()
@@ -592,6 +602,7 @@ def cmd_modes(args: argparse.Namespace) -> None:
     print("Usage: aragora ask 'task' --mode <mode-name>")
     print("       aragora modes --verbose  (show full system prompts)")
 
+
 def cmd_patterns(args: argparse.Namespace) -> None:
     """Handle 'patterns' command."""
     store = CritiqueStore(args.db)
@@ -610,11 +621,13 @@ def cmd_patterns(args: argparse.Namespace) -> None:
         if p.suggestion_text:
             print(f"  Suggestion: {p.suggestion_text[:80]}...")
 
+
 def cmd_demo(args: argparse.Namespace) -> None:
     """Handle 'demo' command - run a quick compelling demo."""
     from aragora.cli.demo import main as demo_main
 
     demo_main(args)
+
 
 def cmd_templates(args: argparse.Namespace) -> None:
     """Handle 'templates' command - list available debate templates."""
@@ -632,11 +645,13 @@ def cmd_templates(args: argparse.Namespace) -> None:
         print(f"  Agents: {t['agents']}, Domain: {t['domain']}")
         print()
 
+
 def cmd_export(args: argparse.Namespace) -> None:
     """Handle 'export' command - export debate artifacts."""
     from aragora.cli.export import main as export_main
 
     export_main(args)
+
 
 def cmd_doctor(args: argparse.Namespace) -> None:
     """Handle 'doctor' command - run system health checks."""
@@ -644,12 +659,14 @@ def cmd_doctor(args: argparse.Namespace) -> None:
 
     sys.exit(doctor_main())
 
+
 def cmd_validate(_: argparse.Namespace) -> None:
     """Handle 'validate' command - validate API keys."""
     # run_validate doesn't exist; reuse doctor main for now
     from aragora.cli.doctor import main as doctor_main
 
     sys.exit(doctor_main())
+
 
 def cmd_validate_env(args: argparse.Namespace) -> None:
     """Handle 'validate-env' command - validate environment and backend connectivity."""
@@ -939,6 +956,7 @@ def cmd_validate_env(args: argparse.Namespace) -> None:
     print()
     sys.exit(1 if failed else 0)
 
+
 def cmd_improve(args: argparse.Namespace) -> None:
     """Handle 'improve' command - self-improvement mode."""
     print("\n" + "=" * 60)
@@ -970,6 +988,7 @@ def cmd_improve(args: argparse.Namespace) -> None:
                     print("  " * indent + f"📄 {k} ({v} bytes)")
 
         print_tree(tree)
+
 
 def cmd_serve(args: argparse.Namespace) -> None:
     """Handle 'serve' command - run live debate server."""
@@ -1081,11 +1100,13 @@ def cmd_serve(args: argparse.Namespace) -> None:
         except KeyboardInterrupt:
             shutdown_workers(None, None)
 
+
 def cmd_init(args: argparse.Namespace) -> None:
     """Handle 'init' command - project scaffolding."""
     from aragora.cli.init import cmd_init as init_handler
 
     init_handler(args)
+
 
 def cmd_setup(args: argparse.Namespace) -> None:
     """Run interactive setup wizard."""
@@ -1093,11 +1114,13 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
     setup_handler(args)
 
+
 def cmd_repl(args: argparse.Namespace) -> None:
     """Handle 'repl' command - interactive debate mode."""
     from aragora.cli.repl import cmd_repl as repl_handler
 
     repl_handler(args)
+
 
 def cmd_config(args: argparse.Namespace) -> None:
     """Handle 'config' command - manage configuration."""
@@ -1105,11 +1128,13 @@ def cmd_config(args: argparse.Namespace) -> None:
 
     config_handler(args)
 
+
 def cmd_replay(args: argparse.Namespace) -> None:
     """Handle 'replay' command - replay stored debates."""
     from aragora.cli.replay import cmd_replay as replay_handler
 
     replay_handler(args)
+
 
 def cmd_bench(args: argparse.Namespace) -> None:
     """Handle 'bench' command - benchmark agents."""
@@ -1117,11 +1142,13 @@ def cmd_bench(args: argparse.Namespace) -> None:
 
     bench_handler(args)
 
+
 def cmd_review(args: argparse.Namespace) -> int:
     """Handle 'review' command - AI red team code review."""
     from aragora.cli.review import cmd_review as review_handler
 
     return review_handler(args)
+
 
 def cmd_gauntlet(args: argparse.Namespace) -> None:
     """Handle 'gauntlet' command - adversarial stress-testing."""
@@ -1129,17 +1156,20 @@ def cmd_gauntlet(args: argparse.Namespace) -> None:
 
     return gauntlet_handler(args)
 
+
 def cmd_badge(args) -> None:
     """Generate badge markdown for README."""
     from aragora.cli.badge import main as badge_main
 
     badge_main(args)
 
+
 def cmd_billing(args: argparse.Namespace) -> int:
     """Handle 'billing' command - manage billing and usage."""
     from aragora.cli.billing import main as billing_main
 
     return billing_main(args)
+
 
 def cmd_mcp_server(args: argparse.Namespace) -> None:
     """Handle 'mcp-server' command - run MCP server."""
@@ -1158,6 +1188,7 @@ def cmd_mcp_server(args: argparse.Namespace) -> None:
             "\nMCP (Model Context Protocol) enables integration with Claude Desktop and other MCP clients."
         )
 
+
 def cmd_marketplace(args: argparse.Namespace) -> None:
     """Handle 'marketplace' command - manage agent templates."""
     from aragora.cli.marketplace import marketplace
@@ -1171,6 +1202,7 @@ def cmd_marketplace(args: argparse.Namespace) -> None:
 
     # Call click command
     marketplace(click_args, standalone_mode=False)
+
 
 def cmd_memory(args: argparse.Namespace) -> None:
     """Handle 'memory' command - inspect ContinuumMemory tiers."""
@@ -1237,6 +1269,7 @@ def cmd_memory(args: argparse.Namespace) -> None:
         print("Cleaning up expired memories...")
         stats = memory.cleanup_expired_memories()
         print(f"Cleanup complete: {stats}")
+
 
 def cmd_elo(args: argparse.Namespace) -> None:
     """Handle 'elo' command - view ELO ratings and history."""
@@ -1353,6 +1386,7 @@ def cmd_elo(args: argparse.Namespace) -> None:
             logger.warning("ELO database error for agent '%s': %s", agent, e)
             print(f"Agent not found: {agent}")
 
+
 def cmd_cross_pollination(args: argparse.Namespace) -> None:
     """Handle 'cross-pollination' command - view event system diagnostics."""
     import json as json_module
@@ -1416,6 +1450,7 @@ def cmd_cross_pollination(args: argparse.Namespace) -> None:
         manager.reset_stats()
         print("Cross-pollination statistics reset successfully.")
 
+
 def get_version() -> str:
     """Get package version from pyproject.toml or fallback."""
     try:
@@ -1428,6 +1463,7 @@ def get_version() -> str:
     except PackageNotFoundError:
         # Package not installed in editable mode - use dev version
         return "0.8.0-dev"
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -1985,6 +2021,7 @@ Subcommands:
         return
 
     args.func(args)
+
 
 if __name__ == "__main__":
     main()

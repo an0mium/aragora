@@ -62,6 +62,7 @@ except ImportError:
     SPAN_ID_HEADER = "X-Span-ID"
     TRACEPARENT_HEADER = "traceparent"
 
+
 def _build_trace_headers() -> dict[str, str]:
     """Build trace context headers for outgoing webhook requests.
 
@@ -93,11 +94,13 @@ def _build_trace_headers() -> dict[str, str]:
 
     return headers
 
+
 # Default database path
 _DEFAULT_DB_PATH = os.environ.get(
     "ARAGORA_WEBHOOK_DB",
     os.path.join(os.environ.get("ARAGORA_DATA_DIR", ".nomic"), "webhook_delivery.db"),
 )
+
 
 class DeliveryStatus(str, Enum):
     """Webhook delivery status."""
@@ -108,6 +111,7 @@ class DeliveryStatus(str, Enum):
     FAILED = "failed"
     RETRYING = "retrying"
     DEAD_LETTERED = "dead_lettered"
+
 
 @dataclass
 class WebhookDelivery:
@@ -149,6 +153,7 @@ class WebhookDelivery:
             ),
         }
 
+
 @dataclass
 class DeliveryMetrics:
     """Metrics for webhook delivery."""
@@ -186,6 +191,7 @@ class DeliveryMetrics:
             "success_rate": round(self.success_rate, 2),
             "avg_latency_ms": round(self.avg_latency_ms, 2),
         }
+
 
 class DeliveryPersistence:
     """SQLite persistence for webhook delivery queues.
@@ -254,9 +260,7 @@ class DeliveryPersistence:
             self._initialized = True
             logger.info(f"Webhook delivery persistence initialized at {self._db_path}")
 
-    def save_delivery(
-        self, delivery: WebhookDelivery, url: str, secret: str | None = None
-    ) -> None:
+    def save_delivery(self, delivery: WebhookDelivery, url: str, secret: str | None = None) -> None:
         """Save or update a delivery record."""
         conn = self._get_connection()
         metadata = delivery.metadata.copy()
@@ -385,6 +389,7 @@ class DeliveryPersistence:
         if hasattr(self._local, "conn") and self._local.conn:
             self._local.conn.close()
             self._local.conn = None
+
 
 class WebhookDeliveryManager:
     """
@@ -945,9 +950,11 @@ class WebhookDeliveryManager:
             "open_circuits": len(self._circuit_open_until),
         }
 
+
 # Global manager instance
 _manager: WebhookDeliveryManager | None = None
 _manager_lock = asyncio.Lock()
+
 
 async def get_delivery_manager() -> WebhookDeliveryManager:
     """Get or create the global delivery manager."""
@@ -957,6 +964,7 @@ async def get_delivery_manager() -> WebhookDeliveryManager:
             _manager = WebhookDeliveryManager()
             await _manager.start()
         return _manager
+
 
 async def deliver_webhook(
     webhook_id: str,
@@ -973,15 +981,18 @@ async def deliver_webhook(
     manager = await get_delivery_manager()
     return await manager.deliver(webhook_id, event_type, payload, url, secret)
 
+
 async def get_webhook_delivery_metrics() -> dict[str, Any]:
     """Get webhook delivery metrics."""
     manager = await get_delivery_manager()
     return await manager.get_metrics()
 
+
 def reset_delivery_manager() -> None:
     """Reset the global manager (for testing)."""
     global _manager
     _manager = None
+
 
 __all__ = [
     "DeliveryStatus",

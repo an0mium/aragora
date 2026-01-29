@@ -39,6 +39,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class AuditTrailHandler(BaseHandler):
     """
     HTTP handler for audit trail operations.

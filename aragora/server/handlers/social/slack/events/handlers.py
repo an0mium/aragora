@@ -14,6 +14,7 @@ from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 class EventsMixin:
     """Mixin providing Slack event handling implementations.
 
@@ -256,5 +257,6 @@ class EventsMixin:
         except (ImportError, AttributeError, RuntimeError) as e:
             logger.debug(f"Failed to fetch agents: {e}")
             return "Agent list temporarily unavailable."
+
 
 __all__ = ["EventsMixin"]

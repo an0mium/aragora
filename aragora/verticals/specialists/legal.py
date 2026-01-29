@@ -138,6 +138,7 @@ legal counsel for specific legal matters.""",
     tags=["legal", "contract", "compliance", "regulatory"],
 )
 
+
 @VerticalRegistry.register(
     "legal",
     config=LEGAL_CONFIG,

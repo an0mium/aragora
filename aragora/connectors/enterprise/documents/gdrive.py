@@ -52,6 +52,7 @@ SUPPORTED_MIMES: set[str] = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
+
 @dataclass
 class DriveFile:
     """A Google Drive file."""
@@ -69,6 +70,7 @@ class DriveFile:
     drive_id: str | None = None  # For Shared Drives
     md5_checksum: str | None = None  # Content hash for change detection
 
+
 @dataclass
 class DriveFolder:
     """A Google Drive folder."""
@@ -77,6 +79,7 @@ class DriveFolder:
     name: str
     parent_id: str | None = None
     drive_id: str | None = None
+
 
 class GoogleDriveConnector(EnterpriseConnector):
     """
@@ -728,5 +731,6 @@ class GoogleDriveConnector(EnterpriseConnector):
             return True
 
         return False
+
 
 __all__ = ["GoogleDriveConnector", "DriveFile", "DriveFolder"]

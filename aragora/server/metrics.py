@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Metric Types
 # =============================================================================
 
+
 @dataclass
 class Counter:
     """Simple counter metric."""
@@ -70,6 +71,7 @@ class Counter:
         with self._lock:
             return [(dict(k), v) for k, v in self._values.items()]
 
+
 @dataclass
 class LabeledCounter:
     """A counter with specific label values."""
@@ -82,6 +84,7 @@ class LabeledCounter:
             self.counter._values[self.label_values] = (
                 self.counter._values.get(self.label_values, 0) + value
             )
+
 
 @dataclass
 class Gauge:
@@ -123,6 +126,7 @@ class Gauge:
         with self._lock:
             return [(dict(k), v) for k, v in self._values.items()]
 
+
 @dataclass
 class LabeledGauge:
     """A gauge with specific label values."""
@@ -142,6 +146,7 @@ class LabeledGauge:
 
     def dec(self, value: float = 1.0) -> None:
         self.inc(-value)
+
 
 @dataclass
 class Histogram:
@@ -196,6 +201,7 @@ class Histogram:
                 )
             return results
 
+
 @dataclass
 class LabeledHistogram:
     """A histogram with specific label values."""
@@ -217,6 +223,7 @@ class LabeledHistogram:
 
             self.histogram._sums[key] += value
             self.histogram._totals[key] += 1
+
 
 def get_percentile(histogram: Histogram, percentile: float, **labels) -> float | None:
     """Estimate a percentile from histogram buckets.
@@ -259,6 +266,7 @@ def get_percentile(histogram: Histogram, percentile: float, **labels) -> float |
         # Above all buckets, return highest bucket boundary
         return histogram.buckets[-1]
 
+
 def get_percentiles(histogram: Histogram, **labels) -> dict[str, float | None]:
     """Get common percentiles (p50, p90, p95, p99) from a histogram.
 
@@ -275,6 +283,7 @@ def get_percentiles(histogram: Histogram, **labels) -> dict[str, float | None]:
         "p95": get_percentile(histogram, 95, **labels),
         "p99": get_percentile(histogram, 99, **labels),
     }
+
 
 # =============================================================================
 # Billing Metrics
@@ -564,6 +573,7 @@ KNOWLEDGE_FEDERATION_REGIONS = Gauge(
 # Helpers
 # =============================================================================
 
+
 @contextmanager
 def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, None]:
     """Context manager to track request latency."""
@@ -591,17 +601,21 @@ def track_request(endpoint: str, method: str = "GET") -> Generator[None, None, N
         API_REQUESTS.inc(endpoint=endpoint, method=method, status=status)
         API_LATENCY.observe(duration, endpoint=endpoint, method=method)
 
+
 def track_subscription_event(event: str, tier: str) -> None:
     """Track a subscription event."""
     SUBSCRIPTION_EVENTS.inc(event=event, tier=tier)
+
 
 def track_debate(tier: str, org_id: str) -> None:
     """Track a debate execution."""
     USAGE_DEBATES.inc(tier=tier, org_id=org_id)
 
+
 def track_tokens(provider: str, tier: str, count: int) -> None:
     """Track token usage."""
     USAGE_TOKENS.inc(count, provider=provider, tier=tier)
+
 
 def track_agent_call(
     agent: str, latency: float, tokens_in: int, tokens_out: int, success: bool
@@ -612,6 +626,7 @@ def track_agent_call(
     AGENT_TOKENS.inc(tokens_in, agent=agent, direction="input")
     AGENT_TOKENS.inc(tokens_out, agent=agent, direction="output")
 
+
 def track_auth_failure(reason: str, endpoint: str = "unknown") -> None:
     """Track an authentication failure.
 
@@ -620,6 +635,7 @@ def track_auth_failure(reason: str, endpoint: str = "unknown") -> None:
         endpoint: The endpoint where the failure occurred
     """
     AUTH_FAILURES.inc(reason=reason, endpoint=endpoint)
+
 
 def track_rate_limit_hit(endpoint: str, limit_type: str = "request") -> None:
     """Track when a rate limit is hit.
@@ -630,6 +646,7 @@ def track_rate_limit_hit(endpoint: str, limit_type: str = "request") -> None:
     """
     RATE_LIMIT_HITS.inc(endpoint=endpoint, limit_type=limit_type)
 
+
 def track_security_violation(violation_type: str) -> None:
     """Track a security violation attempt.
 
@@ -637,6 +654,7 @@ def track_security_violation(violation_type: str) -> None:
         violation_type: Type of violation (path_traversal, xss_attempt, sql_injection, etc)
     """
     SECURITY_VIOLATIONS.inc(type=violation_type)
+
 
 @contextmanager
 def track_vector_operation(operation: str, store: str = "weaviate") -> Generator[None, None, None]:
@@ -677,6 +695,7 @@ def track_vector_operation(operation: str, store: str = "weaviate") -> Generator
         if duration > 0.5:
             logger.warning(f"Slow vector operation: {operation} on {store} took {duration:.3f}s")
 
+
 def track_vector_search_results(
     result_count: int, store: str = "weaviate", search_type: str = "semantic"
 ) -> None:
@@ -689,6 +708,7 @@ def track_vector_search_results(
     """
     VECTOR_RESULTS.observe(result_count, store=store, search_type=search_type)
 
+
 def track_vector_index_batch(batch_size: int, store: str = "weaviate") -> None:
     """Track batch size for vector indexing.
 
@@ -697,6 +717,7 @@ def track_vector_index_batch(batch_size: int, store: str = "weaviate") -> None:
         store: Store name
     """
     VECTOR_INDEX_BATCH_SIZE.observe(batch_size, store=store)
+
 
 def track_debate_outcome(
     status: str,
@@ -738,6 +759,7 @@ def track_debate_outcome(
         if confidence > 0:
             CONSENSUS_QUALITY.set(confidence, domain=domain)
 
+
 def track_circuit_breaker_state(open_count: int) -> None:
     """Track number of open circuit breakers.
 
@@ -745,6 +767,7 @@ def track_circuit_breaker_state(open_count: int) -> None:
         open_count: Number of circuit breakers currently in open state
     """
     CIRCUIT_BREAKERS_OPEN.set(open_count)
+
 
 def track_agent_error(agent: str, error_type: str = "unknown") -> None:
     """Track an agent error with type classification.
@@ -754,6 +777,7 @@ def track_agent_error(agent: str, error_type: str = "unknown") -> None:
         error_type: Type of error (timeout, rate_limit, auth, network, api, validation, unknown)
     """
     AGENT_ERRORS.inc(agent=agent, error_type=error_type)
+
 
 def classify_agent_error(error: Exception) -> str:
     """Classify an exception into an error type for metrics.
@@ -782,6 +806,7 @@ def classify_agent_error(error: Exception) -> str:
 
     return "unknown"
 
+
 def track_agent_participation(agent_name: str, outcome: str) -> None:
     """Track an agent's participation in a debate.
 
@@ -790,6 +815,7 @@ def track_agent_participation(agent_name: str, outcome: str) -> None:
         outcome: Participation outcome (won, lost, abstained, contributed)
     """
     AGENT_PARTICIPATION.inc(agent_name=agent_name, outcome=outcome)
+
 
 @contextmanager
 def track_debate_execution(domain: str = "general") -> Generator[dict, None, None]:
@@ -846,9 +872,11 @@ def track_debate_execution(domain: str = "general") -> Generator[dict, None, Non
             confidence=float(ctx["confidence"]),
         )
 
+
 # =============================================================================
 # Knowledge Mound Helpers
 # =============================================================================
+
 
 def track_visibility_change(
     node_id: str,
@@ -863,6 +891,7 @@ def track_visibility_change(
         workspace_id=workspace_id,
     )
 
+
 def track_access_grant(
     action: str,
     grantee_type: str,
@@ -875,21 +904,26 @@ def track_access_grant(
         workspace_id=workspace_id,
     )
 
+
 def track_share(action: str, target_type: str) -> None:
     """Track a sharing operation (share/accept/decline/revoke)."""
     KNOWLEDGE_SHARES.inc(action=action, target_type=target_type)
+
 
 def track_shared_items_count(workspace_id: str, count: int) -> None:
     """Update the count of pending shared items for a workspace."""
     KNOWLEDGE_SHARED_ITEMS.set(count, workspace_id=workspace_id)
 
+
 def track_global_fact(action: str) -> None:
     """Track a global knowledge operation (stored/promoted/queried)."""
     KNOWLEDGE_GLOBAL_FACTS.inc(action=action)
 
+
 def track_global_query(has_results: bool) -> None:
     """Track a query against global knowledge."""
     KNOWLEDGE_GLOBAL_QUERIES.inc(has_results=str(has_results).lower())
+
 
 @contextmanager
 def track_federation_sync(
@@ -950,6 +984,7 @@ def track_federation_sync(
             direction=direction,
         )
 
+
 def track_federation_regions(
     enabled: int = 0,
     disabled: int = 0,
@@ -962,9 +997,11 @@ def track_federation_regions(
     KNOWLEDGE_FEDERATION_REGIONS.set(healthy, status="healthy")
     KNOWLEDGE_FEDERATION_REGIONS.set(unhealthy, status="unhealthy")
 
+
 # =============================================================================
 # Prometheus Format Export
 # =============================================================================
+
 
 def _format_labels(labels: dict) -> str:
     """Format labels for Prometheus output."""
@@ -972,6 +1009,7 @@ def _format_labels(labels: dict) -> str:
         return ""
     parts = [f'{k}="{v}"' for k, v in sorted(labels.items())]
     return "{" + ",".join(parts) + "}"
+
 
 def generate_metrics() -> str:
     """Generate Prometheus-format metrics output.
@@ -1127,6 +1165,7 @@ def generate_metrics() -> str:
         lines.append(f"# Error collecting observability metrics: {e}")
 
     return "\n".join(lines)
+
 
 __all__ = [
     # Metric types

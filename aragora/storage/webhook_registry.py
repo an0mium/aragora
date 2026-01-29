@@ -24,6 +24,7 @@ from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class WebhookConfig:
     """Configuration for a registered webhook."""
@@ -65,6 +66,7 @@ class WebhookConfig:
         if "*" in self.events:
             return True
         return event_type in self.events
+
 
 class SQLiteWebhookRegistry:
     """
@@ -398,8 +400,10 @@ class SQLiteWebhookRegistry:
             self._local.conn.close()
             del self._local.conn
 
+
 # Global webhook registry instance
 _webhook_registry: SQLiteWebhookRegistry | None = None
+
 
 def get_webhook_registry() -> SQLiteWebhookRegistry:
     """
@@ -427,15 +431,18 @@ def get_webhook_registry() -> SQLiteWebhookRegistry:
     _webhook_registry = SQLiteWebhookRegistry(data_dir / "webhook_registry.db")
     return _webhook_registry
 
+
 def set_webhook_registry(registry: SQLiteWebhookRegistry) -> None:
     """Set custom webhook registry (for testing)."""
     global _webhook_registry
     _webhook_registry = registry
 
+
 def reset_webhook_registry() -> None:
     """Reset the global webhook registry (for testing)."""
     global _webhook_registry
     _webhook_registry = None
+
 
 __all__ = [
     "WebhookConfig",

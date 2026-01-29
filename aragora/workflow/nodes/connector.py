@@ -33,6 +33,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class ConnectorOperation(str, Enum):
     """Standard connector operations."""
 
@@ -45,6 +46,7 @@ class ConnectorOperation(str, Enum):
     SYNC = "sync"
     CUSTOM = "custom"
 
+
 @dataclass
 class ConnectorMetadata:
     """Metadata about a connector type."""
@@ -56,6 +58,7 @@ class ConnectorMetadata:
     operations: list[str]
     auth_required: bool = True
     auth_type: str = "api_key"  # api_key, oauth2, basic, none
+
 
 # Registry of known connector types and their implementations
 _CONNECTOR_REGISTRY: dict[str, ConnectorMetadata] = {
@@ -231,6 +234,7 @@ _CONNECTOR_REGISTRY: dict[str, ConnectorMetadata] = {
     ),
 }
 
+
 def register_connector(
     name: str,
     metadata: ConnectorMetadata,
@@ -239,13 +243,16 @@ def register_connector(
     _CONNECTOR_REGISTRY[name] = metadata
     logger.debug(f"Registered connector type: {name}")
 
+
 def get_connector_metadata(name: str) -> ConnectorMetadata | None:
     """Get metadata for a connector type."""
     return _CONNECTOR_REGISTRY.get(name)
 
+
 def list_connectors() -> list[ConnectorMetadata]:
     """List all registered connector types."""
     return list(_CONNECTOR_REGISTRY.values())
+
 
 async def create_connector(
     connector_type: str,
@@ -281,6 +288,7 @@ async def create_connector(
 
     # Instantiate connector
     return connector_class(**config)
+
 
 class ConnectorStep(BaseStep):
     """
@@ -582,6 +590,7 @@ class ConnectorStep(BaseStep):
             return [r.to_dict() if hasattr(r, "to_dict") else r for r in result]
 
         return result
+
 
 # Alias for convenience
 Connector = ConnectorStep

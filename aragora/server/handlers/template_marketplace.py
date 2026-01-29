@@ -55,6 +55,7 @@ _marketplace_limiter = RateLimiter(requests_per_minute=120)
 _publish_limiter = RateLimiter(requests_per_minute=10)
 _rate_limiter = RateLimiter(requests_per_minute=30)
 
+
 @dataclass
 class MarketplaceTemplate:
     """A template published to the marketplace."""
@@ -128,6 +129,7 @@ class MarketplaceTemplate:
             "created_at": self.created_at,
         }
 
+
 @dataclass
 class TemplateReview:
     """A review for a marketplace template."""
@@ -155,6 +157,7 @@ class TemplateReview:
             "created_at": self.created_at,
         }
 
+
 # In-memory storage (fallback when database unavailable)
 _marketplace_templates: dict[str, MarketplaceTemplate] = {}
 _template_reviews: dict[str, list[TemplateReview]] = {}
@@ -163,6 +166,7 @@ _user_ratings: dict[str, dict[str, int]] = {}  # user_id -> {template_id: rating
 # Production persistence (optional)
 _use_persistent_store: bool = False
 _persistent_store: Any | None = None
+
 
 def _init_persistent_store() -> bool:
     """Initialize persistent store if available.
@@ -196,12 +200,14 @@ def _init_persistent_store() -> bool:
         _use_persistent_store = False
         return False
 
+
 def _get_persistent_store():
     """Get the persistent store, initializing if needed."""
     global _persistent_store
     if _persistent_store is None:
         _init_persistent_store()
     return _persistent_store if _use_persistent_store else None
+
 
 def _seed_marketplace_templates() -> None:
     """Seed marketplace with sample templates."""
@@ -410,6 +416,7 @@ def _seed_marketplace_templates() -> None:
 
     for template in sample_templates:
         _marketplace_templates[template.id] = template
+
 
 class TemplateMarketplaceHandler(BaseHandler):
     """Handler for template marketplace API endpoints."""

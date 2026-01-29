@@ -72,6 +72,7 @@ _webhook_callback: Optional[Callable[[dict[str, Any]], bool]] = None
 _violation_buffer: list[dict[str, Any]] = []
 _buffer_lock: Any | None = None  # threading.Lock set on init
 
+
 # Config for webhook notifications
 @dataclass
 class SLOWebhookConfig:
@@ -81,6 +82,7 @@ class SLOWebhookConfig:
     min_severity: str = "minor"  # minor, moderate, major, critical
     batch_size: int = 10  # Max violations per webhook call
     cooldown_seconds: float = 60.0  # Min time between notifications for same operation
+
 
 # Severity ordering for filtering
 SEVERITY_ORDER = {"minor": 0, "moderate": 1, "major": 2, "critical": 3}
@@ -104,6 +106,7 @@ SLO_CHECKS_TOTAL: Any = None
 SLO_VIOLATIONS_TOTAL: Any = None
 SLO_LATENCY_HISTOGRAM: Any = None
 SLO_VIOLATION_MARGIN: Any = None  # How much over the threshold
+
 
 def init_slo_metrics() -> bool:
     """Initialize SLO Prometheus metrics lazily.
@@ -170,6 +173,7 @@ def init_slo_metrics() -> bool:
         _initialized = True
         return False
 
+
 def record_slo_check(
     operation: str,
     passed: bool,
@@ -191,6 +195,7 @@ def record_slo_check(
         percentile=percentile,
         result=result,
     ).inc()
+
 
 def record_slo_violation(
     operation: str,
@@ -256,6 +261,7 @@ def record_slo_violation(
 
     return severity
 
+
 def record_operation_latency(operation: str, latency_ms: float) -> None:
     """Record operation latency for SLO histogram.
 
@@ -267,6 +273,7 @@ def record_operation_latency(operation: str, latency_ms: float) -> None:
         init_slo_metrics()
 
     SLO_LATENCY_HISTOGRAM.labels(operation=operation).observe(latency_ms)
+
 
 def check_and_record_slo(
     operation: str,
@@ -310,6 +317,7 @@ def check_and_record_slo(
 
     return passed, message
 
+
 @contextmanager
 def track_operation_slo(
     operation: str,
@@ -352,6 +360,7 @@ def track_operation_slo(
                 ctx if ctx else "none",
             )
 
+
 def get_slo_metrics_summary() -> dict:
     """Get a summary of SLO metrics for observability endpoints.
 
@@ -383,7 +392,9 @@ def get_slo_metrics_summary() -> dict:
         ],
     }
 
+
 # --- Webhook Integration ---
+
 
 def init_slo_webhooks(
     webhook_config: SLOWebhookConfig | None = None,
@@ -453,6 +464,7 @@ def init_slo_webhooks(
         logger.warning(f"Failed to initialize SLO webhooks: {e}")
         return False
 
+
 def notify_slo_violation(
     operation: str,
     percentile: str,
@@ -517,6 +529,7 @@ def notify_slo_violation(
 
     return result
 
+
 def get_slo_webhook_status() -> dict[str, Any]:
     """Get status of SLO webhook integration.
 
@@ -531,6 +544,7 @@ def get_slo_webhook_status() -> dict[str, Any]:
             op for op, state in _violation_state.items() if state.get("in_violation", False)
         ],
     }
+
 
 def notify_slo_recovery(
     operation: str,
@@ -589,6 +603,7 @@ def notify_slo_recovery(
         result = True  # Consider success if we have callbacks
 
     return result
+
 
 def check_and_record_slo_with_recovery(
     operation: str,
@@ -691,6 +706,7 @@ def check_and_record_slo_with_recovery(
 
     return passed, message
 
+
 def get_violation_state(operation: str | None = None) -> dict[str, Any]:
     """Get current violation state for operation(s).
 
@@ -704,8 +720,10 @@ def get_violation_state(operation: str | None = None) -> dict[str, Any]:
         return _violation_state.get(operation, {"in_violation": False})
     return dict(_violation_state)
 
+
 # --- External Callback Registration ---
 # Allows external modules (like SLO Alert Bridge) to receive violation/recovery events
+
 
 def register_violation_callback(
     callback: Callable[[dict[str, Any]], Any],
@@ -733,6 +751,7 @@ def register_violation_callback(
         _violation_callbacks.append(callback)
         logger.debug(f"Registered SLO violation callback: {callback.__name__}")
 
+
 def register_recovery_callback(
     callback: Callable[[dict[str, Any]], Any],
 ) -> None:
@@ -755,6 +774,7 @@ def register_recovery_callback(
         _recovery_callbacks.append(callback)
         logger.debug(f"Registered SLO recovery callback: {callback.__name__}")
 
+
 def unregister_violation_callback(
     callback: Callable[[dict[str, Any]], Any],
 ) -> bool:
@@ -772,6 +792,7 @@ def unregister_violation_callback(
         return True
     except ValueError:
         return False
+
 
 def unregister_recovery_callback(
     callback: Callable[[dict[str, Any]], Any],
@@ -791,11 +812,13 @@ def unregister_recovery_callback(
     except ValueError:
         return False
 
+
 def clear_all_callbacks() -> None:
     """Clear all registered callbacks. Primarily for testing."""
     _violation_callbacks.clear()
     _recovery_callbacks.clear()
     logger.debug("Cleared all SLO callbacks")
+
 
 def _invoke_callbacks(
     callbacks: list[Callable[[dict[str, Any]], Any]],

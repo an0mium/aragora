@@ -35,11 +35,13 @@ from aragora.connectors.model_base import ConnectorDataclass
 
 logger = logging.getLogger(__name__)
 
+
 class ShopifyEnvironment(str, Enum):
     """Shopify environment."""
 
     DEVELOPMENT = "development"
     PRODUCTION = "production"
+
 
 class OrderStatus(str, Enum):
     """Order fulfillment status."""
@@ -51,6 +53,7 @@ class OrderStatus(str, Enum):
     CANCELLED = "cancelled"
     REFUNDED = "refunded"
 
+
 class PaymentStatus(str, Enum):
     """Order payment status."""
 
@@ -61,11 +64,13 @@ class PaymentStatus(str, Enum):
     VOIDED = "voided"
     AUTHORIZED = "authorized"
 
+
 class InventoryPolicy(str, Enum):
     """Inventory tracking policy."""
 
     DENY = "deny"  # Don't allow overselling
     CONTINUE = "continue"  # Allow overselling
+
 
 @dataclass
 class ShopifyCredentials:
@@ -84,6 +89,7 @@ class ShopifyCredentials:
             access_token=os.environ.get("SHOPIFY_ACCESS_TOKEN", ""),
             api_version=os.environ.get("SHOPIFY_API_VERSION", "2024-01"),
         )
+
 
 @dataclass
 class ShopifyAddress(ConnectorDataclass):
@@ -113,6 +119,7 @@ class ShopifyAddress(ConnectorDataclass):
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
+
 @dataclass
 class ShopifyLineItem(ConnectorDataclass):
     """Order line item."""
@@ -140,6 +147,7 @@ class ShopifyLineItem(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class ShopifyOrder(ConnectorDataclass):
@@ -189,6 +197,7 @@ class ShopifyOrder(ConnectorDataclass):
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
+
 @dataclass
 class ShopifyProduct(ConnectorDataclass):
     """Shopify product."""
@@ -217,6 +226,7 @@ class ShopifyProduct(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class ShopifyVariant(ConnectorDataclass):
@@ -248,6 +258,7 @@ class ShopifyVariant(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 @dataclass
 class ShopifyCustomer(ConnectorDataclass):
@@ -292,6 +303,7 @@ class ShopifyCustomer(ConnectorDataclass):
         result["fullName"] = self.full_name
         return result
 
+
 @dataclass
 class ShopifyInventoryLevel(ConnectorDataclass):
     """Inventory level at a location."""
@@ -310,6 +322,7 @@ class ShopifyInventoryLevel(ConnectorDataclass):
 
     def to_dict(self, exclude=None, use_api_names=True) -> dict[str, Any]:
         return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+
 
 class ShopifyConnector(EnterpriseConnector):
     """
@@ -1046,9 +1059,11 @@ class ShopifyConnector(EnterpriseConnector):
                 },
             )
 
+
 # =========================================================================
 # Mock data for testing
 # =========================================================================
+
 
 def get_mock_orders() -> list[ShopifyOrder]:
     """Get mock Shopify orders for testing."""
@@ -1083,6 +1098,7 @@ def get_mock_orders() -> list[ShopifyOrder]:
         ),
     ]
 
+
 def get_mock_products() -> list[ShopifyProduct]:
     """Get mock Shopify products for testing."""
     now = datetime.now(timezone.utc)
@@ -1110,6 +1126,7 @@ def get_mock_products() -> list[ShopifyProduct]:
             ],
         ),
     ]
+
 
 __all__ = [
     "ShopifyConnector",

@@ -28,6 +28,7 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ClausePattern:
     """Pattern for detecting contract clauses."""
@@ -39,6 +40,7 @@ class ClausePattern:
     description: str
     flags: int = re.IGNORECASE | re.MULTILINE
 
+
 @dataclass
 class CompliancePattern:
     """Pattern for detecting compliance-related terms."""
@@ -47,6 +49,7 @@ class CompliancePattern:
     pattern: str
     framework: str  # GDPR, HIPAA, SOX, etc.
     description: str
+
 
 class LegalKnowledge(BaseVerticalKnowledge):
     """

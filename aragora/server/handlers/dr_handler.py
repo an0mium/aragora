@@ -34,6 +34,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class DRHandler(BaseHandler):
     """
     HTTP handler for disaster recovery operations.
@@ -545,6 +546,7 @@ class DRHandler(BaseHandler):
         checks.append(check)
 
         return json_response(validation_results)
+
 
 # Handler factory function for registration
 def create_dr_handler(server_context: ServerContext) -> DRHandler:

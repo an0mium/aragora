@@ -27,6 +27,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class ReplayStorage:
     """Manages replay storage and indexing."""
 

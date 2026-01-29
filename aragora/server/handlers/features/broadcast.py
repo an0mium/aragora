@@ -58,9 +58,11 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MP3 = None
 
+
 def _run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Run async coroutine in sync context."""
     return run_async(coro)
+
 
 class BroadcastHandler(BaseHandler):
     """Handler for broadcast generation endpoints."""

@@ -23,6 +23,7 @@ from aragora.core_types import Critique, Message
 
 logger = logging.getLogger(__name__)
 
+
 class ReviewCategory(str, Enum):
     """Categories of code review findings."""
 
@@ -35,6 +36,7 @@ class ReviewCategory(str, Enum):
     DOCUMENTATION = "documentation"
     ARCHITECTURE = "architecture"
 
+
 class FindingSeverity(str, Enum):
     """Severity levels for findings."""
 
@@ -43,6 +45,7 @@ class FindingSeverity(str, Enum):
     MEDIUM = "medium"  # Recommended fix
     LOW = "low"  # Nice to have
     INFO = "info"  # Informational
+
 
 @dataclass
 class CodeLocation:
@@ -60,6 +63,7 @@ class CodeLocation:
             "endLine": self.end_line,
             "codeSnippet": self.code_snippet,
         }
+
 
 @dataclass
 class ReviewFinding:
@@ -93,6 +97,7 @@ class ReviewFinding:
             "references": self.references,
             "tags": self.tags,
         }
+
 
 @dataclass
 class ReviewResult:
@@ -137,6 +142,7 @@ class ReviewResult:
             "reviewersParticipated": self.reviewers_participated,
             "consensusNotes": self.consensus_notes,
         }
+
 
 # Security vulnerability patterns
 SECURITY_PATTERNS = [
@@ -192,6 +198,7 @@ MAINTAINABILITY_PATTERNS = [
     (r"global\s+\w+", "Global variable usage", FindingSeverity.LOW),
     (r"print\s*\(", "Print statement (use logging instead)", FindingSeverity.LOW),
 ]
+
 
 class SecurityReviewer(BaseDebateAgent):
     """Agent specialized in security review."""
@@ -289,6 +296,7 @@ CWE: [CWE-XXX if applicable]"""
 
         return findings
 
+
 class PerformanceReviewer(BaseDebateAgent):
     """Agent specialized in performance review."""
 
@@ -384,6 +392,7 @@ SUGGESTION: [how to optimize]"""
                     )
 
         return findings
+
 
 class MaintainabilityReviewer(BaseDebateAgent):
     """Agent specialized in code quality and maintainability review."""
@@ -481,6 +490,7 @@ SUGGESTION: [how to improve]"""
 
         return findings
 
+
 class TestCoverageReviewer(BaseDebateAgent):
     """Agent specialized in test coverage review."""
 
@@ -541,6 +551,7 @@ PRIORITY: [1-5]"""
             severity=0.0,
             reasoning="Pattern-based reviewer",
         )
+
 
 class CodeReviewOrchestrator:
     """

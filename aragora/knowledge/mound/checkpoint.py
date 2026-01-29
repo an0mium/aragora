@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KMCheckpointMetadata:
     """Metadata for a Knowledge Mound checkpoint."""
@@ -80,6 +81,7 @@ class KMCheckpointMetadata:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+
 @dataclass
 class KMCheckpointContent:
     """Content of a Knowledge Mound checkpoint."""
@@ -112,6 +114,7 @@ class KMCheckpointContent:
             "workspace_metadata": self.workspace_metadata,
         }
 
+
 @dataclass
 class RestoreResult:
     """Result of restoring from checkpoint."""
@@ -123,6 +126,7 @@ class RestoreResult:
     culture_restored: bool = False
     duration_ms: int = 0
     errors: list[str] = field(default_factory=list)
+
 
 class KMCheckpointStore:
     """
@@ -687,11 +691,13 @@ class KMCheckpointStore:
 
         return deleted
 
+
 # ============================================================================
 # Singleton and Factory
 # ============================================================================
 
 _checkpoint_store: KMCheckpointStore | None = None
+
 
 def get_km_checkpoint_store(
     mound: Optional["KnowledgeMound"] = None,
@@ -714,10 +720,12 @@ def get_km_checkpoint_store(
 
     return _checkpoint_store
 
+
 def reset_km_checkpoint_store() -> None:
     """Reset the checkpoint store singleton (for testing)."""
     global _checkpoint_store
     _checkpoint_store = None
+
 
 __all__ = [
     "KMCheckpointStore",

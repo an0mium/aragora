@@ -18,6 +18,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class DecisionStep(BaseStep):
     """
     Decision step for conditional branching in workflows.
@@ -242,6 +243,7 @@ class DecisionStep(BaseStep):
                 parts.append(f"  - {k}: {v_str}")
 
         return "\n".join(parts)
+
 
 class SwitchStep(BaseStep):
     """

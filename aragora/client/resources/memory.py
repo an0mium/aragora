@@ -16,6 +16,7 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 class MemoryAPI:
     """API interface for memory tier analytics."""
 

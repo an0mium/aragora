@@ -9,6 +9,7 @@ Detects:
 Use this to automatically discover available local models
 for privacy-first deployments.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class LocalLLMServer:
     """Information about a detected local LLM server."""
@@ -30,6 +32,7 @@ class LocalLLMServer:
     models: list[str] = field(default_factory=list)
     default_model: str | None = None
     version: str | None = None
+
 
 @dataclass
 class LocalLLMStatus:
@@ -52,6 +55,7 @@ class LocalLLMStatus:
             if server.available:
                 agents.append(server.name)
         return agents
+
 
 class LocalLLMDetector:
     """
@@ -214,6 +218,7 @@ class LocalLLMDetector:
         # No preference match, return first
         return models[0] if models else "default"
 
+
 async def detect_local_llms() -> LocalLLMStatus:
     """Convenience function to detect all local LLMs.
 
@@ -229,6 +234,7 @@ async def detect_local_llms() -> LocalLLMStatus:
     detector = LocalLLMDetector()
     return await detector.detect_all()
 
+
 def detect_local_llms_sync() -> LocalLLMStatus:
     """Synchronous version of detect_local_llms.
 
@@ -236,6 +242,7 @@ def detect_local_llms_sync() -> LocalLLMStatus:
         LocalLLMStatus with available servers and models
     """
     return asyncio.run(detect_local_llms())
+
 
 __all__ = [
     "LocalLLMDetector",

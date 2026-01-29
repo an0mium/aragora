@@ -40,9 +40,9 @@ class MockAgentRating:
 class MockRequest:
     """Mock aiohttp request object."""
 
-    headers: Dict[str, str] = field(default_factory=dict)
-    query: Dict[str, str] = field(default_factory=dict)
-    match_info: Dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    query: dict[str, str] = field(default_factory=dict)
+    match_info: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if "Origin" not in self.headers:
@@ -52,7 +52,7 @@ class MockRequest:
 class MockResponse:
     """Mock aiohttp response for capturing handler output."""
 
-    def __init__(self, status: int = 200, body: Any = None, headers: Dict = None):
+    def __init__(self, status: int = 200, body: Any = None, headers: dict = None):
         self.status = status
         self.body = body
         self.headers = headers or {}
@@ -61,14 +61,14 @@ class MockResponse:
 class MockEloSystem:
     """Mock ELO system for testing."""
 
-    def get_leaderboard(self, limit: int = 10) -> List[MockAgentRating]:
+    def get_leaderboard(self, limit: int = 10) -> list[MockAgentRating]:
         return [
             MockAgentRating("claude", 1600, 10, 2, 1),
             MockAgentRating("gemini", 1550, 8, 4, 1),
             MockAgentRating("gpt4", 1500, 5, 5, 2),
         ][:limit]
 
-    def get_recent_matches(self, limit: int = 10) -> List[Dict]:
+    def get_recent_matches(self, limit: int = 10) -> list[dict]:
         return [
             {"id": "match1", "winner": "claude", "loser": "gemini", "timestamp": "2026-01-01"},
             {"id": "match2", "winner": "gpt4", "loser": "claude", "timestamp": "2026-01-02"},
@@ -78,7 +78,7 @@ class MockEloSystem:
 class MockInsightStore:
     """Mock InsightStore for testing."""
 
-    async def get_recent_insights(self, limit: int = 10) -> List[Dict]:
+    async def get_recent_insights(self, limit: int = 10) -> list[dict]:
         return [
             {"id": "insight1", "content": "Test insight 1", "debate_id": "d1"},
             {"id": "insight2", "content": "Test insight 2", "debate_id": "d2"},
@@ -88,14 +88,14 @@ class MockInsightStore:
 class MockFlipDetector:
     """Mock FlipDetector for testing."""
 
-    def get_flip_summary(self) -> Dict:
+    def get_flip_summary(self) -> dict:
         return {
             "total_flips": 15,
             "average_confidence_change": 0.3,
             "top_flipper": "claude",
         }
 
-    def get_recent_flips(self, limit: int = 10) -> List[Dict]:
+    def get_recent_flips(self, limit: int = 10) -> list[dict]:
         return [
             {"agent": "claude", "topic": "AI safety", "old_position": "pro", "new_position": "con"},
         ][:limit]
@@ -150,7 +150,7 @@ def handler_mixin(mock_elo_system, mock_insight_store, mock_flip_detector):
             self.audience_inbox = None
             self.emitter = None
 
-        def _cors_headers(self, origin: Optional[str] = None) -> Dict[str, str]:
+        def _cors_headers(self, origin: Optional[str] = None) -> dict[str, str]:
             return {
                 "Access-Control-Allow-Origin": origin or "*",
                 "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

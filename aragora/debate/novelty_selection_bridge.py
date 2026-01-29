@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentNoveltyStats:
     """Novelty statistics for a single agent."""
@@ -65,6 +66,7 @@ class AgentNoveltyStats:
         if self.total_rounds == 0:
             return 0.0
         return self.low_novelty_rounds / self.total_rounds
+
 
 @dataclass
 class NoveltySelectionBridgeConfig:
@@ -93,6 +95,7 @@ class NoveltySelectionBridgeConfig:
 
     # Decay factor for old novelty data (applied daily)
     decay_factor: float = 0.95
+
 
 @dataclass
 class NoveltySelectionBridge:
@@ -389,6 +392,7 @@ class NoveltySelectionBridge:
         self._novelty_adjustments.clear()
         logger.debug("NoveltySelectionBridge reset")
 
+
 def create_novelty_selection_bridge(
     novelty_tracker: Optional["NoveltyTracker"] = None,
     selection_feedback: Optional["SelectionFeedbackLoop"] = None,
@@ -410,6 +414,7 @@ def create_novelty_selection_bridge(
         selection_feedback=selection_feedback,
         config=config,
     )
+
 
 __all__ = [
     "NoveltySelectionBridge",

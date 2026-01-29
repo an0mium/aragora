@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 @dataclass
 class Permission:
     """RBAC permission definition."""
@@ -18,6 +19,7 @@ class Permission:
     resource: str
     action: str
     conditions: dict[str, Any] | None = None
+
 
 @dataclass
 class Role:
@@ -33,6 +35,7 @@ class Role:
     created_at: str | None = None
     updated_at: str | None = None
 
+
 @dataclass
 class RoleAssignment:
     """Role assignment to a user."""
@@ -45,6 +48,7 @@ class RoleAssignment:
     assigned_at: str = ""
     assigned_by: str | None = None
 
+
 @dataclass
 class PermissionCheck:
     """Result of a permission check."""
@@ -53,6 +57,7 @@ class PermissionCheck:
     permission: str
     resource: str | None = None
     reason: str | None = None
+
 
 class RBACAPI:
     """API interface for Role-Based Access Control (RBAC)."""

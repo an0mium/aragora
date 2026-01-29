@@ -1,6 +1,7 @@
 """
 Data models for persistent storage.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ from datetime import datetime
 from typing import ClassVar
 
 from aragora.serialization import SerializableMixin
+
 
 @dataclass
 class NomicCycle(SerializableMixin):
@@ -28,6 +30,7 @@ class NomicCycle(SerializableMixin):
     id: str | None = None  # Set by database
 
     # to_dict() inherited from SerializableMixin (handles datetime serialization)
+
 
 @dataclass
 class DebateArtifact(SerializableMixin):
@@ -50,6 +53,7 @@ class DebateArtifact(SerializableMixin):
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
 
+
 @dataclass
 class StreamEvent(SerializableMixin):
     """A real-time event from the nomic loop."""
@@ -65,6 +69,7 @@ class StreamEvent(SerializableMixin):
     id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
+
 
 @dataclass
 class AgentMetrics(SerializableMixin):
@@ -88,6 +93,7 @@ class AgentMetrics(SerializableMixin):
     id: str | None = None
 
     # to_dict() inherited from SerializableMixin (excludes id, handles datetime)
+
 
 @dataclass
 class NomicRollback(SerializableMixin):
@@ -113,6 +119,7 @@ class NomicRollback(SerializableMixin):
 
     # to_dict() inherited from SerializableMixin (handles datetime)
 
+
 @dataclass
 class CycleEvolution(SerializableMixin):
     """
@@ -133,6 +140,7 @@ class CycleEvolution(SerializableMixin):
     created_at: datetime = field(default_factory=datetime.utcnow)
 
     # to_dict() inherited from SerializableMixin (handles datetime)
+
 
 @dataclass
 class CycleFileChange(SerializableMixin):

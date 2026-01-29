@@ -28,6 +28,7 @@ Usage:
     # Reprioritize based on conditions
     await queue.reprioritize()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WorkType(str, Enum):
     """Types of work in the queue."""
 
@@ -55,6 +57,7 @@ class WorkType(str, Enum):
     ESCALATION = "escalation"
     MAINTENANCE = "maintenance"
     CUSTOM = "custom"
+
 
 class WorkStatus(str, Enum):
     """Status of work items."""
@@ -67,6 +70,7 @@ class WorkStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
+
 @dataclass(order=True)
 class PrioritizedWork:
     """
@@ -77,6 +81,7 @@ class PrioritizedWork:
 
     sort_priority: tuple[int, datetime, str] = field(compare=True)
     work_item: "WorkItem" = field(compare=False)
+
 
 @dataclass
 class WorkItem:
@@ -155,6 +160,7 @@ class WorkItem:
         """Check if work is ready (all dependencies met)."""
         return all(dep in completed_ids for dep in self.dependencies) and not self.blockers
 
+
 @dataclass
 class PriorityConfig:
     """Configuration for priority calculation."""
@@ -176,6 +182,7 @@ class PriorityConfig:
     critical_tag_boost: int = 20
     blocker_penalty: int = -50
     dependency_ready_boost: int = 10
+
 
 class PriorityCalculator:
     """
@@ -271,6 +278,7 @@ class PriorityCalculator:
 
         # Clamp to valid range
         return max(0, min(100, int(priority)))
+
 
 class GlobalWorkQueue:
     """
@@ -771,8 +779,10 @@ class GlobalWorkQueue:
             "heap_size": len(self._heap),
         }
 
+
 # Singleton instance
 _default_queue: GlobalWorkQueue | None = None
+
 
 async def get_global_work_queue(
     bead_store: Optional["BeadStore"] = None,
@@ -787,6 +797,7 @@ async def get_global_work_queue(
         )
         await _default_queue.initialize()
     return _default_queue
+
 
 def reset_global_work_queue() -> None:
     """Reset the default queue (for testing)."""

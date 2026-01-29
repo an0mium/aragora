@@ -42,6 +42,7 @@ except ImportError as e:
     ABTestManager = None  # type: ignore[misc,assignment]
     logger.debug(f"A/B testing module not available: {e}")
 
+
 class EvolutionABTestingHandler(BaseHandler):
     """Handler for evolution A/B testing endpoints."""
 

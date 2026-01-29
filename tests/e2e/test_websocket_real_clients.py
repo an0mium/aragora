@@ -61,7 +61,7 @@ class TestWebSocketEventBroadcast:
     @pytest.mark.asyncio
     async def test_emitter_emit_event(self, mock_server):
         """Verify emitter can emit StreamEvent objects."""
-        events_received: List[Any] = []
+        events_received: list[Any] = []
 
         def on_event(event: StreamEvent) -> None:
             events_received.append(event)
@@ -84,7 +84,7 @@ class TestWebSocketEventBroadcast:
     @pytest.mark.asyncio
     async def test_multiple_event_types(self, mock_server):
         """Verify different event types are handled."""
-        events_received: List[StreamEvent] = []
+        events_received: list[StreamEvent] = []
 
         mock_server._emitter.subscribe(lambda e: events_received.append(e))
 
@@ -291,7 +291,7 @@ class TestConcurrentOperations:
         import threading
 
         clients_to_add = [MagicMock() for _ in range(100)]
-        errors: List[Exception] = []
+        errors: list[Exception] = []
 
         def add_and_remove(client):
             try:
@@ -314,7 +314,7 @@ class TestConcurrentOperations:
         """Verify concurrent debate state access is safe."""
         import threading
 
-        errors: List[Exception] = []
+        errors: list[Exception] = []
 
         def read_write_state(debate_id: str):
             try:
@@ -350,7 +350,7 @@ class TestEventEmitterSubscriptions:
     @pytest.mark.asyncio
     async def test_can_subscribe_to_events(self, server):
         """Verify handlers can subscribe to events."""
-        received: List[StreamEvent] = []
+        received: list[StreamEvent] = []
 
         server._emitter.subscribe(lambda event: received.append(event))
         server._emitter.emit(StreamEvent(type=StreamEventType.DEBATE_START, data={"value": 42}))
@@ -362,8 +362,8 @@ class TestEventEmitterSubscriptions:
     @pytest.mark.asyncio
     async def test_multiple_handlers_receive_same_event(self, server):
         """Verify multiple subscribers all receive events."""
-        results1: List[StreamEvent] = []
-        results2: List[StreamEvent] = []
+        results1: list[StreamEvent] = []
+        results2: list[StreamEvent] = []
 
         server._emitter.subscribe(lambda e: results1.append(e))
         server._emitter.subscribe(lambda e: results2.append(e))

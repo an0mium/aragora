@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Lazy import for sentence-transformers
 _sentence_transformer_model = None
 
+
 class EmbeddingModel(str, Enum):
     """Available embedding models with different speed/quality tradeoffs."""
 
@@ -48,6 +49,7 @@ class EmbeddingModel(str, Enum):
 
     # Code-specific models
     CODE = "flax-sentence-embeddings/st-codesearch-distilroberta-base"  # For code
+
 
 @dataclass
 class EmbeddingResult:
@@ -66,6 +68,7 @@ class EmbeddingResult:
             "embedding_preview": self.embedding[:5],
         }
 
+
 @dataclass
 class SearchResult:
     """Result of a similarity search."""
@@ -74,6 +77,7 @@ class SearchResult:
     score: float
     index: int
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class LocalEmbeddingConfig:
@@ -85,6 +89,7 @@ class LocalEmbeddingConfig:
     batch_size: int = 32
     show_progress: bool = False
     cache_folder: str | None = None
+
 
 class LocalEmbeddingService:
     """Local embedding service using Sentence Transformers.
@@ -302,8 +307,10 @@ class LocalEmbeddingService:
 
         return labels.tolist()
 
+
 # Global instance cache
 _embedding_services: dict[str, LocalEmbeddingService] = {}
+
 
 def get_embedding_service(
     model: EmbeddingModel = EmbeddingModel.MINILM,

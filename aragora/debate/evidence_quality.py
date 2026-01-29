@@ -20,6 +20,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 class EvidenceType(Enum):
     """Types of evidence that can back a claim."""
 
@@ -31,6 +32,7 @@ class EvidenceType(Enum):
     REASONING = "reasoning"  # Logical argument chain
     NONE = "none"  # No backing evidence
 
+
 @dataclass
 class EvidenceMarker:
     """A detected piece of evidence in agent response."""
@@ -39,6 +41,7 @@ class EvidenceMarker:
     text: str
     position: int  # Character position in response
     confidence: float  # 0-1, how confident in detection
+
 
 @dataclass
 class EvidenceQualityScore:
@@ -82,6 +85,7 @@ class EvidenceQualityScore:
             + weights["logical_chain_score"] * self.logical_chain_score
         )
         return self.overall_quality
+
 
 # Patterns for evidence detection
 CITATION_PATTERNS = [
@@ -155,6 +159,7 @@ REASONING_CONNECTORS = [
     "as a result",
     "hence",
 ]
+
 
 class EvidenceQualityAnalyzer:
     """
@@ -373,6 +378,7 @@ class EvidenceQualityAnalyzer:
         avg_age = sum(current_year - y for y in recent_years) / len(recent_years)
         return max(0.0, 1.0 - (avg_age / max_age))
 
+
 @dataclass
 class HollowConsensusAlert:
     """Alert when hollow consensus is detected."""
@@ -385,6 +391,7 @@ class HollowConsensusAlert:
     min_quality: float = 0.0
     avg_quality: float = 0.0
     quality_variance: float = 0.0
+
 
 class HollowConsensusDetector:
     """
@@ -574,6 +581,7 @@ class HollowConsensusDetector:
             )
 
         return challenges[:3]  # Limit to top 3 challenges
+
 
 __all__ = [
     "EvidenceType",

@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
+
 class CanvasNodeType(Enum):
     """Types of nodes that can appear on a canvas."""
 
@@ -43,6 +44,7 @@ class CanvasNodeType(Enum):
     ALERT = "alert"  # Alert/notification display
     CARD = "card"  # Information card
     TABLE = "table"  # Data table display
+
 
 class CanvasEventType(Enum):
     """Types of canvas events."""
@@ -97,6 +99,7 @@ class CanvasEventType(Enum):
     PROGRESS_UPDATE = "canvas:ui:progress:update"
     ALERT_DISMISS = "canvas:ui:alert:dismiss"
 
+
 @dataclass
 class Position:
     """2D position on the canvas."""
@@ -110,6 +113,7 @@ class Position:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Position:
         return cls(x=float(data.get("x", 0)), y=float(data.get("y", 0)))
+
 
 @dataclass
 class Size:
@@ -127,6 +131,7 @@ class Size:
             width=float(data.get("width", 200)),
             height=float(data.get("height", 100)),
         )
+
 
 @dataclass
 class CanvasNode:
@@ -205,6 +210,7 @@ class CanvasNode:
         self.data.update(kwargs)
         self.updated_at = datetime.now(timezone.utc)
 
+
 class EdgeType(Enum):
     """Types of edges between nodes."""
 
@@ -215,6 +221,7 @@ class EdgeType(Enum):
     DEPENDENCY = "dependency"
     CRITIQUE = "critique"
     SUPPORT = "support"
+
 
 @dataclass
 class CanvasEdge:
@@ -265,6 +272,7 @@ class CanvasEdge:
             ),
         )
 
+
 @dataclass
 class CanvasEvent:
     """
@@ -307,6 +315,7 @@ class CanvasEvent:
             node_id=data.get("node_id"),
             edge_id=data.get("edge_id"),
         )
+
 
 @dataclass
 class Canvas:
@@ -476,6 +485,7 @@ class Canvas:
         self.nodes.clear()
         self.edges.clear()
         self.updated_at = datetime.now(timezone.utc)
+
 
 __all__ = [
     "CanvasNodeType",

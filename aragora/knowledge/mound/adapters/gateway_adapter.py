@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 @dataclass
 class MessageRoutingRecord:
     """Record of a message routing event for KM storage."""
@@ -51,6 +52,7 @@ class MessageRoutingRecord:
     error_message: str | None = None
     workspace_id: str = "default"
 
+
 @dataclass
 class ChannelPerformanceSnapshot:
     """Snapshot of channel performance for KM storage."""
@@ -65,6 +67,7 @@ class ChannelPerformanceSnapshot:
     workspace_id: str = "default"
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class DeviceRegistrationRecord:
     """Record of device registration for KM storage."""
@@ -77,6 +80,7 @@ class DeviceRegistrationRecord:
     registered_at: float
     last_seen: float
     workspace_id: str = "default"
+
 
 @dataclass
 class RoutingDecisionRecord:
@@ -92,6 +96,7 @@ class RoutingDecisionRecord:
     capabilities_available: list[str]
     timestamp: float
     workspace_id: str = "default"
+
 
 class GatewayAdapter(KnowledgeMoundAdapter):
     """
@@ -879,6 +884,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
         self._routing_patterns_cache.clear()
         self._cache_times.clear()
         return count
+
 
 __all__ = [
     "GatewayAdapter",

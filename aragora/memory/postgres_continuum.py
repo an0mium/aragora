@@ -130,6 +130,7 @@ POSTGRES_CONTINUUM_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_archive_archived_at ON continuum_memory_archive(archived_at);
 """
 
+
 class ContinuumMemoryEntryDict(dict[str, Any]):
     """Dictionary representation of a continuum memory entry with helper properties."""
 
@@ -158,6 +159,7 @@ class ContinuumMemoryEntryDict(dict[str, Any]):
     def knowledge_mound_id(self) -> str:
         """Get the Knowledge Mound ID for this entry."""
         return f"cm_{self.get('id', '')}"
+
 
 class PostgresContinuumMemory(PostgresStore):
     """
@@ -1210,11 +1212,13 @@ class PostgresContinuumMemory(PostgresStore):
             }
         )
 
+
 # =========================================================================
 # Factory Function
 # =========================================================================
 
 _postgres_continuum_memory: PostgresContinuumMemory | None = None
+
 
 async def get_postgres_continuum_memory(
     pool: Optional["Pool"] = None,

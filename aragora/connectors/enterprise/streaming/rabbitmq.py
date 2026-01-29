@@ -43,6 +43,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RabbitMQConfig:
     """Configuration for RabbitMQ connector.
@@ -80,6 +81,7 @@ class RabbitMQConfig:
     auto_ack: bool = False  # Manual ack for reliability
     requeue_on_error: bool = True
     message_handler: Callable | None = None
+
 
 @dataclass
 class RabbitMQMessage:
@@ -150,6 +152,7 @@ class RabbitMQMessage:
                 "priority": self.priority,
             },
         )
+
 
 class RabbitMQConnector(EnterpriseConnector):
     """
@@ -532,5 +535,6 @@ class RabbitMQConnector(EnterpriseConnector):
         """
         async for item in self.sync(batch_size=batch_size):
             yield item
+
 
 __all__ = ["RabbitMQConnector", "RabbitMQConfig", "RabbitMQMessage"]

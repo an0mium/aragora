@@ -34,6 +34,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class AssignmentPriority(str, Enum):
     """Priority levels for finding assignments."""
 
@@ -42,6 +43,7 @@ class AssignmentPriority(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     DEFERRED = "deferred"
+
 
 @dataclass
 class FindingAssignment:
@@ -132,6 +134,7 @@ class FindingAssignment:
             auto_assign_rule=data.get("auto_assign_rule", ""),
         )
 
+
 @dataclass
 class AutoAssignRule:
     """Rule for automatic assignment of findings."""
@@ -177,6 +180,7 @@ class AutoAssignRule:
             return False
         return True
 
+
 # Default SLA hours by severity
 DEFAULT_SLA_HOURS = {
     AssignmentPriority.CRITICAL: 4,
@@ -185,6 +189,7 @@ DEFAULT_SLA_HOURS = {
     AssignmentPriority.LOW: 168,  # 1 week
     AssignmentPriority.DEFERRED: None,
 }
+
 
 class AssignmentManager:
     """
@@ -568,8 +573,10 @@ class AssignmentManager:
                 results.append(result)
         return results
 
+
 # Singleton instance
 _assignment_manager: AssignmentManager | None = None
+
 
 def get_assignment_manager() -> AssignmentManager:
     """Get the global assignment manager instance."""

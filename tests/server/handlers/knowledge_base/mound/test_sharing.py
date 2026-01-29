@@ -74,11 +74,11 @@ class MockShareGrant:
 
     item_id: str
     grantee_id: str
-    permissions: List[str]
+    permissions: list[str]
     shared_by: str
     expires_at: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "grantee_id": self.grantee_id,
@@ -95,7 +95,7 @@ class MockSharedItem:
     id: str
     content: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "content": self.content}
 
 
@@ -114,7 +114,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

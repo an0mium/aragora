@@ -26,11 +26,13 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class EmailProvider(str, Enum):
     """Supported email providers."""
 
     GMAIL = "gmail"
     OUTLOOK = "outlook"
+
 
 class ActionType(str, Enum):
     """Types of email actions."""
@@ -56,6 +58,7 @@ class ActionType(str, Enum):
     BATCH_TRASH = "batch_trash"
     BATCH_MODIFY = "batch_modify"
 
+
 class ActionStatus(str, Enum):
     """Status of an action."""
 
@@ -63,6 +66,7 @@ class ActionStatus(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class ActionLog:
@@ -93,6 +97,7 @@ class ActionLog:
             "durationMs": self.duration_ms,
         }
 
+
 @dataclass
 class SendEmailRequest:
     """Request to send an email."""
@@ -106,6 +111,7 @@ class SendEmailRequest:
     html_body: str | None = None
     attachments: Optional[list[dict[str, Any]]] = None
 
+
 @dataclass
 class SnoozeRequest:
     """Request to snooze an email."""
@@ -113,6 +119,7 @@ class SnoozeRequest:
     message_id: str
     snooze_until: datetime
     restore_to_inbox: bool = True
+
 
 @dataclass
 class ActionResult:
@@ -132,6 +139,7 @@ class ActionResult:
             "details": self.details,
             "error": self.error,
         }
+
 
 class EmailActionsService:
     """
@@ -896,8 +904,10 @@ class EmailActionsService:
 
         return [log.to_dict() for log in logs]
 
+
 # Global service instance
 _email_actions_service: EmailActionsService | None = None
+
 
 def get_email_actions_service() -> EmailActionsService:
     """Get or create the email actions service singleton."""
@@ -905,6 +915,7 @@ def get_email_actions_service() -> EmailActionsService:
     if _email_actions_service is None:
         _email_actions_service = EmailActionsService()
     return _email_actions_service
+
 
 __all__ = [
     "EmailActionsService",

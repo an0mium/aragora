@@ -38,6 +38,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_pydantic_schema(model: type[Any]) -> dict[str, Any]:
     """Extract JSON Schema from a Pydantic model.
 
@@ -63,6 +64,7 @@ def _extract_pydantic_schema(model: type[Any]) -> dict[str, Any]:
         logger.warning(f"Failed to extract schema from {model}: {e}")
         return {"type": "object"}
 
+
 def _is_pydantic_model(obj: Any) -> bool:
     """Check if an object is a Pydantic model class."""
     try:
@@ -73,8 +75,10 @@ def _is_pydantic_model(obj: Any) -> bool:
     except ImportError:
         return False
 
+
 # Global registry for decorated endpoints
 _endpoint_registry: list["OpenAPIEndpoint"] = []
+
 
 @dataclass
 class OpenAPIEndpoint:
@@ -133,6 +137,7 @@ class OpenAPIEndpoint:
             spec["deprecated"] = True
 
         return spec
+
 
 def api_endpoint(
     path: str,
@@ -279,6 +284,7 @@ def api_endpoint(
 
     return decorator
 
+
 def get_registered_endpoints() -> list[OpenAPIEndpoint]:
     """Get all registered endpoint metadata.
 
@@ -286,6 +292,7 @@ def get_registered_endpoints() -> list[OpenAPIEndpoint]:
         List of OpenAPIEndpoint objects
     """
     return _endpoint_registry.copy()
+
 
 def get_registered_endpoints_dict() -> dict[str, dict[str, Any]]:
     """Get registered endpoints as OpenAPI paths dictionary.
@@ -305,9 +312,11 @@ def get_registered_endpoints_dict() -> dict[str, dict[str, Any]]:
 
     return paths
 
+
 def clear_registry() -> None:
     """Clear the endpoint registry. Useful for testing."""
     _endpoint_registry.clear()
+
 
 def register_endpoint(endpoint: OpenAPIEndpoint) -> None:
     """Manually register an endpoint.
@@ -316,6 +325,7 @@ def register_endpoint(endpoint: OpenAPIEndpoint) -> None:
         endpoint: OpenAPIEndpoint to register
     """
     _endpoint_registry.append(endpoint)
+
 
 # Helper functions for common parameter patterns
 def path_param(name: str, description: str = "", schema_type: str = "string") -> dict[str, Any]:
@@ -336,6 +346,7 @@ def path_param(name: str, description: str = "", schema_type: str = "string") ->
         "description": description,
         "schema": {"type": schema_type},
     }
+
 
 def query_param(
     name: str,
@@ -375,6 +386,7 @@ def query_param(
         param["schema"]["enum"] = enum
 
     return param
+
 
 def json_body(
     schema: Any,
@@ -422,6 +434,7 @@ def json_body(
         },
     }
 
+
 def ok_response(
     description: str = "Success",
     schema: Any | None = None,
@@ -467,6 +480,7 @@ def ok_response(
         }
     }
 
+
 def error_response(status_code: str, description: str) -> dict[str, dict[str, Any]]:
     """Create an error response definition.
 
@@ -493,6 +507,7 @@ def error_response(status_code: str, description: str) -> dict[str, dict[str, An
             },
         }
     }
+
 
 __all__ = [
     "OpenAPIEndpoint",

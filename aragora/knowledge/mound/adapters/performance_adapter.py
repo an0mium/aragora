@@ -56,6 +56,7 @@ from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 # Dataclasses from EloAdapter
 # =============================================================================
 
+
 @dataclass
 class KMEloPattern:
     """Pattern detected in Knowledge Mound that can influence ELO.
@@ -74,6 +75,7 @@ class KMEloPattern:
     debate_ids: list[str] = field(default_factory=list)  # Debates that formed this pattern
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class EloAdjustmentRecommendation:
     """Recommendation for ELO adjustment based on KM patterns.
@@ -91,6 +93,7 @@ class EloAdjustmentRecommendation:
     domain: str | None = None  # If domain-specific
     applied: bool = False
 
+
 @dataclass
 class EloSyncResult:
     """Result of syncing KM patterns to ELO."""
@@ -104,6 +107,7 @@ class EloSyncResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
 
+
 @dataclass
 class RatingSearchResult:
     """Wrapper for rating search results with adapter metadata."""
@@ -111,9 +115,11 @@ class RatingSearchResult:
     rating: dict[str, Any]
     relevance_score: float = 0.0
 
+
 # =============================================================================
 # Dataclasses from RankingAdapter
 # =============================================================================
+
 
 @dataclass
 class AgentExpertise:
@@ -125,6 +131,7 @@ class AgentExpertise:
     confidence: float  # Based on number of debates
     last_updated: str
     debate_count: int = 0
+
 
 @dataclass
 class ExpertiseSearchResult:
@@ -138,9 +145,11 @@ class ExpertiseSearchResult:
         if self.matched_domains is None:
             self.matched_domains = []
 
+
 # =============================================================================
 # PerformanceAdapter
 # =============================================================================
+
 
 class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
     """
@@ -1955,6 +1964,7 @@ class PerformanceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin
                 results.append(dict(calibration))
 
         return results[:limit]
+
 
 # =============================================================================
 # Backwards Compatibility Aliases

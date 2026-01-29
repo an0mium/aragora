@@ -13,6 +13,7 @@ Key features:
 - Self-contained: All data needed for offline viewing
 - Verifiable: Chain integrity can be validated
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,6 +22,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+
 
 @dataclass
 class ConsensusProof:
@@ -42,6 +44,7 @@ class ConsensusProof:
             "rounds_used": self.rounds_used,
             "timestamp": self.timestamp,
         }
+
 
 @dataclass
 class VerificationResult:
@@ -67,6 +70,7 @@ class VerificationResult:
             "duration_ms": self.duration_ms,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class DebateArtifact:
@@ -229,6 +233,7 @@ class DebateArtifact:
 
         return len(errors) == 0, errors
 
+
 class ArtifactBuilder:
     """
     Builder for creating DebateArtifacts from debate components.
@@ -318,6 +323,7 @@ class ArtifactBuilder:
     def build(self) -> DebateArtifact:
         """Build the final artifact."""
         return self._artifact
+
 
 def create_artifact_from_debate(
     result,

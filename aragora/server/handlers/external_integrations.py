@@ -28,6 +28,7 @@ Endpoints:
 - DELETE /api/integrations/n8n/webhooks/:id         - Unregister webhook
 - GET    /api/integrations/n8n/nodes                - Get node definitions
 """
+
 from __future__ import annotations
 
 import logging
@@ -77,6 +78,7 @@ except ImportError:
 # =============================================================================
 # External Integrations Handler
 # =============================================================================
+
 
 class ExternalIntegrationsHandler(SecureHandler):
     """Handler for external integration management.
@@ -229,9 +231,7 @@ class ExternalIntegrationsHandler(SecureHandler):
     # GET Handlers
     # =========================================================================
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests for external integrations endpoints."""
 
         # Zapier endpoints
@@ -941,6 +941,7 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         else:
             return error_response(f"Unknown platform: {platform}", 400)
+
 
 # =============================================================================
 # Exports

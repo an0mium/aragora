@@ -28,6 +28,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class DocumentQueryHandler(BaseHandler):
     """Handler for natural language document query endpoints."""
 

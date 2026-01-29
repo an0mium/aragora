@@ -38,7 +38,7 @@ class MockBackupMetadata:
     verified: bool = True
     compressed_size_bytes: int = 524288
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "created_at": self.created_at.isoformat(),
@@ -58,8 +58,8 @@ class MockVerificationResult:
     restore_tested: bool = True
     tables_valid: bool = True
     row_counts_valid: bool = True
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     verified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: float = 1.0
 
@@ -73,7 +73,7 @@ class MockComprehensiveResult:
     schema_validation: Optional[Any] = None
     integrity_check: Optional[Any] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "backup_id": self.backup_id,
             "verified": self.verified,
@@ -102,7 +102,7 @@ class MockBackupManager:
     """Mock backup manager for DR testing."""
 
     def __init__(self):
-        self._backups: Dict[str, MockBackupMetadata] = {}
+        self._backups: dict[str, MockBackupMetadata] = {}
         self.retention_policy = MockRetentionPolicy()
         self.compression = True
         self.verify_after_backup = True
@@ -115,7 +115,7 @@ class MockBackupManager:
         source_path: Optional[str] = None,
         status: Optional[Any] = None,
         since: Optional[datetime] = None,
-    ) -> List[MockBackupMetadata]:
+    ) -> list[MockBackupMetadata]:
         return list(self._backups.values())
 
     def get_latest_backup(self, source_path: Optional[str] = None) -> Optional[MockBackupMetadata]:

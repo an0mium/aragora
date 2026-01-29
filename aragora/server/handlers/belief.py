@@ -60,6 +60,7 @@ _prov_imports, PROVENANCE_AVAILABLE = try_import(
 )
 ProvenanceTracker = _prov_imports["ProvenanceTracker"]
 
+
 class BeliefHandler(BaseHandler):
     """Handler for belief network and reasoning endpoints."""
 

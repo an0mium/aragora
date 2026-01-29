@@ -67,7 +67,7 @@ class MockOpenAICompletion:
 class MockOpenAIChatCompletions:
     """Mock OpenAI chat completions API."""
 
-    def _generate_response(self, messages: List[Dict], **kwargs) -> str:
+    def _generate_response(self, messages: list[dict], **kwargs) -> str:
         """Generate deterministic response based on input."""
         last_msg = ""
         for msg in reversed(messages):
@@ -89,12 +89,12 @@ class MockOpenAIChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    def create(self, messages: List[Dict], model: str = "gpt-4o", **kwargs):
+    def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
         """Sync create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
 
-    async def acreate(self, messages: List[Dict], model: str = "gpt-4o", **kwargs):
+    async def acreate(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
         """Async create method (for compatibility)."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -103,7 +103,7 @@ class MockOpenAIChatCompletions:
 class MockOpenAIAsyncChatCompletions:
     """Mock async OpenAI chat completions API."""
 
-    def _generate_response(self, messages: List[Dict], **kwargs) -> str:
+    def _generate_response(self, messages: list[dict], **kwargs) -> str:
         """Generate deterministic response based on input."""
         last_msg = ""
         for msg in reversed(messages):
@@ -125,7 +125,7 @@ class MockOpenAIAsyncChatCompletions:
         ]
         return responses[seed % len(responses)]
 
-    async def create(self, messages: List[Dict], model: str = "gpt-4o", **kwargs):
+    async def create(self, messages: list[dict], model: str = "gpt-4o", **kwargs):
         """Async create method."""
         content = self._generate_response(messages, **kwargs)
         return MockOpenAICompletion(content, model)
@@ -194,7 +194,7 @@ class MockAnthropicMessage:
 class MockAnthropicMessages:
     """Mock Anthropic messages API."""
 
-    def _generate_response(self, messages: List[Dict], **kwargs) -> str:
+    def _generate_response(self, messages: list[dict], **kwargs) -> str:
         """Generate deterministic response based on input."""
         last_msg = ""
         for msg in reversed(messages):
@@ -218,7 +218,7 @@ class MockAnthropicMessages:
 
     def create(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         model: str = "claude-sonnet-4-20250514",
         max_tokens: int = 1024,
         **kwargs,
@@ -231,7 +231,7 @@ class MockAnthropicMessages:
 class MockAnthropicAsyncMessages:
     """Mock async Anthropic messages API."""
 
-    def _generate_response(self, messages: List[Dict], **kwargs) -> str:
+    def _generate_response(self, messages: list[dict], **kwargs) -> str:
         """Generate deterministic response based on input."""
         last_msg = ""
         for msg in reversed(messages):
@@ -255,7 +255,7 @@ class MockAnthropicAsyncMessages:
 
     async def create(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         model: str = "claude-sonnet-4-20250514",
         max_tokens: int = 1024,
         **kwargs,
@@ -292,7 +292,7 @@ class MockHTTPXResponse:
     def __init__(
         self,
         status_code: int = 200,
-        json_data: Optional[Dict] = None,
+        json_data: Optional[dict] = None,
         text: str = "",
     ):
         self.status_code = status_code
@@ -301,7 +301,7 @@ class MockHTTPXResponse:
         self.headers = {"content-type": "application/json"}
         self.is_success = 200 <= status_code < 300
 
-    def json(self) -> Dict:
+    def json(self) -> dict:
         return self._json_data
 
     @property
@@ -556,7 +556,7 @@ def create_anthropic_response(
 
 def create_httpx_response(
     status_code: int = 200,
-    json_data: Optional[Dict] = None,
+    json_data: Optional[dict] = None,
     text: str = "",
 ) -> MockHTTPXResponse:
     """Create a mock HTTPX response.

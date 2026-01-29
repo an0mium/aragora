@@ -21,6 +21,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 def cross_pollination_health(handler) -> HandlerResult:
     """Check health of cross-pollination feature integrations.
 

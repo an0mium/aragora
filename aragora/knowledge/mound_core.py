@@ -54,6 +54,7 @@ from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
 
+
 def _to_iso_string(value: Any) -> str | None:
     """Safely convert datetime or string to ISO format string.
 
@@ -67,6 +68,7 @@ def _to_iso_string(value: Any) -> str | None:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
+
 
 def _to_enum_value(value: Any) -> Any:
     """Safely extract value from enum or return string as-is.
@@ -82,11 +84,13 @@ def _to_enum_value(value: Any) -> Any:
         return value.value
     return str(value)
 
+
 # Type alias for node types
 NodeType = Literal["fact", "claim", "memory", "evidence", "consensus", "entity"]
 
 # Type alias for relationship types
 RelationshipType = Literal["supports", "contradicts", "derived_from", "related_to", "supersedes"]
+
 
 class ProvenanceType(Enum):
     """Source types for knowledge provenance."""
@@ -97,6 +101,7 @@ class ProvenanceType(Enum):
     AGENT = "agent"  # Agent-generated inference
     INFERENCE = "inference"  # Derived from other knowledge
     MIGRATION = "migration"  # Migrated from legacy system
+
 
 @dataclass
 class ProvenanceChain:
@@ -162,6 +167,7 @@ class ProvenanceChain:
                 else datetime.now()
             ),
         )
+
 
 @dataclass
 class KnowledgeNode:
@@ -322,6 +328,7 @@ class KnowledgeNode:
             topics=fact.topics,
         )
 
+
 @dataclass
 class KnowledgeRelationship:
     """
@@ -375,6 +382,7 @@ class KnowledgeRelationship:
             ),
         )
 
+
 @dataclass
 class KnowledgeQueryResult:
     """Result of querying the knowledge mound."""
@@ -384,6 +392,7 @@ class KnowledgeQueryResult:
     query: str
     processing_time_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class KnowledgeMoundMetaStore(SQLiteStore):
     """
@@ -838,6 +847,7 @@ class KnowledgeMoundMetaStore(SQLiteStore):
                 "average_confidence": round(avg_confidence, 3),
                 "total_relationships": relationship_count,
             }
+
 
 class KnowledgeMound:
     """

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+
 @runtime_checkable
 class StorageBackend(Protocol):
     """Protocol for debate storage backends (SQLite, Supabase, etc.)."""
@@ -47,6 +48,7 @@ class StorageBackend(Protocol):
         """Search debates by query."""
         ...
 
+
 @runtime_checkable
 class MemoryBackend(Protocol):
     """Protocol for multi-tier memory backends."""
@@ -76,6 +78,7 @@ class MemoryBackend(Protocol):
     def decay(self) -> int:
         """Run decay cycle. Returns number of memories affected."""
         ...
+
 
 @runtime_checkable
 class EloBackend(Protocol):
@@ -111,6 +114,7 @@ class EloBackend(Protocol):
         """Get ELO history for an agent."""
         ...
 
+
 @runtime_checkable
 class EmbeddingBackend(Protocol):
     """Protocol for embedding/vector storage backends."""
@@ -136,6 +140,7 @@ class EmbeddingBackend(Protocol):
     ) -> list[tuple[str, float]]:
         """Search for similar embeddings. Returns (id, similarity) pairs."""
         ...
+
 
 @runtime_checkable
 class ConsensusBackend(Protocol):
@@ -171,6 +176,7 @@ class ConsensusBackend(Protocol):
         """Get all dissents for a consensus."""
         ...
 
+
 @runtime_checkable
 class CritiqueBackend(Protocol):
     """Protocol for critique storage backends."""
@@ -198,6 +204,7 @@ class CritiqueBackend(Protocol):
     def get_reputation(self, agent: str) -> dict[str, Any] | None:
         """Get reputation scores for an agent."""
         ...
+
 
 @runtime_checkable
 class PersonaBackend(Protocol):
@@ -227,6 +234,7 @@ class PersonaBackend(Protocol):
     ) -> None:
         """Record performance event for learning."""
         ...
+
 
 @runtime_checkable
 class GenesisBackend(Protocol):
@@ -265,9 +273,11 @@ class GenesisBackend(Protocol):
         """Record a genesis event. Returns event ID."""
         ...
 
+
 # =============================================================================
 # HTTP Handler Protocols
 # =============================================================================
+
 
 @runtime_checkable
 class HTTPHeaders(Protocol):
@@ -276,6 +286,7 @@ class HTTPHeaders(Protocol):
     def get(self, key: str, default: str | None = None) -> str | None:
         """Get a header value."""
         ...
+
 
 @runtime_checkable
 class HTTPRequestHandler(Protocol):
@@ -296,6 +307,7 @@ class HTTPRequestHandler(Protocol):
         """Readable file-like object for request body."""
         ...
 
+
 @runtime_checkable
 class AuthenticatedUser(Protocol):
     """Protocol for authenticated user context."""
@@ -315,6 +327,7 @@ class AuthenticatedUser(Protocol):
         """Check if user has admin role."""
         ...
 
+
 @runtime_checkable
 class Agent(Protocol):
     """Protocol for debate agent interface."""
@@ -324,6 +337,7 @@ class Agent(Protocol):
     def generate(self, prompt: str, **kwargs: Any) -> str:
         """Generate a response for the given prompt."""
         ...
+
 
 @runtime_checkable
 class AgentRating(Protocol):
@@ -345,6 +359,7 @@ class AgentRating(Protocol):
     def total_debates(self) -> int:
         """Total debates (alias for debates_count)."""
         ...
+
 
 # Type aliases for common return types
 DebateRecord = dict[str, Any]

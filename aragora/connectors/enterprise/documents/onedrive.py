@@ -69,6 +69,7 @@ SUPPORTED_EXTENSIONS: set[str] = {
     ".h",
 }
 
+
 @dataclass
 class OneDriveFile:
     """A OneDrive file."""
@@ -86,6 +87,7 @@ class OneDriveFile:
     shared: bool = False
     drive_id: str | None = None
 
+
 @dataclass
 class OneDriveFolder:
     """A OneDrive folder."""
@@ -95,6 +97,7 @@ class OneDriveFolder:
     parent_id: str | None = None
     path: str = ""
     child_count: int = 0
+
 
 class OneDriveConnector(EnterpriseConnector):
     """

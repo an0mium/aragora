@@ -24,12 +24,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class HierarchyRole(Enum):
     """Agent roles in the debate hierarchy."""
 
     ORCHESTRATOR = "orchestrator"  # Mayor: coordinates debate flow
     MONITOR = "monitor"  # Witness: observes for issues
     WORKER = "worker"  # Polecat: executes tasks
+
 
 # Default capability requirements for each role
 ROLE_CAPABILITIES = {
@@ -52,6 +54,7 @@ STANDARD_CAPABILITIES = {
     "domain_expert": "Deep expertise in specific domains",
 }
 
+
 @dataclass
 class RoleAssignment:
     """Assignment of an agent to a role for a specific debate."""
@@ -61,6 +64,7 @@ class RoleAssignment:
     assigned_at: str
     capabilities_matched: set[str] = field(default_factory=set)
     affinity_score: float = 0.0
+
 
 @dataclass
 class HierarchyConfig:
@@ -78,6 +82,7 @@ class HierarchyConfig:
 
     # Auto-promote workers to monitors if needed
     auto_promote: bool = True
+
 
 class AgentHierarchy:
     """
@@ -304,6 +309,7 @@ class AgentHierarchy:
         self._assignments.pop(debate_id, None)
         self._role_history.pop(debate_id, None)
 
+
 # Convenience function for quick role assignment
 def assign_debate_roles(
     debate_id: str,
@@ -313,6 +319,7 @@ def assign_debate_roles(
     """Quick role assignment using default configuration."""
     hierarchy = AgentHierarchy()
     return hierarchy.assign_roles(debate_id, agents, task_type)
+
 
 __all__ = [
     "AgentHierarchy",

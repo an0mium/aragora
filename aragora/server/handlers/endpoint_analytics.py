@@ -41,6 +41,7 @@ ENDPOINT_ANALYTICS_PERMISSION = "analytics.read"
 # Rate limiter for endpoint analytics (60 requests per minute)
 _endpoint_analytics_limiter = RateLimiter(requests_per_minute=60)
 
+
 @dataclass
 class EndpointMetrics:
     """Aggregated metrics for a single endpoint."""
@@ -99,6 +100,7 @@ class EndpointMetrics:
                 "max_ms": round(self.max_latency_ms, 2),
             },
         }
+
 
 class EndpointMetricsStore:
     """In-memory store for endpoint metrics.
@@ -166,12 +168,15 @@ class EndpointMetricsStore:
         self._metrics.clear()
         self._window_start = time.time()
 
+
 # Global metrics store
 _metrics_store = EndpointMetricsStore()
+
 
 def get_metrics_store() -> EndpointMetricsStore:
     """Get the global metrics store."""
     return _metrics_store
+
 
 def record_endpoint_request(
     endpoint: str,
@@ -184,6 +189,7 @@ def record_endpoint_request(
     This should be called from middleware or request handlers.
     """
     _metrics_store.record_request(endpoint, method, status_code, latency_seconds)
+
 
 class EndpointAnalyticsHandler(SecureHandler):
     """Handler for API endpoint performance analytics.
@@ -441,6 +447,7 @@ class EndpointAnalyticsHandler(SecureHandler):
         except Exception as e:
             logger.exception(f"Error getting health summary: {e}")
             return error_response(f"Failed to get health summary: {str(e)}", 500)
+
 
 __all__ = [
     "EndpointAnalyticsHandler",

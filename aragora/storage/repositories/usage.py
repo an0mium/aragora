@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class UsageRepository:
     """
     Repository for usage tracking operations.

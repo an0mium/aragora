@@ -21,6 +21,7 @@ from aragora.deliberation.templates.base import (
 
 logger = logging.getLogger(__name__)
 
+
 class TemplateRegistry:
     """
     Central registry for deliberation templates.
@@ -175,12 +176,15 @@ class TemplateRegistry:
                     self._templates[template.name] = template
             self._initialized = True
 
+
 # Global registry instance
 _global_registry = TemplateRegistry()
+
 
 def get_template(name: str) -> DeliberationTemplate | None:
     """Get a template from the global registry."""
     return _global_registry.get(name)
+
 
 def list_templates(
     category: str | None = None,
@@ -198,15 +202,18 @@ def list_templates(
             pass
     return _global_registry.list(category=cat, tags=tags, search=search, limit=limit, offset=offset)
 
+
 def register_template(template: DeliberationTemplate) -> None:
     """Register a template in the global registry."""
     _global_registry.register(template)
+
 
 def load_templates_from_yaml(path: Path) -> int:
     """Load templates from YAML into the global registry."""
     if path.is_dir():
         return _global_registry.load_from_directory(path)
     return _global_registry.load_from_yaml(path)
+
 
 def get_template_dict(name: str) -> Optional[dict[str, Any]]:
     """Get a template as a dictionary."""

@@ -4,6 +4,7 @@ Decision Receipt - Audit-ready output format.
 Provides a tamper-evident, comprehensive record of a Gauntlet validation
 suitable for compliance, audit trails, and decision documentation.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +19,7 @@ from .result import GauntletResult
 
 if TYPE_CHECKING:
     from .signing import ReceiptSigner
+
 
 @dataclass
 class ProvenanceRecord:
@@ -37,6 +39,7 @@ class ProvenanceRecord:
             "description": self.description,
             "evidence_hash": self.evidence_hash,
         }
+
 
 @dataclass
 class ConsensusProof:
@@ -58,6 +61,7 @@ class ConsensusProof:
             "method": self.method,
             "evidence_hash": self.evidence_hash,
         }
+
 
 @dataclass
 class DecisionReceipt:

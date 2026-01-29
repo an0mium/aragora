@@ -29,6 +29,7 @@ MEMORY_ANALYTICS_PERMISSION = "memory:analytics"
 # Rate limiter for memory analytics endpoints (30 requests per minute - query-heavy)
 _memory_analytics_limiter = RateLimiter(requests_per_minute=30)
 
+
 class MemoryAnalyticsHandler(SecureHandler):
     """Handler for memory analytics endpoints.
 

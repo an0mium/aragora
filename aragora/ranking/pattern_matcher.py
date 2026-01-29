@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PatternAffinity:
     """Agent's affinity for a task pattern."""
@@ -27,6 +28,7 @@ class PatternAffinity:
     success_rate: float
     sample_size: int
     confidence: float  # Higher with more samples
+
 
 # Task patterns for classification
 # Maps pattern names to keyword lists
@@ -125,6 +127,7 @@ PATTERN_TO_ISSUE_TYPE: dict[str, str] = {
     "docs": "clarity",
     "architecture": "architecture",
 }
+
 
 class TaskPatternMatcher:
     """Match task patterns to historically successful agents.
@@ -370,8 +373,10 @@ class TaskPatternMatcher:
             logger.debug(f"Failed to get pattern affinities for {pattern}: {e}")
             return []
 
+
 # Module-level singleton for convenience
 _pattern_matcher: TaskPatternMatcher | None = None
+
 
 def get_pattern_matcher() -> TaskPatternMatcher:
     """Get or create the singleton TaskPatternMatcher instance."""
@@ -379,6 +384,7 @@ def get_pattern_matcher() -> TaskPatternMatcher:
     if _pattern_matcher is None:
         _pattern_matcher = TaskPatternMatcher()
     return _pattern_matcher
+
 
 def classify_task(task_description: str) -> str:
     """Convenience function to classify a task."""

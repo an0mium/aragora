@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from aragora.debate.orchestrator import Arena
 
+
 def _create_verify_claims_callback(arena: "Arena"):
     """
     Create a verification callback for the consensus phase.
@@ -168,6 +169,7 @@ def _create_verify_claims_callback(arena: "Arena"):
         return {"verified": verified_count, "disproven": disproven_count}
 
     return verify_claims
+
 
 def init_phases(arena: "Arena") -> None:
     """Initialize phase classes for orchestrator decomposition."""
@@ -451,6 +453,7 @@ def init_phases(arena: "Arena") -> None:
         selection_feedback_loop=getattr(arena, "selection_feedback_loop", None),
         enable_performance_feedback=getattr(arena, "enable_performance_feedback", True),
     )
+
 
 def create_phase_executor(arena: "Arena") -> PhaseExecutor:
     """Create and configure the PhaseExecutor for debate execution.

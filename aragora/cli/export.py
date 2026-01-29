@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+
 def create_demo_artifact():
     """Create a demo artifact for testing exports."""
     from aragora.core import Critique, DebateResult, Message
@@ -68,6 +69,7 @@ def create_demo_artifact():
 
     return artifact
 
+
 def load_artifact_from_debate(debate_id: str, db_path: str | None = None):
     """Load an artifact from a debate trace database."""
     from aragora.debate.traces import DebateReplayer
@@ -95,6 +97,7 @@ def load_artifact_from_debate(debate_id: str, db_path: str | None = None):
 
     return artifact
 
+
 def export_to_html(artifact, output_dir: Path) -> Path:
     """Export artifact to HTML format."""
     from aragora.export.static_html import StaticHTMLExporter
@@ -104,11 +107,13 @@ def export_to_html(artifact, output_dir: Path) -> Path:
     exporter.save(filepath)
     return filepath
 
+
 def export_to_json(artifact, output_dir: Path) -> Path:
     """Export artifact to JSON format."""
     filepath = output_dir / f"debate_{artifact.artifact_id}.json"
     artifact.save(filepath)
     return filepath
+
 
 def export_to_markdown(artifact, output_dir: Path) -> Path:
     """Export artifact to Markdown format."""
@@ -132,6 +137,7 @@ def export_to_markdown(artifact, output_dir: Path) -> Path:
     filepath = output_dir / f"debate_{artifact.artifact_id}.md"
     filepath.write_text(md_content)
     return filepath
+
 
 def main(args: argparse.Namespace) -> None:
     """Handle 'export' command - export debate artifacts."""
@@ -170,6 +176,7 @@ def main(args: argparse.Namespace) -> None:
 
     print(f"\nArtifact ID: {artifact.artifact_id}")
     print(f"Content Hash: {artifact.content_hash}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export debate artifacts")

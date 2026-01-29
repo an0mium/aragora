@@ -263,6 +263,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_public ON knowledge_nodes(workspace_id) WHE
 CREATE INDEX IF NOT EXISTS idx_nodes_content_fts ON knowledge_nodes USING gin(to_tsvector('english', content));
 """
 
+
 class PostgresStore:
     """
     PostgreSQL backend for Knowledge Mound with connection pooling.
@@ -480,9 +481,7 @@ class PostgresStore:
             )
             return str(result) == "DELETE 1"
 
-    async def find_by_content_hash_async(
-        self, content_hash: str, workspace_id: str
-    ) -> str | None:
+    async def find_by_content_hash_async(self, content_hash: str, workspace_id: str) -> str | None:
         """Find node by content hash."""
         async with self.connection() as conn:
             row = await conn.fetchrow(

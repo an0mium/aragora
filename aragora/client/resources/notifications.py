@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class NotificationChannel:
     """A notification delivery channel."""
@@ -28,6 +29,7 @@ class NotificationChannel:
     target: str | None = None  # email address, webhook URL, etc.
     settings: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class NotificationPreference:
     """Notification preferences for an event type."""
@@ -36,6 +38,7 @@ class NotificationPreference:
     enabled: bool = True
     channels: list[str] = field(default_factory=list)
     frequency: str = "immediate"  # immediate, digest, daily, weekly
+
 
 @dataclass
 class Notification:
@@ -52,6 +55,7 @@ class Notification:
     read_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class NotificationStats:
     """Notification statistics."""
@@ -62,6 +66,7 @@ class NotificationStats:
     total_read: int = 0
     delivery_rate: float = 0.0
     read_rate: float = 0.0
+
 
 class NotificationsAPI:
     """API interface for notification management."""
@@ -442,6 +447,7 @@ class NotificationsAPI:
             delivery_rate=data.get("delivery_rate", 0.0),
             read_rate=data.get("read_rate", 0.0),
         )
+
 
 __all__ = [
     "NotificationsAPI",

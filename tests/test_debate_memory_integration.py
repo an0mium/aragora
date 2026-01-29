@@ -36,7 +36,7 @@ class MockDebateResult:
     consensus_reached: bool = True
     rounds_used: int = 3
     winner: Optional[str] = "claude"
-    scores: Dict[str, float] = field(default_factory=dict)
+    scores: dict[str, float] = field(default_factory=dict)
 
 
 @pytest.fixture

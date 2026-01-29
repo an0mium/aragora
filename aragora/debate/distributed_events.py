@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any
 import time
 
+
 class DistributedDebateEventType(str, Enum):
     """Event types for distributed debate coordination."""
 
@@ -54,6 +55,7 @@ class DistributedDebateEventType(str, Enum):
     # Sync
     STATE_SYNC_REQUEST = "state.sync_request"
     STATE_SYNC_RESPONSE = "state.sync_response"
+
 
 @dataclass
 class DistributedDebateEvent:
@@ -99,6 +101,7 @@ class DistributedDebateEvent:
             version=data.get("version", 1),
         )
 
+
 @dataclass
 class AgentProposal:
     """An agent's proposal in a distributed debate."""
@@ -124,6 +127,7 @@ class AgentProposal:
             "reasoning": self.reasoning,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class AgentCritique:
@@ -153,6 +157,7 @@ class AgentCritique:
             "weaknesses": self.weaknesses,
         }
 
+
 @dataclass
 class ConsensusVote:
     """A vote for consensus in a distributed debate."""
@@ -178,6 +183,7 @@ class ConsensusVote:
             "confidence": self.confidence,
             "reasoning": self.reasoning,
         }
+
 
 @dataclass
 class DistributedDebateState:

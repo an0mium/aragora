@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigValidationError(Exception):
     """Raised when agent configuration validation fails."""
 
@@ -51,6 +52,7 @@ class ConfigValidationError(Exception):
         self.config_path = config_path
         self.errors = errors
         super().__init__(f"Invalid config '{config_path}': {'; '.join(errors)}")
+
 
 @dataclass
 class AgentConfig:
@@ -185,6 +187,7 @@ class AgentConfig:
             tags=data.get("tags", []),
             config_path=config_path,
         )
+
 
 class AgentConfigLoader:
     """
@@ -377,9 +380,7 @@ class AgentConfigLoader:
         logger.debug(f"Created agent from config: {config.name}")
         return agent
 
-    def create_agents(
-        self, configs: list[str | AgentConfig | None] = None
-    ) -> list["Agent"]:
+    def create_agents(self, configs: list[str | AgentConfig | None] = None) -> list["Agent"]:
         """
         Create multiple agents from configurations.
 
@@ -450,6 +451,7 @@ class AgentConfigLoader:
             List of matching configurations
         """
         return [c for c in self._configs.values() if c.priority == priority]
+
 
 def load_agent_configs(
     config_dir: Optional[str | Path] = None,

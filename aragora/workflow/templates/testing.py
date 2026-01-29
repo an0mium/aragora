@@ -342,6 +342,7 @@ TESTING_TEMPLATES = {
     "mutation_testing": MUTATION_TESTING_TEMPLATE,
 }
 
+
 def get_testing_template(name: str) -> dict[str, Any]:
     """
     Get a testing workflow template by name.

@@ -19,6 +19,7 @@ from .config import (
 
 logger = logging.getLogger(__name__)
 
+
 class MessagingMixin:
     """Mixin providing Slack message posting and response formatting."""
 

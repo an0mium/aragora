@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 MINIMAL_MODE_ENV = "ARAGORA_MODE"
 MINIMAL_MODE_VALUE = "minimal"
 
+
 @dataclass
 class MinimalModeConfig:
     """Configuration for minimal dependency mode."""
@@ -51,13 +52,16 @@ class MinimalModeConfig:
     enable_metrics: bool = True
     enable_tracing: bool = False  # Skip distributed tracing
 
+
 def is_minimal_mode() -> bool:
     """Check if minimal mode is enabled."""
     return os.environ.get(MINIMAL_MODE_ENV, "").lower() == MINIMAL_MODE_VALUE
 
+
 def get_minimal_config() -> MinimalModeConfig:
     """Get minimal mode configuration."""
     return MinimalModeConfig()
+
 
 def apply_minimal_mode(config: MinimalModeConfig | None = None) -> dict[str, Any]:
     """Apply minimal mode environment variables.
@@ -114,6 +118,7 @@ def apply_minimal_mode(config: MinimalModeConfig | None = None) -> dict[str, Any
     logger.info(f"Applied minimal mode configuration: {applied}")
     return applied
 
+
 def check_minimal_requirements() -> dict[str, bool]:
     """Check if minimal requirements are met.
 
@@ -137,6 +142,7 @@ def check_minimal_requirements() -> dict[str, bool]:
     requirements["pydantic"] = importlib.util.find_spec("pydantic") is not None
 
     return requirements
+
 
 def get_minimal_startup_message() -> str:
     """Get startup message for minimal mode."""
@@ -162,6 +168,7 @@ For production with high availability, consider:
 
 ============================================================
 """
+
 
 class InMemoryCache:
     """Simple in-memory cache for minimal mode.
@@ -221,8 +228,10 @@ class InMemoryCache:
         """Get current cache size."""
         return len(self._cache)
 
+
 # Global cache instance for minimal mode
 _minimal_cache: InMemoryCache | None = None
+
 
 def get_minimal_cache() -> InMemoryCache:
     """Get the global minimal mode cache instance."""
@@ -231,6 +240,7 @@ def get_minimal_cache() -> InMemoryCache:
         config = get_minimal_config()
         _minimal_cache = InMemoryCache(max_size=config.cache_max_size)
     return _minimal_cache
+
 
 # Auto-apply minimal mode if environment variable is set
 if is_minimal_mode():

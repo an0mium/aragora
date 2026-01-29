@@ -56,6 +56,7 @@ INDEXABLE_EXTENSIONS = {
 # Maximum file size to index (10MB)
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
+
 @dataclass
 class SharePointSite:
     """A SharePoint site."""
@@ -67,6 +68,7 @@ class SharePointSite:
     created: datetime | None = None
     last_modified: datetime | None = None
 
+
 @dataclass
 class SharePointDrive:
     """A SharePoint document library (drive)."""
@@ -76,6 +78,7 @@ class SharePointDrive:
     drive_type: str
     web_url: str
     site_id: str
+
 
 @dataclass
 class SharePointItem:
@@ -94,6 +97,7 @@ class SharePointItem:
     modified_at: datetime | None = None
     content: str = ""
     etag: str = ""
+
 
 class SharePointConnector(EnterpriseConnector):
     """
@@ -635,5 +639,6 @@ class SharePointConnector(EnterpriseConnector):
             asyncio.create_task(self.sync(max_items=50))
 
         return True
+
 
 __all__ = ["SharePointConnector", "SharePointSite", "SharePointDrive", "SharePointItem"]

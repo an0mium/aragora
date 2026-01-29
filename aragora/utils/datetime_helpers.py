@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+
 def utc_now() -> datetime:
     """Return the current UTC time as a timezone-aware datetime.
 
@@ -42,6 +43,7 @@ def utc_now() -> datetime:
         True
     """
     return datetime.now(timezone.utc)
+
 
 def to_iso_timestamp(dt: datetime) -> str:
     """Convert a datetime to ISO8601 string format.
@@ -64,6 +66,7 @@ def to_iso_timestamp(dt: datetime) -> str:
         # Assume naive datetime is UTC
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
+
 
 def from_iso_timestamp(s: str) -> datetime:
     """Parse an ISO8601 timestamp string to a timezone-aware datetime.
@@ -99,6 +102,7 @@ def from_iso_timestamp(s: str) -> datetime:
 
     return dt
 
+
 def ensure_timezone_aware(dt: datetime | None) -> datetime | None:
     """Ensure a datetime is timezone-aware, defaulting to UTC if naive.
 
@@ -121,6 +125,7 @@ def ensure_timezone_aware(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
 
 def format_timestamp(
     dt: datetime,
@@ -149,6 +154,7 @@ def format_timestamp(
         tz_name = dt.tzinfo.tzname(dt) or "UTC"
         result = f"{result} {tz_name}"
     return result
+
 
 def parse_timestamp(
     value: str | datetime | None,
@@ -184,6 +190,7 @@ def parse_timestamp(
 
     return default
 
+
 def timestamp_ms() -> int:
     """Return the current UTC time as milliseconds since epoch.
 
@@ -199,6 +206,7 @@ def timestamp_ms() -> int:
     """
     return int(utc_now().timestamp() * 1000)
 
+
 def timestamp_s() -> int:
     """Return the current UTC time as seconds since epoch.
 
@@ -211,6 +219,7 @@ def timestamp_s() -> int:
         True
     """
     return int(utc_now().timestamp())
+
 
 __all__ = [
     "utc_now",

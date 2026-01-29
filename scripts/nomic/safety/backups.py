@@ -136,7 +136,7 @@ def get_latest_backup(backup_dir: Path) -> Optional[Path]:
     return None
 
 
-def verify_protected_files(aragora_path: Path, log_func: Callable = print) -> List[str]:
+def verify_protected_files(aragora_path: Path, log_func: Callable = print) -> list[str]:
     """
     Verify protected files still exist and are importable.
 
@@ -172,7 +172,7 @@ def verify_protected_files(aragora_path: Path, log_func: Callable = print) -> Li
     return issues
 
 
-def list_backups(backup_dir: Path) -> List[dict]:
+def list_backups(backup_dir: Path) -> list[dict]:
     """
     List all available backups with their metadata.
 

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class InvoiceStatus(str, Enum):
     """AR invoice status."""
 
@@ -53,6 +54,7 @@ class InvoiceStatus(str, Enum):
     OVERDUE = "overdue"
     WRITTEN_OFF = "written_off"
 
+
 class ReminderLevel(str, Enum):
     """Payment reminder escalation levels."""
 
@@ -60,6 +62,7 @@ class ReminderLevel(str, Enum):
     FIRM = "firm"  # Second reminder
     URGENT = "urgent"  # Third reminder, urgent tone
     FINAL = "final"  # Final notice before collections
+
 
 class CollectionAction(str, Enum):
     """Suggested collection actions."""
@@ -70,6 +73,7 @@ class CollectionAction(str, Enum):
     COLLECTION_AGENCY = "collection_agency"
     LEGAL_ACTION = "legal_action"
     WRITE_OFF = "write_off"
+
 
 @dataclass
 class ARInvoice:
@@ -153,6 +157,7 @@ class ARInvoice:
             "createdAt": self.created_at.isoformat(),
         }
 
+
 @dataclass
 class AgingReport:
     """AR aging report."""
@@ -182,6 +187,7 @@ class AgingReport:
             "customerCount": self.customer_count,
         }
 
+
 @dataclass
 class CollectionSuggestion:
     """A suggested collection action."""
@@ -209,6 +215,7 @@ class CollectionSuggestion:
             "suggestedMessage": self.suggested_message,
         }
 
+
 @dataclass
 class ReminderTemplate:
     """Email reminder template."""
@@ -216,6 +223,7 @@ class ReminderTemplate:
     level: ReminderLevel
     subject: str
     body: str
+
 
 # Default reminder templates
 REMINDER_TEMPLATES = {
@@ -273,6 +281,7 @@ Please contact us immediately to resolve this matter.
 {company_name}""",
     ),
 }
+
 
 class ARAutomation:
     """

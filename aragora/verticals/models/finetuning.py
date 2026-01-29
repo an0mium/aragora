@@ -16,6 +16,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FinetuningConfig:
     """Configuration for fine-tuning a specialist model."""
@@ -83,6 +84,7 @@ class FinetuningConfig:
             "save_steps": self.save_steps,
         }
 
+
 @dataclass
 class TrainingExample:
     """A single training example for fine-tuning."""
@@ -137,6 +139,7 @@ class TrainingExample:
 
         else:
             return f"{self.instruction}\n{self.input}\n{self.output}"
+
 
 class VerticalFineTuningPipeline:
     """

@@ -21,6 +21,7 @@ from aragora.observability.log_types import AuditEntry, DailyAnchor
 
 logger = logging.getLogger(__name__)
 
+
 class AuditLogBackend(ABC):
     """Abstract base class for audit log storage backends."""
 
@@ -88,6 +89,7 @@ class AuditLogBackend(ABC):
     async def get_anchor(self, date: str) -> DailyAnchor | None:
         """Get anchor for a specific date."""
         ...
+
 
 class LocalFileBackend(AuditLogBackend):
     """
@@ -352,6 +354,7 @@ class LocalFileBackend(AuditLogBackend):
             logger.error(f"Failed to get anchor for {date}: {e}")
 
         return None
+
 
 class S3ObjectLockBackend(AuditLogBackend):
     """
@@ -641,6 +644,7 @@ class S3ObjectLockBackend(AuditLogBackend):
         except Exception as e:
             logger.error(f"Failed to get anchor from S3: {e}")
             return None
+
 
 class PostgreSQLAuditBackend(AuditLogBackend):
     """
@@ -1103,6 +1107,7 @@ class PostgreSQLAuditBackend(AuditLogBackend):
         if self._pool is not None:
             self._pool.closeall()
             self._pool = None
+
 
 def create_audit_backend(
     backend_type: str = "local",

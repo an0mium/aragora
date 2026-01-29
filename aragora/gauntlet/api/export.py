@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from aragora.gauntlet.receipt import DecisionReceipt
     from aragora.gauntlet.heatmap import RiskHeatmap
 
+
 class ReceiptExportFormat(Enum):
     """Export formats for DecisionReceipt."""
 
@@ -36,6 +37,7 @@ class ReceiptExportFormat(Enum):
     SARIF = "sarif"  # Static Analysis Results Interchange Format
     PDF = "pdf"  # HTML-to-PDF conversion (requires weasyprint)
 
+
 class HeatmapExportFormat(Enum):
     """Export formats for RiskHeatmap."""
 
@@ -44,6 +46,7 @@ class HeatmapExportFormat(Enum):
     SVG = "svg"
     ASCII = "ascii"
     HTML = "html"
+
 
 @dataclass
 class ExportOptions:
@@ -63,6 +66,7 @@ class ExportOptions:
 
     # Metadata
     include_export_metadata: bool = True
+
 
 def export_receipt(
     receipt: "DecisionReceipt",
@@ -97,6 +101,7 @@ def export_receipt(
     else:
         raise ValueError(f"Unsupported format: {format}")
 
+
 def export_heatmap(
     heatmap: "RiskHeatmap",
     format: HeatmapExportFormat = HeatmapExportFormat.JSON,
@@ -127,6 +132,7 @@ def export_heatmap(
         return _export_heatmap_html(heatmap, opts)
     else:
         raise ValueError(f"Unsupported format: {format}")
+
 
 def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
     """Export receipt as JSON."""
@@ -161,6 +167,7 @@ def _export_receipt_json(receipt: "DecisionReceipt", opts: ExportOptions) -> str
             data["_validation_errors"] = errors
 
     return json.dumps(data, indent=opts.indent, sort_keys=opts.sort_keys)
+
 
 def _export_receipt_csv(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
     """Export receipt as CSV (findings table)."""
@@ -205,6 +212,7 @@ def _export_receipt_csv(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
 
     return output.getvalue()
 
+
 def _export_receipt_sarif(receipt: "DecisionReceipt", opts: ExportOptions) -> str:
     """
     Export receipt as SARIF (Static Analysis Results Interchange Format).
@@ -241,6 +249,7 @@ def _export_receipt_sarif(receipt: "DecisionReceipt", opts: ExportOptions) -> st
 
     return json.dumps(sarif, indent=opts.indent)
 
+
 def _generate_sarif_rules(receipt: "DecisionReceipt") -> list[dict[str, Any]]:
     """Generate SARIF rules from vulnerability categories."""
     categories = set()
@@ -261,6 +270,7 @@ def _generate_sarif_rules(receipt: "DecisionReceipt") -> list[dict[str, Any]]:
         )
 
     return rules
+
 
 def _generate_sarif_results(
     receipt: "DecisionReceipt", opts: ExportOptions
@@ -310,6 +320,7 @@ def _generate_sarif_results(
 
     return results
 
+
 def _export_heatmap_json(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     """Export heatmap as JSON."""
     data = heatmap.to_dict()
@@ -321,6 +332,7 @@ def _export_heatmap_json(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
         }
 
     return json.dumps(data, indent=opts.indent, sort_keys=opts.sort_keys)
+
 
 def _export_heatmap_csv(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     """Export heatmap as CSV matrix."""
@@ -343,6 +355,7 @@ def _export_heatmap_csv(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     writer.writerow(["TOTAL"] + [heatmap.get_severity_total(s) for s in heatmap.severities])
 
     return output.getvalue()
+
 
 def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
     """Export heatmap as standalone HTML with embedded SVG."""
@@ -403,6 +416,7 @@ def _export_heatmap_html(heatmap: "RiskHeatmap", opts: ExportOptions) -> str:
 </html>
 """
 
+
 def _heatmap_row_html(heatmap: "RiskHeatmap", category: str) -> str:
     """Generate HTML table row for a heatmap category."""
     from html import escape
@@ -417,9 +431,11 @@ def _heatmap_row_html(heatmap: "RiskHeatmap", category: str) -> str:
 
     return f"<tr><td>{escape(category)}</td>{''.join(cells)}<td>{total}</td></tr>"
 
+
 # =============================================================================
 # PDF Export
 # =============================================================================
+
 
 def is_pdf_export_available() -> bool:
     """Check if WeasyPrint is available for PDF export."""
@@ -429,6 +445,7 @@ def is_pdf_export_available() -> bool:
         return True
     except ImportError:
         return False
+
 
 def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> bytes:
     """
@@ -463,6 +480,7 @@ def _export_receipt_pdf(receipt: "DecisionReceipt", opts: ExportOptions) -> byte
 
     return pdf_bytes
 
+
 def export_receipt_pdf_to_file(
     receipt: "DecisionReceipt",
     output_path: str,
@@ -487,9 +505,11 @@ def export_receipt_pdf_to_file(
 
     return output_path
 
+
 # =============================================================================
 # Batch Export
 # =============================================================================
+
 
 def export_receipts_bundle(
     receipts: list["DecisionReceipt"],
@@ -559,9 +579,11 @@ def export_receipts_bundle(
             exports.append(result if isinstance(result, str) else result.decode("utf-8"))
         return "\n\n---\n\n".join(exports)
 
+
 # =============================================================================
 # Streaming Export
 # =============================================================================
+
 
 def stream_receipt_json(
     receipt: "DecisionReceipt",
@@ -582,6 +604,7 @@ def stream_receipt_json(
     full_json = receipt.to_json()
     for i in range(0, len(full_json), chunk_size):
         yield full_json[i : i + chunk_size]
+
 
 __all__ = [
     # Enums

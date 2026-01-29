@@ -16,6 +16,7 @@ Environment Variables:
     ARAGORA_DATA_DIR: Base directory for databases (default: ".nomic")
     ARAGORA_NOMIC_DIR: Legacy alias for data directory (default: ".nomic")
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
 import os
 from enum import Enum
 from pathlib import Path
+
 
 class DatabaseType(Enum):
     """Enumeration of all database types in Aragora."""
@@ -83,11 +85,13 @@ class DatabaseType(Enum):
     # Onboarding databases
     ONBOARDING = "onboarding"  # User onboarding flows and progress
 
+
 class DatabaseMode(Enum):
     """Database organization modes."""
 
     LEGACY = "legacy"  # Individual database files (current)
     CONSOLIDATED = "consolidated"  # Four consolidated databases
+
 
 # Mapping from DatabaseType to legacy file names
 LEGACY_DB_NAMES = {
@@ -161,6 +165,7 @@ CONSOLIDATED_DB_MAPPING = {
     DatabaseType.ONBOARDING: "core.db",
 }
 
+
 def get_db_mode() -> DatabaseMode:
     """Get the current database mode from environment."""
     mode_str = os.environ.get("ARAGORA_DB_MODE", "consolidated").lower()
@@ -169,12 +174,14 @@ def get_db_mode() -> DatabaseMode:
     except ValueError:
         return DatabaseMode.CONSOLIDATED
 
+
 def get_nomic_dir() -> Path:
     """Get the base directory for databases."""
     nomic_dir = os.environ.get("ARAGORA_DATA_DIR")
     if nomic_dir is None:
         nomic_dir = os.environ.get("ARAGORA_NOMIC_DIR", ".nomic")
     return Path(nomic_dir)
+
 
 def get_db_path(
     db_type: DatabaseType,
@@ -205,6 +212,7 @@ def get_db_path(
 
     return nomic_dir / db_name
 
+
 def get_db_path_str(
     db_type: DatabaseType,
     nomic_dir: Path | None = None,
@@ -213,30 +221,37 @@ def get_db_path_str(
     """Get the path to a database file as a string."""
     return str(get_db_path(db_type, nomic_dir, mode))
 
+
 # Convenience functions for common database types
 def get_elo_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to ELO/ratings database."""
     return get_db_path(DatabaseType.ELO, nomic_dir)
 
+
 def get_memory_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to continuum memory database."""
     return get_db_path(DatabaseType.CONTINUUM_MEMORY, nomic_dir)
+
 
 def get_positions_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to positions database."""
     return get_db_path(DatabaseType.POSITIONS, nomic_dir)
 
+
 def get_personas_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to personas database."""
     return get_db_path(DatabaseType.PERSONAS, nomic_dir)
+
 
 def get_insights_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to insights database."""
     return get_db_path(DatabaseType.INSIGHTS, nomic_dir)
 
+
 def get_genesis_db_path(nomic_dir: Path | None = None) -> Path:
     """Get path to genesis database."""
     return get_db_path(DatabaseType.GENESIS, nomic_dir)
+
 
 # Database path constants for backwards compatibility
 # These will be deprecated in favor of get_db_path()

@@ -25,6 +25,7 @@ from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
 
+
 class InteractiveMixin(MessagingMixin):
     """Mixin providing interactive component handling for the Slack handler."""
 

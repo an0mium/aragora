@@ -25,13 +25,16 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DB_NAME = "unified_inbox.db"
 
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def _format_dt(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()
+
 
 def _parse_dt(value: Any) -> datetime | None:
     if value is None:
@@ -43,6 +46,7 @@ def _parse_dt(value: Any) -> datetime | None:
     except Exception:
         return None
 
+
 def _json_loads(value: Any, default: Any) -> Any:
     if value is None:
         return default
@@ -52,6 +56,7 @@ def _json_loads(value: Any, default: Any) -> Any:
         return json.loads(value)
     except Exception:
         return default
+
 
 class UnifiedInboxStoreBackend(ABC):
     """Abstract base for unified inbox storage backends."""
@@ -141,6 +146,7 @@ class UnifiedInboxStoreBackend(ABC):
     @abstractmethod
     async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         pass
+
 
 class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
     """In-memory unified inbox store for testing."""
@@ -338,6 +344,7 @@ class InMemoryUnifiedInboxStore(UnifiedInboxStoreBackend):
     async def get_triage_result(self, tenant_id: str, message_id: str) -> Optional[dict[str, Any]]:
         with self._lock:
             return self._triage.get(tenant_id, {}).get(message_id)
+
 
 class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
     """SQLite-backed unified inbox store."""
@@ -966,6 +973,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             "created_at": _parse_dt(row["created_at"]),
         }
 
+
 class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
     """PostgreSQL-backed unified inbox store."""
 
@@ -1593,8 +1601,10 @@ class PostgresUnifiedInboxStore(UnifiedInboxStoreBackend):
             "created_at": row["created_at"],
         }
 
+
 _unified_inbox_store: UnifiedInboxStoreBackend | None = None
 _store_lock = threading.Lock()
+
 
 def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
     """
@@ -1630,15 +1640,18 @@ def get_unified_inbox_store() -> UnifiedInboxStoreBackend:
 
         return _unified_inbox_store
 
+
 def set_unified_inbox_store(store: UnifiedInboxStoreBackend) -> None:
     """Set a custom unified inbox store (testing or customization)."""
     global _unified_inbox_store
     _unified_inbox_store = store
 
+
 def reset_unified_inbox_store() -> None:
     """Reset the unified inbox store singleton (testing)."""
     global _unified_inbox_store
     _unified_inbox_store = None
+
 
 __all__ = [
     "UnifiedInboxStoreBackend",

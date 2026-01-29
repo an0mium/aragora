@@ -34,12 +34,14 @@ logger = logging.getLogger(__name__)
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.resilience import CircuitBreaker
 
+
 class PlaidEnvironment(str, Enum):
     """Plaid environment."""
 
     SANDBOX = "sandbox"
     DEVELOPMENT = "development"
     PRODUCTION = "production"
+
 
 class TransactionCategory(str, Enum):
     """Transaction categories for accounting."""
@@ -53,6 +55,7 @@ class TransactionCategory(str, Enum):
     INVESTMENT = "investment"
     UNKNOWN = "unknown"
 
+
 class AccountType(str, Enum):
     """Bank account types."""
 
@@ -62,6 +65,7 @@ class AccountType(str, Enum):
     INVESTMENT = "investment"
     LOAN = "loan"
     OTHER = "other"
+
 
 @dataclass
 class PlaidCredentials(ConnectorDataclass):
@@ -82,6 +86,7 @@ class PlaidCredentials(ConnectorDataclass):
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["access_token"] = self.access_token[:20] + "..."  # Mask token
         return result
+
 
 @dataclass
 class BankAccount(ConnectorDataclass):
@@ -110,6 +115,7 @@ class BankAccount(ConnectorDataclass):
         )
         result["limit"] = float(self.limit) if self.limit else None
         return result
+
 
 @dataclass
 class BankTransaction(ConnectorDataclass):
@@ -167,6 +173,7 @@ class BankTransaction(ConnectorDataclass):
         """Get absolute amount."""
         return abs(self.amount)
 
+
 @dataclass
 class CategoryMapping:
     """Mapping from Plaid category to QBO account."""
@@ -176,6 +183,7 @@ class CategoryMapping:
     qbo_account_name: str
     accounting_category: TransactionCategory
     confidence: float = 1.0
+
 
 class PlaidConnector:
     """
@@ -935,6 +943,7 @@ Provide:
             "transactions_status": status.get("transactions", {}),
         }
 
+
 class PlaidError(Exception):
     """Plaid API error."""
 
@@ -943,9 +952,11 @@ class PlaidError(Exception):
         self.error_message = error_message
         super().__init__(f"[{error_code}] {error_message}")
 
+
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
+
 
 def get_mock_accounts() -> list[BankAccount]:
     """Generate mock bank account data."""
@@ -987,6 +998,7 @@ def get_mock_accounts() -> list[BankAccount]:
             institution_name="Demo Bank",
         ),
     ]
+
 
 def get_mock_transactions() -> list[BankTransaction]:
     """Generate mock transaction data."""
@@ -1041,6 +1053,7 @@ def get_mock_transactions() -> list[BankTransaction]:
             confidence=0.9,
         ),
     ]
+
 
 __all__ = [
     "PlaidConnector",

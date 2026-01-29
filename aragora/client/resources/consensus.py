@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
+
 @dataclass
 class SimilarDebate:
     """A similar past debate."""
@@ -38,6 +39,7 @@ class SimilarDebate:
             dissent_count=data.get("dissent_count", 0),
         )
 
+
 @dataclass
 class SettledTopic:
     """A topic that has been settled by consensus."""
@@ -59,6 +61,7 @@ class SettledTopic:
             last_debated=data.get("last_debated", ""),
             debate_count=data.get("debate_count", 1),
         )
+
 
 @dataclass
 class Dissent:
@@ -90,6 +93,7 @@ class Dissent:
             timestamp=data.get("timestamp", ""),
         )
 
+
 @dataclass
 class RiskWarning:
     """A risk warning from debates."""
@@ -116,6 +120,7 @@ class RiskWarning:
             timestamp=data.get("timestamp", ""),
         )
 
+
 @dataclass
 class ConsensusStats:
     """Statistics about consensus memory."""
@@ -135,6 +140,7 @@ class ConsensusStats:
             by_domain=data.get("by_domain", {}),
             avg_confidence=data.get("avg_confidence", 0.0),
         )
+
 
 class ConsensusAPI:
     """

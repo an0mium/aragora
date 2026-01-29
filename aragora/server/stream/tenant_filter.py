@@ -6,11 +6,13 @@ Provides tenant isolation for real-time event streams by:
 2. Filtering events to only reach clients in the same tenant
 3. Validating tenant ownership of subscribed resources
 """
+
 from __future__ import annotations
 
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class TenantFilter:
     """
@@ -208,8 +210,10 @@ class TenantFilter:
             f"cannot subscribe to resource owned by tenant '{resource_tenant}'"
         )
 
+
 # Global tenant filter instance
 _tenant_filter = TenantFilter()
+
 
 def get_tenant_filter() -> TenantFilter:
     """Get the global tenant filter instance."""

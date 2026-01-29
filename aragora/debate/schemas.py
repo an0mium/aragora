@@ -32,6 +32,7 @@ MAX_CONTENT_LENGTH = 100_000  # 100KB max response
 MAX_REASONING_LENGTH = 10_000  # 10KB max reasoning
 MAX_METADATA_SIZE = 50  # Max metadata keys
 
+
 class ReadySignal(BaseModel):
     """Schema for agent ready signals embedded in responses."""
 
@@ -58,6 +59,7 @@ class ReadySignal(BaseModel):
         if isinstance(v, str):
             return v.lower() in ("true", "yes", "1")
         return bool(v)
+
 
 class StructuredContent(BaseModel):
     """Schema for structured content blocks in agent responses."""
@@ -92,6 +94,7 @@ class StructuredContent(BaseModel):
             v = dict(list(v.items())[:MAX_METADATA_SIZE])
         result: dict[str, Any] = v
         return result
+
 
 class AgentResponseSchema(BaseModel):
     """Schema for validating agent responses.
@@ -168,6 +171,7 @@ class AgentResponseSchema(BaseModel):
             self.ready_signal = _parse_ready_signal(self.content)
         return self
 
+
 @dataclass
 class ValidationResult:
     """Result of response validation."""
@@ -182,6 +186,7 @@ class ValidationResult:
             self.errors = []
         if self.warnings is None:
             self.warnings = []
+
 
 def _parse_ready_signal(content: str) -> ReadySignal:
     """Parse ready signal from content.
@@ -248,6 +253,7 @@ def _parse_ready_signal(content: str) -> ReadySignal:
             )
 
     return signal
+
 
 def validate_agent_response(
     content: str | dict[str, Any],
@@ -324,6 +330,7 @@ def validate_agent_response(
             warnings=warnings if warnings else None,
         )
 
+
 def sanitize_html(content: str) -> str:
     """Sanitize HTML content to prevent XSS.
 
@@ -339,6 +346,7 @@ def sanitize_html(content: str) -> str:
     safe = re.sub(r"&lt;code&gt;(.+?)&lt;/code&gt;", r"`\1`", safe)
 
     return safe
+
 
 __all__ = [
     "AgentResponseSchema",

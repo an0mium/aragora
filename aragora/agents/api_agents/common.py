@@ -44,6 +44,7 @@ except ImportError:
         """Fallback when tracing module not available."""
         return {}
 
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -62,12 +63,14 @@ DEFAULT_CONNECT_TIMEOUT = 30.0
 # Total request timeout (for full request/response cycle)
 DEFAULT_REQUEST_TIMEOUT = 120.0
 
+
 def _get_connection_limits() -> tuple[int, int]:
     """Get connection limits from settings or defaults."""
     settings = get_settings()
     per_host = getattr(settings.agent, "connections_per_host", DEFAULT_CONNECTIONS_PER_HOST)
     total = getattr(settings.agent, "total_connections", DEFAULT_TOTAL_CONNECTIONS)
     return per_host, total
+
 
 @dataclass
 class ConnectionPoolState:
@@ -94,6 +97,7 @@ class ConnectionPoolState:
         self.loop_id = None
         self.pending_close_tasks.clear()
 
+
 # Global connection pool state
 _pool_state = ConnectionPoolState()
 
@@ -102,6 +106,7 @@ _session_lock = _pool_state.lock
 _shared_connector: aiohttp.TCPConnector | None = None  # Updated via _pool_state
 _connector_loop_id: int | None = None  # Updated via _pool_state
 _pending_close_tasks: set[asyncio.Task] = _pool_state.pending_close_tasks
+
 
 async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
     """Close a TCP connector with proper await.
@@ -113,6 +118,7 @@ async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
         logger.debug("Old TCP connector closed successfully")
     except Exception as e:  # noqa: BLE001
         logger.debug(f"Error closing old connector: {e}")
+
 
 def get_shared_connector() -> aiohttp.TCPConnector:
     """Get or create a shared TCP connector with connection limits.
@@ -178,6 +184,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
             )
         return _pool_state.connector
 
+
 def create_client_session(
     timeout: float | None = None,
     connector: aiohttp.TCPConnector | None = None,
@@ -221,6 +228,7 @@ def create_client_session(
         timeout=client_timeout,
     )
 
+
 def get_trace_headers() -> dict[str, str]:
     """Get trace headers for distributed tracing in agent API calls.
 
@@ -237,6 +245,7 @@ def get_trace_headers() -> dict[str, str]:
         return build_trace_headers()
     return {}
 
+
 def is_openrouter_fallback_available() -> bool:
     """Check if OpenRouter fallback is enabled and credentials are available."""
     try:
@@ -250,6 +259,7 @@ def is_openrouter_fallback_available() -> bool:
     # Only consider fallback available if the OpenRouter key is set
     return bool(get_api_key("OPENROUTER_API_KEY", required=False))
 
+
 def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> str | None:
     """Get primary provider API key, optionally allowing OpenRouter fallback.
 
@@ -259,6 +269,7 @@ def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False)
     if allow_openrouter_fallback and is_openrouter_fallback_available():
         return get_api_key(*env_vars, required=False)
     return get_api_key(*env_vars, required=True)
+
 
 async def close_shared_connector() -> None:
     """Close the shared connector, releasing all connections.
@@ -283,6 +294,7 @@ async def close_shared_connector() -> None:
             _pool_state.loop_id = None
             logger.debug("Closed shared TCP connector")
 
+
 # Maximum buffer size for streaming responses (prevents DoS via memory exhaustion)
 # Configurable via settings.agent.stream_buffer_size
 def get_stream_buffer_size() -> int:
@@ -293,9 +305,11 @@ def get_stream_buffer_size() -> int:
     """
     return get_settings().agent.stream_buffer_size
 
+
 # Legacy constant for backward compatibility - prefer get_stream_buffer_size()
 # Must match settings.agent.stream_buffer_size default (10MB)
 MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # 10MB - matches settings default
+
 
 def calculate_retry_delay(
     attempt: int,
@@ -334,13 +348,16 @@ def calculate_retry_delay(
     # Ensure minimum delay of 0.1s
     return max(0.1, delay + jitter)
 
+
 # Default timeout between stream chunks (30 seconds)
 # Now configurable via ARAGORA_STREAM_CHUNK_TIMEOUT env var
 def _get_stream_chunk_timeout() -> float:
     """Get stream chunk timeout from settings."""
     return get_settings().agent.stream_chunk_timeout
 
+
 STREAM_CHUNK_TIMEOUT = 90.0  # Default fallback (increased for long-form models)
+
 
 async def iter_chunks_with_timeout(
     response_content: aiohttp.StreamReader,
@@ -378,6 +395,7 @@ async def iter_chunks_with_timeout(
             yield chunk
         except StopAsyncIteration:
             break
+
 
 class SSEStreamParser:
     """
@@ -502,6 +520,7 @@ class SSEStreamParser:
                 f"Streaming connection error: {e}", agent_name=agent_name
             ) from e
 
+
 # Pre-configured parsers for common providers
 def create_openai_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for OpenAI API responses."""
@@ -521,6 +540,7 @@ def create_openai_sse_parser() -> SSEStreamParser:
 
     return SSEStreamParser(content_extractor=extract_openai_content)
 
+
 def create_anthropic_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for Anthropic API responses."""
 
@@ -536,6 +556,7 @@ def create_anthropic_sse_parser() -> SSEStreamParser:
         return text if isinstance(text, str) else ""
 
     return SSEStreamParser(content_extractor=extract_anthropic_content)
+
 
 __all__ = [
     # Standard library

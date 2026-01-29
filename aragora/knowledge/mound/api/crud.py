@@ -44,6 +44,7 @@ except ImportError:
     def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
         yield _MockSpan()
 
+
 from aragora.knowledge.mound.validation import (
     ValidationError,
     validate_content,
@@ -52,6 +53,7 @@ from aragora.knowledge.mound.validation import (
     validate_topics,
     validate_workspace_id,
 )
+
 
 def _serialize_for_storage(value: Any) -> Any:
     """Recursively serialize complex types for storage.
@@ -71,6 +73,7 @@ def _serialize_for_storage(value: Any) -> Any:
         return [_serialize_for_storage(item) for item in value]
     return value
 
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         IngestionRequest,
@@ -80,6 +83,7 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
 
 class CRUDProtocol(Protocol):
     """Protocol defining expected interface for CRUD mixin."""
@@ -99,14 +103,13 @@ class CRUDProtocol(Protocol):
     async def _delete_node(self, node_id: str) -> bool: ...
     async def _archive_node(self, node_id: str) -> None: ...
     async def _save_relationship(self, from_id: str, to_id: str, rel_type: str) -> None: ...
-    async def _find_by_content_hash(
-        self, content_hash: str, workspace_id: str
-    ) -> str | None: ...
+    async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> str | None: ...
     async def _increment_update_count(self, node_id: str) -> None: ...
     async def _get_access_grants_impl(self, node_id: str) -> list[dict[str, Any]]: ...
     async def query(
         self, query: str, filters: Any = None, limit: int = 100, offset: int = 0
     ) -> Any: ...
+
 
 class CRUDOperationsMixin:
     """Mixin providing CRUD operations for KnowledgeMound."""

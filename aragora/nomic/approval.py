@@ -24,12 +24,14 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+
 class ApprovalLevel(Enum):
     """Approval requirement levels."""
 
     INFO = "info"  # Notify, auto-approve after timeout
     REVIEW = "review"  # Require at least one approval
     CRITICAL = "critical"  # Require all approvers
+
 
 class ApprovalStatus(Enum):
     """Status of an approval request."""
@@ -39,6 +41,7 @@ class ApprovalStatus(Enum):
     REJECTED = "rejected"
     TIMED_OUT = "timed_out"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class FileChange:
@@ -62,6 +65,7 @@ class FileChange:
             "is_binary": self.is_binary,
         }
 
+
 @dataclass
 class ApproverVote:
     """Vote from an approver."""
@@ -79,6 +83,7 @@ class ApproverVote:
             "comment": self.comment,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 @dataclass
 class ApprovalRequest:
@@ -110,6 +115,7 @@ class ApprovalRequest:
             "context": self.context,
         }
 
+
 @dataclass
 class ApprovalResult:
     """Result of an approval request."""
@@ -131,6 +137,7 @@ class ApprovalResult:
             "elapsed_seconds": self.elapsed_seconds,
             "message": self.message,
         }
+
 
 class ApprovalPolicy:
     """
@@ -245,6 +252,7 @@ class ApprovalPolicy:
         if ApprovalLevel.REVIEW in levels:
             return ApprovalLevel.REVIEW
         return ApprovalLevel.INFO
+
 
 class ApprovalWorkflow:
     """
@@ -545,9 +553,11 @@ class ApprovalWorkflow:
         """Get the approval policy for a file."""
         return self.policy.get_approval_level(file_path)
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 def quick_approval_check(
     changes: list[FileChange],
@@ -556,6 +566,7 @@ def quick_approval_check(
     """Quick check of what approval level is needed for changes."""
     p = policy or ApprovalPolicy()
     return p.get_max_approval_level(changes)
+
 
 def is_protected_file(file_path: str, policy: ApprovalPolicy | None = None) -> bool:
     """Check if a file requires critical approval."""

@@ -29,6 +29,7 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class UncertaintyHandler(BaseHandler):
     """Handler for uncertainty estimation endpoints."""
 

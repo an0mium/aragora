@@ -32,7 +32,7 @@ class TestGauntletReceiptsFlow:
         runs = {}
 
         class MockStore:
-            async def create_run(self, config: Dict[str, Any]) -> str:
+            async def create_run(self, config: dict[str, Any]) -> str:
                 run_id = f"run-{uuid.uuid4().hex[:8]}"
                 runs[run_id] = {
                     "id": run_id,
@@ -55,10 +55,10 @@ class TestGauntletReceiptsFlow:
                 }
                 return run_id
 
-            async def get_run(self, run_id: str) -> Dict[str, Any] | None:
+            async def get_run(self, run_id: str) -> dict[str, Any] | None:
                 return runs.get(run_id)
 
-            async def create_receipt(self, run_id: str) -> Dict[str, Any]:
+            async def create_receipt(self, run_id: str) -> dict[str, Any]:
                 run = runs.get(run_id)
                 if not run:
                     return None
@@ -84,7 +84,7 @@ class TestGauntletReceiptsFlow:
                 receipts[receipt_id] = receipt
                 return receipt
 
-            async def get_receipt(self, receipt_id: str) -> Dict[str, Any] | None:
+            async def get_receipt(self, receipt_id: str) -> dict[str, Any] | None:
                 return receipts.get(receipt_id)
 
             async def list_receipts(self, **filters) -> list:
@@ -93,7 +93,7 @@ class TestGauntletReceiptsFlow:
                     result = [r for r in result if r["verdict"] == filters["verdict"]]
                 return result
 
-            async def verify_receipt(self, receipt_id: str) -> Dict[str, Any]:
+            async def verify_receipt(self, receipt_id: str) -> dict[str, Any]:
                 receipt = receipts.get(receipt_id)
                 if not receipt:
                     return {"valid": False, "message": "Receipt not found"}
@@ -169,7 +169,7 @@ class TestExplainabilityFlow:
         """Mock explainability service."""
 
         class MockService:
-            async def generate_explanation(self, debate_id: str) -> Dict[str, Any]:
+            async def generate_explanation(self, debate_id: str) -> dict[str, Any]:
                 return {
                     "debate_id": debate_id,
                     "narrative": f"The decision for debate {debate_id} was reached through "
@@ -363,7 +363,7 @@ class TestWorkflowTemplatesFlow:
                     result = [t for t in result if t["category"] == category]
                 return result
 
-            def get_template(self, template_id: str) -> Dict[str, Any] | None:
+            def get_template(self, template_id: str) -> dict[str, Any] | None:
                 return templates.get(template_id)
 
             def list_categories(self) -> list:
@@ -373,8 +373,8 @@ class TestWorkflowTemplatesFlow:
                 return patterns
 
             async def run_template(
-                self, template_id: str, inputs: Dict[str, Any]
-            ) -> Dict[str, Any]:
+                self, template_id: str, inputs: dict[str, Any]
+            ) -> dict[str, Any]:
                 template = templates.get(template_id)
                 if not template:
                     raise ValueError(f"Template not found: {template_id}")

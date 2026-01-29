@@ -48,12 +48,14 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
+
 class WatchdogTier(str, Enum):
     """The three tiers of the watchdog system."""
 
     MECHANICAL = "mechanical"  # Tier 1: Heartbeat, memory, circuit breaker
     BOOT_AGENT = "boot_agent"  # Tier 2: Response quality, latency
     DEACON = "deacon"  # Tier 3: SLA, cross-agent coordination
+
 
 class IssueSeverity(IntEnum):
     """Severity levels for watchdog issues."""
@@ -62,6 +64,7 @@ class IssueSeverity(IntEnum):
     WARNING = 1  # Potential issue, monitor closely
     ERROR = 2  # Active issue, needs attention
     CRITICAL = 3  # Severe issue, immediate action required
+
 
 class IssueCategory(str, Enum):
     """Categories of issues detected by the watchdog."""
@@ -83,6 +86,7 @@ class IssueCategory(str, Enum):
     COORDINATION_FAILURE = "coordination_failure"
     POLICY_VIOLATION = "policy_violation"
     CONSENSUS_BLOCKED = "consensus_blocked"
+
 
 @dataclass
 class WatchdogIssue:
@@ -119,6 +123,7 @@ class WatchdogIssue:
             "resolution_notes": self.resolution_notes,
         }
 
+
 @dataclass
 class EscalationResult:
     """Result of an escalation attempt."""
@@ -129,6 +134,7 @@ class EscalationResult:
     action_taken: str | None = None
     error_message: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 @dataclass
 class WatchdogConfig:
@@ -171,6 +177,7 @@ class WatchdogConfig:
             "escalation_threshold": self.escalation_threshold,
         }
 
+
 @dataclass
 class AgentHealth:
     """Health state tracked for an agent."""
@@ -208,6 +215,7 @@ class AgentHealth:
 
     def record_heartbeat(self) -> None:
         self.last_heartbeat = datetime.now(timezone.utc)
+
 
 class ThreeTierWatchdog:
     """
@@ -746,8 +754,10 @@ class ThreeTierWatchdog:
             "is_running": self._running,
         }
 
+
 # Global watchdog singleton
 _default_watchdog: ThreeTierWatchdog | None = None
+
 
 def get_watchdog() -> ThreeTierWatchdog:
     """Get the default watchdog instance."""
@@ -755,6 +765,7 @@ def get_watchdog() -> ThreeTierWatchdog:
     if _default_watchdog is None:
         _default_watchdog = ThreeTierWatchdog()
     return _default_watchdog
+
 
 def reset_watchdog() -> None:
     """Reset the default watchdog (for testing)."""

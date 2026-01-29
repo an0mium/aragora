@@ -12,6 +12,7 @@ Usage:
     trace = DebateTrace.load("debate.json")
     output_path = await broadcast_debate(trace, Path("output.mp3"))
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +26,7 @@ from .audio_engine import VOICE_MAP, generate_audio
 from .mixer import mix_audio, mix_audio_with_ffmpeg
 from .pipeline import BroadcastOptions, BroadcastPipeline
 from .script_gen import ScriptSegment, generate_script
+
 
 async def broadcast_debate(
     trace: "DebateTrace",  # Forward reference to avoid circular import
@@ -86,6 +88,7 @@ async def broadcast_debate(
         return output_path if success else None
     # TemporaryDirectory auto-cleans on exit
 
+
 def broadcast_debate_sync(
     trace: "DebateTrace",
     output_path: Path | None = None,
@@ -93,6 +96,7 @@ def broadcast_debate_sync(
 ) -> Path | None:
     """Synchronous wrapper for broadcast_debate."""
     return asyncio.run(broadcast_debate(trace, output_path, format))
+
 
 __all__ = [
     "BroadcastOptions",

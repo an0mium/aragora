@@ -30,6 +30,7 @@ from .interactive import InteractiveMixin
 
 logger = logging.getLogger(__name__)
 
+
 class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
     """Handler for Slack integration endpoints.
 
@@ -192,8 +193,10 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             }
         )
 
+
 # Export handler factory (lazy instantiation - server_context required)
 _slack_handler: Optional["SlackHandler"] = None
+
 
 def get_slack_handler(server_context: dict | None = None) -> "SlackHandler":
     """Get or create the Slack handler instance.

@@ -6,6 +6,7 @@ Tracks the state of an iterative document exploration session, including:
 - Questions asked and references traced
 - Understanding confidence scores
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 import uuid
+
 
 class ExplorationPhase(str, Enum):
     """Current phase of document exploration."""
@@ -22,6 +24,7 @@ class ExplorationPhase(str, Enum):
     TRACE = "trace"  # Following cross-document references
     VERIFY = "verify"  # Multi-agent verification of findings
     SYNTHESIZE = "synthesize"  # Building cross-document understanding
+
 
 @dataclass
 class Reference:
@@ -36,6 +39,7 @@ class Reference:
     resolved: bool = False
     resolution_notes: str = ""
 
+
 @dataclass
 class Question:
     """A follow-up question generated during exploration."""
@@ -48,6 +52,7 @@ class Question:
     answered: bool = False
     answer: str = ""
     answer_source: str = ""  # Document/chunk where answer was found
+
 
 @dataclass
 class Insight:
@@ -81,6 +86,7 @@ class Insight:
             "tags": self.tags,
         }
 
+
 @dataclass
 class ChunkUnderstanding:
     """Understanding extracted from a single chunk."""
@@ -97,6 +103,7 @@ class ChunkUnderstanding:
     questions_raised: list[str] = field(default_factory=list)
     confidence: float = 0.5
 
+
 @dataclass
 class SynthesizedUnderstanding:
     """Cross-document synthesized understanding."""
@@ -109,6 +116,7 @@ class SynthesizedUnderstanding:
     contradictions: list[dict[str, Any]] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)  # Identified knowledge gaps
     confidence: float = 0.5
+
 
 @dataclass
 class ExplorationSession:
@@ -255,6 +263,7 @@ class ExplorationSession:
             )
 
         return session
+
 
 @dataclass
 class ExplorationResult:

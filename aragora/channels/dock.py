@@ -33,6 +33,7 @@ __all__ = [
     "SendResult",
 ]
 
+
 class ChannelCapability(Flag):
     """Capabilities that a channel platform supports."""
 
@@ -47,6 +48,7 @@ class ChannelCapability(Flag):
     INLINE_IMAGES = auto()  # Inline image support
     WEBHOOKS = auto()  # Webhook-based delivery
 
+
 class MessageType:
     """Types of messages that can be sent."""
 
@@ -56,6 +58,7 @@ class MessageType:
     VOICE = "voice"  # Voice/TTS message
     PROGRESS = "progress"  # Progress update
     NOTIFICATION = "notification"  # General notification
+
 
 @dataclass
 class SendResult:
@@ -101,6 +104,7 @@ class SendResult:
             channel_id=channel_id,
             metadata=metadata,
         )
+
 
 class ChannelDock(ABC):
     """

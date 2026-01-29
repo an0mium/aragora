@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 AUDIT_STREAM_KEY = "aragora:audit:log"
 AUDIT_RETENTION_DAYS = 90  # Default retention period
 
+
 class AuditAction(Enum):
     """Types of auditable actions."""
 
@@ -94,6 +95,7 @@ class AuditAction(Enum):
     SYSTEM_SHUTDOWN = "system.shutdown"
     SYSTEM_ERROR = "system.error"
 
+
 class ActorType(Enum):
     """Types of actors that can perform actions."""
 
@@ -103,9 +105,11 @@ class ActorType(Enum):
     API = "api"
     SCHEDULER = "scheduler"
 
+
 # =============================================================================
 # Data Classes
 # =============================================================================
+
 
 @dataclass
 class AuditActor:
@@ -137,6 +141,7 @@ class AuditActor:
             ip_address=data.get("ip_address"),
             user_agent=data.get("user_agent"),
         )
+
 
 @dataclass
 class AuditEntry:
@@ -218,6 +223,7 @@ class AuditEntry:
             entry_hash=data.get("entry_hash"),
         )
 
+
 @dataclass
 class AuditQuery:
     """Query parameters for searching audit logs."""
@@ -273,9 +279,11 @@ class AuditQuery:
 
         return True
 
+
 # =============================================================================
 # Audit Log Storage
 # =============================================================================
+
 
 class AuditLog:
     """
@@ -874,9 +882,11 @@ class AuditLog:
         matching = [e for e in self._local_entries if query.matches(e)]
         return matching[query.offset : query.offset + query.limit]
 
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def create_system_actor() -> AuditActor:
     """Create a system actor for automated actions."""
@@ -886,6 +896,7 @@ def create_system_actor() -> AuditActor:
         actor_name="Aragora Control Plane",
     )
 
+
 def create_agent_actor(agent_id: str, agent_name: str | None = None) -> AuditActor:
     """Create an agent actor."""
     return AuditActor(
@@ -893,6 +904,7 @@ def create_agent_actor(agent_id: str, agent_name: str | None = None) -> AuditAct
         actor_id=agent_id,
         actor_name=agent_name or agent_id,
     )
+
 
 def create_user_actor(
     user_id: str,
@@ -907,6 +919,7 @@ def create_user_actor(
         ip_address=ip_address,
     )
 
+
 # =============================================================================
 # Convenience Logging Functions
 # =============================================================================
@@ -914,14 +927,17 @@ def create_user_actor(
 # Global audit log instance for convenience functions
 _audit_log: AuditLog | None = None
 
+
 def get_audit_log() -> AuditLog | None:
     """Get the global audit log instance."""
     return _audit_log
+
 
 def set_audit_log(audit_log: AuditLog) -> None:
     """Set the global audit log instance."""
     global _audit_log
     _audit_log = audit_log
+
 
 async def log_policy_decision(
     policy_id: str,
@@ -982,6 +998,7 @@ async def log_policy_decision(
         outcome="success" if decision.lower() in ("allow", "warn") else "failure",
     )
 
+
 async def log_deliberation_event(
     task_id: str,
     event_type: str,
@@ -1040,6 +1057,7 @@ async def log_deliberation_event(
         error_message=error_message,
     )
 
+
 async def log_deliberation_started(
     task_id: str,
     question: str,
@@ -1058,6 +1076,7 @@ async def log_deliberation_started(
         },
         workspace_id=workspace_id,
     )
+
 
 async def log_deliberation_completed(
     task_id: str,
@@ -1085,6 +1104,7 @@ async def log_deliberation_completed(
         outcome="success" if success else "failure",
     )
 
+
 async def log_deliberation_sla_event(
     task_id: str,
     level: str,  # "warning", "critical", "violated"
@@ -1105,6 +1125,7 @@ async def log_deliberation_sla_event(
         workspace_id=workspace_id,
         outcome="partial" if level in ("warning", "critical") else "failure",
     )
+
 
 # =============================================================================
 # Exports

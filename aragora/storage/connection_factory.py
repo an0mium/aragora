@@ -40,12 +40,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class StorageBackendType(str, Enum):
     """Available storage backend types in preference order."""
 
     SUPABASE = "supabase"  # Preferred for persistent data
     POSTGRES = "postgres"  # Self-hosted fallback
     SQLITE = "sqlite"  # Last resort
+
 
 @dataclass
 class DatabaseConfig:
@@ -56,10 +58,12 @@ class DatabaseConfig:
     is_supabase: bool
     pool: Any | None = None  # asyncpg Pool when available
 
+
 # Global pool cache for connection reuse
 _supabase_pool: Optional["Pool"] = None
 _postgres_pool: Optional["Pool"] = None
 _pool_lock = threading.Lock()
+
 
 def _normalize_backend(value: str | None) -> str | None:
     if not value:
@@ -68,6 +72,7 @@ def _normalize_backend(value: str | None) -> str | None:
     if not normalized or normalized == "auto":
         return None
     return normalized
+
 
 def _get_backend_override(
     store_name: str,
@@ -86,6 +91,7 @@ def _get_backend_override(
         if normalized:
             return normalized
     return None
+
 
 def _get_secret(name: str) -> str | None:
     """Get a secret from env or secrets manager.
@@ -110,6 +116,7 @@ def _get_secret(name: str) -> str | None:
         return None
     except Exception:  # noqa: BLE001 - Secret fetch fallback
         return None
+
 
 def get_supabase_postgres_dsn() -> str | None:
     """
@@ -149,6 +156,7 @@ def get_supabase_postgres_dsn() -> str | None:
         logger.warning(f"Failed to derive Supabase PostgreSQL DSN: {e}")
         return None
 
+
 def get_selfhosted_postgres_dsn() -> str | None:
     """
     Get self-hosted PostgreSQL connection string.
@@ -161,6 +169,7 @@ def get_selfhosted_postgres_dsn() -> str | None:
         PostgreSQL DSN, or None if not configured
     """
     return _get_secret("ARAGORA_POSTGRES_DSN") or _get_secret("DATABASE_URL")
+
 
 def resolve_database_config(
     store_name: str = "default",
@@ -287,6 +296,7 @@ def resolve_database_config(
         f"ARAGORA_POSTGRES_DSN / DATABASE_URL."
     )
 
+
 async def get_database_pool(
     store_name: str = "default",
     allow_sqlite: bool = True,
@@ -330,10 +340,12 @@ async def get_database_pool(
             config.pool = _postgres_pool
             return _postgres_pool, config
 
+
 def is_production_environment() -> bool:
     """Check if running in production environment."""
     env = os.environ.get("ARAGORA_ENV", "development").lower()
     return env in ("production", "prod", "live", "staging", "stage")
+
 
 def get_database_pool_sync(
     store_name: str = "default",
@@ -369,6 +381,7 @@ def get_database_pool_sync(
 
     return run_async(get_database_pool(store_name, allow_sqlite, dsn_override))
 
+
 async def close_all_pools() -> None:
     """Close all cached connection pools."""
     global _supabase_pool, _postgres_pool
@@ -383,12 +396,14 @@ async def close_all_pools() -> None:
             _postgres_pool = None
             logger.info("Closed PostgreSQL connection pool")
 
+
 def reset_pools() -> None:
     """Reset pool cache (for testing)."""
     global _supabase_pool, _postgres_pool
     with _pool_lock:
         _supabase_pool = None
         _postgres_pool = None
+
 
 async def _safe_store_init(store: Any, store_name: str) -> None:
     """Safely initialize a store asynchronously, logging any errors."""
@@ -397,6 +412,7 @@ async def _safe_store_init(store: Any, store_name: str) -> None:
         logger.debug(f"[{store_name}] Async store initialization completed")
     except Exception as e:
         logger.error(f"[{store_name}] Async store initialization failed: {e}")
+
 
 def create_persistent_store(
     store_name: str,
@@ -576,6 +592,7 @@ def create_persistent_store(
 
     logger.info(f"[{store_name}] Using SQLite: {db_path}")
     return sqlite_class(db_path)
+
 
 __all__ = [
     "StorageBackendType",

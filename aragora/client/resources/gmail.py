@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GmailConnection:
     """A Gmail connection."""
@@ -30,6 +31,7 @@ class GmailConnection:
     scopes: list[str] = field(default_factory=list)
     connected_at: datetime | None = None
     last_synced_at: datetime | None = None
+
 
 @dataclass
 class EmailTriageRule:
@@ -42,6 +44,7 @@ class EmailTriageRule:
     actions: list[str] = field(default_factory=list)
     priority: int = 0
 
+
 @dataclass
 class EmailDebateConfig:
     """Configuration for email-triggered debates."""
@@ -53,6 +56,7 @@ class EmailDebateConfig:
     debate_template: str | None = None
     agents: list[str] = field(default_factory=list)
     auto_reply: bool = False
+
 
 @dataclass
 class ProcessedEmail:
@@ -67,6 +71,7 @@ class ProcessedEmail:
     processed_at: datetime | None = None
     summary: str | None = None
 
+
 @dataclass
 class GmailStats:
     """Gmail processing statistics."""
@@ -76,6 +81,7 @@ class GmailStats:
     auto_replies_sent: int = 0
     errors: int = 0
     avg_processing_time_ms: float = 0.0
+
 
 class GmailAPI:
     """API interface for Gmail integration."""
@@ -550,6 +556,7 @@ class GmailAPI:
             errors=data.get("errors", 0),
             avg_processing_time_ms=data.get("avg_processing_time_ms", 0.0),
         )
+
 
 __all__ = [
     "GmailAPI",

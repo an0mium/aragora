@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for selection endpoints (100 requests per minute)
 _selection_limiter = RateLimiter(requests_per_minute=100)
 
+
 def _create_agent_pool() -> dict[str, "AgentProfile"]:
     """Create a pool of agents with default expertise profiles."""
     pool = {}
@@ -67,6 +68,7 @@ def _create_agent_pool() -> dict[str, "AgentProfile"]:
         )
         pool[agent_name] = profile
     return pool
+
 
 class SelectionHandler(BaseHandler):
     """Handler for selection plugin endpoints."""

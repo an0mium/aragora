@@ -10,10 +10,12 @@ Inspired by Heavy3.ai's Deep Audit feature which assigns explicit cognitive role
 This module enables role rotation across rounds, ensuring each agent explores
 different cognitive perspectives throughout the debate.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+
 
 class CognitiveRole(Enum):
     """
@@ -36,6 +38,7 @@ class CognitiveRole(Enum):
     ADVOCATE = "advocate"
     DEVIL_ADVOCATE = "devil_advocate"
     QUALITY_CHALLENGER = "quality_challenger"
+
 
 # Role prompts that modify agent behavior
 ROLE_PROMPTS = {
@@ -182,6 +185,7 @@ reach consensus without substantive backing.
 """,
 }
 
+
 @dataclass
 class RoleAssignment:
     """An assignment of a cognitive role to an agent for a specific round."""
@@ -194,6 +198,7 @@ class RoleAssignment:
     def __post_init__(self) -> None:
         if not self.role_prompt:
             self.role_prompt = ROLE_PROMPTS.get(self.role, "")
+
 
 @dataclass
 class RoleRotationConfig:
@@ -217,6 +222,7 @@ class RoleRotationConfig:
 
     # Force synthesizer role in final round
     synthesizer_final_round: bool = True
+
 
 class RoleRotator:
     """
@@ -300,6 +306,7 @@ class RoleRotator:
 === END ROLE ASSIGNMENT ===
 """
 
+
 def create_role_rotation(
     agents: list,
     total_rounds: int,
@@ -325,6 +332,7 @@ def create_role_rotation(
         schedule.append(assignments)
 
     return schedule
+
 
 def inject_role_into_prompt(
     base_prompt: str,

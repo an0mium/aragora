@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Inbox Repository
 # =============================================================================
 
+
 class InboxRepository(BaseRepository[dict[str, Any]]):
     """
     Repository for inbox prioritization and state management.
@@ -263,9 +264,11 @@ class InboxRepository(BaseRepository[dict[str, Any]]):
                 ),
             )
 
+
 # =============================================================================
 # Security Scan Repository
 # =============================================================================
+
 
 class SecurityScanRepository(BaseRepository[dict[str, Any]]):
     """
@@ -561,9 +564,11 @@ class SecurityScanRepository(BaseRepository[dict[str, Any]]):
                 ).fetchall()
             return [self._to_entity(row) for row in rows]
 
+
 # =============================================================================
 # PR Review Repository
 # =============================================================================
+
 
 class PRReviewRepository(BaseRepository[dict[str, Any]]):
     """
@@ -766,17 +771,21 @@ class PRReviewRepository(BaseRepository[dict[str, Any]]):
             ).fetchall()
             return [self._to_entity(row) for row in rows]
 
+
 # =============================================================================
 # Repository Factory
 # =============================================================================
+
 
 def get_inbox_repository() -> InboxRepository:
     """Get the inbox repository singleton."""
     return InboxRepository()
 
+
 def get_security_scan_repository() -> SecurityScanRepository:
     """Get the security scan repository singleton."""
     return SecurityScanRepository()
+
 
 def get_pr_review_repository() -> PRReviewRepository:
     """Get the PR review repository singleton."""

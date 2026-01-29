@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DecayModel(str, Enum):
     """Models for confidence decay calculation."""
 
@@ -32,6 +33,7 @@ class DecayModel(str, Enum):
     LINEAR = "linear"  # Constant decay rate
     STEP = "step"  # Discrete confidence levels
     CUSTOM = "custom"  # User-defined decay function
+
 
 class ConfidenceEvent(str, Enum):
     """Events that affect confidence."""
@@ -44,6 +46,7 @@ class ConfidenceEvent(str, Enum):
     CONTRADICTED = "contradicted"
     UPDATED = "updated"
     DECAYED = "decayed"
+
 
 @dataclass
 class ConfidenceAdjustment:
@@ -70,6 +73,7 @@ class ConfidenceAdjustment:
             "adjusted_at": self.adjusted_at.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class DecayConfig:
@@ -106,6 +110,7 @@ class DecayConfig:
         }
     )
 
+
 @dataclass
 class DecayReport:
     """Report of confidence decay results."""
@@ -131,6 +136,7 @@ class DecayReport:
             "processed_at": self.processed_at.isoformat(),
             "duration_ms": self.duration_ms,
         }
+
 
 class ConfidenceDecayManager:
     """Manages confidence decay for knowledge items."""
@@ -461,6 +467,7 @@ class ConfidenceDecayManager:
             "last_decay_runs": {k: v.isoformat() for k, v in self._last_decay_run.items()},
         }
 
+
 class ConfidenceDecayMixin:
     """Mixin for confidence decay operations on KnowledgeMound."""
 
@@ -523,8 +530,10 @@ class ConfidenceDecayMixin:
         manager = self._get_decay_manager()
         return manager.get_stats()
 
+
 # Singleton instance
 _decay_manager: ConfidenceDecayManager | None = None
+
 
 def get_decay_manager() -> ConfidenceDecayManager:
     """Get the global confidence decay manager instance."""

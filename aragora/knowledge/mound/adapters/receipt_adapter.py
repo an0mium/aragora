@@ -46,15 +46,18 @@ logger = logging.getLogger(__name__)
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 class ReceiptAdapterError(Exception):
     """Base exception for receipt adapter errors."""
 
     pass
 
+
 class ReceiptNotFoundError(ReceiptAdapterError):
     """Raised when a receipt is not found in the store."""
 
     pass
+
 
 @dataclass
 class ReceiptIngestionResult:
@@ -83,6 +86,7 @@ class ReceiptIngestionResult:
             "errors": self.errors,
             "success": self.success,
         }
+
 
 class ReceiptAdapter:
     """
@@ -645,6 +649,7 @@ class ReceiptAdapter:
             "mound_connected": self._mound is not None,
             "auto_ingest_enabled": self._auto_ingest,
         }
+
 
 __all__ = [
     "ReceiptAdapter",

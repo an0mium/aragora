@@ -28,11 +28,13 @@ logger = logging.getLogger(__name__)
 # Enums
 # =============================================================================
 
+
 class PayPalEnvironment(str, Enum):
     """PayPal environment."""
 
     SANDBOX = "sandbox"
     LIVE = "live"
+
 
 class OrderStatus(str, Enum):
     """PayPal order status."""
@@ -44,11 +46,13 @@ class OrderStatus(str, Enum):
     COMPLETED = "COMPLETED"
     PAYER_ACTION_REQUIRED = "PAYER_ACTION_REQUIRED"
 
+
 class OrderIntent(str, Enum):
     """PayPal order intent."""
 
     CAPTURE = "CAPTURE"
     AUTHORIZE = "AUTHORIZE"
+
 
 class CaptureStatus(str, Enum):
     """PayPal capture status."""
@@ -60,6 +64,7 @@ class CaptureStatus(str, Enum):
     REFUNDED = "REFUNDED"
     FAILED = "FAILED"
 
+
 class RefundStatus(str, Enum):
     """PayPal refund status."""
 
@@ -67,6 +72,7 @@ class RefundStatus(str, Enum):
     FAILED = "FAILED"
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
+
 
 class SubscriptionStatus(str, Enum):
     """PayPal subscription status."""
@@ -78,6 +84,7 @@ class SubscriptionStatus(str, Enum):
     CANCELLED = "CANCELLED"
     EXPIRED = "EXPIRED"
 
+
 class PayoutBatchStatus(str, Enum):
     """PayPal payout batch status."""
 
@@ -87,9 +94,11 @@ class PayoutBatchStatus(str, Enum):
     SUCCESS = "SUCCESS"
     CANCELED = "CANCELED"
 
+
 # =============================================================================
 # Credentials
 # =============================================================================
+
 
 @dataclass
 class PayPalCredentials:
@@ -127,9 +136,11 @@ class PayPalCredentials:
             webhook_id=webhook_id,
         )
 
+
 # =============================================================================
 # Error Handling
 # =============================================================================
+
 
 class PayPalError(Exception):
     """PayPal API error."""
@@ -148,9 +159,11 @@ class PayPalError(Exception):
         self.debug_id = debug_id
         self.details = details or []
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class Money:
@@ -173,6 +186,7 @@ class Money:
     def usd(cls, amount: float) -> "Money":
         return cls(currency_code="USD", value=f"{amount:.2f}")
 
+
 @dataclass
 class PayerName:
     """Payer name."""
@@ -191,6 +205,7 @@ class PayerName:
     def full_name(self) -> str:
         parts = [p for p in [self.given_name, self.surname] if p]
         return " ".join(parts)
+
 
 @dataclass
 class Payer:
@@ -214,6 +229,7 @@ class Payer:
             birth_date=data.get("birth_date"),
             address=data.get("address"),
         )
+
 
 @dataclass
 class PurchaseUnit:
@@ -266,6 +282,7 @@ class PurchaseUnit:
 
         return result
 
+
 @dataclass
 class Order:
     """PayPal order."""
@@ -299,6 +316,7 @@ class Order:
                 return link.get("href")
         return None
 
+
 @dataclass
 class Capture:
     """PayPal capture (completed payment)."""
@@ -330,6 +348,7 @@ class Capture:
             update_time=_parse_datetime(data.get("update_time")),
         )
 
+
 @dataclass
 class Refund:
     """PayPal refund."""
@@ -356,6 +375,7 @@ class Refund:
             create_time=_parse_datetime(data.get("create_time")),
             update_time=_parse_datetime(data.get("update_time")),
         )
+
 
 @dataclass
 class BillingPlan:
@@ -386,6 +406,7 @@ class BillingPlan:
             create_time=_parse_datetime(data.get("create_time")),
             update_time=_parse_datetime(data.get("update_time")),
         )
+
 
 @dataclass
 class Subscription:
@@ -427,6 +448,7 @@ class Subscription:
                 return link.get("href")
         return None
 
+
 @dataclass
 class PayoutItem:
     """Single payout recipient."""
@@ -448,6 +470,7 @@ class PayoutItem:
         if self.sender_item_id:
             result["sender_item_id"] = self.sender_item_id
         return result
+
 
 @dataclass
 class PayoutBatch:
@@ -479,9 +502,11 @@ class PayoutBatch:
             items=data.get("items", []),
         )
 
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime from API response."""
@@ -492,9 +517,11 @@ def _parse_datetime(value: str | None) -> datetime | None:
     except (ValueError, TypeError):
         return None
 
+
 # =============================================================================
 # PayPal Client
 # =============================================================================
+
 
 class PayPalClient:
     """
@@ -1034,9 +1061,11 @@ class PayPalClient:
 
         return True
 
+
 # =============================================================================
 # Mock Data Generators
 # =============================================================================
+
 
 def get_mock_order() -> Order:
     """Get a mock order for testing."""
@@ -1060,6 +1089,7 @@ def get_mock_order() -> Order:
         ],
     )
 
+
 def get_mock_subscription() -> Subscription:
     """Get a mock subscription for testing."""
     return Subscription(
@@ -1070,6 +1100,7 @@ def get_mock_subscription() -> Subscription:
         subscriber={"email_address": "subscriber@example.com"},
         create_time=datetime.now(timezone.utc),
     )
+
 
 def get_mock_capture() -> Capture:
     """Get a mock capture for testing."""

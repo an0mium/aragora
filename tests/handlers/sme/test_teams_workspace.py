@@ -43,7 +43,7 @@ class MockTeamsWorkspace:
     bot_id: str = "bot-123"
     installed_at: float = 1700000000.0
     installed_by: Optional[str] = "user-123"
-    scopes: List[str] = None
+    scopes: list[str] = None
     aragora_tenant_id: str = "org-456"
     is_active: bool = True
     refresh_token: Optional[str] = None
@@ -54,7 +54,7 @@ class MockTeamsWorkspace:
         if self.scopes is None:
             self.scopes = ["Team.ReadBasic.All"]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "tenant_id": self.tenant_id,
             "tenant_name": self.tenant_name,
@@ -85,9 +85,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[bytes] = None,
-        query_params: Optional[Dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
     ):
         # Initialize dict with query params
         super().__init__(query_params or {})

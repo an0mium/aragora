@@ -4,6 +4,7 @@ Argument Cartographer - builds directed graphs of debate logic in real-time.
 This is a pure observer that reads debate events and constructs a graph
 representation. It never modifies debate state or agent prompts.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class NodeType(Enum):
     """Types of argument nodes in the debate graph."""
 
@@ -28,6 +30,7 @@ class NodeType(Enum):
     VOTE = "vote"
     CONSENSUS = "consensus"
 
+
 class EdgeRelation(Enum):
     """Types of logical relationships between arguments."""
 
@@ -36,6 +39,7 @@ class EdgeRelation(Enum):
     MODIFIES = "modifies"
     RESPONDS_TO = "responds_to"
     CONCEDES_TO = "concedes_to"
+
 
 @dataclass
 class ArgumentNode:
@@ -62,6 +66,7 @@ class ArgumentNode:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ArgumentEdge:
     """An edge representing a logical relationship between arguments."""
@@ -81,6 +86,7 @@ class ArgumentEdge:
             "weight": self.weight,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class ArgumentCartographer:

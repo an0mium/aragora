@@ -31,6 +31,7 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class RLMContextHandler(BaseHandler):
     """Handler for RLM context compression and query endpoints.
 

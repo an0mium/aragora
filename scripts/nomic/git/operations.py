@@ -120,7 +120,7 @@ def get_git_diff_full(repo_path: Path) -> str:
         return ""
 
 
-def get_git_changed_files(repo_path: Path) -> List[str]:
+def get_git_changed_files(repo_path: Path) -> list[str]:
     """
     Get list of changed files from git.
 
@@ -143,7 +143,7 @@ def get_git_changed_files(repo_path: Path) -> List[str]:
         return []
 
 
-def get_modified_files(repo_path: Path) -> List[str]:
+def get_modified_files(repo_path: Path) -> list[str]:
     """
     Get list of modified (staged and unstaged) files.
 
@@ -254,7 +254,7 @@ def git_reset_hard(repo_path: Path, log_func: Callable = print) -> bool:
         return False
 
 
-def selective_rollback(repo_path: Path, files: List[str], log_func: Callable = print) -> bool:
+def selective_rollback(repo_path: Path, files: list[str], log_func: Callable = print) -> bool:
     """
     Rollback specific files to their last committed state.
 

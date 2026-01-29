@@ -79,10 +79,10 @@ class MockConsensusRecord:
     task: str
     final_answer: str
     confidence: float
-    participants: List[str]
+    participants: list[str]
     rounds: int
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -97,14 +97,14 @@ class MockKnowledgeItem:
     created_at: datetime
     updated_at: datetime
     importance: float = 0.8
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def create_mock_consensus_record(
     task: str,
     answer: str,
     confidence: float = 0.85,
-    participants: List[str] = None,
+    participants: list[str] = None,
 ) -> MockConsensusRecord:
     """Create a mock consensus record."""
     return MockConsensusRecord(
@@ -164,7 +164,7 @@ def mock_agents():
 def mock_consensus_memory():
     """Create a mock consensus memory store."""
     memory = MagicMock()
-    memory._records: Dict[str, MockConsensusRecord] = {}
+    memory._records: dict[str, MockConsensusRecord] = {}
 
     async def store_consensus(record):
         memory._records[record.id] = record
@@ -193,8 +193,8 @@ def mock_consensus_memory():
 def mock_knowledge_mound():
     """Create a mock Knowledge Mound."""
     mound = MagicMock()
-    mound._items: Dict[str, MockKnowledgeItem] = {}
-    mound._retrievals: List[Dict[str, Any]] = []
+    mound._items: dict[str, MockKnowledgeItem] = {}
+    mound._retrievals: list[dict[str, Any]] = []
 
     async def store(item):
         mound._items[item.id] = item
@@ -232,7 +232,7 @@ def mock_knowledge_mound():
 def mock_meta_learner(mock_knowledge_mound):
     """Create a mock meta-learner."""
     learner = MagicMock()
-    learner._feedback: List[Dict[str, Any]] = []
+    learner._feedback: list[dict[str, Any]] = []
 
     async def record_retrieval(km_id: str, rank_position: int, was_useful: bool):
         learner._feedback.append(

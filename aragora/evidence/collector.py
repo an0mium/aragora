@@ -16,6 +16,7 @@ SSRF Protection:
 
     See aragora.config.settings.EvidenceSettings for details.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -84,6 +85,7 @@ DEFAULT_ALLOWED_DOMAINS: frozenset[str] = frozenset(
 
 from aragora.connectors.base import Connector
 from aragora.reasoning.provenance import ProvenanceManager
+
 
 @dataclass
 class EvidenceSnippet:
@@ -167,6 +169,7 @@ URL: {self.url}
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class EvidencePack:
     """A collection of evidence snippets for a debate."""
@@ -229,6 +232,7 @@ class EvidencePack:
             "average_reliability": self.average_reliability,
             "average_freshness": self.average_freshness,
         }
+
 
 class EvidenceCollector:
     """Collects evidence from multiple connectors for debate grounding.
@@ -1455,6 +1459,7 @@ class EvidenceCollector:
 
         # Deduplicate
         return list(dict.fromkeys(claims))[:10]  # Max 10 claims
+
 
 __all__ = [
     "EvidenceSnippet",

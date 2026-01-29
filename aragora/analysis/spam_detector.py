@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
+
 class SpamCategory(Enum):
     """Category of spam/unwanted email."""
 
@@ -33,6 +34,7 @@ class SpamCategory(Enum):
     BULK = "bulk"  # Mass mailings
     LEGITIMATE = "legitimate"  # Not spam
 
+
 class RiskLevel(Enum):
     """Risk level of email."""
 
@@ -41,6 +43,7 @@ class RiskLevel(Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 @dataclass
 class SpamSignal:
@@ -55,6 +58,7 @@ class SpamSignal:
         """Get weighted score."""
         return self.score * self.weight
 
+
 @dataclass
 class LinkAnalysis:
     """Analysis of a URL in the email."""
@@ -66,6 +70,7 @@ class LinkAnalysis:
     is_suspicious: bool
     redirect_chain: list[str] = field(default_factory=list)
     risk_factors: list[str] = field(default_factory=list)
+
 
 @dataclass
 class SpamAnalysis:
@@ -99,6 +104,7 @@ class SpamAnalysis:
             "analyzed_at": self.analyzed_at.isoformat(),
         }
 
+
 @dataclass
 class PhishingAnalysis:
     """Phishing-specific analysis result."""
@@ -127,6 +133,7 @@ class PhishingAnalysis:
             "suspicious_links": len(self.suspicious_links),
         }
 
+
 @dataclass
 class EmailContent:
     """Email content for analysis."""
@@ -140,6 +147,7 @@ class EmailContent:
     headers: dict[str, str] = field(default_factory=dict)
     attachments: list[dict[str, Any]] = field(default_factory=list)
     received_at: datetime | None = None
+
 
 class SpamDetector:
     """

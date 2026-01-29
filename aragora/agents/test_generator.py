@@ -23,6 +23,7 @@ from aragora.agents.base import BaseDebateAgent
 
 logger = logging.getLogger(__name__)
 
+
 class TestType(str, Enum):
     """Types of tests that can be generated."""
 
@@ -33,6 +34,7 @@ class TestType(str, Enum):
     SNAPSHOT = "snapshot"
     PERFORMANCE = "performance"
     SECURITY = "security"
+
 
 @dataclass
 class FunctionSignature:
@@ -53,6 +55,7 @@ class FunctionSignature:
             return f"{self.class_name}.{self.name}"
         return self.name
 
+
 @dataclass
 class TestSuggestion:
     """Suggested test case."""
@@ -67,6 +70,7 @@ class TestSuggestion:
     priority: int = 1  # 1 = high, 5 = low
     rationale: str = ""
 
+
 @dataclass
 class CoverageGap:
     """Identified gap in test coverage."""
@@ -77,6 +81,7 @@ class CoverageGap:
     description: str
     suggested_tests: list[str] = field(default_factory=list)
     priority: int = 1
+
 
 class TestGeneratorAgent(BaseDebateAgent):
     """
@@ -603,6 +608,7 @@ Follow testing best practices:
 
         return gaps
 
+
 # Convenience function for quick test generation
 def generate_tests_for_code(code: str, module_name: str = "module") -> str:
     """
@@ -624,6 +630,7 @@ def generate_tests_for_code(code: str, module_name: str = "module") -> str:
         all_suggestions.extend(suggestions)
 
     return agent.generate_pytest_code(all_suggestions, module_name)
+
 
 # Agent configuration
 AGENT_CONFIGS = {

@@ -4,6 +4,7 @@ Document parsing and storage for Aragora debates.
 Supports PDF, DOCX, TXT, and Markdown files.
 Inspired by Heavy3.ai document attachment feature.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,6 +29,7 @@ _DocxDocumentClass: Optional[type[Any]] = None
 # Pattern for valid document IDs (alphanumeric, hyphens, underscores only)
 VALID_DOC_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
+
 def _validate_doc_id(doc_id: str) -> bool:
     """Validate a document ID to prevent path traversal.
 
@@ -49,6 +51,7 @@ def _validate_doc_id(doc_id: str) -> bool:
         return False
 
     return True
+
 
 def _safe_path(storage_dir: Path, doc_id: str) -> Path | None:
     """Construct a safe path for a document, preventing path traversal.
@@ -77,6 +80,7 @@ def _safe_path(storage_dir: Path, doc_id: str) -> Path | None:
 
     return doc_path
 
+
 # Optional PDF support
 PDF_AVAILABLE = False
 try:
@@ -96,6 +100,7 @@ try:
     DOCX_AVAILABLE = True
 except ImportError:
     pass
+
 
 @dataclass
 class ParsedDocument:
@@ -134,12 +139,14 @@ class ParsedDocument:
             "preview": self.preview,
         }
 
+
 def generate_doc_id(content: bytes, filename: str) -> str:
     """Generate a unique document ID from content hash."""
     hasher = hashlib.sha256()
     hasher.update(content)
     hasher.update(filename.encode())
     return hasher.hexdigest()[:16]
+
 
 def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
     """Parse a PDF file and extract text."""
@@ -165,6 +172,7 @@ def parse_pdf(content: bytes, filename: str) -> ParsedDocument:
         text=full_text,
         page_count=len(reader.pages),
     )
+
 
 def parse_docx(content: bytes, filename: str) -> ParsedDocument:
     """Parse a Word document and extract text."""
@@ -198,6 +206,7 @@ def parse_docx(content: bytes, filename: str) -> ParsedDocument:
         text=full_text,
     )
 
+
 def parse_text(content: bytes, filename: str) -> ParsedDocument:
     """Parse a plain text or markdown file."""
     # Try UTF-8 first, fall back to latin-1
@@ -214,6 +223,7 @@ def parse_text(content: bytes, filename: str) -> ParsedDocument:
         content_type=content_type,
         text=text,
     )
+
 
 def parse_document(content: bytes, filename: str) -> ParsedDocument:
     """
@@ -236,6 +246,7 @@ def parse_document(content: bytes, filename: str) -> ParsedDocument:
     else:
         # Try parsing as plain text
         return parse_text(content, filename)
+
 
 class DocumentStore:
     """
@@ -368,8 +379,10 @@ class DocumentStore:
 
         return "\n\n".join(parts)
 
+
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md", ".markdown"}
+
 
 def get_supported_formats() -> dict:
     """Get information about supported document formats."""

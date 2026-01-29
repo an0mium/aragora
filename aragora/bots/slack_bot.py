@@ -45,6 +45,7 @@ SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
+
 def _check_slack_available() -> tuple[bool, str | None]:
     """Check if slack_bolt is available."""
     try:
@@ -53,6 +54,7 @@ def _check_slack_available() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         return False, "slack_bolt is required. Install with: pip install slack-bolt"
+
 
 class AragoraSlackBot:
     """Slack bot for Aragora platform integration."""
@@ -470,6 +472,7 @@ class AragoraSlackBot:
         """Get the underlying Slack Bolt app for custom integration."""
         return self._app
 
+
 async def run_slack_bot(
     token: str | None = None,
     app_token: str | None = None,
@@ -492,6 +495,7 @@ async def run_slack_bot(
     bot = AragoraSlackBot(token, app_token, signing_secret)
     await bot.setup()
     await bot.run()
+
 
 def create_slack_bot(
     token: str | None = None,
@@ -516,6 +520,7 @@ def create_slack_bot(
         raise ValueError("Slack bot token is required. Set SLACK_BOT_TOKEN env var.")
 
     return AragoraSlackBot(token, app_token, signing_secret)
+
 
 __all__ = [
     "AragoraSlackBot",

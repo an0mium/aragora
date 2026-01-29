@@ -13,6 +13,7 @@ from .registry import CommandRegistry, get_command_registry
 
 logger = logging.getLogger(__name__)
 
+
 class CommandRouter:
     """
     Routes incoming commands to their handlers.
@@ -131,6 +132,7 @@ class CommandRouter:
         message += "\n\nUse `/help` to see available commands."
 
         return CommandResult.error(message, ephemeral=True)
+
 
 def parse_command_text(text: str) -> tuple[str, list[str]]:
     """

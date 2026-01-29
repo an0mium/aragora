@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-def parse_handler_result(result) -> Dict[str, Any]:
+def parse_handler_result(result) -> dict[str, Any]:
     """Parse HandlerResult to dict for assertions."""
     body = json.loads(result.body)
     return {"success": result.status_code < 400, "data": body, "status_code": result.status_code}
@@ -72,7 +72,7 @@ class MockEloSystem:
             "agent-2": MockAgent("agent-2", elo=1450, wins=8, losses=6, draws=3),
         }
 
-    def get_leaderboard(self, limit: int = 10, domain: str | None = None) -> List:
+    def get_leaderboard(self, limit: int = 10, domain: str | None = None) -> list:
         return list(self._agents.values())[:limit]
 
     def get_rating(self, agent_id: str):
@@ -80,13 +80,13 @@ class MockEloSystem:
             raise KeyError(f"Agent not found: {agent_id}")
         return self._agents[agent_id]
 
-    def get_elo_history(self, agent_id: str, limit: int = 30) -> List:
+    def get_elo_history(self, agent_id: str, limit: int = 30) -> list:
         if agent_id not in self._agents:
             return []
         now = datetime.now(timezone.utc)
         return [(now.isoformat(), 1500 - i * 10) for i in range(min(limit, 5))]
 
-    def get_recent_matches(self, limit: int = 10) -> List[Dict]:
+    def get_recent_matches(self, limit: int = 10) -> list[dict]:
         return [
             {
                 "debate_id": f"debate-{i}",
@@ -96,7 +96,7 @@ class MockEloSystem:
             for i in range(min(limit, 3))
         ]
 
-    def get_head_to_head(self, agent_a: str, agent_b: str) -> Dict:
+    def get_head_to_head(self, agent_a: str, agent_b: str) -> dict:
         return {
             "agent_a": agent_a,
             "agent_b": agent_b,
@@ -106,14 +106,14 @@ class MockEloSystem:
             "total": 10,
         }
 
-    def list_agents(self) -> List[str]:
+    def list_agents(self) -> list[str]:
         return list(self._agents.keys())
 
 
 class MockCostTracker:
     """Mock cost tracker for testing."""
 
-    def get_workspace_stats(self, org_id: str | None = None) -> Dict[str, Any]:
+    def get_workspace_stats(self, org_id: str | None = None) -> dict[str, Any]:
         return {
             "total_tokens_in": 100000,
             "total_tokens_out": 50000,

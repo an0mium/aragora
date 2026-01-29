@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Provider name for external identity storage
 TEAMS_PROVIDER = "azure_ad"
 
+
 @dataclass
 class TeamsUserInfo:
     """Information about a Teams user."""
@@ -56,6 +57,7 @@ class TeamsUserInfo:
             "job_title": self.job_title,
             "department": self.department,
         }
+
 
 class TeamsUserIdentityBridge:
     """
@@ -408,8 +410,10 @@ class TeamsUserIdentityBridge:
             # Email often needs Graph API call
         )
 
+
 # Singleton instance
 _bridge: TeamsUserIdentityBridge | None = None
+
 
 def get_teams_identity_bridge() -> TeamsUserIdentityBridge:
     """Get or create the Teams identity bridge singleton."""

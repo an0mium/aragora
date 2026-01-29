@@ -50,7 +50,7 @@ def mock_credentials():
     return creds
 
 
-def make_api_response(data: Dict[str, Any]) -> Dict[str, Any]:
+def make_api_response(data: dict[str, Any]) -> dict[str, Any]:
     """Create a mock API response."""
     return data
 
@@ -59,7 +59,7 @@ def make_page_data(
     page_id: str = "page-1",
     title: str = "Test Page",
     archived: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock page data."""
     return {
         "id": page_id,
@@ -83,7 +83,7 @@ def make_page_data(
 def make_database_data(
     db_id: str = "db-1",
     title: str = "Test Database",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock database data."""
     return {
         "id": db_id,
@@ -104,7 +104,7 @@ def make_block_data(
     block_id: str = "block-1",
     block_type: str = "paragraph",
     text: str = "Test content",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock block data."""
     return {
         "id": block_id,

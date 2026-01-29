@@ -16,6 +16,7 @@ from aragora.client.models import (
     RoleRotationAnalytics,
 )
 
+
 class AnalyticsAPI:
     """API interface for analytics."""
 
@@ -151,5 +152,6 @@ class AnalyticsAPI:
         """Async version of get_memory_stats()."""
         response = await self._client._get_async("/api/v1/memory/stats")
         return MemoryStats(**response)
+
 
 __all__ = ["AnalyticsAPI"]

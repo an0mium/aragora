@@ -37,6 +37,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 class AmazonMarketplace(str, Enum):
     """Amazon marketplace identifiers."""
 
@@ -51,6 +52,7 @@ class AmazonMarketplace(str, Enum):
     JP = "A1VC38T7YXB528"
     AU = "A39IBJ37TRP1C6"
 
+
 class AmazonOrderStatus(str, Enum):
     """Amazon order status."""
 
@@ -63,11 +65,13 @@ class AmazonOrderStatus(str, Enum):
     INVOICE_UNCONFIRMED = "InvoiceUnconfirmed"
     PENDING_AVAILABILITY = "PendingAvailability"
 
+
 class FulfillmentChannel(str, Enum):
     """Order fulfillment channel."""
 
     AFN = "AFN"  # Amazon Fulfillment Network (FBA)
     MFN = "MFN"  # Merchant Fulfillment Network
+
 
 class InventoryCondition(str, Enum):
     """Inventory item condition."""
@@ -79,6 +83,7 @@ class InventoryCondition(str, Enum):
     USED_ACCEPTABLE = "UsedAcceptable"
     COLLECTIBLE = "CollectibleLikeNew"
     REFURBISHED = "Refurbished"
+
 
 @dataclass
 class AmazonCredentials:
@@ -107,6 +112,7 @@ class AmazonCredentials:
             role_arn=os.environ.get("AMAZON_SP_ROLE_ARN"),
         )
 
+
 @dataclass
 class AmazonAddress:
     """Amazon shipping/billing address."""
@@ -133,6 +139,7 @@ class AmazonAddress:
             "countryCode": self.country_code,
             "phone": self.phone,
         }
+
 
 @dataclass
 class AmazonOrderItem:
@@ -168,6 +175,7 @@ class AmazonOrderItem:
             "condition": self.condition,
             "isGift": self.is_gift,
         }
+
 
 @dataclass
 class AmazonOrder:
@@ -214,6 +222,7 @@ class AmazonOrder:
             "isReplacementOrder": self.is_replacement_order,
         }
 
+
 @dataclass
 class AmazonInventoryItem:
     """Amazon inventory/FBA item."""
@@ -245,6 +254,7 @@ class AmazonInventoryItem:
             "researchingQuantity": self.researching_quantity,
         }
 
+
 @dataclass
 class AmazonProduct:
     """Amazon catalog item."""
@@ -275,6 +285,7 @@ class AmazonProduct:
             "bulletPoints": self.bullet_points,
             "browseNodes": self.browse_nodes,
         }
+
 
 class AmazonConnector(EnterpriseConnector):
     """
@@ -843,9 +854,11 @@ class AmazonConnector(EnterpriseConnector):
                 },
             )
 
+
 # =========================================================================
 # Mock data for testing
 # =========================================================================
+
 
 def get_mock_orders() -> list[AmazonOrder]:
     """Get mock Amazon orders for testing."""
@@ -882,6 +895,7 @@ def get_mock_orders() -> list[AmazonOrder]:
         ),
     ]
 
+
 def get_mock_inventory() -> list[AmazonInventoryItem]:
     """Get mock FBA inventory for testing."""
     return [
@@ -897,6 +911,7 @@ def get_mock_inventory() -> list[AmazonInventoryItem]:
             inbound_quantity=5,
         ),
     ]
+
 
 __all__ = [
     "AmazonConnector",

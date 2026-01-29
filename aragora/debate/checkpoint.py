@@ -13,6 +13,7 @@ Key concepts:
 - CheckpointManager: Orchestrates checkpointing lifecycle
 - ResumedDebate: Context for continuing from checkpoint
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 from aragora.core import Critique, Message, Vote
 from aragora.exceptions import ConfigurationError
 
+
 class CheckpointStatus(Enum):
     """Status of a checkpoint."""
 
@@ -45,6 +47,7 @@ class CheckpointStatus(Enum):
     RESUMING = "resuming"
     CORRUPTED = "corrupted"
     EXPIRED = "expired"
+
 
 @dataclass
 class AgentState:
@@ -56,6 +59,7 @@ class AgentState:
     system_prompt: str
     stance: str
     memory_snapshot: dict | None = None
+
 
 @dataclass
 class DebateCheckpoint:
@@ -204,6 +208,7 @@ class DebateCheckpoint:
             intervention_notes=data.get("intervention_notes", []),
         )
 
+
 @dataclass
 class ResumedDebate:
     """Context for a debate resumed from checkpoint."""
@@ -220,6 +225,7 @@ class ResumedDebate:
     # Reconciliation
     context_drift_detected: bool = False
     drift_notes: list[str] = field(default_factory=list)
+
 
 class CheckpointStore(ABC):
     """Abstract base for checkpoint persistence."""
@@ -247,6 +253,7 @@ class CheckpointStore(ABC):
     async def delete(self, checkpoint_id: str) -> bool:
         """Delete a checkpoint."""
         raise NotImplementedError("Subclasses must implement delete")
+
 
 class FileCheckpointStore(CheckpointStore):
     """File-based checkpoint storage."""
@@ -357,6 +364,7 @@ class FileCheckpointStore(CheckpointStore):
             path.unlink()
             return True
         return False
+
 
 class S3CheckpointStore(CheckpointStore):
     """S3-based checkpoint storage for distributed deployments."""
@@ -471,6 +479,7 @@ class S3CheckpointStore(CheckpointStore):
         except OSError as e:
             logger.warning(f"S3 connection error deleting {checkpoint_id}: {e}")
             return False
+
 
 class GitCheckpointStore(CheckpointStore):
     """Git branch-based checkpoint storage for version control.
@@ -726,6 +735,7 @@ class GitCheckpointStore(CheckpointStore):
 
         return None
 
+
 class RecoveryNarrator:
     """Summarizes git history for resuming debates (Gastown pattern).
 
@@ -861,6 +871,7 @@ You are agent **{agent_name}**. Please continue the debate from where it left of
 maintaining consistency with your previous positions while remaining open to
 new arguments. The debate will now continue.
 """
+
 
 class DatabaseCheckpointStore(CheckpointStore):
     """
@@ -1106,6 +1117,7 @@ class DatabaseCheckpointStore(CheckpointStore):
             "pool": pool_stats,
         }
 
+
 @dataclass
 class CheckpointConfig:
     """Configuration for checkpointing behavior."""
@@ -1120,6 +1132,7 @@ class CheckpointConfig:
     continuous_mode: bool = False  # Commit after every round
     enable_recovery_narrator: bool = True  # Generate recovery summaries
     glacial_tier_sync: bool = False  # Sync to ContinuumMemory glacial tier
+
 
 class CheckpointManager:
     """
@@ -1478,6 +1491,7 @@ class CheckpointManager:
         for cp in checkpoints[self.config.max_checkpoints :]:
             await self.store.delete(cp["checkpoint_id"])
 
+
 class CheckpointWebhook:
     """Webhook notifications for checkpoint events."""
 
@@ -1540,6 +1554,7 @@ class CheckpointWebhook:
             logger.debug(f"Webhook notification failed - connection error: {e}")
         except Exception as e:
             logger.warning(f"Unexpected webhook notification error: {e}")
+
 
 # Convenience function for quick checkpointing
 async def checkpoint_debate(

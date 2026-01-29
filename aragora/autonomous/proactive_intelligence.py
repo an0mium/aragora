@@ -7,6 +7,7 @@ Provides:
 - Trend monitoring
 - Anomaly detection
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +26,7 @@ from aragora.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+
 class AlertSeverity(Enum):
     """Severity levels for alerts."""
 
@@ -34,6 +36,7 @@ class AlertSeverity(Enum):
     HIGH = "high"
     CRITICAL = "critical"
 
+
 class TrendDirection(Enum):
     """Direction of a trend."""
 
@@ -41,6 +44,7 @@ class TrendDirection(Enum):
     DECREASING = "decreasing"
     STABLE = "stable"
     VOLATILE = "volatile"
+
 
 @dataclass
 class ScheduledTriggerConfig:
@@ -56,6 +60,7 @@ class ScheduledTriggerConfig:
     run_count: int = 0
     max_runs: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class Alert:
@@ -76,6 +81,7 @@ class Alert:
     debate_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class TrendData:
     """Data about a monitored trend."""
@@ -91,6 +97,7 @@ class TrendData:
     confidence: float
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class Anomaly:
     """A detected anomaly."""
@@ -104,6 +111,7 @@ class Anomaly:
     severity: AlertSeverity
     description: str
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class ScheduledTrigger:
     """
@@ -291,6 +299,7 @@ class ScheduledTrigger:
             for tid, t in self._triggers.items()
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
+
 
 class AlertAnalyzer:
     """
@@ -539,6 +548,7 @@ class AlertAnalyzer:
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
 
+
 class TrendMonitor:
     """
     Monitors metrics for trends over time.
@@ -662,6 +672,7 @@ class TrendMonitor:
             if trend:
                 trends[metric_name] = trend
         return trends
+
 
 class AnomalyDetector:
     """
@@ -802,6 +813,7 @@ class AnomalyDetector:
             "median": statistics.median(values),
             "count": len(values),
         }
+
 
 __all__ = [
     "AlertSeverity",

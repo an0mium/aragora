@@ -48,6 +48,7 @@ from .log import (
 
 logger = logging.getLogger(__name__)
 
+
 class SlackAuditLogger:
     """
     Audit logger for Slack integration operations.
@@ -345,8 +346,10 @@ class SlackAuditLogger:
         )
         return event_id
 
+
 # Module-level singleton
 _slack_audit_logger: SlackAuditLogger | None = None
+
 
 def get_slack_audit_logger() -> SlackAuditLogger:
     """Get the singleton Slack audit logger."""
@@ -355,10 +358,12 @@ def get_slack_audit_logger() -> SlackAuditLogger:
         _slack_audit_logger = SlackAuditLogger()
     return _slack_audit_logger
 
+
 def reset_slack_audit_logger() -> None:
     """Reset the singleton (for testing)."""
     global _slack_audit_logger
     _slack_audit_logger = None
+
 
 __all__ = [
     "SlackAuditLogger",

@@ -128,6 +128,7 @@ INSIGHT_COLUMNS = """id, type, title, description, confidence,
 # Import from centralized location (defined here for backwards compatibility)
 from aragora.utils.sql_helpers import _escape_like_pattern
 
+
 class InsightStore(SQLiteStore):
     """
     SQLite-based storage for debate insights.

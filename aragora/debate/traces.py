@@ -4,6 +4,7 @@ Debate Tracing and Replay System.
 Provides deterministic, replayable debate artifacts with full event logging.
 Enables audits, regression tests, and research reproducibility.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.debate.traces_database import TracesDatabase
 from aragora.storage.base_store import SQLiteStore
+
 
 class EventType(Enum):
     """Types of debate events."""
@@ -43,6 +45,7 @@ class EventType(Enum):
     ERROR = "error"
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
+
 
 @dataclass
 class TraceEvent:
@@ -69,6 +72,7 @@ class TraceEvent:
         """Create from dictionary."""
         data["event_type"] = EventType(data["event_type"])
         return cls(**data)
+
 
 @dataclass
 class DebateTrace:
@@ -246,6 +250,7 @@ class DebateTrace:
             critiques=critiques,
             duration_seconds=(self.duration_ms or 0) / 1000.0,
         )
+
 
 class DebateTracer(SQLiteStore):
     """
@@ -533,6 +538,7 @@ class DebateTracer(SQLiteStore):
         state["agents_acted"] = list(state["agents_acted"])
         return state
 
+
 class DebateReplayer:
     """
     Replays recorded debates for analysis or continuation.
@@ -737,6 +743,7 @@ class DebateReplayer:
             lines.append(str(self.trace.final_result))
 
         return "\n".join(lines)
+
 
 def list_traces(db_path: str = "aragora_traces.db", limit: int = 20) -> list[dict]:
     """List recent traces from database."""

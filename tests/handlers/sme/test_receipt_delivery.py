@@ -40,15 +40,15 @@ class MockChannelSubscription:
     org_id: str = "org-456"
     channel_type: str = "slack"
     channel_id: str = "C123456"
-    event_types: List[str] = field(default_factory=lambda: ["receipt"])
+    event_types: list[str] = field(default_factory=lambda: ["receipt"])
     created_at: float = 1700000000.0
     workspace_id: Optional[str] = "T123456"
     channel_name: Optional[str] = "#decisions"
     created_by: Optional[str] = "user-123"
     is_active: bool = True
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "org_id": self.org_id,
@@ -83,9 +83,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[bytes] = None,
-        query_params: Optional[Dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
     ):
         super().__init__(query_params or {})
         self.command = command

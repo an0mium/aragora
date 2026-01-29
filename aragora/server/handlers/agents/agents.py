@@ -79,6 +79,7 @@ _OPENROUTER_FALLBACK_MODELS = {
     "mistral-api": "mistralai/mistral-large-2411",
 }
 
+
 def _secret_configured(name: str) -> bool:
     try:
         from aragora.config.secrets import get_secret
@@ -92,6 +93,7 @@ def _secret_configured(name: str) -> bool:
     env_value = os.getenv(name)
     return bool(env_value and env_value.strip())
 
+
 def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     if not env_vars:
         return []
@@ -103,6 +105,7 @@ def _missing_required_env_vars(env_vars: str | None) -> list[str]:
     if any(_secret_configured(var) for var in candidates):
         return []
     return candidates
+
 
 class AgentsHandler(SecureHandler):
     """Handler for agent-related endpoints.

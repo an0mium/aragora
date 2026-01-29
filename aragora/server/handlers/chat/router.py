@@ -90,6 +90,7 @@ except ImportError:
     _chat_limiter = None
     logger.warning("Handler base not available - ChatRouter will have limited functionality")
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -98,11 +99,13 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed: {exc}", exc_info=exc)
 
+
 def create_tracked_task(coro, name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
+
 
 class ChatWebhookRouter:
     """
@@ -681,6 +684,7 @@ class ChatWebhookRouter:
         result = await self._decision_router.route(request)
         return result
 
+
 # Handler class for integration with server framework
 if HANDLER_BASE_AVAILABLE:
 
@@ -803,8 +807,10 @@ if HANDLER_BASE_AVAILABLE:
 
             return json_response(status)
 
+
 # Singleton router instance
 _router: ChatWebhookRouter | None = None
+
 
 def _create_decision_router_debate_starter():
     """
@@ -885,6 +891,7 @@ def _create_decision_router_debate_starter():
             raise
 
     return debate_starter
+
 
 def get_webhook_router(
     event_handler: Optional[Callable[..., Any]] = None,

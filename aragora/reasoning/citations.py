@@ -10,6 +10,7 @@ This module provides:
 4. CitationFormatter: Format citations in standard academic styles
 5. GroundedVerdict: Verdict + supporting citations
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 
 class CitationType(Enum):
     """Type of citation source."""
@@ -36,6 +38,7 @@ class CitationType(Enum):
     INTERNAL_DEBATE = "internal_debate"  # Reference to prior aragora debate
     UNKNOWN = "unknown"
 
+
 class CitationQuality(Enum):
     """Quality level of a citation."""
 
@@ -45,6 +48,7 @@ class CitationQuality(Enum):
     MIXED = "mixed"  # Some quality indicators
     UNVERIFIED = "unverified"  # Unknown quality
     QUESTIONABLE = "questionable"  # Quality concerns
+
 
 @dataclass
 class ScholarlyEvidence:
@@ -174,6 +178,7 @@ class ScholarlyEvidence:
             "peer_reviewed": self.peer_reviewed,
         }
 
+
 @dataclass
 class CitedClaim:
     """A claim with supporting citations."""
@@ -203,6 +208,7 @@ class CitedClaim:
             "confidence": self.confidence,
             "grounding_score": self.grounding_score,
         }
+
 
 @dataclass
 class GroundedVerdict:
@@ -274,6 +280,7 @@ class GroundedVerdict:
             "all_citations": [c.to_dict() for c in self.all_citations],
             "grounding_score": self.grounding_score,
         }
+
 
 class CitationExtractor:
     """
@@ -353,6 +360,7 @@ class CitationExtractor:
         else:
             return [CitationType.ACADEMIC_PAPER, CitationType.OFFICIAL_SOURCE]
 
+
 class CitationStore:
     """
     Stores and retrieves citations for reuse across debates.
@@ -400,6 +408,7 @@ class CitationStore:
         """Get all citations linked to a claim."""
         citation_ids = self.claim_to_citations.get(claim_id, [])
         return [self.citations[cid] for cid in citation_ids if cid in self.citations]
+
 
 def create_citation_from_url(url: str, title: str = "", excerpt: str = "") -> ScholarlyEvidence:
     """Create a citation from a URL with automatic type detection."""

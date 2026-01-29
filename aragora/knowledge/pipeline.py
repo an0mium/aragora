@@ -100,6 +100,7 @@ except ImportError:
     UNSTRUCTURED_AVAILABLE = False
     UnstructuredParser = None  # type: ignore[misc]  # Optional module fallback
 
+
 @dataclass
 class PipelineConfig:
     """Configuration for the knowledge pipeline."""
@@ -131,6 +132,7 @@ class PipelineConfig:
     # Concurrency
     max_concurrent_embeddings: int = 10
     embedding_batch_size: int = 100
+
 
 @dataclass
 class ProcessingResult:
@@ -165,6 +167,7 @@ class ProcessingResult:
             "error": self.error,
         }
 
+
 class KnowledgePipeline:
     """
     End-to-end document processing pipeline for enterprise knowledge management.
@@ -177,9 +180,7 @@ class KnowledgePipeline:
         self,
         config: PipelineConfig | None = None,
         fact_store: Optional[FactStore | InMemoryFactStore] = None,
-        embedding_service: Optional[
-            WeaviateEmbeddingService | InMemoryEmbeddingService
-        ] = None,
+        embedding_service: Optional[WeaviateEmbeddingService | InMemoryEmbeddingService] = None,
         agents: list | None = None,
         knowledge_mound: Any | None = None,  # KnowledgeMound if available
     ):
@@ -917,6 +918,7 @@ Include dates, numbers, names, and specific claims where possible."""
     def knowledge_mound(self) -> Any:
         """Get the Knowledge Mound instance (if available)."""
         return self._knowledge_mound
+
 
 # Convenience function
 async def create_pipeline(

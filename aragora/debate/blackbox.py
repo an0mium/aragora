@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BlackboxEvent:
     """A single event recorded by the blackbox."""
@@ -36,6 +37,7 @@ class BlackboxEvent:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
 
 @dataclass
 class BlackboxSnapshot:
@@ -51,6 +53,7 @@ class BlackboxSnapshot:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
 
 class BlackboxRecorder:
     """
@@ -363,8 +366,10 @@ class BlackboxRecorder:
 
         logger.info(f"blackbox_close session={self.session_id}")
 
+
 # Convenience function for getting a session blackbox
 _active_recorders: dict[str, BlackboxRecorder] = {}
+
 
 def get_blackbox(session_id: str) -> BlackboxRecorder:
     """
@@ -379,6 +384,7 @@ def get_blackbox(session_id: str) -> BlackboxRecorder:
     if session_id not in _active_recorders:
         _active_recorders[session_id] = BlackboxRecorder(session_id)
     return _active_recorders[session_id]
+
 
 def close_blackbox(session_id: str) -> None:
     """Close and remove a blackbox recorder."""

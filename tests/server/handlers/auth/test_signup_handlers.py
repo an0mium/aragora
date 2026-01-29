@@ -60,13 +60,13 @@ from aragora.server.handlers.utils.responses import HandlerResult
 # ===========================================================================
 
 
-def parse_result(result: HandlerResult) -> tuple[int, Dict[str, Any]]:
+def parse_result(result: HandlerResult) -> tuple[int, dict[str, Any]]:
     """Parse HandlerResult into (status_code, body_dict)."""
     body = json.loads(result.body.decode("utf-8"))
     return result.status_code, body
 
 
-def get_data(result: HandlerResult) -> Dict[str, Any]:
+def get_data(result: HandlerResult) -> dict[str, Any]:
     """Get the 'data' from a success response."""
     _, body = parse_result(result)
     return body.get("data", body)
@@ -115,7 +115,7 @@ def mock_rbac_check():
 
 
 @pytest.fixture
-def valid_signup_data() -> Dict[str, Any]:
+def valid_signup_data() -> dict[str, Any]:
     """Valid signup request data."""
     return {
         "email": "newuser@example.com",
@@ -126,7 +126,7 @@ def valid_signup_data() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def pending_signup() -> tuple[str, Dict[str, Any]]:
+def pending_signup() -> tuple[str, dict[str, Any]]:
     """Create a pending signup for verification tests."""
     token = _generate_verification_token()
     signup_data = {
@@ -145,7 +145,7 @@ def pending_signup() -> tuple[str, Dict[str, Any]]:
 
 
 @pytest.fixture
-def expired_signup() -> tuple[str, Dict[str, Any]]:
+def expired_signup() -> tuple[str, dict[str, Any]]:
     """Create an expired signup."""
     token = _generate_verification_token()
     signup_data = {
@@ -162,7 +162,7 @@ def expired_signup() -> tuple[str, Dict[str, Any]]:
 
 
 @pytest.fixture
-def valid_invite() -> tuple[str, Dict[str, Any]]:
+def valid_invite() -> tuple[str, dict[str, Any]]:
     """Create a valid team invitation."""
     token = _generate_verification_token()
     invite_data = {
@@ -178,7 +178,7 @@ def valid_invite() -> tuple[str, Dict[str, Any]]:
 
 
 @pytest.fixture
-def expired_invite() -> tuple[str, Dict[str, Any]]:
+def expired_invite() -> tuple[str, dict[str, Any]]:
     """Create an expired invitation."""
     token = _generate_verification_token()
     invite_data = {

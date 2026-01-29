@@ -39,7 +39,7 @@ def mock_knowledge_context():
     class MockKnowledgeContext:
         def __init__(
             self,
-            items: List[Dict[str, Any]],
+            items: list[dict[str, Any]],
             query: str = "test query",
             total: int = 0,
         ):
@@ -97,8 +97,8 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
     bridge = MagicMock()
 
     # Storage for "persisted" knowledge
-    bridge._stored_knowledge: Dict[str, Dict[str, Any]] = {}
-    bridge._channel_knowledge: Dict[str, List[str]] = {}
+    bridge._stored_knowledge: dict[str, dict[str, Any]] = {}
+    bridge._channel_knowledge: dict[str, list[str]] = {}
 
     async def search_knowledge(
         query: str,
@@ -107,7 +107,7 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
         user_id: Optional[str] = None,
         scope=None,
         strategy=None,
-        node_types: Optional[List[str]] = None,
+        node_types: Optional[list[str]] = None,
         min_confidence: float = 0.3,
         max_results: int = 10,
     ):
@@ -129,7 +129,7 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
         return mock_knowledge_context(items=items, query=query)
 
     async def inject_knowledge_for_conversation(
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         workspace_id: str = "default",
         channel_id: Optional[str] = None,
         max_context_items: int = 5,
@@ -154,7 +154,7 @@ def mock_bridge(mock_knowledge_context, mock_knowledge_item):
         return items
 
     async def store_chat_as_knowledge(
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         workspace_id: str = "default",
         channel_id: str = "",
         channel_name: str = "",

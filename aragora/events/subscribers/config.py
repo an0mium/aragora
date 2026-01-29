@@ -1,10 +1,12 @@
 """
 Configuration dataclasses for cross-subsystem event subscribers.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+
 
 @dataclass
 class RetryConfig:
@@ -27,6 +29,7 @@ class RetryConfig:
         jitter = delay * 0.2 * (random.random() * 2 - 1)
         delay += jitter
         return min(delay, self.max_delay_ms)
+
 
 @dataclass
 class SubscriberStats:
@@ -86,6 +89,7 @@ class SubscriberStats:
     def p99_latency_ms(self) -> float | None:
         """99th percentile latency."""
         return self.get_percentile(99)
+
 
 @dataclass
 class AsyncDispatchConfig:

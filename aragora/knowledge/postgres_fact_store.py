@@ -4,6 +4,7 @@ PostgreSQL Fact Store - PostgreSQL-based persistence for the Knowledge Base.
 Provides async storage, retrieval, and search for facts using PostgreSQL
 with tsvector-based full-text search for production deployments.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,6 +25,7 @@ from aragora.knowledge.types import (
 from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
+
 
 class PostgresFactStore(PostgresStore):
     """PostgreSQL-backed fact persistence store.

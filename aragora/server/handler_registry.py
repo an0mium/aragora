@@ -15,6 +15,7 @@ Usage:
     class MyHandler(HandlerRegistryMixin, BaseHTTPRequestHandler):
         pass
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -827,6 +828,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_computer_use_handler", ComputerUseHandler),
 ]
 
+
 class RouteIndex:
     """O(1) route lookup index for handler dispatch.
 
@@ -1135,8 +1137,10 @@ class RouteIndex:
 
         return None
 
+
 # Global route index instance
 _route_index: RouteIndex | None = None
+
 
 def get_route_index() -> RouteIndex:
     """Get or create the global route index."""
@@ -1145,14 +1149,17 @@ def get_route_index() -> RouteIndex:
         _route_index = RouteIndex()
     return _route_index
 
+
 # =============================================================================
 # Handler Validation
 # =============================================================================
+
 
 class HandlerValidationError(Exception):
     """Raised when a handler fails validation."""
 
     pass
+
 
 def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
     """
@@ -1189,6 +1196,7 @@ def validate_handler_class(handler_class: Any, handler_name: str) -> list[str]:
 
     return errors
 
+
 def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
     """
     Validate an instantiated handler works correctly.
@@ -1215,6 +1223,7 @@ def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
         errors.append(f"{handler_name}: can_handle() raised exception: {e}")
 
     return errors
+
 
 def validate_all_handlers(raise_on_error: bool = False) -> dict[str, Any]:
     """
@@ -1285,6 +1294,7 @@ def validate_all_handlers(raise_on_error: bool = False) -> dict[str, Any]:
 
     return results
 
+
 def validate_handlers_on_init(registry_mixin: Any) -> dict[str, Any]:
     """
     Validate instantiated handlers after initialization.
@@ -1323,6 +1333,7 @@ def validate_handlers_on_init(registry_mixin: Any) -> dict[str, Any]:
                 logger.warning(f"[handler-instance-validation] {error}")
 
     return results
+
 
 class HandlerRegistryMixin:
     """
@@ -1731,6 +1742,7 @@ class HandlerRegistryMixin:
             "count": len(initialized_handlers),
             "handlers": initialized_handlers,
         }
+
 
 __all__ = [
     "HandlerRegistryMixin",

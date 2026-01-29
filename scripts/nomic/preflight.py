@@ -37,7 +37,7 @@ class PreflightReport:
     """Collection of pre-flight check results."""
 
     def __init__(self):
-        self.checks: List[PreflightCheck] = []
+        self.checks: list[PreflightCheck] = []
 
     def add(self, check: PreflightCheck) -> None:
         self.checks.append(check)
@@ -47,11 +47,11 @@ class PreflightReport:
         return all(c.passed or not c.critical for c in self.checks)
 
     @property
-    def critical_failures(self) -> List[PreflightCheck]:
+    def critical_failures(self) -> list[PreflightCheck]:
         return [c for c in self.checks if not c.passed and c.critical]
 
     @property
-    def warnings(self) -> List[PreflightCheck]:
+    def warnings(self) -> list[PreflightCheck]:
         return [c for c in self.checks if not c.passed and not c.critical]
 
     def print_report(self) -> None:
@@ -80,7 +80,7 @@ class PreflightReport:
         print("=" * 70 + "\n")
 
 
-def check_api_keys() -> List[PreflightCheck]:
+def check_api_keys() -> list[PreflightCheck]:
     """Check that required API keys are configured."""
     checks = []
 
@@ -201,7 +201,7 @@ def check_database_connectivity(db_path: Path) -> PreflightCheck:
         )
 
 
-def check_protected_files(aragora_path: Path, protected_files: List[str]) -> PreflightCheck:
+def check_protected_files(aragora_path: Path, protected_files: list[str]) -> PreflightCheck:
     """Check that protected files exist and are readable."""
     missing = []
     for pf in protected_files:
@@ -225,7 +225,7 @@ def check_protected_files(aragora_path: Path, protected_files: List[str]) -> Pre
     )
 
 
-def check_git_repository(aragora_path: Path) -> List[PreflightCheck]:
+def check_git_repository(aragora_path: Path) -> list[PreflightCheck]:
     """Check git repository state."""
     import subprocess
 
@@ -303,7 +303,7 @@ def check_backup_directory(aragora_path: Path) -> PreflightCheck:
 
 
 def run_preflight_checks(
-    aragora_path: Optional[Path] = None, protected_files: Optional[List[str]] = None
+    aragora_path: Optional[Path] = None, protected_files: Optional[list[str]] = None
 ) -> PreflightReport:
     """
     Run all pre-flight health checks.

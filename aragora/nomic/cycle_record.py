@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+
 @dataclass
 class AgentContribution:
     """Contribution metrics for a single agent in a cycle."""
@@ -25,6 +26,7 @@ class AgentContribution:
     consensus_aligned: int = 0
     quality_score: float = 0.0  # 0.0-1.0
 
+
 @dataclass
 class SurpriseEvent:
     """An unexpected outcome during the cycle."""
@@ -36,6 +38,7 @@ class SurpriseEvent:
     impact: str = "low"  # low, medium, high
     timestamp: float | None = None
 
+
 @dataclass
 class PatternReinforcement:
     """A pattern that was confirmed during the cycle."""
@@ -45,6 +48,7 @@ class PatternReinforcement:
     success: bool
     confidence: float = 0.5  # 0.0-1.0
     context: str = ""
+
 
 @dataclass
 class NomicCycleRecord:

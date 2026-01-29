@@ -54,7 +54,7 @@ class TestSkillForLoading(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         return SkillResult.create_success({"loaded": True})

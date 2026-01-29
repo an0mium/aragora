@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 _invoice_store: Optional["InvoiceStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -46,6 +47,7 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
+
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -62,6 +64,7 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
     return dct
+
 
 class InvoiceStoreBackend(ABC):
     """Abstract base class for invoice storage backends."""
@@ -173,6 +176,7 @@ class InvoiceStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryInvoiceStore(InvoiceStoreBackend):
     """In-memory invoice store for testing."""
@@ -351,6 +355,7 @@ class InMemoryInvoiceStore(InvoiceStoreBackend):
 
     async def close(self) -> None:
         pass
+
 
 class SQLiteInvoiceStore(InvoiceStoreBackend):
     """SQLite-backed invoice store."""
@@ -794,6 +799,7 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
+
 class PostgresInvoiceStore(InvoiceStoreBackend):
     """PostgreSQL-backed invoice store for production."""
 
@@ -1190,6 +1196,7 @@ class PostgresInvoiceStore(InvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
+
 def get_invoice_store() -> InvoiceStoreBackend:
     """
     Get the global invoice store instance.
@@ -1224,17 +1231,20 @@ def get_invoice_store() -> InvoiceStoreBackend:
 
         return _invoice_store
 
+
 def set_invoice_store(store: InvoiceStoreBackend) -> None:
     """Set a custom invoice store instance."""
     global _invoice_store
     with _store_lock:
         _invoice_store = store
 
+
 def reset_invoice_store() -> None:
     """Reset the global invoice store (for testing)."""
     global _invoice_store
     with _store_lock:
         _invoice_store = None
+
 
 __all__ = [
     "InvoiceStoreBackend",

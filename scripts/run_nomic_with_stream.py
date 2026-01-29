@@ -12,8 +12,12 @@ Usage:
 
 import argparse
 import asyncio
+import atexit
+import logging
 import os
+import signal
 import sys
+import traceback
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +29,58 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aragora.server.stream import AiohttpUnifiedServer
 from scripts.nomic_loop import NomicLoop
 from scripts.nomic.config import NOMIC_AUTO_COMMIT
+
+
+_CRASH_LOG_PATH: Path | None = None
+_CRASH_LOGGER: logging.Logger | None = None
+
+
+def _init_crash_logger(aragora_path: Path) -> None:
+    global _CRASH_LOG_PATH, _CRASH_LOGGER
+    _CRASH_LOG_PATH = aragora_path / ".nomic" / "nomic_crash.log"
+    _CRASH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    logger = logging.getLogger("nomic_crash")
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(_CRASH_LOG_PATH, encoding="utf-8")
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    _CRASH_LOGGER = logger
+    logger.info("Crash logger initialized")
+
+
+def _log_crash(msg: str, exc: BaseException | None = None) -> None:
+    logger = _CRASH_LOGGER
+    if logger is None:
+        return
+    if exc is None:
+        logger.error(msg)
+        return
+    tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    logger.error("%s\n%s", msg, tb)
+
+
+def _install_exit_hooks() -> None:
+    def _excepthook(exc_type, exc, tb):
+        _log_crash("Uncaught exception", exc)
+        sys.__excepthook__(exc_type, exc, tb)
+
+    def _signal_handler(signum, _frame):
+        _log_crash(f"Received signal {signum}")
+        raise SystemExit(128 + signum)
+
+    sys.excepthook = _excepthook
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(sig, _signal_handler)
+        except Exception:
+            pass
+
+    def _on_exit():
+        if _CRASH_LOGGER:
+            _CRASH_LOGGER.info("Process exiting (atexit)")
+
+    atexit.register(_on_exit)
 
 
 def find_available_port(start_port: int = 8080, max_attempts: int = 10) -> int:
@@ -134,6 +190,14 @@ async def run_with_streaming(
     async def run_server():
         await server.start()
 
+    # Install asyncio exception handler for visibility
+    async_loop = asyncio.get_running_loop()
+    async_loop.set_exception_handler(
+        lambda _loop, context: _log_crash(
+            f"Asyncio exception: {context.get('message')}", context.get("exception")
+        )
+    )
+
     server_task = asyncio.create_task(run_server())
 
     # Give server time to start
@@ -155,8 +219,10 @@ async def run_with_streaming(
         await loop.run()
     except KeyboardInterrupt:
         print("\nInterrupted by user")
+        _log_crash("KeyboardInterrupt")
     except Exception as e:
         print(f"Error: {e}")
+        _log_crash("Unhandled exception in run_with_streaming", e)
         raise
     finally:
         # Unregister the loop instance
@@ -236,16 +302,23 @@ def main():
         sys.exit(2)
 
     if args.command == "run":
+        aragora_path = args.aragora_path or Path(__file__).parent.parent
+        _init_crash_logger(aragora_path)
+        _install_exit_hooks()
         # Support legacy --http-port
         port = args.http_port if args.http_port else args.port
-        asyncio.run(
-            run_with_streaming(
-                cycles=args.cycles,
-                port=port,
-                aragora_path=args.aragora_path,
-                auto_commit=args.auto,
+        try:
+            asyncio.run(
+                run_with_streaming(
+                    cycles=args.cycles,
+                    port=port,
+                    aragora_path=aragora_path,
+                    auto_commit=args.auto,
+                )
             )
-        )
+        except Exception as e:
+            _log_crash("Fatal error in main()", e)
+            raise
     else:
         parser.print_help()
 

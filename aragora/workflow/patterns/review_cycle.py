@@ -36,6 +36,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 class ReviewCyclePattern(WorkflowPattern):
     """
     Iterative refinement with convergence check.
@@ -237,6 +238,7 @@ FEEDBACK:
 SUGGESTIONS:
 <improvement suggestions>"""
 
+
 # Register review cycle handlers
 def _register_review_cycle_handlers():
     """Register review cycle task handlers."""
@@ -302,5 +304,6 @@ def _register_review_cycle_handlers():
 
     except ImportError:
         pass
+
 
 _register_review_cycle_handlers()

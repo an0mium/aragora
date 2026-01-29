@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 # SLO Definitions
 # =============================================================================
 
+
 @dataclass
 class SLOTarget:
     """Definition of an SLO target."""
@@ -59,6 +60,7 @@ class SLOTarget:
     unit: str
     description: str
     comparison: str = "gte"  # gte (>=), lte (<=), gt (>), lt (<)
+
 
 @dataclass
 class SLOResult:
@@ -73,6 +75,7 @@ class SLOResult:
     window_end: datetime
     error_budget_remaining: float  # Percentage of error budget remaining
     burn_rate: float  # How fast error budget is being consumed
+
 
 @dataclass
 class SLOStatus:
@@ -92,10 +95,12 @@ class SLOStatus:
             and self.debate_success.compliant
         )
 
+
 # Default SLO targets
 DEFAULT_AVAILABILITY_TARGET = 0.999  # 99.9%
 DEFAULT_LATENCY_P99_MS = 500  # 500ms
 DEFAULT_DEBATE_SUCCESS_TARGET = 0.95  # 95%
+
 
 def get_slo_targets() -> dict[str, SLOTarget]:
     """Get configured SLO targets from environment.
@@ -135,9 +140,11 @@ def get_slo_targets() -> dict[str, SLOTarget]:
         ),
     }
 
+
 # =============================================================================
 # SLO Calculation Functions
 # =============================================================================
+
 
 def _calculate_error_budget(target: float, current: float, comparison: str) -> tuple[float, float]:
     """Calculate error budget remaining and burn rate.
@@ -169,6 +176,7 @@ def _calculate_error_budget(target: float, current: float, comparison: str) -> t
 
     return error_budget_remaining, burn_rate
 
+
 def _check_compliance(target: float, current: float, comparison: str) -> bool:
     """Check if current value meets SLO target.
 
@@ -189,6 +197,7 @@ def _check_compliance(target: float, current: float, comparison: str) -> bool:
     elif comparison == "lt":
         return current < target
     return False
+
 
 def _calculate_compliance_percentage(target: float, current: float, comparison: str) -> float:
     """Calculate compliance percentage relative to target.
@@ -212,6 +221,7 @@ def _calculate_compliance_percentage(target: float, current: float, comparison: 
             return 100.0
         return (target / current) * 100
 
+
 # =============================================================================
 # Prometheus Integration
 # =============================================================================
@@ -220,6 +230,7 @@ _slo_metrics_initialized = False
 SLO_COMPLIANCE: Any = None
 SLO_ERROR_BUDGET: Any = None
 SLO_BURN_RATE: Any = None
+
 
 def _init_slo_metrics() -> bool:
     """Initialize SLO-specific Prometheus metrics."""
@@ -264,6 +275,7 @@ def _init_slo_metrics() -> bool:
         _slo_metrics_initialized = True
         return False
 
+
 def _init_noop_slo_metrics() -> None:
     """Initialize no-op SLO metrics."""
     global SLO_COMPLIANCE, SLO_ERROR_BUDGET, SLO_BURN_RATE
@@ -279,6 +291,7 @@ def _init_noop_slo_metrics() -> None:
     SLO_ERROR_BUDGET = NoOpGauge()
     SLO_BURN_RATE = NoOpGauge()
 
+
 def _update_slo_metrics(result: SLOResult) -> None:
     """Update Prometheus metrics for an SLO result."""
     _init_slo_metrics()
@@ -287,6 +300,7 @@ def _update_slo_metrics(result: SLOResult) -> None:
     SLO_ERROR_BUDGET.labels(slo_name=result.name).set(result.error_budget_remaining)
     SLO_BURN_RATE.labels(slo_name=result.name).set(result.burn_rate)
 
+
 # =============================================================================
 # SLO Check Functions
 # =============================================================================
@@ -294,6 +308,7 @@ def _update_slo_metrics(result: SLOResult) -> None:
 # In-memory storage for recent measurements (used when Prometheus not available)
 _measurement_window: list[dict[str, Any]] = []
 _window_duration = timedelta(hours=1)
+
 
 def _record_measurement(
     total_requests: int,
@@ -325,6 +340,7 @@ def _record_measurement(
             "successful_debates": successful_debates,
         }
     )
+
 
 def check_availability_slo(
     total_requests: int | None = None,
@@ -385,6 +401,7 @@ def check_availability_slo(
     _update_slo_metrics(result)
     return result
 
+
 def check_latency_slo(latency_p99: float | None = None) -> SLOResult:
     """Check p99 latency SLO compliance.
 
@@ -428,6 +445,7 @@ def check_latency_slo(latency_p99: float | None = None) -> SLOResult:
 
     _update_slo_metrics(result)
     return result
+
 
 def check_debate_success_slo(
     total_debates: int | None = None,
@@ -485,6 +503,7 @@ def check_debate_success_slo(
     _update_slo_metrics(result)
     return result
 
+
 def get_slo_status() -> SLOStatus:
     """Get overall SLO status for all tracked SLOs.
 
@@ -501,9 +520,11 @@ def get_slo_status() -> SLOStatus:
         debate_success=debate_success,
     )
 
+
 # =============================================================================
 # Alerting Helpers
 # =============================================================================
+
 
 @dataclass
 class SLOAlert:
@@ -514,6 +535,7 @@ class SLOAlert:
     message: str
     error_budget_threshold: float  # Trigger when error budget below this %
     burn_rate_threshold: float  # Trigger when burn rate above this
+
 
 def get_default_alerts() -> list[SLOAlert]:
     """Get default SLO alert configurations."""
@@ -565,6 +587,7 @@ def get_default_alerts() -> list[SLOAlert]:
         ),
     ]
 
+
 def check_alerts(status: SLOStatus | None = None) -> list[tuple[SLOAlert, SLOResult]]:
     """Check all SLO alerts and return triggered ones.
 
@@ -601,6 +624,7 @@ def check_alerts(status: SLOStatus | None = None) -> list[tuple[SLOAlert, SLORes
             triggered.append((alert, result))
 
     return triggered
+
 
 def format_slo_report(status: SLOStatus) -> str:
     """Format SLO status as a human-readable report.
@@ -648,9 +672,11 @@ def format_slo_report(status: SLOStatus) -> str:
 
     return "\n".join(lines)
 
+
 # =============================================================================
 # HTTP Endpoint for SLO Status
 # =============================================================================
+
 
 def get_slo_status_json() -> dict[str, Any]:
     """Get SLO status as JSON-serializable dictionary.
@@ -695,9 +721,11 @@ def get_slo_status_json() -> dict[str, Any]:
         ],
     }
 
+
 # =============================================================================
 # SLO Alerting Monitor
 # =============================================================================
+
 
 @dataclass
 class SLOBreach:
@@ -725,8 +753,10 @@ class SLOBreach:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 # Type alias for alert callback
 AlertCallback = Any  # Callable[[SLOBreach], None] or async version
+
 
 class SLOAlertMonitor:
     """
@@ -883,9 +913,11 @@ class SLOAlertMonitor:
 
             await asyncio.sleep(self.check_interval)
 
+
 # =============================================================================
 # Built-in Alert Callbacks
 # =============================================================================
+
 
 def log_alert_callback(breach: SLOBreach) -> None:
     """Simple logging callback for SLO alerts."""
@@ -895,6 +927,7 @@ def log_alert_callback(breach: SLOBreach) -> None:
         f"target: {breach.target_value:.4f}, "
         f"error_budget: {breach.error_budget_remaining:.1f}%)"
     )
+
 
 async def webhook_alert_callback(
     breach: SLOBreach,
@@ -930,6 +963,7 @@ async def webhook_alert_callback(
         logger.warning("httpx not installed, webhook alert skipped")
     except Exception as e:
         logger.error(f"Failed to send webhook alert: {e}")
+
 
 def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
     """Create a Slack alert callback using incoming webhook.
@@ -997,6 +1031,7 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
 
     return slack_callback
 
+
 def create_notification_callback() -> AlertCallback:
     """Create a callback using the control plane notification system.
 
@@ -1045,11 +1080,13 @@ def create_notification_callback() -> AlertCallback:
 
     return notification_callback
 
+
 # =============================================================================
 # Global Monitor Instance
 # =============================================================================
 
 _global_monitor: SLOAlertMonitor | None = None
+
 
 def get_slo_monitor() -> SLOAlertMonitor:
     """Get or create the global SLO alert monitor."""
@@ -1059,6 +1096,7 @@ def get_slo_monitor() -> SLOAlertMonitor:
         # Add default logging callback
         _global_monitor.add_callback(log_alert_callback)
     return _global_monitor
+
 
 def configure_slo_alerting(
     slack_webhook: str | None = None,
@@ -1106,6 +1144,7 @@ def configure_slo_alerting(
         _global_monitor.add_callback(create_notification_callback())
 
     return _global_monitor
+
 
 # =============================================================================
 # Exports

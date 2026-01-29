@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # FHIR Resource Types
 # =============================================================================
 
+
 class FHIRResourceType(str, Enum):
     """Supported FHIR R4 resource types."""
 
@@ -60,6 +61,7 @@ class FHIRResourceType(str, Enum):
     # Documents
     DOCUMENT_REFERENCE = "DocumentReference"
     COMPOSITION = "Composition"
+
 
 # =============================================================================
 # PHI Safe Harbor Identifiers (18 HIPAA identifiers)
@@ -90,6 +92,7 @@ PHI_IDENTIFIERS = {
 # PHI Redaction
 # =============================================================================
 
+
 @dataclass
 class RedactionResult:
     """Result of PHI redaction."""
@@ -98,6 +101,7 @@ class RedactionResult:
     redacted_text: str
     redactions_count: int
     redaction_types: list[str]
+
 
 class PHIRedactor:
     """
@@ -305,9 +309,11 @@ class PHIRedactor:
             return [self._redact_text_fields(item) for item in obj]
         return obj
 
+
 # =============================================================================
 # FHIR Audit Logger
 # =============================================================================
+
 
 @dataclass
 class AuditEvent:
@@ -339,6 +345,7 @@ class AuditEvent:
             "reason": self.reason,
             "queryParams": self.query_params,
         }
+
 
 class FHIRAuditLogger:
     """
@@ -454,9 +461,11 @@ class FHIRAuditLogger:
 
         return events
 
+
 # =============================================================================
 # FHIR Connector
 # =============================================================================
+
 
 class FHIRConnector(EnterpriseConnector):
     """
@@ -1026,6 +1035,7 @@ class FHIRConnector(EnterpriseConnector):
                 return True
 
         return False
+
 
 class FHIRError(Exception):
     """FHIR API error."""

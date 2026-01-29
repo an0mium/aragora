@@ -54,7 +54,7 @@ class SlidingWindowRateLimiter:
     def __init__(self, limit: int, window_seconds: float):
         self.limit = limit
         self.window_seconds = window_seconds
-        self.requests: List[float] = []
+        self.requests: list[float] = []
         self._lock = threading.Lock()
 
     def try_acquire(self) -> bool:
@@ -157,7 +157,7 @@ class TestMultiClientRateLimiting:
 
     def test_per_client_isolation(self):
         """Each client should have separate rate limits."""
-        client_limiters: Dict[str, TokenBucketRateLimiter] = {}
+        client_limiters: dict[str, TokenBucketRateLimiter] = {}
 
         def get_limiter(client_id: str) -> TokenBucketRateLimiter:
             if client_id not in client_limiters:
@@ -182,7 +182,7 @@ class TestMultiClientRateLimiting:
     def test_many_clients_performance(self):
         """Test performance with many concurrent clients."""
         num_clients = 100
-        client_limiters: Dict[str, TokenBucketRateLimiter] = {}
+        client_limiters: dict[str, TokenBucketRateLimiter] = {}
 
         def get_limiter(client_id: str) -> TokenBucketRateLimiter:
             if client_id not in client_limiters:

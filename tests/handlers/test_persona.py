@@ -30,8 +30,8 @@ class MockPersona:
         self,
         agent_name: str,
         description: str = "A helpful AI assistant",
-        traits: List[str] = None,
-        expertise: List[str] = None,
+        traits: list[str] = None,
+        expertise: list[str] = None,
         created_at: str = None,
         updated_at: str = None,
     ):
@@ -47,8 +47,8 @@ class MockPersonaManager:
     """Mock PersonaManager for testing."""
 
     def __init__(self):
-        self._personas: Dict[str, MockPersona] = {}
-        self._performance: Dict[str, dict] = {}
+        self._personas: dict[str, MockPersona] = {}
+        self._performance: dict[str, dict] = {}
 
     def add_persona(self, persona: MockPersona):
         self._personas[persona.agent_name] = persona
@@ -56,7 +56,7 @@ class MockPersonaManager:
     def add_performance(self, agent: str, data: dict):
         self._performance[agent] = data
 
-    def get_all_personas(self) -> List[MockPersona]:
+    def get_all_personas(self) -> list[MockPersona]:
         return list(self._personas.values())
 
     def get_persona(self, agent: str) -> Optional[MockPersona]:
@@ -77,12 +77,12 @@ class MockEloSystem:
     """Mock ELO system for testing."""
 
     def __init__(self):
-        self._domains: Dict[str, List[tuple]] = {}
+        self._domains: dict[str, list[tuple]] = {}
 
-    def add_domains(self, agent: str, domains: List[tuple]):
+    def add_domains(self, agent: str, domains: list[tuple]):
         self._domains[agent] = domains
 
-    def get_best_domains(self, agent: str, limit: int = 10) -> List[tuple]:
+    def get_best_domains(self, agent: str, limit: int = 10) -> list[tuple]:
         return self._domains.get(agent, [])[:limit]
 
 

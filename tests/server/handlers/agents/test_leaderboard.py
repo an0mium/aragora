@@ -442,8 +442,8 @@ class TestSafeFetchSection:
 
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
-        data: Dict[str, Any] = {}
-        errors: Dict[str, str] = {}
+        data: dict[str, Any] = {}
+        errors: dict[str, str] = {}
 
         handler._safe_fetch_section(data, errors, "test_key", lambda: {"value": 1}, {"value": 0})
 
@@ -456,8 +456,8 @@ class TestSafeFetchSection:
 
         handler = LeaderboardViewHandler({"storage": None, "elo_system": None, "nomic_dir": None})
 
-        data: Dict[str, Any] = {}
-        errors: Dict[str, str] = {}
+        data: dict[str, Any] = {}
+        errors: dict[str, str] = {}
 
         def failing_fetch():
             raise RuntimeError("Fetch failed")

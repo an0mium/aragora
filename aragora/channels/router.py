@@ -35,6 +35,7 @@ __all__ = [
     "get_channel_router",
 ]
 
+
 class ChannelRouter:
     """
     Routes messages to chat platforms through the dock system.
@@ -452,8 +453,10 @@ class ChannelRouter:
 
         return None
 
+
 # Global router singleton
 _channel_router: ChannelRouter | None = None
+
 
 def get_channel_router() -> ChannelRouter:
     """

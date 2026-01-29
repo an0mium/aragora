@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 # Service Registry Integration
 # =============================================================================
 
+
 def _get_metrics_analyzer(
     complexity_warning: int = 10,
     complexity_error: int = 20,
@@ -62,6 +63,7 @@ def _get_metrics_analyzer(
         duplication_threshold=duplication_threshold,
     )
 
+
 # =============================================================================
 # In-Memory Storage (replace with database in production)
 # =============================================================================
@@ -70,6 +72,7 @@ _metrics_reports: dict[str, dict[str, MetricsReport]] = {}  # repo_id -> {analys
 _metrics_lock = threading.Lock()
 _running_analyses: dict[str, asyncio.Task] = {}
 
+
 def _get_or_create_repo_metrics(repo_id: str) -> dict[str, MetricsReport]:
     """Get or create metrics storage for a repository."""
     with _metrics_lock:
@@ -77,9 +80,11 @@ def _get_or_create_repo_metrics(repo_id: str) -> dict[str, MetricsReport]:
             _metrics_reports[repo_id] = {}
         return _metrics_reports[repo_id]
 
+
 # =============================================================================
 # Metrics Handlers
 # =============================================================================
+
 
 async def handle_analyze_metrics(
     repo_path: str,
@@ -185,6 +190,7 @@ async def handle_analyze_metrics(
             "error": str(e),
         }
 
+
 async def handle_get_metrics(
     repo_id: str,
     analysis_id: str | None = None,
@@ -226,6 +232,7 @@ async def handle_get_metrics(
             "error": str(e),
         }
 
+
 async def handle_get_hotspots(
     repo_id: str,
     min_complexity: int = 5,
@@ -264,6 +271,7 @@ async def handle_get_hotspots(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_get_duplicates(
     repo_id: str,
@@ -312,6 +320,7 @@ async def handle_get_duplicates(
             "success": False,
             "error": str(e),
         }
+
 
 async def handle_get_file_metrics(
     repo_id: str,
@@ -378,6 +387,7 @@ async def handle_get_file_metrics(
             "error": str(e),
         }
 
+
 async def handle_list_analyses(
     repo_id: str,
     limit: int = 20,
@@ -430,9 +440,11 @@ async def handle_list_analyses(
             "error": str(e),
         }
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class MetricsHandler(SecureHandler):
     """

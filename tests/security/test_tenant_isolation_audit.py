@@ -49,7 +49,7 @@ class AuditTestResult:
     details: str
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "test_name": self.test_name,
             "category": self.category,
@@ -72,9 +72,9 @@ class IsolationAuditReport:
     total_tests: int = 0
     passed_tests: int = 0
     failed_tests: int = 0
-    categories_tested: Set[str] = field(default_factory=set)
-    resource_types_tested: Set[str] = field(default_factory=set)
-    results: List[AuditTestResult] = field(default_factory=list)
+    categories_tested: set[str] = field(default_factory=set)
+    resource_types_tested: set[str] = field(default_factory=set)
+    results: list[AuditTestResult] = field(default_factory=list)
 
     def add_result(self, result: AuditTestResult) -> None:
         self.results.append(result)
@@ -92,7 +92,7 @@ class IsolationAuditReport:
             return 0.0
         return self.passed_tests / self.total_tests * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at.isoformat(),
             "environment": self.environment,

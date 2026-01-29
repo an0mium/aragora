@@ -32,7 +32,7 @@ class MockEvidence:
     source: str
     content: str
     url: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # =============================================================================
@@ -55,9 +55,9 @@ class MockConnector:
         self._fail_on_call = fail_on_call
         self._evidence_count = evidence_count
         self._call_count = 0
-        self._collected: List[MockEvidence] = []
+        self._collected: list[MockEvidence] = []
 
-    async def collect(self, query: str, **kwargs) -> List[MockEvidence]:
+    async def collect(self, query: str, **kwargs) -> list[MockEvidence]:
         """Collect mock evidence."""
         self._call_count += 1
 
@@ -303,7 +303,7 @@ class MockConnectorRegistry:
     """Mock connector registry for testing."""
 
     def __init__(self):
-        self._connectors: Dict[str, MockConnector] = {}
+        self._connectors: dict[str, MockConnector] = {}
 
     def register(self, name: str, connector: MockConnector) -> None:
         self._connectors[name] = connector
@@ -313,10 +313,10 @@ class MockConnectorRegistry:
             raise KeyError(f"Connector not found: {name}")
         return self._connectors[name]
 
-    def list_connectors(self) -> List[str]:
+    def list_connectors(self) -> list[str]:
         return list(self._connectors.keys())
 
-    def get_by_capability(self, capability: str) -> List[MockConnector]:
+    def get_by_capability(self, capability: str) -> list[MockConnector]:
         # Simple mock - in real implementation would filter by connector capabilities
         return list(self._connectors.values())
 
@@ -518,7 +518,7 @@ class TestCrossConnectorCoordination:
             "web": MockConnector(name="web"),
         }
 
-        def select_connectors(query: str) -> List[str]:
+        def select_connectors(query: str) -> list[str]:
             """Select appropriate connectors based on query."""
             if "code" in query.lower() or "repository" in query.lower():
                 return ["code", "web"]

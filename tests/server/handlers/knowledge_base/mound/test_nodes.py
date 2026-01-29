@@ -75,10 +75,10 @@ class MockNode:
     node_type: str = "fact"
     confidence: float = 0.5
     workspace_id: str = "default"
-    topics: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    topics: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "content": self.content,
@@ -95,7 +95,7 @@ class MockQueryResult:
     """Mock query result."""
 
     query: str
-    nodes: List[MockNode]
+    nodes: list[MockNode]
     total_count: int
     processing_time_ms: int = 50
 
@@ -114,7 +114,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

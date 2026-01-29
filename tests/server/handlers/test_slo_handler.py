@@ -41,7 +41,9 @@ class MockSLOResult:
     compliance_percentage: float = 99.95
     error_budget_remaining: float = 50.0
     burn_rate: float = 0.5
-    window_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc) - timedelta(hours=1))
+    window_start: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc) - timedelta(hours=1)
+    )
     window_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -50,8 +52,12 @@ class MockSLOStatus:
     """Mock SLO status for testing."""
 
     availability: MockSLOResult = field(default_factory=lambda: MockSLOResult(name="availability"))
-    latency_p99: MockSLOResult = field(default_factory=lambda: MockSLOResult(name="latency_p99", target=0.95))
-    debate_success: MockSLOResult = field(default_factory=lambda: MockSLOResult(name="debate_success", target=0.90))
+    latency_p99: MockSLOResult = field(
+        default_factory=lambda: MockSLOResult(name="latency_p99", target=0.95)
+    )
+    debate_success: MockSLOResult = field(
+        default_factory=lambda: MockSLOResult(name="debate_success", target=0.90)
+    )
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     overall_healthy: bool = True
 
@@ -165,9 +171,7 @@ class TestSLOStatus:
 
     @patch("aragora.server.handlers.slo.get_slo_status_json")
     @patch("aragora.server.handlers.slo._slo_limiter")
-    def test_get_slo_status_success(
-        self, mock_limiter, mock_get_status, slo_handler, mock_handler
-    ):
+    def test_get_slo_status_success(self, mock_limiter, mock_get_status, slo_handler, mock_handler):
         """Test successful SLO status retrieval."""
         mock_limiter.is_allowed.return_value = True
         mock_get_status.return_value = {
@@ -232,9 +236,7 @@ class TestSLODetail:
 
     @patch("aragora.server.handlers.slo.check_latency_slo")
     @patch("aragora.server.handlers.slo._slo_limiter")
-    def test_get_latency_slo_success(
-        self, mock_limiter, mock_check, slo_handler, mock_handler
-    ):
+    def test_get_latency_slo_success(self, mock_limiter, mock_check, slo_handler, mock_handler):
         """Test successful latency SLO retrieval."""
         mock_limiter.is_allowed.return_value = True
         mock_check.return_value = MockSLOResult(name="latency_p99", target=0.95)
@@ -322,7 +324,13 @@ class TestViolations:
     @patch("aragora.server.handlers.slo.get_slo_status")
     @patch("aragora.server.handlers.slo._slo_limiter")
     def test_get_violations_no_alerts(
-        self, mock_limiter, mock_get_status, mock_check_alerts, slo_handler, mock_handler, mock_slo_status
+        self,
+        mock_limiter,
+        mock_get_status,
+        mock_check_alerts,
+        slo_handler,
+        mock_handler,
+        mock_slo_status,
     ):
         """Test violations endpoint with no active alerts."""
         mock_limiter.is_allowed.return_value = True
@@ -338,7 +346,13 @@ class TestViolations:
     @patch("aragora.server.handlers.slo.get_slo_status")
     @patch("aragora.server.handlers.slo._slo_limiter")
     def test_get_violations_with_alerts(
-        self, mock_limiter, mock_get_status, mock_check_alerts, slo_handler, mock_handler, mock_slo_status
+        self,
+        mock_limiter,
+        mock_get_status,
+        mock_check_alerts,
+        slo_handler,
+        mock_handler,
+        mock_slo_status,
     ):
         """Test violations endpoint with active alerts."""
         mock_limiter.is_allowed.return_value = True
@@ -365,9 +379,7 @@ class TestTargets:
 
     @patch("aragora.server.handlers.slo.get_slo_targets")
     @patch("aragora.server.handlers.slo._slo_limiter")
-    def test_get_targets_success(
-        self, mock_limiter, mock_get_targets, slo_handler, mock_handler
-    ):
+    def test_get_targets_success(self, mock_limiter, mock_get_targets, slo_handler, mock_handler):
         """Test successful SLO targets retrieval."""
         mock_limiter.is_allowed.return_value = True
         mock_get_targets.return_value = {
@@ -444,9 +456,7 @@ class TestVersionStripping:
 
     @patch("aragora.server.handlers.slo.get_slo_status_json")
     @patch("aragora.server.handlers.slo._slo_limiter")
-    def test_versioned_path_handled(
-        self, mock_limiter, mock_get_status, slo_handler, mock_handler
-    ):
+    def test_versioned_path_handled(self, mock_limiter, mock_get_status, slo_handler, mock_handler):
         """Test that versioned paths are handled correctly."""
         mock_limiter.is_allowed.return_value = True
         mock_get_status.return_value = {"overall_healthy": True}

@@ -36,6 +36,7 @@ from typing import (
 # Generic type for memory entry payloads
 T = TypeVar("T")
 
+
 @dataclass
 class MemoryEntry:
     """
@@ -60,6 +61,7 @@ class MemoryEntry:
     # TTL support
     expires_at: datetime | None = None
 
+
 @dataclass
 class MemoryQueryResult:
     """Result from a memory query with pagination support."""
@@ -69,6 +71,7 @@ class MemoryQueryResult:
     has_more: bool
     cursor: str | None = None
 
+
 @dataclass
 class BackendHealth:
     """Health status for a memory backend."""
@@ -77,6 +80,7 @@ class BackendHealth:
     latency_ms: float = 0.0
     error: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
+
 
 @runtime_checkable
 class MemoryBackend(Protocol):
@@ -319,6 +323,7 @@ class MemoryBackend(Protocol):
         """
         ...
 
+
 @runtime_checkable
 class MemoryBackendSync(Protocol):
     """
@@ -353,6 +358,7 @@ class MemoryBackendSync(Protocol):
         """Query memory entries synchronously."""
         ...
 
+
 @runtime_checkable
 class StreamingMemoryBackend(Protocol):
     """
@@ -378,6 +384,7 @@ class StreamingMemoryBackend(Protocol):
             Batches of memory entries
         """
         ...
+
 
 @runtime_checkable
 class TransactionalMemoryBackend(Protocol):
@@ -407,6 +414,7 @@ class TransactionalMemoryBackend(Protocol):
         """Delete an entry within a transaction."""
         ...
 
+
 class MemoryBackendError(Exception):
     """Base exception for memory backend errors."""
 
@@ -422,11 +430,13 @@ class MemoryBackendError(Exception):
         self.operation = operation
         self.recoverable = recoverable
 
+
 class MemoryBackendConnectionError(MemoryBackendError):
     """Connection to backend failed."""
 
     def __init__(self, message: str, backend: str | None = None):
         super().__init__(message, backend=backend, operation="connect", recoverable=True)
+
 
 class MemoryBackendTimeoutError(MemoryBackendError):
     """Operation timed out."""
@@ -439,11 +449,13 @@ class MemoryBackendTimeoutError(MemoryBackendError):
     ):
         super().__init__(message, backend=backend, operation=operation, recoverable=True)
 
+
 class MemoryBackendCapacityError(MemoryBackendError):
     """Backend capacity exceeded."""
 
     def __init__(self, message: str, backend: str | None = None):
         super().__init__(message, backend=backend, operation="store", recoverable=False)
+
 
 # Type aliases for convenience
 MemoryBackendFactory = Callable[[], MemoryBackend]

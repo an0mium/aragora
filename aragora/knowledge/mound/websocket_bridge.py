@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KMSubscription:
     """A subscription to KM events."""
@@ -70,6 +71,7 @@ class KMSubscription:
                 return False
 
         return True
+
 
 class KMSubscriptionManager:
     """
@@ -229,6 +231,7 @@ class KMSubscriptionManager:
                 "event_type_subscriptions": type_counts,
                 "source_subscriptions": source_counts,
             }
+
 
 class KMWebSocketBridge:
     """
@@ -417,17 +420,21 @@ class KMWebSocketBridge:
         stats["subscriptions"] = self._subscriptions.get_stats()
         return stats
 
+
 # Global bridge instance (can be replaced per-workspace)
 _global_bridge: KMWebSocketBridge | None = None
+
 
 def get_km_bridge() -> KMWebSocketBridge | None:
     """Get the global KM WebSocket bridge."""
     return _global_bridge
 
+
 def set_km_bridge(bridge: KMWebSocketBridge) -> None:
     """Set the global KM WebSocket bridge."""
     global _global_bridge
     _global_bridge = bridge
+
 
 def create_km_bridge(
     broadcaster: Optional["WebSocketBroadcaster"] = None,
@@ -446,6 +453,7 @@ def create_km_bridge(
     global _global_bridge
     _global_bridge = KMWebSocketBridge(broadcaster, **kwargs)
     return _global_bridge
+
 
 __all__ = [
     "KMWebSocketBridge",

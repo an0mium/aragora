@@ -28,7 +28,7 @@ class MockAgent:
     """Mock agent for testing."""
 
     name: str
-    expertise: Dict[str, float]
+    expertise: dict[str, float]
 
 
 @dataclass
@@ -36,8 +36,8 @@ class MockTeam:
     """Mock team composition for testing."""
 
     task_id: str
-    agents: List[MockAgent]
-    roles: Dict[str, str]
+    agents: list[MockAgent]
+    roles: dict[str, str]
     expected_quality: float
     diversity_score: float
     rationale: str

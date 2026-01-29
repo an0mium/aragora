@@ -11,6 +11,7 @@ Features:
 - Calculate suggestion effectiveness scores
 - Identify high-value contributors
 """
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ from typing import Any
 
 from aragora.config import resolve_db_path
 from aragora.storage.base_store import SQLiteStore
+
 
 @dataclass
 class SuggestionRecord:
@@ -56,6 +58,7 @@ class SuggestionRecord:
             "effectiveness_score": self.effectiveness_score,
         }
 
+
 @dataclass
 class ContributorStats:
     """Statistics for a suggestion contributor."""
@@ -71,6 +74,7 @@ class ContributorStats:
         if self.total_suggestions == 0:
             return 0.0
         return self.suggestions_in_consensus / self.total_suggestions
+
 
 class SuggestionFeedbackTracker(SQLiteStore):
     """

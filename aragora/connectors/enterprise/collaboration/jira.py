@@ -31,6 +31,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class JiraProject:
     """A Jira project."""
@@ -41,6 +42,7 @@ class JiraProject:
     project_type: str  # software, business, service_desk
     lead: str = ""
     description: str = ""
+
 
 @dataclass
 class JiraIssue:
@@ -66,6 +68,7 @@ class JiraIssue:
     parent_key: str | None = None
     story_points: float | None = None
 
+
 @dataclass
 class JiraComment:
     """A Jira issue comment."""
@@ -75,6 +78,7 @@ class JiraComment:
     author: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class JiraConnector(EnterpriseConnector):
     """
@@ -752,5 +756,6 @@ class JiraConnector(EnterpriseConnector):
         import os
 
         return os.environ.get("JIRA_WEBHOOK_SECRET")
+
 
 __all__ = ["JiraConnector", "JiraProject", "JiraIssue", "JiraComment"]

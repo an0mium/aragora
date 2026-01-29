@@ -4,6 +4,7 @@ Marketplace Client for Aragora.
 Provides connectivity to remote marketplace servers for
 sharing and discovering templates across the community.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from .models import (
     TemplateMetadata,
 )
 
+
 @dataclass
 class MarketplaceConfig:
     """Configuration for the marketplace client."""
@@ -26,6 +28,7 @@ class MarketplaceConfig:
     base_url: str = "https://marketplace.aragora.ai/api/v1"
     api_key: str | None = None
     timeout: float = 30.0
+
 
 class MarketplaceClient:
     """Client for the Aragora template marketplace."""
@@ -243,6 +246,7 @@ class MarketplaceClient:
         """Get templates starred by the current user."""
         result = await self._request("GET", "/users/me/starred")
         return result.get("templates", [])
+
 
 class MarketplaceError(Exception):
     """Error from marketplace operations."""

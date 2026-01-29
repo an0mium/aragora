@@ -45,6 +45,7 @@ from aragora.workflow.queue.task import (
 
 logger = logging.getLogger(__name__)
 
+
 def _record_metrics(operation: str, success: bool, latency: float) -> None:
     """Record task queue metrics if available."""
     try:
@@ -53,6 +54,7 @@ def _record_metrics(operation: str, success: bool, latency: float) -> None:
         record_task_queue_operation(operation, success, latency)
     except ImportError:
         pass
+
 
 def _record_recovery(original_status: str, count: int = 1) -> None:
     """Record recovery metrics if available."""
@@ -63,6 +65,7 @@ def _record_recovery(original_status: str, count: int = 1) -> None:
     except ImportError:
         pass
 
+
 def _record_cleanup(count: int) -> None:
     """Record cleanup metrics if available."""
     try:
@@ -71,6 +74,7 @@ def _record_cleanup(count: int) -> None:
         record_task_queue_cleanup(count)
     except ImportError:
         pass
+
 
 # Schema for task persistence
 TASK_QUEUE_SCHEMA = """
@@ -102,6 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_task_queue_status ON task_queue(status);
 CREATE INDEX IF NOT EXISTS idx_task_queue_tenant ON task_queue(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_task_queue_priority ON task_queue(priority, created_at);
 """
+
 
 class PersistentTaskQueue(TaskQueue):
     """
@@ -543,8 +548,10 @@ class PersistentTaskQueue(TaskQueue):
             self._local.conn.close()
             del self._local.conn
 
+
 # Global queue instance
 _persistent_queue: PersistentTaskQueue | None = None
+
 
 def get_persistent_task_queue(
     config: TaskQueueConfig | None = None,
@@ -565,10 +572,12 @@ def get_persistent_task_queue(
         _persistent_queue = PersistentTaskQueue(config, db_path)
     return _persistent_queue
 
+
 def reset_persistent_task_queue() -> None:
     """Reset the global queue (for testing)."""
     global _persistent_queue
     _persistent_queue = None
+
 
 __all__ = [
     "PersistentTaskQueue",

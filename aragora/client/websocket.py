@@ -21,6 +21,7 @@ Usage:
         if event.type == 'debate_end':
             break
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Event queue limits
 MAX_EVENT_QUEUE_SIZE = 1000  # Prevent unbounded memory growth from event flooding
+
 
 class DebateEventType(str, Enum):
     """Types of WebSocket stream events (matches server StreamEventType)."""
@@ -178,6 +180,7 @@ class DebateEventType(str, Enum):
     PONG = "pong"
     ROUND_END = "round_end"
 
+
 @dataclass
 class DebateEvent:
     """A debate event from WebSocket stream."""
@@ -230,6 +233,7 @@ class DebateEvent:
             agent_seq=int(d.get("agent_seq") or 0),
         )
 
+
 @dataclass
 class WebSocketOptions:
     """Options for WebSocket connection."""
@@ -240,9 +244,11 @@ class WebSocketOptions:
     heartbeat_interval: float = 30.0
     connect_timeout: float = 10.0
 
+
 EventCallback = Callable[[DebateEvent], None]
 ErrorCallback = Callable[[Exception], None]
 CloseCallback = Callable[[int, str], None]
+
 
 class DebateStream:
     """
@@ -576,6 +582,7 @@ class DebateStream:
                 loop_id=self.debate_id,
             )
 
+
 async def stream_debate(
     base_url: str,
     debate_id: str,
@@ -615,6 +622,7 @@ async def stream_debate(
     finally:
         await stream.disconnect()
 
+
 async def stream_debate_by_id(
     base_url: str,
     debate_id: str,
@@ -649,6 +657,7 @@ async def stream_debate_by_id(
         options=options,
     ):
         yield event
+
 
 __all__ = [
     "DebateEventType",

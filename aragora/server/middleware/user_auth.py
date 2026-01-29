@@ -25,6 +25,7 @@ Usage:
     async def protected_endpoint(request, user: User):
         return {"user_id": user.id}
 """
+
 from __future__ import annotations
 
 import base64
@@ -39,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 if TYPE_CHECKING:
     pass
 
+
 # Stub exception classes for when PyJWT is not installed
 # Defined unconditionally so type checker sees them
 class _ExpiredSignatureError(Exception):
@@ -46,25 +48,30 @@ class _ExpiredSignatureError(Exception):
 
     pass
 
+
 class _InvalidSignatureError(Exception):
     """Stub for jwt.exceptions.InvalidSignatureError."""
 
     pass
+
 
 class _DecodeError(Exception):
     """Stub for jwt.exceptions.DecodeError."""
 
     pass
 
+
 class _InvalidTokenError(Exception):
     """Stub for jwt.exceptions.InvalidTokenError."""
 
     pass
 
+
 class _InvalidAudienceError(Exception):
     """Stub for jwt.exceptions.InvalidAudienceError."""
 
     pass
+
 
 class _JWTModuleProtocol(Protocol):
     """Protocol for the jwt module to satisfy type checker."""
@@ -76,6 +83,7 @@ class _JWTModuleProtocol(Protocol):
         algorithms: list[str],
         audience: str,
     ) -> dict[str, Any]: ...
+
 
 # JWT validation (PyJWT always available)
 import jwt
@@ -101,6 +109,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class User:
@@ -138,6 +147,7 @@ class User:
             "is_pro": self.is_pro,
         }
 
+
 @dataclass
 class Workspace:
     """Multi-tenant workspace."""
@@ -170,6 +180,7 @@ class Workspace:
             "member_count": len(self.member_ids) + 1,  # +1 for owner
         }
 
+
 @dataclass
 class APIKey:
     """API key for programmatic access."""
@@ -199,9 +210,11 @@ class APIKey:
             "last_used_at": self.last_used_at,
         }
 
+
 # =============================================================================
 # Supabase JWT Validator
 # =============================================================================
+
 
 class SupabaseAuthValidator:
     """
@@ -374,9 +387,11 @@ class SupabaseAuthValidator:
         """Clear the token cache."""
         self._cache.clear()
 
+
 # =============================================================================
 # API Key Validator
 # =============================================================================
+
 
 class APIKeyValidator:
     """
@@ -434,6 +449,7 @@ class APIKeyValidator:
 
         return None
 
+
 # =============================================================================
 # Global Instances
 # =============================================================================
@@ -442,12 +458,14 @@ class APIKeyValidator:
 _jwt_validator: SupabaseAuthValidator | None = None
 _api_key_validator: APIKeyValidator | None = None
 
+
 def get_jwt_validator() -> SupabaseAuthValidator:
     """Get the global JWT validator."""
     global _jwt_validator
     if _jwt_validator is None:
         _jwt_validator = SupabaseAuthValidator()
     return _jwt_validator
+
 
 def get_api_key_validator() -> APIKeyValidator:
     """Get the global API key validator."""
@@ -456,9 +474,11 @@ def get_api_key_validator() -> APIKeyValidator:
         _api_key_validator = APIKeyValidator()
     return _api_key_validator
 
+
 # =============================================================================
 # Authentication Functions
 # =============================================================================
+
 
 def extract_auth_token(handler: Any) -> str | None:
     """Extract Bearer token or API key from request."""
@@ -478,6 +498,7 @@ def extract_auth_token(handler: Any) -> str | None:
         return auth_header[7:]
 
     return auth_header
+
 
 def extract_token(handler: Any) -> str | None:
     """
@@ -503,6 +524,7 @@ def extract_token(handler: Any) -> str | None:
         return auth_header[7:]
 
     return None
+
 
 def extract_client_ip(handler: Any) -> str | None:
     """
@@ -533,6 +555,7 @@ def extract_client_ip(handler: Any) -> str | None:
             return str(addr[0])
 
     return None
+
 
 async def authenticate_request(handler: Any) -> User | None:
     """
@@ -565,6 +588,7 @@ async def authenticate_request(handler: Any) -> User | None:
 
     return None
 
+
 def get_current_user(handler: Any) -> User | None:
     """
     Get the current authenticated user (sync version).
@@ -578,9 +602,11 @@ def get_current_user(handler: Any) -> User | None:
     jwt_validator = get_jwt_validator()
     return jwt_validator.validate_jwt(token)
 
+
 # =============================================================================
 # Decorators
 # =============================================================================
+
 
 def require_user(func: Callable) -> Callable:
     """
@@ -620,6 +646,7 @@ def require_user(func: Callable) -> Callable:
 
     return wrapper
 
+
 def require_admin(func: Callable) -> Callable:
     """
     Decorator that requires admin user.
@@ -657,6 +684,7 @@ def require_admin(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
+
 
 def require_plan(min_plan: str) -> Callable:
     """
@@ -702,6 +730,7 @@ def require_plan(min_plan: str) -> Callable:
         return wrapper
 
     return decorator
+
 
 __all__ = [
     # Models

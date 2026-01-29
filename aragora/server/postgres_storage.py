@@ -4,6 +4,7 @@ PostgreSQL-backed debate storage with permalink generation.
 Provides persistent storage for debate artifacts with human-readable
 URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from aragora.export.artifact import DebateArtifact
 
+
 @dataclass
 class DebateMetadata:
     """Summary metadata for a stored debate."""
@@ -34,6 +36,7 @@ class DebateMetadata:
     created_at: datetime
     view_count: int = 0
     is_public: bool = False
+
 
 class PostgresDebateStorage(PostgresStore):
     """PostgreSQL-backed debate persistence with shareable permalinks.
@@ -240,9 +243,7 @@ class PostgresDebateStorage(PostgresStore):
 
     def get_debates_batch(self, debate_ids: list[str]) -> dict[str, dict | None]:
         """Get multiple debates by ID in a single query (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_debates_batch_async(debate_ids)
-        )
+        return asyncio.get_event_loop().run_until_complete(self.get_debates_batch_async(debate_ids))
 
     # =========================================================================
     # Async implementations

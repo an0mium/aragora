@@ -26,6 +26,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class Track(Enum):
     """Development tracks for domain-based routing."""
 
@@ -34,6 +35,7 @@ class Track(Enum):
     SELF_HOSTED = "self_hosted"
     QA = "qa"
     CORE = "core"
+
 
 @dataclass
 class PrioritizedGoal:
@@ -48,6 +50,7 @@ class PrioritizedGoal:
     focus_areas: list[str] = field(default_factory=list)
     file_hints: list[str] = field(default_factory=list)
 
+
 @dataclass
 class PlanningContext:
     """Context for meta-planning decisions."""
@@ -57,6 +60,7 @@ class PlanningContext:
     user_feedback: list[str] = field(default_factory=list)
     recent_changes: list[str] = field(default_factory=list)
 
+
 @dataclass
 class MetaPlannerConfig:
     """Configuration for MetaPlanner."""
@@ -65,6 +69,7 @@ class MetaPlannerConfig:
     debate_rounds: int = 2
     max_goals: int = 5
     consensus_threshold: float = 0.6
+
 
 class MetaPlanner:
     """Debate-driven goal prioritization.
@@ -370,6 +375,7 @@ Consider dependencies and order goals by priority.
                 priority += 1
 
         return goals[: self.config.max_goals]
+
 
 __all__ = [
     "MetaPlanner",

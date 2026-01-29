@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Enums
 # =============================================================================
 
+
 class ChangeOperation(str, Enum):
     """Type of database change operation."""
 
@@ -44,6 +45,7 @@ class ChangeOperation(str, Enum):
     TRUNCATE = "truncate"
     SCHEMA_CHANGE = "schema_change"
 
+
 class CDCSourceType(str, Enum):
     """Source database type for CDC events."""
 
@@ -53,9 +55,11 @@ class CDCSourceType(str, Enum):
     MYSQL = "mysql"
     SQLSERVER = "sqlserver"
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class ChangeEvent:
@@ -283,9 +287,11 @@ class ChangeEvent:
             metadata={"operation_type": change.get("operationType")},
         )
 
+
 # =============================================================================
 # Resume Token Management
 # =============================================================================
+
 
 @dataclass
 class ResumeToken:
@@ -327,6 +333,7 @@ class ResumeToken:
             sequence_number=data.get("sequence_number"),
             metadata=data.get("metadata", {}),
         )
+
 
 class ResumeTokenStore:
     """
@@ -386,9 +393,11 @@ class ResumeTokenStore:
         self._tokens = {}
         self._save()
 
+
 # =============================================================================
 # Change Event Handlers
 # =============================================================================
+
 
 class ChangeEventHandler(ABC):
     """Abstract handler for processing change events."""
@@ -401,6 +410,7 @@ class ChangeEventHandler(ABC):
         Returns True if event was processed successfully.
         """
         pass
+
 
 class KnowledgeMoundHandler(ChangeEventHandler):
     """
@@ -515,6 +525,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         doc_id = event.document_id or str(event.primary_key or "")
         return f"{event.table}/{doc_id[:20]}"
 
+
 class CallbackHandler(ChangeEventHandler):
     """Handler that calls a callback function for each event."""
 
@@ -527,6 +538,7 @@ class CallbackHandler(ChangeEventHandler):
             result = await self.callback(event)
             return bool(result)
         return bool(self.callback(event))
+
 
 class CompositeHandler(ChangeEventHandler):
     """Handler that delegates to multiple handlers."""
@@ -551,9 +563,11 @@ class CompositeHandler(ChangeEventHandler):
 
         return all(results)
 
+
 # =============================================================================
 # CDC Stream Manager
 # =============================================================================
+
 
 class CDCStreamManager:
     """

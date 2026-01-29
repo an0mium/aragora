@@ -65,6 +65,7 @@ DEFAULT_RETENTION_MULTIPLIER = 2.0
 # Re-export for backwards compatibility (use DEFAULT_TIER_CONFIGS from tier_manager)
 TIER_CONFIGS = DEFAULT_TIER_CONFIGS
 
+
 class MaxEntriesPerTier(TypedDict):
     """Type definition for max entries per tier configuration."""
 
@@ -72,6 +73,7 @@ class MaxEntriesPerTier(TypedDict):
     medium: int
     slow: int
     glacial: int
+
 
 class ContinuumHyperparams(TypedDict):
     """
@@ -89,6 +91,7 @@ class ContinuumHyperparams(TypedDict):
     promotion_cooldown_hours: float  # Minimum time between promotions
     max_entries_per_tier: MaxEntriesPerTier  # Max entries per tier
     retention_multiplier: float  # multiplier * half_life for cleanup
+
 
 @dataclass
 class ContinuumMemoryEntry:
@@ -180,6 +183,7 @@ class ContinuumMemoryEntry:
         """Alias for updated_at for Knowledge Mound compatibility."""
         return self.updated_at
 
+
 class AwaitableList(list):
     """List wrapper that can be awaited for async compatibility."""
 
@@ -188,6 +192,7 @@ class AwaitableList(list):
             return self
 
         return _wrap().__await__()
+
 
 class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin):
     """
@@ -1721,8 +1726,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     # Snapshot methods: export_snapshot, restore_snapshot
     # → moved to ContinuumSnapshotMixin
 
+
 # Singleton instance for cross-subsystem access
 _global_continuum_memory: ContinuumMemory | None = None
+
 
 def get_continuum_memory(
     db_path: str | None = None,
@@ -1750,6 +1757,7 @@ def get_continuum_memory(
         logger.debug("Created global ContinuumMemory instance")
 
     return _global_continuum_memory
+
 
 def reset_continuum_memory() -> None:
     """Reset the global ContinuumMemory instance (for testing)."""

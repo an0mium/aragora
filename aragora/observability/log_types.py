@@ -13,6 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class AuditBackend(str, Enum):
     """Supported audit log backends."""
 
@@ -20,6 +21,7 @@ class AuditBackend(str, Enum):
     POSTGRESQL = "postgresql"  # PostgreSQL with indexed queries
     S3_OBJECT_LOCK = "s3_object_lock"  # S3 with Object Lock (WORM compliance)
     QLDB = "qldb"  # AWS QLDB (cryptographic verification, queryable)
+
 
 @dataclass
 class AuditEntry:
@@ -119,6 +121,7 @@ class AuditEntry:
         content_bytes = json.dumps(content, sort_keys=True).encode("utf-8")
         return hashlib.sha256(content_bytes).hexdigest()
 
+
 @dataclass
 class DailyAnchor:
     """Daily hash anchor for external verification."""
@@ -142,6 +145,7 @@ class DailyAnchor:
             "chain_hash": self.chain_hash,
             "created_at": self.created_at.isoformat(),
         }
+
 
 @dataclass
 class VerificationResult:

@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 _orchestrator_instance: Any | None = None
 _orchestrator_lock = asyncio.Lock()
 
+
 async def _get_orchestrator() -> Any | None:
     """Get or create the repository orchestrator instance."""
     global _orchestrator_instance
@@ -74,6 +75,7 @@ async def _get_orchestrator() -> Any | None:
             logger.warning(f"Failed to create orchestrator: {e}")
             return None
 
+
 async def _get_relationship_builder(repository_name: str) -> Any | None:
     """Get a relationship builder instance for a repository."""
     try:
@@ -83,6 +85,7 @@ async def _get_relationship_builder(repository_name: str) -> Any | None:
     except ImportError as e:
         logger.warning(f"Failed to import RelationshipBuilder: {e}")
         return None
+
 
 class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
     """Handler for repository indexing endpoints."""

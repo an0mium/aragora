@@ -46,6 +46,7 @@ except ImportError:
     DOCLING_AVAILABLE = False
     logger.info("docling not available - install with: pip install docling")
 
+
 @dataclass
 class ExtractedTable:
     """A table extracted from a document."""
@@ -116,6 +117,7 @@ class ExtractedTable:
             "col_count": self.col_count,
         }
 
+
 @dataclass
 class ExtractedFigure:
     """A figure/image extracted from a document."""
@@ -137,6 +139,7 @@ class ExtractedFigure:
             "bounding_box": self.bounding_box,
             "has_image_data": self.image_data is not None,
         }
+
 
 @dataclass
 class DoclingResult:
@@ -165,6 +168,7 @@ class DoclingResult:
             "parse_duration_ms": self.parse_duration_ms,
             "error": self.error,
         }
+
 
 class DoclingParser:
     """
@@ -383,6 +387,7 @@ class DoclingParser:
         ext = Path(filename).suffix.lower()
         return ext in self.SUPPORTED_FORMATS
 
+
 def parse_with_docling(
     content: bytes,
     filename: str,
@@ -407,6 +412,7 @@ def parse_with_docling(
     )
     return parser.parse(content, filename)
 
+
 def get_tables_from_pdf(content: bytes, filename: str = "document.pdf") -> list[ExtractedTable]:
     """
     Extract tables from a PDF document.
@@ -426,6 +432,7 @@ def get_tables_from_pdf(content: bytes, filename: str = "document.pdf") -> list[
         extract_images=False,
     )
     return parser.extract_tables_only(content, filename)
+
 
 __all__ = [
     "DoclingParser",

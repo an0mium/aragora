@@ -49,6 +49,7 @@ else:
                 )
             yield
 
+
 class TimeoutError(asyncio.TimeoutError):
     """Timeout error with additional context."""
 
@@ -61,6 +62,7 @@ class TimeoutError(asyncio.TimeoutError):
         super().__init__(message)
         self.timeout_seconds = timeout_seconds
         self.operation = operation
+
 
 @dataclass
 class TimeoutConfig:
@@ -83,6 +85,7 @@ class TimeoutConfig:
         if self.message:
             return self.message
         return f"Operation '{operation}' timed out after {self.seconds}s"
+
 
 def with_timeout(
     timeout: float | TimeoutConfig,
@@ -132,6 +135,7 @@ def with_timeout(
         return wrapper
 
     return decorator
+
 
 def with_timeout_sync(
     timeout: float | TimeoutConfig,
@@ -190,6 +194,7 @@ def with_timeout_sync(
 
     return decorator
 
+
 @asynccontextmanager
 async def timeout_context(
     seconds: float,
@@ -222,6 +227,7 @@ async def timeout_context(
                 logger.warning(f"Timeout callback error for {context_name}: {e}")
         logger.warning(message)
         raise TimeoutError(message, timeout_seconds=seconds, operation=context_name) from None
+
 
 @contextmanager
 def timeout_context_sync(

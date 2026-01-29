@@ -41,6 +41,7 @@ CALENDAR_SCOPES_FULL = [
 # Default to read-only for inbox integration
 CALENDAR_SCOPES = CALENDAR_SCOPES_READONLY
 
+
 @dataclass
 class CalendarEvent:
     """Represents a calendar event."""
@@ -90,6 +91,7 @@ class CalendarEvent:
             "updated": self.updated.isoformat() if self.updated else None,
         }
 
+
 @dataclass
 class FreeBusySlot:
     """Represents a busy time slot."""
@@ -102,6 +104,7 @@ class FreeBusySlot:
             "start": self.start.isoformat(),
             "end": self.end.isoformat(),
         }
+
 
 @dataclass
 class CalendarInfo:
@@ -127,6 +130,7 @@ class CalendarInfo:
             "background_color": self.background_color,
             "foreground_color": self.foreground_color,
         }
+
 
 class GoogleCalendarConnector(EnterpriseConnector):
     """

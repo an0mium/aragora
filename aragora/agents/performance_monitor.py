@@ -7,6 +7,7 @@ data-driven debugging and optimization of the debate system.
 Generated from nomic loop proposal by codex-engineer with critique fixes
 from gemini-visionary.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -26,6 +27,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AgentMetric:
     """Single metric entry for an agent call."""
@@ -40,6 +42,7 @@ class AgentMetric:
     response_length: int = 0
     phase: str = ""
     round_num: int = 0
+
 
 @dataclass
 class AgentStats:
@@ -86,6 +89,7 @@ class AgentStats:
         if self.total_calls == 0:
             return 0.0
         return (self.timeout_calls / self.total_calls) * 100
+
 
 class AgentPerformanceMonitor:
     """

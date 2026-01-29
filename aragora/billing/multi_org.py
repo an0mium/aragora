@@ -22,6 +22,7 @@ from .models import Organization
 
 logger = logging.getLogger(__name__)
 
+
 class MembershipRole(str, Enum):
     """Roles within an organization."""
 
@@ -31,6 +32,7 @@ class MembershipRole(str, Enum):
     VIEWER = "viewer"  # Read-only access
     BILLING = "billing"  # Can manage billing only
 
+
 class MembershipStatus(str, Enum):
     """Status of an organization membership."""
 
@@ -38,6 +40,7 @@ class MembershipStatus(str, Enum):
     PENDING = "pending"  # Invited but not accepted
     SUSPENDED = "suspended"
     EXPIRED = "expired"
+
 
 # Role permissions mapping
 ROLE_PERMISSIONS: dict[MembershipRole, set[str]] = {
@@ -80,6 +83,7 @@ ROLE_PERMISSIONS: dict[MembershipRole, set[str]] = {
         "debates.view",
     },
 }
+
 
 @dataclass
 class OrganizationMembership:
@@ -177,6 +181,7 @@ class OrganizationMembership:
 
         return membership
 
+
 @dataclass
 class OrgContext:
     """Current organization context for a user session."""
@@ -186,6 +191,7 @@ class OrgContext:
     membership: OrganizationMembership
     organization: Organization
     switch_count: int = 0  # Number of org switches in session
+
 
 class MultiOrgManager:
     """
@@ -829,8 +835,10 @@ class MultiOrgManager:
             title=row["title"],
         )
 
+
 # Global manager instance
 _manager: MultiOrgManager | None = None
+
 
 def get_multi_org_manager(db_path: str | None = None) -> MultiOrgManager:
     """Get or create global multi-org manager."""
@@ -838,6 +846,7 @@ def get_multi_org_manager(db_path: str | None = None) -> MultiOrgManager:
     if _manager is None:
         _manager = MultiOrgManager(db_path=db_path)
     return _manager
+
 
 __all__ = [
     "MembershipRole",

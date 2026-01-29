@@ -21,6 +21,7 @@ from typing import Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from aragora.gauntlet.receipt import DecisionReceipt
 
+
 class TemplateCategory(Enum):
     """Categories of audit templates."""
 
@@ -31,6 +32,7 @@ class TemplateCategory(Enum):
     OPERATIONAL = "operational"
     CUSTOM = "custom"
 
+
 class TemplateFormat(Enum):
     """Output formats for templates."""
 
@@ -39,6 +41,7 @@ class TemplateFormat(Enum):
     JSON = "json"
     PDF = "pdf"  # Requires external rendering
     TEXT = "text"
+
 
 @dataclass
 class TemplateSection:
@@ -50,6 +53,7 @@ class TemplateSection:
     required: bool = True
     receipt_fields: list[str] = field(default_factory=list)
     custom_renderer: str | None = None  # Function name for custom rendering
+
 
 @dataclass
 class AuditTemplate:
@@ -357,6 +361,7 @@ class AuditTemplate:
             "author": self.author,
         }
 
+
 # =============================================================================
 # Pre-built Templates
 # =============================================================================
@@ -618,6 +623,7 @@ _TEMPLATE_REGISTRY: dict[str, AuditTemplate] = {
     "operational-review": OPERATIONAL_TEMPLATE,
 }
 
+
 def get_template(template_id: str) -> AuditTemplate | None:
     """
     Get a template by ID.
@@ -629,6 +635,7 @@ def get_template(template_id: str) -> AuditTemplate | None:
         AuditTemplate or None if not found
     """
     return _TEMPLATE_REGISTRY.get(template_id)
+
 
 def list_templates(category: TemplateCategory | None = None) -> list[AuditTemplate]:
     """
@@ -645,6 +652,7 @@ def list_templates(category: TemplateCategory | None = None) -> list[AuditTempla
         templates = [t for t in templates if t.category == category]
     return templates
 
+
 def register_template(template: AuditTemplate) -> None:
     """
     Register a custom template.
@@ -653,6 +661,7 @@ def register_template(template: AuditTemplate) -> None:
         template: AuditTemplate to register
     """
     _TEMPLATE_REGISTRY[template.id] = template
+
 
 def create_custom_template(
     id: str,
@@ -698,6 +707,7 @@ def create_custom_template(
         regulations=regulations or [],
         disclaimer=disclaimer,
     )
+
 
 __all__ = [
     # Classes

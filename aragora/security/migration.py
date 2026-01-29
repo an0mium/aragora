@@ -21,6 +21,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MigrationResult:
     """Result of a migration operation."""
@@ -55,11 +56,13 @@ class MigrationResult:
             "success": self.success,
         }
 
+
 def is_field_encrypted(value: Any) -> bool:
     """Check if a field value is already encrypted."""
     if isinstance(value, dict):
         return value.get("_encrypted") is True
     return False
+
 
 def needs_migration(record: dict[str, Any], sensitive_fields: list[str]) -> bool:
     """Check if a record has plaintext sensitive fields that need migration."""
@@ -69,6 +72,7 @@ def needs_migration(record: dict[str, Any], sensitive_fields: list[str]) -> bool
             if value is not None and not is_field_encrypted(value):
                 return True
     return False
+
 
 class EncryptionMigrator:
     """
@@ -202,7 +206,9 @@ class EncryptionMigrator:
 
         return result
 
+
 # Store-specific migration functions
+
 
 def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
     """Migrate integration store secrets."""
@@ -241,6 +247,7 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
         logger.warning(f"Integration store not available: {e}")
         return MigrationResult(store_name="integration_store", errors=[str(e)])
 
+
 def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
     """Migrate Gmail token store secrets."""
     try:
@@ -270,6 +277,7 @@ def migrate_gmail_token_store(dry_run: bool = False) -> MigrationResult:
     except ImportError as e:
         logger.warning(f"Gmail token store not available: {e}")
         return MigrationResult(store_name="gmail_token_store", errors=[str(e)])
+
 
 def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
     """Migrate connector sync store secrets."""
@@ -310,6 +318,7 @@ def migrate_sync_store(dry_run: bool = False) -> MigrationResult:
         logger.warning(f"Sync store not available: {e}")
         return MigrationResult(store_name="sync_store", errors=[str(e)])
 
+
 @dataclass
 class StartupMigrationConfig:
     """Configuration for startup migration."""
@@ -318,6 +327,7 @@ class StartupMigrationConfig:
     dry_run: bool = False
     stores: list[str] = field(default_factory=lambda: ["integration", "gmail", "sync"])
     fail_on_error: bool = False
+
 
 def get_startup_migration_config() -> StartupMigrationConfig:
     """Get startup migration config from environment."""
@@ -342,6 +352,7 @@ def get_startup_migration_config() -> StartupMigrationConfig:
             "yes",
         ),
     )
+
 
 def run_startup_migration(
     config: StartupMigrationConfig | None = None,
@@ -404,9 +415,11 @@ def run_startup_migration(
     logger.info(f"Startup migration complete: {len(results)} stores processed")
     return results
 
+
 # =============================================================================
 # Key Rotation Workflow
 # =============================================================================
+
 
 @dataclass
 class KeyRotationResult:
@@ -445,6 +458,7 @@ class KeyRotationResult:
             "duration_seconds": self.duration_seconds,
             "success": self.success,
         }
+
 
 def rotate_and_reencrypt_store(
     store_name: str,
@@ -543,6 +557,7 @@ def rotate_and_reencrypt_store(
         logger.error(f"Key rotation re-encryption failed for {store_name}: {e}")
 
     return result
+
 
 def rotate_encryption_key(
     stores: Optional[list[str]] = None,
@@ -669,6 +684,7 @@ def rotate_encryption_key(
 
     return result
 
+
 def _get_integration_store_config() -> Optional[dict[str, Any]]:
     """Get configuration for integration store re-encryption."""
     try:
@@ -694,6 +710,7 @@ def _get_integration_store_config() -> Optional[dict[str, Any]]:
     except ImportError:
         return None
 
+
 def _get_gmail_store_config() -> Optional[dict[str, Any]]:
     """Get configuration for Gmail store re-encryption."""
     try:
@@ -709,6 +726,7 @@ def _get_gmail_store_config() -> Optional[dict[str, Any]]:
         }
     except ImportError:
         return None
+
 
 def _get_sync_store_config() -> Optional[dict[str, Any]]:
     """Get configuration for sync store re-encryption."""
@@ -732,6 +750,7 @@ def _get_sync_store_config() -> Optional[dict[str, Any]]:
         }
     except ImportError:
         return None
+
 
 __all__ = [
     "EncryptionMigrator",

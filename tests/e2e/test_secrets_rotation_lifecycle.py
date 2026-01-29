@@ -560,7 +560,7 @@ class TestCustomHandlers:
 
         handler_data = {}
 
-        def custom_handler(secret_id: str) -> Dict[str, Any]:
+        def custom_handler(secret_id: str) -> dict[str, Any]:
             handler_data["called"] = True
             handler_data["secret_id"] = secret_id
             return {"new_key": "generated_key_value"}

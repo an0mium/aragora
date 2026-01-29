@@ -16,6 +16,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class VerticalCapabilities:
     """
@@ -37,6 +38,7 @@ class VerticalCapabilities:
     pattern_categories: list[str] = field(default_factory=list)
     compliance_frameworks: list[str] = field(default_factory=list)
     document_types: list[str] = field(default_factory=list)
+
 
 @dataclass
 class VerticalFact:
@@ -94,6 +96,7 @@ class VerticalFact:
             "verified_at": self.verified_at.isoformat(),
         }
 
+
 @dataclass
 class PatternMatch:
     """A detected pattern across facts."""
@@ -105,6 +108,7 @@ class PatternMatch:
     confidence: float
     supporting_facts: list[str]  # Fact IDs
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class ComplianceCheckResult:
@@ -119,6 +123,7 @@ class ComplianceCheckResult:
     evidence: list[str]
     recommendations: list[str]
     confidence: float
+
 
 class BaseVerticalKnowledge(ABC):
     """

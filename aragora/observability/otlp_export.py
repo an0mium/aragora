@@ -49,6 +49,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class OTLPExporterType(str, Enum):
     """Supported OTLP exporter types."""
 
@@ -59,6 +60,7 @@ class OTLPExporterType(str, Enum):
     OTLP_HTTP = "otlp_http"
     DATADOG = "datadog"
 
+
 # Default endpoints for each exporter type
 DEFAULT_ENDPOINTS: dict[OTLPExporterType, str] = {
     OTLPExporterType.JAEGER: "localhost",  # Jaeger uses host only
@@ -67,6 +69,7 @@ DEFAULT_ENDPOINTS: dict[OTLPExporterType, str] = {
     OTLPExporterType.OTLP_HTTP: "http://localhost:4318/v1/traces",
     OTLPExporterType.DATADOG: "http://localhost:4317",  # Datadog Agent OTLP endpoint
 }
+
 
 @dataclass
 class OTLPConfig:
@@ -174,9 +177,11 @@ class OTLPConfig:
             return None
         return self.endpoint or DEFAULT_ENDPOINTS.get(self.exporter_type)
 
+
 # Global singleton for configured provider
 _tracer_provider: Any | None = None
 _config: OTLPConfig | None = None
+
 
 def get_otlp_config() -> OTLPConfig:
     """Get the current OTLP configuration.
@@ -189,6 +194,7 @@ def get_otlp_config() -> OTLPConfig:
         _config = OTLPConfig.from_env()
     return _config
 
+
 def set_otlp_config(config: OTLPConfig) -> None:
     """Set custom OTLP configuration (primarily for testing).
 
@@ -198,11 +204,13 @@ def set_otlp_config(config: OTLPConfig) -> None:
     global _config
     _config = config
 
+
 def reset_otlp_config() -> None:
     """Reset OTLP configuration to be re-read from environment."""
     global _config, _tracer_provider
     _config = None
     _tracer_provider = None
+
 
 def _get_jaeger_exporter(config: OTLPConfig) -> Any:
     """Create Jaeger exporter.
@@ -227,6 +235,7 @@ def _get_jaeger_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
+
 def _get_zipkin_exporter(config: OTLPConfig) -> Any:
     """Create Zipkin exporter.
 
@@ -246,6 +255,7 @@ def _get_zipkin_exporter(config: OTLPConfig) -> Any:
             "Zipkin exporter not available. Install with: pip install opentelemetry-exporter-zipkin"
         )
         return None
+
 
 def _get_otlp_grpc_exporter(config: OTLPConfig) -> Any:
     """Create OTLP/gRPC exporter.
@@ -273,6 +283,7 @@ def _get_otlp_grpc_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
+
 def _get_otlp_http_exporter(config: OTLPConfig) -> Any:
     """Create OTLP/HTTP exporter.
 
@@ -297,6 +308,7 @@ def _get_otlp_http_exporter(config: OTLPConfig) -> Any:
             "pip install opentelemetry-exporter-otlp-proto-http"
         )
         return None
+
 
 def _get_datadog_exporter(config: OTLPConfig) -> Any:
     """Create Datadog exporter via OTLP.
@@ -332,6 +344,7 @@ def _get_datadog_exporter(config: OTLPConfig) -> Any:
         )
         return None
 
+
 def _get_exporter(config: OTLPConfig) -> Any:
     """Get the appropriate exporter based on configuration.
 
@@ -356,6 +369,7 @@ def _get_exporter(config: OTLPConfig) -> Any:
     else:
         logger.warning(f"Unknown exporter type: {config.exporter_type}")
         return None
+
 
 def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
     """Configure OpenTelemetry with OTLP exporter.
@@ -457,6 +471,7 @@ def configure_otlp_exporter(config: OTLPConfig | None = None) -> Any:
         logger.error(f"Failed to configure OTLP exporter: {e}")
         return None
 
+
 def get_tracer_provider() -> Any:
     """Get the configured tracer provider.
 
@@ -464,6 +479,7 @@ def get_tracer_provider() -> Any:
         The TracerProvider if configured, None otherwise.
     """
     return _tracer_provider
+
 
 def shutdown_otlp() -> None:
     """Shutdown the OTLP tracer provider gracefully.
@@ -480,6 +496,7 @@ def shutdown_otlp() -> None:
             logger.error(f"Error shutting down OTLP tracer: {e}")
         finally:
             _tracer_provider = None
+
 
 __all__ = [
     "OTLPExporterType",

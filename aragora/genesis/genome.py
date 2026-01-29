@@ -7,6 +7,7 @@ Extends Persona with genetic-specific fields for:
 - Fitness scoring from debate outcomes
 - Serialization for persistence
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +19,7 @@ from pathlib import Path
 from aragora.agents.personas import Persona
 from aragora.config import resolve_db_path
 from aragora.genesis.database import GenesisDatabase
+
 
 def generate_genome_id(traits: dict, expertise: dict, parents: list[str]) -> str:
     """Generate a unique genome ID from its characteristics."""
@@ -31,6 +33,7 @@ def generate_genome_id(traits: dict, expertise: dict, parents: list[str]) -> str
         sort_keys=True,
     )
     return hashlib.sha256(content.encode()).hexdigest()[:12]
+
 
 @dataclass
 class AgentGenome:
@@ -203,6 +206,7 @@ class AgentGenome:
         top_exp = self.get_top_expertise(2)
         exp_str = ", ".join(f"{d}:{s:.0%}" for d, s in top_exp)
         return f"Genome({self.name}, gen={self.generation}, fit={self.fitness_score:.2f}, traits={top_traits}, exp=[{exp_str}])"
+
 
 class GenomeStore:
     """SQLite-based storage for genomes."""

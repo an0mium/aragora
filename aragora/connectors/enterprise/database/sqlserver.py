@@ -42,6 +42,7 @@ import re
 
 _SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
 
+
 def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
     """
     Validate a SQL identifier to prevent SQL injection.
@@ -66,6 +67,7 @@ def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> 
             "Only alphanumeric characters, underscores, and hyphens are allowed."
         )
     return name
+
 
 class SQLServerConnector(EnterpriseConnector):
     """

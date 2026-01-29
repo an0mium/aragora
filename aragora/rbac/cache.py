@@ -42,6 +42,7 @@ from aragora.control_plane.leader import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RBACCacheConfig:
     """Configuration for RBAC distributed cache."""
@@ -82,6 +83,7 @@ class RBACCacheConfig:
             enable_pubsub=os.environ.get("RBAC_CACHE_PUBSUB", "true").lower() == "true",
             enable_metrics=os.environ.get("RBAC_CACHE_METRICS", "true").lower() == "true",
         )
+
 
 @dataclass
 class CacheStats:
@@ -124,6 +126,7 @@ class CacheStats:
             "errors": self.errors,
             "evictions": self.evictions,
         }
+
 
 class RBACDistributedCache:
     """
@@ -652,8 +655,10 @@ class RBACDistributedCache:
             "pubsub_enabled": self.config.enable_pubsub and redis is not None,
         }
 
+
 # Global cache instance
 _rbac_cache: RBACDistributedCache | None = None
+
 
 def get_rbac_cache(config: RBACCacheConfig | None = None) -> RBACDistributedCache:
     """Get or create the global RBAC cache instance."""
@@ -664,10 +669,12 @@ def get_rbac_cache(config: RBACCacheConfig | None = None) -> RBACDistributedCach
 
     return _rbac_cache
 
+
 def set_rbac_cache(cache: RBACDistributedCache) -> None:
     """Set the global RBAC cache instance."""
     global _rbac_cache
     _rbac_cache = cache
+
 
 def reset_rbac_cache() -> None:
     """Reset the global RBAC cache (for testing)."""
@@ -675,6 +682,7 @@ def reset_rbac_cache() -> None:
     if _rbac_cache:
         _rbac_cache.stop()
     _rbac_cache = None
+
 
 __all__ = [
     "RBACCacheConfig",

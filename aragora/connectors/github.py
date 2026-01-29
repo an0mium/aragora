@@ -10,6 +10,7 @@ Searches:
 - Discussions (if enabled)
 - Code (via search API)
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -41,6 +42,7 @@ MAX_QUERY_LENGTH = 500
 
 # Allowed state values for issues/PRs
 ALLOWED_STATES = frozenset({"all", "open", "closed", "merged"})
+
 
 class GitHubConnector(BaseConnector):
     """

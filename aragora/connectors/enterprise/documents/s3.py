@@ -46,6 +46,7 @@ DOCUMENT_EXTENSIONS = {
 # Max file size to process (50MB)
 MAX_FILE_SIZE = 50 * 1024 * 1024
 
+
 class S3Connector(EnterpriseConnector):
     """
     S3-compatible storage connector.

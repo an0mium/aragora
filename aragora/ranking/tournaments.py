@@ -45,6 +45,7 @@ MIN_PARTICIPANTS = 2
 # Tournament name validation
 MAX_TOURNAMENT_NAME_LENGTH = 256
 
+
 class TournamentStatus(str, Enum):
     """Tournament status enumeration."""
 
@@ -52,6 +53,7 @@ class TournamentStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
 
 class TournamentEvent(str, Enum):
     """Types of tournament events for history tracking."""
@@ -63,30 +65,36 @@ class TournamentEvent(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+
 class TournamentError(Exception):
     """Base exception for tournament errors."""
 
     pass
+
 
 class ValidationError(TournamentError):
     """Invalid input data."""
 
     pass
 
+
 class TournamentNotFoundError(TournamentError):
     """Tournament does not exist."""
 
     pass
+
 
 class MatchNotFoundError(TournamentError):
     """Match does not exist."""
 
     pass
 
+
 class InvalidStateError(TournamentError):
     """Operation not allowed in current state."""
 
     pass
+
 
 @dataclass
 class TournamentStanding:
@@ -107,6 +115,7 @@ class TournamentStanding:
             return 0.0
         return self.wins / total
 
+
 @dataclass
 class TournamentMatch:
     """A match in a tournament."""
@@ -124,6 +133,7 @@ class TournamentMatch:
     is_losers_bracket: bool = False  # For double elimination
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: str | None = None
+
 
 @dataclass
 class TournamentHistoryEntry:
@@ -145,6 +155,7 @@ class TournamentHistoryEntry:
             "details": self.details,
         }
 
+
 @dataclass
 class Tournament:
     """A tournament configuration."""
@@ -157,6 +168,7 @@ class Tournament:
     total_rounds: int = 0
     status: str = "pending"  # pending, in_progress, completed
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
 
 class TournamentManager:
     """
@@ -742,9 +754,7 @@ class TournamentManager:
         finally:
             self._elo_system = original_elo
 
-    def get_current_standings(
-        self, tournament_id: str | None = None
-    ) -> list[TournamentStanding]:
+    def get_current_standings(self, tournament_id: str | None = None) -> list[TournamentStanding]:
         """
         Get current tournament standings.
 

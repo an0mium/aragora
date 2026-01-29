@@ -19,6 +19,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class RevenueEventType(Enum):
     """Types of revenue events."""
 
@@ -26,6 +27,7 @@ class RevenueEventType(Enum):
     SUBSCRIPTION = "subscription"  # Subscription payment
     USAGE = "usage"  # Per-use charge
     REFUND = "refund"  # Refund
+
 
 @dataclass
 class PluginRevenueEvent:
@@ -75,6 +77,7 @@ class PluginRevenueEvent:
             "created_at": self.created_at.isoformat(),
         }
 
+
 @dataclass
 class DeveloperPayout:
     """Payout record for a plugin developer."""
@@ -104,6 +107,7 @@ class DeveloperPayout:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+
 @dataclass
 class PluginInstall:
     """Record of a plugin installation."""
@@ -130,6 +134,7 @@ class PluginInstall:
             "subscription_active": self.subscription_active,
             "uninstalled_at": self.uninstalled_at.isoformat() if self.uninstalled_at else None,
         }
+
 
 class PluginRevenueTracker:
     """
@@ -601,8 +606,10 @@ class PluginRevenueTracker:
                 for row in rows
             ]
 
+
 # Default tracker instance
 _default_tracker: PluginRevenueTracker | None = None
+
 
 def get_plugin_revenue_tracker() -> PluginRevenueTracker:
     """Get the default plugin revenue tracker instance."""
@@ -610,6 +617,7 @@ def get_plugin_revenue_tracker() -> PluginRevenueTracker:
     if _default_tracker is None:
         _default_tracker = PluginRevenueTracker()
     return _default_tracker
+
 
 __all__ = [
     "PluginRevenueTracker",

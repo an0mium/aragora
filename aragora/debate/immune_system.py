@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class HealthStatus(Enum):
     """System health status levels."""
 
@@ -31,6 +32,7 @@ class HealthStatus(Enum):
     STRESSED = "stressed"  # Performance impacted
     CRITICAL = "critical"  # Major failures occurring
     RECOVERING = "recovering"  # Coming back from failure
+
 
 class AgentStatus(Enum):
     """Individual agent status."""
@@ -42,6 +44,7 @@ class AgentStatus(Enum):
     FAILED = "failed"
     RECOVERED = "recovered"
     CIRCUIT_OPEN = "circuit_open"
+
 
 @dataclass
 class HealthEvent:
@@ -65,6 +68,7 @@ class HealthEvent:
             "data": self.to_dict(),
         }
 
+
 @dataclass
 class AgentHealthState:
     """Health state for a single agent."""
@@ -87,6 +91,7 @@ class AgentHealthState:
             "avg_response_ms": round(self.avg_response_ms, 2),
             "circuit_open": self.circuit_open,
         }
+
 
 class TransparentImmuneSystem:
     """
@@ -440,8 +445,10 @@ class TransparentImmuneSystem:
         """Get recent health events."""
         return [e.to_dict() for e in self.event_history[-limit:]]
 
+
 # Global instance for easy access
 _immune_system: TransparentImmuneSystem | None = None
+
 
 def get_immune_system() -> TransparentImmuneSystem:
     """Get the global immune system instance."""
@@ -449,6 +456,7 @@ def get_immune_system() -> TransparentImmuneSystem:
     if _immune_system is None:
         _immune_system = TransparentImmuneSystem()
     return _immune_system
+
 
 def reset_immune_system() -> None:
     """Reset the global immune system (for testing)."""

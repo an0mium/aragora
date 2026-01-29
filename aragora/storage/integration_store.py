@@ -72,6 +72,7 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
+
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
     """Record user mapping operation metric if available."""
     try:
@@ -80,6 +81,7 @@ def _record_user_mapping_operation(operation: str, platform: str, found: bool) -
         record_user_mapping_operation(operation, platform, found)
     except ImportError:
         pass
+
 
 def _record_user_mapping_cache_hit(platform: str) -> None:
     """Record user mapping cache hit metric if available."""
@@ -90,6 +92,7 @@ def _record_user_mapping_cache_hit(platform: str) -> None:
     except ImportError:
         pass
 
+
 def _record_user_mapping_cache_miss(platform: str) -> None:
     """Record user mapping cache miss metric if available."""
     try:
@@ -98,6 +101,7 @@ def _record_user_mapping_cache_miss(platform: str) -> None:
         record_user_mapping_cache_miss(platform)
     except ImportError:
         pass
+
 
 # =============================================================================
 # Integration Types and Models
@@ -132,6 +136,7 @@ SENSITIVE_KEYS = frozenset(
         "smtp_password",
     ]
 )
+
 
 def _encrypt_settings(
     settings: dict[str, Any],
@@ -190,6 +195,7 @@ def _encrypt_settings(
         logger.warning(f"Encryption service error, storing unencrypted: {e}")
         return settings
 
+
 def _decrypt_settings(
     settings: dict[str, Any],
     user_id: str = "default",
@@ -221,6 +227,7 @@ def _decrypt_settings(
     except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
         logger.warning(f"Decryption failed for {integration_type}: {e}")
         return settings
+
 
 @dataclass
 class UserIdMapping:
@@ -260,6 +267,7 @@ class UserIdMapping:
             updated_at=row[5],
             user_id=row[6],
         )
+
 
 @dataclass
 class IntegrationConfig:
@@ -342,13 +350,16 @@ class IntegrationConfig:
             return "connected"
         return "not_configured"
 
+
 def _make_key(integration_type: str, user_id: str = "default") -> str:
     """Generate storage key for integration."""
     return f"{user_id}:{integration_type}"
 
+
 # =============================================================================
 # Abstract Backend
 # =============================================================================
+
 
 class IntegrationStoreBackend(ABC):
     """Abstract base for integration storage backends."""
@@ -411,9 +422,11 @@ class IntegrationStoreBackend(ABC):
         """Close connections (optional to implement)."""
         pass
 
+
 # =============================================================================
 # In-Memory Backend (for testing)
 # =============================================================================
+
 
 class InMemoryIntegrationStore(IntegrationStoreBackend):
     """
@@ -497,9 +510,11 @@ class InMemoryIntegrationStore(IntegrationStoreBackend):
             self._store.clear()
             self._mappings.clear()
 
+
 # =============================================================================
 # SQLite Backend
 # =============================================================================
+
 
 class SQLiteIntegrationStore(IntegrationStoreBackend):
     """
@@ -768,9 +783,11 @@ class SQLiteIntegrationStore(IntegrationStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
+
 # =============================================================================
 # Redis Backend (with SQLite fallback)
 # =============================================================================
+
 
 class RedisIntegrationStore(IntegrationStoreBackend):
     """
@@ -968,9 +985,11 @@ class RedisIntegrationStore(IntegrationStoreBackend):
         if self._redis:
             self._redis.close()
 
+
 # =============================================================================
 # PostgreSQL Backend
 # =============================================================================
+
 
 class PostgresIntegrationStore(IntegrationStoreBackend):
     """
@@ -1098,9 +1117,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
                 return config
             return None
 
-    def get_sync(
-        self, integration_type: str, user_id: str = "default"
-    ) -> IntegrationConfig | None:
+    def get_sync(self, integration_type: str, user_id: str = "default") -> IntegrationConfig | None:
         """Get integration configuration (sync wrapper for async)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_async(integration_type, user_id)
@@ -1387,11 +1404,13 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
 _integration_store: IntegrationStoreBackend | None = None
+
 
 def get_integration_store() -> IntegrationStoreBackend:
     """
@@ -1445,6 +1464,7 @@ def get_integration_store() -> IntegrationStoreBackend:
 
     return _integration_store
 
+
 def set_integration_store(store: IntegrationStoreBackend) -> None:
     """
     Set custom integration store.
@@ -1455,10 +1475,12 @@ def set_integration_store(store: IntegrationStoreBackend) -> None:
     _integration_store = store
     logger.debug(f"Integration store backend set: {type(store).__name__}")
 
+
 def reset_integration_store() -> None:
     """Reset the global integration store (for testing)."""
     global _integration_store
     _integration_store = None
+
 
 __all__ = [
     "IntegrationConfig",

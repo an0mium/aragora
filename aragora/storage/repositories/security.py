@@ -15,6 +15,7 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityRepository:
     """
     Repository for account security and lockout operations.

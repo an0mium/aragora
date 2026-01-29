@@ -15,6 +15,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class MemoryReadStep(BaseStep):
     """
     Memory read step for querying the Knowledge Mound.
@@ -126,6 +127,7 @@ class MemoryReadStep(BaseStep):
             query = query.replace(f"{{state.{key}}}", str(value))
 
         return query
+
 
 class MemoryWriteStep(BaseStep):
     """

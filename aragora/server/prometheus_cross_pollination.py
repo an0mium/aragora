@@ -9,6 +9,7 @@ Provides OpenMetrics-compliant metrics for monitoring:
 NOTE: Metric definitions are centralized in prometheus.py.
 This module imports from there and provides convenience APIs.
 """
+
 from __future__ import annotations
 
 
@@ -34,6 +35,7 @@ if PROMETHEUS_AVAILABLE:
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
 # ============================================================================
+
 
 class FallbackMetrics:
     """Simple metrics accumulator when prometheus_client is unavailable."""
@@ -218,8 +220,10 @@ class FallbackMetrics:
 
         return "\n".join(lines)
 
+
 # Singleton fallback instance
 _fallback_metrics: FallbackMetrics | None = None
+
 
 def get_fallback_metrics() -> FallbackMetrics:
     """Get or create the fallback metrics instance."""
@@ -228,9 +232,11 @@ def get_fallback_metrics() -> FallbackMetrics:
         _fallback_metrics = FallbackMetrics()
     return _fallback_metrics
 
+
 # ============================================================================
 # Unified API
 # ============================================================================
+
 
 def record_event_dispatched(event_type: str) -> None:
     """Record an event being dispatched."""
@@ -238,6 +244,7 @@ def record_event_dispatched(event_type: str) -> None:
         CROSS_POLL_EVENTS_TOTAL.labels(event_type=event_type).inc()
     else:
         get_fallback_metrics().record_event(event_type)
+
 
 def record_handler_call(handler: str, status: str, duration: float | None = None) -> None:
     """Record a handler invocation.
@@ -257,6 +264,7 @@ def record_handler_call(handler: str, status: str, duration: float | None = None
         if duration is not None:
             fallback.record_handler_duration(handler, duration)
 
+
 def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
     """Set circuit breaker state for a handler.
 
@@ -270,12 +278,14 @@ def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
     else:
         get_fallback_metrics().set_circuit_breaker_state(handler, state)
 
+
 def update_subscriber_count(event_type: str, count: int) -> None:
     """Update the subscriber count for an event type."""
     if PROMETHEUS_AVAILABLE:
         CROSS_POLL_SUBSCRIBERS.labels(event_type=event_type).set(count)
     else:
         get_fallback_metrics().set_subscriber_count(event_type, count)
+
 
 def get_cross_pollination_metrics_text() -> str:
     """Get cross-pollination metrics as text (for non-prometheus endpoint)."""
@@ -287,9 +297,11 @@ def get_cross_pollination_metrics_text() -> str:
     else:
         return get_fallback_metrics().get_metrics_text()
 
+
 # ============================================================================
 # Knowledge Mound Bidirectional Flow API
 # ============================================================================
+
 
 def record_km_inbound_event(source: str, event_type: str) -> None:
     """Record an event flowing INTO Knowledge Mound.
@@ -303,6 +315,7 @@ def record_km_inbound_event(source: str, event_type: str) -> None:
     else:
         get_fallback_metrics().record_km_inbound_event(source, event_type)
 
+
 def record_km_outbound_event(target: str, event_type: str) -> None:
     """Record an event flowing OUT of Knowledge Mound.
 
@@ -314,6 +327,7 @@ def record_km_outbound_event(target: str, event_type: str) -> None:
         KM_OUTBOUND_EVENTS.labels(target=target, event_type=event_type).inc()
     else:
         get_fallback_metrics().record_km_outbound_event(target, event_type)
+
 
 def record_km_adapter_sync(
     adapter: str,
@@ -336,6 +350,7 @@ def record_km_adapter_sync(
     else:
         get_fallback_metrics().record_km_adapter_sync(adapter, direction, status, duration)
 
+
 def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0) -> None:
     """Record a staleness check operation.
 
@@ -354,6 +369,7 @@ def record_km_staleness_check(workspace: str, status: str, stale_count: int = 0)
         if status == "completed":
             fallback.set_km_stale_nodes_found(workspace, stale_count)
 
+
 def update_km_nodes_by_source(source: str, count: int) -> None:
     """Update the count of knowledge nodes by source type.
 
@@ -365,6 +381,7 @@ def update_km_nodes_by_source(source: str, count: int) -> None:
         KM_NODES_BY_SOURCE.labels(source=source).set(count)
     else:
         get_fallback_metrics().set_km_nodes_by_source(source, count)
+
 
 __all__ = [
     "PROMETHEUS_AVAILABLE",

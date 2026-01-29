@@ -3,6 +3,7 @@ Debate recording and replay functionality.
 
 Enables persistence and playback of past debates for review and learning.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,6 +16,7 @@ from typing import Any
 from aragora.core import DebateResult
 
 logger = logging.getLogger(__name__)
+
 
 class DebateRecorder:
     """Records and persists debate results for later replay."""
@@ -73,6 +75,7 @@ class DebateRecorder:
         else:
             # Convert other types to string
             return str(obj)
+
 
 class DebateReplayer:
     """Loads and replays recorded debates."""

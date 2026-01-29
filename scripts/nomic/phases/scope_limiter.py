@@ -23,8 +23,8 @@ class ScopeEvaluation:
     is_implementable: bool = True
     complexity_score: float = 0.0  # 0-1, lower is simpler
     file_count: int = 0
-    risk_factors: List[str] = field(default_factory=list)
-    suggested_simplifications: List[str] = field(default_factory=list)
+    risk_factors: list[str] = field(default_factory=list)
+    suggested_simplifications: list[str] = field(default_factory=list)
     reason: str = ""
 
     @property
@@ -81,7 +81,7 @@ class ScopeLimiter:
         self,
         max_complexity: float = 0.7,
         max_files: int = 5,
-        protected_files: Optional[List[str]] = None,
+        protected_files: Optional[list[str]] = None,
     ):
         """
         Initialize scope limiter.
@@ -166,7 +166,7 @@ class ScopeLimiter:
 
         return evaluation
 
-    def _suggest_simplifications(self, design: str, evaluation: ScopeEvaluation) -> List[str]:
+    def _suggest_simplifications(self, design: str, evaluation: ScopeEvaluation) -> list[str]:
         """Generate simplification suggestions based on risk factors."""
         suggestions = []
 
@@ -195,7 +195,7 @@ class ScopeLimiter:
 
     def simplify_for_implementation(
         self, design: str, evaluation: ScopeEvaluation
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """
         Generate a simplified version of the design.
 

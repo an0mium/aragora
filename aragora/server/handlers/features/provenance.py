@@ -8,6 +8,7 @@ Provides endpoints for:
 
 Uses ProvenanceStore for persistent storage.
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ _provenance_store: Optional["ProvenanceStore"] = None
 # In-memory cache for active managers (avoids repeated DB loads)
 _provenance_managers: dict[str, ProvenanceManager] = {}
 
+
 def get_provenance_store() -> "ProvenanceStore":
     """Get or create the global ProvenanceStore instance."""
     global _provenance_store
@@ -42,6 +44,7 @@ def get_provenance_store() -> "ProvenanceStore":
         _provenance_store = ProvenanceStore()
         logger.info("ProvenanceStore initialized")
     return _provenance_store
+
 
 def get_provenance_manager(debate_id: str) -> ProvenanceManager:
     """Get or create a ProvenanceManager for a debate.
@@ -67,6 +70,7 @@ def get_provenance_manager(debate_id: str) -> ProvenanceManager:
     _provenance_managers[debate_id] = manager
     return manager
 
+
 def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> None:
     """Register and persist an externally created ProvenanceManager."""
     _provenance_managers[debate_id] = manager
@@ -75,6 +79,7 @@ def register_provenance_manager(debate_id: str, manager: ProvenanceManager) -> N
     store = get_provenance_store()
     store.save_manager(manager)
     logger.debug(f"Registered and persisted ProvenanceManager for debate {debate_id}")
+
 
 def _build_graph_nodes(manager: ProvenanceManager) -> list[dict[str, Any]]:
     """Build visualization nodes from provenance records."""
@@ -97,6 +102,7 @@ def _build_graph_nodes(manager: ProvenanceManager) -> list[dict[str, Any]]:
         nodes.append(node)
 
     return nodes
+
 
 def _build_graph_edges(manager: ProvenanceManager) -> list[dict[str, Any]]:
     """Build visualization edges from provenance relationships."""
@@ -143,6 +149,7 @@ def _build_graph_edges(manager: ProvenanceManager) -> list[dict[str, Any]]:
 
     return edges
 
+
 def _map_source_to_node_type(source_type: SourceType) -> str:
     """Map source type to visualization node type."""
     mapping = {
@@ -160,11 +167,13 @@ def _map_source_to_node_type(source_type: SourceType) -> str:
     }
     return mapping.get(source_type, "unknown")
 
+
 def _truncate(text: str, max_length: int) -> str:
     """Truncate text with ellipsis."""
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
+
 
 def _compute_max_depth(manager: ProvenanceManager) -> int:
     """Compute the maximum depth of the provenance graph."""
@@ -173,6 +182,7 @@ def _compute_max_depth(manager: ProvenanceManager) -> int:
 
     # Simple approach: count chain length
     return len(manager.chain.records)
+
 
 @require_permission("provenance:read")
 async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
@@ -206,6 +216,7 @@ async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
     }
 
     return json_response(graph_data)
+
 
 @require_permission("provenance:read")
 async def handle_get_provenance_timeline(
@@ -271,6 +282,7 @@ async def handle_get_provenance_timeline(
 
     return json_response(timeline_data)
 
+
 @require_permission("provenance:verify")
 async def handle_verify_provenance_chain(
     debate_id: str,
@@ -314,6 +326,7 @@ async def handle_verify_provenance_chain(
     }
 
     return json_response(verification_result)
+
 
 @require_permission("admin:audit")
 async def handle_export_provenance_report(
@@ -395,6 +408,7 @@ async def handle_export_provenance_report(
         }
 
     return json_response(report)
+
 
 @require_permission("provenance:read")
 async def handle_get_claim_provenance(
@@ -478,6 +492,7 @@ async def handle_get_claim_provenance(
 
     return json_response(claim_provenance)
 
+
 @require_permission("provenance:read")
 async def handle_get_agent_contributions(
     debate_id: str,
@@ -544,6 +559,7 @@ async def handle_get_agent_contributions(
     }
 
     return json_response(response)
+
 
 def register_provenance_routes(router: Any) -> None:
     """Register provenance routes with the server router."""

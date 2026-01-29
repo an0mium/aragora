@@ -4,6 +4,7 @@ Core validation utilities for request processing.
 Provides ValidationResult dataclass and fundamental validation functions
 for JSON bodies, content types, and field-level validation.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Max JSON body size (1MB by default, lower than file upload limit)
 MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
 
+
 @dataclass
 class ValidationResult:
     """Result of validation check."""
@@ -24,6 +26,7 @@ class ValidationResult:
     is_valid: bool
     error: str | None = None
     data: Any | None = None
+
 
 def validate_json_body(
     body: bytes,
@@ -54,6 +57,7 @@ def validate_json_body(
     except UnicodeDecodeError:
         return ValidationResult(is_valid=False, error="Invalid UTF-8 encoding in request body")
 
+
 def validate_content_type(
     content_type: str, expected: str = "application/json"
 ) -> ValidationResult:
@@ -78,6 +82,7 @@ def validate_content_type(
 
     return ValidationResult(is_valid=True)
 
+
 def validate_required_fields(data: dict, fields: list[str]) -> ValidationResult:
     """Validate that required fields are present.
 
@@ -96,6 +101,7 @@ def validate_required_fields(data: dict, fields: list[str]) -> ValidationResult:
         )
 
     return ValidationResult(is_valid=True)
+
 
 def validate_string_field(
     data: dict,
@@ -143,6 +149,7 @@ def validate_string_field(
 
     return ValidationResult(is_valid=True)
 
+
 def validate_string(
     value: str | None,
     field_name: str,
@@ -181,6 +188,7 @@ def validate_string(
         return False, f"Field '{field_name}' has invalid format"
 
     return True, None
+
 
 def validate_int_field(
     data: dict,
@@ -223,6 +231,7 @@ def validate_int_field(
 
     return ValidationResult(is_valid=True)
 
+
 def validate_float_field(
     data: dict,
     field: str,
@@ -263,6 +272,7 @@ def validate_float_field(
         )
 
     return ValidationResult(is_valid=True)
+
 
 def validate_list_field(
     data: dict,
@@ -315,6 +325,7 @@ def validate_list_field(
 
     return ValidationResult(is_valid=True)
 
+
 def validate_enum_field(
     data: dict,
     field: str,
@@ -346,6 +357,7 @@ def validate_enum_field(
         )
 
     return ValidationResult(is_valid=True)
+
 
 def sanitize_string(value: str, max_length: int = 1000) -> str:
     """Sanitize a string by stripping and truncating.

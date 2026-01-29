@@ -4,6 +4,7 @@ Document Connector.
 Integrates DocumentParser with the EvidenceCollector to enable
 omnivorous document ingestion for debate evidence.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -22,6 +23,7 @@ from aragora.connectors.documents.parser import (
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
+
 
 class DocumentConnector(Connector):
     """Connector for parsing documents as evidence sources.
@@ -419,6 +421,7 @@ class DocumentConnector(Connector):
 
         return "\n".join(lines)
 
+
 class DocumentEvidence:
     """Helper class for creating evidence snippets from documents."""
 
@@ -533,6 +536,7 @@ class DocumentEvidence:
             lines.append(f"[{len(data) - 15} more rows...]")
 
         return "\n".join(lines)
+
 
 __all__ = [
     "DocumentConnector",

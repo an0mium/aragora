@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="SerializableMixin")
 
+
 def serialize_value(value: Any) -> Any:
     """Recursively serialize a value for JSON export.
 
@@ -74,6 +75,7 @@ def serialize_value(value: Any) -> Any:
         return {k: serialize_value(v) for k, v in value.items()}
     # Fallback: return as-is (str, int, float, bool, etc.)
     return value
+
 
 def deserialize_value(value: Any, target_type: Any) -> Any:
     """Deserialize a value to a target type.
@@ -128,6 +130,7 @@ def deserialize_value(value: Any, target_type: Any) -> Any:
         return target_type.from_dict(value)
 
     return value
+
 
 class SerializableMixin:
     """Mixin providing consistent serialization for dataclasses.
@@ -237,6 +240,7 @@ class SerializableMixin:
 
         return cls(**kwargs)
 
+
 def dataclass_to_dict(obj: Any) -> dict[str, Any]:
     """Utility function to serialize any dataclass to dict.
 
@@ -261,6 +265,7 @@ def dataclass_to_dict(obj: Any) -> dict[str, Any]:
             continue
         result[f.name] = serialize_value(getattr(obj, f.name))
     return result
+
 
 def dict_to_dataclass(cls: type[T], data: dict[str, Any]) -> T:
     """Utility function to deserialize dict to any dataclass.
@@ -295,6 +300,7 @@ def dict_to_dataclass(cls: type[T], data: dict[str, Any]) -> T:
         kwargs[f.name] = deserialize_value(data[f.name], target_type)
 
     return cls(**kwargs)
+
 
 __all__ = [
     "SerializableMixin",

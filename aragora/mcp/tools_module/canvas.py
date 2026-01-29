@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Global manager instance for session persistence
 _manager = None
 
+
 async def _get_manager():
     """Get or create the canvas manager instance."""
     global _manager
@@ -29,6 +30,7 @@ async def _get_manager():
 
         _manager = CanvasStateManager()
     return _manager
+
 
 async def canvas_create_tool(
     name: str = "Untitled Canvas",
@@ -65,6 +67,7 @@ async def canvas_create_tool(
     except Exception as e:
         logger.error(f"Canvas creation failed: {e}")
         return {"success": False, "error": str(e)}
+
 
 async def canvas_get_tool(
     canvas_id: str,
@@ -104,6 +107,7 @@ async def canvas_get_tool(
     except Exception as e:
         logger.error(f"Canvas get failed: {e}")
         return {"error": str(e)}
+
 
 async def canvas_add_node_tool(
     canvas_id: str,
@@ -169,6 +173,7 @@ async def canvas_add_node_tool(
         logger.error(f"Canvas add_node failed: {e}")
         return {"error": str(e)}
 
+
 async def canvas_add_edge_tool(
     canvas_id: str,
     source_id: str,
@@ -226,6 +231,7 @@ async def canvas_add_edge_tool(
         logger.error(f"Canvas add_edge failed: {e}")
         return {"error": str(e)}
 
+
 async def canvas_execute_action_tool(
     canvas_id: str,
     action: str,
@@ -267,6 +273,7 @@ async def canvas_execute_action_tool(
     except Exception as e:
         logger.error(f"Canvas execute_action failed: {e}")
         return {"error": str(e)}
+
 
 async def canvas_list_tool(
     owner_id: str = "",
@@ -316,6 +323,7 @@ async def canvas_list_tool(
         logger.error(f"Canvas list failed: {e}")
         return {"canvases": [], "count": 0, "error": str(e)}
 
+
 async def canvas_delete_node_tool(
     canvas_id: str,
     node_id: str,
@@ -344,6 +352,7 @@ async def canvas_delete_node_tool(
     except Exception as e:
         logger.error(f"Canvas delete_node failed: {e}")
         return {"error": str(e)}
+
 
 __all__ = [
     "canvas_create_tool",

@@ -27,6 +27,7 @@ from typing import Any, Callable, Coroutine, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityEventType(str, Enum):
     """Types of security events."""
 
@@ -59,6 +60,7 @@ class SecurityEventType(str, Enum):
     SECURITY_DEBATE_STARTED = "security_debate_started"
     SECURITY_DEBATE_COMPLETED = "security_debate_completed"
 
+
 class SecuritySeverity(str, Enum):
     """Security severity levels."""
 
@@ -67,6 +69,7 @@ class SecuritySeverity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
 
 @dataclass
 class SecurityFinding:
@@ -101,6 +104,7 @@ class SecurityFinding:
             "recommendation": self.recommendation,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class SecurityEvent:
@@ -167,8 +171,10 @@ class SecurityEvent:
         """Count of high severity findings."""
         return sum(1 for f in self.findings if f.severity == SecuritySeverity.HIGH)
 
+
 # Type alias for event handlers
 SecurityEventHandler = Callable[[SecurityEvent], Coroutine[Any, Any, None]]
+
 
 class SecurityEventEmitter:
     """
@@ -399,9 +405,11 @@ class SecurityEventEmitter:
         """Get currently pending security debates."""
         return {k: v for k, v in self._pending_debates.items() if not v.done()}
 
+
 # =============================================================================
 # Debate Integration
 # =============================================================================
+
 
 def build_security_debate_question(event: SecurityEvent) -> str:
     """
@@ -449,6 +457,7 @@ def build_security_debate_question(event: SecurityEvent) -> str:
         "3. Preventive measures for future\n"
         "4. Impact on existing functionality"
     )
+
 
 async def trigger_security_debate(
     event: SecurityEvent,
@@ -537,6 +546,7 @@ async def trigger_security_debate(
         logger.exception(f"Failed to run security debate: {e}")
         return None
 
+
 async def _get_security_debate_agents() -> list[Any]:
     """Get agents suitable for security debates."""
     try:
@@ -585,8 +595,10 @@ async def _get_security_debate_agents() -> list[Any]:
         logger.debug("Could not import agent availability module")
         return []
 
+
 # Storage for debate results (in-memory, replace with database in production)
 _security_debate_results: dict[str, dict[str, Any]] = {}
+
 
 async def _store_security_debate_result(
     debate_id: str,
@@ -605,9 +617,11 @@ async def _store_security_debate_result(
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
+
 async def get_security_debate_result(debate_id: str) -> Optional[dict[str, Any]]:
     """Get a security debate result by ID."""
     return _security_debate_results.get(debate_id)
+
 
 async def list_security_debates(
     repository: str | None = None,
@@ -624,9 +638,11 @@ async def list_security_debates(
 
     return results[:limit]
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 def create_vulnerability_event(
     vulnerability: dict[str, Any],
@@ -685,6 +701,7 @@ def create_vulnerability_event(
         findings=[finding],
     )
 
+
 def create_secret_event(
     secret: dict[str, Any],
     repository: str,
@@ -741,6 +758,7 @@ def create_secret_event(
         findings=[finding],
     )
 
+
 def create_scan_completed_event(
     scan_result: dict[str, Any],
     repository: str,
@@ -795,11 +813,13 @@ def create_scan_completed_event(
         findings=findings,
     )
 
+
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
 _default_emitter: SecurityEventEmitter | None = None
+
 
 def get_security_emitter() -> SecurityEventEmitter:
     """Get the default security event emitter instance."""
@@ -808,10 +828,12 @@ def get_security_emitter() -> SecurityEventEmitter:
         _default_emitter = SecurityEventEmitter()
     return _default_emitter
 
+
 def set_security_emitter(emitter: SecurityEventEmitter) -> None:
     """Set the default security event emitter instance."""
     global _default_emitter
     _default_emitter = emitter
+
 
 __all__ = [
     # Event types

@@ -4,6 +4,7 @@ Evidence refresh module for debate rounds.
 Handles refreshing evidence based on claims made during debate rounds.
 This module is extracted from debate_rounds.py for better modularity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Timeout for async callbacks (evidence refresh can be slow)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
+
 
 async def _with_callback_timeout(
     coro,
@@ -34,6 +36,7 @@ async def _with_callback_timeout(
     except asyncio.TimeoutError:
         logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
         return default
+
 
 class EvidenceRefresher:
     """

@@ -4,6 +4,7 @@ Critique generation module for debate rounds.
 Handles parallel critique generation with bounded concurrency.
 This module is extracted from debate_rounds.py for better modularity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CritiqueResult:
     """Result of a single critique generation attempt."""
@@ -35,6 +37,7 @@ class CritiqueResult:
     def success(self) -> bool:
         """True if critique was generated successfully."""
         return self.critique is not None and self.error is None
+
 
 def _is_effectively_empty_critique(critique: "Critique") -> bool:
     """Return True if critique only contains placeholder/empty content."""
@@ -51,6 +54,7 @@ def _is_effectively_empty_critique(critique: "Critique") -> bool:
         ):
             return not suggestions
     return False
+
 
 class CritiqueGenerator:
     """

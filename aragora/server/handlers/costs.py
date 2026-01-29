@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Data Models
 # =============================================================================
 
+
 @dataclass
 class CostEntry:
     """A single cost entry."""
@@ -50,6 +51,7 @@ class CostEntry:
     workspace_id: str
     user_id: str | None = None
 
+
 @dataclass
 class BudgetAlert:
     """A budget alert."""
@@ -60,6 +62,7 @@ class BudgetAlert:
     severity: str  # critical, warning, info
     timestamp: datetime
     acknowledged: bool = False
+
 
 @dataclass
 class CostSummary:
@@ -75,11 +78,13 @@ class CostSummary:
     daily_costs: list[dict[str, Any]] = field(default_factory=list)
     alerts: list[dict[str, Any]] = field(default_factory=list)
 
+
 # =============================================================================
 # CostTracker Integration (replaces in-memory storage)
 # =============================================================================
 
 _cost_tracker = None
+
 
 def _get_cost_tracker():
     """Get or create the cost tracker instance."""
@@ -94,6 +99,7 @@ def _get_cost_tracker():
             logger.warning(f"[CostHandler] CostTracker unavailable, using fallback: {e}")
             _cost_tracker = None
     return _cost_tracker
+
 
 def record_cost(
     provider: str,
@@ -138,9 +144,11 @@ def record_cost(
     else:
         logger.debug("[CostHandler] CostTracker not available, cost not persisted")
 
+
 # =============================================================================
 # API Handlers
 # =============================================================================
+
 
 async def get_cost_summary(
     workspace_id: str = "default",
@@ -246,6 +254,7 @@ async def get_cost_summary(
     # Fallback to mock data if no tracker
     return _generate_mock_summary(time_range)
 
+
 def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
     """Get active budget alerts from tracker."""
     alerts = []
@@ -280,6 +289,7 @@ def _get_active_alerts(tracker, workspace_id: str) -> list[dict[str, Any]]:
     except Exception as e:
         logger.debug(f"[CostHandler] Could not get alerts: {e}")
     return alerts
+
 
 def _generate_mock_summary(time_range: str) -> CostSummary:
     """Generate mock data for demo."""
@@ -342,9 +352,11 @@ def _generate_mock_summary(time_range: str) -> CostSummary:
         ],
     )
 
+
 # =============================================================================
 # HTTP Handler Class
 # =============================================================================
+
 
 class CostHandler:
     """Handler for cost visibility API endpoints."""
@@ -842,6 +854,7 @@ class CostHandler:
         except Exception as e:
             logger.exception(f"Failed to simulate forecast: {e}")
             return web.json_response({"error": str(e)}, status=500)
+
 
 def register_routes(app: web.Application) -> None:
     """Register cost visibility routes."""

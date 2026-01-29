@@ -20,6 +20,7 @@ from aragora.storage.postgres_store import PostgresStore
 
 logger = logging.getLogger(__name__)
 
+
 class PostgresCycleLearningStore(PostgresStore):
     """PostgreSQL-backed storage for Nomic cycle records.
 
@@ -364,5 +365,6 @@ class PostgresCycleLearningStore(PostgresStore):
     def close(self) -> None:
         """No-op for pool-based store (pool managed externally)."""
         pass
+
 
 __all__ = ["PostgresCycleLearningStore"]

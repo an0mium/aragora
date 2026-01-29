@@ -44,6 +44,7 @@ _code_reviewer_lock = threading.Lock()
 _review_results: dict[str, Any] = {}
 _review_results_lock = threading.Lock()
 
+
 def get_code_reviewer():
     """Get or create code reviewer (thread-safe singleton)."""
     global _code_reviewer
@@ -57,6 +58,7 @@ def get_code_reviewer():
             _code_reviewer = CodeReviewOrchestrator()
         return _code_reviewer
 
+
 def store_review_result(result: Any) -> str:
     """Store review result and return ID."""
     with _review_results_lock:
@@ -68,9 +70,11 @@ def store_review_result(result: Any) -> str:
         }
         return result_id
 
+
 # =============================================================================
 # Code Review Endpoints
 # =============================================================================
+
 
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_code(
@@ -123,6 +127,7 @@ async def handle_review_code(
         logger.exception("Error reviewing code")
         return error_response(f"Failed to review code: {e}", status=500)
 
+
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_diff(
     data: dict[str, Any],
@@ -168,6 +173,7 @@ async def handle_review_diff(
     except Exception as e:
         logger.exception("Error reviewing diff")
         return error_response(f"Failed to review diff: {e}", status=500)
+
 
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_review_pr(
@@ -218,6 +224,7 @@ async def handle_review_pr(
         logger.exception(f"Error reviewing PR: {data.get('pr_url')}")
         return error_response(f"Failed to review PR: {e}", status=500)
 
+
 @require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_result(
     data: dict[str, Any],
@@ -241,6 +248,7 @@ async def handle_get_review_result(
     except Exception as e:
         logger.exception(f"Error getting review result {result_id}")
         return error_response(f"Failed to get result: {e}", status=500)
+
 
 @require_permission(CODE_REVIEW_READ_PERMISSION)
 async def handle_get_review_history(
@@ -282,9 +290,11 @@ async def handle_get_review_history(
         logger.exception("Error getting review history")
         return error_response(f"Failed to get history: {e}", status=500)
 
+
 # =============================================================================
 # Quick Review Endpoints
 # =============================================================================
+
 
 @require_permission(CODE_REVIEW_WRITE_PERMISSION)
 async def handle_quick_security_scan(
@@ -333,9 +343,11 @@ async def handle_quick_security_scan(
         logger.exception("Error in security scan")
         return error_response(f"Failed to scan code: {e}", status=500)
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
+
 
 class CodeReviewHandler(BaseHandler):
     """Handler class for code review endpoints."""

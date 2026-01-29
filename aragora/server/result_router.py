@@ -23,6 +23,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def route_result(debate_id: str, result: dict[str, Any]) -> bool:
     """Route a debate result to its originating channel.
 
@@ -43,6 +44,7 @@ async def route_result(debate_id: str, result: dict[str, Any]) -> bool:
     except Exception as e:
         logger.error(f"Failed to route result: {e}")
         return False
+
 
 def _on_post_debate(**kwargs: Any) -> None:
     """POST_DEBATE hook handler that routes results to originating channels."""
@@ -85,6 +87,7 @@ def _on_post_debate(**kwargs: Any) -> None:
         # No event loop available, try to run directly
         asyncio.run(_route_async(debate_id, result_dict))
 
+
 async def _route_async(debate_id: str, result: dict[str, Any]) -> None:
     """Async wrapper for result routing."""
     try:
@@ -95,6 +98,7 @@ async def _route_async(debate_id: str, result: dict[str, Any]) -> None:
             logger.debug(f"No origin found or routing failed for debate {debate_id}")
     except Exception as e:
         logger.error(f"Async result routing failed: {e}")
+
 
 def register_result_router_hooks(manager: Any) -> None:
     """Register result router hooks with a HookManager.
@@ -120,6 +124,7 @@ def register_result_router_hooks(manager: Any) -> None:
     except Exception as e:
         logger.error(f"Failed to register result router hooks: {e}")
 
+
 def setup_result_routing() -> None:
     """Set up result routing in the global hook manager.
 
@@ -136,6 +141,7 @@ def setup_result_routing() -> None:
         logger.warning(f"Could not set up result routing: {e}")
     except Exception as e:
         logger.error(f"Failed to set up result routing: {e}")
+
 
 __all__ = [
     "route_result",

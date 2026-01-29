@@ -106,6 +106,7 @@ KNOWN_CONFIG_DIMENSIONS = frozenset(
     }
 )
 
+
 @dataclass
 class CoverageEntry:
     """A single coverage tracking entry."""
@@ -123,6 +124,7 @@ class CoverageEntry:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class CoverageReport:
@@ -229,6 +231,7 @@ class CoverageReport:
             )
 
         return "\n".join(lines)
+
 
 class WorkflowCoverageTracker:
     """
@@ -387,8 +390,10 @@ class WorkflowCoverageTracker:
         report = self.get_report()
         print(report.summary())  # noqa: T201
 
+
 # Global tracker instance
 _tracker: WorkflowCoverageTracker | None = None
+
 
 def get_tracker() -> WorkflowCoverageTracker:
     """Get the global workflow coverage tracker."""
@@ -397,13 +402,16 @@ def get_tracker() -> WorkflowCoverageTracker:
         _tracker = WorkflowCoverageTracker()
     return _tracker
 
+
 def track_step(step_type: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
     """Convenience function to track step coverage."""
     get_tracker().track_step(step_type, test_name, metadata)
 
+
 def track_pattern(pattern: str, test_name: str, metadata: Optional[dict[str, Any]] = None) -> None:
     """Convenience function to track pattern coverage."""
     get_tracker().track_pattern(pattern, test_name, metadata)
+
 
 def track_template(
     template: str, test_name: str, metadata: Optional[dict[str, Any]] = None
@@ -411,15 +419,18 @@ def track_template(
     """Convenience function to track template coverage."""
     get_tracker().track_template(template, test_name, metadata)
 
+
 def track_config(
     config_dimension: str, test_name: str, metadata: Optional[dict[str, Any]] = None
 ) -> None:
     """Convenience function to track config coverage."""
     get_tracker().track_config(config_dimension, test_name, metadata)
 
+
 def get_coverage_report() -> CoverageReport:
     """Get the current coverage report."""
     return get_tracker().get_report()
+
 
 def print_coverage_summary() -> None:
     """Print coverage summary."""

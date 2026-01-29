@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 from aragora.agents.types import T
 from aragora.config import ALLOWED_AGENT_TYPES
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
     from aragora.agents.cli_agents import CLIAgent
 
-    Agent = Union[APIAgent, CLIAgent]
+    Agent = APIAgent | CLIAgent
 
 
 # Module-level cache for agent instances

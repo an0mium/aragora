@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 from aragora.gateway.server import GatewayConfig, LocalGateway
 
+
 @dataclass
 class GatewaySession:
     """Session state for a connected client/device."""
@@ -26,6 +27,7 @@ class GatewaySession:
     last_seen: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
     end_reason: str | None = None
+
 
 class GatewayProtocolAdapter:
     """
@@ -60,9 +62,7 @@ class GatewayProtocolAdapter:
         self._sessions[session_id] = session
         return session
 
-    async def close_session(
-        self, session_id: str, reason: str = "ended"
-    ) -> GatewaySession | None:
+    async def close_session(self, session_id: str, reason: str = "ended") -> GatewaySession | None:
         """End a session and record a reason."""
         session = self._sessions.get(session_id)
         if not session:

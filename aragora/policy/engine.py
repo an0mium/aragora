@@ -61,6 +61,7 @@ _SAFE_COMPARISON_OPS: dict[type, Callable] = {
     ast.NotIn: lambda a, b: a not in b,
 }
 
+
 class PolicyDecision(Enum):
     """The outcome of a policy check."""
 
@@ -68,6 +69,7 @@ class PolicyDecision(Enum):
     DENY = "deny"  # Action is forbidden
     ESCALATE = "escalate"  # Requires human approval
     BUDGET_EXCEEDED = "budget_exceeded"  # Risk budget exceeded
+
 
 @dataclass
 class PolicyResult:
@@ -94,12 +96,14 @@ class PolicyResult:
     # Timestamps
     checked_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
+
 class PolicyViolation(Exception):
     """Raised when a policy check fails."""
 
     def __init__(self, result: PolicyResult):
         self.result = result
         super().__init__(f"Policy violation: {result.reason}")
+
 
 @dataclass
 class Policy:
@@ -259,6 +263,7 @@ class Policy:
             raise ValueError(f"Blocked node type for security: {type(node).__name__}")
 
         raise ValueError(f"Unsupported node type: {type(node).__name__}")
+
 
 class PolicyEngine:
     """The policy enforcement engine.
@@ -532,6 +537,7 @@ class PolicyEngine:
             "actions": budget.actions,
         }
 
+
 # Default policies for common scenarios
 DEFAULT_POLICIES = [
     Policy(
@@ -562,12 +568,14 @@ DEFAULT_POLICIES = [
     ),
 ]
 
+
 def create_default_engine() -> PolicyEngine:
     """Create a policy engine with default policies."""
     engine = PolicyEngine()
     for policy in DEFAULT_POLICIES:
         engine.add_policy(policy)
     return engine
+
 
 __all__ = [
     "PolicyDecision",

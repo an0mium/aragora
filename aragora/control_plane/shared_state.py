@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 # Module-level shared state singleton
 _shared_state: Optional["SharedControlPlaneState"] = None
 
+
 @dataclass
 class AgentState:
     """
@@ -124,6 +125,7 @@ class AgentState:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class TaskState:
     """
@@ -174,6 +176,7 @@ class TaskState:
             payload=data.get("payload", {}),
             metadata=data.get("metadata", {}),
         )
+
 
 class SharedControlPlaneState:
     """
@@ -796,7 +799,9 @@ class SharedControlPlaneState:
         rates = [a.error_rate for a in agents if a.error_rate > 0]
         return sum(rates) / len(rates) if rates else 0.0
 
+
 # --- Module-level singleton functions ---
+
 
 def set_shared_state(state: SharedControlPlaneState) -> None:
     """
@@ -812,6 +817,7 @@ def set_shared_state(state: SharedControlPlaneState) -> None:
     _shared_state = state
     logger.info(f"Set shared control plane state (persistent={state.is_persistent})")
 
+
 def get_shared_state_sync() -> SharedControlPlaneState | None:
     """
     Get the global shared state (synchronous version).
@@ -820,6 +826,7 @@ def get_shared_state_sync() -> SharedControlPlaneState | None:
         SharedControlPlaneState or None if not initialized
     """
     return _shared_state
+
 
 async def get_shared_state(
     redis_url: str = "redis://localhost:6379",
@@ -850,12 +857,14 @@ async def get_shared_state(
 
     return _shared_state
 
+
 async def close_shared_state() -> None:
     """Close the global shared state connection."""
     global _shared_state
     if _shared_state:
         await _shared_state.close()
         _shared_state = None
+
 
 __all__ = [
     "SharedControlPlaneState",

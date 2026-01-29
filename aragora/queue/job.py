@@ -14,6 +14,7 @@ from aragora.config import DEFAULT_AGENT_LIST, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.queue.base import Job
 from aragora.serialization import SerializableMixin
 
+
 @dataclass
 class DebateJobPayload(SerializableMixin):
     """
@@ -36,6 +37,7 @@ class DebateJobPayload(SerializableMixin):
     organization_id: str | None = None
 
     # to_dict() and from_dict() inherited from SerializableMixin
+
 
 def create_debate_job(
     question: str,
@@ -95,6 +97,7 @@ def create_debate_job(
         },
     )
 
+
 def get_debate_payload(job: Job) -> DebateJobPayload:
     """
     Extract the debate payload from a job.
@@ -106,6 +109,7 @@ def get_debate_payload(job: Job) -> DebateJobPayload:
         The DebateJobPayload
     """
     return DebateJobPayload.from_dict(job.payload)
+
 
 @dataclass
 class DebateResult:

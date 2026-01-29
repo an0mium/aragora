@@ -9,6 +9,7 @@ Analyzes:
 
 Outputs reliability metrics that integrate with the provenance system.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ from aragora.reasoning.provenance import (
     SourceType,
 )
 
+
 class ReliabilityLevel(Enum):
     """Qualitative reliability levels."""
 
@@ -29,6 +31,7 @@ class ReliabilityLevel(Enum):
     LOW = "low"  # >= 0.3
     VERY_LOW = "very_low"  # < 0.3
     SPECULATIVE = "speculative"  # No evidence
+
 
 @dataclass
 class ClaimReliability:
@@ -75,6 +78,7 @@ class ClaimReliability:
             "verified_by": self.verified_by,
         }
 
+
 @dataclass
 class EvidenceReliability:
     """Reliability assessment for evidence."""
@@ -103,6 +107,7 @@ class EvidenceReliability:
             "chain_verified": self.chain_verified,
             "content_verified": self.content_verified,
         }
+
 
 class ReliabilityScorer:
     """
@@ -387,6 +392,7 @@ class ReliabilityScorer:
             "claims": {claim_id: result.to_dict() for claim_id, result in results.items()},
             "warnings": [w for r in results.values() for w in r.warnings],
         }
+
 
 def compute_claim_reliability(
     claim_id: str,

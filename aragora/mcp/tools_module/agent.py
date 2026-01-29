@@ -12,6 +12,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def list_agents_tool() -> dict[str, Any]:
     """
     List available AI agents.
@@ -42,6 +43,7 @@ async def list_agents_tool() -> dict[str, Any]:
             "count": 5,
             "note": "Fallback list - some agents may not be available",
         }
+
 
 async def get_agent_history_tool(
     agent_name: str,
@@ -126,6 +128,7 @@ async def get_agent_history_tool(
 
     return result
 
+
 async def get_agent_lineage_tool(
     agent_name: str,
     depth: int = 5,
@@ -208,6 +211,7 @@ async def get_agent_lineage_tool(
         return {"error": "Genesis module not available"}
     except Exception as e:
         return {"error": f"Failed to get lineage: {e}"}
+
 
 async def breed_agents_tool(
     parent_a: str,
@@ -293,6 +297,7 @@ async def breed_agents_tool(
         return {"error": "Genesis/breeding module not available"}
     except Exception as e:
         return {"error": f"Breeding failed: {e}"}
+
 
 __all__ = [
     "list_agents_tool",

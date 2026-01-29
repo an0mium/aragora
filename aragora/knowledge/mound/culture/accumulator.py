@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class CultureDocumentCategory(str, Enum):
     """Categories for explicit culture documents."""
 
@@ -48,6 +49,7 @@ class CultureDocumentCategory(str, Enum):
     STANDARDS = "standards"  # Quality and technical standards
     POLICIES = "policies"  # Organizational policies
     LEARNINGS = "learnings"  # Accumulated learnings from debates
+
 
 @dataclass
 class CultureDocument:
@@ -94,6 +96,7 @@ class CultureDocument:
             "is_active": self.is_active,
         }
 
+
 @dataclass
 class OrganizationCulture:
     """
@@ -122,6 +125,7 @@ class OrganizationCulture:
             "dominant_traits": self.dominant_traits,
         }
 
+
 @dataclass
 class DebateObservation:
     """Extracted observations from a debate."""
@@ -136,6 +140,7 @@ class DebateObservation:
     critique_patterns: list[str]
     domain: str | None
     created_at: datetime = field(default_factory=datetime.now)
+
 
 class CultureAccumulator:
     """
@@ -714,6 +719,7 @@ class CultureAccumulator:
         # Sort by confidence and return top agents
         matching.sort(key=lambda x: x[1], reverse=True)
         return [agent for agent, _ in matching[:3]]
+
 
 class OrganizationCultureManager:
     """

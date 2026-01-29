@@ -45,6 +45,7 @@ from reportlab.platypus import (
 
 HAS_REPORTLAB = True
 
+
 @dataclass
 class InvoiceCompanyInfo:
     """Company information for invoice header."""
@@ -61,6 +62,7 @@ class InvoiceCompanyInfo:
     tax_id: str = ""
     logo_path: str | None = None
 
+
 @dataclass
 class InvoiceCustomerInfo:
     """Customer information for invoice."""
@@ -75,6 +77,7 @@ class InvoiceCustomerInfo:
     country: str = ""
     tax_id: str = ""
 
+
 @dataclass
 class InvoiceExportConfig:
     """Configuration for invoice export."""
@@ -86,6 +89,7 @@ class InvoiceExportConfig:
     currency_symbol: str = "$"
     date_format: str = "%B %d, %Y"
     footer_text: str = "Thank you for your business!"
+
 
 class InvoiceExporter:
     """
@@ -568,6 +572,7 @@ class InvoiceExporter:
                 return dt
         return dt.strftime(self.config.date_format)
 
+
 # Convenience functions
 async def export_invoice_pdf(
     invoice: Any,
@@ -588,6 +593,7 @@ async def export_invoice_pdf(
     exporter = InvoiceExporter(config)
     return await exporter.export_pdf(invoice, customer_info)
 
+
 async def export_invoice_html(
     invoice: Any,
     customer_info: InvoiceCustomerInfo | None = None,
@@ -606,6 +612,7 @@ async def export_invoice_html(
     """
     exporter = InvoiceExporter(config)
     return await exporter.export_html(invoice, customer_info)
+
 
 __all__ = [
     "InvoiceExporter",

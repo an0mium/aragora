@@ -56,6 +56,7 @@ VALID_GRANULARITIES = {"daily", "weekly", "monthly"}
 # Valid time ranges for trend queries
 VALID_TIME_RANGES = {"7d", "14d", "30d", "90d", "180d", "365d", "all"}
 
+
 def _parse_time_range(time_range: str) -> datetime | None:
     """Parse time range string into a start datetime.
 
@@ -74,6 +75,7 @@ def _parse_time_range(time_range: str) -> datetime | None:
 
     days = int(match.group(1))
     return datetime.now(timezone.utc) - timedelta(days=days)
+
 
 def _group_by_time(
     items: list[dict[str, Any]],
@@ -120,6 +122,7 @@ def _group_by_time(
         groups[key].append(item)
 
     return dict(groups)
+
 
 class AnalyticsMetricsHandler(SecureHandler):
     """Handler for analytics metrics dashboard endpoints.
@@ -1466,5 +1469,6 @@ class AnalyticsMetricsHandler(SecureHandler):
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
+
 
 __all__ = ["AnalyticsMetricsHandler"]

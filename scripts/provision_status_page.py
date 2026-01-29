@@ -42,7 +42,7 @@ class Monitor:
     retries: int = 3
     keyword: Optional[str] = None
     method: str = "GET"
-    accepted_codes: List[str] = None
+    accepted_codes: list[str] = None
     group: str = "Core Services"
     public: bool = True
     description: str = ""
@@ -51,7 +51,7 @@ class Monitor:
         if self.accepted_codes is None:
             self.accepted_codes = ["200"]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to Uptime Kuma API format."""
         data = {
             "name": self.name,
@@ -69,7 +69,7 @@ class Monitor:
         return data
 
 
-def get_default_monitors(api_url: str) -> List[Monitor]:
+def get_default_monitors(api_url: str) -> list[Monitor]:
     """Get default Aragora monitors."""
     return [
         Monitor(
@@ -160,7 +160,7 @@ def provision_with_socketio(
     uptime_url: str,
     username: str,
     password: str,
-    monitors: List[Monitor],
+    monitors: list[Monitor],
 ) -> bool:
     """Provision monitors using Uptime Kuma's socket.io API."""
     try:
@@ -239,7 +239,7 @@ def provision_with_socketio(
 def provision_with_api(
     uptime_url: str,
     api_key: str,
-    monitors: List[Monitor],
+    monitors: list[Monitor],
 ) -> bool:
     """Provision monitors using Uptime Kuma's REST API (if available)."""
     try:
@@ -290,7 +290,7 @@ def provision_with_api(
     return True
 
 
-def export_monitors_json(monitors: List[Monitor], output_path: str) -> None:
+def export_monitors_json(monitors: list[Monitor], output_path: str) -> None:
     """Export monitors to JSON file for manual import."""
     data = {
         "_comment": "Uptime Kuma monitor configuration for Aragora",

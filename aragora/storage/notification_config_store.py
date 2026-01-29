@@ -69,6 +69,7 @@ except ImportError:
             return True
         return False
 
+
 # Sensitive keys that should be encrypted
 SENSITIVE_KEYS = frozenset(
     [
@@ -78,6 +79,7 @@ SENSITIVE_KEYS = frozenset(
         "bot_token",
     ]
 )
+
 
 def _encrypt_config(
     config: dict[str, Any],
@@ -111,6 +113,7 @@ def _encrypt_config(
         logger.warning(f"Encryption unavailable, storing unencrypted: {e}")
         return config
 
+
 def _decrypt_config(
     config: dict[str, Any],
     org_id: str,
@@ -137,6 +140,7 @@ def _decrypt_config(
     except Exception as e:
         logger.warning(f"Decryption failed for {config_type}: {e}")
         return config
+
 
 @dataclass
 class StoredEmailConfig:
@@ -175,6 +179,7 @@ class StoredEmailConfig:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+
 @dataclass
 class StoredTelegramConfig:
     """Stored telegram configuration for an organization."""
@@ -199,6 +204,7 @@ class StoredTelegramConfig:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+
 @dataclass
 class StoredEmailRecipient:
     """Stored email recipient for an organization."""
@@ -217,6 +223,7 @@ class StoredEmailRecipient:
     def from_dict(cls, data: dict[str, Any]) -> "StoredEmailRecipient":
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
 
 class NotificationConfigStore:
     """
@@ -645,11 +652,7 @@ class NotificationConfigStore:
                     org_id=str(row[0]),
                     email=str(row[1]),
                     name=str(row[2]) if row[2] else None,
-                    preferences=(
-                        json.loads(str(row[3]))
-                        if row[3]
-                        else {}
-                    ),
+                    preferences=(json.loads(str(row[3])) if row[3] else {}),
                     created_at=float(row[4]),
                 )
             )
@@ -713,12 +716,14 @@ class NotificationConfigStore:
             self._local.conn.close()
             self._local.conn = None
 
+
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
 _notification_config_store: NotificationConfigStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_notification_config_store(
     db_path: str | None = None,
@@ -788,6 +793,7 @@ def get_notification_config_store(
                     )
     return _notification_config_store
 
+
 def reset_notification_config_store() -> None:
     """Reset the singleton store (for testing)."""
     global _notification_config_store
@@ -795,6 +801,7 @@ def reset_notification_config_store() -> None:
         if _notification_config_store is not None:
             _notification_config_store.close()
             _notification_config_store = None
+
 
 __all__ = [
     "NotificationConfigStore",

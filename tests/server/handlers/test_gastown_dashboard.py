@@ -59,7 +59,7 @@ def clear_cache():
     _gt_dashboard_cache.clear()
 
 
-def _parse(result: HandlerResult) -> Dict[str, Any]:
+def _parse(result: HandlerResult) -> dict[str, Any]:
     """Parse a HandlerResult body into a dict."""
     return json.loads(result.body)
 

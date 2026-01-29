@@ -20,6 +20,7 @@ from typing import Any, Optional, Pattern
 
 from .models import SecretFinding, SecretsScanResult, SecretType, VulnerabilitySeverity
 
+
 @dataclass
 class SecretPattern:
     """A pattern for detecting a specific type of secret."""
@@ -30,6 +31,7 @@ class SecretPattern:
     confidence: float = 0.9
     description: str = ""
     remediation: str = ""
+
 
 # Compiled regex patterns for various secret types
 SECRET_PATTERNS: list[SecretPattern] = [
@@ -335,6 +337,7 @@ SKIP_FILES: set[str] = {
     "go.sum",
 }
 
+
 def calculate_entropy(text: str) -> float:
     """Calculate Shannon entropy of a string."""
     if not text:
@@ -353,6 +356,7 @@ def calculate_entropy(text: str) -> float:
 
     return entropy
 
+
 def is_high_entropy(text: str, threshold: float = 4.5) -> bool:
     """Check if a string has suspiciously high entropy."""
     if len(text) < 16:
@@ -360,6 +364,7 @@ def is_high_entropy(text: str, threshold: float = 4.5) -> bool:
 
     entropy = calculate_entropy(text)
     return entropy >= threshold
+
 
 class SecretsScanner:
     """
@@ -911,6 +916,7 @@ class SecretsScanner:
 
         return result
 
+
 async def scan_repository_for_secrets(
     repo_path: str,
     include_history: bool = False,
@@ -943,6 +949,7 @@ async def scan_repository_for_secrets(
 
     return result
 
+
 # Convenience function for single file scanning
 async def scan_file_for_secrets(file_path: str) -> list[SecretFinding]:
     """
@@ -961,6 +968,7 @@ async def scan_file_for_secrets(file_path: str) -> list[SecretFinding]:
     """
     scanner = SecretsScanner()
     return await scanner.scan_file(file_path)
+
 
 # Convenience function for directory scanning
 async def scan_directory_for_secrets(

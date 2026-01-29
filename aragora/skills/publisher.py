@@ -40,6 +40,7 @@ from .marketplace import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ValidationIssue:
     """A validation issue found during skill validation."""
@@ -59,6 +60,7 @@ class ValidationIssue:
             "field": self.field,
             "suggestion": self.suggestion,
         }
+
 
 @dataclass
 class ValidationResult:
@@ -87,6 +89,7 @@ class ValidationResult:
             "warnings": self.warnings,
             "error_count": len(self.errors),
         }
+
 
 class SkillPublisher:
     """

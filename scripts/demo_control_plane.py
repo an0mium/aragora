@@ -97,7 +97,7 @@ def print_status(label: str, value: str, color: str = "default") -> None:
     print(f"  {label:.<40} {color_code}{value}{reset}")
 
 
-async def demo_agent_registry(registry: AgentRegistry, num_agents: int) -> List[str]:
+async def demo_agent_registry(registry: AgentRegistry, num_agents: int) -> list[str]:
     """Demonstrate agent registration and fleet management."""
     print_header("AGENT FLEET MANAGEMENT")
 
@@ -129,7 +129,7 @@ async def demo_agent_registry(registry: AgentRegistry, num_agents: int) -> List[
     return agent_ids
 
 
-async def demo_task_scheduling(scheduler: TaskScheduler, agent_ids: List[str]) -> List[str]:
+async def demo_task_scheduling(scheduler: TaskScheduler, agent_ids: list[str]) -> list[str]:
     """Demonstrate task scheduling with priority queues."""
     print_header("TASK SCHEDULING & PRIORITY QUEUE")
 
@@ -178,7 +178,7 @@ async def demo_task_scheduling(scheduler: TaskScheduler, agent_ids: List[str]) -
     return task_ids
 
 
-async def demo_task_execution(scheduler: TaskScheduler, agent_ids: List[str]) -> None:
+async def demo_task_execution(scheduler: TaskScheduler, agent_ids: list[str]) -> None:
     """Demonstrate task claiming and execution."""
     print_header("TASK EXECUTION")
 

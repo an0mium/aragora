@@ -37,6 +37,7 @@ from aragora.agents.fallback import QuotaFallbackMixin
 
 logger = logging.getLogger(__name__)
 
+
 class OpenAICompatibleMixin(QuotaFallbackMixin):
     """
     Mixin providing OpenAI-compatible API implementation.
@@ -399,5 +400,6 @@ REASONING: explanation"""
 
         response = await self.generate(critique_prompt, context)
         return self._parse_critique(response, target_agent or "proposal", proposal)
+
 
 __all__ = ["OpenAICompatibleMixin"]

@@ -17,6 +17,7 @@ Actions:
 - Get Agents: List available agents
 - Run Gauntlet: Execute stress-test
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Make Data Models
 # =============================================================================
+
 
 @dataclass
 class MakeWebhook:
@@ -63,6 +65,7 @@ class MakeWebhook:
 
         return True
 
+
 @dataclass
 class MakeConnection:
     """Make connection configuration for an Aragora workspace."""
@@ -78,9 +81,11 @@ class MakeConnection:
     total_operations: int = 0
     last_operation_at: float | None = None
 
+
 # =============================================================================
 # Make Integration
 # =============================================================================
+
 
 class MakeIntegration(BaseIntegration):
     """
@@ -507,11 +512,13 @@ class MakeIntegration(BaseIntegration):
             "total_operations": connection.total_operations,
         }
 
+
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
 _make_integration: MakeIntegration | None = None
+
 
 def get_make_integration() -> MakeIntegration:
     """Get or create the global Make integration instance."""
@@ -519,6 +526,7 @@ def get_make_integration() -> MakeIntegration:
     if _make_integration is None:
         _make_integration = MakeIntegration()
     return _make_integration
+
 
 # =============================================================================
 # Exports

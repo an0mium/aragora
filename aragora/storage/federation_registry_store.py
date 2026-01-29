@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 _federation_registry_store: Optional["FederationRegistryStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 @dataclass
 class FederatedRegionConfig:
     """
@@ -143,6 +144,7 @@ class FederatedRegionConfig:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
+
 class FederationRegistryStoreBackend(ABC):
     """Abstract base class for federation registry storage backends."""
 
@@ -189,6 +191,7 @@ class FederationRegistryStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
     """
@@ -277,6 +280,7 @@ class InMemoryFederationRegistryStore(FederationRegistryStoreBackend):
     async def close(self) -> None:
         """No-op for in-memory store."""
         pass
+
 
 class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
     """
@@ -491,6 +495,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
+
 class RedisFederationRegistryStore(FederationRegistryStoreBackend):
     """
     Redis-backed federation registry store with SQLite fallback.
@@ -642,6 +647,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
                 logger.debug(f"Redis close failed (connection already closed): {e}")
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
+
 
 class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
     """
@@ -932,6 +938,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 def get_federation_registry_store() -> FederationRegistryStoreBackend:
     """
     Get the global federation registry store instance.
@@ -975,6 +982,7 @@ def get_federation_registry_store() -> FederationRegistryStoreBackend:
 
         return _federation_registry_store
 
+
 def set_federation_registry_store(store: FederationRegistryStoreBackend) -> None:
     """Set a custom federation registry store instance."""
     global _federation_registry_store
@@ -982,12 +990,14 @@ def set_federation_registry_store(store: FederationRegistryStoreBackend) -> None
     with _store_lock:
         _federation_registry_store = store
 
+
 def reset_federation_registry_store() -> None:
     """Reset the global federation registry store (for testing)."""
     global _federation_registry_store
 
     with _store_lock:
         _federation_registry_store = None
+
 
 __all__ = [
     "FederatedRegionConfig",

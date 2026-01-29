@@ -23,6 +23,7 @@ Usage:
     # Update beliefs based on evidence
     updated_belief = bridge.update_belief_from_evidence(belief, evidence_list)
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ from aragora.reasoning.provenance import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EvidenceLink:
     """Link between evidence and a claim/belief."""
@@ -53,6 +55,7 @@ class EvidenceLink:
     weight: float = 1.0
     timestamp: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class EvidenceImpact:
     """Impact of evidence on a belief distribution."""
@@ -63,6 +66,7 @@ class EvidenceImpact:
     total_weight: float
     avg_relevance: float
     direction: str  # "supporting", "contradicting", "mixed", "neutral"
+
 
 class EvidenceProvenanceBridge:
     """
@@ -451,8 +455,10 @@ class EvidenceProvenanceBridge:
 
         return SourceType.UNKNOWN
 
+
 # Global bridge instance
 _global_bridge: EvidenceProvenanceBridge | None = None
+
 
 def get_evidence_bridge() -> EvidenceProvenanceBridge:
     """Get or create the global evidence-provenance bridge."""
@@ -461,10 +467,12 @@ def get_evidence_bridge() -> EvidenceProvenanceBridge:
         _global_bridge = EvidenceProvenanceBridge()
     return _global_bridge
 
+
 def reset_evidence_bridge() -> None:
     """Reset the global bridge (for testing)."""
     global _global_bridge
     _global_bridge = None
+
 
 __all__ = [
     "EvidenceProvenanceBridge",

@@ -62,7 +62,7 @@ def dc_connector():
     return conn
 
 
-def make_api_response(data: Any) -> Dict[str, Any]:
+def make_api_response(data: Any) -> dict[str, Any]:
     """Create a mock API response."""
     return data
 
@@ -71,7 +71,7 @@ def make_space_data(
     space_id: str = "12345",
     key: str = "ENG",
     name: str = "Engineering",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock space data."""
     return {
         "id": space_id,
@@ -87,7 +87,7 @@ def make_page_data(
     page_id: str = "10001",
     title: str = "Test Page",
     space_key: str = "ENG",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create mock page data."""
     return {
         "id": page_id,

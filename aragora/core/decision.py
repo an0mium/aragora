@@ -38,15 +38,18 @@ _DEFAULT_DECISION_ROUNDS = _DEFAULT_SETTINGS.debate.default_rounds
 _DEFAULT_DECISION_CONSENSUS = _DEFAULT_SETTINGS.debate.default_consensus
 _DEFAULT_DECISION_MAX_AGENTS = _DEFAULT_SETTINGS.debate.max_agents_per_debate
 
+
 def _default_decision_agents() -> list[str]:
     agents = _DEFAULT_SETTINGS.agent.default_agent_list
     return agents if agents else ["anthropic-api", "openai-api"]
+
 
 # Lazy import for tracing to avoid circular imports
 _tracing_imported = False
 _trace_decision = None
 _trace_decision_engine = None
 _trace_response_delivery = None
+
 
 def _import_tracing():
     """Lazy import tracing utilities."""
@@ -67,9 +70,11 @@ def _import_tracing():
         pass
     _tracing_imported = True
 
+
 # Lazy import for caching
 _cache_imported = False
 _decision_cache = None
+
 
 def _import_cache():
     """Lazy import cache utilities."""
@@ -84,6 +89,7 @@ def _import_cache():
         pass
     _cache_imported = True
 
+
 # Lazy import for metrics
 _metrics_imported = False
 _record_decision_request = None
@@ -91,6 +97,7 @@ _record_decision_result = None
 _record_decision_error = None
 _record_decision_cache_hit = None
 _record_decision_dedup_hit = None
+
 
 def _import_metrics():
     """Lazy import metrics utilities."""
@@ -116,10 +123,12 @@ def _import_metrics():
         pass
     _metrics_imported = True
 
+
 # Lazy import for audit logging
 _audit_imported = False
 _audit_log_decision_started = None
 _audit_log_decision_completed = None
+
 
 def _import_audit():
     """Lazy import audit utilities."""
@@ -201,7 +210,9 @@ def _import_audit():
         pass
     _audit_imported = True
 
+
 logger = logging.getLogger(__name__)
+
 
 class DecisionType(str, Enum):
     """Types of decision-making processes available."""
@@ -211,6 +222,7 @@ class DecisionType(str, Enum):
     GAUNTLET = "gauntlet"  # Adversarial validation pipeline
     QUICK = "quick"  # Fast single-agent response
     AUTO = "auto"  # Auto-detect based on content
+
 
 class InputSource(str, Enum):
     """Source channel for the decision request."""
@@ -262,6 +274,7 @@ class InputSource(str, Enum):
     SCHEDULED = "scheduled"  # Scheduled task
     INTERNAL = "internal"  # System-generated
 
+
 class Priority(str, Enum):
     """Request priority levels."""
 
@@ -271,6 +284,7 @@ class Priority(str, Enum):
     LOW = "low"  # Background processing
     BATCH = "batch"  # Batch with similar requests
 
+
 class ResponseFormat(str, Enum):
     """Format for the response delivery."""
 
@@ -279,6 +293,7 @@ class ResponseFormat(str, Enum):
     NOTIFICATION = "notification"  # Brief notification
     VOICE = "voice"  # Audio/TTS response
     VOICE_WITH_TEXT = "voice_with_text"  # Both audio and text
+
 
 @dataclass
 class ResponseChannel:
@@ -334,6 +349,7 @@ class ResponseChannel:
             voice_id=data.get("voice_id", "narrator"),
             voice_only=data.get("voice_only", False),
         )
+
 
 @dataclass
 class RequestContext:
@@ -410,6 +426,7 @@ class RequestContext:
             tags=data.get("tags", []),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class DecisionConfig:
@@ -493,6 +510,7 @@ class DecisionConfig:
             include_evidence=data.get("include_evidence", True),
             evidence_sources=data.get("evidence_sources", []),
         )
+
 
 @dataclass
 class DecisionRequest:
@@ -754,6 +772,7 @@ class DecisionRequest:
             context=context,
         )
 
+
 @dataclass
 class DecisionResult:
     """
@@ -802,6 +821,7 @@ class DecisionResult:
             "success": self.success,
             "error": self.error,
         }
+
 
 class DecisionRouter:
     """
@@ -1618,8 +1638,10 @@ class DecisionRouter:
 
         return audio_bytes
 
+
 # Singleton router instance
 _router: DecisionRouter | None = None
+
 
 def get_decision_router() -> DecisionRouter:
     """Get or create the global decision router."""
@@ -1627,6 +1649,7 @@ def get_decision_router() -> DecisionRouter:
     if _router is None:
         _router = DecisionRouter()
     return _router
+
 
 def reset_decision_router() -> None:
     """Reset the global decision router (for testing)."""

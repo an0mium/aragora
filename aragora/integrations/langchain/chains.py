@@ -49,6 +49,7 @@ except ImportError:
 
         pass
 
+
 class AragoraDebateChain(Chain):
     """
     LangChain Chain for running structured Aragora debates.
@@ -220,6 +221,7 @@ class AragoraDebateChain(Chain):
     def _chain_type(self) -> str:
         """Return chain type for serialization."""
         return "aragora_debate_chain"
+
 
 class AragoraResearchDebateChain(Chain):
     """

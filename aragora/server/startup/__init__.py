@@ -4,6 +4,7 @@ Server startup initialization tasks.
 This module handles the startup sequence for the unified server,
 including monitoring, tracing, background tasks, and schedulers.
 """
+
 from __future__ import annotations
 
 import logging
@@ -79,32 +80,6 @@ from aragora.server.startup.database import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def _log_pool_health(checkpoint: str) -> None:
-    """Log pool health at a startup checkpoint (diagnostic, temporary)."""
-    try:
-        from aragora.storage.pool_manager import get_pool_info, get_shared_pool, is_pool_initialized
-
-        if not is_pool_initialized():
-            return
-        info = get_pool_info()
-        pool = get_shared_pool()
-        msg = (
-            f"[pool-check:{checkpoint}] "
-            f"size={info.get('pool_size')}, free={info.get('free_connections')}"
-        )
-        # Quick health probe
-        if pool:
-            try:
-                async with pool.acquire() as conn:
-                    await conn.fetchval("SELECT 1")
-                msg += ", health=OK"
-            except Exception as e:
-                msg += f", health=FAIL({type(e).__name__}: {e})"
-        logger.warning(msg)
-    except Exception as e:
-        logger.warning(f"[pool-check:{checkpoint}] error: {e}")
 
 
 async def run_startup_sequence(
@@ -333,7 +308,6 @@ async def run_startup_sequence(
     status["postgres_pool"] = await init_postgres_pool()
 
     # --- Pool diagnostic: check health immediately after creation ---
-    await _log_pool_health("after_init")
 
     # Initialize Redis HA early (other components may depend on it)
     status["redis_ha"] = await init_redis_ha()
@@ -353,8 +327,6 @@ async def run_startup_sequence(
     status["control_plane_coordinator"] = await init_control_plane_coordinator()
     status["shared_control_plane_state"] = await init_shared_control_plane_state()
 
-    await _log_pool_health("after_control_plane")
-
     # Initialize Witness Patrol for Gas Town agent monitoring
     status["witness_patrol"] = await init_witness_patrol()
 
@@ -366,8 +338,6 @@ async def run_startup_sequence(
     status["tts_integration"] = await init_tts_integration()
     status["persistent_task_queue"] = await init_persistent_task_queue()
 
-    await _log_pool_health("after_task_queue")
-
     # Initialize webhooks (dispatcher must be initialized before SLO webhooks)
     status["webhook_dispatcher"] = init_webhook_dispatcher()
     status["slo_webhooks"] = init_slo_webhooks()
@@ -375,17 +345,11 @@ async def run_startup_sequence(
     # Recover stale gauntlet runs from previous session
     status["gauntlet_runs_recovered"] = init_gauntlet_run_recovery()
 
-    await _log_pool_health("after_gauntlet_recovery")
-
     # Recover and re-enqueue interrupted jobs from durable queue (if enabled)
     status["durable_jobs_recovered"] = await init_durable_job_queue_recovery()
 
-    await _log_pool_health("after_job_recovery")
-
     # Start gauntlet worker for durable queue processing (if enabled)
     status["gauntlet_worker"] = await init_gauntlet_worker()
-
-    await _log_pool_health("after_gauntlet_worker")
 
     # Start backup scheduler for automated backups and DR drills (if enabled)
     status["backup_scheduler"] = await init_backup_scheduler()
@@ -462,6 +426,7 @@ async def run_startup_sequence(
         status["startup_duration_seconds"] = round(startup_duration, 2)
 
     return status
+
 
 __all__ = [
     "check_connector_dependencies",

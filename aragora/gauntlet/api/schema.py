@@ -490,6 +490,7 @@ PROBLEM_DETAIL_SCHEMA: dict[str, Any] = {
 # Schema Utilities
 # =============================================================================
 
+
 def get_receipt_schema(include_defs: bool = True) -> dict[str, Any]:
     """
     Get the DecisionReceipt JSON Schema.
@@ -507,6 +508,7 @@ def get_receipt_schema(include_defs: bool = True) -> dict[str, Any]:
         schema = {k: v for k, v in DECISION_RECEIPT_SCHEMA.items() if k != "$defs"}
         return schema
 
+
 def get_heatmap_schema(include_defs: bool = True) -> dict[str, Any]:
     """
     Get the RiskHeatmap JSON Schema.
@@ -522,6 +524,7 @@ def get_heatmap_schema(include_defs: bool = True) -> dict[str, Any]:
     else:
         schema = {k: v for k, v in RISK_HEATMAP_SCHEMA.items() if k != "$defs"}
         return schema
+
 
 def validate_receipt(data: dict[str, Any]) -> tuple[bool, list[str]]:
     """
@@ -566,6 +569,7 @@ def validate_receipt(data: dict[str, Any]) -> tuple[bool, list[str]]:
 
         return len(errors) == 0, errors
 
+
 def validate_heatmap(data: dict[str, Any]) -> tuple[bool, list[str]]:
     """
     Validate data against the RiskHeatmap schema.
@@ -599,6 +603,7 @@ def validate_heatmap(data: dict[str, Any]) -> tuple[bool, list[str]]:
 
         return len(errors) == 0, errors
 
+
 def get_all_schemas() -> dict[str, dict[str, Any]]:
     """
     Get all available schemas.
@@ -616,6 +621,7 @@ def get_all_schemas() -> dict[str, dict[str, Any]]:
         "vulnerability-detail": VULNERABILITY_DETAIL_SCHEMA,
         "heatmap-cell": HEATMAP_CELL_SCHEMA,
     }
+
 
 def to_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """
@@ -661,6 +667,7 @@ def to_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
             openapi[key] = value
 
     return openapi
+
 
 __all__ = [
     # Schemas

@@ -35,10 +35,12 @@ from .registry import SkillRegistry, get_skill_registry
 
 logger = logging.getLogger(__name__)
 
+
 class SkillLoadError(Exception):
     """Error loading a skill."""
 
     pass
+
 
 class SkillLoader:
     """
@@ -330,6 +332,7 @@ class SkillLoader:
         except Exception as e:
             raise SkillLoadError(f"Failed to load manifest {path}: {e}") from e
 
+
 class DeclarativeSkill(Skill):
     """
     A skill defined purely through a manifest.
@@ -373,6 +376,7 @@ class DeclarativeSkill(Skill):
             status=SkillStatus.NOT_IMPLEMENTED,
             error_message=f"Skill '{self._manifest.name}' has no executor",
         )
+
 
 # Convenience function
 def load_skills(

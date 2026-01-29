@@ -12,12 +12,14 @@ from enum import Enum
 from typing import Any
 import yaml
 
+
 class ComplianceLevel(str, Enum):
     """Compliance strictness levels."""
 
     ADVISORY = "advisory"  # Suggestions only
     WARNING = "warning"  # Warn on violations
     ENFORCED = "enforced"  # Block on violations
+
 
 @dataclass
 class ToolConfig:
@@ -53,6 +55,7 @@ class ToolConfig:
             connector_type=data.get("connector_type"),
         )
 
+
 @dataclass
 class ComplianceConfig:
     """Configuration for compliance checking."""
@@ -83,6 +86,7 @@ class ComplianceConfig:
             rules=data.get("rules", []),
             exemptions=data.get("exemptions", []),
         )
+
 
 @dataclass
 class ModelConfig:
@@ -130,6 +134,7 @@ class ModelConfig:
             top_p=data.get("top_p", 0.9),
             max_tokens=data.get("max_tokens", 4096),
         )
+
 
 @dataclass
 class VerticalConfig:

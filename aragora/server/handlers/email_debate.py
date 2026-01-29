@@ -22,6 +22,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class EmailDebateHandler(BaseHandler):
     """
     Handler for email vetted decisionmaking API endpoints.
@@ -305,5 +306,6 @@ class EmailDebateHandler(BaseHandler):
         except Exception as e:
             logger.exception(f"Inbox triage failed: {e}")
             return error_response(f"Inbox triage failed: {e}", 500)
+
 
 __all__ = ["EmailDebateHandler"]

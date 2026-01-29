@@ -20,6 +20,7 @@ from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
+
 class CredentialProvider(Protocol):
     """Protocol for credential providers."""
 
@@ -30,6 +31,7 @@ class CredentialProvider(Protocol):
     async def set_credential(self, key: str, value: str) -> None:
         """Set a credential."""
         ...
+
 
 class EnvCredentialProvider:
     """
@@ -65,6 +67,7 @@ class EnvCredentialProvider:
         env_key = f"{self.prefix}{key.upper()}"
         os.environ[env_key] = value
 
+
 @dataclass
 class CachedCredential:
     """A cached credential with TTL."""
@@ -77,6 +80,7 @@ class CachedCredential:
     def is_expired(self) -> bool:
         """Check if the cached credential has expired."""
         return time.time() - self.cached_at > self.ttl_seconds
+
 
 class AWSSecretsManagerProvider:
     """
@@ -296,6 +300,7 @@ class AWSSecretsManagerProvider:
         self._secret_cache = None
         self._secret_cached_at = 0
 
+
 class ChainedCredentialProvider:
     """
     Credential provider that chains multiple providers.
@@ -325,6 +330,7 @@ class ChainedCredentialProvider:
         """Set credential in the first provider only."""
         if self.providers:
             await self.providers[0].set_credential(key, value)
+
 
 class CachedCredentialProvider:
     """
@@ -382,6 +388,7 @@ class CachedCredentialProvider:
     def clear_cache(self) -> None:
         """Clear the credential cache."""
         self._cache.clear()
+
 
 def get_credential_provider(
     provider_type: str | None = None,

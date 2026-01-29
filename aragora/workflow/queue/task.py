@@ -13,6 +13,7 @@ from enum import Enum, IntEnum
 from typing import Any, Optional
 import uuid
 
+
 class TaskStatus(str, Enum):
     """Status of a workflow task."""
 
@@ -25,6 +26,7 @@ class TaskStatus(str, Enum):
     TIMEOUT = "timeout"  # Execution timed out
     RETRY = "retry"  # Scheduled for retry
 
+
 class TaskPriority(IntEnum):
     """Task execution priority (lower = higher priority)."""
 
@@ -33,6 +35,7 @@ class TaskPriority(IntEnum):
     NORMAL = 50
     LOW = 100
     BACKGROUND = 200
+
 
 @dataclass
 class TaskResult:
@@ -43,6 +46,7 @@ class TaskResult:
     error: str | None = None
     execution_time_ms: float = 0
     retries_used: int = 0
+
 
 @dataclass
 class WorkflowTask:

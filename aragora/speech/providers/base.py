@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import BinaryIO
 
+
 @dataclass
 class STTProviderConfig:
     """Configuration for STT providers."""
@@ -29,6 +30,7 @@ class STTProviderConfig:
     # Additional provider-specific options
     extra_options: dict = field(default_factory=dict)
 
+
 @dataclass
 class TranscriptionSegment:
     """A segment of transcribed text with timing information."""
@@ -38,6 +40,7 @@ class TranscriptionSegment:
     end: float  # End time in seconds
     confidence: float | None = None
     words: list[dict] | None = None  # Word-level timestamps if available
+
 
 @dataclass
 class TranscriptionResult:
@@ -71,6 +74,7 @@ class TranscriptionResult:
             "provider": self.provider,
             "model": self.model,
         }
+
 
 class STTProvider(ABC):
     """Abstract base class for speech-to-text providers."""

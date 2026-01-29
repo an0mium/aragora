@@ -21,6 +21,7 @@ from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TopicCluster:
     """A cluster of similar topics from multiple sources."""
@@ -46,6 +47,7 @@ class TopicCluster:
         self.platforms.add(topic.platform)
         self.total_volume += topic.volume
 
+
 @dataclass
 class ConsensusResult:
     """Result of cross-source consensus detection."""
@@ -55,6 +57,7 @@ class ConsensusResult:
     single_platform_count: int
     consensus_topics: list[TrendingTopic]  # Topics with cross-platform consensus
     confidence_boosts: dict[str, float]  # topic_text -> confidence boost
+
 
 class CrossSourceConsensus:
     """
@@ -432,6 +435,7 @@ class CrossSourceConsensus:
             "keyword_weight": self.keyword_weight,
             "stopword_count": len(self._stopwords),
         }
+
 
 __all__ = [
     "TopicCluster",

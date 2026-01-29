@@ -47,8 +47,8 @@ class MockSkill(Skill):
     def __init__(
         self,
         name: str = "mock_skill",
-        capabilities: List[SkillCapability] = None,
-        required_permissions: List[str] = None,
+        capabilities: list[SkillCapability] = None,
+        required_permissions: list[str] = None,
         rate_limit: int = None,
         max_execution_time: float = 60.0,
         debate_compatible: bool = True,
@@ -80,7 +80,7 @@ class MockSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         return await self._execute_mock(input_data, context)
@@ -104,7 +104,7 @@ class SlowSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         await asyncio.sleep(self._delay)
@@ -125,7 +125,7 @@ class FailingSkill(Skill):
 
     async def execute(
         self,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         context: SkillContext,
     ) -> SkillResult:
         raise ValueError("Skill execution failed!")

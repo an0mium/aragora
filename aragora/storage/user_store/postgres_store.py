@@ -22,6 +22,7 @@ from aragora.billing.models import Organization, OrganizationInvitation, Subscri
 
 logger = logging.getLogger(__name__)
 
+
 class PostgresUserStore:
     """
     PostgreSQL-backed storage for users and organizations.
@@ -565,9 +566,7 @@ class PostgresUserStore:
                 return self._row_to_org(row)
             return None
 
-    def get_organization_by_stripe_customer(
-        self, stripe_customer_id: str
-    ) -> Organization | None:
+    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Organization | None:
         """Get organization by Stripe customer ID (sync wrapper)."""
         return asyncio.get_event_loop().run_until_complete(
             self.get_organization_by_stripe_customer_async(stripe_customer_id)
@@ -1190,9 +1189,7 @@ class PostgresUserStore:
             self.get_invitation_by_id_async(invitation_id)
         )
 
-    async def get_invitation_by_id_async(
-        self, invitation_id: str
-    ) -> OrganizationInvitation | None:
+    async def get_invitation_by_id_async(self, invitation_id: str) -> OrganizationInvitation | None:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(

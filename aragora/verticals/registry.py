@@ -15,6 +15,7 @@ from aragora.verticals.config import VerticalConfig
 if TYPE_CHECKING:
     from aragora.verticals.base import VerticalSpecialistAgent
 
+
 @dataclass(frozen=True)
 class VerticalSpec:
     """Specification for a registered vertical."""
@@ -23,6 +24,7 @@ class VerticalSpec:
     specialist_class: type["VerticalSpecialistAgent"]
     config: VerticalConfig
     description: str
+
 
 class VerticalRegistry:
     """

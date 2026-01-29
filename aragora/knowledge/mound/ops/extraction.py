@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ExtractionType(str, Enum):
     """Types of extracted knowledge."""
 
@@ -35,6 +36,7 @@ class ExtractionType(str, Enum):
     OPINION = "opinion"  # Agent opinion (lower confidence)
     CONSENSUS = "consensus"  # Consensus-backed conclusion
 
+
 class ConfidenceSource(str, Enum):
     """Sources of confidence for extracted knowledge."""
 
@@ -42,6 +44,7 @@ class ConfidenceSource(str, Enum):
     MULTIPLE_AGENTS = "multiple_agents"  # Multiple agents agree
     CONSENSUS = "consensus"  # Formal consensus reached
     VALIDATED = "validated"  # Externally validated
+
 
 @dataclass
 class ExtractedClaim:
@@ -88,6 +91,7 @@ class ExtractedClaim:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ExtractedRelationship:
     """A relationship extracted between concepts."""
@@ -114,6 +118,7 @@ class ExtractedRelationship:
             "extracted_at": self.extracted_at.isoformat(),
         }
 
+
 @dataclass
 class ExtractionResult:
     """Result of knowledge extraction from a debate."""
@@ -139,6 +144,7 @@ class ExtractionResult:
             "claims": [c.to_dict() for c in self.claims],
             "relationships": [r.to_dict() for r in self.relationships],
         }
+
 
 @dataclass
 class ExtractionConfig:
@@ -194,6 +200,7 @@ class ExtractionConfig:
             r"(\w+) (?:is part of|belongs to|is included in) (\w+)",
         ]
     )
+
 
 class DebateKnowledgeExtractor:
     """Extracts knowledge from debate transcripts."""
@@ -562,6 +569,7 @@ class DebateKnowledgeExtractor:
             ),
         }
 
+
 class ExtractionMixin:
     """Mixin for knowledge extraction operations on KnowledgeMound."""
 
@@ -603,8 +611,10 @@ class ExtractionMixin:
         """Get extraction statistics."""
         return self._get_extractor().get_stats()
 
+
 # Singleton instance
 _extractor: DebateKnowledgeExtractor | None = None
+
 
 def get_debate_extractor() -> DebateKnowledgeExtractor:
     """Get the global debate knowledge extractor instance."""

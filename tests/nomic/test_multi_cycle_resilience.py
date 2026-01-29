@@ -351,14 +351,14 @@ class TestEmptyAgentFallback:
 
     def test_empty_agent_list_detected(self):
         """Verify empty agent list is detected early."""
-        agents: List[str] = []
+        agents: list[str] = []
 
         is_empty = len(agents) == 0
         assert is_empty, "Should detect empty agent list"
 
     def test_fallback_to_default_agents(self):
         """Verify fallback to default agents when list is empty."""
-        configured_agents: List[str] = []
+        configured_agents: list[str] = []
         default_agents = ["claude", "gemini"]
 
         active_agents = configured_agents if configured_agents else default_agents

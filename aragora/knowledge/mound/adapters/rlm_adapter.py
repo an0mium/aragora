@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CompressionPattern:
     """Represents a successful compression pattern."""
@@ -44,6 +45,7 @@ class CompressionPattern:
     created_at: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ContentPriority:
     """Represents content priority for compression decisions."""
@@ -53,6 +55,7 @@ class ContentPriority:
     last_accessed: str
     priority_score: float
     content_type: str = "general"
+
 
 class RlmAdapter:
     """
@@ -527,6 +530,7 @@ class RlmAdapter:
             f"RLM load from KM: loaded={result['patterns_loaded']}, errors={len(result['errors'])}"
         )
         return result
+
 
 __all__ = [
     "RlmAdapter",

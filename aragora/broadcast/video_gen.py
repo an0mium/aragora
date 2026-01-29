@@ -4,6 +4,7 @@ Video generator for YouTube uploads.
 Converts debate audio files to video format by combining
 audio with static thumbnails or animated visualizations.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class VideoMetadata:
@@ -26,13 +28,16 @@ class VideoMetadata:
     format: str = "mp4"
     resolution: str = "1920x1080"
 
+
 def _check_ffmpeg() -> bool:
     """Check if ffmpeg is available."""
     return shutil.which("ffmpeg") is not None
 
+
 def _check_ffprobe() -> bool:
     """Check if ffprobe is available."""
     return shutil.which("ffprobe") is not None
+
 
 # Subprocess timeout constants
 FFPROBE_TIMEOUT = 30  # seconds
@@ -59,6 +64,7 @@ MAX_AUDIO_FILE_SIZE = 500 * 1024 * 1024
 MIN_AUDIO_BITRATE = 64
 MAX_AUDIO_BITRATE = 320
 DEFAULT_AUDIO_BITRATE = 192
+
 
 def _validate_resolution(width: int, height: int) -> tuple[int, int]:
     """Validate and clamp resolution to safe bounds.
@@ -90,6 +96,7 @@ def _validate_resolution(width: int, height: int) -> tuple[int, int]:
 
     return clamped_width, clamped_height
 
+
 def _validate_bitrate(bitrate: int) -> int:
     """Validate and clamp audio bitrate.
 
@@ -108,6 +115,7 @@ def _validate_bitrate(bitrate: int) -> int:
         logger.warning(f"Bitrate {bitrate}kbps clamped to {clamped}kbps")
 
     return clamped
+
 
 def _validate_audio_file(audio_path: Path) -> bool:
     """Validate audio file exists and is within size limits.
@@ -135,6 +143,7 @@ def _validate_audio_file(audio_path: Path) -> bool:
 
     return True
 
+
 def _validate_duration(duration: int | None) -> bool:
     """Validate duration is within acceptable bounds.
 
@@ -159,6 +168,7 @@ def _validate_duration(duration: int | None) -> bool:
         return False
 
     return True
+
 
 async def get_audio_duration(audio_path: Path) -> int | None:
     """
@@ -205,6 +215,7 @@ async def get_audio_duration(audio_path: Path) -> int | None:
         logger.error(f"Failed to get audio duration: {e}")
 
     return None
+
 
 async def generate_thumbnail(
     title: str,
@@ -341,6 +352,7 @@ async def generate_thumbnail(
     except Exception as e:
         logger.error(f"Failed to generate thumbnail with ImageMagick: {e}")
         return False
+
 
 class VideoGenerator:
     """
@@ -651,6 +663,7 @@ class VideoGenerator:
         """Remove a generated video file."""
         if video_path.exists():
             video_path.unlink()
+
 
 async def generate_video(
     audio_path: Path,

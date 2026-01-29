@@ -52,6 +52,7 @@ PositionTracker, POSITION_TRACKER_AVAILABLE = try_import_class(
     "aragora.agents.truth_grounding", "PositionTracker"
 )
 
+
 class PersonaHandler(BaseHandler):
     """Handler for persona-related endpoints."""
 

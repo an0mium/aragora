@@ -36,6 +36,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class UsageEventType(Enum):
     """Types of usage stream events."""
 
@@ -45,6 +46,7 @@ class UsageEventType(Enum):
     USAGE_SUMMARY = "usage_summary"  # Periodic summary
     RATE_LIMIT = "rate_limit"  # Rate limit event
     QUOTA_WARNING = "quota_warning"  # Approaching quota
+
 
 @dataclass
 class UsageStreamEvent:
@@ -101,6 +103,7 @@ class UsageStreamEvent:
     def to_json(self) -> str:
         """Convert to JSON string."""
         return json.dumps(self.to_dict())
+
 
 class UsageStreamEmitter:
     """
@@ -291,8 +294,10 @@ class UsageStreamEmitter:
             + sum(len(s) for s in self._workspace_subscribers.values())
         )
 
+
 # Global emitter instance
 _usage_emitter: UsageStreamEmitter | None = None
+
 
 def get_usage_emitter() -> UsageStreamEmitter:
     """Get or create global usage stream emitter."""
@@ -300,6 +305,7 @@ def get_usage_emitter() -> UsageStreamEmitter:
     if _usage_emitter is None:
         _usage_emitter = UsageStreamEmitter()
     return _usage_emitter
+
 
 async def emit_usage_event(
     tenant_id: str,
@@ -355,6 +361,7 @@ async def emit_usage_event(
 
     await emitter.emit(event)
     return event
+
 
 __all__ = [
     "UsageEventType",

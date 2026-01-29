@@ -46,6 +46,7 @@ from aragora.audit.audit_types import (
 
 logger = logging.getLogger(__name__)
 
+
 class AuditVertical(str, Enum):
     """Enterprise audit verticals."""
 
@@ -63,6 +64,7 @@ class AuditVertical(str, Enum):
     REGULATORY = "regulatory"
     ACADEMIC = "academic"
 
+
 # Mapping of verticals to auditor classes
 VERTICAL_AUDITORS: dict[AuditVertical, type[BaseAuditor]] = {
     AuditVertical.SECURITY: SecurityAuditor,  # type: ignore[dict-item]
@@ -76,6 +78,7 @@ VERTICAL_AUDITORS: dict[AuditVertical, type[BaseAuditor]] = {
     AuditVertical.REGULATORY: RegulatoryAuditor,
     AuditVertical.ACADEMIC: AcademicAuditor,
 }
+
 
 @dataclass
 class AuditProfile:
@@ -94,6 +97,7 @@ class AuditProfile:
     confidence_threshold: float = 0.5
     include_low_severity: bool = False
     custom_config: dict[str, Any] = field(default_factory=dict)
+
 
 # Pre-defined audit profiles
 AUDIT_PROFILES = {
@@ -208,6 +212,7 @@ AUDIT_PROFILES = {
     ),
 }
 
+
 @dataclass
 class OrchestratorResult:
     """Result from multi-vertical audit orchestration."""
@@ -239,6 +244,7 @@ class OrchestratorResult:
             "started_at": self.started_at.isoformat(),
             "completed_at": self.completed_at.isoformat(),
         }
+
 
 class AuditOrchestrator:
     """
@@ -534,6 +540,7 @@ class AuditOrchestrator:
             }
             for v in AuditVertical
         ]
+
 
 __all__ = [
     "AuditOrchestrator",

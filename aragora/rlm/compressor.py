@@ -10,6 +10,7 @@ Performance optimizations:
 - Async semaphore for concurrency control
 - Content-hash based deduplication
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -30,6 +31,7 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CacheEntry:
     """Entry in the compression cache with TTL."""
@@ -37,6 +39,7 @@ class CacheEntry:
     context: RLMContext
     created_at: float
     access_count: int = 0
+
 
 class LRUCompressionCache:
     """
@@ -110,11 +113,13 @@ class LRUCompressionCache:
             "hit_rate": self._hits / total if total > 0 else 0.0,
         }
 
+
 # Global compression cache (LRU with 1-hour TTL)
 _compression_cache = LRUCompressionCache(max_size=1000, ttl_seconds=3600.0)
 
 # Semaphore for controlling concurrent LLM calls
 _call_semaphore: asyncio.Semaphore | None = None
+
 
 def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
     """Get or create the global semaphore for LLM call concurrency control."""
@@ -122,6 +127,7 @@ def get_call_semaphore(max_concurrent: int = 10) -> asyncio.Semaphore:
     if _call_semaphore is None:
         _call_semaphore = asyncio.Semaphore(max_concurrent)
     return _call_semaphore
+
 
 @dataclass
 class ChunkInfo:
@@ -132,6 +138,7 @@ class ChunkInfo:
     token_count: int
     start_char: int
     end_char: int
+
 
 class HierarchicalCompressor:
     """
@@ -687,9 +694,11 @@ Conclusion:""",
         except Exception as e:
             logger.warning(f"Failed to emit compression event: {e}")
 
+
 def clear_compression_cache() -> None:
     """Clear the compression cache."""
     _compression_cache.clear()
+
 
 def get_compression_cache_stats() -> dict[str, Any]:
     """
@@ -699,6 +708,7 @@ def get_compression_cache_stats() -> dict[str, Any]:
         Dict with cache size, hit rate, and other metrics
     """
     return _compression_cache.get_stats()
+
 
 def configure_compression_cache(
     max_size: int = 1000,

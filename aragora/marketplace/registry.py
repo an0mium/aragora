@@ -4,6 +4,7 @@ Template Registry for the Aragora Marketplace.
 Provides local storage and management of templates with
 search, versioning, and validation capabilities.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Any, Generator, Optional
 
 from .models import (
     AgentTemplate,
@@ -25,7 +26,8 @@ from .models import (
 )
 
 # Type alias for all template types
-Template = Union[AgentTemplate, DebateTemplate, WorkflowTemplate]
+Template = AgentTemplate | DebateTemplate | WorkflowTemplate
+
 
 class TemplateRegistry:
     """Local registry for marketplace templates."""

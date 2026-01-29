@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
 _sync_services: dict[str, dict[str, Any]] = {}
 _sync_services_lock = asyncio.Lock()  # Thread-safe access to _sync_services
 
+
 def _convert_synced_message_to_unified(
     synced_msg: Any,
     account_id: str,
@@ -99,15 +100,18 @@ def _convert_synced_message_to_unified(
         priority_reasons=priority_reasons,
     )
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 class EmailProvider(Enum):
     """Supported email providers."""
 
     GMAIL = "gmail"
     OUTLOOK = "outlook"
+
 
 class AccountStatus(Enum):
     """Account connection status."""
@@ -117,6 +121,7 @@ class AccountStatus(Enum):
     SYNCING = "syncing"
     ERROR = "error"
     DISCONNECTED = "disconnected"
+
 
 class TriageAction(Enum):
     """Available triage actions."""
@@ -129,6 +134,7 @@ class TriageAction(Enum):
     DELETE = "delete"
     FLAG = "flag"
     DEFER = "defer"
+
 
 @dataclass
 class ConnectedAccount:
@@ -160,6 +166,7 @@ class ConnectedAccount:
             "unread_count": self.unread_count,
             "sync_errors": self.sync_errors,
         }
+
 
 @dataclass
 class UnifiedMessage:
@@ -226,6 +233,7 @@ class UnifiedMessage:
             ),
         }
 
+
 @dataclass
 class TriageResult:
     """Result of multi-agent triage."""
@@ -253,6 +261,7 @@ class TriageResult:
             "agents_involved": self.agents_involved,
             "debate_summary": self.debate_summary,
         }
+
 
 @dataclass
 class InboxStats:
@@ -284,9 +293,11 @@ class InboxStats:
             "hourly_volume": self.hourly_volume,
         }
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class UnifiedInboxHandler(BaseHandler):
     """Handler for unified inbox API endpoints."""
@@ -1508,11 +1519,13 @@ class UnifiedInboxHandler(BaseHandler):
             return dict(request.args)
         return {}
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
 _handler_instance: UnifiedInboxHandler | None = None
+
 
 def get_unified_inbox_handler() -> UnifiedInboxHandler:
     """Get or create handler instance."""
@@ -1521,10 +1534,12 @@ def get_unified_inbox_handler() -> UnifiedInboxHandler:
         _handler_instance = UnifiedInboxHandler()
     return _handler_instance
 
+
 async def handle_unified_inbox(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for unified inbox requests."""
     handler = get_unified_inbox_handler()
     return await handler.handle(request, path, method)
+
 
 __all__ = [
     "UnifiedInboxHandler",

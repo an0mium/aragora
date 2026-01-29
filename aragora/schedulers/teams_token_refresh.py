@@ -30,6 +30,7 @@ _teams_token_refresh_failures: Any = None
 _teams_tenants_active: Any = None
 _teams_refresh_duration: Any = None
 
+
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics if available."""
     global _metrics_initialized
@@ -69,10 +70,12 @@ def _init_metrics() -> bool:
         logger.debug("prometheus_client not available, metrics disabled")
         return False
 
+
 def _record_refresh_success() -> None:
     """Record a successful token refresh."""
     if _teams_token_refresh_total:
         _teams_token_refresh_total.labels(status="success").inc()
+
 
 def _record_refresh_failure(error_type: str = "unknown") -> None:
     """Record a failed token refresh."""
@@ -81,10 +84,12 @@ def _record_refresh_failure(error_type: str = "unknown") -> None:
     if _teams_token_refresh_failures:
         _teams_token_refresh_failures.labels(error_type=error_type).inc()
 
+
 def _update_active_tenants(count: int) -> None:
     """Update the active tenants gauge."""
     if _teams_tenants_active:
         _teams_tenants_active.set(count)
+
 
 # Configuration from environment
 TEAMS_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", os.environ.get("TEAMS_CLIENT_ID", ""))
@@ -93,6 +98,7 @@ TEAMS_CLIENT_SECRET = os.environ.get(
 )
 DEFAULT_REFRESH_INTERVAL_MINUTES = int(os.environ.get("TEAMS_TOKEN_REFRESH_INTERVAL", "30"))
 DEFAULT_EXPIRY_WINDOW_HOURS = int(os.environ.get("TEAMS_TOKEN_EXPIRY_WINDOW", "2"))
+
 
 class TenantStoreProtocol(Protocol):
     """Protocol for tenant store to allow dependency injection."""
@@ -107,6 +113,7 @@ class TenantStoreProtocol(Protocol):
         """Refresh a tenant's access token."""
         ...
 
+
 @dataclass
 class RefreshResult:
     """Result of a token refresh attempt."""
@@ -117,6 +124,7 @@ class RefreshResult:
     error: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+
 @dataclass
 class RefreshStats:
     """Statistics for a refresh cycle."""
@@ -126,6 +134,7 @@ class RefreshStats:
     failed: int = 0
     skipped: int = 0
     results: list[RefreshResult] = field(default_factory=list)
+
 
 class TeamsTokenRefreshScheduler:
     """
@@ -372,8 +381,10 @@ class TeamsTokenRefreshScheduler:
             "credentials_configured": bool(self.client_id and self.client_secret),
         }
 
+
 # Singleton scheduler instance
 _scheduler: TeamsTokenRefreshScheduler | None = None
+
 
 def get_teams_token_scheduler() -> TeamsTokenRefreshScheduler | None:
     """Get the global Teams token refresh scheduler instance."""
@@ -389,6 +400,7 @@ def get_teams_token_scheduler() -> TeamsTokenRefreshScheduler | None:
             return None
     return _scheduler
 
+
 async def start_teams_token_scheduler() -> bool:
     """Start the global Teams token refresh scheduler."""
     scheduler = get_teams_token_scheduler()
@@ -397,11 +409,13 @@ async def start_teams_token_scheduler() -> bool:
         return True
     return False
 
+
 async def stop_teams_token_scheduler() -> None:
     """Stop the global Teams token refresh scheduler."""
     scheduler = get_teams_token_scheduler()
     if scheduler:
         await scheduler.stop()
+
 
 __all__ = [
     "TeamsTokenRefreshScheduler",

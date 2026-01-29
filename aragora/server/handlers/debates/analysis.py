@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by AnalysisOperationsMixin.
 
@@ -40,6 +41,7 @@ class _DebatesHandlerProtocol(Protocol):
     def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path."""
         ...
+
 
 class AnalysisOperationsMixin:
     """Mixin providing analysis operations for DebatesHandler."""
@@ -186,6 +188,7 @@ class AnalysisOperationsMixin:
         except ValueError as e:
             logger.warning("Invalid graph stats request for %s: %s", debate_id, e)
             return error_response(f"Invalid request: {e}", 400)
+
 
 def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult:
     """Build graph stats from replay events file."""
@@ -410,5 +413,6 @@ def _build_graph_from_replay(debate_id: str, replay_path: Path) -> HandlerResult
                 exc_info=True,
             )
             return error_response("Error analyzing trickster status", 500)
+
 
 __all__ = ["AnalysisOperationsMixin"]

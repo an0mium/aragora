@@ -90,7 +90,7 @@ COMMIT_PATTERN = re.compile(
 )
 
 
-def get_commits(from_ref: str, to_ref: str) -> List[str]:
+def get_commits(from_ref: str, to_ref: str) -> list[str]:
     """Get commit messages between two refs."""
     try:
         result = subprocess.run(
@@ -156,7 +156,7 @@ def parse_commit(raw: str) -> Optional[Commit]:
 
 
 def generate_changelog(
-    commits: List[Commit],
+    commits: list[Commit],
     version: str,
     date: Optional[str] = None,
 ) -> str:
@@ -165,8 +165,8 @@ def generate_changelog(
         date = datetime.now().strftime("%Y-%m-%d")
 
     # Group commits by type
-    grouped: Dict[str, List[Commit]] = defaultdict(list)
-    breaking_changes: List[Commit] = []
+    grouped: dict[str, list[Commit]] = defaultdict(list)
+    breaking_changes: list[Commit] = []
 
     for commit in commits:
         grouped[commit.type].append(commit)
@@ -207,7 +207,7 @@ def generate_changelog(
         )
 
         # Group by scope within type
-        scoped: Dict[Optional[str], List[Commit]] = defaultdict(list)
+        scoped: dict[Optional[str], list[Commit]] = defaultdict(list)
         for commit in type_commits:
             scoped[commit.scope].append(commit)
 

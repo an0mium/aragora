@@ -34,6 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+
 @dataclass
 class AgentContribution:
     """Represents an agent's contribution to a debate."""
@@ -44,6 +45,7 @@ class AgentContribution:
     confidence: float = 0.5
     icon_url: str | None = None
 
+
 @dataclass
 class RoundProgress:
     """Progress information for a debate round."""
@@ -52,6 +54,7 @@ class RoundProgress:
     total_rounds: int
     agent_messages: list[dict[str, str]] = field(default_factory=list)
     current_consensus: str | None = None
+
 
 class TeamsAdaptiveCards:
     """Builder for Teams Adaptive Cards."""
@@ -802,6 +805,7 @@ class TeamsAdaptiveCards:
             )
 
         return cls.wrap_as_card(body, actions)
+
 
 __all__ = [
     "TeamsAdaptiveCards",

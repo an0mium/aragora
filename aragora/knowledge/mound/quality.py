@@ -11,6 +11,7 @@ Quality is assessed across multiple dimensions:
 - Relevance: Query match frequency and user feedback
 - Relationships: Connection density in knowledge graph
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ from datetime import datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class QualityWeights:
@@ -38,6 +40,7 @@ class QualityWeights:
         if abs(total - 1.0) > 0.01:
             logger.warning(f"Quality weights sum to {total:.2f}, not 1.0")
 
+
 @dataclass
 class TierThresholds:
     """Thresholds for tier assignment based on quality score."""
@@ -46,6 +49,7 @@ class TierThresholds:
     tier2_min: float = 0.5  # Medium quality - warm storage
     tier3_min: float = 0.2  # Low quality - cold storage
     # Below tier3_min -> archive
+
 
 @dataclass
 class QualityScore:
@@ -71,6 +75,7 @@ class QualityScore:
             "relationships_score": self.relationships_score,
             "computed_at": self.computed_at,
         }
+
 
 class QualityScorer:
     """Computes quality scores for knowledge items.
@@ -288,8 +293,10 @@ class QualityScorer:
         """
         return [self.score(item) for item in items]
 
+
 # Singleton scorer instance
 _default_scorer: QualityScorer | None = None
+
 
 def get_scorer() -> QualityScorer:
     """Get or create the default quality scorer."""
@@ -298,14 +305,17 @@ def get_scorer() -> QualityScorer:
         _default_scorer = QualityScorer()
     return _default_scorer
 
+
 def score_item(item: dict[str, Any]) -> QualityScore:
     """Score a single item using the default scorer."""
     return get_scorer().score(item)
+
 
 def assign_tier(item: dict[str, Any]) -> str:
     """Get tier assignment for an item using default scorer."""
     score = get_scorer().score(item)
     return get_scorer().assign_tier(score)
+
 
 __all__ = [
     "QualityWeights",

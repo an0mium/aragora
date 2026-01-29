@@ -9,6 +9,7 @@ Features:
 - Version tracking with applied_by metadata
 - Support for SQL and Python migration functions
 """
+
 from __future__ import annotations
 
 import importlib
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Advisory lock ID for migration coordination (hash of 'aragora_migration')
 MIGRATION_LOCK_ID = 2089872453
 
+
 @dataclass
 class Migration:
     """
@@ -58,6 +60,7 @@ class Migration:
     def __post_init__(self) -> None:
         if not self.up_sql and not self.up_fn:
             raise ValueError(f"Migration {self.version} must have up_sql or up_fn")
+
 
 class MigrationRunner:
     """
@@ -141,9 +144,7 @@ class MigrationRunner:
 
         while True:
             # Try to acquire advisory lock (non-blocking)
-            result = self._backend.fetch_one(
-                f"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})"
-            )
+            result = self._backend.fetch_one(f"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})")
 
             if result and result[0]:
                 logger.info("Acquired migration advisory lock")
@@ -160,9 +161,7 @@ class MigrationRunner:
                     "Ensure no other migration is running and try again."
                 )
 
-            logger.debug(
-                f"Migration lock held by another process, retrying in {poll_interval}s..."
-            )
+            logger.debug(f"Migration lock held by another process, retrying in {poll_interval}s...")
             time.sleep(poll_interval)
 
     def _release_migration_lock(self) -> None:
@@ -175,9 +174,7 @@ class MigrationRunner:
             return
 
         try:
-            self._backend.execute_write(
-                f"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})"
-            )
+            self._backend.execute_write(f"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})")
             logger.info("Released migration advisory lock")
         except Exception as e:
             # Log but don't raise - lock will be released on connection close anyway
@@ -375,9 +372,11 @@ class MigrationRunner:
         """Close the database connection."""
         self._backend.close()
 
+
 # Global runner instance with thread-safe initialization
 _runner: MigrationRunner | None = None
 _runner_lock = threading.Lock()
+
 
 def get_migration_runner(
     db_path: str = "aragora.db",
@@ -397,6 +396,7 @@ def get_migration_runner(
                 _load_migrations(_runner)
     return _runner
 
+
 def _load_migrations(runner: MigrationRunner) -> None:
     """Load all migration modules from the versions package."""
     try:
@@ -412,6 +412,7 @@ def _load_migrations(runner: MigrationRunner) -> None:
                     logger.debug(f"Loaded migration: {name}")
     except ImportError:
         logger.debug("No migrations.versions package found")
+
 
 def apply_migrations(
     db_path: str = "aragora.db",
@@ -432,6 +433,7 @@ def apply_migrations(
     runner = get_migration_runner(db_path, database_url)
     return runner.upgrade(target_version)
 
+
 def rollback_migration(
     db_path: str = "aragora.db",
     database_url: str | None = None,
@@ -451,6 +453,7 @@ def rollback_migration(
     runner = get_migration_runner(db_path, database_url)
     return runner.downgrade(target_version)
 
+
 def get_migration_status(
     db_path: str = "aragora.db",
     database_url: str | None = None,
@@ -463,6 +466,7 @@ def get_migration_status(
     """
     runner = get_migration_runner(db_path, database_url)
     return runner.status()
+
 
 def reset_runner() -> None:
     """Reset the global runner (for testing)."""

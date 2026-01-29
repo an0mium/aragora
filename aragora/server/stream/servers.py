@@ -12,6 +12,7 @@ Note: Core components are now in submodules for better organization:
 - aragora.server.stream.state_manager - DebateStateManager, BoundedDebateDict
 - aragora.server.stream.arena_hooks - create_arena_hooks, wrap_agent_for_streaming
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -79,9 +80,11 @@ _debate_executor_lock = get_debate_executor_lock()
 # TTL for completed debates (24 hours)
 _DEBATE_TTL_SECONDS = 86400
 
+
 def _cleanup_stale_debates_stream() -> None:
     """Remove completed/errored debates older than TTL."""
     cleanup_stale_debates()
+
 
 # Backward compatibility alias - use wrap_agent_for_streaming from arena_hooks
 _wrap_agent_for_streaming = wrap_agent_for_streaming
@@ -172,6 +175,7 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 # =============================================================================
 # Unified HTTP + WebSocket Server (aiohttp-based)
 # =============================================================================
+
 
 class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc,override]
     """

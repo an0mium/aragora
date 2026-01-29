@@ -16,6 +16,7 @@ from aragora.server.versioning.router import APIVersion
 # Current release version
 API_RELEASE_VERSION = "2.0.3"
 
+
 @dataclass
 class VersionConfig:
     """Configuration for API versioning."""
@@ -39,17 +40,21 @@ class VersionConfig:
     def get_sunset_date(self, version: APIVersion) -> str | None:
         return self.sunset_dates.get(version)
 
+
 # Global config
 _config = VersionConfig()
+
 
 def get_version_config() -> VersionConfig:
     """Get current version configuration."""
     return _config
 
+
 def set_version_config(config: VersionConfig) -> None:
     """Set version configuration."""
     global _config
     _config = config
+
 
 def extract_version(path: str, headers: Optional[dict[str, str]] = None) -> tuple[APIVersion, bool]:
     """
@@ -94,6 +99,7 @@ def extract_version(path: str, headers: Optional[dict[str, str]] = None) -> tupl
     # Legacy path (no version prefix)
     return config.default_for_legacy, True
 
+
 def _deprecation_level(sunset: str | None) -> str:
     if not sunset:
         return "warning"
@@ -107,6 +113,7 @@ def _deprecation_level(sunset: str | None) -> str:
     if days_left < 30:
         return "critical"
     return "warning"
+
 
 def version_response_headers(
     version: APIVersion,
@@ -147,6 +154,7 @@ def version_response_headers(
 
     return headers
 
+
 def normalize_path_version(path: str, target_version: APIVersion | None = None) -> str:
     """Normalize path to use specific version prefix."""
     config = get_version_config()
@@ -164,6 +172,7 @@ def normalize_path_version(path: str, target_version: APIVersion | None = None) 
     rest = path[4:]  # Remove /api
     return f"/api/{target.value}{rest}"
 
+
 def strip_version_prefix(path: str) -> str:
     """Remove version prefix from path, keeping /api/."""
     match = re.match(r"^/api/v\d+(/.*)?$", path)
@@ -173,13 +182,16 @@ def strip_version_prefix(path: str) -> str:
     # Already no version prefix, return as-is
     return path
 
+
 def is_versioned_path(path: str) -> bool:
     """Check if path has version prefix."""
     return bool(re.match(r"^/api/v\d+/", path))
 
+
 def is_legacy_path(path: str) -> bool:
     """Check if path is legacy (no version)."""
     return path.startswith("/api/") and not is_versioned_path(path)
+
 
 def get_path_version(path: str) -> APIVersion | None:
     """Extract version from path, or None if not versioned."""

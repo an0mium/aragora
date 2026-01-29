@@ -29,11 +29,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class Protocol(str, Enum):
     """Supported protocols."""
 
     MCP = "mcp"
     A2A = "a2a"
+
 
 @dataclass
 class ExternalResource:
@@ -45,6 +47,7 @@ class ExternalResource:
     description: str = ""
     mime_type: str = "application/json"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class BridgeConfig:
@@ -62,6 +65,7 @@ class BridgeConfig:
     # General settings
     default_protocol: Protocol = Protocol.A2A
     cache_agent_cards: bool = True
+
 
 class ProtocolBridge:
     """
@@ -329,8 +333,10 @@ class ProtocolBridge:
 
         return await self._a2a_server.handle_task(request)
 
+
 # Global bridge instance
 _bridge: ProtocolBridge | None = None
+
 
 def get_protocol_bridge(config: BridgeConfig | None = None) -> ProtocolBridge:
     """Get or create the global protocol bridge."""
@@ -338,6 +344,7 @@ def get_protocol_bridge(config: BridgeConfig | None = None) -> ProtocolBridge:
     if _bridge is None:
         _bridge = ProtocolBridge(config)
     return _bridge
+
 
 __all__ = [
     "Protocol",

@@ -59,6 +59,7 @@ AgentGenome = _genome_imports["AgentGenome"]
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
+
 class GenesisHandler(BaseHandler):
     """Handler for genesis (evolution visibility) endpoints."""
 

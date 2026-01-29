@@ -29,6 +29,7 @@ Usage:
     # Start continuous monitoring
     await detector.start_monitoring()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WorkAge(str, Enum):
     """
     Traffic light classification for work age.
@@ -60,6 +62,7 @@ class WorkAge(str, Enum):
     YELLOW = "yellow"  # Attention needed
     RED = "red"  # Likely stuck
 
+
 class RecoveryAction(str, Enum):
     """Actions that can be taken for stuck work."""
 
@@ -69,6 +72,7 @@ class RecoveryAction(str, Enum):
     REASSIGN = "reassign"  # Reassign to different agent
     CANCEL = "cancel"  # Cancel the work
     RETRY = "retry"  # Retry from checkpoint
+
 
 @dataclass
 class StuckWorkItem:
@@ -96,6 +100,7 @@ class StuckWorkItem:
         """Check if work is considered stuck."""
         return self.age == WorkAge.RED
 
+
 @dataclass
 class StuckDetectorConfig:
     """Configuration for stuck detection thresholds."""
@@ -119,6 +124,7 @@ class StuckDetectorConfig:
     notify_on_yellow: bool = True
     notify_on_red: bool = True
     notify_on_recovery: bool = True
+
 
 @dataclass
 class HealthSummary:
@@ -145,6 +151,7 @@ class HealthSummary:
     def stuck_count(self) -> int:
         """Get total stuck (red) items."""
         return self.red_count
+
 
 class StuckDetector:
     """
@@ -600,8 +607,10 @@ class StuckDetector:
             "monitoring_active": self._running,
         }
 
+
 # Singleton instance
 _default_detector: StuckDetector | None = None
+
 
 async def get_stuck_detector(
     bead_store: Optional["BeadStore"] = None,
@@ -618,6 +627,7 @@ async def get_stuck_detector(
         )
         await _default_detector.initialize()
     return _default_detector
+
 
 def reset_stuck_detector() -> None:
     """Reset the default detector (for testing)."""

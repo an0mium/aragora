@@ -36,6 +36,7 @@ except ImportError:
     NUMPY_AVAILABLE = False
     logger.debug("numpy not available - using pure Python for vector operations")
 
+
 @dataclass
 class StoredVector:
     """A vector stored in memory."""
@@ -46,6 +47,7 @@ class StoredVector:
     metadata: dict[str, Any] = field(default_factory=dict)
     namespace: str = ""
     created_at: datetime = field(default_factory=datetime.now)
+
 
 class InMemoryVectorStore(BaseVectorStore):
     """

@@ -45,6 +45,7 @@ from aragora.server.prometheus import (
     set_server_info,
 )
 
+
 class MetricsHandler(BaseHandler):
     """Handler for operational metrics endpoints."""
 

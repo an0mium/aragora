@@ -694,6 +694,107 @@ class TestSnowflakeCleanup:
 # ============================================================================
 
 
+# ============================================================================
+# Identifier Validation Tests
+# ============================================================================
+
+
+class TestSnowflakeIdentifierValidation:
+    """Tests for Snowflake identifier injection prevention."""
+
+    def test_valid_identifier_accepted(self):
+        """Test standard identifiers pass validation."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        assert SnowflakeConnector._validate_identifier("CUSTOMERS", "table") == "CUSTOMERS"
+        assert SnowflakeConnector._validate_identifier("_internal", "table") == "_internal"
+        assert SnowflakeConnector._validate_identifier("my_table_123", "table") == "my_table_123"
+        assert SnowflakeConnector._validate_identifier("TABLE$1", "table") == "TABLE$1"
+
+    def test_identifier_rejects_semicolons(self):
+        """Test semicolons are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("TABLE; DROP TABLE", "table")
+
+    def test_identifier_rejects_quotes(self):
+        """Test quotes are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("TABLE'injection", "table")
+
+    def test_identifier_rejects_spaces(self):
+        """Test spaces are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("TABLE NAME", "table")
+
+    def test_identifier_rejects_dash(self):
+        """Test hyphens are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("my-table", "table")
+
+    def test_identifier_rejects_starting_digit(self):
+        """Test identifiers starting with a digit are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("1TABLE", "table")
+
+    def test_identifier_max_length(self):
+        """Test identifiers exceeding 255 chars are rejected."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier"):
+            SnowflakeConnector._validate_identifier("A" * 256, "table")
+
+    def test_identifier_at_max_length(self):
+        """Test identifiers at exactly 255 chars are accepted."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        result = SnowflakeConnector._validate_identifier("A" * 255, "table")
+        assert result == "A" * 255
+
+    def test_init_validates_database(self):
+        """Test constructor rejects invalid database names."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier.*database"):
+            SnowflakeConnector(
+                account="org",
+                warehouse="WH",
+                database="DB; DROP",
+            )
+
+    def test_init_validates_tables(self):
+        """Test constructor rejects invalid table names."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        with pytest.raises(ValueError, match="Invalid Snowflake identifier.*table"):
+            SnowflakeConnector(
+                account="org",
+                warehouse="WH",
+                database="DB",
+                tables=["VALID", "INVALID;TABLE"],
+            )
+
+    def test_build_table_ref(self):
+        """Test table reference builder produces correct format."""
+        from aragora.connectors.enterprise.database.snowflake import SnowflakeConnector
+
+        connector = SnowflakeConnector(
+            account="org", warehouse="WH", database="ANALYTICS", schema="PUBLIC"
+        )
+
+        ref = connector._build_table_ref("CUSTOMERS")
+        assert ref == "ANALYTICS.PUBLIC.CUSTOMERS"
+
+
 class TestSnowflakeExports:
     """Tests for module exports."""
 

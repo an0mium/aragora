@@ -52,6 +52,7 @@ PersonaManager, PERSONA_MANAGER_AVAILABLE = try_import_class(
     "aragora.agents.personas", "PersonaManager"
 )
 
+
 class IntrospectionHandler(BaseHandler):
     """Handler for introspection-related endpoints."""
 

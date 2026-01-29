@@ -31,6 +31,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class CVEClient:
     """
     Client for querying CVE/vulnerability databases.
@@ -716,5 +717,6 @@ class CVEClient:
             fix_available=len(patched_versions) > 0,
             recommended_version=patched_versions[0] if patched_versions else None,
         )
+
 
 __all__ = ["CVEClient"]

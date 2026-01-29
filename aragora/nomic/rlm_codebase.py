@@ -19,6 +19,7 @@ from aragora.rlm.types import AbstractionNode
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CodebaseCorpus:
     """File-backed corpus plus metadata for RLM queries."""
@@ -33,6 +34,7 @@ class CodebaseCorpus:
     truncated: bool
     warnings: list[str]
 
+
 @dataclass
 class CodebaseRLMResult:
     """Result of a codebase RLM summary query."""
@@ -42,6 +44,7 @@ class CodebaseRLMResult:
     used_true_rlm: bool
     used_fallback: bool
     error: str | None = None
+
 
 DEFAULT_QUERY = """You are analyzing a large multi-language codebase.
 Provide a comprehensive, concrete summary that can be used to ground a multi-agent debate.
@@ -55,6 +58,7 @@ Requirements:
 
 Return a structured response with headings and bullet points.
 """
+
 
 def _default_crawl_config(max_file_bytes: int, max_files: int) -> CrawlConfig:
     return CrawlConfig(
@@ -84,6 +88,7 @@ def _default_crawl_config(max_file_bytes: int, max_files: int) -> CrawlConfig:
         chunk_overlap_lines=40,
     )
 
+
 def _summarize_file_types(file_type_counts: dict[str, int]) -> str:
     ordered = sorted(file_type_counts.items(), key=lambda x: x[1], reverse=True)
     lines = [f"- {ft}: {count}" for ft, count in ordered[:15]]
@@ -91,12 +96,14 @@ def _summarize_file_types(file_type_counts: dict[str, int]) -> str:
         lines.append(f"- ... ({len(ordered) - 15} more types)")
     return "\n".join(lines)
 
+
 def _summarize_top_dirs(top_dirs: dict[str, int]) -> str:
     ordered = sorted(top_dirs.items(), key=lambda x: x[1], reverse=True)
     lines = [f"- {d or '.'}: {count}" for d, count in ordered[:15]]
     if len(ordered) > 15:
         lines.append(f"- ... ({len(ordered) - 15} more dirs)")
     return "\n".join(lines)
+
 
 def _build_summary_nodes(
     corpus: CodebaseCorpus, repo_path: Path
@@ -131,13 +138,16 @@ def _build_summary_nodes(
     )
     return summary_node, abstract_node
 
+
 def _estimate_tokens(total_bytes: int) -> int:
     # rough heuristic: ~4 bytes/token
     return max(1, total_bytes // 4)
 
+
 def _collect_top_dirs(relative_path: str) -> str:
     parts = Path(relative_path).parts
     return parts[0] if parts else ""
+
 
 async def build_codebase_corpus(
     repo_path: Path,
@@ -239,6 +249,7 @@ async def build_codebase_corpus(
 
     return corpus
 
+
 async def summarize_codebase_with_rlm(
     repo_path: Path,
     output_dir: Path,
@@ -308,6 +319,7 @@ async def summarize_codebase_with_rlm(
             used_fallback=True,
             error=str(e),
         )
+
 
 __all__ = [
     "CodebaseCorpus",

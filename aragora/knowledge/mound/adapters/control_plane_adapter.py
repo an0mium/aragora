@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 @dataclass
 class TaskOutcome:
     """Record of a completed task for KM storage."""
@@ -43,6 +44,7 @@ class TaskOutcome:
     error_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AgentCapabilityRecord:
     """Record of agent capability performance."""
@@ -55,6 +57,7 @@ class AgentCapabilityRecord:
     workspace_id: str = "default"
     confidence: float = 0.8
 
+
 @dataclass
 class CrossWorkspaceInsight:
     """Insight shared across workspaces."""
@@ -66,6 +69,7 @@ class CrossWorkspaceInsight:
     content: str
     confidence: float
     created_at: str
+
 
 class ControlPlaneAdapter:
     """
@@ -809,6 +813,7 @@ class ControlPlaneAdapter:
         self._capability_cache.clear()
         self._cache_times.clear()
         return count
+
 
 __all__ = [
     "ControlPlaneAdapter",

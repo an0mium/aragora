@@ -17,6 +17,7 @@ Usage:
     for state, handler in handlers.items():
         machine.register_handler(state, handler)
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 StateHandler = Callable[
     [StateContext, Event], "Coroutine[Any, Any, tuple[NomicState, dict[str, Any]]]"
 ]
+
 
 async def context_handler(
     context: StateContext,
@@ -76,6 +78,7 @@ async def context_handler(
     except Exception as e:
         logger.error(f"Context phase error: {e}")
         raise
+
 
 async def debate_handler(
     context: StateContext,
@@ -149,6 +152,7 @@ async def debate_handler(
         logger.error(f"Debate phase error: {e}")
         raise
 
+
 async def design_handler(
     context: StateContext,
     event: Event,
@@ -214,6 +218,7 @@ async def design_handler(
         logger.error(f"Design phase error: {e}")
         raise
 
+
 async def implement_handler(
     context: StateContext,
     event: Event,
@@ -276,6 +281,7 @@ async def implement_handler(
         logger.error(f"Implement phase error: {e}")
         raise
 
+
 async def verify_handler(
     context: StateContext,
     event: Event,
@@ -321,6 +327,7 @@ async def verify_handler(
     except Exception as e:
         logger.error(f"Verify phase error: {e}")
         raise
+
 
 async def commit_handler(
     context: StateContext,
@@ -368,6 +375,7 @@ async def commit_handler(
         logger.error(f"Commit phase error: {e}")
         raise
 
+
 def create_context_handler(
     context_phase: Any,
 ) -> StateHandler:
@@ -385,6 +393,7 @@ def create_context_handler(
         return await context_handler(context, event, context_phase=context_phase)
 
     return handler
+
 
 def create_debate_handler(
     debate_phase: Any,
@@ -414,6 +423,7 @@ def create_debate_handler(
 
     return handler
 
+
 def create_design_handler(
     design_phase: Any,
     belief_context_builder: Optional[Callable[[], Any]] = None,
@@ -439,6 +449,7 @@ def create_design_handler(
 
     return handler
 
+
 def create_implement_handler(
     implement_phase: Any,
 ) -> StateHandler:
@@ -456,6 +467,7 @@ def create_implement_handler(
         return await implement_handler(context, event, implement_phase=implement_phase)
 
     return handler
+
 
 def create_verify_handler(
     verify_phase: Any,
@@ -475,6 +487,7 @@ def create_verify_handler(
 
     return handler
 
+
 def create_commit_handler(
     commit_phase: Any,
 ) -> StateHandler:
@@ -492,6 +505,7 @@ def create_commit_handler(
         return await commit_handler(context, event, commit_phase=commit_phase)
 
     return handler
+
 
 def create_handlers(
     aragora_path: Path,
@@ -686,6 +700,7 @@ def create_handlers(
         NomicState.VERIFY: create_verify_handler(verify_phase),
         NomicState.COMMIT: create_commit_handler(commit_phase),
     }
+
 
 __all__ = [
     # Individual handler factories

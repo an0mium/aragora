@@ -41,6 +41,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class NotificationType(str, Enum):
     """Type of sharing notification."""
 
@@ -51,6 +52,7 @@ class NotificationType(str, Enum):
     SHARE_EXPIRED = "share_expired"
     FEDERATION_SYNC = "federation_sync"
 
+
 class NotificationChannel(str, Enum):
     """Notification delivery channel."""
 
@@ -59,12 +61,14 @@ class NotificationChannel(str, Enum):
     WEBHOOK = "webhook"
     TELEGRAM = "telegram"
 
+
 class NotificationStatus(str, Enum):
     """Status of an in-app notification."""
 
     UNREAD = "unread"
     READ = "read"
     DISMISSED = "dismissed"
+
 
 @dataclass
 class SharingNotification:
@@ -128,6 +132,7 @@ class SharingNotification:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class NotificationPreferences:
     """User preferences for sharing notifications."""
@@ -141,6 +146,7 @@ class NotificationPreferences:
     webhook_url: str | None = None
     quiet_hours_start: int | None = None  # Hour (0-23)
     quiet_hours_end: int | None = None
+
 
 class InAppNotificationStore:
     """
@@ -226,8 +232,10 @@ class InAppNotificationStore:
         """Set notification preferences for a user."""
         self._preferences[preferences.user_id] = preferences
 
+
 # Global store instance
 _notification_store: InAppNotificationStore | None = None
+
 
 def get_notification_store() -> InAppNotificationStore:
     """Get the global notification store instance."""
@@ -235,6 +243,7 @@ def get_notification_store() -> InAppNotificationStore:
     if _notification_store is None:
         _notification_store = InAppNotificationStore()
     return _notification_store
+
 
 class SharingNotifier:
     """
@@ -599,7 +608,9 @@ You can manage notification preferences in your Aragora settings.
 - Aragora Knowledge Mound
 """
 
+
 # Convenience functions
+
 
 async def notify_item_shared(
     item_id: str,
@@ -624,6 +635,7 @@ async def notify_item_shared(
         permissions=permissions,
     )
 
+
 async def notify_share_revoked(
     item_id: str,
     item_title: str,
@@ -643,6 +655,7 @@ async def notify_share_revoked(
         to_user_email=to_user_email,
     )
 
+
 def get_notifications_for_user(
     user_id: str,
     status: NotificationStatus | None = None,
@@ -653,30 +666,36 @@ def get_notifications_for_user(
     store = get_notification_store()
     return store.get_notifications(user_id, status=status, limit=limit, offset=offset)
 
+
 def get_unread_count(user_id: str) -> int:
     """Get count of unread notifications for a user."""
     store = get_notification_store()
     return store.get_unread_count(user_id)
+
 
 def mark_notification_read(notification_id: str, user_id: str) -> bool:
     """Mark a notification as read."""
     store = get_notification_store()
     return store.mark_as_read(notification_id, user_id)
 
+
 def mark_all_notifications_read(user_id: str) -> int:
     """Mark all notifications as read for a user."""
     store = get_notification_store()
     return store.mark_all_as_read(user_id)
+
 
 def get_notification_preferences(user_id: str) -> NotificationPreferences:
     """Get notification preferences for a user."""
     store = get_notification_store()
     return store.get_preferences(user_id)
 
+
 def set_notification_preferences(preferences: NotificationPreferences) -> None:
     """Set notification preferences for a user."""
     store = get_notification_store()
     store.set_preferences(preferences)
+
 
 __all__ = [
     "NotificationType",

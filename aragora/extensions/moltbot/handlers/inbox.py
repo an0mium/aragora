@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Global inbox instance (lazily initialized)
 _inbox: Optional["InboxManager"] = None
 
+
 def get_inbox() -> "InboxManager":
     """Get or create the inbox manager instance."""
     global _inbox
@@ -43,6 +44,7 @@ def get_inbox() -> "InboxManager":
 
         _inbox = InboxManager()
     return _inbox
+
 
 class MoltbotInboxHandler(BaseHandler):
     """HTTP handler for Moltbot inbox operations."""

@@ -25,6 +25,7 @@ Endpoints:
 - POST /api/payments/webhook/stripe      - Stripe webhook endpoint
 - POST /api/payments/webhook/authnet     - Authorize.net webhook endpoint
 """
+
 from __future__ import annotations
 
 import json
@@ -72,6 +73,7 @@ _payment_retry_config = RetryConfig(
 # Webhook Idempotency
 # =============================================================================
 
+
 def _is_duplicate_webhook(event_id: str) -> bool:
     """Check if webhook event was already processed.
 
@@ -83,6 +85,7 @@ def _is_duplicate_webhook(event_id: str) -> bool:
     store = get_webhook_store()
     return store.is_processed(event_id)
 
+
 def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
     """Mark webhook event as processed.
 
@@ -93,15 +96,18 @@ def _mark_webhook_processed(event_id: str, result: str = "success") -> None:
     store = get_webhook_store()
     store.mark_processed(event_id, result)
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 class PaymentProvider(Enum):
     """Supported payment providers."""
 
     STRIPE = "stripe"
     AUTHORIZE_NET = "authorize_net"
+
 
 class PaymentStatus(Enum):
     """Payment transaction status."""
@@ -112,6 +118,7 @@ class PaymentStatus(Enum):
     ERROR = "error"
     VOID = "void"
     REFUNDED = "refunded"
+
 
 @dataclass
 class PaymentRequest:
@@ -124,6 +131,7 @@ class PaymentRequest:
     payment_method: Optional[dict[str, Any]] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     provider: PaymentProvider = PaymentProvider.STRIPE
+
 
 @dataclass
 class PaymentResult:
@@ -157,12 +165,14 @@ class PaymentResult:
             "metadata": self.metadata,
         }
 
+
 # =============================================================================
 # Connector Management
 # =============================================================================
 
 _stripe_connector: Any | None = None
 _authnet_connector: Any | None = None
+
 
 async def get_stripe_connector(request: web.Request) -> Any | None:
     """Get or create Stripe connector."""
@@ -180,6 +190,7 @@ async def get_stripe_connector(request: web.Request) -> Any | None:
             logger.error(f"Failed to initialize Stripe connector: {e}")
             return None
     return _stripe_connector
+
 
 async def get_authnet_connector(request: web.Request) -> Any | None:
     """Get or create Authorize.net connector."""
@@ -202,6 +213,7 @@ async def get_authnet_connector(request: web.Request) -> Any | None:
             logger.error(f"Failed to initialize Authorize.net connector: {e}")
             return None
     return _authnet_connector
+
 
 def _get_provider_from_request(request: web.Request, body: dict[str, Any]) -> PaymentProvider:
     """Determine payment provider from request."""
@@ -278,9 +290,11 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
         logger.error(f"Authorize.net {operation} failed: {e}")
         raise
 
+
 # =============================================================================
 # Payment Handlers
 # =============================================================================
+
 
 @require_permission("payments:charge")
 async def handle_charge(request: web.Request) -> web.Response:
@@ -344,6 +358,7 @@ async def handle_charge(request: web.Request) -> web.Response:
     except Exception as e:
         logger.exception(f"Error processing charge: {e}")
         return web.json_response({"error": str(e)}, status=500)
+
 
 async def _charge_stripe(
     request: web.Request,
@@ -413,6 +428,7 @@ async def _charge_stripe(
             currency=currency,
             message=str(e),
         )
+
 
 async def _charge_authnet(
     request: web.Request,
@@ -508,6 +524,7 @@ async def _charge_authnet(
             message=str(e),
         )
 
+
 @require_permission("payments:authorize")
 async def handle_authorize(request: web.Request) -> web.Response:
     """
@@ -584,6 +601,7 @@ async def handle_authorize(request: web.Request) -> web.Response:
         logger.exception(f"Error authorizing payment: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("payments:capture")
 async def handle_capture(request: web.Request) -> web.Response:
     """
@@ -650,6 +668,7 @@ async def handle_capture(request: web.Request) -> web.Response:
     except Exception as e:
         logger.exception(f"Error capturing payment: {e}")
         return web.json_response({"error": str(e)}, status=500)
+
 
 @require_permission("payments:refund")
 async def handle_refund(request: web.Request) -> web.Response:
@@ -759,6 +778,7 @@ async def handle_refund(request: web.Request) -> web.Response:
         )
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("payments:void")
 async def handle_void(request: web.Request) -> web.Response:
     """
@@ -818,6 +838,7 @@ async def handle_void(request: web.Request) -> web.Response:
         logger.exception(f"Error voiding transaction: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("payments:read")
 async def handle_get_transaction(request: web.Request) -> web.Response:
     """
@@ -876,9 +897,11 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
         logger.exception(f"Error getting transaction: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 # =============================================================================
 # Customer Profile Handlers
 # =============================================================================
+
 
 @require_permission("payments:customer:create")
 async def handle_create_customer(request: web.Request) -> web.Response:
@@ -951,6 +974,7 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         logger.exception(f"Error creating customer: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("payments:customer:read")
 async def handle_get_customer(request: web.Request) -> web.Response:
     """
@@ -1018,6 +1042,7 @@ async def handle_get_customer(request: web.Request) -> web.Response:
         logger.exception(f"Error getting customer: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("billing:delete")
 async def handle_delete_customer(request: web.Request) -> web.Response:
     """
@@ -1062,9 +1087,11 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
         logger.exception(f"Error deleting customer: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 # =============================================================================
 # Subscription Handlers
 # =============================================================================
+
 
 @require_permission("payments:subscription:create")
 async def handle_create_subscription(request: web.Request) -> web.Response:
@@ -1159,6 +1186,7 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         logger.exception(f"Error creating subscription: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 @require_permission("billing:cancel")
 async def handle_cancel_subscription(request: web.Request) -> web.Response:
     """
@@ -1209,9 +1237,11 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
         logger.exception(f"Error canceling subscription: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 # =============================================================================
 # Webhook Handlers
 # =============================================================================
+
 
 async def handle_stripe_webhook(request: web.Request) -> web.Response:
     """
@@ -1268,6 +1298,7 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
     except Exception as e:
         logger.exception(f"Error handling Stripe webhook: {e}")
         return web.json_response({"error": str(e)}, status=500)
+
 
 async def handle_authnet_webhook(request: web.Request) -> web.Response:
     """
@@ -1326,9 +1357,11 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
         logger.exception(f"Error handling Authorize.net webhook: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+
 # =============================================================================
 # Route Registration
 # =============================================================================
+
 
 def register_payment_routes(app: web.Application) -> None:
     """Register payment routes with the application."""
@@ -1375,6 +1408,7 @@ def register_payment_routes(app: web.Application) -> None:
     # Webhooks
     app.router.add_post("/api/payments/webhook/stripe", handle_stripe_webhook)
     app.router.add_post("/api/payments/webhook/authnet", handle_authnet_webhook)
+
 
 __all__ = [
     "register_payment_routes",

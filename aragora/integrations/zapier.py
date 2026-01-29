@@ -15,6 +15,7 @@ Actions:
 - get_debate_status: Get current debate status
 - submit_evidence: Submit evidence to a debate
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Zapier Data Models
 # =============================================================================
+
 
 @dataclass
 class ZapierTrigger:
@@ -73,6 +75,7 @@ class ZapierTrigger:
 
         return True
 
+
 @dataclass
 class ZapierApp:
     """Zapier app configuration for an Aragora workspace."""
@@ -90,9 +93,11 @@ class ZapierApp:
     trigger_count: int = 0
     last_action_at: float | None = None
 
+
 # =============================================================================
 # Zapier Integration
 # =============================================================================
+
 
 class ZapierIntegration(BaseIntegration):
     """
@@ -463,11 +468,13 @@ class ZapierIntegration(BaseIntegration):
         """
         return self.get_app_by_key(api_key)
 
+
 # =============================================================================
 # Module-level singleton
 # =============================================================================
 
 _zapier_integration: ZapierIntegration | None = None
+
 
 def get_zapier_integration() -> ZapierIntegration:
     """Get or create the global Zapier integration instance."""
@@ -475,6 +482,7 @@ def get_zapier_integration() -> ZapierIntegration:
     if _zapier_integration is None:
         _zapier_integration = ZapierIntegration()
     return _zapier_integration
+
 
 # =============================================================================
 # Exports

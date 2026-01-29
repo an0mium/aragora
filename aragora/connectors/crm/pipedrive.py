@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Enums
 # =============================================================================
 
+
 class DealStatus(str, Enum):
     """Pipedrive deal status."""
 
@@ -35,6 +36,7 @@ class DealStatus(str, Enum):
     WON = "won"
     LOST = "lost"
     DELETED = "deleted"
+
 
 class ActivityType(str, Enum):
     """Pipedrive activity types."""
@@ -46,6 +48,7 @@ class ActivityType(str, Enum):
     EMAIL = "email"
     LUNCH = "lunch"
 
+
 class PersonVisibility(str, Enum):
     """Visibility levels."""
 
@@ -53,9 +56,11 @@ class PersonVisibility(str, Enum):
     OWNER_FOLLOWERS = "3"  # Owner and followers
     ENTIRE_COMPANY = "5"  # Entire company
 
+
 # =============================================================================
 # Credentials
 # =============================================================================
+
 
 @dataclass
 class PipedriveCredentials:
@@ -77,9 +82,11 @@ class PipedriveCredentials:
 
         return cls(api_token=api_token, base_url=base_url)
 
+
 # =============================================================================
 # Error Handling
 # =============================================================================
+
 
 class PipedriveError(Exception):
     """Pipedrive API error."""
@@ -94,9 +101,11 @@ class PipedriveError(Exception):
         self.status_code = status_code
         self.error_code = error_code
 
+
 # =============================================================================
 # Data Models
 # =============================================================================
+
 
 @dataclass
 class Person:
@@ -171,6 +180,7 @@ class Person:
 
         return result
 
+
 @dataclass
 class Organization:
     """Pipedrive organization (company)."""
@@ -220,6 +230,7 @@ class Organization:
 
         return result
 
+
 @dataclass
 class Pipeline:
     """Pipedrive pipeline."""
@@ -246,6 +257,7 @@ class Pipeline:
             add_time=_parse_datetime(data.get("add_time")),
             update_time=_parse_datetime(data.get("update_time")),
         )
+
 
 @dataclass
 class Stage:
@@ -277,6 +289,7 @@ class Stage:
             add_time=_parse_datetime(data.get("add_time")),
             update_time=_parse_datetime(data.get("update_time")),
         )
+
 
 @dataclass
 class Deal:
@@ -359,6 +372,7 @@ class Deal:
 
         return result
 
+
 @dataclass
 class Activity:
     """Pipedrive activity (call, meeting, task, etc.)."""
@@ -433,6 +447,7 @@ class Activity:
 
         return result
 
+
 @dataclass
 class Note:
     """Pipedrive note."""
@@ -484,6 +499,7 @@ class Note:
             result["pinned_to_organization_flag"] = 1
 
         return result
+
 
 @dataclass
 class Product:
@@ -545,6 +561,7 @@ class Product:
 
         return result
 
+
 @dataclass
 class User:
     """Pipedrive user (owner)."""
@@ -578,9 +595,11 @@ class User:
             modified=_parse_datetime(data.get("modified")),
         )
 
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse datetime from API response."""
@@ -594,6 +613,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
     except (ValueError, TypeError):
         return None
 
+
 def _parse_date(value: str | None) -> datetime | None:
     """Parse date from API response."""
     if not value:
@@ -603,9 +623,11 @@ def _parse_date(value: str | None) -> datetime | None:
     except (ValueError, TypeError):
         return None
 
+
 # =============================================================================
 # Pipedrive Client
 # =============================================================================
+
 
 class PipedriveClient:
     """
@@ -1314,9 +1336,11 @@ class PipedriveClient:
         persons = data.get("data") or []
         return [Person.from_api(p) for p in persons]
 
+
 # =============================================================================
 # Mock Data Generators
 # =============================================================================
+
 
 def get_mock_person() -> Person:
     """Get a mock person for testing."""
@@ -1332,6 +1356,7 @@ def get_mock_person() -> Person:
         active_flag=True,
     )
 
+
 def get_mock_organization() -> Organization:
     """Get a mock organization for testing."""
     return Organization(
@@ -1345,6 +1370,7 @@ def get_mock_organization() -> Organization:
         add_time=datetime.now(timezone.utc),
         active_flag=True,
     )
+
 
 def get_mock_deal() -> Deal:
     """Get a mock deal for testing."""
@@ -1364,6 +1390,7 @@ def get_mock_deal() -> Deal:
         probability=75.0,
         add_time=datetime.now(timezone.utc),
     )
+
 
 def get_mock_activity() -> Activity:
     """Get a mock activity for testing."""

@@ -15,6 +15,7 @@ Configure via environment:
     ARAGORA_XTTS_MODEL_PATH - Optional Coqui XTTS model override
     ARAGORA_POLLY_REGION - AWS region for Polly (fallback to AWS_REGION)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -51,6 +52,7 @@ try:
 except ImportError:
     FALLBACK_AVAILABLE = False
 
+
 def get_audio_backend() -> TTSBackend:
     """Get the TTS backend, initializing if needed."""
     global _tts_backend
@@ -70,9 +72,11 @@ def get_audio_backend() -> TTSBackend:
 
     return _tts_backend
 
+
 def _get_voice_for_speaker(speaker: str) -> str:
     """Get voice ID for a speaker (legacy compatibility)."""
     return VOICE_MAP.get(speaker, VOICE_MAP.get("narrator", "en-US-AriaNeural"))
+
 
 def _edge_tts_command() -> list[str] | None:
     """Resolve the edge-tts command in a venv/pyenv-safe way."""
@@ -82,6 +86,7 @@ def _edge_tts_command() -> list[str] | None:
     if importlib.util.find_spec("edge_tts") is not None:
         return [sys.executable, "-m", "edge_tts"]
     return None
+
 
 async def _generate_edge_tts(
     text: str,
@@ -171,6 +176,7 @@ async def _generate_edge_tts(
     logger.warning(f"edge-tts failed after {max_retries} attempts: {last_error}")
     return False
 
+
 def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
     """Generate audio using pyttsx3 fallback (synchronous).
 
@@ -188,6 +194,7 @@ def _generate_fallback_tts_sync(text: str, output_path: Path) -> bool:
         logger.debug("pyttsx3 fallback TTS failed: %s", e)
         return False
 
+
 async def _generate_fallback_tts(text: str, output_path: Path) -> bool:
     """Generate audio using pyttsx3 fallback (non-blocking).
 
@@ -198,6 +205,7 @@ async def _generate_fallback_tts(text: str, output_path: Path) -> bool:
         return False
 
     return await asyncio.to_thread(_generate_fallback_tts_sync, text, output_path)
+
 
 async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Path | None:
     """
@@ -241,6 +249,7 @@ async def generate_audio_segment(segment: ScriptSegment, output_dir: Path) -> Pa
         return output_path
 
     return None
+
 
 async def generate_audio(
     segments: list[ScriptSegment], output_dir: Path | None = None

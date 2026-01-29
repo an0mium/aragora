@@ -86,6 +86,7 @@ from .metrics import (
 __all__ = [
     # Retry
     "RetryStrategy",
+    "JitterMode",
     "RetryConfig",
     "ExponentialBackoff",
     "with_retry",

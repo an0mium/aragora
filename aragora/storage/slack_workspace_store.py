@@ -46,6 +46,7 @@ ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
 # Track if encryption warning has been shown
 _encryption_warning_shown = False
 
+
 @dataclass
 class SlackWorkspace:
     """Represents an installed Slack workspace."""
@@ -119,6 +120,7 @@ class SlackWorkspace:
             refresh_token=refresh_token,
             token_expires_at=token_expires_at,
         )
+
 
 class SlackWorkspaceStore:
     """
@@ -728,6 +730,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to get expiring tokens: {e}")
             return []
 
+
 # Supabase-backed implementation for production
 class SupabaseSlackWorkspaceStore:
     """
@@ -971,8 +974,10 @@ class SupabaseSlackWorkspaceStore:
             signing_secret=row.get("signing_secret"),
         )
 
+
 # Singleton instance
 _workspace_store: Any | None = None
+
 
 def get_slack_workspace_store(db_path: str | None = None) -> Any:
     """Get or create the workspace store singleton.

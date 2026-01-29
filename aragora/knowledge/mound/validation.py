@@ -25,6 +25,7 @@ T = TypeVar("T")
 # Validation Limits Configuration
 # =============================================================================
 
+
 @dataclass
 class ValidationLimits:
     """Configurable limits for Knowledge Mound operations."""
@@ -56,12 +57,14 @@ class ValidationLimits:
     # Event/log limits
     max_event_log_size: int = 1000
 
+
 # Global default limits
 DEFAULT_LIMITS = ValidationLimits()
 
 # =============================================================================
 # Validation Errors
 # =============================================================================
+
 
 class ValidationError(Exception):
     """Base class for validation errors."""
@@ -80,6 +83,7 @@ class ValidationError(Exception):
             "field": self.field,
         }
 
+
 class ContentTooLargeError(ValidationError):
     """Content exceeds maximum allowed size."""
 
@@ -89,6 +93,7 @@ class ContentTooLargeError(ValidationError):
             field=field,
             code="CONTENT_TOO_LARGE",
         )
+
 
 class InvalidIdError(ValidationError):
     """Invalid ID format."""
@@ -100,6 +105,7 @@ class InvalidIdError(ValidationError):
             code="INVALID_ID",
         )
 
+
 class ResourceLimitExceededError(ValidationError):
     """Resource limit exceeded."""
 
@@ -109,6 +115,7 @@ class ResourceLimitExceededError(ValidationError):
             field=resource,
             code="RESOURCE_LIMIT_EXCEEDED",
         )
+
 
 class NotFoundError(ValidationError):
     """Resource not found."""
@@ -120,6 +127,7 @@ class NotFoundError(ValidationError):
             code="NOT_FOUND",
         )
 
+
 class AccessDeniedError(ValidationError):
     """Access denied to resource."""
 
@@ -130,9 +138,11 @@ class AccessDeniedError(ValidationError):
             code="ACCESS_DENIED",
         )
 
+
 # =============================================================================
 # Input Validators
 # =============================================================================
+
 
 def validate_content(
     content: str,
@@ -158,6 +168,7 @@ def validate_content(
         raise ContentTooLargeError(content_size, limits.max_content_size)
 
     return content
+
 
 def validate_id(
     value: str,
@@ -188,6 +199,7 @@ def validate_id(
         raise InvalidIdError(value, field=field_name)
 
     return value
+
 
 def validate_workspace_id(
     workspace_id: str,
@@ -224,6 +236,7 @@ def validate_workspace_id(
 
     return workspace_id
 
+
 def validate_topics(
     topics: Optional[list[str]],
     limits: ValidationLimits = DEFAULT_LIMITS,
@@ -254,6 +267,7 @@ def validate_topics(
             validated.append(topic[:256])
 
     return validated
+
 
 def validate_metadata(
     metadata: Optional[dict[str, Any]],
@@ -294,6 +308,7 @@ def validate_metadata(
 
     return metadata
 
+
 def validate_query(
     query: str,
     limits: ValidationLimits = DEFAULT_LIMITS,
@@ -317,6 +332,7 @@ def validate_query(
         raise ResourceLimitExceededError("query", limits.max_query_length, len(query))
 
     return query
+
 
 def validate_graph_params(
     depth: int,
@@ -354,6 +370,7 @@ def validate_graph_params(
 
     return depth, max_nodes
 
+
 def validate_pagination(
     limit: int | None,
     offset: int | None,
@@ -385,9 +402,11 @@ def validate_pagination(
 
     return validated_limit, validated_offset
 
+
 # =============================================================================
 # Thread-Safe Utilities
 # =============================================================================
+
 
 @dataclass
 class BoundedList:
@@ -418,6 +437,7 @@ class BoundedList:
         """Get current size (not thread-safe, for monitoring only)."""
         return len(self._items)
 
+
 @dataclass
 class ConcurrencyLimiter:
     """Limit concurrent operations."""
@@ -435,9 +455,11 @@ class ConcurrencyLimiter:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._semaphore.release()
 
+
 # =============================================================================
 # Validation Decorators
 # =============================================================================
+
 
 def validate_input(validation_func):
     """Decorator to validate input parameters.
@@ -460,6 +482,7 @@ def validate_input(validation_func):
 
     return decorator
 
+
 # =============================================================================
 # HTTP Status Code Mapping
 # =============================================================================
@@ -480,6 +503,7 @@ ERROR_STATUS_CODES: dict[str, int] = {
     "NOT_FOUND": 404,
     "ACCESS_DENIED": 403,
 }
+
 
 def get_http_status(error: ValidationError) -> int:
     """Get HTTP status code for a validation error."""

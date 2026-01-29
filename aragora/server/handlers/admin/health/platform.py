@@ -19,6 +19,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 def startup_health(handler) -> HandlerResult:
     """Startup health status - reports server startup information.
 
@@ -93,6 +94,7 @@ def startup_health(handler) -> HandlerResult:
             },
             status=503,
         )
+
 
 def encryption_health(handler) -> HandlerResult:
     """Encryption health check - verifies encryption service status.
@@ -217,6 +219,7 @@ def encryption_health(handler) -> HandlerResult:
         },
         status=http_status,
     )
+
 
 def platform_health(handler) -> HandlerResult:
     """Platform resilience health check for chat integrations.

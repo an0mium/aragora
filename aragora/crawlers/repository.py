@@ -33,6 +33,7 @@ from aragora.crawlers.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RepositoryInfo:
     """Information about a git repository."""
@@ -42,6 +43,7 @@ class RepositoryInfo:
     branch: str = "main"
     last_commit: str | None = None
     commit_count: int = 0
+
 
 @dataclass
 class RepositoryCrawlerConfig(CrawlerConfig):
@@ -89,6 +91,7 @@ class RepositoryCrawlerConfig(CrawlerConfig):
             ".avi",
         ]
     )
+
 
 class RepositoryCrawler(BaseCrawler):
     """

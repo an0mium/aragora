@@ -4,6 +4,7 @@ Audio file storage for debate broadcasts.
 Provides persistent storage for generated audio files with metadata tracking.
 Audio files are stored in .nomic/audio/ with accompanying JSON metadata.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,6 +44,7 @@ AUDIO_MAGIC_BYTES = {
     b"\x00\x00\x00": "m4a",  # M4A/AAC (partial - needs ftyp check)
 }
 
+
 def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
     """Validate audio file magic bytes match claimed format.
 
@@ -80,6 +82,7 @@ def _validate_audio_magic(data: bytes, claimed_format: str) -> bool:
     logger.debug(f"Could not validate magic bytes for claimed format {claimed_format}")
     return True  # Permissive for now - log helps identify issues
 
+
 def _validate_debate_id(debate_id: str) -> bool:
     """Validate a debate ID to prevent path traversal.
 
@@ -101,6 +104,7 @@ def _validate_debate_id(debate_id: str) -> bool:
         return False
 
     return True
+
 
 @dataclass
 class AudioMetadata:
@@ -141,6 +145,7 @@ class AudioMetadata:
             task_summary=data.get("task_summary"),
             agents=data.get("agents", []),
         )
+
 
 class AudioFileStore:
     """

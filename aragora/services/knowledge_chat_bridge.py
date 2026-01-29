@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class KnowledgeSearchScope(str, Enum):
     """Scope for knowledge search."""
 
@@ -30,6 +31,7 @@ class KnowledgeSearchScope(str, Enum):
     CHANNEL = "channel"  # Limit to channel-specific knowledge
     USER = "user"  # Limit to user's personal knowledge
 
+
 class RelevanceStrategy(str, Enum):
     """Strategy for computing relevance."""
 
@@ -37,6 +39,7 @@ class RelevanceStrategy(str, Enum):
     KEYWORD = "keyword"  # Keyword/BM25 matching
     HYBRID = "hybrid"  # Combined semantic + keyword
     RECENCY = "recency"  # Favor recent knowledge
+
 
 @dataclass
 class KnowledgeSearchResult:
@@ -71,6 +74,7 @@ class KnowledgeSearchResult:
         """Combined confidence and relevance score."""
         return (self.confidence * 0.4) + (self.relevance_score * 0.6)
 
+
 @dataclass
 class ChatKnowledgeContext:
     """Knowledge context for a chat conversation."""
@@ -95,6 +99,7 @@ class ChatKnowledgeContext:
             "search_time_ms": self.search_time_ms,
             "suggestions": self.suggestions,
         }
+
 
 class KnowledgeChatBridge:
     """
@@ -449,8 +454,10 @@ class KnowledgeChatBridge:
         else:
             self._cache.clear()
 
+
 # Global instance
 _bridge: KnowledgeChatBridge | None = None
+
 
 def get_knowledge_chat_bridge() -> KnowledgeChatBridge:
     """Get or create the global Knowledge + Chat bridge instance."""
@@ -458,6 +465,7 @@ def get_knowledge_chat_bridge() -> KnowledgeChatBridge:
     if _bridge is None:
         _bridge = KnowledgeChatBridge()
     return _bridge
+
 
 __all__ = [
     "KnowledgeChatBridge",

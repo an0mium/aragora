@@ -8,6 +8,7 @@ Provides webhook notifications for gauntlet receipt lifecycle events:
 - receipt_shared: Shareable link created for receipt
 - receipt_integrity_failed: Receipt integrity verification failed
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ from aragora.integrations.webhooks import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ReceiptWebhookPayload:
@@ -61,6 +63,7 @@ class ReceiptWebhookPayload:
         if self.metadata:
             result["metadata"] = self.metadata
         return result
+
 
 class ReceiptWebhookNotifier:
     """
@@ -269,8 +272,10 @@ class ReceiptWebhookNotifier:
         )
         self._emit(payload)
 
+
 # Singleton instance
 _receipt_notifier: ReceiptWebhookNotifier | None = None
+
 
 def get_receipt_notifier() -> ReceiptWebhookNotifier:
     """Get the singleton receipt webhook notifier."""
@@ -278,6 +283,7 @@ def get_receipt_notifier() -> ReceiptWebhookNotifier:
     if _receipt_notifier is None:
         _receipt_notifier = ReceiptWebhookNotifier()
     return _receipt_notifier
+
 
 __all__ = [
     "ReceiptWebhookPayload",

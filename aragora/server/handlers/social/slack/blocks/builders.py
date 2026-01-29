@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+
 def build_starting_blocks(
     topic: str,
     user_id: str,
@@ -70,6 +71,7 @@ def build_starting_blocks(
 
     return blocks
 
+
 def build_round_update_blocks(
     round_num: int,
     total_rounds: int,
@@ -117,6 +119,7 @@ def build_round_update_blocks(
 
     return blocks
 
+
 # Agent emoji mapping for visual distinction
 AGENT_EMOJIS = {
     "anthropic-api": ":robot_face:",
@@ -126,6 +129,7 @@ AGENT_EMOJIS = {
     "mistral": ":wind_face:",
     "deepseek": ":mag:",
 }
+
 
 def build_agent_response_blocks(
     agent: str,
@@ -168,6 +172,7 @@ def build_agent_response_blocks(
     ]
 
     return blocks
+
 
 def build_result_blocks(
     topic: str,
@@ -337,6 +342,7 @@ def build_result_blocks(
 
     return blocks
 
+
 def build_gauntlet_result_blocks(
     statement: str,
     result: Any,
@@ -448,6 +454,7 @@ def build_gauntlet_result_blocks(
 
     return blocks
 
+
 def build_search_result_blocks(
     query: str,
     results: list[dict[str, Any]],
@@ -520,6 +527,7 @@ def build_search_result_blocks(
             )
 
     return blocks
+
 
 __all__ = [
     "build_starting_blocks",

@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded job store for persistence
 _job_store = None
 
+
 def _get_job_store():
     """Get or create the job store for transcription job persistence."""
     global _job_store
@@ -43,6 +44,7 @@ def _get_job_store():
         except Exception as e:
             logger.debug(f"Job store not available: {e}")
     return _job_store
+
 
 # Rate limiters (per minute limits)
 _audio_limiter = RateLimiter(requests_per_minute=10)
@@ -58,6 +60,7 @@ VIDEO_FORMATS = {".mp4", ".mov", ".webm", ".mkv", ".avi"}
 
 # In-memory job cache (backed by durable store)
 _transcription_jobs: dict[str, dict[str, Any]] = {}
+
 
 def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
     """Save a transcription job to both memory and durable store."""
@@ -99,6 +102,7 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
                 asyncio.run(store.enqueue(job))
         except Exception as e:
             logger.debug(f"Failed to persist transcription job: {e}")
+
 
 def _get_job(job_id: str) -> Optional[dict[str, Any]]:
     """Get a transcription job from memory cache or durable store."""
@@ -142,6 +146,7 @@ def _get_job(job_id: str) -> Optional[dict[str, Any]]:
 
     return None
 
+
 def _check_transcription_available() -> tuple[bool, str | None]:
     """Check if transcription module is available."""
     try:
@@ -155,6 +160,7 @@ def _check_transcription_available() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         return False, "Transcription module not installed."
+
 
 class TranscriptionHandler(BaseHandler):
     """Handler for audio/video transcription endpoints."""

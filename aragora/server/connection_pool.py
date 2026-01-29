@@ -34,6 +34,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PoolConfig:
     """Configuration for connection pool."""
@@ -60,6 +61,7 @@ class PoolConfig:
 
     # Encoding
     decode_responses: bool = True
+
 
 @dataclass
 class PoolMetrics:
@@ -94,6 +96,7 @@ class PoolMetrics:
             "last_health_check": self.last_health_check,
         }
 
+
 def get_pool_config() -> PoolConfig:
     """Get pool configuration from environment variables."""
     return PoolConfig(
@@ -109,6 +112,7 @@ def get_pool_config() -> PoolConfig:
         max_retries=int(os.getenv("ARAGORA_POOL_MAX_RETRIES", "3")),
         retry_delay=float(os.getenv("ARAGORA_POOL_RETRY_DELAY", "0.1")),
     )
+
 
 class ConnectionPoolManager:
     """
@@ -358,23 +362,28 @@ class ConnectionPoolManager:
                     self._client = None
                     self._available = False
 
+
 # =============================================================================
 # Convenience functions
 # =============================================================================
+
 
 def get_optimized_redis_client() -> Any | None:
     """Get Redis client with optimized connection pool."""
     manager = ConnectionPoolManager.get_instance()
     return manager.get_redis_client()
 
+
 def get_pool_metrics() -> dict[str, Any]:
     """Get connection pool metrics."""
     manager = ConnectionPoolManager.get_instance()
     return manager.get_metrics()
 
+
 def close_connection_pool() -> None:
     """Close connection pool."""
     ConnectionPoolManager.reset_instance()
+
 
 __all__ = [
     "PoolConfig",

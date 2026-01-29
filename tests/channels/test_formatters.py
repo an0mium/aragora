@@ -30,14 +30,14 @@ class MockReceipt:
     verdict: str = "APPROVED"
     confidence_score: float = 0.85
     confidence: float = 0.85
-    key_arguments: List[str] | None = None
-    risks: List[str] | None = None
-    dissenting_views: List[str] | None = None
-    agents: List[str] | None = None
-    agents_involved: List[str] | None = None
+    key_arguments: list[str] | None = None
+    risks: list[str] | None = None
+    dissenting_views: list[str] | None = None
+    agents: list[str] | None = None
+    agents_involved: list[str] | None = None
     rounds: int = 3
     rounds_completed: int = 3
-    evidence: List[Dict[str, Any]] | None = None
+    evidence: list[dict[str, Any]] | None = None
     input_summary: str = "Evaluating microservices adoption"
     timestamp: str = "2024-01-15T10:30:00Z"
 
@@ -379,8 +379,8 @@ class TestFormatterRegistry:
                 return "test_channel_123"
 
             def format(
-                self, receipt: Any, options: Optional[Dict[str, Any]] = None
-            ) -> Dict[str, Any]:
+                self, receipt: Any, options: Optional[dict[str, Any]] = None
+            ) -> dict[str, Any]:
                 return {"test": True}
 
         formatter = get_formatter("test_channel_123")

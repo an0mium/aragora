@@ -21,6 +21,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
+
 class ChangeType(Enum):
     """Types of code changes."""
 
@@ -30,6 +31,7 @@ class ChangeType(Enum):
     RENAME = "rename"  # Rename file/symbol
     MOVE = "move"  # Move code to different location
     REFACTOR = "refactor"  # Restructure without behavior change
+
 
 @dataclass
 class FileContext:
@@ -46,6 +48,7 @@ class FileContext:
     functions: list[str] = field(default_factory=list)
     classes: list[str] = field(default_factory=list)
 
+
 @dataclass
 class CodeSpan:
     """A span of code in a file."""
@@ -56,6 +59,7 @@ class CodeSpan:
     content: str
     context_before: str = ""  # Lines before for context
     context_after: str = ""  # Lines after for context
+
 
 @dataclass
 class CodeChange:
@@ -85,6 +89,7 @@ class CodeChange:
     risk_level: str = "medium"  # "low", "medium", "high"
     requires_test: bool = True
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 @dataclass
 class CodeProposal:
@@ -127,6 +132,7 @@ class CodeProposal:
                 patches.append(patch)
         return "\n".join(patches)
 
+
 @dataclass
 class ValidationResult:
     """Result of validating a code proposal."""
@@ -137,6 +143,7 @@ class ValidationResult:
     warnings: list[str] = field(default_factory=list)
     test_results: dict | None = None
     lint_results: dict | None = None
+
 
 class CodeReader:
     """
@@ -343,6 +350,7 @@ class CodeReader:
 
         return classes[:30]
 
+
 class CodeWriter:
     """
     Safely applies code changes with git integration.
@@ -541,6 +549,7 @@ class CodeWriter:
             return True
         except subprocess.CalledProcessError:
             return False
+
 
 class SelfImprover:
     """

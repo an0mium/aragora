@@ -46,6 +46,7 @@ from aragora.control_plane.shared_state import (
 
 logger = logging.getLogger(__name__)
 
+
 class IntegratedControlPlane:
     """
     Unified control plane that keeps coordinator and shared state in sync.
@@ -719,8 +720,10 @@ class IntegratedControlPlane:
             },
         }
 
+
 # Module-level singleton
 _integrated: IntegratedControlPlane | None = None
+
 
 async def setup_control_plane_integration(
     config: ControlPlaneConfig | None = None,
@@ -780,6 +783,7 @@ async def setup_control_plane_integration(
     logger.info("Control plane integration set up successfully")
     return _integrated
 
+
 def get_integrated_control_plane() -> IntegratedControlPlane | None:
     """
     Get the global integrated control plane instance.
@@ -788,6 +792,7 @@ def get_integrated_control_plane() -> IntegratedControlPlane | None:
         IntegratedControlPlane or None if not initialized
     """
     return _integrated
+
 
 async def shutdown_control_plane() -> None:
     """Shutdown the global integrated control plane."""
@@ -799,6 +804,7 @@ async def shutdown_control_plane() -> None:
         await _integrated.shared_state.close()
         _integrated = None
         logger.info("Control plane integration shut down")
+
 
 __all__ = [
     "IntegratedControlPlane",

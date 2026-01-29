@@ -17,6 +17,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class DeviceType(Enum):
     """Supported device types."""
 
@@ -26,6 +27,7 @@ class DeviceType(Enum):
     ALEXA = "alexa"
     GOOGLE_HOME = "google_home"
 
+
 class NotificationPriority(Enum):
     """Notification priority levels."""
 
@@ -33,6 +35,7 @@ class NotificationPriority(Enum):
     NORMAL = "normal"
     HIGH = "high"
     URGENT = "urgent"
+
 
 class DeliveryStatus(Enum):
     """Status of notification delivery."""
@@ -43,6 +46,7 @@ class DeliveryStatus(Enum):
     FAILED = "failed"
     EXPIRED = "expired"
     INVALID_TOKEN = "invalid_token"
+
 
 @dataclass
 class DeviceToken:
@@ -105,6 +109,7 @@ class DeviceToken:
             else None,
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class DeviceMessage:
@@ -184,6 +189,7 @@ class DeviceMessage:
             mutable_content=data.get("mutable_content", False),
         )
 
+
 @dataclass
 class SendResult:
     """
@@ -222,6 +228,7 @@ class SendResult:
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
 
+
 @dataclass
 class BatchSendResult:
     """
@@ -258,6 +265,7 @@ class BatchSendResult:
             "results": [r.to_dict() for r in self.results],
             "tokens_to_remove": self.tokens_to_remove,
         }
+
 
 @dataclass
 class DeviceRegistration:
@@ -321,6 +329,7 @@ class DeviceRegistration:
             app_bundle_id=data.get("app_bundle_id"),
         )
 
+
 @dataclass
 class VoiceDeviceRequest:
     """
@@ -367,6 +376,7 @@ class VoiceDeviceRequest:
             "locale": self.locale,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class VoiceDeviceResponse:

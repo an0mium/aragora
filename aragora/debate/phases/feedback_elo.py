@@ -4,6 +4,7 @@ ELO feedback methods for FeedbackPhase.
 Extracted from feedback_phase.py for maintainability.
 Handles ELO match recording, voting accuracy, and learning bonuses.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from aragora.type_protocols import EloSystemProtocol, EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
+
 
 class EloFeedback:
     """Handles ELO-related feedback operations."""
@@ -201,5 +203,6 @@ class EloFeedback:
 
         except Exception as e:
             logger.debug(f"[learning] Learning bonus application failed: {e}")
+
 
 __all__ = ["EloFeedback"]

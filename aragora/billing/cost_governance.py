@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class CostPolicyType(str, Enum):
     """Types of cost governance policies."""
 
@@ -34,6 +35,7 @@ class CostPolicyType(str, Enum):
     OPERATION_CAP = "operation_cap"  # Cap cost per operation type
     APPROVAL_REQUIRED = "approval_required"  # Require approval for expensive ops
     TIME_RESTRICTION = "time_restriction"  # Time-based restrictions
+
 
 class CostPolicyScope(str, Enum):
     """Scope of a cost policy."""
@@ -44,6 +46,7 @@ class CostPolicyScope(str, Enum):
     USER = "user"  # Applies to specific users
     PROJECT = "project"  # Applies to specific projects
 
+
 class CostPolicyEnforcement(str, Enum):
     """Enforcement level for cost policies."""
 
@@ -51,6 +54,7 @@ class CostPolicyEnforcement(str, Enum):
     SOFT = "soft"  # Allow but log violations
     WARN = "warn"  # Warn but allow
     AUDIT = "audit"  # Only log, no enforcement
+
 
 class CostPolicyAction(str, Enum):
     """Actions when a policy is violated."""
@@ -60,6 +64,7 @@ class CostPolicyAction(str, Enum):
     DOWNGRADE = "downgrade"  # Use cheaper model
     QUEUE = "queue"  # Queue for approval
     THROTTLE = "throttle"  # Reduce priority
+
 
 @dataclass
 class ModelRestriction:
@@ -94,6 +99,7 @@ class ModelRestriction:
             allowed_operations=data.get("allowed_operations", []),
             fallback_model=data.get("fallback_model"),
         )
+
 
 @dataclass
 class SpendingLimit:
@@ -141,6 +147,7 @@ class SpendingLimit:
             hard_limit=data.get("hard_limit", True),
         )
 
+
 @dataclass
 class TimeRestriction:
     """Time-based usage restriction."""
@@ -181,6 +188,7 @@ class TimeRestriction:
             allowed_days=data.get("allowed_days", [0, 1, 2, 3, 4]),
             timezone=data.get("timezone", "UTC"),
         )
+
 
 @dataclass
 class CostGovernancePolicy:
@@ -336,6 +344,7 @@ class CostGovernancePolicy:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class PolicyEvaluationContext:
     """Context for evaluating a cost policy."""
@@ -361,6 +370,7 @@ class PolicyEvaluationContext:
     request_id: str | None = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+
 @dataclass
 class PolicyViolation:
     """A cost policy violation."""
@@ -385,6 +395,7 @@ class PolicyViolation:
             "details": self.details,
         }
 
+
 @dataclass
 class PolicyEvaluationResult:
     """Result of evaluating cost policies."""
@@ -408,6 +419,7 @@ class PolicyEvaluationResult:
             "approvers": self.approvers,
             "warnings": self.warnings,
         }
+
 
 class CostGovernanceEngine:
     """
@@ -960,6 +972,7 @@ class CostGovernanceEngine:
             pending.append(request)
 
         return pending
+
 
 # Factory function
 def create_cost_governance_engine(

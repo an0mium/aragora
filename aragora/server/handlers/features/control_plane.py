@@ -61,6 +61,7 @@ _metrics: dict[str, Any] = {
 # Shared state for multi-instance persistence (initialized lazily)
 _shared_state: Any | None = None
 
+
 def _get_shared_state() -> Any | None:
     """Get shared state if available, otherwise None."""
     global _shared_state
@@ -74,6 +75,7 @@ def _get_shared_state() -> Any | None:
         return _shared_state
     except ImportError:
         return None
+
 
 class AgentDashboardHandler(SecureHandler):
     """
@@ -681,6 +683,7 @@ class AgentDashboardHandler(SecureHandler):
             },
             "body": generator,
         }
+
 
 # Backward compatibility alias
 ControlPlaneHandler = AgentDashboardHandler

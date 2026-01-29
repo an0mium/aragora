@@ -7,6 +7,7 @@ This module extracts training data generation from FeedbackPhase:
 
 Used for Tinker integration and model fine-tuning pipelines.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
 
 class TrainingEmitter:
     """Handles training data generation and export.
@@ -330,5 +332,6 @@ class TrainingEmitter:
             )
         except (TypeError, ValueError, AttributeError, KeyError) as e:
             logger.debug("Training event emission error: %s", e)
+
 
 __all__ = ["TrainingEmitter"]

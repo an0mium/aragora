@@ -31,6 +31,7 @@ TIER_AGE_THRESHOLDS = {
     "glacial": timedelta(days=30),
 }
 
+
 @dataclass
 class StalenessConfig:
     """Configuration for staleness detection."""
@@ -57,6 +58,7 @@ class StalenessConfig:
     def __post_init__(self):
         if self.age_thresholds is None:
             self.age_thresholds = TIER_AGE_THRESHOLDS.copy()
+
 
 class StalenessDetector:
     """

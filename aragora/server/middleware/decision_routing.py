@@ -50,6 +50,7 @@ DEDUPE_WINDOW_SECONDS = 5.0
 # Response cache TTL (1 hour)
 CACHE_TTL_SECONDS = 3600.0
 
+
 @dataclass
 class RoutingContext:
     """Context for a routed request."""
@@ -74,6 +75,7 @@ class RoutingContext:
             "workspace_id": self.workspace_id,
             "metadata": self.metadata,
         }
+
 
 class RequestDeduplicator:
     """
@@ -163,6 +165,7 @@ class RequestDeduplicator:
             self._seen.pop(request_hash, None)
             self._in_flight.pop(request_hash, None)
 
+
 @dataclass
 class CacheEntry:
     """A cache entry with metadata for invalidation."""
@@ -181,6 +184,7 @@ class CacheEntry:
     def matches_workspace(self, workspace_id: str) -> bool:
         """Check if entry belongs to a workspace."""
         return self.workspace_id == workspace_id
+
 
 class ResponseCache:
     """
@@ -413,6 +417,7 @@ class ResponseCache:
                 "policy_version": self._policy_version,
                 "entries_by_workspace": workspace_counts,
             }
+
 
 class DecisionRoutingMiddleware:
     """
@@ -699,9 +704,11 @@ class DecisionRoutingMiddleware:
                 "error": str(e),
             }
 
+
 # Global middleware instance
 _middleware: DecisionRoutingMiddleware | None = None
 _middleware_lock = asyncio.Lock()
+
 
 async def get_decision_middleware() -> DecisionRoutingMiddleware:
     """Get or create the global DecisionRoutingMiddleware."""
@@ -711,6 +718,7 @@ async def get_decision_middleware() -> DecisionRoutingMiddleware:
             if _middleware is None:
                 _middleware = DecisionRoutingMiddleware()
     return _middleware
+
 
 def route_decision(
     channel: str,
@@ -770,10 +778,12 @@ def route_decision(
 
     return decorator
 
+
 def reset_decision_middleware() -> None:
     """Reset the global middleware (for testing)."""
     global _middleware
     _middleware = None
+
 
 async def invalidate_cache_for_workspace(workspace_id: str) -> int:
     """
@@ -792,6 +802,7 @@ async def invalidate_cache_for_workspace(workspace_id: str) -> int:
         return await middleware._cache.invalidate_by_workspace(workspace_id)
     return 0
 
+
 async def invalidate_cache_for_policy_change(new_policy_version: str) -> None:
     """
     Mark all cached decisions as stale due to policy change.
@@ -804,6 +815,7 @@ async def invalidate_cache_for_policy_change(new_policy_version: str) -> None:
     middleware = await get_decision_middleware()
     if middleware._cache:
         middleware._cache.set_policy_version(new_policy_version)
+
 
 async def invalidate_cache_for_agent_upgrade(agent_name: str, old_version: str) -> int:
     """
@@ -823,6 +835,7 @@ async def invalidate_cache_for_agent_upgrade(agent_name: str, old_version: str) 
         return await middleware._cache.invalidate_by_agent_version(agent_name, old_version)
     return 0
 
+
 async def get_cache_stats() -> dict[str, Any]:
     """
     Get cache statistics for monitoring.
@@ -834,6 +847,7 @@ async def get_cache_stats() -> dict[str, Any]:
     if middleware._cache:
         return await middleware._cache.get_stats()
     return {"enabled": False}
+
 
 __all__ = [
     "RoutingContext",

@@ -15,6 +15,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 class KnowledgeMixin:
     """Mixin providing Knowledge Mound health checks.
 
@@ -537,5 +538,6 @@ class KnowledgeMixin:
                 },
                 "warnings": warnings,
             }
+
 
 __all__ = ["KnowledgeMixin"]

@@ -30,6 +30,7 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 class DocumentsAPI:
     """API interface for document management and auditing."""
 

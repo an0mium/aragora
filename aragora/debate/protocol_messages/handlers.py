@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Type alias for async handlers
 AsyncHandler = Callable[[ProtocolMessage], Coroutine[Any, Any, None]]
 
+
 class ProtocolHandler(ABC):
     """
     Abstract base class for protocol message handlers.
@@ -59,6 +60,7 @@ class ProtocolHandler(ABC):
             f"Handler {self.__class__.__name__} failed for {message.message_type.value}: {error}",
             exc_info=True,
         )
+
 
 class ProtocolHandlerRegistry:
     """
@@ -274,8 +276,10 @@ class ProtocolHandlerRegistry:
         self._global_handlers.clear()
         logger.debug("Cleared all protocol handlers")
 
+
 # Default global registry
 _default_registry: ProtocolHandlerRegistry | None = None
+
 
 def get_handler_registry() -> ProtocolHandlerRegistry:
     """Get the default protocol handler registry."""
@@ -284,7 +288,9 @@ def get_handler_registry() -> ProtocolHandlerRegistry:
         _default_registry = ProtocolHandlerRegistry()
     return _default_registry
 
+
 # Decorator for registering handlers
+
 
 def handles(*message_types: ProtocolMessageType, priority: int = 100):
     """
@@ -308,7 +314,9 @@ def handles(*message_types: ProtocolMessageType, priority: int = 100):
 
     return decorator
 
+
 # Built-in handlers for common operations
+
 
 class LoggingHandler(ProtocolHandler):
     """Handler that logs all protocol messages."""
@@ -324,6 +332,7 @@ class LoggingHandler(ProtocolHandler):
             f"agent={message.agent_id or 'N/A'} | "
             f"round={message.round_number}"
         )
+
 
 class MetricsHandler(ProtocolHandler):
     """Handler that tracks protocol message metrics."""

@@ -49,6 +49,7 @@ LEADERBOARD_PERMISSION = "agents:read"
 # Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
 _leaderboard_limiter = RateLimiter(requests_per_minute=60)
 
+
 class LeaderboardViewHandler(SecureHandler):
     """Handler for consolidated leaderboard view endpoint.
 

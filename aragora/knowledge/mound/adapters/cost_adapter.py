@@ -44,12 +44,14 @@ from aragora.knowledge.mound.resilience import ResilientAdapterMixin
 
 # Import mixin for reverse flow functionality
 
+
 @dataclass
 class AlertSearchResult:
     """Wrapper for alert search results with adapter metadata."""
 
     alert: dict[str, Any]
     relevance_score: float = 0.0
+
 
 @dataclass
 class CostAnomaly:
@@ -85,6 +87,7 @@ class CostAnomaly:
             "detected_at": self.detected_at.isoformat() if self.detected_at else None,
             "metadata": self.metadata,
         }
+
 
 class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
     """
@@ -704,6 +707,7 @@ class CostAdapter(ReverseFlowMixin, ResilientAdapterMixin):
             "agents_tracked": len(self._agent_costs),
             "alert_levels": level_counts,
         }
+
 
 __all__ = [
     "CostAdapter",

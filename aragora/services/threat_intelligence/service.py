@@ -39,6 +39,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class ThreatIntelligenceService:
     """
     Unified threat intelligence service.
@@ -1589,6 +1590,7 @@ class ThreatIntelligenceService:
         if self._cache_conn:
             self._cache_conn.close()
             self._cache_conn = None
+
 
 # Convenience function for quick checks
 async def check_threat(

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AuthContext:
     """
@@ -60,8 +61,10 @@ class AuthContext:
         """Alias for authenticated."""
         return self.authenticated
 
+
 # Import utilities from auth_v2 to avoid duplication
 from .user_auth import extract_client_ip, extract_token
+
 
 def validate_token(token: str) -> bool:
     """
@@ -92,6 +95,7 @@ def validate_token(token: str) -> bool:
 
     return True
 
+
 def _extract_handler(*args, **kwargs) -> Any:
     """Extract handler from function arguments."""
     handler = kwargs.get("handler")
@@ -102,11 +106,13 @@ def _extract_handler(*args, **kwargs) -> Any:
                 break
     return handler
 
+
 def _error_response(message: str, status: int = 401) -> "HandlerResult":
     """Create an error response."""
     from aragora.server.handlers.base import error_response
 
     return error_response(message, status)
+
 
 def require_auth(func: Callable) -> Callable:
     """
@@ -156,6 +162,7 @@ def require_auth(func: Callable) -> Callable:
 
     return wrapper
 
+
 def optional_auth(func: Callable) -> Callable:
     """
     Decorator that provides optional authentication context.
@@ -195,6 +202,7 @@ def optional_auth(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
+
 
 def require_auth_or_localhost(func: Callable) -> Callable:
     """

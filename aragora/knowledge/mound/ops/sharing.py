@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SharingProtocol(Protocol):
     """Protocol defining expected interface for Sharing mixin."""
 
@@ -42,6 +43,7 @@ class SharingProtocol(Protocol):
     async def get(
         self, node_id: str, workspace_id: str | None = None
     ) -> Optional["KnowledgeItem"]: ...
+
 
 class KnowledgeSharingMixin:
     """Mixin providing cross-workspace sharing for KnowledgeMound."""

@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=dict[str, Any])
 
+
 class IterableTTLCache(Generic[T]):
     """
     TTL cache wrapper that supports iteration for inbox operations.
@@ -114,6 +115,7 @@ class IterableTTLCache(Generic[T]):
         """Get cache statistics."""
         return self._cache.stats
 
+
 # Production-ready cache for prioritized emails (Redis when available, fallback to in-memory)
 _email_cache: IterableTTLCache = IterableTTLCache(
     name="inbox_email_cache",
@@ -129,6 +131,7 @@ _priority_results: IterableTTLCache = IterableTTLCache(
 # Register underlying caches for monitoring
 register_cache("inbox_email", _email_cache._cache)
 register_cache("inbox_priority", _priority_results._cache)
+
 
 @dataclass
 class InboxCommandHandler:
@@ -1143,6 +1146,7 @@ class InboxCommandHandler:
             "changes": changes,
             "tier_used": force_tier or "auto",
         }
+
 
 def register_routes(app: web.Application) -> None:
     """Register inbox command center routes."""

@@ -58,6 +58,7 @@ GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID", "")
 CHAT_API_BASE = "https://chat.googleapis.com/v1"
 CHAT_SCOPES = ["https://www.googleapis.com/auth/chat.bot"]
 
+
 class GoogleChatConnector(ChatPlatformConnector):
     """
     Google Chat connector using Google Chat API.

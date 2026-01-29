@@ -68,6 +68,7 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 # State token storage (in production, use Redis or database)
 _oauth_states: dict[str, dict[str, Any]] = {}
 
+
 class DiscordOAuthHandler(SecureHandler):
     """Handler for Discord OAuth bot installation flow.
 
@@ -425,6 +426,7 @@ class DiscordOAuthHandler(SecureHandler):
             logger.warning("Could not deactivate guild - store unavailable")
 
         return json_response({"ok": True, "guild_id": guild_id})
+
 
 # Handler factory function for registration
 def create_discord_oauth_handler(server_context: Any) -> DiscordOAuthHandler:

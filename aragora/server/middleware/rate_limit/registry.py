@@ -20,6 +20,7 @@ from .redis_limiter import (
 
 logger = logging.getLogger(__name__)
 
+
 class RateLimiterRegistry:
     """Container for named rate limiters, managed via ServiceRegistry."""
 
@@ -209,6 +210,7 @@ class RateLimiterRegistry:
         self._default_limiter = None
         self._limiters.clear()
 
+
 def _get_limiter_registry() -> RateLimiterRegistry:
     """Get the RateLimiterRegistry from ServiceRegistry."""
     from aragora.services import ServiceRegistry
@@ -217,6 +219,7 @@ def _get_limiter_registry() -> RateLimiterRegistry:
     if not registry.has(RateLimiterRegistry):
         registry.register_factory(RateLimiterRegistry, RateLimiterRegistry)
     return registry.resolve(RateLimiterRegistry)
+
 
 def get_rate_limiter(
     name: str = "_default",
@@ -241,6 +244,7 @@ def get_rate_limiter(
 
     return limiter_registry.get(name, requests_per_minute, burst)
 
+
 def cleanup_rate_limiters(max_age_seconds: int = 300) -> int:
     """
     Cleanup all rate limiters, removing stale entries.
@@ -253,6 +257,7 @@ def cleanup_rate_limiters(max_age_seconds: int = 300) -> int:
     """
     return _get_limiter_registry().cleanup(max_age_seconds)
 
+
 def reset_rate_limiters() -> None:
     """Reset all rate limiters. Primarily for testing."""
     from aragora.services import ServiceRegistry
@@ -264,6 +269,7 @@ def reset_rate_limiters() -> None:
 
     # Also reset Redis client
     reset_redis_client()
+
 
 __all__ = [
     "RateLimiterRegistry",

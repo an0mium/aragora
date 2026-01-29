@@ -11,6 +11,7 @@ Key concepts:
 - MatrixDebateRunner: Execute debates across the matrix
 - ScenarioComparator: Analyze results across scenarios
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
 
 class ScenarioType(Enum):
     """Type of scenario variation."""
@@ -37,6 +39,7 @@ class ScenarioType(Enum):
     REGULATORY = "regulatory"  # Compliance requirements
     CUSTOM = "custom"
 
+
 class OutcomeCategory(Enum):
     """Category of debate outcome."""
 
@@ -44,6 +47,7 @@ class OutcomeCategory(Enum):
     CONDITIONAL = "conditional"  # Conclusion depends on scenario
     DIVERGENT = "divergent"  # Different conclusions
     INCONCLUSIVE = "inconclusive"  # No clear pattern
+
 
 @dataclass
 class Scenario:
@@ -122,6 +126,7 @@ class Scenario:
 
         return context
 
+
 @dataclass
 class ScenarioResult:
     """Result of a debate under a specific scenario."""
@@ -151,6 +156,7 @@ class ScenarioResult:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ScenarioComparison:
     """Comparison between two scenario results."""
@@ -163,6 +169,7 @@ class ScenarioComparison:
     shared_claims: list[str] = field(default_factory=list)
     unique_to_a: list[str] = field(default_factory=list)
     unique_to_b: list[str] = field(default_factory=list)
+
 
 @dataclass
 class MatrixResult:
@@ -210,6 +217,7 @@ class MatrixResult:
             "summary": self.summary,
             "recommendations": self.recommendations,
         }
+
 
 class ScenarioMatrix:
     """
@@ -339,6 +347,7 @@ class ScenarioMatrix:
             matrix.add_dimension("time", ["short", "long"])
 
         return matrix.generate_grid()
+
 
 class ScenarioComparator:
     """Compare and analyze results across scenarios."""
@@ -504,6 +513,7 @@ class ScenarioComparator:
 
         return "\n".join(lines)
 
+
 class MatrixDebateRunner:
     """
     Run debates across a scenario matrix.
@@ -645,7 +655,9 @@ class MatrixDebateRunner:
                 metadata={"error": str(e), "error_type": "unexpected"},
             )
 
+
 # Convenience functions for common scenario patterns
+
 
 def create_scale_scenarios() -> list[Scenario]:
     """Create scenarios for different scales."""
@@ -676,6 +688,7 @@ def create_scale_scenarios() -> list[Scenario]:
         ),
     ]
 
+
 def create_risk_scenarios() -> list[Scenario]:
     """Create scenarios for different risk tolerances."""
     return [
@@ -702,6 +715,7 @@ def create_risk_scenarios() -> list[Scenario]:
             assumptions=["Prioritize innovation", "Accept higher failure rate"],
         ),
     ]
+
 
 def create_time_horizon_scenarios() -> list[Scenario]:
     """Create scenarios for different time horizons."""

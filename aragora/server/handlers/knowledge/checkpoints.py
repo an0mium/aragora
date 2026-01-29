@@ -37,6 +37,7 @@ from aragora.observability.metrics import (
 )
 from aragora.observability.metrics.slo import check_and_record_slo
 
+
 # Protocol for the checkpoint store's extended interface
 # This documents the methods used by the handler, even if the underlying
 # implementation may have different signatures
@@ -64,6 +65,7 @@ class CheckpointStoreProtocol(Protocol):
         self, checkpoint_a: str, checkpoint_b: str
     ) -> dict[str, Any] | None: ...
 
+
 # Protocol for restore result objects
 class RestoreResultProtocol(Protocol):
     """Protocol for checkpoint restore result."""
@@ -72,6 +74,7 @@ class RestoreResultProtocol(Protocol):
     nodes_restored: int
     nodes_skipped: int
     errors: list[str]
+
 
 # RBAC imports with fallback for backwards compatibility
 try:
@@ -89,6 +92,7 @@ _checkpoint_limiter = RateLimiter(requests_per_minute=20)
 
 # More restrictive rate limiter for write operations (5 per minute)
 _checkpoint_write_limiter = RateLimiter(requests_per_minute=5)
+
 
 class KMCheckpointHandler(BaseHandler):
     """Handler for Knowledge Mound checkpoint management endpoints."""

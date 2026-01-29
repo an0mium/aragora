@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 # Types and Enums
 # =============================================================================
 
+
 class SecretType(Enum):
     """Types of secrets that can be rotated."""
 
@@ -63,6 +64,7 @@ class SecretType(Enum):
     WEBHOOK_SECRET = "webhook_secret"
     SERVICE_ACCOUNT = "service_account"
 
+
 class RotationStatus(Enum):
     """Status of a rotation operation."""
 
@@ -73,6 +75,7 @@ class RotationStatus(Enum):
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
 
+
 class RotationTrigger(Enum):
     """What triggered a rotation."""
 
@@ -81,6 +84,7 @@ class RotationTrigger(Enum):
     EXPIRATION = "expiration"
     COMPROMISE = "compromise"
     POLICY = "policy"
+
 
 @dataclass
 class SecretMetadata:
@@ -97,6 +101,7 @@ class SecretMetadata:
     owner: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
     is_active: bool = True
+
 
 @dataclass
 class RotationResult:
@@ -149,9 +154,11 @@ class RotationResult:
             "notes": self.notes,
         }
 
+
 # =============================================================================
 # Configuration
 # =============================================================================
+
 
 @dataclass
 class SecretsRotationConfig:
@@ -181,9 +188,11 @@ class SecretsRotationConfig:
     # Storage
     storage_path: str | None = None
 
+
 # =============================================================================
 # Storage Layer
 # =============================================================================
+
 
 class SecretsRotationStorage:
     """SQLite-backed storage for secrets rotation."""
@@ -524,9 +533,11 @@ class SecretsRotationStorage:
             for row in rows
         ]
 
+
 # =============================================================================
 # Secrets Rotation Scheduler
 # =============================================================================
+
 
 class SecretsRotationScheduler:
     """Main secrets rotation scheduler and executor."""
@@ -943,12 +954,14 @@ class SecretsRotationScheduler:
             },
         }
 
+
 # =============================================================================
 # Global Instance
 # =============================================================================
 
 _scheduler: SecretsRotationScheduler | None = None
 _scheduler_lock = threading.Lock()
+
 
 def get_secrets_rotation_scheduler(
     config: SecretsRotationConfig | None = None,
@@ -959,6 +972,7 @@ def get_secrets_rotation_scheduler(
         if _scheduler is None:
             _scheduler = SecretsRotationScheduler(config)
         return _scheduler
+
 
 async def rotate_secret(
     secret_type: SecretType,
@@ -971,6 +985,7 @@ async def rotate_secret(
         secret_id=secret_id,
         trigger=trigger,
     )
+
 
 __all__ = [
     # Types

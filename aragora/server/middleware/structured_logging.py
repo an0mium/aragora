@@ -135,6 +135,7 @@ SECRET_VALUE_PATTERNS = [
     re.compile(r"https?://[^:]+:[^@]+@"),
 ]
 
+
 def _contains_secret_pattern(value: str) -> bool:
     """Check if a string value matches any secret pattern.
 
@@ -150,6 +151,7 @@ def _contains_secret_pattern(value: str) -> bool:
         if pattern.search(value):
             return True
     return False
+
 
 def redact_string(value: str) -> str:
     """Redact secrets from a string value.
@@ -170,6 +172,7 @@ def redact_string(value: str) -> str:
             return f"{value[:4]}...{value[-4:]}[REDACTED]"
         return "[REDACTED]"
     return value
+
 
 @dataclass
 class LogContext:
@@ -201,6 +204,7 @@ class LogContext:
         if self.extra:
             result.update(self.extra)
         return result
+
 
 def redact_sensitive(data: dict[str, Any], depth: int = 0) -> dict[str, Any]:
     """Recursively redact sensitive fields from a dictionary.
@@ -240,6 +244,7 @@ def redact_sensitive(data: dict[str, Any], depth: int = 0) -> dict[str, Any]:
         else:
             result[key] = value
     return result
+
 
 class JsonFormatter(logging.Formatter):
     """JSON log formatter for structured logging.
@@ -349,6 +354,7 @@ class JsonFormatter(logging.Formatter):
 
         return json.dumps(log_entry, default=str)
 
+
 class TextFormatter(logging.Formatter):
     """Enhanced text formatter with context injection.
 
@@ -419,6 +425,7 @@ class TextFormatter(logging.Formatter):
 
         return message
 
+
 def configure_structured_logging(
     level: str = LOG_LEVEL,
     json_output: bool | None = None,
@@ -469,6 +476,7 @@ def configure_structured_logging(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
+
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name.
 
@@ -479,6 +487,7 @@ def get_logger(name: str) -> logging.Logger:
         Logger instance
     """
     return logging.getLogger(name)
+
 
 @contextmanager
 def log_context(**kwargs: Any) -> Generator[None, None, None]:
@@ -501,6 +510,7 @@ def log_context(**kwargs: Any) -> Generator[None, None, None]:
     finally:
         _log_context.reset(token)
 
+
 def set_log_context(**kwargs: Any) -> None:
     """Set log context fields (persists until explicitly changed).
 
@@ -511,9 +521,11 @@ def set_log_context(**kwargs: Any) -> None:
     current.update(kwargs)
     _log_context.set(current)
 
+
 def clear_log_context() -> None:
     """Clear all log context fields."""
     _log_context.set({})
+
 
 def get_log_context() -> dict[str, Any]:
     """Get current log context.
@@ -522,6 +534,7 @@ def get_log_context() -> dict[str, Any]:
         Dictionary of current context fields
     """
     return _log_context.get().copy()
+
 
 class RequestLoggingMiddleware:
     """Middleware for logging HTTP requests with structured format.
@@ -679,6 +692,7 @@ class RequestLoggingMiddleware:
             exc_info=True,
         )
 
+
 # Convenience function for quick logging setup
 def setup_logging(json_output: bool = True, level: str = "INFO") -> None:
     """Quick logging setup for production.
@@ -688,6 +702,7 @@ def setup_logging(json_output: bool = True, level: str = "INFO") -> None:
         level: Log level
     """
     configure_structured_logging(level=level, json_output=json_output)
+
 
 __all__ = [
     "configure_structured_logging",

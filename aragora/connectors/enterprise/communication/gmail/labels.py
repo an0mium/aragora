@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
 
@@ -34,6 +35,7 @@ class GmailBaseMethods(Protocol):
     def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
+
 
 class GmailLabelsMixin(GmailBaseMethods):
     """Mixin providing label management and message action operations."""

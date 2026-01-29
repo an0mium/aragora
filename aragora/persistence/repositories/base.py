@@ -30,6 +30,7 @@ _SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 # Maximum length for SQL identifiers (SQLite limit is 255, we use 128 for safety)
 _MAX_IDENTIFIER_LENGTH = 128
 
+
 def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
     """
     Validate and return a safe SQL identifier.
@@ -81,6 +82,7 @@ def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
 
     return name
 
+
 def _validate_where_clause(where: str) -> str:
     """
     Validate a WHERE clause for basic safety.
@@ -123,13 +125,16 @@ def _validate_where_clause(where: str) -> str:
 
     return where
 
+
 # Type variable for entities
 T = TypeVar("T")
+
 
 class RepositoryError(Exception):
     """Base exception for repository errors."""
 
     pass
+
 
 class EntityNotFoundError(RepositoryError):
     """Raised when an entity is not found."""
@@ -138,6 +143,7 @@ class EntityNotFoundError(RepositoryError):
         self.entity_type = entity_type
         self.entity_id = entity_id
         super().__init__(f"{entity_type} not found: {entity_id}")
+
 
 class BaseRepository(ABC, Generic[T]):
     """

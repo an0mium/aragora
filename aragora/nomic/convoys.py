@@ -26,6 +26,7 @@ Usage:
     # Track progress
     status = await manager.get_convoy_progress(convoy.id)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,6 +43,7 @@ from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadT
 
 logger = logging.getLogger(__name__)
 
+
 class ConvoyStatus(str, Enum):
     """Lifecycle status of a convoy."""
 
@@ -52,6 +54,7 @@ class ConvoyStatus(str, Enum):
     CANCELLED = "cancelled"  # Convoy cancelled
     PARTIAL = "partial"  # Some beads completed, some failed
 
+
 class ConvoyPriority(int, Enum):
     """Priority levels for convoys."""
 
@@ -59,6 +62,7 @@ class ConvoyPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     URGENT = 100
+
 
 @dataclass
 class ConvoyProgress:
@@ -75,6 +79,7 @@ class ConvoyProgress:
     def is_complete(self) -> bool:
         """Check if convoy is complete (all beads finished)."""
         return self.pending_beads == 0 and self.running_beads == 0
+
 
 @dataclass
 class Convoy:
@@ -182,6 +187,7 @@ class Convoy:
     def can_start(self, completed_convoy_ids: set[str]) -> bool:
         """Check if this convoy can start (all dependencies completed)."""
         return all(dep_id in completed_convoy_ids for dep_id in self.dependencies)
+
 
 class ConvoyManager:
     """
@@ -577,8 +583,10 @@ class ConvoyManager:
             "avg_beads_per_convoy": total_beads / len(convoys) if convoys else 0,
         }
 
+
 # Singleton instance
 _default_manager: ConvoyManager | None = None
+
 
 async def get_convoy_manager(bead_store: BeadStore) -> ConvoyManager:
     """Get the default convoy manager instance."""
@@ -587,6 +595,7 @@ async def get_convoy_manager(bead_store: BeadStore) -> ConvoyManager:
         _default_manager = ConvoyManager(bead_store)
         await _default_manager.initialize()
     return _default_manager
+
 
 def reset_convoy_manager() -> None:
     """Reset the default manager (for testing)."""

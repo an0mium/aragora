@@ -33,9 +33,9 @@ class MockRedis:
     """Mock Redis client for testing distributed scenarios."""
 
     def __init__(self):
-        self._data: Dict[str, Any] = {}
-        self._hashes: Dict[str, Dict[str, str]] = {}
-        self._ttls: Dict[str, float] = {}
+        self._data: dict[str, Any] = {}
+        self._hashes: dict[str, dict[str, str]] = {}
+        self._ttls: dict[str, float] = {}
         self._available = True
         self._fail_count = 0
         self._max_failures = 0
@@ -97,7 +97,7 @@ class MockRedis:
         name: str,
         key: Optional[str] = None,
         value: Optional[str] = None,
-        mapping: Optional[Dict[str, str]] = None,
+        mapping: Optional[dict[str, str]] = None,
     ) -> int:
         self._check_fail()
         if name not in self._hashes:
@@ -110,7 +110,7 @@ class MockRedis:
             return 1
         return 0
 
-    def hgetall(self, name: str) -> Dict[str, str]:
+    def hgetall(self, name: str) -> dict[str, str]:
         self._check_fail()
         return self._hashes.get(name, {})
 
@@ -131,14 +131,14 @@ class MockPipeline:
 
     def __init__(self, redis: MockRedis):
         self._redis = redis
-        self._commands: List[tuple] = []
+        self._commands: list[tuple] = []
 
     def hset(
         self,
         name: str,
         key: Optional[str] = None,
         value: Optional[str] = None,
-        mapping: Optional[Dict[str, str]] = None,
+        mapping: Optional[dict[str, str]] = None,
     ) -> "MockPipeline":
         self._commands.append(("hset", (name,), {"key": key, "value": value, "mapping": mapping}))
         return self
@@ -151,7 +151,7 @@ class MockPipeline:
         self._commands.append(("incr", (key,), {}))
         return self
 
-    def execute(self) -> List[Any]:
+    def execute(self) -> list[Any]:
         results = []
         for cmd, args, kwargs in self._commands:
             method = getattr(self._redis, cmd)

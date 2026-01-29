@@ -7,6 +7,7 @@ Provides a mixin class that handles:
 - ArgumentCartographer updates
 - Moment event emission
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from aragora.visualization.mapper import ArgumentCartographer
 
 logger = logging.getLogger(__name__)
+
 
 class SpectatorMixin:
     """Mixin providing spectator event emission capabilities.

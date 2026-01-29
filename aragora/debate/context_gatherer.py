@@ -70,6 +70,7 @@ except ImportError:
     THREAT_INTEL_ENABLED = False
     ThreatIntelEnrichment = None  # type: ignore[misc,assignment]
 
+
 class ContextGatherer:
     """
     Gathers context from multiple sources for debate grounding.

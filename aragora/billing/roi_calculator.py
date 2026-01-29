@@ -19,6 +19,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class IndustryBenchmark(str, Enum):
     """Industry benchmarks for decision-making costs."""
 
@@ -27,6 +28,7 @@ class IndustryBenchmark(str, Enum):
     ENTERPRISE = "enterprise"
     SME = "sme"
     CONSULTING = "consulting"
+
 
 # Industry benchmark data (avg cost per decision in USD)
 BENCHMARK_COSTS: dict[IndustryBenchmark, dict[str, Any]] = {
@@ -55,6 +57,7 @@ BENCHMARK_COSTS: dict[IndustryBenchmark, dict[str, Any]] = {
         "hourly_rate_usd": Decimal("200"),
     },
 }
+
 
 @dataclass
 class ROIMetrics:
@@ -135,6 +138,7 @@ class ROIMetrics:
             },
         }
 
+
 @dataclass
 class DebateROIInput:
     """Input data for a single debate's ROI calculation."""
@@ -147,6 +151,7 @@ class DebateROIInput:
     agent_count: int = 0
     round_count: int = 0
     completed: bool = False
+
 
 class ROICalculator:
     """
@@ -428,8 +433,10 @@ class ROICalculator:
             "current_selection": self._benchmark.value,
         }
 
+
 # Global calculator instance with SME defaults
 _roi_calculator: ROICalculator | None = None
+
 
 def get_roi_calculator(
     benchmark: IndustryBenchmark = IndustryBenchmark.SME,
@@ -439,6 +446,7 @@ def get_roi_calculator(
     if _roi_calculator is None or _roi_calculator._benchmark != benchmark:
         _roi_calculator = ROICalculator(benchmark=benchmark)
     return _roi_calculator
+
 
 __all__ = [
     "ROICalculator",

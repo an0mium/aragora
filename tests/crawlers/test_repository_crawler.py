@@ -317,7 +317,7 @@ class Service:
     @pytest.mark.asyncio
     async def test_crawl_repository(self, crawler, test_repo):
         """Test crawling a repository."""
-        results: List[CrawlResult] = []
+        results: list[CrawlResult] = []
 
         async for result in crawler.crawl(str(test_repo)):
             results.append(result)

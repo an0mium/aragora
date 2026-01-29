@@ -4,6 +4,7 @@ Database utility functions for safe query operations.
 Provides helper functions to prevent common database access errors
 like NoneType subscripting when queries return empty results.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
 ]
 
 from typing import Any
+
 
 def fetch_scalar(cursor: Any, default: Any = 0) -> Any:
     """
@@ -37,6 +39,7 @@ def fetch_scalar(cursor: Any, default: Any = 0) -> Any:
     row = cursor.fetchone()
     return row[0] if row else default
 
+
 def fetch_scalar_or_none(cursor: Any) -> Any | None:
     """
     Fetch a single scalar value, returning None if no rows.
@@ -51,6 +54,7 @@ def fetch_scalar_or_none(cursor: Any) -> Any | None:
     """
     row = cursor.fetchone()
     return row[0] if row else None
+
 
 def fetch_row_or_default(cursor: Any, default: tuple[Any, ...] = ()) -> tuple[Any, ...]:
     """

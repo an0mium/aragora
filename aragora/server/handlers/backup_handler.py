@@ -40,6 +40,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class BackupHandler(BaseHandler):
     """
     HTTP handler for backup and disaster recovery operations.
@@ -460,6 +461,7 @@ class BackupHandler(BaseHandler):
             pass
 
         return None
+
 
 # Handler factory function for registration
 def create_backup_handler(server_context: ServerContext) -> BackupHandler:

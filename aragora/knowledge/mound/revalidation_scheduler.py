@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class RevalidationScheduler:
     """
     Background scheduler for automatic knowledge revalidation.
@@ -307,6 +308,7 @@ class RevalidationScheduler:
             "pending_revalidations": len(self._pending_revalidations),
         }
 
+
 # Task handler for processing revalidation tasks
 async def handle_revalidation_task(
     task_payload: dict[str, Any],
@@ -371,6 +373,7 @@ async def handle_revalidation_task(
     except Exception as e:
         logger.exception(f"Unexpected revalidation failure for {node_id}: {e}")
         return {"success": False, "error": str(e)}
+
 
 async def _revalidate_via_debate(
     node_id: str,
@@ -483,6 +486,7 @@ async def _revalidate_via_debate(
             "error": str(e),
         }
 
+
 async def _revalidate_via_evidence(
     node_id: str,
     payload: dict[str, Any],
@@ -531,6 +535,7 @@ async def _revalidate_via_evidence(
             "success": False,
             "error": f"Unexpected evidence collection error: {e}",
         }
+
 
 async def _flag_for_expert_review(
     node_id: str,

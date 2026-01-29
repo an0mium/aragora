@@ -6,6 +6,7 @@ Provides commands for:
 - Scheduling training jobs
 - Managing trained models
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +18,7 @@ app = typer.Typer(
     name="training",
     help="Tinker training operations for fine-tuning models on Aragora debate data",
 )
+
 
 @app.command("export-sft")
 def export_sft(
@@ -44,6 +46,7 @@ def export_sft(
     typer.echo(f"Exported {metadata.total_records} SFT records to {output}")
     typer.echo(f"Filters: confidence >= {min_confidence}, success_rate >= {min_success_rate}")
 
+
 @app.command("export-dpo")
 def export_dpo(
     output: str = typer.Option(
@@ -67,6 +70,7 @@ def export_dpo(
     typer.echo(f"Exported {metadata.total_records} DPO records to {output}")
     typer.echo(f"Filters: elo_diff >= {min_elo_difference}, debates >= {min_debates}")
 
+
 @app.command("export-gauntlet")
 def export_gauntlet(
     output: str = typer.Option(
@@ -86,6 +90,7 @@ def export_gauntlet(
     )
 
     typer.echo(f"Exported {metadata.total_records} Gauntlet records to {output}")
+
 
 @app.command("export-all")
 def export_all(
@@ -124,6 +129,7 @@ def export_all(
     typer.echo(f"  - DPO: {dpo_metadata.total_records} records")
     typer.echo(f"  - Gauntlet: {gauntlet_metadata.total_records} records")
 
+
 @app.command("test-connection")
 def test_connection():
     """Test connection to Tinker API."""
@@ -148,6 +154,7 @@ def test_connection():
             await client.close()
 
     asyncio.run(_test())
+
 
 @app.command("train-sft")
 def train_sft(
@@ -193,6 +200,7 @@ def train_sft(
 
     asyncio.run(_train())
 
+
 @app.command("train-dpo")
 def train_dpo(
     model: str = typer.Option("llama-3.3-70b", "--model", help="Base model to fine-tune"),
@@ -236,6 +244,7 @@ def train_dpo(
 
     asyncio.run(_train())
 
+
 @app.command("train-combined")
 def train_combined(
     model: str = typer.Option("llama-3.3-70b", "--model", help="Base model to fine-tune"),
@@ -278,6 +287,7 @@ def train_combined(
 
     asyncio.run(_train())
 
+
 @app.command("list-models")
 def list_models():
     """List available fine-tuned models."""
@@ -304,6 +314,7 @@ def list_models():
 
     asyncio.run(_list())
 
+
 @app.command("sample")
 def sample(
     prompt: str = typer.Argument(..., help="Prompt to generate from"),
@@ -329,6 +340,7 @@ def sample(
             await client.close()
 
     asyncio.run(_sample())
+
 
 @app.command("stats")
 def show_stats():
@@ -363,6 +375,7 @@ def show_stats():
         typer.echo("\nPatterns by Type:")
         for ptype, count in sorted(patterns_by_type.items(), key=lambda x: -x[1]):
             typer.echo(f"  {ptype}: {count}")
+
 
 if __name__ == "__main__":
     app()

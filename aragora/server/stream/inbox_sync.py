@@ -8,6 +8,7 @@ Provides real-time sync progress updates for Gmail inbox synchronization:
 - inbox_sync_error: Sync failed with error
 - new_priority_email: High-priority email detected
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+
 class InboxSyncEventType(str, Enum):
     """Types of inbox sync events."""
 
@@ -28,6 +30,7 @@ class InboxSyncEventType(str, Enum):
     SYNC_COMPLETE = "inbox_sync_complete"
     SYNC_ERROR = "inbox_sync_error"
     NEW_PRIORITY_EMAIL = "new_priority_email"
+
 
 @dataclass
 class InboxSyncEvent:
@@ -52,6 +55,7 @@ class InboxSyncEvent:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
+
 
 class InboxSyncEmitter:
     """
@@ -229,8 +233,10 @@ class InboxSyncEmitter:
         if callback in self._event_callbacks:
             self._event_callbacks.remove(callback)
 
+
 # Global emitter instance
 _inbox_sync_emitter: InboxSyncEmitter | None = None
+
 
 def get_inbox_sync_emitter() -> InboxSyncEmitter:
     """Get the global inbox sync emitter instance."""
@@ -239,22 +245,27 @@ def get_inbox_sync_emitter() -> InboxSyncEmitter:
         _inbox_sync_emitter = InboxSyncEmitter()
     return _inbox_sync_emitter
 
+
 # Convenience functions for direct usage
 async def emit_sync_start(user_id: str, **kwargs) -> int:
     """Emit sync start event."""
     return await get_inbox_sync_emitter().emit_sync_start(user_id, **kwargs)
 
+
 async def emit_sync_progress(user_id: str, **kwargs) -> int:
     """Emit sync progress event."""
     return await get_inbox_sync_emitter().emit_sync_progress(user_id, **kwargs)
+
 
 async def emit_sync_complete(user_id: str, messages_synced: int) -> int:
     """Emit sync complete event."""
     return await get_inbox_sync_emitter().emit_sync_complete(user_id, messages_synced)
 
+
 async def emit_sync_error(user_id: str, error: str) -> int:
     """Emit sync error event."""
     return await get_inbox_sync_emitter().emit_sync_error(user_id, error)
+
 
 async def emit_new_priority_email(
     user_id: str,

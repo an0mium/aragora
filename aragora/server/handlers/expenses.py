@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 _expense_tracker: Any | None = None
 _expense_tracker_lock = threading.Lock()
 
+
 def get_expense_tracker():
     """Get or create expense tracker (thread-safe singleton)."""
     global _expense_tracker
@@ -61,9 +62,11 @@ def get_expense_tracker():
             _expense_tracker = ExpenseTracker()
         return _expense_tracker
 
+
 # =============================================================================
 # Receipt Upload and Processing
 # =============================================================================
+
 
 @require_permission("expenses:write")
 async def handle_upload_receipt(
@@ -123,9 +126,11 @@ async def handle_upload_receipt(
         logger.exception("Error processing receipt")
         return error_response(f"Failed to process receipt: {e}", status=500)
 
+
 # =============================================================================
 # Expense CRUD Operations
 # =============================================================================
+
 
 @require_permission("expenses:write")
 async def handle_create_expense(
@@ -218,6 +223,7 @@ async def handle_create_expense(
         logger.exception("Error creating expense")
         return error_response(f"Failed to create expense: {e}", status=500)
 
+
 @require_permission("expenses:read")
 async def handle_list_expenses(
     query_params: dict[str, Any],
@@ -302,6 +308,7 @@ async def handle_list_expenses(
         logger.exception("Error listing expenses")
         return error_response(f"Failed to list expenses: {e}", status=500)
 
+
 @require_permission("expenses:read")
 async def handle_get_expense(
     expense_id: str,
@@ -324,6 +331,7 @@ async def handle_get_expense(
     except Exception as e:
         logger.exception("Error getting expense")
         return error_response(f"Failed to get expense: {e}", status=500)
+
 
 @require_permission("expenses:write")
 async def handle_update_expense(
@@ -392,6 +400,7 @@ async def handle_update_expense(
         logger.exception("Error updating expense")
         return error_response(f"Failed to update expense: {e}", status=500)
 
+
 @require_permission("admin:audit")
 async def handle_delete_expense(
     expense_id: str,
@@ -415,9 +424,11 @@ async def handle_delete_expense(
         logger.exception("Error deleting expense")
         return error_response(f"Failed to delete expense: {e}", status=500)
 
+
 # =============================================================================
 # Approval Workflow
 # =============================================================================
+
 
 @require_permission("expenses:approve")
 async def handle_approve_expense(
@@ -446,6 +457,7 @@ async def handle_approve_expense(
     except Exception as e:
         logger.exception("Error approving expense")
         return error_response(f"Failed to approve expense: {e}", status=500)
+
 
 @require_permission("expenses:approve")
 async def handle_reject_expense(
@@ -480,6 +492,7 @@ async def handle_reject_expense(
         logger.exception("Error rejecting expense")
         return error_response(f"Failed to reject expense: {e}", status=500)
 
+
 @require_permission("expenses:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -505,9 +518,11 @@ async def handle_get_pending_approvals(
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
+
 # =============================================================================
 # Categorization
 # =============================================================================
+
 
 @require_permission("expenses:write")
 async def handle_categorize_expenses(
@@ -548,9 +563,11 @@ async def handle_categorize_expenses(
         logger.exception("Error categorizing expenses")
         return error_response(f"Failed to categorize expenses: {e}", status=500)
 
+
 # =============================================================================
 # QBO Sync
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_sync_to_qbo(
@@ -590,9 +607,11 @@ async def handle_sync_to_qbo(
         logger.exception("Error syncing to QBO")
         return error_response(f"Failed to sync to QBO: {e}", status=500)
 
+
 # =============================================================================
 # Statistics and Export
 # =============================================================================
+
 
 @require_permission("expenses:read")
 async def handle_get_expense_stats(
@@ -639,6 +658,7 @@ async def handle_get_expense_stats(
     except Exception as e:
         logger.exception("Error getting expense stats")
         return error_response(f"Failed to get expense stats: {e}", status=500)
+
 
 @require_permission("admin:audit")
 async def handle_export_expenses(
@@ -694,9 +714,11 @@ async def handle_export_expenses(
         logger.exception("Error exporting expenses")
         return error_response(f"Failed to export expenses: {e}", status=500)
 
+
 # =============================================================================
 # Handler Class for Router Registration
 # =============================================================================
+
 
 class ExpenseHandler(BaseHandler):
     """Handler for expense-related routes."""

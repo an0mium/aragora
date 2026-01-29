@@ -36,12 +36,14 @@ if TYPE_CHECKING:
 # Type Protocols for External Connectors
 # =============================================================================
 
+
 class ConfluenceConnectorProtocol(Protocol):
     """Protocol for Confluence connector with page content fetching."""
 
     async def get_page_content(self, page_id: str) -> str | None:
         """Fetch content from a Confluence page."""
         ...
+
 
 class GitHubConnectorProtocol(Protocol):
     """Protocol for GitHub connector with PR/issue content fetching."""
@@ -54,12 +56,14 @@ class GitHubConnectorProtocol(Protocol):
         """Fetch content from a GitHub issue."""
         ...
 
+
 class JiraConnectorProtocol(Protocol):
     """Protocol for Jira connector with issue fetching."""
 
     async def get_issue(self, issue_key: str) -> Optional[dict[str, Any]]:
         """Fetch a Jira issue."""
         ...
+
 
 class EmailSenderProtocol(Protocol):
     """Protocol for email sending function."""
@@ -68,12 +72,14 @@ class EmailSenderProtocol(Protocol):
         """Send an email."""
         ...
 
+
 class KnowledgeMoundProtocol(Protocol):
     """Protocol for Knowledge Mound search interface."""
 
     async def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search the knowledge mound."""
         ...
+
 
 # Type alias for recommend_agents function
 RecommendAgentsFunc = Callable[[str], "Any"]
@@ -92,6 +98,7 @@ logger = logging.getLogger(__name__)
 # Data Models
 # =============================================================================
 
+
 class TeamStrategy(Enum):
     """Strategy for selecting the agent team."""
 
@@ -101,6 +108,7 @@ class TeamStrategy(Enum):
     FAST = "fast"  # Optimize for speed
     RANDOM = "random"  # Random selection
 
+
 class OutputFormat(Enum):
     """Format for vetted decisionmaking output."""
 
@@ -109,6 +117,7 @@ class OutputFormat(Enum):
     SUMMARY = "summary"  # Condensed summary
     GITHUB_REVIEW = "github_review"  # GitHub PR review format
     SLACK_MESSAGE = "slack_message"  # Slack-formatted message
+
 
 @dataclass
 class KnowledgeContextSource:
@@ -126,6 +135,7 @@ class KnowledgeContextSource:
             return cls(source_type="document", source_id=source_str)
         parts = source_str.split(":", 1)
         return cls(source_type=parts[0], source_id=parts[1])
+
 
 @dataclass
 class OutputChannel:
@@ -160,6 +170,7 @@ class OutputChannel:
             return cls(channel_type=channel_type, channel_id=id_parts[0], thread_id=id_parts[1])
 
         return cls(channel_type=channel_type, channel_id=remaining)
+
 
 @dataclass
 class OrchestrationRequest:
@@ -253,6 +264,7 @@ class OrchestrationRequest:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class OrchestrationResult:
     """Result of a unified orchestration vetted decisionmaking session."""
@@ -288,6 +300,7 @@ class OrchestrationResult:
             "error": self.error,
             "created_at": self.created_at,
         }
+
 
 # =============================================================================
 # Deliberation Templates - Import from templates module
@@ -371,6 +384,7 @@ _orchestration_results: dict[str, OrchestrationResult] = {}
 # =============================================================================
 # Handler Implementation
 # =============================================================================
+
 
 class OrchestrationHandler(SecureHandler):
     """
@@ -1053,6 +1067,7 @@ class OrchestrationHandler(SecureHandler):
                         logger.warning(f"Webhook returned {response.status}")
         except Exception as e:
             logger.warning(f"Failed to send to webhook: {e}")
+
 
 # =============================================================================
 # Module Exports

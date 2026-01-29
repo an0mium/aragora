@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Directory containing preset YAML files
 PRESETS_DIR = Path(__file__).parent
 
+
 def list_presets() -> list[str]:
     """
     List all available workflow presets.
@@ -45,6 +46,7 @@ def list_presets() -> list[str]:
         List of preset names (without .yaml extension)
     """
     return [f.stem for f in PRESETS_DIR.glob("*.yaml") if not f.name.startswith("_")]
+
 
 def load_preset(
     name: str,
@@ -83,6 +85,7 @@ def load_preset(
     # Convert to WorkflowDefinition
     return _parse_workflow_definition(preset_data)
 
+
 def get_preset_info(name: str) -> dict[str, Any]:
     """
     Get metadata about a preset without fully loading it.
@@ -111,6 +114,7 @@ def get_preset_info(name: str) -> dict[str, Any]:
         "step_count": len(preset_data.get("steps", [])),
     }
 
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Deep merge two dictionaries."""
     result = base.copy()
@@ -120,6 +124,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
         else:
             result[key] = value
     return result
+
 
 def _parse_workflow_definition(data: dict[str, Any]) -> WorkflowDefinition:
     """Parse YAML data into WorkflowDefinition."""
@@ -172,6 +177,7 @@ def _parse_workflow_definition(data: dict[str, Any]) -> WorkflowDefinition:
         entry_step=data.get("entry_point", steps[0].id if steps else ""),
         metadata=data.get("metadata", {}),
     )
+
 
 __all__ = [
     "list_presets",

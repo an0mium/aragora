@@ -42,7 +42,7 @@ class MockSpendResult:
     overage_amount_usd: float = 0.0
     overage_rate_multiplier: float = 1.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "allowed": self.allowed,
             "message": self.message,
@@ -74,8 +74,8 @@ class MockBudget:
     created_at: float = 1700000000.0
     updated_at: float = 1700000000.0
     created_by: Optional[str] = "user-123"
-    thresholds: List[Dict[str, Any]] = field(default_factory=list)
-    override_user_ids: List[str] = field(default_factory=list)
+    thresholds: list[dict[str, Any]] = field(default_factory=list)
+    override_user_ids: list[str] = field(default_factory=list)
     override_until: Optional[float] = None
 
     @property
@@ -104,7 +104,7 @@ class MockBudget:
             )
         return MockSpendResult(allowed=True, message="OK")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "budget_id": self.budget_id,
             "org_id": self.org_id,
@@ -142,7 +142,7 @@ class MockBudgetAlert:
     acknowledged_at: Optional[float] = None
     acknowledged_by: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "alert_id": self.alert_id,
             "budget_id": self.budget_id,
@@ -171,7 +171,7 @@ class MockBudgetTransaction:
     debate_id: Optional[str] = "debate-123"
     is_overage: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "transaction_id": self.transaction_id,
             "budget_id": self.budget_id,
@@ -197,9 +197,9 @@ class MockRequest(dict):
         self,
         command: str = "GET",
         path: str = "/",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: Optional[bytes] = None,
-        query_params: Optional[Dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
     ):
         # Initialize dict with query params
         super().__init__(query_params or {})

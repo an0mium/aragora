@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Global connector instance for session persistence across steps
 _browser_connector = None
 
+
 async def _get_browser_connector(config: dict[str, Any]):
     """Get or create browser connector with session persistence."""
     global _browser_connector
@@ -76,12 +77,14 @@ async def _get_browser_connector(config: dict[str, Any]):
 
     return _browser_connector
 
+
 async def _close_browser_connector():
     """Close the global browser connector."""
     global _browser_connector
     if _browser_connector:
         await _browser_connector.close()
         _browser_connector = None
+
 
 @dataclass
 class BrowserStepConfig:
@@ -112,6 +115,7 @@ class BrowserStepConfig:
     user_agent: str | None = None
     proxy: Optional[dict[str, str]] = None
     ignore_https_errors: bool = False
+
 
 class BrowserStep(BaseStep):
     """
@@ -356,6 +360,7 @@ class BrowserStep(BaseStep):
 
         logger.info(f"[BrowserStep] {self._name}: {action} completed")
         return result_data
+
 
 # Register step type
 def register_browser_step():

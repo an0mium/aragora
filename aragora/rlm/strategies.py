@@ -8,6 +8,7 @@ for navigating long context:
 - Partition+Map: Chunk and process in parallel
 - Summarize: Recursive summarization
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,6 +28,7 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class StrategyResult:
     """Result from a strategy execution."""
@@ -36,6 +38,7 @@ class StrategyResult:
     nodes_used: list[str]
     tokens_examined: int
     sub_calls: int
+
 
 class BaseStrategy(ABC):
     """Base class for decomposition strategies."""
@@ -62,6 +65,7 @@ class BaseStrategy(ABC):
     def strategy_type(self) -> DecompositionStrategy:
         """Return the strategy type."""
         pass
+
 
 class PeekStrategy(BaseStrategy):
     """
@@ -121,6 +125,7 @@ class PeekStrategy(BaseStrategy):
             tokens_examined=examined_tokens,
             sub_calls=0,
         )
+
 
 class GrepStrategy(BaseStrategy):
     """
@@ -282,6 +287,7 @@ class GrepStrategy(BaseStrategy):
 
         return snippet
 
+
 class PartitionMapStrategy(BaseStrategy):
     """
     Partition+Map strategy: Chunk context and process in parallel.
@@ -422,6 +428,7 @@ Combined answer:"""
         grep = GrepStrategy(self.config, self.agent_call)
         return await grep.execute(query, context)
 
+
 class SummarizeStrategy(BaseStrategy):
     """
     Summarize strategy: Recursive summarization for overview queries.
@@ -488,6 +495,7 @@ Summary:"""
             tokens_examined=examined_tokens,
             sub_calls=1 if (not answer_parts and self.agent_call) else 0,
         )
+
 
 class HierarchicalStrategy(BaseStrategy):
     """
@@ -600,6 +608,7 @@ Answer with citations:"""
             sub_calls=sub_calls,
         )
 
+
 class AutoStrategy(BaseStrategy):
     """
     Auto strategy: Automatically select the best strategy.
@@ -647,6 +656,7 @@ class AutoStrategy(BaseStrategy):
         # Fall back to partition+map
         return PartitionMapStrategy(self.config, self.agent_call)
 
+
 # Strategy registry
 STRATEGIES: dict[DecompositionStrategy, type[BaseStrategy]] = {
     DecompositionStrategy.PEEK: PeekStrategy,
@@ -656,6 +666,7 @@ STRATEGIES: dict[DecompositionStrategy, type[BaseStrategy]] = {
     DecompositionStrategy.HIERARCHICAL: HierarchicalStrategy,
     DecompositionStrategy.AUTO: AutoStrategy,
 }
+
 
 def get_strategy(
     strategy_type: DecompositionStrategy,

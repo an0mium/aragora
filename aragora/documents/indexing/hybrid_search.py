@@ -28,6 +28,7 @@ from aragora.documents.indexing.weaviate_store import (
 
 logger = logging.getLogger(__name__)
 
+
 class EmbeddingProvider(Protocol):
     """Protocol for embedding providers."""
 
@@ -38,6 +39,7 @@ class EmbeddingProvider(Protocol):
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts."""
         ...
+
 
 @dataclass
 class HybridResult:
@@ -72,6 +74,7 @@ class HybridResult:
             "end_page": self.end_page,
         }
 
+
 @dataclass
 class HybridSearchConfig:
     """Configuration for hybrid search."""
@@ -95,6 +98,7 @@ class HybridSearchConfig:
     # Query expansion settings
     enable_query_expansion: bool = False
     max_expanded_terms: int = 5
+
 
 class HybridSearcher:
     """
@@ -353,6 +357,7 @@ class HybridSearcher:
         results.sort(key=lambda x: x.combined_score, reverse=True)
         return results
 
+
 class SimpleEmbedder:
     """
     Simple embedding provider using aragora's existing embedding system.
@@ -415,6 +420,7 @@ class SimpleEmbedder:
 
         return embedding
 
+
 async def create_hybrid_searcher(
     store: WeaviateStore | None = None,
     config: HybridSearchConfig | None = None,
@@ -438,6 +444,7 @@ async def create_hybrid_searcher(
 
     embedder = SimpleEmbedder()
     return HybridSearcher(store, embedder, config)
+
 
 __all__ = [
     "HybridSearcher",

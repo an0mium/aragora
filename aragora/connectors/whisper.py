@@ -63,6 +63,7 @@ MIME_TYPES = {
 MAX_FILE_SIZE_MB = 25
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
+
 @dataclass
 class TranscriptionSegment:
     """A timestamped segment of transcription."""
@@ -88,6 +89,7 @@ class TranscriptionSegment:
             text=data["text"],
             confidence=data.get("confidence", 0.0),
         )
+
 
 @dataclass
 class TranscriptionResult:
@@ -147,6 +149,7 @@ class TranscriptionResult:
             word_count=data.get("word_count", 0),
             confidence=data.get("confidence", 0.0),
         )
+
 
 class WhisperConnector(BaseConnector):
     """
@@ -513,21 +516,26 @@ class WhisperConnector(BaseConnector):
         self._cache_put(result.id, evidence)
         return evidence
 
+
 # Convenience functions
+
 
 def is_supported_audio(filename: str) -> bool:
     """Check if file is a supported audio format."""
     ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
     return ext in SUPPORTED_AUDIO_EXTENSIONS
 
+
 def is_supported_video(filename: str) -> bool:
     """Check if file is a supported video format."""
     ext = "." + filename.split(".")[-1].lower() if "." in filename else ""
     return ext in SUPPORTED_VIDEO_EXTENSIONS
 
+
 def is_supported_media(filename: str) -> bool:
     """Check if file is a supported audio or video format."""
     return is_supported_audio(filename) or is_supported_video(filename)
+
 
 def get_supported_formats() -> dict:
     """Get supported file formats and limits."""

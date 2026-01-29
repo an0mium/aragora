@@ -1,4 +1,5 @@
 """Scheduled trigger HTTP handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Global scheduled trigger instance
 _scheduled_trigger: ScheduledTrigger | None = None
 
+
 def get_scheduled_trigger() -> ScheduledTrigger:
     """Get or create the global scheduled trigger instance."""
     global _scheduled_trigger
@@ -25,10 +27,12 @@ def get_scheduled_trigger() -> ScheduledTrigger:
         _scheduled_trigger = ScheduledTrigger()
     return _scheduled_trigger
 
+
 def set_scheduled_trigger(trigger: ScheduledTrigger) -> None:
     """Set the global scheduled trigger instance."""
     global _scheduled_trigger
     _scheduled_trigger = trigger
+
 
 class TriggerHandler:
     """HTTP handlers for scheduled trigger operations."""

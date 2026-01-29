@@ -3,6 +3,7 @@ SQLite-based critique pattern store for self-improvement.
 
 Stores successful critique patterns so future debates can learn from past successes.
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -135,6 +136,7 @@ CRITIQUE_INITIAL_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_reputation_agent ON agent_reputation(agent_name);
 """
 
+
 @dataclass
 class Pattern:
     """A reusable critique pattern."""
@@ -154,6 +156,7 @@ class Pattern:
     def success_rate(self) -> float:
         total = self.success_count + self.failure_count
         return self.success_count / total if total > 0 else 0.5
+
 
 @dataclass
 class AgentReputation:
@@ -218,6 +221,7 @@ class AgentReputation:
         # Calibration bonus: (calibration - 0.5) * 0.2 gives -0.1 to +0.1
         calibration_bonus = (self.calibration_score - 0.5) * 0.2
         return max(0.4, min(1.6, base_weight + calibration_bonus))
+
 
 class CritiqueStore(SQLiteStore):
     """

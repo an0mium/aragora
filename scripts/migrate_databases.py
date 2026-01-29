@@ -37,8 +37,8 @@ class DatabaseInventory:
     """Tracks database files and their metadata."""
 
     path: Path
-    tables: List[str] = field(default_factory=list)
-    row_counts: Dict[str, int] = field(default_factory=dict)
+    tables: list[str] = field(default_factory=list)
+    row_counts: dict[str, int] = field(default_factory=dict)
     checksum: str = ""
     size_bytes: int = 0
 
@@ -49,7 +49,7 @@ class MigrationResult:
 
     source_db: str
     target_db: str
-    tables_migrated: List[str]
+    tables_migrated: list[str]
     rows_migrated: int
     success: bool
     error: Optional[str] = None
@@ -230,10 +230,10 @@ class DatabaseMigrator:
         self.source_dir = source_dir
         self.target_dir = target_dir
         self.backup_dir = backup_dir
-        self.inventory: Dict[str, DatabaseInventory] = {}
-        self.results: List[MigrationResult] = []
+        self.inventory: dict[str, DatabaseInventory] = {}
+        self.results: list[MigrationResult] = []
 
-    def discover_databases(self) -> Dict[str, DatabaseInventory]:
+    def discover_databases(self) -> dict[str, DatabaseInventory]:
         """Scan for all database files and inventory them."""
         logger.info(f"Discovering databases in {self.source_dir}")
 
@@ -346,7 +346,7 @@ class DatabaseMigrator:
         with open(json_path, "w") as f:
             json.dump(export, f, indent=2, default=str)
 
-    def validate_source(self) -> Tuple[bool, List[str]]:
+    def validate_source(self) -> tuple[bool, list[str]]:
         """Validate source databases are readable and have expected tables."""
         errors = []
         warnings = []
@@ -418,7 +418,7 @@ class DatabaseMigrator:
 
         return True
 
-    def migrate(self, dry_run: bool = True) -> List[MigrationResult]:
+    def migrate(self, dry_run: bool = True) -> list[MigrationResult]:
         """Execute the migration."""
         results = []
 
@@ -487,7 +487,7 @@ class DatabaseMigrator:
         self,
         source_path: Path,
         target_path: Path,
-        table_map: Dict[str, str],
+        table_map: dict[str, str],
     ) -> int:
         """
         Migrate tables from source to target database.
@@ -641,7 +641,7 @@ class DatabaseMigrator:
             logger.error(f"Rollback failed: {e}")
             return False
 
-    def verify_migration(self) -> Tuple[bool, List[str]]:
+    def verify_migration(self) -> tuple[bool, list[str]]:
         """
         Verify migrated databases have expected data.
 
@@ -693,9 +693,9 @@ class DatabaseMigrator:
 
         return len(issues) == 0, issues
 
-    def report(self) -> Dict[str, Any]:
+    def report(self) -> dict[str, Any]:
         """Generate migration report."""
-        report: Dict[str, Any] = {
+        report: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "source_dir": str(self.source_dir),
             "target_dir": str(self.target_dir),

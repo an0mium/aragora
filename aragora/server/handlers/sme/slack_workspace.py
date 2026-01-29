@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for Slack workspace APIs (30 requests per minute)
 _slack_limiter = RateLimiter(requests_per_minute=30)
 
+
 class SlackWorkspaceHandler(SecureHandler):
     """Handler for Slack workspace management endpoints.
 
@@ -640,5 +641,6 @@ class SlackWorkspaceHandler(SecureHandler):
                 "subscription_id": subscription_id,
             }
         )
+
 
 __all__ = ["SlackWorkspaceHandler"]

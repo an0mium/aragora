@@ -77,13 +77,13 @@ class MockShare:
     resource_type: str = "debate"
     resource_id: str = "debate-123"
     shared_by: str = "user-123"
-    shared_with: List[str] = field(default_factory=lambda: ["user-456"])
+    shared_with: list[str] = field(default_factory=lambda: ["user-456"])
     channel_id: str = "C12345"
     platform: str = "slack"
     message: str = "Check out this debate!"
     created_at: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "org_id": self.org_id,
@@ -104,7 +104,7 @@ class MockHandler:
     def __init__(
         self,
         body: bytes = b"",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         path: str = "/",
         method: str = "GET",
     ):
@@ -116,7 +116,7 @@ class MockHandler:
         self.client_address = ("127.0.0.1", 12345)
 
     @classmethod
-    def with_json_body(cls, data: Dict[str, Any], **kwargs) -> "MockHandler":
+    def with_json_body(cls, data: dict[str, Any], **kwargs) -> "MockHandler":
         body = json.dumps(data).encode("utf-8")
         headers = {
             "Content-Type": "application/json",

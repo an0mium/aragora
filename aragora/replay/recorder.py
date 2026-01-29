@@ -35,6 +35,7 @@ from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)
 
+
 class ReplayRecorder:
     """Non-blocking append-only recorder with background writer."""
 
@@ -133,9 +134,7 @@ class ReplayRecorder:
     def record_vote(self, agent_id: str, vote: str, reasoning: str) -> None:
         self._record("vote", agent_id, vote, {"reasoning": reasoning})
 
-    def record_audience_input(
-        self, user_id: str, message: str, loop_id: str | None = None
-    ) -> None:
+    def record_audience_input(self, user_id: str, message: str, loop_id: str | None = None) -> None:
         meta = {"user_id": user_id}
         if loop_id:
             meta["loop_id"] = loop_id

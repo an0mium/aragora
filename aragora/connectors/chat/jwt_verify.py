@@ -11,11 +11,15 @@ Uses PyJWK to fetch signing keys from platform endpoints and validate tokens.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Environment check for security-sensitive operations
+_IS_PRODUCTION = os.environ.get("ARAGORA_ENV", "development").lower() in ("production", "prod")
 
 # PyJWT for token validation (always available)
 import jwt
@@ -40,6 +44,7 @@ GOOGLE_VALID_ISSUERS = [
     "https://accounts.google.com",
 ]
 
+
 @dataclass
 class JWTVerificationResult:
     """Result of JWT verification."""
@@ -47,6 +52,7 @@ class JWTVerificationResult:
     valid: bool
     claims: dict[str, Any]
     error: str | None = None
+
 
 class JWTVerifier:
     """
@@ -216,13 +222,23 @@ class JWTVerifier:
             if project_id:
                 options["verify_aud"] = True
                 decode_kwargs["audience"] = project_id
+            elif _IS_PRODUCTION:
+                # FAIL CLOSED: In production, audience validation is mandatory
+                # to prevent accepting tokens intended for other applications
+                logger.error(
+                    "SECURITY: JWT audience validation required in production - "
+                    "project_id must be provided"
+                )
+                return JWTVerificationResult(
+                    valid=False,
+                    claims={},
+                    error="JWT audience validation required in production - project_id must be provided",
+                )
             else:
-                # SECURITY WARNING: Skipping audience validation allows tokens
-                # intended for other applications to be accepted. This should
-                # only be used in development. In production, always provide project_id.
+                # Development only: skip audience validation with warning
                 logger.warning(
-                    "SECURITY: Skipping JWT audience validation - "
-                    "provide project_id for secure token verification"
+                    "SECURITY: Skipping JWT audience validation (dev mode only) - "
+                    "set ARAGORA_ENV=production to enforce"
                 )
                 options["verify_aud"] = False
 
@@ -247,8 +263,10 @@ class JWTVerifier:
                 error=str(e),
             )
 
+
 # Singleton instance
 _verifier: JWTVerifier | None = None
+
 
 def get_jwt_verifier() -> JWTVerifier:
     """Get or create the JWT verifier singleton."""
@@ -256,6 +274,7 @@ def get_jwt_verifier() -> JWTVerifier:
     if _verifier is None:
         _verifier = JWTVerifier()
     return _verifier
+
 
 def verify_teams_webhook(
     auth_header: str,
@@ -284,6 +303,7 @@ def verify_teams_webhook(
 
     return result.valid
 
+
 def verify_google_chat_webhook(
     auth_header: str,
     project_id: str | None = None,
@@ -310,6 +330,7 @@ def verify_google_chat_webhook(
         logger.warning(f"Google Chat webhook verification failed: {result.error}")
 
     return result.valid
+
 
 # Flag for checking JWT availability
 __all__ = [

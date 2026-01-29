@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ActionItemPriority(Enum):
     """Priority levels for action items."""
 
@@ -49,6 +50,7 @@ class ActionItemPriority(Enum):
     HIGH = 2  # Important, act soon
     MEDIUM = 3  # Standard priority
     LOW = 4  # Can wait
+
 
 class ActionItemStatus(Enum):
     """Status of an action item."""
@@ -58,6 +60,7 @@ class ActionItemStatus(Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     DEFERRED = "deferred"
+
 
 class ActionType(Enum):
     """Types of action items."""
@@ -75,6 +78,7 @@ class ActionType(Enum):
     DECISION = "decision"  # Make a decision
     CREATE = "create"  # Create document/resource
     OTHER = "other"
+
 
 @dataclass
 class ActionItem:
@@ -141,6 +145,7 @@ class ActionItem:
             "external_system": self.external_system,
         }
 
+
 @dataclass
 class ExtractionResult:
     """Result of action item extraction from an email."""
@@ -167,6 +172,7 @@ class ExtractionResult:
             "extraction_confidence": self.extraction_confidence,
             "processing_time_ms": self.processing_time_ms,
         }
+
 
 # Action item patterns with types and weights
 ACTION_PATTERNS = {
@@ -297,6 +303,7 @@ DEADLINE_PATTERNS = [
     (r"by\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", "time"),
     (r"before\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", "time"),
 ]
+
 
 class ActionItemExtractor:
     """
@@ -812,6 +819,7 @@ class ActionItemExtractor:
 
         return pending
 
+
 # Convenience function
 async def extract_action_items_quick(
     subject: str,
@@ -841,6 +849,7 @@ async def extract_action_items_quick(
     email = SimpleEmail(subject, body, sender)
     extractor = ActionItemExtractor()
     return await extractor.extract_action_items(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
+
 
 __all__ = [
     "ActionItemExtractor",

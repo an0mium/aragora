@@ -48,6 +48,7 @@ ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
 # Track if encryption warning has been shown
 _encryption_warning_shown = False
 
+
 @dataclass
 class TeamsWorkspace:
     """Represents an installed Microsoft Teams tenant."""
@@ -121,6 +122,7 @@ class TeamsWorkspace:
             token_expires_at=token_expires_at,
             service_url=service_url,
         )
+
 
 class TeamsWorkspaceStore:
     """
@@ -636,6 +638,7 @@ class TeamsWorkspaceStore:
 
         return time.time() + buffer_seconds >= workspace.token_expires_at
 
+
 # Supabase-backed implementation for production
 class SupabaseTeamsWorkspaceStore:
     """
@@ -862,8 +865,10 @@ class SupabaseTeamsWorkspaceStore:
             service_url=row.get("service_url"),
         )
 
+
 # Singleton instance
 _workspace_store: Any | None = None
+
 
 def get_teams_workspace_store(db_path: str | None = None) -> Any:
     """Get or create the workspace store singleton.

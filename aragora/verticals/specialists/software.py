@@ -133,6 +133,7 @@ Provide clear, actionable feedback that helps developers improve their code.""",
     tags=["software", "code", "security", "engineering"],
 )
 
+
 @VerticalRegistry.register(
     "software",
     config=SOFTWARE_CONFIG,

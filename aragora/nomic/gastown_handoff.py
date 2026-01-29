@@ -28,6 +28,7 @@ Usage:
     # Recover handoff on agent startup
     contexts = await handoff_protocol.recover_pending(agent_id="claude-001")
 """
+
 from __future__ import annotations
 
 import json
@@ -40,6 +41,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class HandoffStatus(str, Enum):
     """Status of a handoff context."""
 
@@ -49,6 +51,7 @@ class HandoffStatus(str, Enum):
     EXPIRED = "expired"  # TTL exceeded without pickup
     REJECTED = "rejected"  # Target rejected the handoff
 
+
 class HandoffPriority(int, Enum):
     """Priority levels for handoffs."""
 
@@ -56,6 +59,7 @@ class HandoffPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     CRITICAL = 100
+
 
 @dataclass
 class BeadHandoffContext:
@@ -219,6 +223,7 @@ class BeadHandoffContext:
 
         return "\n".join(lines)
 
+
 @dataclass
 class MoleculeHandoffContext:
     """
@@ -284,6 +289,7 @@ class MoleculeHandoffContext:
         data = data.copy()
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         return cls(**data)
+
 
 class HandoffStore:
     """
@@ -397,6 +403,7 @@ class HandoffStore:
         with open(path, "w") as f:
             for handoff in self._molecule_handoffs.values():
                 f.write(json.dumps(handoff.to_dict()) + "\n")
+
 
 class HandoffProtocol:
     """
@@ -572,6 +579,7 @@ class HandoffProtocol:
 
         return merged
 
+
 # Convenience functions for common operations
 async def create_handoff_store(path: Path | None = None) -> HandoffStore:
     """Create and initialize a handoff store."""
@@ -580,6 +588,7 @@ async def create_handoff_store(path: Path | None = None) -> HandoffStore:
     store = HandoffStore(path)
     await store.initialize()
     return store
+
 
 async def create_handoff_protocol(path: Path | None = None) -> HandoffProtocol:
     """Create a handoff protocol with initialized store."""

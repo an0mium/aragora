@@ -43,6 +43,7 @@ except ImportError:
         "Handler base not available - SmartUploadHandler will have limited functionality"
     )
 
+
 class FileCategory(str, Enum):
     """Categories of files for processing."""
 
@@ -55,6 +56,7 @@ class FileCategory(str, Enum):
     ARCHIVE = "archive"
     UNKNOWN = "unknown"
 
+
 class ProcessingAction(str, Enum):
     """Processing actions based on file category."""
 
@@ -65,6 +67,7 @@ class ProcessingAction(str, Enum):
     PARSE = "parse"  # Data file parsing
     EXPAND = "expand"  # Archive extraction
     SKIP = "skip"  # No processing
+
 
 # File type detection patterns
 FILE_PATTERNS: dict[FileCategory, dict[str, list[str]]] = {
@@ -161,6 +164,7 @@ CATEGORY_ACTIONS: dict[FileCategory, ProcessingAction] = {
     FileCategory.UNKNOWN: ProcessingAction.SKIP,
 }
 
+
 @dataclass
 class UploadResult:
     """Result of a file upload and processing."""
@@ -176,8 +180,10 @@ class UploadResult:
     result: Optional[dict[str, Any]] = None
     error: str | None = None
 
+
 # In-memory storage for upload status (would use Redis/DB in production)
 _upload_results: dict[str, UploadResult] = {}
+
 
 def detect_file_category(filename: str, mime_type: str | None = None) -> FileCategory:
     """
@@ -214,9 +220,11 @@ def detect_file_category(filename: str, mime_type: str | None = None) -> FileCat
 
     return FileCategory.UNKNOWN
 
+
 def get_processing_action(category: FileCategory) -> ProcessingAction:
     """Get the default processing action for a category."""
     return CATEGORY_ACTIONS.get(category, ProcessingAction.SKIP)
+
 
 async def process_file(
     file_content: bytes,
@@ -275,6 +283,7 @@ async def process_file(
 
     return result
 
+
 async def _transcribe_audio_video(
     content: bytes,
     filename: str,
@@ -322,6 +331,7 @@ async def _transcribe_audio_video(
         # Fallback to simple metadata
         return {"transcription": "[Whisper connector not available]", "segments": []}
 
+
 async def _extract_document_text(
     content: bytes,
     filename: str,
@@ -362,6 +372,7 @@ async def _extract_document_text(
 
     return {"text": text or "[Unsupported document format]"}
 
+
 async def _ocr_image(
     content: bytes,
     filename: str,
@@ -389,6 +400,7 @@ async def _ocr_image(
             return {"text": text}
         except ImportError:
             return {"text": "[OCR requires tesseract or OCRConnector]"}
+
 
 async def _parse_data_file(
     content: bytes,
@@ -442,6 +454,7 @@ async def _parse_data_file(
 
     return {"parsed": False, "type": ext, "text": text_content[:1000]}
 
+
 async def _index_code_file(
     content: bytes,
     filename: str,
@@ -466,6 +479,7 @@ async def _index_code_file(
 
     return result
 
+
 def _detect_language(filename: str) -> str:
     """Detect programming language from filename."""
     ext = Path(filename).suffix.lower()
@@ -488,6 +502,7 @@ def _detect_language(filename: str) -> str:
         ".kt": "kotlin",
     }
     return language_map.get(ext, "unknown")
+
 
 def _extract_symbols(content: str, filename: str) -> list[dict[str, Any]]:
     """Extract function/class symbols from code."""
@@ -516,6 +531,7 @@ def _extract_symbols(content: str, filename: str) -> list[dict[str, Any]]:
             symbols.append({"type": "function", "name": match.group(1)})
 
     return symbols[:50]  # Limit to first 50 symbols
+
 
 async def _expand_archive(
     content: bytes,
@@ -562,6 +578,7 @@ async def _expand_archive(
         "file_count": len(files),
         "files": files[:100],  # Limit listing
     }
+
 
 async def smart_upload(
     file_content: bytes,
@@ -623,9 +640,11 @@ async def smart_upload(
 
     return result
 
+
 def get_upload_status(upload_id: str) -> UploadResult | None:
     """Get the status of an upload by ID."""
     return _upload_results.get(upload_id)
+
 
 # HTTP Handler
 if HANDLER_BASE_AVAILABLE:

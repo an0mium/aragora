@@ -86,10 +86,12 @@ MODEL_PRICING = {
     "default": {"input": 0.003, "output": 0.015},
 }
 
+
 class ResourceExhaustedError(Exception):
     """Raised when resource limits are exceeded."""
 
     pass
+
 
 class ResourceType(Enum):
     """Types of resources tracked."""
@@ -98,6 +100,7 @@ class ResourceType(Enum):
     COST = "cost"
     TIME = "time"
     API_CALLS = "api_calls"
+
 
 @dataclass
 class ResourceLimits:
@@ -122,6 +125,7 @@ class ResourceLimits:
             "max_parallel_agents": self.max_parallel_agents,
             "max_retries_per_step": self.max_retries_per_step,
         }
+
 
 @dataclass
 class ResourceUsage:
@@ -175,6 +179,7 @@ class ResourceUsage:
             "agent_costs": self.agent_costs,
         }
 
+
 @dataclass
 class EnhancedWorkflowResult(WorkflowResult):
     """Extended workflow result with resource metrics."""
@@ -197,6 +202,7 @@ class EnhancedWorkflowResult(WorkflowResult):
             "per_step_costs": self.resource_usage.step_costs,
             "per_agent_costs": self.resource_usage.agent_costs,
         }
+
 
 class EnhancedWorkflowEngine(WorkflowEngine):
     """
@@ -651,6 +657,7 @@ class EnhancedWorkflowEngine(WorkflowEngine):
                     estimates["total"] += cost
 
         return estimates
+
 
 # Export for convenience
 __all__ = [

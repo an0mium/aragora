@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
 class StreamMode(Enum):
     """Mode for streaming context."""
 
@@ -46,6 +47,7 @@ class StreamMode(Enum):
     BOTTOM_UP = "bottom_up"  # Start detailed, roll up
     TARGETED = "targeted"  # Jump to specific level
     PROGRESSIVE = "progressive"  # Load progressively with delays
+
 
 @dataclass
 class StreamChunk:
@@ -57,6 +59,7 @@ class StreamChunk:
     is_final: bool
     metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
+
 
 @dataclass
 class StreamConfig:
@@ -79,6 +82,7 @@ class StreamConfig:
 
     levels: list[str] | None = None
     """Specific levels to include (None = all)."""
+
 
 class StreamingRLMQuery:
     """
@@ -289,6 +293,7 @@ class StreamingRLMQuery:
 
         return [p for _, p in scored[:10]]
 
+
 async def stream_context(
     rlm_context: "RLMContext",
     query: str | None = None,
@@ -315,6 +320,7 @@ async def stream_context(
             chunk_callback(chunk)
         yield chunk
 
+
 async def quick_summary(rlm_context: "RLMContext") -> str:
     """
     Get a quick summary from RLM context.
@@ -331,6 +337,7 @@ async def quick_summary(rlm_context: "RLMContext") -> str:
         return rlm_context.get_at_level(AbstractionLevel.SUMMARY) or ""
     except (ImportError, AttributeError):
         return ""
+
 
 async def progressive_load(
     rlm_context: "RLMContext",
@@ -355,6 +362,7 @@ async def progressive_load(
 
     async for level, content in streamer.drill_down():
         on_level(level, content)
+
 
 class StreamingContextIterator:
     """

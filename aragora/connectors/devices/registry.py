@@ -32,6 +32,7 @@ from .models import DeviceType
 
 logger = logging.getLogger(__name__)
 
+
 class DeviceConnectorRegistry:
     """
     Registry for device connector instances.
@@ -319,9 +320,11 @@ class DeviceConnectorRegistry:
 
         return health
 
+
 # Global registry instance
 _registry: DeviceConnectorRegistry | None = None
 _registry_lock = threading.Lock()
+
 
 def get_registry() -> DeviceConnectorRegistry:
     """Get the global device connector registry."""
@@ -332,17 +335,21 @@ def get_registry() -> DeviceConnectorRegistry:
                 _registry = DeviceConnectorRegistry()
     return _registry
 
+
 def get_connector(platform: str) -> DeviceConnector:
     """Get a device connector by platform name."""
     return get_registry().get(platform)
+
 
 def register_connector(platform: str, connector: DeviceConnector) -> None:
     """Register a device connector."""
     get_registry().register(platform, connector)
 
+
 def list_available_platforms() -> list[str]:
     """List all available device connector platforms."""
     return get_registry().list_available_platforms()
+
 
 def get_configured_platforms() -> list[str]:
     """Get list of configured device connector platforms."""

@@ -8,6 +8,7 @@ Provides comprehensive quality scoring for evidence snippets including:
 - Authority scoring (source trustworthiness)
 - Overall quality score (weighted combination)
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from aragora.memory.embeddings import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
+
 
 class QualityTier(str, Enum):
     """Quality tier classification for evidence."""
@@ -46,6 +48,7 @@ class QualityTier(str, Enum):
             return cls.POOR
         else:
             return cls.UNRELIABLE
+
 
 @dataclass
 class QualityScores:
@@ -132,6 +135,7 @@ class QualityScores:
             consistency_weight=weights.get("consistency", 0.10),
         )
 
+
 @dataclass
 class QualityContext:
     """Context for quality scoring."""
@@ -144,6 +148,7 @@ class QualityContext:
     max_age_days: int = 365  # Maximum age for freshness
     min_word_count: int = 50  # Minimum content length
     require_citations: bool = False  # Require citations for high score
+
 
 class QualityScorer:
     """Scores evidence quality based on multiple dimensions."""
@@ -607,6 +612,7 @@ class QualityScorer:
 
         return max(0.3, min(1.0, score))
 
+
 class QualityFilter:
     """Filter evidence based on quality thresholds."""
 
@@ -699,6 +705,7 @@ class QualityFilter:
             scored = scored[:top_k]
 
         return scored
+
 
 def score_evidence_snippet(
     snippet: Any,  # EvidenceSnippet

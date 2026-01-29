@@ -17,6 +17,7 @@ Usage:
     # Or apply ETag to response data
     response_data, headers = with_etag(data, request_etag)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -50,6 +51,7 @@ NO_CACHE_PATTERNS = [
     "/api/user/",  # User-specific data
 ]
 
+
 def get_cache_duration(path: str) -> int | None:
     """Get cache duration for a path, or None if not cacheable.
 
@@ -71,9 +73,11 @@ def get_cache_duration(path: str) -> int | None:
 
     return None
 
+
 # =============================================================================
 # ETag Generation
 # =============================================================================
+
 
 def generate_etag(data: Any) -> str:
     """Generate an ETag for response data.
@@ -96,6 +100,7 @@ def generate_etag(data: Any) -> str:
         logger.debug(f"ETag generation failed: {e}")
         return f'"{hashlib.md5(str(data).encode(), usedforsecurity=False).hexdigest()[:16]}"'
 
+
 def generate_weak_etag(data: Any) -> str:
     """Generate a weak ETag for response data.
 
@@ -110,6 +115,7 @@ def generate_weak_etag(data: Any) -> str:
     """
     strong_etag = generate_etag(data)
     return f"W/{strong_etag}"
+
 
 def etag_matches(request_etag: str | None, response_etag: str) -> bool:
     """Check if request ETag matches response ETag.
@@ -144,9 +150,11 @@ def etag_matches(request_etag: str | None, response_etag: str) -> bool:
 
     return False
 
+
 # =============================================================================
 # Cache Headers
 # =============================================================================
+
 
 def cache_headers(
     max_age: int = 60,
@@ -189,6 +197,7 @@ def cache_headers(
 
     return headers
 
+
 def no_cache_headers() -> dict[str, str]:
     """Generate headers to prevent caching.
 
@@ -201,9 +210,11 @@ def no_cache_headers() -> dict[str, str]:
         "Expires": "0",
     }
 
+
 # =============================================================================
 # High-Level Utilities
 # =============================================================================
+
 
 def with_etag(
     data: T,
@@ -236,6 +247,7 @@ def with_etag(
     # Return full response with caching headers
     headers = cache_headers(max_age=max_age, public=public, etag=etag)
     return data, headers, False
+
 
 def apply_cache_headers_to_response(
     response: Any,
@@ -282,6 +294,7 @@ def apply_cache_headers_to_response(
         response.headers[key] = value
 
     return False
+
 
 __all__ = [
     # Configuration

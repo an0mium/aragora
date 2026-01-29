@@ -63,7 +63,7 @@ class MockHandler:
     def __init__(
         self,
         body: bytes = b"",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         path: str = "/",
         method: str = "GET",
     ):
@@ -75,7 +75,7 @@ class MockHandler:
         self.client_address = ("127.0.0.1", 12345)
 
     @classmethod
-    def with_json_body(cls, data: Dict[str, Any], **kwargs) -> "MockHandler":
+    def with_json_body(cls, data: dict[str, Any], **kwargs) -> "MockHandler":
         body = json.dumps(data).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -116,10 +116,10 @@ class MockConnector:
         self.platform_display_name = platform.title()
         self.is_configured = True
 
-    def verify_webhook(self, headers: Dict[str, str], body: bytes) -> bool:
+    def verify_webhook(self, headers: dict[str, str], body: bytes) -> bool:
         return True
 
-    def parse_webhook_event(self, headers: Dict[str, str], body: bytes) -> MockWebhookEvent:
+    def parse_webhook_event(self, headers: dict[str, str], body: bytes) -> MockWebhookEvent:
         return MockWebhookEvent(platform=self.platform)
 
     def format_blocks(self, title: str, body: str = None, fields: list = None):

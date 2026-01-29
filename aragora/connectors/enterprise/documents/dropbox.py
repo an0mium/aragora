@@ -67,6 +67,7 @@ SUPPORTED_EXTENSIONS: set[str] = {
     ".php",
 }
 
+
 @dataclass
 class DropboxFile:
     """A Dropbox file."""
@@ -81,6 +82,7 @@ class DropboxFile:
     is_downloadable: bool = True
     shared_folder_id: str | None = None
 
+
 @dataclass
 class DropboxFolder:
     """A Dropbox folder."""
@@ -90,6 +92,7 @@ class DropboxFolder:
     path_lower: str
     path_display: str
     shared_folder_id: str | None = None
+
 
 class DropboxConnector(EnterpriseConnector):
     """

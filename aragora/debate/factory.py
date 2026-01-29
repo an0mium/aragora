@@ -4,6 +4,7 @@ Arena factory for dependency injection.
 Centralizes the creation of Arena instances with properly injected
 dependencies, eliminating lazy imports in orchestrator.py.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +18,7 @@ from aragora.debate.protocol import CircuitBreaker, DebateProtocol
 from aragora.spectate.stream import SpectatorStream
 
 logger = logging.getLogger(__name__)
+
 
 class ArenaFactory:
     """
@@ -289,8 +291,10 @@ class ArenaFactory:
             trending_topic=trending_topic,
         )
 
+
 # Singleton factory instance
 _factory: ArenaFactory | None = None
+
 
 def get_arena_factory() -> ArenaFactory:
     """Get the singleton ArenaFactory instance."""
@@ -298,6 +302,7 @@ def get_arena_factory() -> ArenaFactory:
     if _factory is None:
         _factory = ArenaFactory()
     return _factory
+
 
 def create_arena(
     environment: Environment,

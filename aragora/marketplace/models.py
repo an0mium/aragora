@@ -4,6 +4,7 @@ Marketplace data models.
 Defines templates for agents, debates, and workflows that can be
 shared and reused across the Aragora ecosystem.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from enum import Enum
 from typing import Any
 import hashlib
 import json
+
 
 class TemplateCategory(Enum):
     """Categories for marketplace templates."""
@@ -26,6 +28,7 @@ class TemplateCategory(Enum):
     REVIEW = "review"
     PLANNING = "planning"
     CUSTOM = "custom"
+
 
 @dataclass
 class TemplateMetadata:
@@ -65,6 +68,7 @@ class TemplateMetadata:
             "documentation_url": self.documentation_url,
         }
 
+
 @dataclass
 class TemplateRating:
     """User rating for a template."""
@@ -78,6 +82,7 @@ class TemplateRating:
     def __post_init__(self) -> None:
         if not 1 <= self.score <= 5:
             raise ValueError("Score must be between 1 and 5")
+
 
 @dataclass
 class AgentTemplate:
@@ -118,6 +123,7 @@ class AgentTemplate:
             "content_hash": self.content_hash(),
         }
 
+
 @dataclass
 class DebateTemplate:
     """Template for creating a debate configuration."""
@@ -154,6 +160,7 @@ class DebateTemplate:
             "content_hash": self.content_hash(),
         }
 
+
 @dataclass
 class WorkflowTemplate:
     """Template for creating a workflow DAG."""
@@ -189,6 +196,7 @@ class WorkflowTemplate:
             "variables": self.variables,
             "content_hash": self.content_hash(),
         }
+
 
 # Pre-built templates
 BUILTIN_AGENT_TEMPLATES: list[AgentTemplate] = [

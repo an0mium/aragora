@@ -43,7 +43,7 @@ class BenchmarkResult:
 
     name: str
     iterations: int
-    times_ms: List[float] = field(default_factory=list)
+    times_ms: list[float] = field(default_factory=list)
     errors: int = 0
     memory_mb: float = 0.0
 
@@ -75,7 +75,7 @@ class BenchmarkSuite:
     path: str
     started_at: datetime = field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
-    results: List[BenchmarkResult] = field(default_factory=list)
+    results: list[BenchmarkResult] = field(default_factory=list)
     file_count: int = 0
     line_count: int = 0
 
@@ -256,7 +256,7 @@ def get_user_data(user_id):
 async def run_benchmarks(
     path: str,
     iterations: int = 5,
-    benchmarks: Optional[List[str]] = None,
+    benchmarks: Optional[list[str]] = None,
 ) -> BenchmarkSuite:
     """Run all benchmarks."""
     suite = BenchmarkSuite(path=path)

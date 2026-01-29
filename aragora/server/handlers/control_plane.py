@@ -61,6 +61,7 @@ from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class ControlPlaneHandler(BaseHandler):
     """
     HTTP handler for control plane operations.
@@ -153,9 +154,7 @@ class ControlPlaneHandler(BaseHandler):
     # GET Handlers
     # =========================================================================
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         path = self._normalize_path(path)
 

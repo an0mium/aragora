@@ -42,6 +42,7 @@ except ImportError:
 
         pass
 
+
 class AragoraCallbackHandler(BaseCallbackHandler):
     """
     LangChain callback handler for Aragora integration.

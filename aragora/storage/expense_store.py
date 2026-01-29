@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 _expense_store: Optional["ExpenseStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -46,6 +47,7 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
+
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -56,6 +58,7 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
     return dct
+
 
 class ExpenseStoreBackend(ABC):
     """Abstract base class for expense storage backends."""
@@ -158,6 +161,7 @@ class ExpenseStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryExpenseStore(ExpenseStoreBackend):
     """In-memory expense store for testing."""
@@ -332,6 +336,7 @@ class InMemoryExpenseStore(ExpenseStoreBackend):
 
     async def close(self) -> None:
         pass
+
 
 class SQLiteExpenseStore(ExpenseStoreBackend):
     """SQLite-backed expense store."""
@@ -760,6 +765,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
     async def close(self) -> None:
         pass
 
+
 class PostgresExpenseStore(ExpenseStoreBackend):
     """PostgreSQL-backed expense store for production."""
 
@@ -1135,6 +1141,7 @@ class PostgresExpenseStore(ExpenseStoreBackend):
     async def close(self) -> None:
         pass
 
+
 def get_expense_store() -> ExpenseStoreBackend:
     """
     Get the global expense store instance.
@@ -1169,17 +1176,20 @@ def get_expense_store() -> ExpenseStoreBackend:
 
         return _expense_store
 
+
 def set_expense_store(store: ExpenseStoreBackend) -> None:
     """Set a custom expense store instance."""
     global _expense_store
     with _store_lock:
         _expense_store = store
 
+
 def reset_expense_store() -> None:
     """Reset the global expense store (for testing)."""
     global _expense_store
     with _store_lock:
         _expense_store = None
+
 
 __all__ = [
     "ExpenseStoreBackend",

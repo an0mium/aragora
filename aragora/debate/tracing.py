@@ -13,6 +13,7 @@ Usage:
         result = await run_debate()
         span.set_attribute("success", True)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -46,13 +47,16 @@ _debate_context: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar
     "debate_context", default={}
 )
 
+
 def generate_trace_id() -> str:
     """Generate a unique trace ID (32-char hex)."""
     return uuid.uuid4().hex
 
+
 def generate_span_id() -> str:
     """Generate a unique span ID (16-char hex)."""
     return uuid.uuid4().hex[:16]
+
 
 @dataclass
 class SpanContext:
@@ -61,6 +65,7 @@ class SpanContext:
     trace_id: str
     span_id: str
     parent_span_id: str | None = None
+
 
 @dataclass
 class Span:
@@ -140,6 +145,7 @@ class Span:
             "error": self.error,
         }
 
+
 class SpanRecorder:
     """Records completed spans for analysis/export."""
 
@@ -167,8 +173,10 @@ class SpanRecorder:
         """Clear all recorded spans."""
         self.spans.clear()
 
+
 # Global span recorder
 _recorder = SpanRecorder()
+
 
 class Tracer:
     """
@@ -297,8 +305,10 @@ class Tracer:
             attrs = " ".join(f"{k}={v}" for k, v in fields.items())
             logger.log(level, f"span_complete {attrs}")
 
+
 # Global tracer instance
 _tracer: Tracer | None = None
+
 
 def get_tracer(service_name: str = "aragora") -> Tracer:
     """Get or create the global tracer instance."""
@@ -307,12 +317,15 @@ def get_tracer(service_name: str = "aragora") -> Tracer:
         _tracer = Tracer(service_name=service_name)
     return _tracer
 
+
 def set_tracer(tracer: Tracer) -> None:
     """Set the global tracer instance (for testing/custom configuration)."""
     global _tracer
     _tracer = tracer
 
+
 # Debate context management for correlation IDs
+
 
 def set_debate_context(debate_id: str, **extra) -> None:
     """Set the current debate context for correlation."""
@@ -323,13 +336,16 @@ def set_debate_context(debate_id: str, **extra) -> None:
     if set_context is not None:
         set_context(debate_id=debate_id, **extra)
 
+
 def get_debate_context() -> dict[str, Any]:
     """Get the current debate context."""
     return _debate_context.get()
 
+
 def get_debate_id() -> str | None:
     """Get the current debate ID from context."""
     return get_debate_context().get("debate_id")
+
 
 def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
     """Decorator to set debate context for a function."""
@@ -349,7 +365,9 @@ def with_debate_context(debate_id: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
+
 # Convenience decorators for common operations
+
 
 def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
     """Decorator for tracing agent calls (proposal, critique, vote, etc.)."""
@@ -407,17 +425,21 @@ def trace_agent_call(operation: str) -> Callable[[Callable], Callable]:
 
     return decorator
 
+
 def trace_round(round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate round."""
     tracer = get_tracer()
     return tracer.span("debate.round", round_number=round_num)
+
 
 def trace_phase(phase: str, round_num: int) -> ContextManager[Span]:
     """Context manager for tracing a debate phase (proposal, critique, etc.)."""
     tracer = get_tracer()
     return tracer.span(f"debate.phase.{phase}", round_number=round_num, phase=phase)
 
+
 # Metrics tracking
+
 
 @dataclass
 class DebateMetrics:
@@ -461,9 +483,11 @@ class DebateMetrics:
             },
         }
 
+
 # Metrics storage (thread-safe)
 _debate_metrics: dict[str, DebateMetrics] = {}
 _debate_metrics_lock = threading.Lock()
+
 
 def get_metrics(debate_id: str) -> DebateMetrics:
     """Get or create metrics for a debate (thread-safe)."""
@@ -471,6 +495,7 @@ def get_metrics(debate_id: str) -> DebateMetrics:
         if debate_id not in _debate_metrics:
             _debate_metrics[debate_id] = DebateMetrics(debate_id=debate_id)
         return _debate_metrics[debate_id]
+
 
 def clear_metrics(debate_id: str | None = None) -> None:
     """Clear metrics for a debate or all debates (thread-safe)."""

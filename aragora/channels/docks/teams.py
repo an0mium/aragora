@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["TeamsDock"]
 
+
 class TeamsDock(ChannelDock):
     """
     Microsoft Teams platform dock.

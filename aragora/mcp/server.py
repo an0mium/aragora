@@ -51,6 +51,7 @@ MAX_QUESTION_LENGTH = 10000
 MAX_CONTENT_LENGTH = 100000
 MAX_QUERY_LENGTH = 1000
 
+
 class RateLimiterBase(ABC):
     """Abstract base class for rate limiters."""
 
@@ -67,6 +68,7 @@ class RateLimiterBase(ABC):
     def get_remaining(self, tool_name: str) -> int:
         """Get remaining requests for a tool."""
         pass
+
 
 class RateLimiter(RateLimiterBase):
     """Simple in-memory rate limiter with per-tool limits.
@@ -110,6 +112,7 @@ class RateLimiter(RateLimiterBase):
 
         current_count = len([t for t in self._requests[tool_name] if t > window_start])
         return max(0, limit - current_count)
+
 
 class RedisRateLimiter(RateLimiterBase):
     """Redis-backed rate limiter for multi-instance deployments.
@@ -264,6 +267,7 @@ class RedisRateLimiter(RateLimiterBase):
         except Exception as e:
             logger.warning(f"Redis reset failed: {e}")
 
+
 def create_rate_limiter(
     backend: str | None = None,
     limits: Optional[dict[str, int]] = None,
@@ -299,6 +303,7 @@ def create_rate_limiter(
         logger.info("Using in-memory rate limiter")
         return RateLimiter(limits=limits)
 
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
@@ -309,6 +314,7 @@ from mcp.types import (
 )
 
 MCP_AVAILABLE = True  # Kept for backwards compatibility
+
 
 class AragoraMCPServer:
     """
@@ -1047,6 +1053,7 @@ class AragoraMCPServer:
                 self.server.create_initialization_options(),
             )
 
+
 async def run_server() -> None:
     """Run the Aragora MCP server."""
     if not MCP_AVAILABLE:
@@ -1056,6 +1063,7 @@ async def run_server() -> None:
 
     server = AragoraMCPServer()
     await server.run()
+
 
 def main() -> None:
     """Main entry point."""
@@ -1071,6 +1079,7 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

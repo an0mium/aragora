@@ -29,9 +29,9 @@ class MockRedis:
     """
 
     def __init__(self) -> None:
-        self._data: Dict[str, str] = {}
-        self._streams: Dict[str, List[tuple]] = {}
-        self._consumer_groups: Dict[str, Dict[str, Any]] = {}
+        self._data: dict[str, str] = {}
+        self._streams: dict[str, list[tuple]] = {}
+        self._consumer_groups: dict[str, dict[str, Any]] = {}
         self._message_id_counter = 0
 
     async def ping(self) -> bool:
@@ -88,7 +88,7 @@ class MockRedis:
     async def xadd(
         self,
         stream_key: str,
-        data: Dict[str, str],
+        data: dict[str, str],
     ) -> str:
         if stream_key not in self._streams:
             self._streams[stream_key] = []
@@ -102,10 +102,10 @@ class MockRedis:
         self,
         groupname: str,
         consumername: str,
-        streams: Dict[str, str],
+        streams: dict[str, str],
         count: int = 1,
         block: int = 0,
-    ) -> List[tuple]:
+    ) -> list[tuple]:
         results = []
         for stream_key, start_id in streams.items():
             if stream_key in self._streams:
@@ -130,7 +130,7 @@ class MockRedis:
         min: str = "-",
         max: str = "+",
         count: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return []
 
 
@@ -237,7 +237,7 @@ async def coordinator(mock_registry, mock_scheduler, mock_health_monitor):
 
 
 @pytest.fixture
-def sample_agent() -> Dict[str, Any]:
+def sample_agent() -> dict[str, Any]:
     """Sample agent registration data."""
     return {
         "agent_id": "test-claude",
@@ -249,7 +249,7 @@ def sample_agent() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_agents() -> List[Dict[str, Any]]:
+def sample_agents() -> list[dict[str, Any]]:
     """Multiple agent configurations for testing."""
     return [
         {
@@ -274,7 +274,7 @@ def sample_agents() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_task() -> Dict[str, Any]:
+def sample_task() -> dict[str, Any]:
     """Sample task data."""
     return {
         "task_type": "debate",

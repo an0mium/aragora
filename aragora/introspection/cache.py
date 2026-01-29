@@ -5,6 +5,7 @@ Provides in-memory caching for introspection data to minimize
 performance impact during debates. Data is loaded once at Arena
 initialization and reused throughout the debate.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from aragora.agents.personas import PersonaManager
     from aragora.core import Agent
     from aragora.memory.store import CritiqueStore
+
 
 class IntrospectionCache:
     """

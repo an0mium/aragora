@@ -19,6 +19,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
+
 class TestFramework(str, Enum):
     """Supported test frameworks."""
 
@@ -33,6 +34,7 @@ class TestFramework(str, Enum):
     GO_TEST = "go_test"
     RUST_TEST = "rust_test"
 
+
 class TestType(str, Enum):
     """Types of tests."""
 
@@ -45,6 +47,7 @@ class TestType(str, Enum):
     EDGE_CASE = "edge_case"
     ERROR = "error"
     BOUNDARY = "boundary"
+
 
 @dataclass
 class TestCase:
@@ -80,6 +83,7 @@ class TestCase:
             "tags": self.tags,
             "priority": self.priority,
         }
+
 
 @dataclass
 class TestSuite:
@@ -293,6 +297,7 @@ class TestSuite:
         lines.append("    unittest.main()")
 
         return "\n".join(lines)
+
 
 class TestGenerator:
     """
@@ -552,7 +557,9 @@ class TestGenerator:
                     names.append(node.name)
         return names
 
+
 # Utility functions
+
 
 def _to_snake_case(name: str) -> str:
     """Convert string to snake_case."""
@@ -563,10 +570,12 @@ def _to_snake_case(name: str) -> str:
     name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
     return name.lower()
 
+
 def _to_pascal_case(name: str) -> str:
     """Convert string to PascalCase."""
     words = re.split(r"[_\s-]", name)
     return "".join(word.capitalize() for word in words)
+
 
 def _js_repr(value: Any) -> str:
     """Convert Python value to JavaScript representation."""
@@ -585,7 +594,9 @@ def _js_repr(value: Any) -> str:
     else:
         return str(value)
 
+
 # Convenience functions
+
 
 def generate_tests_for_function(
     code: str,
@@ -609,6 +620,7 @@ def generate_tests_for_function(
     )
 
     return test_cases, suite.to_code()
+
 
 def generate_tests_for_file(
     file_path: str,

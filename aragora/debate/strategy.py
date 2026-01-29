@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class StrategyRecommendation:
     """Recommendation from debate strategy analysis."""
@@ -25,6 +26,7 @@ class StrategyRecommendation:
     confidence: float
     reasoning: str
     relevant_memories: list[str]  # Memory IDs used in analysis
+
 
 class DebateStrategy:
     """

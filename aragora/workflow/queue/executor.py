@@ -22,6 +22,7 @@ from aragora.workflow.queue.task import (
 
 logger = logging.getLogger(__name__)
 
+
 class ExecutorStatus(str, Enum):
     """Status of an executor."""
 
@@ -30,6 +31,7 @@ class ExecutorStatus(str, Enum):
     STOPPING = "stopping"
     STOPPED = "stopped"
     ERROR = "error"
+
 
 @dataclass
 class ExecutorStats:
@@ -40,6 +42,7 @@ class ExecutorStats:
     total_execution_time_ms: float = 0
     avg_execution_time_ms: float = 0
     last_task_at: datetime | None = None
+
 
 class TaskExecutor(ABC):
     """
@@ -118,6 +121,7 @@ class TaskExecutor(ABC):
             self._status = ExecutorStatus.IDLE
             self._current_task = None
 
+
 class StepExecutor(TaskExecutor):
     """
     Default executor that delegates to step handlers.
@@ -183,6 +187,7 @@ class StepExecutor(TaskExecutor):
             execution_time_ms=0,
         )
 
+
 @dataclass
 class PoolConfig:
     """Configuration for executor pool."""
@@ -192,6 +197,7 @@ class PoolConfig:
     scale_up_threshold: float = 0.8  # Scale up when utilization > 80%
     scale_down_threshold: float = 0.2  # Scale down when utilization < 20%
     executor_idle_timeout: float = 60.0  # Remove idle executors after 60s
+
 
 class ExecutorPool:
     """

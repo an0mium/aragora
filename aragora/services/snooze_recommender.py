@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SnoozeReason(str, Enum):
     """Reason for snooze suggestion."""
 
@@ -45,6 +46,7 @@ class SnoozeReason(str, Enum):
     WEEKEND_SKIP = "weekend_skip"  # Skip to weekday
     END_OF_DAY = "end_of_day"  # Review at EOD
     TOMORROW_MORNING = "tomorrow_morning"  # Fresh start
+
 
 @dataclass
 class SnoozeSuggestion:
@@ -68,6 +70,7 @@ class SnoozeSuggestion:
             "is_recommended": self.is_recommended,
         }
 
+
 @dataclass
 class SnoozeRecommendation:
     """Complete snooze recommendation with multiple options."""
@@ -90,6 +93,7 @@ class SnoozeRecommendation:
             "warning": self.warning,
         }
 
+
 @dataclass
 class WorkSchedule:
     """User's work schedule configuration."""
@@ -99,6 +103,7 @@ class WorkSchedule:
     work_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Mon-Fri
     timezone: str = "UTC"
     prefer_morning: bool = True  # Prefer morning for important emails
+
 
 class SnoozeRecommender:
     """
@@ -532,6 +537,7 @@ class SnoozeRecommender:
 
         # Otherwise pick highest confidence
         return max(suggestions, key=lambda x: x.confidence)
+
 
 # Convenience function
 async def get_snooze_suggestions(

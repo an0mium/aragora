@@ -23,6 +23,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
 def _get_secret(name: str, default: str = "") -> str:
     """Get a secret from AWS Secrets Manager or environment."""
     try:
@@ -32,9 +33,11 @@ def _get_secret(name: str, default: str = "") -> str:
     except ImportError:
         return os.environ.get(name, default)
 
+
 def _is_production() -> bool:
     """Check if we're in production mode."""
     return os.environ.get("ARAGORA_ENV", "").lower() == "production"
+
 
 @dataclass
 class OAuthProviderConfig:
@@ -54,6 +57,7 @@ class OAuthProviderConfig:
     team_id: str | None = None  # For Apple
     key_id: str | None = None  # For Apple
     private_key: str | None = None  # For Apple
+
 
 @dataclass
 class OAuthTokens:
@@ -78,6 +82,7 @@ class OAuthTokens:
             id_token=data.get("id_token"),
         )
 
+
 @dataclass
 class OAuthUserInfo:
     """User information from OAuth provider."""
@@ -92,6 +97,7 @@ class OAuthUserInfo:
     picture: str | None = None
     locale: str | None = None
     raw_data: dict[str, Any] = field(default_factory=dict)
+
 
 class OAuthProvider(ABC):
     """
@@ -310,6 +316,7 @@ class OAuthProvider(ABC):
         response.raise_for_status()
 
         return response.json()
+
 
 __all__ = [
     "OAuthProvider",

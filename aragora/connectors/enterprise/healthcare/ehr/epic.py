@@ -46,6 +46,7 @@ EPIC_OPERATIONS = {
     "care-everywhere": "/CareEverywhere/$query",
 }
 
+
 @dataclass
 class EpicPatientContext:
     """Epic patient launch context."""
@@ -55,6 +56,7 @@ class EpicPatientContext:
     mychart_status: str | None = None
     mrn: str | None = None
     encounter_id: str | None = None
+
 
 class EpicAdapter(EHRAdapter):
     """

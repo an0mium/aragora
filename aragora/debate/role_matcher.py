@@ -17,6 +17,7 @@ Strategies:
 - "hybrid": Blend calibration + expertise + randomness
 - "rotation": Fall back to simple rotation (default behavior)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ from aragora.agents.personas import Persona, PersonaManager
 from aragora.debate.roles import ROLE_PROMPTS, CognitiveRole, RoleAssignment
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class RoleMatchingConfig:
@@ -58,6 +60,7 @@ class RoleMatchingConfig:
     ece_threshold: float = 0.1
     """ECE threshold for 'well-calibrated' status."""
 
+
 @dataclass
 class RoleMatchResult:
     """Result of role matching for a single round."""
@@ -68,6 +71,7 @@ class RoleMatchResult:
     calibration_used: bool
     cold_start_agents: list[str] = field(default_factory=list)
     developmental_assignments: list[str] = field(default_factory=list)
+
 
 class RoleMatcher:
     """
@@ -440,7 +444,9 @@ class RoleMatcher:
             available = affinities  # All used, ignore constraint
 
         if temperature <= 0 or not available:
-            return max(available, key=lambda k: available[k]) if available else CognitiveRole.ANALYST
+            return (
+                max(available, key=lambda k: available[k]) if available else CognitiveRole.ANALYST
+            )
 
         # Softmax selection
         max_score = max(available.values())
@@ -506,6 +512,7 @@ class RoleMatcher:
     def clear_cache(self) -> None:
         """Clear calibration cache (call when calibration data updates)."""
         self._calibration_cache.clear()
+
 
 __all__ = [
     "RoleMatchingConfig",

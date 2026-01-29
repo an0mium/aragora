@@ -65,6 +65,7 @@ METRICS_AGGREGATION_INTERVAL = int(os.environ.get("ARAGORA_RATE_LIMIT_METRICS_IN
 _redis_client: Optional["redis.Redis"] = None
 _redis_init_attempted: bool = False
 
+
 def get_redis_client() -> Optional["redis.Redis"]:
     """
     Get Redis client if configured and available.
@@ -123,6 +124,7 @@ def get_redis_client() -> Optional["redis.Redis"]:
         _redis_client = None
         return None
 
+
 def reset_redis_client() -> None:
     """Reset Redis client (for testing)."""
     global _redis_client, _redis_init_attempted
@@ -134,6 +136,7 @@ def reset_redis_client() -> None:
             logger.debug(f"Error closing Redis client during reset: {e}")
     _redis_client = None
     _redis_init_attempted = False
+
 
 class RateLimitCircuitBreaker:
     """
@@ -244,6 +247,7 @@ class RateLimitCircuitBreaker:
                 "recovery_timeout": self.recovery_timeout,
                 "last_failure_time": self._last_failure_time,
             }
+
 
 class RedisRateLimiter:
     """
@@ -588,6 +592,7 @@ class RedisRateLimiter:
         with self._lock:
             self._buckets.clear()
         self._fallback.reset()
+
 
 __all__ = [
     "REDIS_AVAILABLE",

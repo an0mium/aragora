@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 ChunkingStrategyType = Literal["semantic", "sliding", "recursive", "fixed", "rlm"]
 
+
 @dataclass
 class ChunkingConfig:
     """Configuration for chunking strategies."""
@@ -64,6 +65,7 @@ class ChunkingConfig:
 
     # Include heading context in each chunk
     include_heading_context: bool = True
+
 
 class ChunkingStrategy(ABC):
     """
@@ -177,6 +179,7 @@ class ChunkingStrategy(ABC):
             token_model=self.config.model,
             metadata=metadata or {},
         )
+
 
 class SlidingWindowChunking(ChunkingStrategy):
     """
@@ -310,6 +313,7 @@ class SlidingWindowChunking(ChunkingStrategy):
             tokens += sent_tokens
 
         return overlap
+
 
 class SemanticChunking(ChunkingStrategy):
     """
@@ -455,6 +459,7 @@ class SemanticChunking(ChunkingStrategy):
                 metadata=metadata,
             )
         ]
+
 
 class RecursiveChunking(ChunkingStrategy):
     """
@@ -608,6 +613,7 @@ class RecursiveChunking(ChunkingStrategy):
 
         return chunks
 
+
 class FixedSizeChunking(ChunkingStrategy):
     """
     Simple fixed-size chunking by token count.
@@ -722,6 +728,7 @@ class FixedSizeChunking(ChunkingStrategy):
 
         return overlap
 
+
 # RLM availability check (use factory for consistent initialization)
 try:
     from aragora.rlm import get_compressor, RLMConfig, AbstractionLevel
@@ -732,6 +739,7 @@ except ImportError:
     get_compressor = None  # type: ignore[misc,assignment]
     RLMConfig = None  # type: ignore[misc,assignment]
     AbstractionLevel = None  # type: ignore[misc,assignment]
+
 
 class RLMChunking(ChunkingStrategy):
     """
@@ -877,6 +885,7 @@ class RLMChunking(ChunkingStrategy):
         )
 
         return chunks
+
 
 class HierarchicalChunkNavigator:
     """
@@ -1107,6 +1116,7 @@ class HierarchicalChunkNavigator:
 
         return "\n".join(context_parts)
 
+
 # Strategy registry
 CHUNKING_STRATEGIES: dict[ChunkingStrategyType, type[ChunkingStrategy]] = {
     "semantic": SemanticChunking,
@@ -1115,6 +1125,7 @@ CHUNKING_STRATEGIES: dict[ChunkingStrategyType, type[ChunkingStrategy]] = {
     "fixed": FixedSizeChunking,
     "rlm": RLMChunking,
 }
+
 
 def get_chunking_strategy(
     strategy_type: ChunkingStrategyType = "semantic",
@@ -1145,6 +1156,7 @@ def get_chunking_strategy(
 
     strategy_class = CHUNKING_STRATEGIES.get(strategy_type, SemanticChunking)
     return strategy_class(config)
+
 
 def auto_select_strategy(
     text: str,
@@ -1188,6 +1200,7 @@ def auto_select_strategy(
 
     # Default to semantic for narrative content
     return "semantic"
+
 
 __all__ = [
     "ChunkingConfig",

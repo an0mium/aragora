@@ -34,6 +34,7 @@ DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "receipt_deletions.db"
 )
 
+
 @dataclass
 class ReceiptDeletionRecord:
     """Record of a receipt deletion for audit purposes."""
@@ -62,6 +63,7 @@ class ReceiptDeletionRecord:
             "operator": self.operator,
             "metadata": self.metadata,
         }
+
 
 class ReceiptDeletionLog:
     """
@@ -446,9 +448,11 @@ class ReceiptDeletionLog:
             metadata=json.loads(row["metadata"]) if row["metadata"] else {},
         )
 
+
 # Singleton instance
 _deletion_log: ReceiptDeletionLog | None = None
 _log_lock = threading.RLock()
+
 
 def get_receipt_deletion_log(db_path: Path | None = None) -> ReceiptDeletionLog:
     """Get or create the singleton deletion log instance."""

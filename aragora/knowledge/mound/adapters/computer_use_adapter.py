@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Type alias for event callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 
+
 @dataclass
 class TaskExecutionRecord:
     """Record of a computer-use task execution for KM storage."""
@@ -51,6 +52,7 @@ class TaskExecutionRecord:
     workspace_id: str = "default"
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ActionPerformanceRecord:
     """Aggregated action performance for KM storage."""
@@ -62,6 +64,7 @@ class ActionPerformanceRecord:
     avg_duration_ms: float
     policy_blocked_count: int = 0
     workspace_id: str = "default"
+
 
 @dataclass
 class PolicyBlockRecord:
@@ -76,6 +79,7 @@ class PolicyBlockRecord:
     reason: str
     timestamp: float
     workspace_id: str = "default"
+
 
 class ComputerUseAdapter(KnowledgeMoundAdapter):
     """
@@ -859,6 +863,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
         self._action_stats_cache.clear()
         self._cache_times.clear()
         return count
+
 
 __all__ = [
     "ComputerUseAdapter",

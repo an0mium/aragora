@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class KnowledgeNode:
     """A knowledge node in the Knowledge Mound."""
@@ -35,6 +36,7 @@ class KnowledgeNode:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
 @dataclass
 class KnowledgeSearchResult:
     """A search result from the Knowledge Mound."""
@@ -47,6 +49,7 @@ class KnowledgeSearchResult:
     domain: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class KnowledgeStats:
     """Statistics about the Knowledge Mound."""
@@ -58,6 +61,7 @@ class KnowledgeStats:
     average_confidence: float
     stale_nodes_count: int
 
+
 @dataclass
 class CoverageReport:
     """Domain coverage analysis report."""
@@ -66,6 +70,7 @@ class CoverageReport:
     coverage_score: float
     gaps: list[str]
     recommendations: list[str]
+
 
 @dataclass
 class ContradictionResult:
@@ -78,6 +83,7 @@ class ContradictionResult:
     severity: str
     description: str
     suggested_resolution: str | None = None
+
 
 class KnowledgeAPI:
     """API interface for Knowledge Mound operations."""
@@ -340,9 +346,7 @@ class KnowledgeAPI:
         response = self._client._get("/api/v1/knowledge/mound/analytics/coverage", params)
         return CoverageReport(**response)
 
-    async def get_coverage_analytics_async(
-        self, workspace_id: str | None = None
-    ) -> CoverageReport:
+    async def get_coverage_analytics_async(self, workspace_id: str | None = None) -> CoverageReport:
         """Async version of get_coverage_analytics()."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         response = await self._client._get_async(
@@ -373,9 +377,7 @@ class KnowledgeAPI:
         params = {"workspace_id": workspace_id} if workspace_id else None
         return self._client._get("/api/v1/knowledge/mound/analytics/quality/snapshot", params)
 
-    async def get_quality_snapshot_async(
-        self, workspace_id: str | None = None
-    ) -> dict[str, Any]:
+    async def get_quality_snapshot_async(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Async version of get_quality_snapshot()."""
         params = {"workspace_id": workspace_id} if workspace_id else None
         return await self._client._get_async(
@@ -541,6 +543,7 @@ class KnowledgeAPI:
         """Async version of promote_extracted()."""
         body = {"extraction_ids": extraction_ids}
         return await self._client._post_async("/api/v1/knowledge/mound/extraction/promote", body)
+
 
 __all__ = [
     "KnowledgeAPI",

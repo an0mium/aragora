@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["GoogleChatDock"]
 
+
 class GoogleChatDock(ChannelDock):
     """
     Google Chat platform dock.

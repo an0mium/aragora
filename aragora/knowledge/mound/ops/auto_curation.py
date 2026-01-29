@@ -37,6 +37,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class CurationAction(str, Enum):
     """Actions that auto-curation can take."""
 
@@ -47,6 +48,7 @@ class CurationAction(str, Enum):
     REFRESH = "refresh"  # Trigger revalidation
     FLAG = "flag"  # Mark for manual review
 
+
 class TierLevel(str, Enum):
     """Knowledge tier levels in order of access speed."""
 
@@ -55,8 +57,10 @@ class TierLevel(str, Enum):
     COLD = "cold"  # Infrequently accessed
     GLACIAL = "glacial"  # Archive tier
 
+
 # Tier priority for promotion/demotion logic
 TIER_ORDER = [TierLevel.HOT, TierLevel.WARM, TierLevel.COLD, TierLevel.GLACIAL]
+
 
 @dataclass
 class QualityScore:
@@ -90,6 +94,7 @@ class QualityScore:
         elif self.freshness_score < 0.3:
             return CurationAction.REFRESH
         return CurationAction.FLAG  # Default to review
+
 
 @dataclass
 class CurationPolicy:
@@ -149,6 +154,7 @@ class CurationPolicy:
             return False
         return True
 
+
 @dataclass
 class CurationCandidate:
     """An item being evaluated for curation."""
@@ -160,6 +166,7 @@ class CurationCandidate:
     recommended_action: CurationAction
     target_tier: str | None = None
     merge_target_id: str | None = None
+
 
 @dataclass
 class CurationResult:
@@ -208,6 +215,7 @@ class CurationResult:
             + self.flagged_count
         )
 
+
 @dataclass
 class CurationHistory:
     """Historical record of curation operations."""
@@ -219,6 +227,7 @@ class CurationHistory:
     result_summary: dict[str, Any]
     items_affected: int
     trigger: str  # "scheduled", "manual", "threshold"
+
 
 class AutoCurationMixin:
     """Mixin providing auto-curation operations for Knowledge Mound."""
@@ -669,6 +678,7 @@ class AutoCurationMixin:
             "needs_attention": needs_attention,
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
         }
+
 
 # Exports
 __all__ = [

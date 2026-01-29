@@ -19,12 +19,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class VoteWeighterConfig:
     """Configuration for vote weighting."""
 
     # Default user vote weight
     default_user_vote_weight: float = 0.5
+
 
 @dataclass
 class VoteWeighterDeps:
@@ -40,6 +42,7 @@ class VoteWeighterDeps:
     drain_user_events: Optional[Callable[[], None]] = None
     # Callback for user vote intensity multiplier
     user_vote_multiplier: Optional[Callable[[int, Any], float]] = None
+
 
 class VoteWeighter:
     """Handles vote weighting and calibration adjustments.

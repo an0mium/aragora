@@ -49,6 +49,7 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
+
 class ZoomOAuthManager:
     """Manages Zoom OAuth tokens."""
 
@@ -104,6 +105,7 @@ class ZoomOAuthManager:
         except Exception as e:
             logger.error(f"Zoom OAuth error: {e}")
             return None
+
 
 class AragoraZoomBot:
     """Zoom bot for Aragora platform integration.
@@ -396,6 +398,7 @@ class AragoraZoomBot:
             },
         )
 
+
 def create_zoom_bot(
     client_id: str | None = None,
     client_secret: str | None = None,
@@ -433,6 +436,7 @@ def create_zoom_bot(
         verification_token=verification_token,
         secret_token=secret_token,
     )
+
 
 __all__ = [
     "AragoraZoomBot",

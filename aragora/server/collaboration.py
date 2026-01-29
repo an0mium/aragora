@@ -22,6 +22,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+
 class ParticipantRole(str, Enum):
     """Roles a participant can have in a collaborative session."""
 
@@ -30,6 +31,7 @@ class ParticipantRole(str, Enum):
     CONTRIBUTOR = "contributor"  # Can vote and suggest
     MODERATOR = "moderator"  # Can moderate suggestions, kick users
 
+
 class SessionState(str, Enum):
     """State of a collaboration session."""
 
@@ -37,6 +39,7 @@ class SessionState(str, Enum):
     PAUSED = "paused"
     CLOSED = "closed"
     ARCHIVED = "archived"
+
 
 @dataclass
 class Participant:
@@ -80,6 +83,7 @@ class Participant:
             "last_active": self.last_active,
             "is_online": self.is_online,
         }
+
 
 @dataclass
 class CollaborationSession:
@@ -149,6 +153,7 @@ class CollaborationSession:
             result["participants"] = [p.to_dict() for p in self.participants.values()]
         return result
 
+
 class CollaborationEventType(str, Enum):
     """Event types for collaboration."""
 
@@ -165,6 +170,7 @@ class CollaborationEventType(str, Enum):
     APPROVAL_REQUESTED = "approval_requested"
     APPROVAL_GRANTED = "approval_granted"
     APPROVAL_DENIED = "approval_denied"
+
 
 @dataclass
 class CollaborationEvent:
@@ -185,6 +191,7 @@ class CollaborationEvent:
             "user_id": self.user_id,
             "data": self.data,
         }
+
 
 class SessionManager:
     """
@@ -742,9 +749,11 @@ class SessionManager:
                 "users_with_sessions": len(self._user_sessions),
             }
 
+
 # Global singleton instance
 _session_manager: SessionManager | None = None
 _manager_lock = threading.Lock()
+
 
 def get_session_manager() -> SessionManager:
     """Get the global session manager instance."""
@@ -753,6 +762,7 @@ def get_session_manager() -> SessionManager:
         if _session_manager is None:
             _session_manager = SessionManager()
         return _session_manager
+
 
 __all__ = [
     "ParticipantRole",

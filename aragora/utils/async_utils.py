@@ -6,6 +6,7 @@ the common case where code may be called from either sync or async contexts.
 
 Also includes async subprocess utilities for non-blocking command execution.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -16,6 +17,7 @@ from typing import Any, Coroutine, TypeVar
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
 
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     """Run async coroutine from sync context ONLY.
@@ -61,8 +63,10 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
         coro.close()
         raise
 
+
 # Semaphore to limit concurrent subprocess calls (prevent resource exhaustion)
 _subprocess_semaphore = asyncio.Semaphore(10)
+
 
 async def run_command(
     cmd: list[str],
@@ -104,6 +108,7 @@ async def run_command(
             await proc.wait()
             raise
 
+
 async def run_git_command(args: list[str], cwd: Path, timeout: float = 30.0) -> tuple[bool, str]:
     """Run git command asynchronously.
 
@@ -128,5 +133,6 @@ async def run_git_command(args: list[str], cwd: Path, timeout: float = 30.0) -> 
         return False, "Git not found"
     except Exception as e:
         return False, str(e)
+
 
 __all__ = ["run_async", "run_command", "run_git_command"]

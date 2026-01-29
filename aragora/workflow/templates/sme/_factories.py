@@ -24,6 +24,7 @@ from aragora.workflow.types import (
     WorkflowDefinition,
 )
 
+
 def create_invoice_workflow(
     customer_id: str,
     items: list[dict[str, Any]],
@@ -127,6 +128,7 @@ def create_invoice_workflow(
         ],
         entry_step="validate",
     )
+
 
 def create_followup_workflow(
     followup_type: str = "check_in",
@@ -243,6 +245,7 @@ def create_followup_workflow(
         entry_step="identify",
     )
 
+
 def create_inventory_alert_workflow(
     alert_threshold: int = 20,
     auto_reorder: bool = False,
@@ -354,6 +357,7 @@ def create_inventory_alert_workflow(
         ],
         entry_step="fetch",
     )
+
 
 def create_report_workflow(
     report_type: str,
@@ -485,7 +489,9 @@ def create_report_workflow(
         entry_step="fetch",
     )
 
+
 # Convenience functions for common patterns
+
 
 def quick_invoice(
     customer: str,
@@ -510,6 +516,7 @@ def quick_invoice(
         send_email=send,
     )
 
+
 def weekly_sales_report(recipients: list[str]) -> WorkflowDefinition:
     """Create a weekly sales report workflow.
 
@@ -526,6 +533,7 @@ def weekly_sales_report(recipients: list[str]) -> WorkflowDefinition:
         format="pdf",
         recipients=recipients,
     )
+
 
 def daily_inventory_check(
     slack_channel: str | None = None,
@@ -548,6 +556,7 @@ def daily_inventory_check(
         notification_channels=channels,
     )
 
+
 def renewal_followup_campaign() -> WorkflowDefinition:
     """Create a renewal follow-up campaign workflow.
 
@@ -561,9 +570,11 @@ def renewal_followup_campaign() -> WorkflowDefinition:
         auto_send=False,
     )
 
+
 # =============================================================================
 # SME Decision Templates
 # =============================================================================
+
 
 def create_vendor_evaluation_workflow(
     vendor_name: str,
@@ -683,6 +694,7 @@ def create_vendor_evaluation_workflow(
         entry_step="gather",
     )
 
+
 def create_hiring_decision_workflow(
     position: str,
     candidate_name: str,
@@ -792,6 +804,7 @@ def create_hiring_decision_workflow(
         ],
         entry_step="analyze",
     )
+
 
 def create_budget_allocation_workflow(
     department: str,
@@ -916,6 +929,7 @@ def create_budget_allocation_workflow(
         ],
         entry_step="analyze",
     )
+
 
 def create_performance_review_workflow(
     employee_name: str,
@@ -1043,6 +1057,7 @@ def create_performance_review_workflow(
         entry_step="context",
     )
 
+
 def create_feature_prioritization_workflow(
     features: list[str],
     constraints: Optional[list[str]] = None,
@@ -1153,6 +1168,7 @@ def create_feature_prioritization_workflow(
         ],
         entry_step="analyze",
     )
+
 
 def create_sprint_planning_workflow(
     sprint_name: str,
@@ -1266,6 +1282,7 @@ def create_sprint_planning_workflow(
         ],
         entry_step="capacity",
     )
+
 
 def create_tool_selection_workflow(
     category: str,
@@ -1392,6 +1409,7 @@ def create_tool_selection_workflow(
         entry_step="research",
     )
 
+
 def create_contract_review_workflow(
     contract_type: str,
     counterparty: str,
@@ -1516,6 +1534,7 @@ def create_contract_review_workflow(
         entry_step="parse",
     )
 
+
 def create_remote_work_policy_workflow(
     company_size: int = 50,
     current_policy: str | None = None,
@@ -1623,6 +1642,7 @@ def create_remote_work_policy_workflow(
         ],
         entry_step="benchmark",
     )
+
 
 def create_business_decision_workflow(
     decision_topic: str,
@@ -1742,6 +1762,7 @@ def create_business_decision_workflow(
         ],
         entry_step="frame",
     )
+
 
 __all__ = [
     # Main factory functions

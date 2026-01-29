@@ -40,6 +40,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class GoogleActionType(Enum):
     """Google Actions request types."""
 
@@ -54,6 +55,7 @@ class GoogleActionType(Enum):
     EXECUTE = "action.devices.EXECUTE"
     DISCONNECT = "action.devices.DISCONNECT"
 
+
 class GoogleIntent(Enum):
     """Custom intents for Aragora."""
 
@@ -64,6 +66,7 @@ class GoogleIntent(Enum):
     VOTE = "vote"
     HELP = "help"
 
+
 @dataclass
 class GoogleUser:
     """Google user information."""
@@ -72,6 +75,7 @@ class GoogleUser:
     access_token: str | None = None
     profile: dict[str, Any] = field(default_factory=dict)
     locale: str = "en"
+
 
 @dataclass
 class GoogleConversation:
@@ -82,6 +86,7 @@ class GoogleConversation:
     user: GoogleUser | None = None
     is_new: bool = False
     surface_capabilities: list[str] = field(default_factory=list)
+
 
 class GoogleHomeConnector(DeviceConnector):
     """

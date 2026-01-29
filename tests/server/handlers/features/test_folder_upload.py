@@ -148,7 +148,9 @@ class TestFolderUploadHandler:
         """Test can_handle for status routes."""
         assert handler.can_handle("/api/v1/documents/folder/upload/folder123/status") is True
 
-    @pytest.mark.skip(reason="Implementation bug: can_handle checks path.count('/') == 4 but path has 5 slashes")
+    @pytest.mark.skip(
+        reason="Implementation bug: can_handle checks path.count('/') == 4 but path has 5 slashes"
+    )
     def test_can_handle_folder_id_routes(self, handler):
         """Test can_handle for folder ID routes."""
         assert handler.can_handle("/api/v1/documents/folders/folder123") is True

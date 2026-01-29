@@ -20,9 +20,9 @@ class MockKnowledgeMound:
     """Mock Knowledge Mound for testing extension adapters."""
 
     def __init__(self):
-        self.items: Dict[str, Dict[str, Any]] = {}
-        self.store_calls: List[Dict[str, Any]] = []
-        self.query_calls: List[Dict[str, Any]] = []
+        self.items: dict[str, dict[str, Any]] = {}
+        self.store_calls: list[dict[str, Any]] = []
+        self.query_calls: list[dict[str, Any]] = []
 
     async def ingest(self, item: Any) -> str:
         """Ingest a KnowledgeItem into the mound."""
@@ -42,7 +42,7 @@ class MockKnowledgeMound:
         self.store_calls.append({"source": source, "type": item_type, "content": content})
         return item_id
 
-    async def query(self, query: str, source: Optional[str] = None, limit: int = 10) -> List[Dict]:
+    async def query(self, query: str, source: Optional[str] = None, limit: int = 10) -> list[dict]:
         self.query_calls.append({"query": query, "source": source, "limit": limit})
         results = []
         for item_id, item in self.items.items():
@@ -78,10 +78,10 @@ class MockAgentFabric:
         self.tasks = []
         self.budget_usage = {"total": 1000, "used": 250, "remaining": 750}
 
-    def get_pool_stats(self, pool_id: str) -> Optional[Dict]:
+    def get_pool_stats(self, pool_id: str) -> Optional[dict]:
         return self.pools.get(pool_id)
 
-    def get_all_pools(self) -> List[Dict]:
+    def get_all_pools(self) -> list[dict]:
         return list(self.pools.values())
 
 
@@ -101,7 +101,7 @@ class MockWorkspaceManager:
         self.convoys = []
         self.merges = []
 
-    def get_rig(self, rig_id: str) -> Optional[Dict]:
+    def get_rig(self, rig_id: str) -> Optional[dict]:
         return self.rigs.get(rig_id)
 
 
@@ -115,7 +115,7 @@ class MockComputerUseOrchestrator:
             "type": {"total": 50, "success": 48, "avg_duration_ms": 200},
         }
 
-    def get_action_stats(self, action_type: str) -> Optional[Dict]:
+    def get_action_stats(self, action_type: str) -> Optional[dict]:
         return self.action_stats.get(action_type)
 
 
@@ -130,7 +130,7 @@ class MockLocalGateway:
         self.devices = []
         self.routing_records = []
 
-    def get_channel_stats(self, channel: str) -> Optional[Dict]:
+    def get_channel_stats(self, channel: str) -> Optional[dict]:
         return self.channels.get(channel)
 
 

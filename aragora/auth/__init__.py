@@ -35,6 +35,25 @@ from .oidc import (
     OIDCProvider,
 )
 
+# SCIM 2.0 provisioning
+try:
+    from .scim import (
+        SCIMConfig,
+        SCIMServer,
+        SCIMUser,
+        SCIMGroup,
+        SCIMError,
+    )
+
+    HAS_SCIM = True
+except ImportError:
+    SCIMConfig = None  # type: ignore[assignment, misc]
+    SCIMServer = None  # type: ignore[assignment, misc]
+    SCIMUser = None  # type: ignore[assignment, misc]
+    SCIMGroup = None  # type: ignore[assignment, misc]
+    SCIMError = None  # type: ignore[assignment, misc]
+    HAS_SCIM = False
+
 # SAML requires python3-saml optional dependency
 try:
     from .saml import (
@@ -90,3 +109,7 @@ __all__ = [
 # Add SAML exports only if available
 if HAS_SAML:
     __all__.extend(["SAMLProvider", "SAMLConfig", "SAMLError"])
+
+# Add SCIM exports only if available
+if HAS_SCIM:
+    __all__.extend(["SCIMConfig", "SCIMServer", "SCIMUser", "SCIMGroup", "SCIMError", "HAS_SCIM"])

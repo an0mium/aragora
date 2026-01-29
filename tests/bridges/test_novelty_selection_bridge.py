@@ -20,8 +20,8 @@ class MockNoveltyResult:
     """Mock novelty result for testing."""
 
     round_num: int = 1
-    per_agent_novelty: Dict[str, float] = field(default_factory=dict)
-    low_novelty_agents: List[str] = field(default_factory=list)
+    per_agent_novelty: dict[str, float] = field(default_factory=dict)
+    low_novelty_agents: list[str] = field(default_factory=list)
     avg_novelty: float = 0.5
 
 
@@ -29,7 +29,7 @@ class MockNoveltyTracker:
     """Mock novelty tracker."""
 
     def __init__(self):
-        self.scores: List[MockNoveltyResult] = []
+        self.scores: list[MockNoveltyResult] = []
 
     def add_result(self, result: MockNoveltyResult) -> None:
         """Add a novelty result."""
@@ -40,8 +40,8 @@ class MockSelectionFeedbackLoop:
     """Mock selection feedback loop."""
 
     def __init__(self):
-        self._selection_adjustments: Dict[str, float] = {}
-        self._agent_states: Dict[str, object] = {}
+        self._selection_adjustments: dict[str, float] = {}
+        self._agent_states: dict[str, object] = {}
 
     def get_selection_adjustment(self, agent_name: str) -> float:
         """Get current adjustment."""

@@ -38,6 +38,7 @@ from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
+
 # Environment configuration
 def _parse_detection_mode(raw: str) -> str:
     value = raw.lower()
@@ -45,6 +46,7 @@ def _parse_detection_mode(raw: str) -> str:
         logger.warning("Invalid ARAGORA_N1_DETECTION='%s', using 'off'", raw)
         return "off"
     return value
+
 
 def _parse_threshold(raw: str) -> int:
     try:
@@ -57,6 +59,7 @@ def _parse_threshold(raw: str) -> int:
         logger.warning("Invalid ARAGORA_N1_THRESHOLD='%s', using default 5", raw)
         return 5
 
+
 N1_DETECTION_MODE = _parse_detection_mode(os.environ.get("ARAGORA_N1_DETECTION", "off"))
 N1_THRESHOLD = _parse_threshold(os.environ.get("ARAGORA_N1_THRESHOLD", "5"))
 
@@ -64,6 +67,7 @@ N1_THRESHOLD = _parse_threshold(os.environ.get("ARAGORA_N1_THRESHOLD", "5"))
 _current_detector: contextvars.ContextVar[Optional["N1QueryDetector"]] = contextvars.ContextVar(
     "n1_detector", default=None
 )
+
 
 class N1QueryError(Exception):
     """Raised when N+1 pattern detected and mode is 'error'."""
@@ -76,6 +80,7 @@ class N1QueryError(Exception):
             f"N+1 query pattern detected: {table} queried {count} times (threshold: {threshold})"
         )
 
+
 @dataclass
 class QueryRecord:
     """Record of a single query execution."""
@@ -84,6 +89,7 @@ class QueryRecord:
     query_pattern: str  # Normalized query pattern
     timestamp: float
     duration_ms: float = 0.0
+
 
 @dataclass
 class N1Detection:
@@ -100,6 +106,7 @@ class N1Detection:
         """Check if this is likely an N+1 pattern (many similar queries)."""
         # N+1 typically has many queries with few unique patterns
         return self.query_count > 1 and self.unique_patterns <= 2
+
 
 class N1QueryDetector:
     """
@@ -267,9 +274,11 @@ class N1QueryDetector:
             elif self.mode == "warn":
                 logger.warning(msg)
 
+
 def get_current_detector() -> N1QueryDetector | None:
     """Get the current N+1 detector from context, if any."""
     return _current_detector.get()
+
 
 def record_query(table: str, query: str, duration_ms: float = 0.0) -> None:
     """
@@ -281,8 +290,10 @@ def record_query(table: str, query: str, duration_ms: float = 0.0) -> None:
     if detector is not None:
         detector.record_query(table, query, duration_ms)
 
+
 # Type variable for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
+
 
 def detect_n1(
     threshold: int | None = None,
@@ -323,6 +334,7 @@ def detect_n1(
 
     return decorator
 
+
 @contextmanager
 def n1_detection_scope(
     name: str = "scope",
@@ -339,6 +351,7 @@ def n1_detection_scope(
     """
     with N1QueryDetector(threshold=threshold, mode=mode, name=name) as detector:
         yield detector
+
 
 __all__ = [
     "N1QueryDetector",

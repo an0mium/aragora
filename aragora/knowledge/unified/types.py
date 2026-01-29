@@ -17,6 +17,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, Optional
 
+
 class KnowledgeSource(str, Enum):
     """Source types for knowledge items."""
 
@@ -44,6 +45,7 @@ class KnowledgeSource(str, Enum):
     EXTRACTION = "extraction"  # Extracted content from documents
     CALIBRATION = "calibration"  # Multi-party calibration fusion consensus
 
+
 class RelationshipType(str, Enum):
     """Types of relationships between knowledge items."""
 
@@ -55,6 +57,7 @@ class RelationshipType(str, Enum):
     RELATED_TO = "related_to"
     CITES = "cites"
 
+
 class ConfidenceLevel(str, Enum):
     """Confidence levels for knowledge items."""
 
@@ -63,6 +66,7 @@ class ConfidenceLevel(str, Enum):
     MEDIUM = "medium"  # Moderate confidence
     LOW = "low"  # Weak evidence or contested
     UNVERIFIED = "unverified"  # Not yet verified
+
 
 @dataclass
 class KnowledgeItem:
@@ -120,6 +124,7 @@ class KnowledgeItem:
             cross_references=data.get("cross_references", []),
         )
 
+
 @dataclass
 class KnowledgeLink:
     """
@@ -150,6 +155,7 @@ class KnowledgeLink:
             "created_by": self.created_by,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class QueryFilters:
@@ -188,6 +194,7 @@ class QueryFilters:
             result["tags"] = self.tags
         return result
 
+
 @dataclass
 class QueryResult:
     """Result of a Knowledge Mound query."""
@@ -210,6 +217,7 @@ class QueryResult:
             "sources_queried": [s.value for s in self.sources_queried],
         }
 
+
 @dataclass
 class StoreResult:
     """Result of storing a knowledge item."""
@@ -220,6 +228,7 @@ class StoreResult:
     cross_references_created: int = 0
     message: str | None = None
 
+
 @dataclass
 class LinkResult:
     """Result of creating a knowledge link."""
@@ -227,6 +236,7 @@ class LinkResult:
     id: str
     success: bool
     message: str | None = None
+
 
 # Type aliases for commonly used parameter types
 SourceFilter = Literal["all", "continuum", "consensus", "fact", "vector", "document"]

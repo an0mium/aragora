@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Global capability matcher instance
 _matcher: Optional["CapabilityMatcher"] = None
 
+
 def get_capability_matcher() -> "CapabilityMatcher":
     """Get or create the capability matcher instance."""
     global _matcher
@@ -40,6 +41,7 @@ def get_capability_matcher() -> "CapabilityMatcher":
 
         _matcher = CapabilityMatcher()
     return _matcher
+
 
 class MoltbotCapabilitiesHandler(BaseHandler):
     """HTTP handler for Moltbot device capabilities."""

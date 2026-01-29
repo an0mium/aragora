@@ -33,9 +33,9 @@ class MockOutcomeTracker:
     """Mock outcome tracker."""
 
     def __init__(self):
-        self._outcomes: List[MockConsensusOutcome] = []
+        self._outcomes: list[MockConsensusOutcome] = []
 
-    def get_recent_outcomes(self, limit: int = 100) -> List[MockConsensusOutcome]:
+    def get_recent_outcomes(self, limit: int = 100) -> list[MockConsensusOutcome]:
         """Get recent outcomes."""
         return self._outcomes[:limit]
 

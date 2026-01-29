@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Type alias for explanation generator
 ExplainGenerator = Callable[[str, dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
 
+
 @dataclass
 class BatchJobProgress:
     """Progress tracking for a batch job."""
@@ -48,6 +49,7 @@ class BatchJobProgress:
     def elapsed_seconds(self) -> float:
         """Get elapsed time in seconds."""
         return time.time() - self.started_at
+
 
 class BatchExplainabilityWorker:
     """
@@ -318,6 +320,7 @@ class BatchExplainabilityWorker:
 
             progress.processed += 1
 
+
 async def create_batch_job(
     queue: JobQueue,
     debate_ids: list[str],
@@ -357,6 +360,7 @@ async def create_batch_job(
     )
 
     return job
+
 
 __all__ = [
     "BatchExplainabilityWorker",

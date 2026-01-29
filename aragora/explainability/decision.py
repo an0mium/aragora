@@ -24,6 +24,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class InfluenceType(str, Enum):
     """Types of influence on a decision."""
 
@@ -34,6 +35,7 @@ class InfluenceType(str, Enum):
     ELO = "elo"
     CONSENSUS = "consensus"
     USER = "user"
+
 
 @dataclass
 class EvidenceLink:
@@ -61,6 +63,7 @@ class EvidenceLink:
             "timestamp": self.timestamp,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class VotePivot:
@@ -90,6 +93,7 @@ class VotePivot:
             "flip_detected": self.flip_detected,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class BeliefChange:
@@ -125,6 +129,7 @@ class BeliefChange:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ConfidenceAttribution:
     """Attribution of confidence to different factors."""
@@ -143,6 +148,7 @@ class ConfidenceAttribution:
             "raw_value": self.raw_value,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class Counterfactual:
@@ -164,6 +170,7 @@ class Counterfactual:
             "affected_agents": self.affected_agents,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class Decision:
@@ -295,6 +302,7 @@ class Decision:
     def get_high_sensitivity_counterfactuals(self, threshold: float = 0.5) -> list[Counterfactual]:
         """Get counterfactuals with high sensitivity."""
         return [c for c in self.counterfactuals if c.sensitivity >= threshold]
+
 
 __all__ = [
     "Decision",

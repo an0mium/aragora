@@ -17,6 +17,7 @@ AgentRole = Literal[
 ]
 AgentStance = Literal["affirmative", "negative", "neutral"]
 
+
 class TaskComplexity(Enum):
     """Classification of task complexity for timeout scaling.
 
@@ -28,6 +29,7 @@ class TaskComplexity(Enum):
     MODERATE = "moderate"  # Standard design/analysis tasks
     COMPLEX = "complex"  # Deep reasoning, multi-step problems, formal proofs
     UNKNOWN = "unknown"  # Fallback when classification is uncertain
+
 
 @dataclass
 class Message:
@@ -41,6 +43,7 @@ class Message:
 
     def __str__(self) -> str:
         return f"[{self.role}:{self.agent}] {self.content[:100]}..."
+
 
 @dataclass
 class Critique:
@@ -75,6 +78,7 @@ Suggestions:
 {suggestions_str}
 Reasoning: {self.reasoning}"""
 
+
 @dataclass
 class Vote:
     """A vote for a proposal."""
@@ -84,6 +88,7 @@ class Vote:
     reasoning: str
     confidence: float = 1.0  # 0-1, default to full confidence
     continue_debate: bool = True  # Whether agent thinks debate should continue
+
 
 @dataclass
 class DisagreementReport:
@@ -134,6 +139,7 @@ class DisagreementReport:
         lines.append(f"\nAgreement Score: {self.agreement_score:.0%}")
 
         return "\n".join(lines)
+
 
 @dataclass
 class DebateResult:
@@ -292,6 +298,7 @@ Final Answer:
 
         return base
 
+
 @dataclass
 class Environment:
     """Defines a task environment for debate."""
@@ -317,6 +324,7 @@ class Environment:
             raise ValueError(f"Task exceeds maximum length of {self.MAX_TASK_LENGTH} characters")
         if "\x00" in self.task:
             raise ValueError("Task contains invalid null bytes")
+
 
 @dataclass
 class ToolManifest:
@@ -360,6 +368,7 @@ class ToolManifest:
     def get_tool_config(self, tool_name: str) -> dict[str, Any]:
         """Get configuration for a specific tool."""
         return self.tool_configs.get(tool_name, {})
+
 
 class Agent(ABC):
     """Abstract base class for all agents.
@@ -488,12 +497,14 @@ REASONING: <brief explanation>"""
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model}, role={self.role})"
 
+
 def __getattr__(name: str) -> Any:
     if name == "DebateProtocol":
         from aragora.debate.protocol import DebateProtocol
 
         return DebateProtocol
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 def __dir__() -> list[str]:
     return sorted(list(globals().keys()) + ["DebateProtocol"])

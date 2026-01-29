@@ -7,6 +7,7 @@ Extracted from debate_rounds.py to handle:
 - RLM ready signal quorum for agent self-termination
 - Trickster integration for hollow consensus detection
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ConvergenceResult:
     """Result of convergence check."""
@@ -38,6 +40,7 @@ class ConvergenceResult:
     status: str = ""
     similarity: float = 0.0
     blocked_by_trickster: bool = False
+
 
 class DebateConvergenceTracker:
     """

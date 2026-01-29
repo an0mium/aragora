@@ -107,6 +107,7 @@ _slack_oauth_audit: Any = None
 # Legacy in-memory fallback for tests/compatibility
 _oauth_states_fallback: dict[str, dict[str, Any]] = {}
 
+
 def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
     """Remove expired fallback OAuth states."""
     now = now or time.time()
@@ -117,6 +118,7 @@ def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
     ]
     for state in expired:
         _oauth_states_fallback.pop(state, None)
+
 
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
@@ -131,11 +133,13 @@ def _get_oauth_audit_logger() -> Any:
             _slack_oauth_audit = None
     return _slack_oauth_audit
 
+
 def _get_state_store():
     """Get the centralized OAuth state store."""
     from aragora.server.oauth_state_store import get_oauth_state_store
 
     return get_oauth_state_store()
+
 
 class SlackOAuthHandler(SecureHandler):
     """Handler for Slack OAuth installation flow.
@@ -1198,6 +1202,7 @@ class SlackOAuthHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Failed to refresh token: {e}")
             return error_response(f"Failed to refresh token: {e}", 500)
+
 
 # Handler factory function for registration
 def create_slack_oauth_handler(server_context: Any) -> SlackOAuthHandler:

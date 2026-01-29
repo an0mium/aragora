@@ -9,6 +9,7 @@ Provides access to NewsAPI.org for:
 Requires NEWSAPI_KEY environment variable for API access.
 Free tier: 100 requests/day, 1 month historical data.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -70,6 +71,7 @@ MEDIUM_CREDIBILITY_SOURCES = {
     "mashable",
     "vice-news",
 }
+
 
 class NewsAPIConnector(BaseConnector):
     """
@@ -539,6 +541,7 @@ class NewsAPIConnector(BaseConnector):
             return await self.search(query, limit=limit, sources=tech_sources)
         else:
             return await self.get_headlines(sources=tech_sources, limit=limit)
+
 
 __all__ = [
     "NewsAPIConnector",

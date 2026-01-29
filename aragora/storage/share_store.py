@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ShareLinkStore(SQLiteStore):
     """
     Database-backed store for debate sharing settings.
@@ -564,5 +565,6 @@ class ShareLinkStore(SQLiteStore):
         if self._backend is not None:
             self._backend.close()
             self._backend = None
+
 
 __all__ = ["ShareLinkStore"]

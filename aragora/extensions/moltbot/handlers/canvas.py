@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Global manager instance
 _manager: Optional["CanvasManager"] = None
 
+
 def get_canvas_manager() -> "CanvasManager":
     """Get or create the canvas manager instance."""
     global _manager
@@ -44,6 +45,7 @@ def get_canvas_manager() -> "CanvasManager":
 
         _manager = CanvasManager()
     return _manager
+
 
 class MoltbotCanvasHandler(BaseHandler):
     """HTTP handler for Moltbot canvas collaboration."""

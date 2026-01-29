@@ -11,6 +11,7 @@ Features:
 - Filter agents by vulnerability threshold
 - Identify dominant weaknesses for targeted improvement
 """
+
 from __future__ import annotations
 
 import json
@@ -20,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ProbeProfile:
@@ -77,6 +79,7 @@ class ProbeProfile:
             "days_since_probe": self.days_since_probe,
             "report_count": self.report_count,
         }
+
 
 class ProbeFilter:
     """

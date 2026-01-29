@@ -42,6 +42,7 @@ MLLP_START_BLOCK = b"\x0b"  # VT (vertical tab)
 MLLP_END_BLOCK = b"\x1c"  # FS (file separator)
 MLLP_CARRIAGE_RETURN = b"\x0d"  # CR
 
+
 class HL7MessageType(str, Enum):
     """HL7 v2 message types."""
 
@@ -78,6 +79,7 @@ class HL7MessageType(str, Enum):
     # Master Files
     MFN = "MFN"  # Master files notification
 
+
 class HL7SegmentType(str, Enum):
     """HL7 v2 segment types."""
 
@@ -101,9 +103,11 @@ class HL7SegmentType(str, Enum):
     AIL = "AIL"  # Appointment Information - Location
     AIP = "AIP"  # Appointment Information - Personnel
 
+
 # =============================================================================
 # HL7 v2 Data Structures
 # =============================================================================
+
 
 @dataclass
 class HL7Field:
@@ -144,6 +148,7 @@ class HL7Field:
 
     def __str__(self) -> str:
         return self.value
+
 
 @dataclass
 class HL7Segment:
@@ -206,6 +211,7 @@ class HL7Segment:
             return f.get_component(component_index, default)
         return default
 
+
 @dataclass
 class MSHSegment:
     """Message Header segment."""
@@ -255,6 +261,7 @@ class MSHSegment:
             processing_id=segment.get_field_value(11),
             version_id=segment.get_field_value(12),
         )
+
 
 @dataclass
 class PIDSegment:
@@ -323,6 +330,7 @@ class PIDSegment:
             ssn=segment.get_field_value(19),
         )
 
+
 @dataclass
 class PV1Segment:
     """Patient Visit segment."""
@@ -384,6 +392,7 @@ class PV1Segment:
             discharge_datetime=discharge_dt,
         )
 
+
 @dataclass
 class OBXSegment:
     """Observation/Result segment."""
@@ -440,6 +449,7 @@ class OBXSegment:
             observation_method=segment.get_field_value(17),
         )
 
+
 @dataclass
 class ORCSegment:
     """Common Order segment."""
@@ -486,6 +496,7 @@ class ORCSegment:
             verified_by=segment.get_field_value(11),
             ordering_provider=segment.get_field_value(12),
         )
+
 
 @dataclass
 class OBRSegment:
@@ -544,6 +555,7 @@ class OBRSegment:
             ordering_provider=segment.get_field_value(16),
             result_status=segment.get_field_value(25),
         )
+
 
 @dataclass
 class SCHSegment:
@@ -606,9 +618,11 @@ class SCHSegment:
             filler_status_code=segment.get_field_value(25),
         )
 
+
 # =============================================================================
 # HL7 Message
 # =============================================================================
+
 
 @dataclass
 class HL7Message:
@@ -647,9 +661,11 @@ class HL7Message:
         """Get all segments of a given type."""
         return [s for s in self.segments if s.segment_type == segment_type]
 
+
 # =============================================================================
 # HL7 Parser
 # =============================================================================
+
 
 class HL7Parser:
     """
@@ -798,9 +814,11 @@ class HL7Parser:
         raw_bytes = message.raw.encode("utf-8")
         return MLLP_START_BLOCK + raw_bytes + MLLP_END_BLOCK + MLLP_CARRIAGE_RETURN
 
+
 # =============================================================================
 # PHI Redaction (HL7-specific)
 # =============================================================================
+
 
 @dataclass
 class HL7RedactionResult:
@@ -810,6 +828,7 @@ class HL7RedactionResult:
     redacted_message: str
     redactions_count: int
     redacted_fields: list[str]  # List of field paths that were redacted
+
 
 class HL7PHIRedactor:
     """
@@ -992,9 +1011,11 @@ class HL7PHIRedactor:
 
         return redacted, redactions
 
+
 # =============================================================================
 # HL7 v2 Connector
 # =============================================================================
+
 
 class HL7v2Connector(EnterpriseConnector):
     """

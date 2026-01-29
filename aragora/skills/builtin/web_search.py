@@ -21,6 +21,7 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SearchResult:
     """A single search result."""
@@ -41,6 +42,7 @@ class SearchResult:
             "relevance_score": self.relevance_score,
             "published_date": self.published_date,
         }
+
 
 class WebSearchSkill(Skill):
     """
@@ -294,6 +296,7 @@ class WebSearchSkill(Skill):
         except Exception as e:
             logger.warning(f"Google search error: {e}")
             return await self._search_duckduckgo(query, max_results, None, None)
+
 
 # Skill instance for registration
 SKILLS = [WebSearchSkill()]

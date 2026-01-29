@@ -24,9 +24,11 @@ from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
 
+
 def _get_default_db_path() -> Path:
     """Get the default database path for policy store."""
     return get_db_path("compliance/policy_store.db")
+
 
 @dataclass
 class PolicyRule:
@@ -62,6 +64,7 @@ class PolicyRule:
             custom_threshold=data.get("custom_threshold"),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class Policy:
@@ -128,6 +131,7 @@ class Policy:
             created_by=data.get("created_by"),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class Violation:
@@ -201,6 +205,7 @@ class Violation:
             metadata=data.get("metadata", {}),
         )
 
+
 def _parse_datetime(value: Any, fallback: datetime | None = None) -> datetime:
     """Parse datetime from string or datetime, with fallback."""
     if isinstance(value, datetime):
@@ -208,6 +213,7 @@ def _parse_datetime(value: Any, fallback: datetime | None = None) -> datetime:
     if isinstance(value, str) and value:
         return datetime.fromisoformat(value)
     return fallback or datetime.now(timezone.utc)
+
 
 def _parse_optional_datetime(value: Any) -> datetime | None:
     """Parse optional datetime from string or datetime."""
@@ -218,6 +224,7 @@ def _parse_optional_datetime(value: Any) -> datetime | None:
     if isinstance(value, str) and value:
         return datetime.fromisoformat(value)
     return None
+
 
 class PolicyStore(SQLiteStore):
     """
@@ -430,9 +437,7 @@ class PolicyStore(SQLiteStore):
             conn.execute("DELETE FROM policies WHERE id = ?", (policy_id,))
         return True
 
-    def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: str | None = None
-    ) -> bool:
+    def toggle_policy(self, policy_id: str, enabled: bool, changed_by: str | None = None) -> bool:
         """Toggle policy enabled status."""
         result = self.update_policy(policy_id, {"enabled": enabled}, changed_by)
         return result is not None
@@ -672,9 +677,11 @@ class PolicyStore(SQLiteStore):
             ),
         )
 
+
 # =============================================================================
 # PostgreSQL Backend
 # =============================================================================
+
 
 class PostgresPolicyStore:
     """
@@ -841,9 +848,7 @@ class PostgresPolicyStore:
         self._execute("DELETE FROM policies WHERE id = ?", (policy_id,))
         return True
 
-    def toggle_policy(
-        self, policy_id: str, enabled: bool, changed_by: str | None = None
-    ) -> bool:
+    def toggle_policy(self, policy_id: str, enabled: bool, changed_by: str | None = None) -> bool:
         """Toggle policy enabled status."""
         result = self.update_policy(policy_id, {"enabled": enabled}, changed_by)
         return result is not None
@@ -1076,8 +1081,10 @@ class PostgresPolicyStore:
             ),
         )
 
+
 # Singleton instance
 _policy_store: PolicyStore | PostgresPolicyStore | None = None
+
 
 def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolicyStore:
     """Get or create the policy store singleton.
@@ -1136,6 +1143,7 @@ def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolic
 
     _policy_store = PolicyStore(db_path)
     return _policy_store
+
 
 __all__ = [
     "Policy",

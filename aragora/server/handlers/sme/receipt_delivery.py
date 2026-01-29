@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for receipt delivery APIs (60 requests per minute)
 _delivery_limiter = RateLimiter(requests_per_minute=60)
 
+
 class ReceiptDeliveryHandler(SecureHandler):
     """Handler for receipt delivery configuration endpoints.
 
@@ -712,5 +713,6 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+
 
 __all__ = ["ReceiptDeliveryHandler"]

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class BudgetCoordinator:
     """Coordinates budget checks and cost recording for debates.
 

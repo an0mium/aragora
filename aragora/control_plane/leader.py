@@ -25,6 +25,7 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
+
 def is_distributed_state_required() -> bool:
     """Check if distributed state backend (Redis) is required.
 
@@ -51,6 +52,7 @@ def is_distributed_state_required() -> bool:
         return True
     return False
 
+
 class DistributedStateError(Exception):
     """Raised when distributed state is required but not available."""
 
@@ -62,6 +64,7 @@ class DistributedStateError(Exception):
             f"Install aioredis and configure REDIS_URL, or set ARAGORA_SINGLE_INSTANCE=true."
         )
 
+
 class LeaderState(Enum):
     """Current state of this node in the leader election."""
 
@@ -69,6 +72,7 @@ class LeaderState(Enum):
     CANDIDATE = "candidate"  # Attempting to become leader
     LEADER = "leader"  # Currently the leader
     DISCONNECTED = "disconnected"  # Lost connection to coordination
+
 
 @dataclass
 class LeaderConfig:
@@ -103,6 +107,7 @@ class LeaderConfig:
             ),
         )
 
+
 @dataclass
 class LeaderInfo:
     """Information about the current leader."""
@@ -111,6 +116,7 @@ class LeaderInfo:
     elected_at: float
     last_heartbeat: float
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class LeaderElection:
     """
@@ -476,6 +482,7 @@ class LeaderElection:
             "current_leader": self._current_leader.node_id if self._current_leader else None,
         }
 
+
 class _InMemoryRedis:
     """In-memory Redis mock for single-node deployments without Redis."""
 
@@ -511,6 +518,7 @@ class _InMemoryRedis:
     async def hgetall(self, key: str) -> dict[str, str]:
         return self._hashes.get(key, {})
 
+
 @dataclass
 class RegionalLeaderConfig(LeaderConfig):
     """Configuration for regional leader election."""
@@ -545,12 +553,14 @@ class RegionalLeaderConfig(LeaderConfig):
             in ("true", "1", "yes"),
         )
 
+
 @dataclass
 class RegionalLeaderInfo(LeaderInfo):
     """Information about a regional leader."""
 
     region_id: str = "default"
     is_global_coordinator: bool = False  # If this region is the global coordinator
+
 
 class RegionalLeaderElection(LeaderElection):
     """
@@ -895,17 +905,21 @@ class RegionalLeaderElection(LeaderElection):
         )
         return base_stats
 
+
 # Singleton for regional leader election
 _regional_leader_election: RegionalLeaderElection | None = None
+
 
 def get_regional_leader_election() -> RegionalLeaderElection | None:
     """Get the global regional leader election instance."""
     return _regional_leader_election
 
+
 def set_regional_leader_election(election: RegionalLeaderElection) -> None:
     """Set the global regional leader election instance."""
     global _regional_leader_election
     _regional_leader_election = election
+
 
 async def init_regional_leader_election(
     region_id: str | None = None,
@@ -940,6 +954,7 @@ async def init_regional_leader_election(
     except Exception as e:
         logger.warning(f"[regional-leader] Failed to initialize: {e}")
         return None
+
 
 __all__ = [
     "LeaderState",

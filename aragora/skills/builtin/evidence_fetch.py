@@ -20,6 +20,7 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
+
 class EvidenceFetchSkill(Skill):
     """
     Skill for fetching evidence from various sources.
@@ -321,6 +322,7 @@ class EvidenceFetchSkill(Skill):
         # Could integrate with ClaimBuster, Google Fact Check API, etc.
         logger.debug("Fact checking not implemented yet")
         return []
+
 
 # Skill instance for registration
 SKILLS = [EvidenceFetchSkill()]

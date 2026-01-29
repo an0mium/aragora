@@ -48,7 +48,7 @@ class ConcreteMondayConnector(MondayConnector):
         query: str,
         limit: int = 10,
         **kwargs,
-    ) -> List[Evidence]:
+    ) -> list[Evidence]:
         """Implement abstract search method."""
         # For testing - delegates to search_items
         items = await self.search_items(query, limit=limit)
@@ -102,7 +102,7 @@ def mock_client():
     return client
 
 
-def make_graphql_response(data: Dict[str, Any]) -> MagicMock:
+def make_graphql_response(data: dict[str, Any]) -> MagicMock:
     """Create a mock GraphQL response."""
     response = MagicMock()
     response.status_code = 200

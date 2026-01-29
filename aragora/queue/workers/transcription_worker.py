@@ -36,6 +36,7 @@ JOB_TYPE_TRANSCRIPTION_AUDIO = "transcription_audio"
 JOB_TYPE_TRANSCRIPTION_VIDEO = "transcription_video"
 JOB_TYPE_TRANSCRIPTION_YOUTUBE = "transcription_youtube"
 
+
 class TranscriptionWorker:
     """
     Worker that processes transcription jobs from the durable queue.
@@ -314,6 +315,7 @@ class TranscriptionWorker:
             "processing_time": result.processing_time,
         }
 
+
 async def enqueue_transcription_job(
     job_id: str,
     job_type: str,
@@ -351,6 +353,7 @@ async def enqueue_transcription_job(
     logger.info(f"Enqueued transcription job: {job_id} ({job_type})")
     return job
 
+
 async def recover_interrupted_transcriptions() -> int:
     """
     Recover interrupted transcription jobs after server restart.
@@ -386,6 +389,7 @@ async def recover_interrupted_transcriptions() -> int:
         logger.info(f"Recovered {recovered} interrupted transcription jobs")
 
     return recovered
+
 
 __all__ = [
     "TranscriptionWorker",

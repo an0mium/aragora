@@ -46,6 +46,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 def _classify_telegram_error(
     error_str: str,
     error_code: int | None = None,
@@ -85,6 +86,7 @@ def _classify_telegram_error(
         status_code=error_code,
     )
 
+
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -108,6 +110,7 @@ TELEGRAM_WEBHOOK_URL = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
 
 # Telegram API
 TELEGRAM_API_BASE = "https://api.telegram.org/bot"
+
 
 class TelegramConnector(ChatPlatformConnector):
     """
@@ -1670,5 +1673,6 @@ class TelegramConnector(ChatPlatformConnector):
 
         logger.error(f"Failed to get chat member count: {error}")
         return None
+
 
 __all__ = ["TelegramConnector"]

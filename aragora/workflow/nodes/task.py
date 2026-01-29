@@ -22,14 +22,17 @@ logger = logging.getLogger(__name__)
 # Registry of task handlers
 _task_handlers: dict[str, Callable] = {}
 
+
 def register_task_handler(name: str, handler: Callable) -> None:
     """Register a task handler function."""
     _task_handlers[name] = handler
     logger.debug(f"Registered task handler: {name}")
 
+
 def get_task_handler(name: str) -> Callable | None:
     """Get a registered task handler."""
     return _task_handlers.get(name)
+
 
 class TaskStep(BaseStep):
     """
@@ -367,7 +370,9 @@ class TaskStep(BaseStep):
                 result[key] = value
         return result
 
+
 # Built-in task handlers
+
 
 def _handler_log(
     context: WorkflowContext, message: str = "", level: str = "info"
@@ -377,6 +382,7 @@ def _handler_log(
     log_func(f"[{context.workflow_id}] {message}")
     return {"logged": True, "message": message, "level": level}
 
+
 def _handler_set_state(
     context: WorkflowContext, key: str = "", value: Any = None
 ) -> dict[str, Any]:
@@ -384,10 +390,12 @@ def _handler_set_state(
     context.set_state(key, value)
     return {"key": key, "value": value}
 
+
 async def _handler_delay(context: WorkflowContext, seconds: float = 1.0) -> dict[str, Any]:
     """Delay execution (async-safe)."""
     await asyncio.sleep(seconds)
     return {"delayed_seconds": seconds}
+
 
 # Register built-in handlers
 register_task_handler("log", _handler_log)

@@ -379,7 +379,11 @@ class TestInboxTriage:
         """Test successful inbox triage."""
         body = {
             "emails": [
-                {"subject": "Urgent task", "body": "Please complete today", "sender": "boss@example.com"},
+                {
+                    "subject": "Urgent task",
+                    "body": "Please complete today",
+                    "sender": "boss@example.com",
+                },
                 {"subject": "FYI", "body": "Newsletter update", "sender": "news@example.com"},
             ],
             "user_id": "user-456",

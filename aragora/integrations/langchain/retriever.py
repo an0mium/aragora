@@ -36,6 +36,7 @@ except ImportError:
             self.page_content = page_content
             self.metadata = metadata or {}
 
+
 class AragoraRetriever(BaseRetriever):
     """
     LangChain Retriever for Aragora Knowledge Mound.

@@ -58,6 +58,7 @@ except ImportError:
         """Stub Field."""
         return None
 
+
 def get_langchain_version() -> str | None:
     """Get the LangChain version if available."""
     try:
@@ -66,6 +67,7 @@ def get_langchain_version() -> str | None:
         return getattr(langchain, "__version__", "unknown")
     except ImportError:
         return None
+
 
 class AragoraToolInput(BaseModel):
     """Input schema for Aragora debate tool (compatible API)."""
@@ -88,6 +90,7 @@ class AragoraToolInput(BaseModel):
         description="Whether to include evidence in response",
     )
 
+
 class AragoraDebateInput(BaseModel):
     """Input schema for Aragora debate tool."""
 
@@ -100,6 +103,7 @@ class AragoraDebateInput(BaseModel):
         default=None,
         description="Maximum debate rounds (default: 5)",
     )
+
 
 class AragoraDebateTool(BaseTool):
     """
@@ -207,6 +211,7 @@ class AragoraDebateTool(BaseTool):
             logger.error(f"[AragoraDebateTool] Error: {e}")
             return f"Error running debate: {e}"
 
+
 class AragoraKnowledgeInput(BaseModel):
     """Input schema for Aragora knowledge tool."""
 
@@ -215,6 +220,7 @@ class AragoraKnowledgeInput(BaseModel):
         default=5,
         description="Maximum number of results to return",
     )
+
 
 class AragoraKnowledgeTool(BaseTool):
     """
@@ -304,6 +310,7 @@ class AragoraKnowledgeTool(BaseTool):
             logger.error(f"[AragoraKnowledgeTool] Error: {e}")
             return f"Error querying knowledge: {e}"
 
+
 class AragoraDecisionInput(BaseModel):
     """Input schema for Aragora decision tool."""
 
@@ -312,6 +319,7 @@ class AragoraDecisionInput(BaseModel):
         default=None,
         description="List of options to choose from (optional)",
     )
+
 
 class AragoraDecisionTool(BaseTool):
     """
@@ -402,6 +410,7 @@ class AragoraDecisionTool(BaseTool):
         except Exception as e:
             logger.error(f"[AragoraDecisionTool] Error: {e}")
             return f"Error making decision: {e}"
+
 
 # Convenience function to get all tools
 def get_aragora_tools(

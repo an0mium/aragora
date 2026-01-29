@@ -31,6 +31,7 @@ from typing import Any, Optional, Pattern
 
 logger = logging.getLogger(__name__)
 
+
 class PIIType(str, Enum):
     """Types of PII that can be detected and redacted."""
 
@@ -46,6 +47,7 @@ class PIIType(str, Enum):
     BANK_ACCOUNT = "bank_account"
     MEDICAL_ID = "medical_id"
 
+
 @dataclass
 class PIIMatch:
     """A detected PII match in text."""
@@ -56,6 +58,7 @@ class PIIMatch:
     start: int
     end: int
     confidence: float = 1.0
+
 
 @dataclass
 class RedactionResult:
@@ -91,6 +94,7 @@ class RedactionResult:
                 for m in self.matches
             ],
         }
+
 
 class PIIRedactor:
     """
@@ -393,8 +397,10 @@ class PIIRedactor:
 
         return modified_data, results
 
+
 # Singleton instance for convenience
 _default_redactor: PIIRedactor | None = None
+
 
 def get_pii_redactor(
     preserve_domains: Optional[list[str]] = None,
@@ -404,6 +410,7 @@ def get_pii_redactor(
     if _default_redactor is None:
         _default_redactor = PIIRedactor(preserve_domains=preserve_domains)
     return _default_redactor
+
 
 def redact_text(text: str) -> str:
     """Convenience function to redact PII from text."""

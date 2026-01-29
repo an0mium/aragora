@@ -21,6 +21,7 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 class AgentsAPI:
     """API interface for agents."""
 

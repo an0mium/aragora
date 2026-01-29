@@ -28,11 +28,13 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class SLAViolationType(str, Enum):
     """Types of SLA violations."""
 
     FIRST_RESPONSE = "first_response"
     RESOLUTION = "resolution"
+
 
 class EscalationLevel(str, Enum):
     """Escalation severity levels."""
@@ -40,6 +42,7 @@ class EscalationLevel(str, Enum):
     WARNING = "warning"  # Approaching breach
     BREACH = "breach"  # SLA breached
     CRITICAL = "critical"  # Extended breach
+
 
 @dataclass
 class EscalationRule:
@@ -72,6 +75,7 @@ class EscalationRule:
             notify_users=data.get("notify_users", []),
             reassign_to=data.get("reassign_to"),
         )
+
 
 @dataclass
 class SLAConfig:
@@ -118,6 +122,7 @@ class SLAConfig:
             business_days=data.get("business_days", [0, 1, 2, 3, 4]),
         )
 
+
 @dataclass
 class SLAViolation:
     """A detected SLA violation."""
@@ -147,6 +152,7 @@ class SLAViolation:
             "resolved": self.resolved,
         }
 
+
 @dataclass
 class AtRiskMessage:
     """A message at risk of SLA breach."""
@@ -171,6 +177,7 @@ class AtRiskMessage:
             "risk_type": self.risk_type.value,
             "assigned_to": self.assigned_to,
         }
+
 
 @dataclass
 class SLAMetrics:
@@ -204,6 +211,7 @@ class SLAMetrics:
             "response_compliance_rate": round(self.response_compliance_rate, 4),
             "resolution_compliance_rate": round(self.resolution_compliance_rate, 4),
         }
+
 
 class InboxSLAMonitor:
     """
@@ -671,9 +679,11 @@ class InboxSLAMonitor:
             logger.debug(f"[SLAMonitor] Failed to get messages: {e}")
             return []
 
+
 # Module-level singleton
 _default_monitor: InboxSLAMonitor | None = None
 _monitor_lock = threading.Lock()
+
 
 def get_sla_monitor() -> InboxSLAMonitor:
     """Get or create the default SLA monitor instance."""
@@ -687,11 +697,13 @@ def get_sla_monitor() -> InboxSLAMonitor:
 
     return _default_monitor
 
+
 def reset_sla_monitor() -> None:
     """Reset the default monitor instance (for testing)."""
     global _default_monitor
     with _monitor_lock:
         _default_monitor = None
+
 
 __all__ = [
     "InboxSLAMonitor",

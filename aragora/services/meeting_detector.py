@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class MeetingType(Enum):
     """Types of meeting-related emails."""
 
@@ -65,6 +66,7 @@ class MeetingType(Enum):
     FOLLOWUP = "followup"  # Post-meeting follow-up
     NOT_MEETING = "not_meeting"  # Not meeting-related
 
+
 class MeetingPlatform(Enum):
     """Video conferencing platforms."""
 
@@ -77,6 +79,7 @@ class MeetingPlatform(Enum):
     GOTOMEETING = "gotomeeting"
     SLACK_HUDDLE = "slack_huddle"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class MeetingParticipant:
@@ -95,6 +98,7 @@ class MeetingParticipant:
             "response_status": self.response_status,
         }
 
+
 @dataclass
 class MeetingLink:
     """Video conferencing link."""
@@ -111,6 +115,7 @@ class MeetingLink:
             "meeting_id": self.meeting_id,
             "password": self.password,
         }
+
 
 @dataclass
 class ConflictInfo:
@@ -132,6 +137,7 @@ class ConflictInfo:
             "calendar_source": self.calendar_source,
             "severity": self.severity,
         }
+
 
 @dataclass
 class MeetingDetectionResult:
@@ -202,6 +208,7 @@ class MeetingDetectionResult:
             "matched_patterns": self.matched_patterns,
             "rationale": self.rationale,
         }
+
 
 # Meeting detection patterns
 MEETING_TYPE_PATTERNS = {
@@ -318,6 +325,7 @@ DURATION_PATTERNS = [
     (r"(\d+)\s*(?:min|minute)s?", "minutes"),
     (r"(\d+(?:\.\d+)?)\s*(?:hour|hr)s?", "hours_decimal"),
 ]
+
 
 class MeetingDetector:
     """
@@ -859,6 +867,7 @@ class MeetingDetector:
 
         return upcoming
 
+
 # Convenience function
 async def detect_meeting_quick(
     subject: str,
@@ -887,6 +896,7 @@ async def detect_meeting_quick(
     email = SimpleEmail(subject, body, sender)
     detector = MeetingDetector()
     return await detector.detect_meeting(email, check_calendar=False)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
+
 
 __all__ = [
     "MeetingDetector",

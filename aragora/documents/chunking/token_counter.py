@@ -65,6 +65,7 @@ CHARS_PER_TOKEN = {
 
 ModelFamily = Literal["openai", "anthropic", "google", "mistral", "xai", "default"]
 
+
 def _get_model_family(model: str) -> ModelFamily:
     """Determine the model family from model name."""
     model_lower = model.lower()
@@ -82,6 +83,7 @@ def _get_model_family(model: str) -> ModelFamily:
 
     return "default"
 
+
 @register_lru_cache
 @lru_cache(maxsize=16)
 def _get_tiktoken_encoding(encoding_name: str):
@@ -93,6 +95,7 @@ def _get_tiktoken_encoding(encoding_name: str):
     except Exception as e:
         logger.warning(f"Failed to load tiktoken encoding {encoding_name}: {e}")
         return None
+
 
 class TokenCounter:
     """
@@ -315,8 +318,10 @@ class TokenCounter:
 
         return truncated.rstrip() + suffix
 
+
 # Global token counter instance
 _token_counter: TokenCounter | None = None
+
 
 def get_token_counter() -> TokenCounter:
     """Get the global token counter instance."""
@@ -325,9 +330,11 @@ def get_token_counter() -> TokenCounter:
         _token_counter = TokenCounter()
     return _token_counter
 
+
 def count_tokens(text: str, model: str = "gpt-4") -> int:
     """Convenience function to count tokens."""
     return get_token_counter().count(text, model)
+
 
 __all__ = [
     "TokenCounter",

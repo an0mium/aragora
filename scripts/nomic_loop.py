@@ -2893,7 +2893,7 @@ class NomicLoop:
                 return backup
         return None
 
-    def _verify_protected_files(self) -> List[str]:
+    def _verify_protected_files(self) -> list[str]:
         """Verify protected files still exist and are importable."""
         issues = []
 

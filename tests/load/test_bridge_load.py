@@ -43,7 +43,7 @@ class LoadTestPerformanceMonitor:
     """High-performance mock PerformanceMonitor for load testing."""
 
     def __init__(self, agent_count: int = 100):
-        self._metrics: Dict[str, LoadTestMetrics] = {}
+        self._metrics: dict[str, LoadTestMetrics] = {}
         # Pre-populate with agents
         for i in range(agent_count):
             self._metrics[f"agent_{i}"] = LoadTestMetrics(
@@ -71,7 +71,7 @@ class LoadTestRelationshipTracker:
     """High-performance mock RelationshipTracker for load testing."""
 
     def __init__(self, agent_count: int = 100):
-        self._relationships: Dict[tuple, LoadTestRelationshipMetrics] = {}
+        self._relationships: dict[tuple, LoadTestRelationshipMetrics] = {}
         # Pre-populate relationships between agents
         agents = [f"agent_{i}" for i in range(agent_count)]
         for i, a in enumerate(agents):
@@ -111,7 +111,7 @@ class LoadTestCalibrationTracker:
     """High-performance mock CalibrationTracker for load testing."""
 
     def __init__(self, agent_count: int = 100):
-        self._summaries: Dict[str, LoadTestCalibrationSummary] = {}
+        self._summaries: dict[str, LoadTestCalibrationSummary] = {}
         for i in range(agent_count):
             self._summaries[f"agent_{i}"] = LoadTestCalibrationSummary(
                 agent=f"agent_{i}",
@@ -123,7 +123,7 @@ class LoadTestCalibrationTracker:
     def get_calibration_summary(self, agent_name: str) -> Optional[LoadTestCalibrationSummary]:
         return self._summaries.get(agent_name)
 
-    def get_all_agents(self) -> List[str]:
+    def get_all_agents(self) -> list[str]:
         return list(self._summaries.keys())
 
 

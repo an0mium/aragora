@@ -56,6 +56,7 @@ PERSISTENCE_ENABLED = os.environ.get("ARAGORA_EMERGENCY_ACCESS_PERSISTENCE", "")
     "yes",
 )
 
+
 class EmergencyAccessStatus(str, Enum):
     """Status of emergency access."""
 
@@ -63,6 +64,7 @@ class EmergencyAccessStatus(str, Enum):
     EXPIRED = "expired"
     DEACTIVATED = "deactivated"
     REVOKED = "revoked"  # Forcibly revoked by security
+
 
 @dataclass
 class EmergencyAccessRecord:
@@ -178,6 +180,7 @@ class EmergencyAccessRecord:
             review_notes=data.get("review_notes"),
             metadata=data.get("metadata", {}),
         )
+
 
 class BreakGlassAccess:
     """
@@ -760,8 +763,10 @@ class BreakGlassAccess:
         except ImportError:
             logger.info(f"Break-glass audit: {event_type} - {kwargs}")
 
+
 # Singleton instance
 _break_glass: BreakGlassAccess | None = None
+
 
 def get_break_glass_access() -> BreakGlassAccess:
     """Get the global BreakGlassAccess instance."""
@@ -769,6 +774,7 @@ def get_break_glass_access() -> BreakGlassAccess:
     if _break_glass is None:
         _break_glass = BreakGlassAccess()
     return _break_glass
+
 
 __all__ = [
     "EmergencyAccessStatus",

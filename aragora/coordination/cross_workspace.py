@@ -27,6 +27,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class SharingScope(str, Enum):
     """Scope of data sharing between workspaces."""
 
@@ -36,6 +37,7 @@ class SharingScope(str, Enum):
     FULL = "full"  # Full content sharing
     SELECTIVE = "selective"  # Selected fields only
 
+
 class FederationMode(str, Enum):
     """Mode of workspace federation."""
 
@@ -43,6 +45,7 @@ class FederationMode(str, Enum):
     READONLY = "readonly"  # Read from federated workspaces only
     BIDIRECTIONAL = "bidirectional"  # Read and write
     ORCHESTRATED = "orchestrated"  # Central orchestration
+
 
 class OperationType(str, Enum):
     """Types of cross-workspace operations."""
@@ -54,6 +57,7 @@ class OperationType(str, Enum):
     SHARE_FINDINGS = "share_findings"
     SYNC_CULTURE = "sync_culture"
     BROADCAST_MESSAGE = "broadcast_message"
+
 
 @dataclass
 class FederationPolicy:
@@ -171,6 +175,7 @@ class FederationPolicy:
             "valid_until": self.valid_until.isoformat() if self.valid_until else None,
         }
 
+
 @dataclass
 class DataSharingConsent:
     """Consent for data sharing between workspaces."""
@@ -234,6 +239,7 @@ class DataSharingConsent:
             "data_transferred_bytes": self.data_transferred_bytes,
         }
 
+
 @dataclass
 class FederatedWorkspace:
     """Represents a workspace in a federation."""
@@ -278,6 +284,7 @@ class FederatedWorkspace:
             "latency_ms": self.latency_ms,
         }
 
+
 @dataclass
 class CrossWorkspaceRequest:
     """Request for cross-workspace operation."""
@@ -318,6 +325,7 @@ class CrossWorkspaceRequest:
             "created_at": self.created_at.isoformat(),
         }
 
+
 @dataclass
 class CrossWorkspaceResult:
     """Result of cross-workspace operation."""
@@ -349,8 +357,10 @@ class CrossWorkspaceResult:
             "executed_at": self.executed_at.isoformat(),
         }
 
+
 # Type for operation handlers
 OperationHandler = Callable[[CrossWorkspaceRequest], CrossWorkspaceResult]
+
 
 class CrossWorkspaceCoordinator:
     """
@@ -869,8 +879,10 @@ class CrossWorkspaceCoordinator:
             "registered_handlers": list(h.value for h in self._handlers.keys()),
         }
 
+
 # Global coordinator instance
 _coordinator: CrossWorkspaceCoordinator | None = None
+
 
 def get_coordinator() -> CrossWorkspaceCoordinator:
     """Get or create the global coordinator."""
@@ -878,6 +890,7 @@ def get_coordinator() -> CrossWorkspaceCoordinator:
     if _coordinator is None:
         _coordinator = CrossWorkspaceCoordinator()
     return _coordinator
+
 
 __all__ = [
     "CrossWorkspaceCoordinator",

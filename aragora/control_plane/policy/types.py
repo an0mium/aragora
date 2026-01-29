@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+
 class PolicyScope(Enum):
     """Scope of a control plane policy."""
 
@@ -21,12 +22,14 @@ class PolicyScope(Enum):
     REGION = "region"  # Applies to specific regions
     WORKSPACE = "workspace"  # Applies to specific workspaces
 
+
 class EnforcementLevel(Enum):
     """How strictly a policy is enforced."""
 
     WARN = "warn"  # Log warning but allow
     SOFT = "soft"  # Deny but allow override
     HARD = "hard"  # Deny with no override
+
 
 class PolicyDecision(Enum):
     """Result of a policy evaluation."""
@@ -35,6 +38,7 @@ class PolicyDecision(Enum):
     DENY = "deny"
     WARN = "warn"
     ESCALATE = "escalate"
+
 
 class PolicyViolationError(Exception):
     """Raised when task violates HARD enforcement policy."""
@@ -51,6 +55,7 @@ class PolicyViolationError(Exception):
         self.agent_id = agent_id
         self.region = region
         super().__init__(f"Policy violation ({result.enforcement_level.value}): {result.reason}")
+
 
 @dataclass
 class SLARequirements:
@@ -98,6 +103,7 @@ class SLARequirements:
             max_concurrent_tasks=data.get("max_concurrent_tasks", 5),
             response_time_p99_ms=data.get("response_time_p99_ms", 5000.0),
         )
+
 
 @dataclass
 class RegionConstraint:
@@ -149,6 +155,7 @@ class RegionConstraint:
             require_data_residency=data.get("require_data_residency", False),
             allow_cross_region=data.get("allow_cross_region", True),
         )
+
 
 @dataclass
 class ControlPlanePolicy:
@@ -304,6 +311,7 @@ class ControlPlanePolicy:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class PolicyEvaluationResult:
     """Result of evaluating a policy."""
@@ -337,6 +345,7 @@ class PolicyEvaluationResult:
             "region": self.region,
             "sla_violation": self.sla_violation,
         }
+
 
 @dataclass
 class PolicyViolation:

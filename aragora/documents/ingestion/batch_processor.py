@@ -54,6 +54,7 @@ from aragora.exceptions import DocumentChunkError, DocumentParseError
 
 logger = logging.getLogger(__name__)
 
+
 class JobStatus(Enum):
     """Status of a processing job."""
 
@@ -65,6 +66,7 @@ class JobStatus(Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 class JobPriority(Enum):
     """Job priority levels."""
 
@@ -72,6 +74,7 @@ class JobPriority(Enum):
     NORMAL = 1
     HIGH = 2
     URGENT = 3
+
 
 @dataclass
 class DocumentJob:
@@ -134,6 +137,7 @@ class DocumentJob:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+
 @dataclass
 class BatchResult:
     """Result of batch processing."""
@@ -146,6 +150,7 @@ class BatchResult:
     total_tokens: int
     duration_ms: int
     jobs: list[DocumentJob]
+
 
 class BatchProcessor:
     """
@@ -349,9 +354,7 @@ class BatchProcessor:
 
         return False
 
-    async def wait_for_job(
-        self, job_id: str, timeout: float | None = None
-    ) -> DocumentJob | None:
+    async def wait_for_job(self, job_id: str, timeout: float | None = None) -> DocumentJob | None:
         """
         Wait for a job to complete.
 
@@ -377,9 +380,7 @@ class BatchProcessor:
 
             await asyncio.sleep(0.1)
 
-    async def wait_for_batch(
-        self, job_ids: list[str], timeout: float | None = None
-    ) -> BatchResult:
+    async def wait_for_batch(self, job_ids: list[str], timeout: float | None = None) -> BatchResult:
         """
         Wait for multiple jobs to complete.
 
@@ -597,8 +598,10 @@ class BatchProcessor:
             except Exception as e:
                 logger.warning(f"Error in progress callback: {e}")
 
+
 # Global processor instance
 _batch_processor: BatchProcessor | None = None
+
 
 async def get_batch_processor() -> BatchProcessor:
     """Get or create the global batch processor."""
@@ -607,6 +610,7 @@ async def get_batch_processor() -> BatchProcessor:
         _batch_processor = BatchProcessor()
         await _batch_processor.start()
     return _batch_processor
+
 
 __all__ = [
     "BatchProcessor",

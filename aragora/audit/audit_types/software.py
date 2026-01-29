@@ -25,6 +25,7 @@ from ..document_auditor import AuditFinding, AuditType, FindingSeverity
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityCategory(str, Enum):
     """Categories of security findings."""
 
@@ -39,6 +40,7 @@ class SecurityCategory(str, Enum):
     INFRASTRUCTURE = "infrastructure"
     DATA_EXPOSURE = "data_exposure"
     ACCESS_CONTROL = "access_control"
+
 
 class CWE(str, Enum):
     """Common Weakness Enumeration IDs for findings."""
@@ -58,6 +60,7 @@ class CWE(str, Enum):
     SENSITIVE_DATA = "CWE-200"
     MISSING_AUTH = "CWE-306"
 
+
 @dataclass
 class VulnerabilityPattern:
     """Pattern for detecting security vulnerabilities."""
@@ -72,6 +75,7 @@ class VulnerabilityPattern:
     languages: list[str] = field(default_factory=lambda: ["*"])  # * = all languages
     flags: int = re.IGNORECASE | re.MULTILINE
 
+
 @dataclass
 class SecretPattern:
     """Pattern for detecting secrets and API keys."""
@@ -82,6 +86,7 @@ class SecretPattern:
     entropy_check: bool = False  # Whether to also check entropy
     description: str = ""
 
+
 @dataclass
 class LicenseInfo:
     """Information about a detected license."""
@@ -91,6 +96,7 @@ class LicenseInfo:
     category: str  # permissive, copyleft, proprietary
     osi_approved: bool
     location: str
+
 
 class SoftwareAuditor(BaseAuditor):
     """
@@ -1250,6 +1256,7 @@ class SoftwareAuditor(BaseAuditor):
 
         return findings
 
+
 # Register with the audit registry on import
 def register_software_auditor() -> None:
     """Register the software auditor with the global registry."""
@@ -1259,6 +1266,7 @@ def register_software_auditor() -> None:
         audit_registry.register(SoftwareAuditor())
     except ImportError:
         pass  # Registry not available
+
 
 __all__ = [
     "SoftwareAuditor",

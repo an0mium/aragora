@@ -37,6 +37,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BatchedEvent:
     """A single event in a batch."""
@@ -52,6 +53,7 @@ class BatchedEvent:
             "data": self.data,
             "timestamp": self.timestamp,
         }
+
 
 @dataclass
 class EventBatch:
@@ -80,9 +82,11 @@ class EventBatch:
             "batch_created_at": self.created_at,
         }
 
+
 # Type alias for callbacks
 EventCallback = Callable[[str, dict[str, Any]], None]
 AsyncEventCallback = Callable[[str, dict[str, Any]], "asyncio.Future[None]"]
+
 
 class EventBatcher:
     """
@@ -332,6 +336,7 @@ class EventBatcher:
         self._total_batches_emitted = 0
         self._passthrough_events = 0
 
+
 class AdapterEventBatcher:
     """
     Convenience wrapper for using EventBatcher with KM adapters.
@@ -382,6 +387,7 @@ class AdapterEventBatcher:
     def stats(self) -> dict[str, Any]:
         """Get batcher statistics."""
         return self._batcher.get_stats()
+
 
 __all__ = [
     "EventBatcher",

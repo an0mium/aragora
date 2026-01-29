@@ -5,10 +5,10 @@ Allows agents to retrieve and learn from past debates, enhancing continuity
 and intelligence in the nomic loop.
 """
 
-
 from aragora.config import resolve_db_path
 from aragora.memory.embeddings import SemanticRetriever
 from aragora.persistence.models import DebateArtifact
+
 
 class DebateEmbeddingsDatabase:
     """

@@ -16,6 +16,7 @@ Usage:
         # Automatically scoped to workspace
         return await db.query(Debate).filter_by(workspace_id=workspace_id)
 """
+
 from __future__ import annotations
 
 import logging
@@ -72,13 +73,16 @@ PLAN_LIMITS = {
     },
 }
 
+
 def get_plan_limits(plan: str) -> dict[str, Any]:
     """Get limits for a plan."""
     return PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
 
+
 # =============================================================================
 # Workspace Management
 # =============================================================================
+
 
 class WorkspaceManager:
     """
@@ -209,11 +213,13 @@ class WorkspaceManager:
 
         return True, ""
 
+
 # =============================================================================
 # Global Instance
 # =============================================================================
 
 _workspace_manager: WorkspaceManager | None = None
+
 
 def get_workspace_manager() -> WorkspaceManager:
     """Get the global workspace manager."""
@@ -222,9 +228,11 @@ def get_workspace_manager() -> WorkspaceManager:
         _workspace_manager = WorkspaceManager()
     return _workspace_manager
 
+
 # =============================================================================
 # Decorators
 # =============================================================================
+
 
 def require_workspace(func: Callable) -> Callable:
     """
@@ -277,6 +285,7 @@ def require_workspace(func: Callable) -> Callable:
 
     return wrapper
 
+
 def check_limit(action: str) -> Callable:
     """
     Decorator that checks workspace limits before executing.
@@ -315,6 +324,7 @@ def check_limit(action: str) -> Callable:
 
     return decorator
 
+
 def tenant_scoped(func: Callable) -> Callable:
     """
     Decorator that ensures database queries are scoped to workspace.
@@ -340,9 +350,11 @@ def tenant_scoped(func: Callable) -> Callable:
 
     return wrapper
 
+
 # =============================================================================
 # Utility Functions
 # =============================================================================
+
 
 def scope_query(query: Any, workspace_id: str) -> Any:
     """
@@ -363,6 +375,7 @@ def scope_query(query: Any, workspace_id: str) -> Any:
         # SQLite-style
         return query.where("workspace_id = ?", (workspace_id,))
     return query
+
 
 async def ensure_workspace_access(user: User, resource_workspace_id: str) -> bool:
     """
@@ -385,6 +398,7 @@ async def ensure_workspace_access(user: User, resource_workspace_id: str) -> boo
         raise PermissionError(f"Access denied to workspace {resource_workspace_id}")
 
     return True
+
 
 __all__ = [
     # Limits

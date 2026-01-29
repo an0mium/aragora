@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["SlackDock"]
 
+
 class SlackDock(ChannelDock):
     """
     Slack platform dock.

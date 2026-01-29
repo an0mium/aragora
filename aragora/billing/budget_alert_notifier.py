@@ -33,12 +33,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class NotificationStatus(str, Enum):
     """Status of a notification delivery attempt."""
 
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"  # e.g., no subscriptions
+
 
 @dataclass
 class DeliveryResult:
@@ -64,6 +66,7 @@ class DeliveryResult:
             "timestamp": self.timestamp,
             "timestamp_iso": datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
         }
+
 
 class BudgetAlertNotifier:
     """Delivers budget alerts to subscribed channels.
@@ -459,8 +462,10 @@ class BudgetAlertNotifier:
             results = [r for r in results if r.status == status]
         return results[-limit:]
 
+
 # Global notifier instance
 _notifier: BudgetAlertNotifier | None = None
+
 
 def get_budget_alert_notifier() -> BudgetAlertNotifier:
     """Get or create the global budget alert notifier."""
@@ -468,6 +473,7 @@ def get_budget_alert_notifier() -> BudgetAlertNotifier:
     if _notifier is None:
         _notifier = BudgetAlertNotifier()
     return _notifier
+
 
 def setup_budget_notifications(manager: "BudgetManager") -> BudgetAlertNotifier:
     """Setup budget notifications for a BudgetManager.

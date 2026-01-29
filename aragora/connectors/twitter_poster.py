@@ -4,6 +4,7 @@ Twitter/X posting connector for publishing debate content.
 Supports posting single tweets, threads, and media attachments
 using Twitter API v2 with OAuth 1.0a authentication.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,11 +30,13 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
+
 class TwitterError(ConnectorError):
     """Base exception for Twitter connector errors."""
 
     def __init__(self, message: str = "Twitter API operation failed", **kwargs):
         super().__init__(message, connector_name="twitter", **kwargs)
+
 
 class TwitterAuthError(TwitterError, ConnectorAuthError):
     """Authentication/authorization failed."""
@@ -41,22 +44,23 @@ class TwitterAuthError(TwitterError, ConnectorAuthError):
     def __init__(self, message: str = "Twitter authentication failed. Check API credentials."):
         super().__init__(message)
 
+
 class TwitterRateLimitError(TwitterError, ConnectorRateLimitError):
     """Rate limit exceeded."""
 
     def __init__(self, message: str = "Twitter rate limit exceeded", retry_after: int = 900):
         super().__init__(f"{message}. Retry after {retry_after}s", retry_after=float(retry_after))
 
+
 class TwitterAPIError(TwitterError, ConnectorAPIError):
     """General API error."""
 
-    def __init__(
-        self, message: str = "Twitter API request failed", status_code: int | None = None
-    ):
+    def __init__(self, message: str = "Twitter API request failed", status_code: int | None = None):
         full_message = f"{message} (HTTP {status_code})" if status_code else message
         is_retryable = status_code is not None and 500 <= status_code < 600
         super().__init__(full_message, is_retryable=is_retryable)
         self.status_code = status_code
+
 
 class TwitterMediaError(TwitterError):
     """Media upload failed."""
@@ -64,10 +68,12 @@ class TwitterMediaError(TwitterError):
     def __init__(self, message: str = "Twitter media upload failed"):
         super().__init__(message, is_retryable=True)
 
+
 # Twitter API limits
 MAX_TWEET_LENGTH = 280
 MAX_THREAD_LENGTH = 25  # Maximum tweets in a thread
 MAX_MEDIA_SIZE_MB = 5  # For images
+
 
 @dataclass
 class TweetResult:
@@ -79,6 +85,7 @@ class TweetResult:
     url: str
     success: bool = True
     error: str | None = None
+
 
 @dataclass
 class ThreadResult:
@@ -95,6 +102,7 @@ class ThreadResult:
         if self.tweets:
             return self.tweets[0].url
         return ""
+
 
 class TwitterRateLimiter:
     """Simple rate limiter for Twitter API."""
@@ -118,6 +126,7 @@ class TwitterRateLimiter:
                 await asyncio.sleep(wait_time)
 
         self.call_times.append(time.time())
+
 
 class TwitterPosterConnector:
     """
@@ -485,6 +494,7 @@ class TwitterPosterConnector:
             logger.error(f"Failed to upload media: {e}")
             raise TwitterMediaError(f"Failed to upload media: {e}") from e
 
+
 class DebateContentFormatter:
     """
     Format debate content for Twitter posting.
@@ -626,6 +636,7 @@ class DebateContentFormatter:
         tweets.append(result_text)
 
         return tweets[: self.THREAD_MAX]
+
 
 def create_debate_summary(
     task: str,

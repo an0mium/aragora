@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class AuthSettings(BaseSettings):
     """Authentication configuration."""
 
@@ -47,6 +48,7 @@ class AuthSettings(BaseSettings):
         default=60, ge=10, le=3600, description="Rate limit window in seconds"
     )
 
+
 class RateLimitSettings(BaseSettings):
     """Rate limiting configuration."""
 
@@ -61,6 +63,7 @@ class RateLimitSettings(BaseSettings):
     redis_key_prefix: str = Field(default="aragora:ratelimit:", alias="ARAGORA_REDIS_KEY_PREFIX")
     redis_ttl_seconds: int = Field(default=120, ge=60, le=3600, alias="ARAGORA_REDIS_TTL")
 
+
 class APILimitSettings(BaseSettings):
     """API limits configuration."""
 
@@ -74,6 +77,7 @@ class APILimitSettings(BaseSettings):
     max_question_length: int = Field(
         default=10000, ge=100, le=100000, alias="ARAGORA_MAX_QUESTION_LENGTH"
     )
+
 
 class DebateSettings(BaseSettings):
     """Debate configuration."""
@@ -101,6 +105,7 @@ class DebateSettings(BaseSettings):
         if v.lower() not in valid:
             raise ValueError(f"Consensus must be one of {valid}")
         return v.lower()
+
 
 class LoggingSettings(BaseSettings):
     """Logging configuration.
@@ -172,6 +177,7 @@ class LoggingSettings(BaseSettings):
     def get_sensitive_fields(self) -> list[str]:
         """Get sensitive fields as a list."""
         return [f.strip() for f in self.sensitive_fields.split(",") if f.strip()]
+
 
 class AgentSettings(BaseSettings):
     """Agent configuration."""
@@ -249,6 +255,7 @@ class AgentSettings(BaseSettings):
         """Get streaming-capable agents as a list."""
         return [a.strip() for a in self.streaming_agents.split(",") if a.strip()]
 
+
 class CacheSettings(BaseSettings):
     """Cache TTL configuration (all values in seconds)."""
 
@@ -280,6 +287,7 @@ class CacheSettings(BaseSettings):
 
     # Embeddings (expensive)
     embeddings: int = Field(default=3600, ge=60, alias="ARAGORA_CACHE_EMBEDDINGS")
+
 
 class DatabaseSettings(BaseSettings):
     """Database configuration."""
@@ -347,6 +355,7 @@ class DatabaseSettings(BaseSettings):
         """Check if PostgreSQL backend is configured."""
         return self.backend == "postgresql" and self.url is not None
 
+
 class SupabaseSettings(BaseSettings):
     """Supabase configuration for preferred persistent storage.
 
@@ -381,6 +390,7 @@ class SupabaseSettings(BaseSettings):
         """Check if only API access is configured (no direct DB access)."""
         return bool(self.url and self.key and not self.db_password and not self.postgres_dsn)
 
+
 class WebSocketSettings(BaseSettings):
     """WebSocket configuration."""
 
@@ -390,6 +400,7 @@ class WebSocketSettings(BaseSettings):
         default=64 * 1024, ge=1024, le=10 * 1024 * 1024, alias="ARAGORA_WS_MAX_MESSAGE_SIZE"
     )
     heartbeat_interval: int = Field(default=30, ge=5, le=300, alias="ARAGORA_WS_HEARTBEAT")
+
 
 class EloSettings(BaseSettings):
     """ELO rating system configuration."""
@@ -402,6 +413,7 @@ class EloSettings(BaseSettings):
         default=10, ge=1, le=100, alias="ARAGORA_ELO_CALIBRATION_MIN_COUNT"
     )
 
+
 class BeliefSettings(BaseSettings):
     """Belief network configuration."""
 
@@ -411,6 +423,7 @@ class BeliefSettings(BaseSettings):
     convergence_threshold: float = Field(
         default=0.001, ge=0.0001, le=0.1, alias="ARAGORA_BELIEF_CONVERGENCE_THRESHOLD"
     )
+
 
 class SSLSettings(BaseSettings):
     """SSL/TLS configuration."""
@@ -427,6 +440,7 @@ class SSLSettings(BaseSettings):
         # Only validate if SSL is being enabled
         # Can't check enabled here since it's validated after
         return v
+
 
 class SecuritySettings(BaseSettings):
     """Security configuration for SOC 2 compliance.
@@ -495,6 +509,7 @@ class SecuritySettings(BaseSettings):
         alias="ARAGORA_SECURITY_REQUIRE_COMPLEXITY",
         description="Require uppercase, lowercase, number, and special character",
     )
+
 
 class SSOSettings(BaseSettings):
     """SSO/SAML/OIDC configuration for enterprise authentication."""
@@ -566,6 +581,7 @@ class SSOSettings(BaseSettings):
             return []
         return [d.strip().lower() for d in self.allowed_domains_str.split(",") if d.strip()]
 
+
 class StorageSettings(BaseSettings):
     """Storage configuration."""
 
@@ -573,6 +589,7 @@ class StorageSettings(BaseSettings):
 
     storage_dir: str = Field(default=".aragora", alias="ARAGORA_STORAGE_DIR")
     max_log_bytes: int = Field(default=100 * 1024, ge=1024, alias="ARAGORA_MAX_LOG_BYTES")
+
 
 class EvidenceSettings(BaseSettings):
     """Evidence collection configuration.
@@ -628,6 +645,7 @@ class EvidenceSettings(BaseSettings):
             d.strip().lower() for d in self.additional_allowed_domains_str.split(",") if d.strip()
         ]
 
+
 class FeatureSettings(BaseSettings):
     """Feature flags configuration for gating experimental features."""
 
@@ -658,6 +676,7 @@ class FeatureSettings(BaseSettings):
         """Check if a feature is enabled by name."""
         attr = feature.lower().replace("-", "_")
         return getattr(self, attr, False)
+
 
 class MemoryTierSettings(BaseSettings):
     """Memory tier configuration for ContinuumMemory."""
@@ -701,6 +720,7 @@ class MemoryTierSettings(BaseSettings):
         default=2.0, ge=1.0, le=5.0, alias="ARAGORA_MEMORY_RETENTION_MULTIPLIER"
     )
 
+
 class ConsensusSettings(BaseSettings):
     """Consensus detection thresholds."""
 
@@ -720,6 +740,7 @@ class ConsensusSettings(BaseSettings):
     supermajority_threshold: float = Field(
         default=0.67, ge=0.5, le=1.0, alias="ARAGORA_CONSENSUS_SUPERMAJORITY"
     )
+
 
 class IntegrationSettings(BaseSettings):
     """Cross-pollination and integration feature configuration."""
@@ -905,6 +926,7 @@ class IntegrationSettings(BaseSettings):
         description="Enable event batching for high-volume event types",
     )
 
+
 class ConcurrencySettings(BaseSettings):
     """Debate phase concurrency configuration.
 
@@ -978,6 +1000,7 @@ class ConcurrencySettings(BaseSettings):
         description="Legacy stagger delay between proposals (0 = use semaphore)",
     )
 
+
 class ProviderRateLimitSettings(BaseSettings):
     """Provider-specific rate limits (requests per minute)."""
 
@@ -1012,6 +1035,7 @@ class ProviderRateLimitSettings(BaseSettings):
         """Get TPM limit for a provider."""
         attr = f"{provider.lower().replace('-', '_')}_tpm"
         return getattr(self, attr, 0)
+
 
 class Settings(BaseSettings):
     """
@@ -1186,6 +1210,7 @@ class Settings(BaseSettings):
             self._concurrency = ConcurrencySettings()
         return self._concurrency
 
+
 @lru_cache()
 def get_settings() -> Settings:
     """
@@ -1199,6 +1224,7 @@ def get_settings() -> Settings:
     """
     return Settings()
 
+
 def reset_settings() -> None:
     """
     Reset the cached settings instance.
@@ -1206,6 +1232,7 @@ def reset_settings() -> None:
     Useful for testing or when environment variables change.
     """
     get_settings.cache_clear()
+
 
 # Valid agent types (allowlist for security)
 ALLOWED_AGENT_TYPES: frozenset[str] = frozenset(

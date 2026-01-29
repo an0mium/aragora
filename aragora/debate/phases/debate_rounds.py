@@ -11,6 +11,7 @@ Arena._run_inner() method, handling:
 - Termination checks (judge-based, early stopping)
 - RLM "ready signal" pattern for agent self-termination
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -33,6 +34,7 @@ DEFAULT_CALLBACK_TIMEOUT = 30.0
 # Actual timeout is calculated dynamically based on agent count
 REVISION_PHASE_BASE_TIMEOUT = 120.0
 
+
 def _calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     """Calculate dynamic phase timeout based on agent count.
 
@@ -51,6 +53,7 @@ def _calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     calculated = (num_agents / MAX_CONCURRENT_REVISIONS) * agent_timeout + 60.0
     return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
 
+
 def _is_effectively_empty_critique(critique: "Critique") -> bool:
     """Return True if critique only contains placeholder/empty content."""
     issues = [i.strip() for i in critique.issues if isinstance(i, str) and i.strip()]
@@ -67,6 +70,7 @@ def _is_effectively_empty_critique(critique: "Critique") -> bool:
             return not suggestions
     return False
 
+
 async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT, default=None):
     """Execute coroutine with timeout, returning default on timeout.
 
@@ -79,6 +83,7 @@ async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT
         logger.warning(f"Callback timed out after {timeout}s, using default: {default}")
         return default
 
+
 def _record_adaptive_round(direction: str) -> None:
     """Record adaptive round change metric with lazy import."""
     try:
@@ -88,11 +93,13 @@ def _record_adaptive_round(direction: str) -> None:
     except ImportError:
         pass
 
+
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
+
 
 class DebateRoundsPhase:
     """
@@ -136,9 +143,8 @@ class DebateRoundsPhase:
         check_early_stopping: Callable | None = None,
         inject_challenge: Callable | None = None,  # Callback to inject trickster challenges
         refresh_evidence: Callable | None = None,  # Callback to refresh evidence during rounds
-        checkpoint_callback: 
-            Callable
-         | None = None,  # Async callback to save checkpoint after each round
+        checkpoint_callback: Callable
+        | None = None,  # Async callback to save checkpoint after each round
         context_initializer: Any = None,  # ContextInitializer for background task awaiting
         compress_context: Callable | None = None,  # Async callback to compress debate messages
         rlm_compression_round_threshold: int = 3,  # Start compression after this many rounds

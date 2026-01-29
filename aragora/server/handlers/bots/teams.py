@@ -37,6 +37,7 @@ TEAMS_APP_PASSWORD = os.environ.get("TEAMS_APP_PASSWORD")
 if not TEAMS_APP_PASSWORD:
     logger.warning("TEAMS_APP_PASSWORD not configured - Teams bot authentication disabled")
 
+
 def _check_botframework_available() -> tuple[bool, str | None]:
     """Check if Bot Framework SDK is available."""
     try:
@@ -45,6 +46,7 @@ def _check_botframework_available() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         return False, "botbuilder-core not installed"
+
 
 class TeamsHandler(BotHandlerMixin, SecureHandler):
     """Handler for Microsoft Teams Bot endpoints.
@@ -214,5 +216,6 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)
+
 
 __all__ = ["TeamsHandler"]

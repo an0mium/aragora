@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class User:
     """A user profile."""
@@ -32,6 +33,7 @@ class User:
     last_login: datetime | None = None
     roles: list[str] = field(default_factory=list)
 
+
 @dataclass
 class Session:
     """An authenticated session."""
@@ -42,6 +44,7 @@ class Session:
     created_at: datetime
     ip_address: str | None = None
     user_agent: str | None = None
+
 
 @dataclass
 class APIKey:
@@ -55,6 +58,7 @@ class APIKey:
     expires_at: datetime | None = None
     scopes: list[str] = field(default_factory=list)
 
+
 @dataclass
 class MFASetupResult:
     """Result of MFA setup initiation."""
@@ -62,6 +66,7 @@ class MFASetupResult:
     secret: str
     qr_code_url: str
     backup_codes: list[str] = field(default_factory=list)
+
 
 class AuthAPI:
     """API interface for authentication and MFA."""
@@ -434,6 +439,7 @@ class AuthAPI:
         """Async version of revoke_api_key()."""
         await self._client._delete_async(f"/api/v1/auth/api-keys/{key_id}")
         return True
+
 
 __all__ = [
     "AuthAPI",

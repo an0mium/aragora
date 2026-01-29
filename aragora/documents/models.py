@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
+
 class DocumentStatus(Enum):
     """Processing status for ingested documents."""
 
@@ -20,6 +21,7 @@ class DocumentStatus(Enum):
     INDEXED = "indexed"  # Processed and indexed
     FAILED = "failed"  # Processing failed
     ARCHIVED = "archived"  # Removed from active index
+
 
 class ChunkType(Enum):
     """Type of content in a document chunk."""
@@ -32,6 +34,7 @@ class ChunkType(Enum):
     IMAGE = "image"  # Image with caption/OCR
     FORMULA = "formula"  # Mathematical formula
     METADATA = "metadata"  # Document metadata
+
 
 @dataclass
 class DocumentChunk:
@@ -126,6 +129,7 @@ class DocumentChunk:
             created_at=created_at,
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class IngestedDocument:
@@ -289,6 +293,7 @@ class IngestedDocument:
             "tags": self.tags,
         }
 
+
 # Token limits for common models
 MODEL_TOKEN_LIMITS = {
     # Anthropic
@@ -313,6 +318,7 @@ MODEL_TOKEN_LIMITS = {
     # Default fallback
     "default": 8_192,
 }
+
 
 def get_model_token_limit(model: str) -> int:
     """Get the token limit for a model."""

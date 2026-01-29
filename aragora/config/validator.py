@@ -25,10 +25,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigurationError(Exception):
     """Raised when configuration validation fails in strict mode."""
 
     pass
+
 
 def validate_all(strict: bool = False) -> dict[str, Any]:
     """
@@ -187,6 +189,7 @@ def validate_all(strict: bool = False) -> dict[str, Any]:
 
     return result
 
+
 def validate_production() -> dict[str, Any]:
     """
     Validate configuration for production deployment.
@@ -201,6 +204,7 @@ def validate_production() -> dict[str, Any]:
         ConfigurationError: If validation fails
     """
     return validate_all(strict=True)
+
 
 def get_missing_required_keys() -> list[str]:
     """
@@ -232,6 +236,7 @@ def get_missing_required_keys() -> list[str]:
 
     return missing
 
+
 def print_config_status() -> None:
     """Print a formatted configuration status report to stdout."""
     result = validate_all(strict=False)
@@ -249,6 +254,7 @@ def print_config_status() -> None:
             pass
 
     "PASS" if result["valid"] else "FAIL"
+
 
 __all__ = [
     "ConfigurationError",

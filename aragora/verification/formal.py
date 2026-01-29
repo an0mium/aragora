@@ -31,6 +31,7 @@ Rationale (from aragora self-debate):
 - Semantic verification step prevents false positives from hallucination
 - Can connect with ProvenanceManager for "verified provenance"
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -58,6 +59,7 @@ from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
+
 class FormalProofStatus(Enum):
     """Status of a formal proof attempt."""
 
@@ -69,6 +71,7 @@ class FormalProofStatus(Enum):
     BACKEND_UNAVAILABLE = "backend_unavailable"
     NOT_SUPPORTED = "not_supported"  # Claim type not suitable for formal proof
 
+
 class FormalLanguage(Enum):
     """Supported formal proof languages."""
 
@@ -77,6 +80,7 @@ class FormalLanguage(Enum):
     ISABELLE = "isabelle"
     AGDA = "agda"
     Z3_SMT = "z3_smt"  # SMT solver (simpler, more practical)
+
 
 @dataclass
 class FormalProofResult:
@@ -145,6 +149,7 @@ class FormalProofResult:
         if self.original_claim:
             result["original_claim"] = self.original_claim
         return result
+
 
 @runtime_checkable
 class FormalVerificationBackend(Protocol):
@@ -226,6 +231,7 @@ class FormalVerificationBackend(Protocol):
         """
         ...
 
+
 class TranslationModel(Enum):
     """Available models for NL-to-Lean translation."""
 
@@ -233,6 +239,7 @@ class TranslationModel(Enum):
     CLAUDE = "claude"  # General-purpose, good at reasoning
     OPENAI = "openai"  # GPT-4, solid alternative
     AUTO = "auto"  # Automatically select best available
+
 
 class LeanBackend:
     """
@@ -844,6 +851,7 @@ Examples of MATCHING:
 
         return proof_result
 
+
 class Z3Backend:
     """
     Z3 SMT solver backend for decidable verification.
@@ -1232,6 +1240,7 @@ Return ONLY the SMT-LIB2 code, no explanation."""
         result = await self.prove(formal_statement, timeout_seconds=30.0)
         return result.status == FormalProofStatus.PROOF_FOUND
 
+
 class FormalVerificationManager:
     """
     Manages formal verification backends.
@@ -1316,9 +1325,11 @@ class FormalVerificationManager:
             "any_available": any(b.is_available for b in self.backends),
         }
 
+
 # Singleton instance with thread-safe initialization
 _manager: FormalVerificationManager | None = None
 _manager_lock = threading.Lock()
+
 
 def get_formal_verification_manager() -> FormalVerificationManager:
     """Get the global formal verification manager (thread-safe)."""

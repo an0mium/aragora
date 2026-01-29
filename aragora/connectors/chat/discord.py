@@ -46,6 +46,7 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,
@@ -68,6 +69,7 @@ DISCORD_PUBLIC_KEY = os.environ.get("DISCORD_PUBLIC_KEY", "")
 
 # Discord API
 DISCORD_API_BASE = "https://discord.com/api/v10"
+
 
 class DiscordConnector(ChatPlatformConnector):
     """

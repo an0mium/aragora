@@ -10,6 +10,7 @@ Key features:
 - Memory limits (soft, via resource module on Unix)
 - Capability-based permission checking
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,6 +36,7 @@ from aragora.plugins.manifest import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class PluginContext:
@@ -80,6 +82,7 @@ class PluginContext:
         """Check if operation is allowed."""
         return operation in self.allowed_operations
 
+
 @dataclass
 class PluginResult:
     """Result from plugin execution."""
@@ -110,6 +113,7 @@ class PluginResult:
             "plugin_version": self.plugin_version,
             "executed_at": self.executed_at,
         }
+
 
 class PluginRunner:
     """
@@ -373,6 +377,7 @@ class PluginRunner:
 
         return result
 
+
 class PluginRegistry:
     """
     Registry of available plugins.
@@ -469,8 +474,10 @@ class PluginRegistry:
 
         return await runner.run(context)
 
+
 # Use ServiceRegistry for plugin registry management
 from aragora.services import ServiceRegistry
+
 
 def get_registry() -> PluginRegistry:
     """Get the global plugin registry via ServiceRegistry."""
@@ -479,11 +486,13 @@ def get_registry() -> PluginRegistry:
         registry.register_factory(PluginRegistry, PluginRegistry)
     return registry.resolve(PluginRegistry)
 
+
 def reset_registry() -> None:
     """Reset the plugin registry (for testing)."""
     registry = ServiceRegistry.get()
     if registry.has(PluginRegistry):
         registry.unregister(PluginRegistry)
+
 
 async def run_plugin(
     name: str,

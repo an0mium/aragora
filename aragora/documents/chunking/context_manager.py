@@ -30,6 +30,7 @@ from aragora.documents.chunking.token_counter import TokenCounter, get_token_cou
 
 logger = logging.getLogger(__name__)
 
+
 class ContextStrategy(str, Enum):
     """Strategy for building model context."""
 
@@ -38,6 +39,7 @@ class ContextStrategy(str, Enum):
     HYBRID = "hybrid"  # Full context + RAG augmentation
     CHUNKED = "chunked"  # Process in sequential chunks
     AUTO = "auto"  # Automatically select best strategy
+
 
 @dataclass
 class ContextWindow:
@@ -70,6 +72,7 @@ class ContextWindow:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ContextConfig:
     """Configuration for context building."""
@@ -96,6 +99,7 @@ class ContextConfig:
 
     # Chunk ordering
     preserve_document_order: bool = True
+
 
 class ContextManager:
     """
@@ -566,8 +570,10 @@ class ContextManager:
             "model": model,
         }
 
+
 # Global instance
 _manager: ContextManager | None = None
+
 
 def get_context_manager() -> ContextManager:
     """Get or create global context manager instance."""
@@ -575,6 +581,7 @@ def get_context_manager() -> ContextManager:
     if _manager is None:
         _manager = ContextManager()
     return _manager
+
 
 __all__ = [
     "ContextManager",

@@ -35,6 +35,7 @@ __all__ = [
     "get_hybrid_memory_search",
 ]
 
+
 @dataclass
 class MemorySearchResult:
     """A search result from hybrid memory search."""
@@ -68,6 +69,7 @@ class MemorySearchResult:
             "updated_at": self.updated_at,
         }
 
+
 @dataclass
 class HybridMemoryConfig:
     """Configuration for hybrid memory search."""
@@ -92,12 +94,14 @@ class HybridMemoryConfig:
     # Importance threshold
     min_importance: float = 0.0
 
+
 class EmbeddingProvider(Protocol):
     """Protocol for embedding providers."""
 
     async def embed(self, text: str) -> list[float]:
         """Generate embedding for text."""
         ...
+
 
 class KeywordIndex:
     """
@@ -248,6 +252,7 @@ class KeywordIndex:
         if self._conn:
             self._conn.close()
             self._conn = None
+
 
 class HybridMemorySearch:
     """
@@ -587,8 +592,10 @@ class HybridMemorySearch:
         """Close resources."""
         self._keyword_index.close()
 
+
 # Singleton instance
 _hybrid_search: HybridMemorySearch | None = None
+
 
 def get_hybrid_memory_search(
     continuum_memory: Optional["ContinuumMemory"] = None,

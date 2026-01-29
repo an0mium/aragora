@@ -18,6 +18,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class AuditAction(str, Enum):
     """Actions that can be audited."""
 
@@ -53,6 +54,7 @@ class AuditAction(str, Enum):
     LOGOUT = "logout"
     AUTH_FAILURE = "auth_failure"
 
+
 class AuditOutcome(str, Enum):
     """Outcome of an audited action."""
 
@@ -60,6 +62,7 @@ class AuditOutcome(str, Enum):
     DENIED = "denied"
     FAILED = "failed"
     PARTIAL = "partial"
+
 
 @dataclass
 class Actor:
@@ -72,6 +75,7 @@ class Actor:
     user_agent: str = ""
     session_id: str = ""
 
+
 @dataclass
 class Resource:
     """Resource being accessed."""
@@ -81,6 +85,7 @@ class Resource:
     workspace_id: str = ""
     name: str = ""
     sensitivity_level: str = ""
+
 
 @dataclass
 class AuditEntry:
@@ -155,6 +160,7 @@ class AuditEntry:
             previous_checksum=data.get("previous_checksum", ""),
         )
 
+
 @dataclass
 class AuditLogConfig:
     """Configuration for audit logging."""
@@ -176,6 +182,7 @@ class AuditLogConfig:
     # Filtering
     exclude_actors: list[str] = field(default_factory=list)
     exclude_resources: list[str] = field(default_factory=list)
+
 
 class PrivacyAuditLog:
     """
@@ -528,8 +535,10 @@ class PrivacyAuditLog:
 
         return removed_count
 
+
 # Global instance
 _audit_log: PrivacyAuditLog | None = None
+
 
 def get_audit_log(config: AuditLogConfig | None = None) -> PrivacyAuditLog:
     """Get or create the global audit log."""
@@ -537,6 +546,7 @@ def get_audit_log(config: AuditLogConfig | None = None) -> PrivacyAuditLog:
     if _audit_log is None:
         _audit_log = PrivacyAuditLog(config)
     return _audit_log
+
 
 __all__ = [
     "PrivacyAuditLog",

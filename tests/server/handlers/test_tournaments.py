@@ -79,7 +79,7 @@ class MockTournament:
 
     tournament_id: str
     name: str
-    participants: List[str]
+    participants: list[str]
     bracket_type: str = "round_robin"
     rounds_completed: int = 0
     total_rounds: int = 1
@@ -92,14 +92,14 @@ class MockTournamentManager:
 
     def __init__(self, db_path: str = ""):
         self.db_path = db_path
-        self.tournaments: Dict[str, MockTournament] = {}
-        self.matches: Dict[str, MockTournamentMatch] = {}
-        self.standings: List[MockTournamentStanding] = []
+        self.tournaments: dict[str, MockTournament] = {}
+        self.matches: dict[str, MockTournamentMatch] = {}
+        self.standings: list[MockTournamentStanding] = []
 
     def create_tournament(
         self,
         name: str,
-        participants: List[str],
+        participants: list[str],
         bracket_type: str = "round_robin",
     ) -> MockTournament:
         """Create a new tournament."""
@@ -135,11 +135,11 @@ class MockTournamentManager:
         """Get tournament by ID."""
         return self.tournaments.get(tournament_id)
 
-    def list_tournaments(self, limit: int = 100) -> List[MockTournament]:
+    def list_tournaments(self, limit: int = 100) -> list[MockTournament]:
         """List tournaments."""
         return list(self.tournaments.values())[:limit]
 
-    def get_current_standings(self) -> List[MockTournamentStanding]:
+    def get_current_standings(self) -> list[MockTournamentStanding]:
         """Get current standings."""
         return self.standings or [
             MockTournamentStanding(agent="claude", wins=2, losses=1, points=4.0),
@@ -150,7 +150,7 @@ class MockTournamentManager:
         self,
         tournament_id: Optional[str] = None,
         round_num: Optional[int] = None,
-    ) -> List[MockTournamentMatch]:
+    ) -> list[MockTournamentMatch]:
         """Get tournament matches."""
         result = list(self.matches.values())
         if tournament_id:
@@ -218,7 +218,7 @@ def mock_tournament_manager():
 # ===========================================================================
 
 
-def parse_response_body(result) -> Dict[str, Any]:
+def parse_response_body(result) -> dict[str, Any]:
     """Parse JSON response body from HandlerResult."""
     if hasattr(result, "body"):
         body = result.body

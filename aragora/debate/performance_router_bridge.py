@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _record_routing_metrics(task_type: str, selected_agent: str, latency: float) -> None:
     """Record routing decision metrics to Prometheus."""
     try:
@@ -54,6 +55,7 @@ def _record_routing_metrics(task_type: str, selected_agent: str, latency: float)
         record_performance_routing_latency(latency)
     except ImportError:
         pass  # Metrics not available
+
 
 @dataclass
 class AgentRoutingScore:
@@ -72,6 +74,7 @@ class AgentRoutingScore:
         """Check if we have enough data for reliable routing."""
         return self.data_points >= 5
 
+
 @dataclass
 class SyncResult:
     """Result of syncing performance data to router."""
@@ -81,6 +84,7 @@ class SyncResult:
     timestamp: datetime = field(default_factory=datetime.now)
     success: bool = True
     error: str | None = None
+
 
 @dataclass
 class PerformanceRouterBridgeConfig:
@@ -111,6 +115,7 @@ class PerformanceRouterBridgeConfig:
     # Speed tier thresholds
     fast_tier_threshold: float = 0.8  # Score above this = fast tier
     slow_tier_threshold: float = 0.4  # Score below this = slow tier
+
 
 @dataclass
 class PerformanceRouterBridge:
@@ -461,6 +466,7 @@ class PerformanceRouterBridge:
         self._routing_scores.clear()
         logger.debug("Cleared routing score cache")
 
+
 def create_performance_router_bridge(
     performance_monitor: Any | None = None,
     agent_router: Any | None = None,
@@ -482,6 +488,7 @@ def create_performance_router_bridge(
         agent_router=agent_router,
         config=config,
     )
+
 
 __all__ = [
     "PerformanceRouterBridge",

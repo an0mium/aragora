@@ -46,8 +46,8 @@ class MockCritique:
     agent: str = "critic"
     reasoning: str = "This is a critique"
     severity: float = 0.5
-    issues: List[str] = None
-    suggestions: List[str] = None
+    issues: list[str] = None
+    suggestions: list[str] = None
 
     def __post_init__(self):
         if self.issues is None:

@@ -9,6 +9,7 @@ Features:
 - Source-specific weight adjustments
 - Historical performance tracking
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +19,7 @@ from typing import Any, Optional
 from aragora.pulse.ingestor import TrendingTopic
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class SourceWeight:
@@ -29,6 +31,7 @@ class SourceWeight:
     volume_multiplier: float = 1.0  # Adjust how volume affects final score
     freshness_weight: float = 1.0  # How much freshness matters for this source
     description: str = ""
+
 
 # Default source weights (can be overridden)
 DEFAULT_SOURCE_WEIGHTS: dict[str, SourceWeight] = {
@@ -66,6 +69,7 @@ DEFAULT_SOURCE_WEIGHTS: dict[str, SourceWeight] = {
     ),
 }
 
+
 @dataclass
 class WeightedTopic:
     """A trending topic with calculated weights."""
@@ -86,6 +90,7 @@ class WeightedTopic:
     @property
     def authority(self) -> float:
         return self.source_weight.authority_score
+
 
 class SourceWeightingSystem:
     """
@@ -347,6 +352,7 @@ class SourceWeightingSystem:
                 "avg_debate_quality": sum(history) / len(history) if history else None,
             }
         return stats
+
 
 __all__ = [
     "SourceWeight",

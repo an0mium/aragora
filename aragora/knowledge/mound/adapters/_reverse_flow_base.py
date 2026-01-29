@@ -42,6 +42,7 @@ from typing import Any, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
 
+
 class ValidationSyncResult(TypedDict):
     """Result type for reverse validation sync operations."""
 
@@ -50,6 +51,7 @@ class ValidationSyncResult(TypedDict):
     records_skipped: int
     errors: list[str]
     duration_ms: float
+
 
 class ReverseFlowMixin:
     """Mixin providing reverse flow (KM -> Source) sync operations.
@@ -267,5 +269,6 @@ class ReverseFlowMixin:
         )
 
         return result
+
 
 __all__ = ["ReverseFlowMixin", "ValidationSyncResult"]

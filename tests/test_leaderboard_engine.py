@@ -44,7 +44,7 @@ class MockAgentRating:
     debates_count: int = 0
     critiques_accepted: int = 0
     critiques_total: int = 0
-    domain_elos: Dict[str, float] = field(default_factory=dict)
+    domain_elos: dict[str, float] = field(default_factory=dict)
     updated_at: str = ""
 
 
@@ -73,7 +73,7 @@ class MockTTLCache:
     """Mock TTL cache for testing."""
 
     def __init__(self):
-        self._data: Dict[str, Any] = {}
+        self._data: dict[str, Any] = {}
 
     def get(self, key: str) -> Optional[Any]:
         return self._data.get(key)

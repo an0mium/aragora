@@ -32,7 +32,7 @@ class MockContinuumEntry:
     failure_count: int
     created_at: str
     updated_at: str
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
     red_line: bool = False
     red_line_reason: str = ""
 
@@ -50,11 +50,11 @@ class MockContinuumEntry:
         return f"cm_{self.id}"
 
     @property
-    def tags(self) -> List[str]:
+    def tags(self) -> list[str]:
         return self.metadata.get("tags", [])
 
     @property
-    def cross_references(self) -> List[str]:
+    def cross_references(self) -> list[str]:
         return self.metadata.get("cross_references", [])
 
 
@@ -73,20 +73,20 @@ class MockConsensusRecord:
     conclusion: str
     strength: MockConsensusStrength
     confidence: float
-    participating_agents: List[str] = None
-    agreeing_agents: List[str] = None
-    dissenting_agents: List[str] = None
-    key_claims: List[str] = None
-    supporting_evidence: List[str] = None
-    dissent_ids: List[str] = None
+    participating_agents: list[str] = None
+    agreeing_agents: list[str] = None
+    dissenting_agents: list[str] = None
+    key_claims: list[str] = None
+    supporting_evidence: list[str] = None
+    dissent_ids: list[str] = None
     domain: str = "general"
-    tags: List[str] = None
+    tags: list[str] = None
     timestamp: datetime = None
     debate_duration_seconds: float = 0.0
     rounds: int = 0
     supersedes: Optional[str] = None
     superseded_by: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.participating_agents is None:
@@ -119,7 +119,7 @@ class MockConsensusRecord:
 @dataclass
 class MockSimilarDebate:
     consensus: MockConsensusRecord
-    dissents: List[Any]
+    dissents: list[Any]
     similarity: float
 
 

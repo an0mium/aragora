@@ -45,6 +45,7 @@ from aragora.utils.timeouts import timed_lock
 
 logger = logging.getLogger(__name__)
 
+
 def _safe_log(level: int, msg: str) -> None:
     """Log a message safely, handling Python shutdown gracefully.
 
@@ -59,6 +60,7 @@ def _safe_log(level: int, msg: str) -> None:
     except Exception:
         # Logging failed (likely during shutdown), ignore silently
         pass
+
 
 # Valid SQL column types (whitelist)
 VALID_COLUMN_TYPES = frozenset(
@@ -76,6 +78,7 @@ VALID_COLUMN_TYPES = frozenset(
     }
 )
 
+
 def _validate_sql_identifier(name: str) -> bool:
     """Validate SQL identifier to prevent injection.
 
@@ -87,11 +90,13 @@ def _validate_sql_identifier(name: str) -> bool:
         return False
     return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name))
 
+
 def _validate_column_type(col_type: str) -> bool:
     """Validate column type against whitelist."""
     # Normalize and check base type (handles "VARCHAR(255)" etc.)
     base_type = col_type.split("(")[0].strip().upper()
     return base_type in VALID_COLUMN_TYPES
+
 
 def _validate_default_value(default: str) -> bool:
     """Validate default value to prevent injection.
@@ -125,8 +130,10 @@ def _validate_default_value(default: str) -> bool:
 
     return False
 
+
 # Default database connection timeout in seconds
 DB_TIMEOUT = 30.0
+
 
 def get_wal_connection(
     db_path: str | Path,
@@ -159,6 +166,7 @@ def get_wal_connection(
     conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)}")
     return conn
 
+
 @dataclass
 class Migration:
     """A database migration from one version to another."""
@@ -177,6 +185,7 @@ class Migration:
             self.function(conn)
         else:
             raise ValueError("Migration must have either sql or function")
+
 
 class SchemaManager:
     """
@@ -367,6 +376,7 @@ class SchemaManager:
             "version": self.get_version(),
         }
 
+
 def safe_add_column(
     conn: sqlite3.Connection,
     table: str,
@@ -418,6 +428,7 @@ def safe_add_column(
     conn.commit()
     logger.debug(f"Added column {column} to {table}")
     return True
+
 
 class DatabaseManager:
     """
@@ -558,9 +569,7 @@ class DatabaseManager:
             }
 
     @classmethod
-    def get_instance(
-        cls, db_path: str | Path, timeout: float = DB_TIMEOUT
-    ) -> "DatabaseManager":
+    def get_instance(cls, db_path: str | Path, timeout: float = DB_TIMEOUT) -> "DatabaseManager":
         """Get or create a DatabaseManager instance for the given path.
 
         This is the recommended way to obtain a DatabaseManager. It ensures
@@ -821,6 +830,7 @@ class DatabaseManager:
     def __repr__(self) -> str:
         return f"DatabaseManager({self.db_path!r})"
 
+
 # ============================================================================
 # Performance Indexes
 # ============================================================================
@@ -850,6 +860,7 @@ PERFORMANCE_INDEXES = [
     # ELO ratings for domain-specific queries
     ("ratings", "idx_ratings_elo", "elo"),
 ]
+
 
 def create_performance_indexes(
     conn: sqlite3.Connection, tables_to_index: list[str] | None = None
@@ -923,6 +934,7 @@ def create_performance_indexes(
         "errors": errors,
     }
 
+
 def analyze_tables(conn: sqlite3.Connection) -> None:
     """
     Run ANALYZE on all tables to update query planner statistics.
@@ -933,6 +945,7 @@ def analyze_tables(conn: sqlite3.Connection) -> None:
     conn.execute("ANALYZE")
     conn.commit()
     logger.info("Ran ANALYZE on database")
+
 
 class ConnectionPool:
     """

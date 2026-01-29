@@ -16,9 +16,6 @@ from aragora.server.oauth_state_store import (
     get_oauth_state_store,
 )
 from aragora.server.oauth_state_store import (
-    generate_oauth_state as _generate_state,
-)
-from aragora.server.oauth_state_store import (
     validate_oauth_state as _validate_state_internal,
 )
 

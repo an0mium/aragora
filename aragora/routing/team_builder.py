@@ -4,6 +4,7 @@ Team building utilities for agent selection.
 Provides team composition, diversity calculation, and role assignment logic
 extracted from AgentSelector for better modularity.
 """
+
 from __future__ import annotations
 
 import logging
@@ -43,6 +44,7 @@ PHASE_ROLES: dict[str, tuple[dict[str, str], str]] = {
     ),
     "commit": ({}, "reviewer"),
 }
+
 
 class TeamBuilder:
     """
@@ -357,6 +359,7 @@ class TeamBuilder:
         if limit:
             history = history[:limit]
         return history
+
 
 __all__ = [
     "PHASE_ROLES",

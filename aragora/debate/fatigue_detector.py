@@ -23,6 +23,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FatigueSignal:
     """Signal indicating an agent may be experiencing cognitive fatigue."""
@@ -45,6 +46,7 @@ class FatigueSignal:
             "timestamp": self.timestamp,
         }
 
+
 @dataclass
 class AgentBaseline:
     """Baseline metrics for an agent to compare against."""
@@ -53,6 +55,7 @@ class AgentBaseline:
     avg_unique_word_ratio: float = 0.7
     avg_argument_count: int = 3
     samples: int = 0
+
 
 class FatigueDetector:
     """Monitor agent response quality for signs of cognitive fatigue.
@@ -400,8 +403,10 @@ class FatigueDetector:
             "tracked_agents": list(self.response_history.keys()),
         }
 
+
 # Singleton instance for global access
 _default_detector: FatigueDetector | None = None
+
 
 def get_fatigue_detector() -> FatigueDetector:
     """Get or create the default fatigue detector instance."""
@@ -409,6 +414,7 @@ def get_fatigue_detector() -> FatigueDetector:
     if _default_detector is None:
         _default_detector = FatigueDetector()
     return _default_detector
+
 
 def reset_fatigue_detector() -> None:
     """Reset the global fatigue detector."""

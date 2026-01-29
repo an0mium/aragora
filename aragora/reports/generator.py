@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ReportFormat(str, Enum):
     """Supported report output formats."""
 
@@ -33,6 +34,7 @@ class ReportFormat(str, Enum):
     JSON = "json"
     HTML = "html"
 
+
 class ReportTemplate(str, Enum):
     """Report template styles."""
 
@@ -40,6 +42,7 @@ class ReportTemplate(str, Enum):
     DETAILED_FINDINGS = "detailed_findings"
     COMPLIANCE_ATTESTATION = "compliance_attestation"
     SECURITY_ASSESSMENT = "security_assessment"
+
 
 @dataclass
 class ReportConfig:
@@ -69,6 +72,7 @@ class ReportConfig:
     author: str = ""
     reviewer: str = ""
 
+
 @dataclass
 class ReportSection:
     """A section of the report."""
@@ -77,6 +81,7 @@ class ReportSection:
     content: str
     order: int = 0
     subsections: list["ReportSection"] = field(default_factory=list)
+
 
 @dataclass
 class GeneratedReport:
@@ -99,6 +104,7 @@ class GeneratedReport:
             path = Path(self.filename)
         path.write_bytes(self.content)
         return path
+
 
 class AuditReportGenerator:
     """
@@ -705,6 +711,7 @@ Total Security Findings: {len(sec_findings)}
             logger.warning("weasyprint not installed, returning HTML for PDF request")
             logger.info("Install weasyprint for proper PDF: pip install weasyprint")
             return self._render_html(sections, session, findings)
+
 
 __all__ = [
     "AuditReportGenerator",

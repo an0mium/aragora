@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from aragora.server.handlers.base import HandlerResult
 
+
 def slack_response(
     text: str,
     response_type: str = "ephemeral",
@@ -38,6 +39,7 @@ def slack_response(
         content_type="application/json",
         body=json.dumps(response).encode("utf-8"),
     )
+
 
 def slack_blocks_response(
     blocks: list[dict[str, Any]],

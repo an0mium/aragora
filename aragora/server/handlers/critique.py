@@ -42,6 +42,7 @@ CritiqueStore, CRITIQUE_STORE_AVAILABLE = try_import_class("aragora.memory.store
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
+
 class CritiqueHandler(BaseHandler):
     """Handler for critique pattern and reputation endpoints."""
 

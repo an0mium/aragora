@@ -43,6 +43,7 @@ CHANNEL_SUBSCRIPTION_DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), "..", "..", "data", "channel_subscriptions.db"),
 )
 
+
 class ChannelType(str, Enum):
     """Supported channel types for notifications."""
 
@@ -51,6 +52,7 @@ class ChannelType(str, Enum):
     EMAIL = "email"
     WEBHOOK = "webhook"
 
+
 class EventType(str, Enum):
     """Event types that can be subscribed to."""
 
@@ -58,6 +60,7 @@ class EventType(str, Enum):
     BUDGET_ALERT = "budget_alert"
     DEBATE_COMPLETE = "debate_complete"
     CONSENSUS_REACHED = "consensus_reached"
+
 
 @dataclass
 class ChannelSubscription:
@@ -131,6 +134,7 @@ class ChannelSubscription:
             is_active=bool(row["is_active"]),
             config=config,
         )
+
 
 class ChannelSubscriptionStore:
     """SQLite-backed storage for channel subscriptions.
@@ -463,9 +467,11 @@ class ChannelSubscriptionStore:
         conn.execute("DELETE FROM channel_subscriptions")
         conn.commit()
 
+
 # Global instance (lazy initialization)
 _store: ChannelSubscriptionStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_channel_subscription_store() -> ChannelSubscriptionStore:
     """Get the global channel subscription store instance."""

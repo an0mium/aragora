@@ -29,6 +29,7 @@ except ImportError:
     REDIS_AVAILABLE = False
     aioredis = None  # type: ignore[assignment]  # Optional module fallback
 
+
 class RedisPolicyCache:
     """
     Redis-backed cache for policy evaluation results.

@@ -12,6 +12,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def query_memory_tool(
     query: str,
     tier: str = "all",
@@ -76,6 +77,7 @@ async def query_memory_tool(
         "tier": tier,
     }
 
+
 async def store_memory_tool(
     content: str,
     tier: str = "medium",
@@ -129,6 +131,7 @@ async def store_memory_tool(
     except Exception as e:
         return {"error": f"Failed to store memory: {e}"}
 
+
 async def get_memory_pressure_tool() -> dict[str, Any]:
     """
     Get current memory pressure and utilization.
@@ -165,6 +168,7 @@ async def get_memory_pressure_tool() -> dict[str, Any]:
         return {"error": "Continuum memory not available"}
     except Exception as e:
         return {"error": f"Failed to get memory pressure: {e}"}
+
 
 __all__ = [
     "query_memory_tool",

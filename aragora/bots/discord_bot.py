@@ -42,6 +42,7 @@ DISCORD_APPLICATION_ID = os.environ.get("DISCORD_APPLICATION_ID", "")
 # error messages for production environments.
 API_BASE = os.environ.get("ARAGORA_API_BASE", "")
 
+
 def _check_discord_available() -> tuple[bool, str | None]:
     """Check if discord.py is available."""
     try:
@@ -50,6 +51,7 @@ def _check_discord_available() -> tuple[bool, str | None]:
         return True, None
     except ImportError:
         return False, "discord.py is required. Install with: pip install discord.py"
+
 
 class AragoraDiscordBot:
     """Discord bot for Aragora platform integration."""
@@ -358,6 +360,7 @@ class AragoraDiscordBot:
         if self._client:
             await self._client.close()
 
+
 async def run_discord_bot(
     token: str | None = None,
     application_id: str | None = None,
@@ -377,6 +380,7 @@ async def run_discord_bot(
     bot = AragoraDiscordBot(token, application_id)
     await bot.setup()
     await bot.run()
+
 
 def create_discord_bot(
     token: str | None = None,
@@ -398,6 +402,7 @@ def create_discord_bot(
         raise ValueError("Discord bot token is required. Set DISCORD_BOT_TOKEN env var.")
 
     return AragoraDiscordBot(token, application_id)
+
 
 __all__ = [
     "AragoraDiscordBot",

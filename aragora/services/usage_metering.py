@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 # Default database path
 DEFAULT_METERING_DB = Path(".nomic/usage_metering.db")
 
+
 class MeteringPeriod(Enum):
     """Billing period types for usage queries."""
 
@@ -62,6 +63,7 @@ class MeteringPeriod(Enum):
     QUARTER = "quarter"
     YEAR = "year"
 
+
 class UsageType(Enum):
     """Types of metered usage events."""
 
@@ -70,6 +72,7 @@ class UsageType(Enum):
     API_CALL = "api_call"
     STORAGE = "storage"
     CONNECTOR = "connector"
+
 
 # Provider pricing per 1M tokens (as of Jan 2026)
 # Aligned with aragora.billing.usage.PROVIDER_PRICING
@@ -157,6 +160,7 @@ TIER_USAGE_CAPS: dict[str, dict[str, int]] = {
     },
 }
 
+
 @dataclass
 class TokenUsageRecord:
     """Record of token usage for a single API call."""
@@ -197,6 +201,7 @@ class TokenUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 @dataclass
 class DebateUsageRecord:
     """Record of debate usage."""
@@ -229,6 +234,7 @@ class DebateUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 @dataclass
 class ApiCallRecord:
     """Record of API call usage."""
@@ -256,6 +262,7 @@ class ApiCallRecord:
             "metadata": self.metadata,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 @dataclass
 class HourlyAggregate:
@@ -294,6 +301,7 @@ class HourlyAggregate:
             "tokens_by_model": self.tokens_by_model,
             "cost_by_model": {k: str(v) for k, v in self.cost_by_model.items()},
         }
+
 
 @dataclass
 class UsageSummary:
@@ -369,6 +377,7 @@ class UsageSummary:
             },
         }
 
+
 @dataclass
 class UsageLimits:
     """Current usage limits and utilization."""
@@ -423,6 +432,7 @@ class UsageLimits:
             },
         }
 
+
 @dataclass
 class UsageBreakdown:
     """Detailed usage breakdown for billing."""
@@ -466,6 +476,7 @@ class UsageBreakdown:
             "by_day": self.by_day,
             "by_user": self.by_user,
         }
+
 
 class UsageMeter:
     """
@@ -1498,8 +1509,10 @@ class UsageMeter:
             self._conn.close()
             self._conn = None
 
+
 # Module-level instance
 _usage_meter: UsageMeter | None = None
+
 
 def get_usage_meter() -> UsageMeter:
     """Get or create the global usage meter."""
@@ -1507,6 +1520,7 @@ def get_usage_meter() -> UsageMeter:
     if _usage_meter is None:
         _usage_meter = UsageMeter()
     return _usage_meter
+
 
 __all__ = [
     "UsageMeter",

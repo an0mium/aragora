@@ -24,6 +24,7 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TokenBucketStats:
     """Statistics for a token bucket."""
@@ -51,6 +52,7 @@ class TokenBucketStats:
                 round(self.total_wait_ms / self.acquired, 2) if self.acquired > 0 else 0.0
             ),
         }
+
 
 class TokenBucket:
     """
@@ -348,6 +350,7 @@ class TokenBucket:
         with self._sync_lock:
             self._stats = TokenBucketStats()
 
+
 class KeyedTokenBucket:
     """
     Multi-key token bucket for per-key rate limiting.
@@ -477,5 +480,6 @@ class KeyedTokenBucket:
         # Note: TokenBucket doesn't track last access time yet
         # This is a placeholder for future implementation
         return 0
+
 
 __all__ = ["TokenBucket", "KeyedTokenBucket", "TokenBucketStats"]

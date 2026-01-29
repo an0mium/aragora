@@ -17,6 +17,7 @@ from .types import ControlPlanePolicy
 
 logger = get_logger(__name__)
 
+
 @dataclass
 class PolicyVersion:
     """A snapshot of a policy at a specific version."""
@@ -38,6 +39,7 @@ class PolicyVersion:
             "created_by": self.created_by,
             "change_description": self.change_description,
         }
+
 
 class PolicyHistory:
     """Tracks policy version history for auditing and rollback.
@@ -199,8 +201,10 @@ class PolicyHistory:
             "policies": {policy_id: len(versions) for policy_id, versions in self._history.items()},
         }
 
+
 # Global policy history instance
 _policy_history: PolicyHistory | None = None
+
 
 def get_policy_history() -> PolicyHistory:
     """Get the global policy history instance."""

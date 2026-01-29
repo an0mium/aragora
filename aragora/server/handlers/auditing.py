@@ -57,6 +57,7 @@ from aragora.server.errors import safe_error_message as _safe_error_message
 # Audit Request Utilities
 # =============================================================================
 
+
 class AuditRequestParser:
     """Parse and validate audit request JSON bodies."""
 
@@ -160,6 +161,7 @@ class AuditRequestParser:
             "enable_research": config_data.get("enable_research", True),
         }, None
 
+
 class AuditAgentFactory:
     """Create and validate agents for auditing."""
 
@@ -210,6 +212,7 @@ class AuditAgentFactory:
             return [], error_response("Need at least 2 agents for deep audit", 400)
 
         return agents, None
+
 
 class AuditResultRecorder:
     """Record audit results to ELO system and storage."""
@@ -327,6 +330,7 @@ class AuditResultRecorder:
             )
         except Exception as e:
             logger.error(f"Failed to save deep audit report to {nomic_dir}: {e}")
+
 
 class AuditingHandler(SecureHandler):
     """Handler for audit log access and management.

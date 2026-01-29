@@ -38,6 +38,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class RotationReason(str, Enum):
     """Reasons for token rotation."""
 
@@ -47,6 +48,7 @@ class RotationReason(str, Enum):
     SUSPICIOUS_ACTIVITY = "suspicious_activity"
     ADMIN_REQUEST = "admin_request"
     SECURITY_POLICY = "security_policy"
+
 
 @dataclass
 class TokenUsageRecord:
@@ -80,6 +82,7 @@ class TokenUsageRecord:
             self.user_agents.add(ua_hash)
         if location:
             self.locations.add(location)
+
 
 @dataclass
 class RotationPolicy:
@@ -139,6 +142,7 @@ class RotationPolicy:
             ip_change_requires_rotation=False,
         )
 
+
 @dataclass
 class RotationCheckResult:
     """Result of checking if rotation is required."""
@@ -158,6 +162,7 @@ class RotationCheckResult:
             "is_suspicious": self.is_suspicious,
             "recommendations": self.recommendations,
         }
+
 
 class TokenRotationManager:
     """
@@ -485,9 +490,11 @@ class TokenRotationManager:
         if to_remove:
             logger.debug(f"Cleaned up {len(to_remove)} stale token records")
 
+
 # Singleton instance
 _rotation_manager: TokenRotationManager | None = None
 _manager_lock = threading.Lock()
+
 
 def get_rotation_manager(
     policy: RotationPolicy | None = None,
@@ -509,11 +516,13 @@ def get_rotation_manager(
                 _rotation_manager = TokenRotationManager(policy=policy)
     return _rotation_manager
 
+
 def reset_rotation_manager() -> None:
     """Reset the rotation manager (for testing)."""
     global _rotation_manager
     with _manager_lock:
         _rotation_manager = None
+
 
 __all__ = [
     "RotationReason",

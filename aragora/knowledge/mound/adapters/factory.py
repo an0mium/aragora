@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AdapterSpec:
     """Specification for an adapter."""
@@ -44,12 +45,15 @@ class AdapterSpec:
     enabled_by_default: bool = True
     config_key: str | None = None  # Key in ArenaConfig to check for explicit adapter
 
+
 # Registry of available adapter specifications
 ADAPTER_SPECS: dict[str, AdapterSpec] = {}
+
 
 def register_adapter_spec(spec: AdapterSpec) -> None:
     """Register an adapter specification."""
     ADAPTER_SPECS[spec.name] = spec
+
 
 # Import and register adapter specs
 def _init_specs() -> None:
@@ -322,8 +326,10 @@ def _init_specs() -> None:
         )
     )
 
+
 # Initialize specs on import
 _init_specs()
+
 
 @dataclass
 class CreatedAdapter:
@@ -333,6 +339,7 @@ class CreatedAdapter:
     adapter: Any
     spec: AdapterSpec
     deps_used: dict[str, Any] = field(default_factory=dict)
+
 
 class AdapterFactory:
     """
@@ -733,6 +740,7 @@ class AdapterFactory:
     def get_available_adapter_specs(self) -> dict[str, AdapterSpec]:
         """Get all available adapter specifications."""
         return ADAPTER_SPECS.copy()
+
 
 __all__ = [
     "AdapterFactory",

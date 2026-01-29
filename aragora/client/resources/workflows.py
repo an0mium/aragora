@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WorkflowStatus(str, Enum):
     """Workflow execution status."""
 
@@ -31,6 +32,7 @@ class WorkflowStatus(str, Enum):
     CANCELLED = "cancelled"
     PAUSED = "paused"
     AWAITING_APPROVAL = "awaiting_approval"
+
 
 @dataclass
 class Workflow:
@@ -46,6 +48,7 @@ class Workflow:
     workspace_id: str | None = None
     is_active: bool = True
 
+
 @dataclass
 class WorkflowExecution:
     """A workflow execution instance."""
@@ -60,6 +63,7 @@ class WorkflowExecution:
     outputs: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
 
+
 @dataclass
 class WorkflowTemplate:
     """A workflow template from the marketplace."""
@@ -72,6 +76,7 @@ class WorkflowTemplate:
     steps: list[dict[str, Any]] = field(default_factory=list)
     inputs_schema: dict[str, Any] = field(default_factory=dict)
     is_public: bool = True
+
 
 @dataclass
 class WorkflowApproval:
@@ -86,6 +91,7 @@ class WorkflowApproval:
     created_at: datetime | None = None
     resolved_at: datetime | None = None
     resolved_by: str | None = None
+
 
 class WorkflowsAPI:
     """API interface for workflow management."""
@@ -588,6 +594,7 @@ class WorkflowsAPI:
         return await self._client._post_async(
             f"/api/v1/workflow-approvals/{approval_id}/resolve", body
         )
+
 
 __all__ = [
     "WorkflowsAPI",

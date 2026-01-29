@@ -20,11 +20,13 @@ Each exception includes:
 - retry_after: Optional seconds to wait before retry
 - is_retryable: Whether the operation can be retried
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 from aragora.exceptions import AragoraError
+
 
 class ConnectorError(AragoraError):
     """Base exception for all connector errors.
@@ -81,6 +83,7 @@ class ConnectorError(AragoraError):
 
         return " ".join(parts)
 
+
 class ConnectorAuthError(ConnectorError):
     """Authentication or authorization failure.
 
@@ -105,6 +108,7 @@ class ConnectorAuthError(ConnectorError):
             is_retryable=False,  # Auth errors need credential fix
         )
 
+
 class ConnectorRateLimitError(ConnectorError):
     """Rate limit exceeded.
 
@@ -128,6 +132,7 @@ class ConnectorRateLimitError(ConnectorError):
             retry_after=retry_after or 60.0,  # Default to 60 seconds
             is_retryable=True,
         )
+
 
 class ConnectorTimeoutError(ConnectorError):
     """Request timeout.
@@ -154,6 +159,7 @@ class ConnectorTimeoutError(ConnectorError):
         )
         self.timeout_seconds = timeout_seconds
 
+
 class ConnectorNetworkError(ConnectorError):
     """Network connectivity issues.
 
@@ -177,6 +183,7 @@ class ConnectorNetworkError(ConnectorError):
             retry_after=5.0,
             is_retryable=True,
         )
+
 
 class ConnectorAPIError(ConnectorError):
     """API returned an error response.
@@ -208,6 +215,7 @@ class ConnectorAPIError(ConnectorError):
         )
         self.status_code = status_code
 
+
 class ConnectorValidationError(ConnectorError):
     """Invalid input or parameters.
 
@@ -232,6 +240,7 @@ class ConnectorValidationError(ConnectorError):
         )
         self.field = field
 
+
 class ConnectorNotFoundError(ConnectorError):
     """Requested resource not found.
 
@@ -255,6 +264,7 @@ class ConnectorNotFoundError(ConnectorError):
             is_retryable=False,
         )
         self.resource_id = resource_id
+
 
 class ConnectorQuotaError(ConnectorError):
     """Quota or usage limit exhausted.
@@ -281,6 +291,7 @@ class ConnectorQuotaError(ConnectorError):
         )
         self.quota_reset = quota_reset
 
+
 class ConnectorParseError(ConnectorError):
     """Failed to parse response content.
 
@@ -305,6 +316,7 @@ class ConnectorParseError(ConnectorError):
         )
         self.content_type = content_type
 
+
 class ConnectorConfigError(ConnectorError):
     """Configuration or setup error.
 
@@ -328,6 +340,7 @@ class ConnectorConfigError(ConnectorError):
             is_retryable=False,
         )
         self.config_key = config_key
+
 
 class ConnectorCircuitOpenError(ConnectorError):
     """Circuit breaker is open - connector temporarily unavailable.
@@ -354,9 +367,11 @@ class ConnectorCircuitOpenError(ConnectorError):
         )
         self.cooldown_remaining = cooldown_remaining
 
+
 # =============================================================================
 # Exception Utilities
 # =============================================================================
+
 
 def is_retryable_error(error: Exception) -> bool:
     """Check if an error is retryable.
@@ -388,6 +403,7 @@ def is_retryable_error(error: Exception) -> bool:
 
     return False
 
+
 def get_retry_delay(error: Exception, default: float = 5.0) -> float:
     """Get recommended retry delay for an error.
 
@@ -406,6 +422,7 @@ def get_retry_delay(error: Exception, default: float = 5.0) -> float:
         return 60.0
 
     return default
+
 
 def classify_exception(
     error: Exception,
@@ -528,6 +545,7 @@ def classify_exception(
         status_code=None,
     )
 
+
 class connector_error_handler:
     """
     Context manager that converts exceptions to ConnectorError types.
@@ -559,6 +577,7 @@ class connector_error_handler:
         if exc_val is not None:
             raise classify_exception(exc_val, self.connector_name) from exc_val
         return False
+
 
 __all__ = [
     # Base

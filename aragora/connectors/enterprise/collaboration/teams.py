@@ -28,6 +28,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TeamsTeam:
     """A Microsoft Teams team."""
@@ -38,6 +39,7 @@ class TeamsTeam:
     visibility: str = "private"
     created_at: datetime | None = None
     web_url: str = ""
+
 
 @dataclass
 class TeamsChannel:
@@ -50,6 +52,7 @@ class TeamsChannel:
     membership_type: str = "standard"
     created_at: datetime | None = None
     web_url: str = ""
+
 
 @dataclass
 class TeamsMessage:
@@ -69,6 +72,7 @@ class TeamsMessage:
     reactions: list[dict[str, Any]] = field(default_factory=list)
     web_url: str = ""
 
+
 @dataclass
 class TeamsFile:
     """A file in Teams/SharePoint."""
@@ -81,6 +85,7 @@ class TeamsFile:
     modified_at: datetime | None = None
     download_url: str = ""
     web_url: str = ""
+
 
 class TeamsEnterpriseConnector(EnterpriseConnector):
     """
@@ -693,6 +698,7 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
         # to support full fetch capability.
         logger.warning(f"[{self.name}] Individual message fetch not fully implemented")
         return None
+
 
 __all__ = [
     "TeamsEnterpriseConnector",

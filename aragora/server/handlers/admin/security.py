@@ -25,6 +25,7 @@ from .admin import admin_secure_endpoint
 
 logger = logging.getLogger(__name__)
 
+
 class SecurityHandler(SecureHandler):
     """Handler for security-related admin endpoints."""
 
@@ -45,9 +46,7 @@ class SecurityHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route security endpoint requests."""
         handlers = {
             "/api/v1/admin/security/status": self._get_status,

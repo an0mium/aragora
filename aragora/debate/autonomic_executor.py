@@ -34,6 +34,7 @@ from aragora.debate.schemas import validate_agent_response
 # Lazy import for telemetry to avoid circular imports
 _telemetry_initialized = False
 
+
 def _ensure_telemetry_collectors() -> None:
     """Initialize default telemetry collectors (once)."""
     global _telemetry_initialized
@@ -47,6 +48,7 @@ def _ensure_telemetry_collectors() -> None:
     except ImportError:
         pass
 
+
 if TYPE_CHECKING:
     from aragora.agents.performance_monitor import AgentPerformanceMonitor
     from aragora.core import Agent, Critique, Message, Vote
@@ -55,6 +57,7 @@ if TYPE_CHECKING:
     from aragora.insights.store import InsightStore
 
 logger = logging.getLogger(__name__)
+
 
 class StreamingContentBuffer:
     """
@@ -93,6 +96,7 @@ class StreamingContentBuffer:
     def clear_sync(self, agent_name: str) -> None:
         """Clear agent's buffer (non-async)."""
         self._buffer.pop(agent_name, None)
+
 
 class AutonomicExecutor:
     """
@@ -1007,5 +1011,6 @@ class AutonomicExecutor:
         # Total failure
         tried_names = [a.name for a in all_agents]
         return f"[System: All agents failed ({', '.join(tried_names)}). Last error: {last_error}]"
+
 
 __all__ = ["AutonomicExecutor", "StreamingContentBuffer"]

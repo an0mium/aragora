@@ -10,6 +10,7 @@ Components:
 - RelationshipTracker: Compute rivalry/alliance from debate history
 - PersonaSynthesizer: Generate identity prompts from all data sources
 """
+
 from __future__ import annotations
 
 import logging
@@ -47,6 +48,7 @@ __all__ = [
     "SignificantMoment",
     "MomentDetector",
 ]
+
 
 @dataclass
 class GroundedPersona:
@@ -90,6 +92,7 @@ class GroundedPersona:
         if resolved == 0:
             return 0.0
         return self.positions_correct / resolved
+
 
 class PersonaSynthesizer:
     """
@@ -330,6 +333,7 @@ class PersonaSynthesizer:
 
         return "\n".join(lines)
 
+
 @dataclass
 class SignificantMoment:
     """A significant narrative event in an agent's debate history."""
@@ -365,6 +369,7 @@ class SignificantMoment:
             "metadata": self.metadata,
             "created_at": self.created_at,
         }
+
 
 class MomentDetector:
     """

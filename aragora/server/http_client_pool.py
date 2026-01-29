@@ -42,6 +42,7 @@ from typing import Any, AsyncIterator, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class HTTPPoolConfig:
     """Configuration for HTTP connection pool."""
@@ -70,6 +71,7 @@ class HTTPPoolConfig:
     # Health checking
     health_check_interval: float = 60.0
 
+
 @dataclass
 class ProviderMetrics:
     """Metrics for a single provider's connection pool."""
@@ -85,6 +87,7 @@ class ProviderMetrics:
     connections_created: int = 0
     last_request_time: float = 0.0
 
+
 @dataclass
 class HTTPPoolMetrics:
     """Aggregated metrics for all pools."""
@@ -97,6 +100,7 @@ class HTTPPoolMetrics:
         if provider not in self.providers:
             self.providers[provider] = ProviderMetrics()
         return self.providers[provider]
+
 
 # Provider-specific configurations
 PROVIDER_CONFIGS: dict[str, dict[str, Any]] = {
@@ -131,6 +135,7 @@ PROVIDER_CONFIGS: dict[str, dict[str, Any]] = {
         "read_timeout": 90.0,
     },
 }
+
 
 class HTTPClientPool:
     """
@@ -474,10 +479,12 @@ class HTTPClientPool:
         # Close sync sessions
         self.close()
 
+
 # Convenience function for getting the global pool
 def get_http_pool() -> HTTPClientPool:
     """Get the global HTTP client pool instance."""
     return HTTPClientPool.get_instance()
+
 
 __all__ = [
     "HTTPClientPool",

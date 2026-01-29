@@ -13,6 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class TenantTier(Enum):
     """Subscription tiers for tenants."""
 
@@ -22,6 +23,7 @@ class TenantTier(Enum):
     ENTERPRISE = "enterprise"
     CUSTOM = "custom"
 
+
 class TenantStatus(Enum):
     """Tenant account status."""
 
@@ -30,6 +32,7 @@ class TenantStatus(Enum):
     PENDING = "pending"
     TRIAL = "trial"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class TenantConfig:
@@ -142,6 +145,7 @@ class TenantConfig:
             ),
         }
         return configs.get(tier, cls())
+
 
 @dataclass
 class Tenant:
@@ -287,6 +291,7 @@ class Tenant:
             "storage_used": self.storage_used,
         }
 
+
 class TenantSuspendedError(Exception):
     """Raised when a suspended tenant attempts to perform an action."""
 
@@ -297,6 +302,7 @@ class TenantSuspendedError(Exception):
         if reason:
             message += f": {reason}"
         super().__init__(message)
+
 
 class TenantManager:
     """Manager for tenant lifecycle and validation.

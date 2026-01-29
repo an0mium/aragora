@@ -21,6 +21,7 @@ Usage:
     # Select critics for a proposal
     critics = pool.select_critics(proposer, all_agents)
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +30,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AgentPoolConfig:
@@ -49,6 +51,7 @@ class AgentPoolConfig:
     topology: str = "full_mesh"  # full_mesh, ring, star
     critic_count: int = 2  # Default critics per proposal
 
+
 @dataclass
 class AgentMetrics:
     """Metrics for a single agent."""
@@ -59,6 +62,7 @@ class AgentMetrics:
     debates_participated: int = 0
     win_rate: float = 0.5
     is_available: bool = True
+
 
 class AgentPool:
     """
@@ -535,6 +539,7 @@ class AgentPool:
                 for a in self._agents
             ],
         }
+
 
 __all__ = [
     "AgentPool",

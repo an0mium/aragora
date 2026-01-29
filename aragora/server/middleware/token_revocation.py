@@ -38,6 +38,7 @@ from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RevocationEntry:
     """Entry in the revocation store."""
@@ -64,6 +65,7 @@ class RevocationEntry:
             "metadata": self.metadata,
         }
 
+
 class RevocationStore(Protocol):
     """Protocol for token revocation stores."""
 
@@ -86,6 +88,7 @@ class RevocationStore(Protocol):
     def count(self) -> int:
         """Get total number of revoked tokens."""
         ...
+
 
 class InMemoryRevocationStore:
     """
@@ -156,6 +159,7 @@ class InMemoryRevocationStore:
         if time.time() - self._last_cleanup > self._cleanup_interval:
             # Run cleanup in a separate thread to avoid blocking
             threading.Thread(target=self.cleanup_expired, daemon=True).start()
+
 
 class RedisRevocationStore:
     """
@@ -257,9 +261,11 @@ class RedisRevocationStore:
             logger.warning(f"Redis count error: {e}")
             return 0
 
+
 # Global store instance
 _revocation_store: RevocationStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_revocation_store() -> RevocationStore:
     """
@@ -312,6 +318,7 @@ def get_revocation_store() -> RevocationStore:
                     logger.debug("token_revocation using in-memory store")
     return _revocation_store
 
+
 def hash_token(token: str) -> str:
     """
     Hash a token for storage.
@@ -325,6 +332,7 @@ def hash_token(token: str) -> str:
         SHA-256 hash of the token
     """
     return hashlib.sha256(token.encode()).hexdigest()
+
 
 def revoke_token(
     token: str,
@@ -378,6 +386,7 @@ def revoke_token(
 
     return entry
 
+
 def is_token_revoked(token: str) -> bool:
     """
     Check if a token has been revoked.
@@ -390,6 +399,7 @@ def is_token_revoked(token: str) -> bool:
     """
     store = get_revocation_store()
     return store.contains(hash_token(token))
+
 
 def unrevoke_token(token: str) -> bool:
     """
@@ -409,6 +419,7 @@ def unrevoke_token(token: str) -> bool:
         logger.warning(f"token_unrevoked hash={hash_token(token)[:8]}...")
     return result
 
+
 def get_revocation_stats() -> dict[str, Any]:
     """
     Get statistics about the revocation store.
@@ -422,6 +433,7 @@ def get_revocation_stats() -> dict[str, Any]:
         "store_type": store_type,
         "revoked_count": store.count(),
     }
+
 
 __all__ = [
     "RevocationEntry",

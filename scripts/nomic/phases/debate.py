@@ -52,7 +52,7 @@ class LearningContext:
     pulse_context: str = ""
     # Audit integration
     audit_context: str = ""  # Findings from CodebaseAuditor
-    audit_proposals: List[str] = field(default_factory=list)
+    audit_proposals: list[str] = field(default_factory=list)
 
     def to_string(self) -> str:
         """Combine all context into a single string."""
@@ -118,7 +118,7 @@ class DebatePhase:
     def __init__(
         self,
         aragora_path: Path,
-        agents: List[Any],
+        agents: list[Any],
         arena_factory: Callable[..., Any],
         environment_factory: Callable[..., Any],
         protocol_factory: Callable[..., Any],
@@ -166,7 +166,7 @@ class DebatePhase:
         recent_changes: str = "",
         learning_context: Optional[LearningContext] = None,
         hooks: Optional[PostDebateHooks] = None,
-        arena_kwargs: Optional[Dict[str, Any]] = None,
+        arena_kwargs: Optional[dict[str, Any]] = None,
     ) -> DebateResult:
         """
         Execute the debate phase.
@@ -351,7 +351,7 @@ DO NOT propose features that already exist below.
 ========================================================================"""
         return f"Current aragora features:\n{codebase_context}"
 
-    async def _probe_agents(self) -> Dict[str, float]:
+    async def _probe_agents(self) -> dict[str, float]:
         """Probe agents for reliability weights."""
         if not self.nomic_integration:
             return {}

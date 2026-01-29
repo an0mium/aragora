@@ -34,7 +34,7 @@ def decompress_file(compressed_path: Path, output_path: Path) -> None:
             shutil.copyfileobj(f_in, f_out)
 
 
-def verify_sqlite_database(db_path: Path) -> Tuple[bool, str]:
+def verify_sqlite_database(db_path: Path) -> tuple[bool, str]:
     """Verify a SQLite database is valid and not corrupted.
 
     Returns:
@@ -69,7 +69,7 @@ def restore_sqlite_database(
     target_path: Path,
     verify: bool = True,
     dry_run: bool = False,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Restore a SQLite database from backup.
 
     Args:
@@ -135,7 +135,7 @@ def restore_postgres_database(
     database_name: Optional[str] = None,
     verify: bool = True,
     dry_run: bool = False,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     """Restore a PostgreSQL database from pg_dump backup.
 
     Args:
@@ -231,7 +231,7 @@ def restore_from_manifest(
     verify: bool = True,
     dry_run: bool = False,
     quiet: bool = False,
-) -> Tuple[int, int]:
+) -> tuple[int, int]:
     """Restore all databases from a backup directory using its manifest.
 
     Args:

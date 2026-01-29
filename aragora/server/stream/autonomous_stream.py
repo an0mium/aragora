@@ -8,6 +8,7 @@ Provides real-time streaming of:
 - Monitoring events (trends, anomalies, metrics)
 - Learning events (ELO updates, patterns, calibration)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ from aragora.events.types import StreamEvent, StreamEventType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AutonomousStreamClient:
     """A connected WebSocket client for autonomous events."""
@@ -32,6 +34,7 @@ class AutonomousStreamClient:
     connected_at: float = field(default_factory=time.time)
     subscriptions: set[str] = field(default_factory=set)  # Event type filters
     last_heartbeat: float = field(default_factory=time.time)
+
 
 class AutonomousStreamEmitter:
     """
@@ -129,8 +132,10 @@ class AutonomousStreamEmitter:
         """Get number of connected clients."""
         return len(self._clients)
 
+
 # Global emitter instance
 _autonomous_emitter: AutonomousStreamEmitter | None = None
+
 
 def get_autonomous_emitter() -> AutonomousStreamEmitter:
     """Get or create the global autonomous stream emitter."""
@@ -139,12 +144,15 @@ def get_autonomous_emitter() -> AutonomousStreamEmitter:
         _autonomous_emitter = AutonomousStreamEmitter()
     return _autonomous_emitter
 
+
 def set_autonomous_emitter(emitter: AutonomousStreamEmitter) -> None:
     """Set the global autonomous stream emitter."""
     global _autonomous_emitter
     _autonomous_emitter = emitter
 
+
 # Helper functions for emitting specific event types
+
 
 def emit_approval_event(
     event_type: str,
@@ -172,6 +180,7 @@ def emit_approval_event(
         },
     )
     emitter.emit_sync(event)
+
 
 def emit_alert_event(
     event_type: str,
@@ -201,6 +210,7 @@ def emit_alert_event(
     )
     emitter.emit_sync(event)
 
+
 def emit_trigger_event(
     event_type: str,
     trigger_id: str,
@@ -228,6 +238,7 @@ def emit_trigger_event(
     )
     emitter.emit_sync(event)
 
+
 def emit_monitoring_event(
     event_type: str,
     metric_name: str,
@@ -252,6 +263,7 @@ def emit_monitoring_event(
         },
     )
     emitter.emit_sync(event)
+
 
 def emit_learning_event(
     event_type: str,
@@ -278,6 +290,7 @@ def emit_learning_event(
         data=data,
     )
     emitter.emit_sync(event)
+
 
 async def autonomous_websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """
@@ -381,9 +394,11 @@ async def autonomous_websocket_handler(request: web.Request) -> web.WebSocketRes
 
     return ws
 
+
 def register_autonomous_stream_routes(app: web.Application) -> None:
     """Register the autonomous stream WebSocket route."""
     app.router.add_get("/ws/autonomous", autonomous_websocket_handler)
+
 
 __all__ = [
     "AutonomousStreamEmitter",

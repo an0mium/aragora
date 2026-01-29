@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 _embedding_provider_ref: Optional["EmbeddingProvider"] = None
 _provider_registered = False
 
+
 def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
     """Register embedding provider with ServiceRegistry for observability."""
     global _provider_registered, _embedding_provider_ref
@@ -50,6 +51,7 @@ def _register_embedding_provider(provider: "EmbeddingProvider") -> None:
     except ImportError:
         pass  # Services module not available
 
+
 def get_embedding_provider() -> Optional["EmbeddingProvider"]:
     """Get the current embedding provider from registry or module-level ref."""
     global _embedding_provider_ref
@@ -66,6 +68,7 @@ def get_embedding_provider() -> Optional["EmbeddingProvider"]:
 
     # Fall back to module-level reference
     return _embedding_provider_ref
+
 
 @register_lru_cache
 @lru_cache(maxsize=1000)
@@ -86,7 +89,9 @@ def _get_cached_embedding(content: str) -> tuple[float, ...]:
     result = run_async(provider.embed(content))
     return tuple(result)
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Memory:
@@ -108,6 +113,7 @@ class Memory:
         now = datetime.now()
         return (now - created).total_seconds() / 3600
 
+
 @dataclass
 class RetrievedMemory:
     """A memory with retrieval score."""
@@ -122,6 +128,7 @@ class RetrievedMemory:
         """Combined retrieval score."""
         # Weights can be tuned
         return 0.3 * self.recency_score + 0.3 * self.importance_score + 0.4 * self.relevance_score
+
 
 class MemoryStream(SQLiteStore):
     """

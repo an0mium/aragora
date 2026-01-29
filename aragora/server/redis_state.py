@@ -49,6 +49,7 @@ except ImportError:
     REDIS_AVAILABLE = False
     logger.debug("aioredis not available, Redis state backend disabled")
 
+
 @dataclass
 class DebateState:
     """State for an active debate (Redis-serializable)."""
@@ -89,6 +90,7 @@ class DebateState:
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(**data)
+
 
 class RedisStateManager:
     """
@@ -436,8 +438,10 @@ class RedisStateManager:
 
         return result
 
+
 # Singleton instance
 _redis_state_manager: RedisStateManager | None = None
+
 
 async def get_redis_state_manager(
     redis_url: str | None = None,
@@ -462,6 +466,7 @@ async def get_redis_state_manager(
 
     return _redis_state_manager
 
+
 async def reset_redis_state_manager() -> None:
     """Reset the global Redis state manager (for testing)."""
     global _redis_state_manager
@@ -470,9 +475,11 @@ async def reset_redis_state_manager() -> None:
         await _redis_state_manager.disconnect()
         _redis_state_manager = None
 
+
 def is_redis_state_enabled() -> bool:
     """Check if Redis state backend is enabled via environment."""
     return STATE_BACKEND == "redis" and REDIS_AVAILABLE
+
 
 __all__ = [
     "DebateState",

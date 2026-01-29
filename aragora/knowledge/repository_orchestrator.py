@@ -29,6 +29,7 @@ from aragora.connectors.repository_crawler import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RepoConfig:
     """Configuration for a single repository to index."""
@@ -39,6 +40,7 @@ class RepoConfig:
     crawl_config: CrawlConfig | None = None
     priority: int = 0  # Higher = process first
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class IndexResult:
@@ -76,6 +78,7 @@ class IndexResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+
 @dataclass
 class BatchResult:
     """Result of indexing multiple repositories."""
@@ -100,6 +103,7 @@ class BatchResult:
             "failed": self.failed,
         }
 
+
 @dataclass
 class OrchestratorConfig:
     """Configuration for the Repository Orchestrator."""
@@ -118,6 +122,7 @@ class OrchestratorConfig:
     checkpoint_enabled: bool = True
     checkpoint_interval_files: int = 100
 
+
 @dataclass
 class IndexProgress:
     """Progress tracking for indexing operations."""
@@ -132,6 +137,7 @@ class IndexProgress:
     started_at: datetime | None = None
     last_updated: datetime | None = None
     error: str | None = None
+
 
 class RepositoryOrchestrator:
     """

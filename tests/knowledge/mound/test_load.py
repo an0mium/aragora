@@ -16,7 +16,7 @@ import uuid
 import pytest
 
 
-def calculate_percentile(data: List[float], percentile: float) -> float:
+def calculate_percentile(data: list[float], percentile: float) -> float:
     """Calculate percentile of a sorted list."""
     if not data:
         return 0.0
@@ -290,7 +290,7 @@ class TestHighConcurrency:
         mock_mound.query = AsyncMock(return_value=[])
         mock_mound.ingest = AsyncMock(return_value="km_test")
 
-        all_latencies: List[float] = []
+        all_latencies: list[float] = []
 
         # Simulate 5 bursts of 50 operations each
         for _ in range(5):

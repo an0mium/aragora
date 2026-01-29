@@ -109,6 +109,7 @@ POSTGRES_CONSENSUS_SCHEMA = """
     CREATE INDEX IF NOT EXISTS idx_verified_proofs_verified ON verified_proofs(is_verified);
 """
 
+
 class PostgresConsensusMemory(PostgresStore):
     """
     PostgreSQL implementation of Consensus Memory.
@@ -811,11 +812,13 @@ class PostgresConsensusMemory(PostgresStore):
             "by_domain": {row["domain"]: row["count"] for row in domain_counts},
         }
 
+
 # =========================================================================
 # Factory Function
 # =========================================================================
 
 _postgres_consensus_memory: PostgresConsensusMemory | None = None
+
 
 async def get_postgres_consensus_memory(
     pool: Optional["Pool"] = None,

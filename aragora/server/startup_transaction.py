@@ -26,7 +26,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Coroutine, Union
+from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ DEFAULT_STARTUP_SLO_SECONDS = 30.0
 # Prometheus metrics (lazy initialized)
 _STARTUP_DURATION: Any = None
 _STARTUP_COMPONENTS: Any = None
+
 
 def _init_startup_metrics() -> bool:
     """Initialize Prometheus metrics for startup tracking."""
@@ -60,6 +61,7 @@ def _init_startup_metrics() -> bool:
     except ImportError:
         return False
 
+
 @dataclass
 class StartupCheckpoint:
     """A checkpoint in the startup sequence."""
@@ -68,6 +70,7 @@ class StartupCheckpoint:
     timestamp: datetime = field(default_factory=datetime.now)
     elapsed_seconds: float = 0.0
     components: list[str] = field(default_factory=list)
+
 
 @dataclass
 class StartupReport:
@@ -103,7 +106,9 @@ class StartupReport:
             "error": self.error,
         }
 
-CleanupFunc = Union[Callable[[], None], Callable[[], Coroutine[Any, Any, None]]]
+
+CleanupFunc = Callable[[], None] | Callable[[], Coroutine[Any, Any, None]]
+
 
 class StartupTransaction:
     """
@@ -300,12 +305,15 @@ class StartupTransaction:
 
         return False
 
+
 # Global startup report for introspection
 _last_startup_report: StartupReport | None = None
+
 
 def get_last_startup_report() -> StartupReport | None:
     """Get the last startup report."""
     return _last_startup_report
+
 
 def set_last_startup_report(report: StartupReport) -> None:
     """Set the last startup report."""

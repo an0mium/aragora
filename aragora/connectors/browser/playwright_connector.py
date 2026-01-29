@@ -25,6 +25,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class BrowserAction(str, Enum):
     """Available browser actions."""
 
@@ -51,6 +52,7 @@ class BrowserAction(str, Enum):
     GO_FORWARD = "go_forward"
     CLOSE = "close"
 
+
 @dataclass
 class PageState:
     """Current state of a browser page."""
@@ -71,6 +73,7 @@ class PageState:
             "load_time_ms": self.load_time_ms,
             "timestamp": self.timestamp,
         }
+
 
 @dataclass
 class ActionResult:
@@ -98,6 +101,7 @@ class ActionResult:
         if self.error:
             result["error"] = self.error
         return result
+
 
 class PlaywrightConnector:
     """

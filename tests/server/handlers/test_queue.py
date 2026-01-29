@@ -52,8 +52,8 @@ class MockJob:
         priority: int = 0,
         error: Optional[str] = None,
         worker_id: Optional[str] = None,
-        payload: Dict[str, Any] = None,
-        metadata: Dict[str, Any] = None,
+        payload: dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ):
         self.id = id
         self.status = status
@@ -75,7 +75,7 @@ class MockQueue:
     """Mock queue for testing."""
 
     def __init__(self):
-        self.jobs: Dict[str, MockJob] = {}
+        self.jobs: dict[str, MockJob] = {}
         self.stream_key = "aragora:jobs"
         self._redis = AsyncMock()
         self._status_tracker = MagicMock()
@@ -95,7 +95,7 @@ class MockQueue:
             return True
         return False
 
-    async def get_queue_stats(self) -> Dict[str, int]:
+    async def get_queue_stats(self) -> dict[str, int]:
         return {
             "pending": 5,
             "processing": 2,
@@ -107,7 +107,7 @@ class MockQueue:
             "pending_in_group": 5,
         }
 
-    async def list_jobs(self, status=None, limit: int = 100, offset: int = 0) -> List[MockJob]:
+    async def list_jobs(self, status=None, limit: int = 100, offset: int = 0) -> list[MockJob]:
         """List jobs, optionally filtered by status."""
         jobs = list(self.jobs.values())
         if status is not None:
@@ -116,7 +116,7 @@ class MockQueue:
 
 
 def create_mock_handler(
-    method: str = "GET", body: Optional[Dict] = None, path: str = "/api/v1/queue/jobs"
+    method: str = "GET", body: Optional[dict] = None, path: str = "/api/v1/queue/jobs"
 ) -> MagicMock:
     """Create a mock HTTP handler."""
     handler = MagicMock()
@@ -142,7 +142,7 @@ def get_status(result) -> int:
     return result[1]
 
 
-def get_body(result) -> Dict:
+def get_body(result) -> dict:
     """Extract body from HandlerResult."""
     if hasattr(result, "body"):
         body = result.body

@@ -43,6 +43,7 @@ try:
 except ImportError:
     pass
 
+
 class EvolutionHandler(BaseHandler):
     """Handler for prompt evolution endpoints."""
 

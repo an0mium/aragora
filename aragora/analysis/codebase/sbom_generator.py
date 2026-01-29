@@ -27,6 +27,7 @@ from .scanner import DependencyScanner
 
 logger = logging.getLogger(__name__)
 
+
 class SBOMFormat(str, Enum):
     """Supported SBOM output formats."""
 
@@ -34,6 +35,7 @@ class SBOMFormat(str, Enum):
     CYCLONEDX_XML = "cyclonedx-xml"
     SPDX_JSON = "spdx-json"
     SPDX_TV = "spdx-tv"  # Tag-value format
+
 
 class ComponentType(str, Enum):
     """CycloneDX component types."""
@@ -46,6 +48,7 @@ class ComponentType(str, Enum):
     DEVICE = "device"
     FIRMWARE = "firmware"
     FILE = "file"
+
 
 class HashAlgorithm(str, Enum):
     """Hash algorithms for SBOM verification."""
@@ -61,6 +64,7 @@ class HashAlgorithm(str, Enum):
     BLAKE2b_384 = "BLAKE2b-384"
     BLAKE2b_512 = "BLAKE2b-512"
     BLAKE3 = "BLAKE3"
+
 
 # Map ecosystems to Package URLs (purl)
 ECOSYSTEM_TO_PURL_TYPE = {
@@ -86,6 +90,7 @@ ECOSYSTEM_DOWNLOAD_PATTERNS = {
     "rubygems": "https://rubygems.org/downloads/{name}-{version}.gem",
     "go": "https://proxy.golang.org/{name}/@v/v{version}.zip",
 }
+
 
 @dataclass
 class SBOMComponent:
@@ -158,6 +163,7 @@ class SBOMComponent:
 
         return f"pkg:{purl_type}/{name}@{version}"
 
+
 @dataclass
 class SBOMMetadata:
     """Metadata about the SBOM itself."""
@@ -175,6 +181,7 @@ class SBOMMetadata:
     supplier: str | None = None
     manufacture: str | None = None
     properties: dict[str, str] = field(default_factory=dict)
+
 
 @dataclass
 class SBOMResult:
@@ -202,6 +209,7 @@ class SBOMResult:
             "generated_at": self.generated_at.isoformat(),
             "errors": self.errors,
         }
+
 
 class SBOMGenerator:
     """
@@ -861,6 +869,7 @@ class SBOMGenerator:
         }
         return mapping.get(alg)
 
+
 async def generate_sbom(
     repo_path: str,
     format: SBOMFormat = SBOMFormat.CYCLONEDX_JSON,
@@ -893,6 +902,7 @@ async def generate_sbom(
         project_name=project_name,
         project_version=project_version,
     )
+
 
 __all__ = [
     "SBOMGenerator",

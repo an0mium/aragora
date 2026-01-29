@@ -105,13 +105,13 @@ class MockRetryConfig:
 class MockCacheInvalidationBus:
     """Mock cache invalidation bus for throughput testing."""
 
-    events: List[Dict[str, Any]] = field(default_factory=list)
-    subscribers: List[Any] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
+    subscribers: list[Any] = field(default_factory=list)
     _processed_count: int = 0
     _dropped_count: int = 0
     _max_queue_size: int = 1000
 
-    async def publish(self, event: Dict[str, Any]) -> bool:
+    async def publish(self, event: dict[str, Any]) -> bool:
         if len(self.events) >= self._max_queue_size:
             self._dropped_count += 1
             return False
@@ -133,7 +133,7 @@ class MockCacheInvalidationBus:
         return lambda: self.subscribers.remove(handler)
 
     @property
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         return {
             "processed": self._processed_count,
             "dropped": self._dropped_count,
@@ -168,7 +168,7 @@ class TestResilientStoreConcurrency:
                 items[item_id] = {"content": content, **kwargs}
                 return True
 
-            async def get(self, item_id: str) -> Dict[str, Any] | None:
+            async def get(self, item_id: str) -> dict[str, Any] | None:
                 operation_count["reads"] += 1
                 if random.random() < load_config.failure_rate:
                     operation_count["failures"] += 1
@@ -178,7 +178,7 @@ class TestResilientStoreConcurrency:
                 return items.get(item_id)
 
             @property
-            def stats(self) -> Dict[str, int]:
+            def stats(self) -> dict[str, int]:
                 return operation_count
 
         return MockStore()

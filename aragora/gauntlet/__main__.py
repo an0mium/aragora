@@ -5,6 +5,7 @@ Run adversarial stress-testing from the command line:
     python -m aragora.gauntlet spec.md --profile thorough
     gauntlet spec.md --input-type architecture --persona gdpr
 """
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +16,7 @@ import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -154,6 +156,7 @@ Examples:
 
     return parser.parse_args()
 
+
 def _save_receipt(receipt, output_path: Path, format_ext: str) -> Path:
     """Save decision receipt in the specified format."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -167,6 +170,7 @@ def _save_receipt(receipt, output_path: Path, format_ext: str) -> Path:
     output_file = output_path.with_suffix(suffix)
     output_file.write_text(handler(receipt))
     return output_file
+
 
 def main() -> int:
     """Main entry point for Gauntlet CLI."""
@@ -361,6 +365,7 @@ def main() -> int:
         return 2
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

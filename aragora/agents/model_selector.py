@@ -33,6 +33,7 @@ from typing import Any, Optional
 
 from aragora.agents.vertical_personas import Vertical
 
+
 class ModelCapability(Enum):
     """Model capabilities for scoring."""
 
@@ -47,6 +48,7 @@ class ModelCapability(Enum):
     LONG_CONTEXT = "long_context"
     INSTRUCTION_FOLLOWING = "instruction_following"
     FACTUAL_ACCURACY = "factual_accuracy"
+
 
 @dataclass
 class ModelProfile:
@@ -95,6 +97,7 @@ class ModelProfile:
         return (input_tokens / 1000) * self.cost_input_per_1k + (
             output_tokens / 1000
         ) * self.cost_output_per_1k
+
 
 # Model profiles for major providers
 MODEL_PROFILES: dict[str, ModelProfile] = {
@@ -383,6 +386,7 @@ VERTICAL_CAPABILITIES: dict[Vertical, dict[ModelCapability, float]] = {
     },
 }
 
+
 @dataclass
 class ModelSelection:
     """Result of model selection."""
@@ -394,6 +398,7 @@ class ModelSelection:
     alternatives: list[tuple[str, float]]  # (model_id, score)
     estimated_cost: float
     estimated_latency_ms: float
+
 
 class SpecialistModelSelector:
     """
@@ -655,6 +660,7 @@ class SpecialistModelSelector:
 
         candidates.sort(key=lambda x: x[1])
         return candidates[0][0]
+
 
 __all__ = [
     "ModelCapability",

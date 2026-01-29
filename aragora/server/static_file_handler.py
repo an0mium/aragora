@@ -35,6 +35,7 @@ CONTENT_TYPES = {
     ".xml": "application/xml",
 }
 
+
 class StaticFileHandler:
     """Handles static file serving with security protections.
 
@@ -157,6 +158,7 @@ class StaticFileHandler:
         except (IOError, OSError) as e:
             logger.error(f"File read error: {e}")
             return None
+
 
 def serve_static_file(
     handler,

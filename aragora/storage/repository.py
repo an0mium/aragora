@@ -8,6 +8,7 @@ Provides:
 - Built-in error handling
 - Cache invalidation hooks
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 # SQL identifier validation pattern (alphanumeric + underscore, starts with letter/underscore)
 _SQL_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+
 def _validate_column_name(name: str) -> str:
     """Validate column name to prevent SQL injection.
 
@@ -47,7 +49,9 @@ def _validate_column_name(name: str) -> str:
         raise ValueError(f"Invalid column name: {name!r}")
     return name
 
+
 T = TypeVar("T")
+
 
 class DatabaseRepository:
     """

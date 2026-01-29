@@ -27,8 +27,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _default_agent_list() -> list[str]:
     return [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+
 
 class DebatesAPI:
     """API interface for debates."""

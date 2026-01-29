@@ -50,6 +50,7 @@ DEFAULT_DB_PATH = (
 _receipt_store: Optional["ReceiptStore"] = None
 _store_lock = threading.RLock()
 
+
 @dataclass
 class StoredReceipt:
     """A stored decision receipt with signature metadata."""
@@ -104,6 +105,7 @@ class StoredReceipt:
         result.update(self.data)
         return result
 
+
 @dataclass
 class SignatureVerificationResult:
     """Result of signature verification."""
@@ -129,6 +131,7 @@ class SignatureVerificationResult:
             ).isoformat(),
             "error": self.error,
         }
+
 
 class ReceiptStore:
     """
@@ -1139,9 +1142,11 @@ class ReceiptStore:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
+
 # =========================================================================
 # Module-level Functions
 # =========================================================================
+
 
 def get_receipt_store() -> ReceiptStore:
     """
@@ -1156,6 +1161,7 @@ def get_receipt_store() -> ReceiptStore:
         if _receipt_store is None:
             _receipt_store = ReceiptStore()
         return _receipt_store
+
 
 def set_receipt_store(store: ReceiptStore | None) -> None:
     """

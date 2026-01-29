@@ -30,6 +30,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class TrainingHandler(BaseHandler):
     """Handler for training data export endpoints."""
 

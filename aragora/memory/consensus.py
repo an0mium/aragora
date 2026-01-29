@@ -49,6 +49,7 @@ _dissents_cache: TTLCache[list] = TTLCache(maxsize=2000, ttl_seconds=300)
 # v2: Added verified_proofs table for formal verification results
 CONSENSUS_SCHEMA_VERSION = 2
 
+
 class ConsensusStrength(Enum):
     """Strength of consensus reached."""
 
@@ -59,6 +60,7 @@ class ConsensusStrength(Enum):
     SPLIT = "split"  # No majority
     CONTESTED = "contested"  # Active disagreement
 
+
 class DissentType(Enum):
     """Type of dissenting view."""
 
@@ -68,6 +70,7 @@ class DissentType(Enum):
     EDGE_CASE_CONCERN = "edge_case_concern"  # Specific scenario concern
     RISK_WARNING = "risk_warning"  # Caution about approach
     ABSTENTION = "abstention"  # Agent declined to agree
+
 
 @dataclass
 class DissentRecord:
@@ -115,6 +118,7 @@ class DissentRecord:
             timestamp=datetime.fromisoformat(data["timestamp"]),
             metadata=data.get("metadata", {}),
         )
+
 
 @dataclass
 class ConsensusRecord:
@@ -208,6 +212,7 @@ class ConsensusRecord:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class SimilarDebate:
     """A similar past debate found in memory."""
@@ -221,6 +226,7 @@ class SimilarDebate:
     def similarity(self) -> float:
         """Alias for similarity_score for backward compatibility."""
         return self.similarity_score
+
 
 class ConsensusMemory(SQLiteStore):
     """
@@ -1185,6 +1191,7 @@ class ConsensusMemory(SQLiteStore):
             stats["avg_confidence"] = (row[0] if row else None) or 0.0
 
         return stats
+
 
 class DissentRetriever:
     """

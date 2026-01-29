@@ -97,6 +97,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SyncStatus(Enum):
     """Status of the sync service."""
 
@@ -105,6 +106,7 @@ class SyncStatus(Enum):
     WATCHING = "watching"
     ERROR = "error"
     STOPPED = "stopped"
+
 
 @dataclass
 class GmailSyncConfig:
@@ -137,6 +139,7 @@ class GmailSyncConfig:
     state_backend: str = "memory"  # "memory", "redis", "postgres"
     redis_url: str | None = None
     postgres_dsn: str | None = None
+
 
 @dataclass
 class GmailSyncState:
@@ -208,6 +211,7 @@ class GmailSyncState:
 
         return state
 
+
 @dataclass
 class GmailWebhookPayload:
     """Parsed webhook payload from Gmail Pub/Sub."""
@@ -260,6 +264,7 @@ class GmailWebhookPayload:
             raw_data=payload,
         )
 
+
 @dataclass
 class SyncedMessage:
     """A message that was synced and prioritized."""
@@ -269,6 +274,7 @@ class SyncedMessage:
     sync_timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     account_id: str = ""
     is_new: bool = True
+
 
 class GmailSyncService:
     """
@@ -881,6 +887,7 @@ class GmailSyncService:
             "last_error": self._state.last_error if self._state else None,
         }
 
+
 # Factory function
 async def start_gmail_sync(
     tenant_id: str,
@@ -911,6 +918,7 @@ async def start_gmail_sync(
 
     await service.start(refresh_token=refresh_token)
     return service
+
 
 __all__ = [
     "GmailSyncService",

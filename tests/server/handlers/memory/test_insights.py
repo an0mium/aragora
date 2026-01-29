@@ -76,8 +76,8 @@ class MockInsight:
     title: str
     description: str
     confidence: float
-    agents_involved: List[str]
-    evidence: List[str] = field(default_factory=list)
+    agents_involved: list[str]
+    evidence: list[str] = field(default_factory=list)
     created_at: Optional[str] = None
 
 

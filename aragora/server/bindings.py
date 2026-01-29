@@ -44,6 +44,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class BindingType(str, Enum):
     """Types of agent bindings."""
 
@@ -52,6 +53,7 @@ class BindingType(str, Enum):
     AGENT_POOL = "agent_pool"  # Select from a pool of agents
     DEBATE_TEAM = "debate_team"  # Use a full debate team
     CUSTOM = "custom"  # Custom routing logic
+
 
 @dataclass
 class MessageBinding:
@@ -163,6 +165,7 @@ class MessageBinding:
             ),
         )
 
+
 @dataclass
 class BindingResolution:
     """Result of resolving a message binding."""
@@ -177,6 +180,7 @@ class BindingResolution:
     match_reason: str | None = None
     candidates_checked: int = 0
 
+
 @dataclass
 class AgentSelection:
     """Result of selecting an agent based on a binding."""
@@ -185,6 +189,7 @@ class AgentSelection:
     binding: MessageBinding
     config: dict[str, Any] = field(default_factory=dict)
     selection_reason: str = "default"
+
 
 class BindingRouter:
     """
@@ -534,8 +539,10 @@ class BindingRouter:
             "has_global_default": self._global_default is not None,
         }
 
+
 # Global router singleton
 _default_router: BindingRouter | None = None
+
 
 def get_binding_router() -> BindingRouter:
     """Get the default binding router instance."""
@@ -543,6 +550,7 @@ def get_binding_router() -> BindingRouter:
     if _default_router is None:
         _default_router = BindingRouter()
     return _default_router
+
 
 def reset_binding_router() -> None:
     """Reset the default router (for testing)."""

@@ -28,12 +28,14 @@ from aragora.sandbox.policies import (
 
 logger = logging.getLogger(__name__)
 
+
 class ExecutionMode(str, Enum):
     """Mode of sandbox execution."""
 
     DOCKER = "docker"
     SUBPROCESS = "subprocess"
     MOCK = "mock"  # For testing
+
 
 class ExecutionStatus(str, Enum):
     """Status of sandbox execution."""
@@ -44,6 +46,7 @@ class ExecutionStatus(str, Enum):
     FAILED = "failed"
     TIMEOUT = "timeout"
     POLICY_DENIED = "policy_denied"
+
 
 @dataclass
 class ExecutionResult:
@@ -75,6 +78,7 @@ class ExecutionResult:
             "error_message": self.error_message,
         }
 
+
 @dataclass
 class SandboxConfig:
     """Configuration for sandbox execution."""
@@ -86,6 +90,7 @@ class SandboxConfig:
     cleanup_on_complete: bool = True
     capture_output: bool = True
     network_enabled: bool = False
+
 
 class SandboxExecutor:
     """
@@ -440,6 +445,7 @@ class SandboxExecutor:
         self.config.policy = policy
         self.checker = ToolPolicyChecker(policy)
 
+
 # Convenience function
 async def execute_sandboxed(
     code: str,
@@ -449,6 +455,7 @@ async def execute_sandboxed(
     """Execute code in a default sandbox."""
     executor = SandboxExecutor()
     return await executor.execute(code, language, timeout)
+
 
 __all__ = [
     "ExecutionMode",

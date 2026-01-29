@@ -14,6 +14,7 @@ from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
+
 class StoresMixin:
     """Mixin for database store health checks.
 
@@ -453,5 +454,6 @@ class StoresMixin:
                 "healthy": False,
                 "error": f"{type(e).__name__}: {str(e)[:100]}",
             }
+
 
 __all__ = ["StoresMixin"]

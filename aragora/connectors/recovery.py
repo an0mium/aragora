@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
 class RecoveryAction(Enum):
     """Actions that can be taken to recover from errors."""
 
@@ -66,6 +67,7 @@ class RecoveryAction(Enum):
     ESCALATE = "escalate"  # Escalate to human/alerting
     FAIL = "fail"  # Give up and fail
 
+
 @dataclass
 class RecoveryResult:
     """Result of a recovery attempt."""
@@ -76,6 +78,7 @@ class RecoveryResult:
     attempts: int = 0
     total_wait_seconds: float = 0.0
     message: str = ""
+
 
 @dataclass
 class RecoveryConfig:
@@ -102,6 +105,7 @@ class RecoveryConfig:
     # Escalation
     escalation_threshold: int = 3  # Consecutive failures before escalation
     escalation_callback: Optional[Callable[[Exception, int], None]] = None
+
 
 class RecoveryStrategy:
     """
@@ -345,6 +349,7 @@ class RecoveryStrategy:
             ),
         }
 
+
 def with_recovery(
     max_retries: int = 3,
     enable_token_refresh: bool = False,
@@ -394,6 +399,7 @@ def with_recovery(
 
     return decorator
 
+
 def create_recovery_chain(
     connector: Any,
     config: RecoveryConfig | None = None,
@@ -434,6 +440,7 @@ def create_recovery_chain(
             strategy.set_token_refresh_callback(refresh_method)
 
     return strategy
+
 
 __all__ = [
     "RecoveryAction",

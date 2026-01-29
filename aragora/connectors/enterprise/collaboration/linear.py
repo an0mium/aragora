@@ -28,6 +28,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 class IssuePriority(int, Enum):
     """Issue priority levels."""
 
@@ -36,6 +37,7 @@ class IssuePriority(int, Enum):
     HIGH = 2
     MEDIUM = 3
     LOW = 4
+
 
 class IssueStateType(str, Enum):
     """Issue state type categories."""
@@ -46,12 +48,14 @@ class IssueStateType(str, Enum):
     COMPLETED = "completed"
     CANCELED = "canceled"
 
+
 @dataclass
 class LinearCredentials:
     """Linear API credentials."""
 
     api_key: str
     base_url: str = "https://api.linear.app/graphql"
+
 
 @dataclass
 class LinearTeam:
@@ -79,6 +83,7 @@ class LinearTeam:
             private=data.get("private", False),
             timezone=data.get("timezone"),
         )
+
 
 @dataclass
 class LinearUser:
@@ -109,6 +114,7 @@ class LinearUser:
             created_at=_parse_datetime(data.get("createdAt")),
         )
 
+
 @dataclass
 class IssueState:
     """Issue workflow state."""
@@ -132,6 +138,7 @@ class IssueState:
             description=data.get("description"),
         )
 
+
 @dataclass
 class Label:
     """Issue label."""
@@ -153,6 +160,7 @@ class Label:
             description=data.get("description"),
             parent_id=parent.get("id") if parent else None,
         )
+
 
 @dataclass
 class Project:
@@ -195,6 +203,7 @@ class Project:
             updated_at=_parse_datetime(data.get("updatedAt")),
         )
 
+
 @dataclass
 class Cycle:
     """Linear cycle (sprint)."""
@@ -227,6 +236,7 @@ class Cycle:
             team_id=team.get("id") if team else None,
         )
 
+
 @dataclass
 class Comment:
     """Issue comment."""
@@ -250,6 +260,7 @@ class Comment:
             created_at=_parse_datetime(data.get("createdAt")),
             updated_at=_parse_datetime(data.get("updatedAt")),
         )
+
 
 @dataclass
 class LinearIssue:
@@ -326,12 +337,14 @@ class LinearIssue:
             archived_at=_parse_datetime(data.get("archivedAt")),
         )
 
+
 class LinearError(Exception):
     """Linear API error."""
 
     def __init__(self, message: str, errors: list | None = None):
         super().__init__(message)
         self.errors = errors or []
+
 
 class LinearConnector(EnterpriseConnector):
     """
@@ -1287,6 +1300,7 @@ class LinearConnector(EnterpriseConnector):
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
+
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
     if not value:
@@ -1295,6 +1309,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
+
 
 def get_mock_issue() -> LinearIssue:
     """Get a mock issue for testing."""
@@ -1309,6 +1324,7 @@ def get_mock_issue() -> LinearIssue:
         team_key="ENG",
         created_at=datetime.now(),
     )
+
 
 def get_mock_team() -> LinearTeam:
     """Get a mock team for testing."""

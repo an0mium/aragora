@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # Type alias for debate trigger callback
 DebateTriggerCallback = Callable[[SecurityEvent], Coroutine[Any, Any, str | None]]
 
+
 @dataclass
 class DispatcherConfig:
     """Configuration for the security event dispatcher."""
@@ -88,6 +89,7 @@ class DispatcherConfig:
     # Whether to auto-start the dispatcher
     auto_start: bool = False
 
+
 @dataclass
 class DispatcherStats:
     """Statistics for the security dispatcher."""
@@ -99,6 +101,7 @@ class DispatcherStats:
     debates_failed: int = 0
     last_event_time: datetime | None = None
     last_debate_time: datetime | None = None
+
 
 class SecurityDispatcher:
     """
@@ -410,11 +413,13 @@ class SecurityDispatcher:
         """Check if the dispatcher is running."""
         return self._running
 
+
 # =============================================================================
 # Global Dispatcher Instance
 # =============================================================================
 
 _dispatcher: SecurityDispatcher | None = None
+
 
 def get_security_dispatcher() -> SecurityDispatcher:
     """
@@ -428,6 +433,7 @@ def get_security_dispatcher() -> SecurityDispatcher:
         _dispatcher = SecurityDispatcher()
     return _dispatcher
 
+
 def set_security_dispatcher(dispatcher: SecurityDispatcher) -> None:
     """
     Set the global security dispatcher instance.
@@ -437,6 +443,7 @@ def set_security_dispatcher(dispatcher: SecurityDispatcher) -> None:
     """
     global _dispatcher
     _dispatcher = dispatcher
+
 
 async def start_security_dispatcher(
     config: DispatcherConfig | None = None,
@@ -460,6 +467,7 @@ async def start_security_dispatcher(
     await _dispatcher.start()
     return _dispatcher
 
+
 async def stop_security_dispatcher() -> None:
     """
     Stop the global security dispatcher.
@@ -470,6 +478,7 @@ async def stop_security_dispatcher() -> None:
 
     if _dispatcher is not None:
         await _dispatcher.stop()
+
 
 __all__ = [
     # Main class

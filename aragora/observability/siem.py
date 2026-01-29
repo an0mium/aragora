@@ -63,6 +63,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 class SIEMBackend(Enum):
     """Supported SIEM backends."""
 
@@ -72,6 +73,7 @@ class SIEMBackend(Enum):
     SENTINEL = "sentinel"
     DATADOG = "datadog"
     SYSLOG = "syslog"
+
 
 @dataclass
 class SIEMConfig:
@@ -105,9 +107,11 @@ class SIEMConfig:
             enabled=os.environ.get("SIEM_ENABLED", "true").lower() == "true",
         )
 
+
 # =============================================================================
 # Security Event Types
 # =============================================================================
+
 
 class SecurityEventType(Enum):
     """Types of security events."""
@@ -159,6 +163,7 @@ class SecurityEventType(Enum):
     ADMIN_USER_SUSPENDED = "admin.user.suspended"
     ADMIN_CONFIG_CHANGE = "admin.config.change"
 
+
 @dataclass
 class SecurityEvent:
     """A security event to be sent to SIEM."""
@@ -199,9 +204,11 @@ class SecurityEvent:
         """Serialize to JSON."""
         return json.dumps(self.to_dict())
 
+
 # =============================================================================
 # SIEM Client
 # =============================================================================
+
 
 class SIEMClient:
     """Client for sending events to SIEM backend."""
@@ -372,12 +379,14 @@ class SIEMClient:
         if self._worker:
             self._worker.join(timeout=timeout)
 
+
 # =============================================================================
 # Global Client & Helper Functions
 # =============================================================================
 
 _client: SIEMClient | None = None
 _client_lock = threading.Lock()
+
 
 def get_siem_client() -> SIEMClient:
     """Get or create the global SIEM client."""
@@ -386,6 +395,7 @@ def get_siem_client() -> SIEMClient:
         if _client is None:
             _client = SIEMClient()
         return _client
+
 
 def emit_security_event(
     event_type: SecurityEventType,
@@ -427,6 +437,7 @@ def emit_security_event(
     )
     get_siem_client().emit(event)
 
+
 def emit_auth_event(
     user_id: str,
     action: str,
@@ -463,6 +474,7 @@ def emit_auth_event(
         severity=severity,
         metadata=metadata,
     )
+
 
 def emit_data_access_event(
     user_id: str,
@@ -504,6 +516,7 @@ def emit_data_access_event(
         metadata=metadata,
     )
 
+
 def emit_privacy_event(
     user_id: str,
     action: str,
@@ -532,6 +545,7 @@ def emit_privacy_event(
         metadata=metadata,
     )
 
+
 def shutdown_siem() -> None:
     """Shutdown the SIEM client gracefully."""
     global _client
@@ -539,6 +553,7 @@ def shutdown_siem() -> None:
         if _client:
             _client.shutdown()
             _client = None
+
 
 __all__ = [
     # Configuration

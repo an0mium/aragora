@@ -11,6 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def run_gauntlet_tool(
     content: str,
     content_type: str = "spec",
@@ -72,5 +73,6 @@ async def run_gauntlet_tool(
         "content_type": content_type,
         "profile": profile,
     }
+
 
 __all__ = ["run_gauntlet_tool"]

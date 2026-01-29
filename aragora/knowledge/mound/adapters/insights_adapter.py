@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Reverse Flow Dataclasses (KM → InsightStore/FlipDetector)
 # ============================================================================
 
+
 @dataclass
 class KMFlipThresholdUpdate:
     """Result of updating flip detection thresholds from KM patterns."""
@@ -54,6 +55,7 @@ class KMFlipThresholdUpdate:
     recommendation: str = "keep"  # "increase", "decrease", "keep"
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class KMAgentFlipBaseline:
     """KM-validated flip baseline for an agent."""
@@ -65,6 +67,7 @@ class KMAgentFlipBaseline:
     sample_count: int = 0
     confidence: float = 0.7
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class KMFlipValidation:
@@ -78,6 +81,7 @@ class KMFlipValidation:
     adjustment: float = 0.0  # Adjustment to agent consistency score
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class InsightThresholdSyncResult:
     """Result of syncing thresholds from KM patterns."""
@@ -88,6 +92,7 @@ class InsightThresholdSyncResult:
     baseline_updates: list[KMAgentFlipBaseline] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
+
 
 @dataclass
 class InsightSearchResult:
@@ -101,12 +106,14 @@ class InsightSearchResult:
         if self.matched_topics is None:
             self.matched_topics = []
 
+
 @dataclass
 class FlipSearchResult:
     """Wrapper for flip event search results."""
 
     flip: dict[str, Any]
     relevance_score: float = 0.0
+
 
 class InsightsAdapter:
     """
@@ -1255,6 +1262,7 @@ class InsightsAdapter:
         # Reset thresholds to defaults
         self._similarity_threshold = 0.7
         self._confidence_threshold = 0.6
+
 
 __all__ = [
     "InsightsAdapter",

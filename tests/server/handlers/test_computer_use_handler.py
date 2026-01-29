@@ -36,7 +36,7 @@ class MockTaskResult:
     success: bool = True
     message: str = "Task completed successfully"
     steps_taken: int = 5
-    steps: List[Any] = field(default_factory=list)
+    steps: list[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -72,13 +72,13 @@ class MockComputerPolicy:
 
     name: str = "Test Policy"
     description: str = "A test policy"
-    allowed_actions: List[str] = ["screenshot", "click", "type"]
+    allowed_actions: list[str] = ["screenshot", "click", "type"]
 
 
 class MockRequestHandler:
     """Mock HTTP request handler."""
 
-    def __init__(self, body: Optional[Dict] = None, headers: Optional[Dict] = None):
+    def __init__(self, body: Optional[dict] = None, headers: Optional[dict] = None):
         self._body = body
         self.headers = headers or {}
 

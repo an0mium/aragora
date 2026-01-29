@@ -198,9 +198,7 @@ class SQLitePasswordResetStore(PasswordResetBackend):
                 used INTEGER NOT NULL DEFAULT 0
             )
         """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_reset_email ON password_reset_tokens(email)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_reset_email ON password_reset_tokens(email)")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_reset_expires ON password_reset_tokens(expires_at)"
         )
@@ -268,9 +266,7 @@ class SQLitePasswordResetStore(PasswordResetBackend):
 
     def delete_tokens_for_email(self, email: str) -> int:
         conn = self._get_conn()
-        cursor = conn.execute(
-            "DELETE FROM password_reset_tokens WHERE email = ?", (email.lower(),)
-        )
+        cursor = conn.execute("DELETE FROM password_reset_tokens WHERE email = ?", (email.lower(),))
         conn.commit()
         return cursor.rowcount
 
@@ -309,9 +305,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             self._store_token_async(email, token_hash, expires_at)
         )
 
-    async def _store_token_async(
-        self, email: str, token_hash: str, expires_at: float
-    ) -> None:
+    async def _store_token_async(self, email: str, token_hash: str, expires_at: float) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO password_reset_tokens (token_hash, email, expires_at)
@@ -326,9 +320,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
     def get_token_data(self, token_hash: str) -> ResetTokenData | None:
         import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(
-            self._get_token_data_async(token_hash)
-        )
+        return asyncio.get_event_loop().run_until_complete(self._get_token_data_async(token_hash))
 
     async def _get_token_data_async(self, token_hash: str) -> ResetTokenData | None:
         async with self._pool.acquire() as conn:
@@ -348,9 +340,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
     def mark_used(self, token_hash: str) -> bool:
         import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(
-            self._mark_used_async(token_hash)
-        )
+        return asyncio.get_event_loop().run_until_complete(self._mark_used_async(token_hash))
 
     async def _mark_used_async(self, token_hash: str) -> bool:
         async with self._pool.acquire() as conn:
@@ -363,9 +353,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
     def delete_token(self, token_hash: str) -> bool:
         import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(
-            self._delete_token_async(token_hash)
-        )
+        return asyncio.get_event_loop().run_until_complete(self._delete_token_async(token_hash))
 
     async def _delete_token_async(self, token_hash: str) -> bool:
         async with self._pool.acquire() as conn:

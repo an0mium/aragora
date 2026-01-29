@@ -34,6 +34,7 @@ except ImportError:
     WEAVIATE_AVAILABLE = False
     logger.debug("weaviate-client not available - install with: pip install weaviate-client")
 
+
 class WeaviateVectorStore(BaseVectorStore):
     """
     Weaviate vector store adapter.

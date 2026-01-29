@@ -53,6 +53,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _to_iso_string(value: Any) -> str | None:
     """Safely convert datetime or string to ISO format string.
 
@@ -67,6 +68,7 @@ def _to_iso_string(value: Any) -> str | None:
         return value.isoformat()
     return str(value)
 
+
 def _to_enum_value(value: Any) -> Any:
     """Safely extract value from enum or return string as-is.
 
@@ -80,6 +82,7 @@ def _to_enum_value(value: Any) -> Any:
     if hasattr(value, "value"):
         return value.value
     return str(value)
+
 
 class KnowledgeMoundCore:
     """

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class FederationMode(str, Enum):
     """Mode of federation between regions."""
 
@@ -36,12 +37,14 @@ class FederationMode(str, Enum):
     BIDIRECTIONAL = "bidirectional"  # Both push and pull
     NONE = "none"  # Federation disabled
 
+
 class SyncScope(str, Enum):
     """Scope of data to sync."""
 
     FULL = "full"  # Full content and metadata
     METADATA = "metadata"  # Only metadata (no content)
     SUMMARY = "summary"  # Summarized content
+
 
 @dataclass
 class FederatedRegion:
@@ -57,6 +60,7 @@ class FederatedRegion:
     last_sync_error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class SyncResult:
     """Result of a federation sync operation."""
@@ -69,6 +73,7 @@ class SyncResult:
     duration_ms: float = 0
     success: bool = True
     error: str | None = None
+
 
 class FederationProtocol(Protocol):
     """Protocol defining expected interface for Federation mixin."""
@@ -91,6 +96,7 @@ class FederationProtocol(Protocol):
         limit: int = 20,
         workspace_id: str | None = None,
     ) -> Any: ...
+
 
 class KnowledgeFederationMixin:
     """Mixin providing federation operations for KnowledgeMound.

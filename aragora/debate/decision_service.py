@@ -70,6 +70,7 @@ logger = logging.getLogger(__name__)
 # Data Types
 # =============================================================================
 
+
 class DebateStatus(str, Enum):
     """Debate lifecycle states."""
 
@@ -79,6 +80,7 @@ class DebateStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 class EventType(str, Enum):
     """Types of debate events."""
@@ -93,6 +95,7 @@ class EventType(str, Enum):
     DEBATE_COMPLETED = "debate_completed"
     DEBATE_FAILED = "debate_failed"
     PROGRESS_UPDATE = "progress_update"
+
 
 @dataclass
 class DebateRequest:
@@ -127,6 +130,7 @@ class DebateRequest:
     enable_streaming: bool = True
     enable_checkpointing: bool = True
     enable_memory: bool = True
+
 
 @dataclass
 class DebateState:
@@ -169,6 +173,7 @@ class DebateState:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class DebateEvent:
     """Real-time debate event for streaming updates."""
@@ -187,9 +192,11 @@ class DebateEvent:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 # =============================================================================
 # Protocols (Abstract Interfaces)
 # =============================================================================
+
 
 @runtime_checkable
 class StateStore(Protocol):
@@ -213,6 +220,7 @@ class StateStore(Protocol):
     async def delete(self, debate_id: str) -> bool:
         """Delete debate state."""
         ...
+
 
 @runtime_checkable
 class DecisionService(Protocol):
@@ -269,9 +277,11 @@ class DecisionService(Protocol):
         """
         ...
 
+
 # =============================================================================
 # In-Memory State Store (Default Implementation)
 # =============================================================================
+
 
 class InMemoryStateStore:
     """Simple in-memory state store for development/testing.
@@ -307,9 +317,11 @@ class InMemoryStateStore:
             return True
         return False
 
+
 # =============================================================================
 # Event Bus (Pub/Sub for Debate Events)
 # =============================================================================
+
 
 class EventBus:
     """Simple async event bus for debate events.
@@ -351,9 +363,11 @@ class EventBus:
                 except ValueError:
                     pass
 
+
 # =============================================================================
 # Async Decision Service Implementation
 # =============================================================================
+
 
 class AsyncDecisionService:
     """Async-first decision service implementation.
@@ -654,11 +668,13 @@ class AsyncDecisionService:
 
         return on_consensus
 
+
 # =============================================================================
 # Global Service Instance
 # =============================================================================
 
 _decision_service: AsyncDecisionService | None = None
+
 
 def get_decision_service(
     store: StateStore | None = None,
@@ -691,10 +707,12 @@ def get_decision_service(
 
     return _decision_service
 
+
 def reset_decision_service() -> None:
     """Reset the global decision service instance."""
     global _decision_service
     _decision_service = None
+
 
 __all__ = [
     # Protocols

@@ -61,7 +61,7 @@ def create_kafka_message_dataclass(
     offset: int = 1,
     key: Optional[str] = None,
     value: Any = None,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     timestamp: Optional[datetime] = None,
 ) -> KafkaMessage:
     """Create a KafkaMessage dataclass for testing."""

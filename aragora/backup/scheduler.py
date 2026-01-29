@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 # Types and Enums
 # =============================================================================
 
+
 class ScheduleType(str, Enum):
     """Types of backup schedules."""
 
@@ -59,6 +60,7 @@ class ScheduleType(str, Enum):
     MONTHLY = "monthly"
     CUSTOM = "custom"
 
+
 class SchedulerStatus(str, Enum):
     """Status of the backup scheduler."""
 
@@ -66,6 +68,7 @@ class SchedulerStatus(str, Enum):
     RUNNING = "running"
     PAUSED = "paused"
     ERROR = "error"
+
 
 @dataclass
 class BackupSchedule:
@@ -162,6 +165,7 @@ class BackupSchedule:
 
         return None
 
+
 @dataclass
 class BackupJob:
     """Record of a scheduled or executed backup job."""
@@ -194,6 +198,7 @@ class BackupJob:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class SchedulerStats:
     """Statistics for the backup scheduler."""
@@ -211,8 +216,10 @@ class SchedulerStats:
     last_dr_drill_at: datetime | None = None
     uptime_seconds: float = 0.0
 
+
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
+
 
 class BackupScheduler:
     """
@@ -768,20 +775,24 @@ class BackupScheduler:
         """Get recent backup job history."""
         return self._job_history[-limit:]
 
+
 # =============================================================================
 # Global Instance
 # =============================================================================
 
 _backup_scheduler: BackupScheduler | None = None
 
+
 def get_backup_scheduler() -> BackupScheduler | None:
     """Get the global backup scheduler instance."""
     return _backup_scheduler
+
 
 def set_backup_scheduler(scheduler: BackupScheduler | None) -> None:
     """Set the global backup scheduler instance."""
     global _backup_scheduler
     _backup_scheduler = scheduler
+
 
 async def start_backup_scheduler(
     backup_manager: Any,
@@ -810,6 +821,7 @@ async def start_backup_scheduler(
 
     return _backup_scheduler
 
+
 async def stop_backup_scheduler() -> None:
     """Stop the global backup scheduler."""
     global _backup_scheduler
@@ -817,6 +829,7 @@ async def stop_backup_scheduler() -> None:
     if _backup_scheduler is not None:
         await _backup_scheduler.stop()
         _backup_scheduler = None
+
 
 # Import uuid at module level for use in methods
 import uuid

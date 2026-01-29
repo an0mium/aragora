@@ -11,6 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def get_consensus_proofs_tool(
     debate_id: str = "",
     proof_type: str = "all",
@@ -52,6 +53,7 @@ async def get_consensus_proofs_tool(
         "debate_id": debate_id or "(all debates)",
         "proof_type": proof_type,
     }
+
 
 async def verify_consensus_tool(
     debate_id: str,
@@ -115,6 +117,7 @@ async def verify_consensus_tool(
     except Exception as e:
         return {"error": f"Verification failed: {e}"}
 
+
 async def generate_proof_tool(
     claim: str,
     output_format: str = "lean4",
@@ -157,6 +160,7 @@ async def generate_proof_tool(
         return {"error": "Verification module not available"}
     except Exception as e:
         return {"error": f"Proof generation failed: {e}"}
+
 
 __all__ = [
     "get_consensus_proofs_tool",

@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 _service_instances: dict[str, Any] = {}  # tenant_id -> ReconciliationService
 
+
 def get_reconciliation_service(tenant_id: str):
     """Get or create reconciliation service for tenant."""
     if tenant_id not in _service_instances:
@@ -51,9 +52,11 @@ def get_reconciliation_service(tenant_id: str):
             return None
     return _service_instances[tenant_id]
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class ReconciliationHandler(BaseHandler):
     """Handler for bank reconciliation API endpoints."""
@@ -616,11 +619,13 @@ class ReconciliationHandler(BaseHandler):
             return dict(request.args)
         return {}
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
 _handler_instance: ReconciliationHandler | None = None
+
 
 def get_reconciliation_handler() -> ReconciliationHandler:
     """Get or create handler instance."""
@@ -629,10 +634,12 @@ def get_reconciliation_handler() -> ReconciliationHandler:
         _handler_instance = ReconciliationHandler()
     return _handler_instance
 
+
 async def handle_reconciliation(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for reconciliation requests."""
     handler = get_reconciliation_handler()
     return await handler.handle(request, path, method)
+
 
 __all__ = [
     "ReconciliationHandler",

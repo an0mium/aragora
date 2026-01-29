@@ -197,7 +197,7 @@ def clear_handler_cache():
 # ============================================================================
 
 
-def parse_handler_response(result) -> Dict[str, Any]:
+def parse_handler_response(result) -> dict[str, Any]:
     """Parse JSON body from a HandlerResult.
 
     Args:
@@ -222,7 +222,7 @@ def parse_handler_response(result) -> Dict[str, Any]:
         return {}
 
 
-def assert_success_response(result, expected_keys: List[str] = None):
+def assert_success_response(result, expected_keys: list[str] = None):
     """Assert that a handler result is a successful JSON response.
 
     Args:
@@ -274,9 +274,9 @@ class MockHTTPRequest:
 
     method: str = "GET"
     path: str = "/"
-    headers: Dict[str, str] = None
+    headers: dict[str, str] = None
     body: bytes = b"{}"
-    query_params: Dict[str, str] = None
+    query_params: dict[str, str] = None
 
     def __post_init__(self):
         if self.headers is None:
@@ -306,8 +306,8 @@ def mock_http_handler():
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
         client_address: tuple = ("127.0.0.1", 12345),
     ) -> MagicMock:
         mock = MagicMock()
@@ -637,8 +637,8 @@ class MockAuthorizationContext:
     user_email: str = "test@example.com"
     org_id: str = "test-org-001"
     workspace_id: str = "test-ws-001"
-    roles: List[str] = None
-    permissions: List[str] = None
+    roles: list[str] = None
+    permissions: list[str] = None
     api_key_scope: Optional[str] = None
     ip_address: str = "127.0.0.1"
     user_agent: str = "test-agent"
@@ -706,8 +706,8 @@ def mock_auth_context():
         user_id: str = "test-user-001",
         org_id: str = "test-org-001",
         workspace_id: str = "test-ws-001",
-        roles: List[str] = None,
-        permissions: List[str] = None,
+        roles: list[str] = None,
+        permissions: list[str] = None,
         **kwargs,
     ) -> MockAuthorizationContext:
         return MockAuthorizationContext(
@@ -792,8 +792,8 @@ def authenticated_handler(mock_auth_context):
         handler_instance,
         user_id: str = "test-user-001",
         org_id: str = "test-org-001",
-        roles: List[str] = None,
-        permissions: List[str] = None,
+        roles: list[str] = None,
+        permissions: list[str] = None,
     ):
         ctx = mock_auth_context(
             user_id=user_id,
@@ -884,7 +884,7 @@ def authenticated_http_handler(mock_http_handler):
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[Dict[str, Any]] = None,
+        body: Optional[dict[str, Any]] = None,
         token: str = "test_api_token_12345",
     ) -> MagicMock:
         return mock_http_handler(
@@ -933,8 +933,8 @@ def async_mock_http_handler():
 
     def _create_handler(
         method: str = "GET",
-        body: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> MagicMock:
         mock = MagicMock()
         mock.command = method
@@ -997,7 +997,7 @@ class HandlerTestCase:
         for path in paths:
             assert path in handler.ROUTES, f"Expected '{path}' in handler ROUTES"
 
-    def assert_success_with_keys(self, result, keys: List[str]):
+    def assert_success_with_keys(self, result, keys: list[str]):
         """Assert successful response with expected keys."""
         assert_success_response(result, expected_keys=keys)
 
@@ -1005,6 +1005,6 @@ class HandlerTestCase:
         """Assert error response with status and optional message."""
         assert_error_response(result, expected_status=status, error_substring=message)
 
-    def get_response_body(self, result) -> Dict[str, Any]:
+    def get_response_body(self, result) -> dict[str, Any]:
         """Get parsed response body."""
         return parse_handler_response(result)

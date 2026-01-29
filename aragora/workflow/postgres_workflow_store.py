@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class PostgresWorkflowStore(PostgresStore):
     """
     PostgreSQL-backed persistent storage for workflows.
@@ -680,6 +681,7 @@ class PostgresWorkflowStore(PostgresStore):
             )
 
         return executions, total
+
 
 __all__ = [
     "PostgresWorkflowStore",

@@ -4,6 +4,7 @@ Fact Store - SQLite-based persistence for the Knowledge Base.
 Provides storage, retrieval, and search for facts extracted from
 documents and verified through multi-agent consensus.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,6 +27,7 @@ from aragora.storage.base_store import SQLiteStore
 from aragora.storage.fts_utils import sanitize_fts_query
 
 logger = logging.getLogger(__name__)
+
 
 class FactStore(SQLiteStore):
     """SQLite-based fact persistence store.
@@ -707,6 +709,7 @@ class FactStore(SQLiteStore):
             updated_at=datetime.fromisoformat(row["updated_at"]),
             superseded_by=row["superseded_by"],
         )
+
 
 class InMemoryFactStore:
     """In-memory fact store for testing."""

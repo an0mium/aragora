@@ -3,12 +3,14 @@ Type definitions for Recursive Language Models (RLM).
 
 Based on concepts from arXiv:2512.24601.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
+
 
 class RLMMode(Enum):
     """
@@ -24,6 +26,7 @@ class RLMMode(Enum):
     COMPRESSION = "compression"  # Hierarchical summarization fallback
     AUTO = "auto"  # Prefer TRUE_RLM, fallback to COMPRESSION (default)
 
+
 class AbstractionLevel(Enum):
     """
     Levels of context abstraction in hierarchical representation.
@@ -37,6 +40,7 @@ class AbstractionLevel(Enum):
     SUMMARY = 2  # Key points summary (~80% compression)
     ABSTRACT = 3  # High-level abstract (~95% compression)
     METADATA = 4  # Tags and routing info only
+
 
 class DecompositionStrategy(Enum):
     """
@@ -56,6 +60,7 @@ class DecompositionStrategy(Enum):
     SUMMARIZE = "summarize"
     HIERARCHICAL = "hierarchical"
     AUTO = "auto"  # Let RLM decide
+
 
 @dataclass
 class RLMConfig:
@@ -111,6 +116,7 @@ class RLMConfig:
     include_citations: bool = True  # Include source references
     citation_format: str = "[L{level}:{chunk}]"  # Citation format
 
+
 @dataclass
 class AbstractionNode:
     """
@@ -142,6 +148,7 @@ class AbstractionNode:
             import uuid
 
             self.id = str(uuid.uuid4())[:8]
+
 
 @dataclass
 class RLMContext:
@@ -211,6 +218,7 @@ class RLMContext:
             return self.original_tokens
         return sum(node.token_count for node in self.levels[level])
 
+
 @dataclass
 class CompressionResult:
     """Result of hierarchical compression."""
@@ -231,6 +239,7 @@ class CompressionResult:
     estimated_fidelity: float  # 0-1, how much semantic content preserved
     key_topics_extracted: list[str]
 
+
 @dataclass
 class RLMQuery:
     """A query to execute against hierarchical context."""
@@ -248,6 +257,7 @@ class RLMQuery:
     # Output
     require_citations: bool = True
     output_format: str = "text"  # text, json, structured
+
 
 @dataclass
 class RLMResult:
@@ -286,9 +296,11 @@ class RLMResult:
     confidence: float = 0.0
     uncertainty_sources: list[str] = field(default_factory=list)  # What might be missing
 
+
 # Type aliases for callbacks
 CompressionCallback = Callable[[str, AbstractionLevel], str]
 QueryCallback = Callable[[RLMQuery, RLMContext], RLMResult]
+
 
 class RLMStreamEventType(Enum):
     """Types of streaming events from RLM operations."""
@@ -315,6 +327,7 @@ class RLMStreamEventType(Enum):
     # Status events
     CONFIDENCE_UPDATE = "confidence_update"
     ERROR = "error"
+
 
 @dataclass
 class RLMStreamEvent:

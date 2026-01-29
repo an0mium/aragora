@@ -44,6 +44,7 @@ USER_RATE_LIMITS: dict[str, int] = {
     "slack_gauntlet": 3,  # Gauntlet runs via Slack
 }
 
+
 class UserRateLimiter:
     """
     Per-authenticated-user rate limiter.
@@ -189,8 +190,10 @@ class UserRateLimiter:
         with self._lock:
             self._user_buckets.clear()
 
+
 # Global user rate limiter instance
 _user_limiter: UserRateLimiter | None = None
+
 
 def get_user_rate_limiter() -> UserRateLimiter:
     """Get the global user rate limiter instance."""
@@ -198,6 +201,7 @@ def get_user_rate_limiter() -> UserRateLimiter:
     if _user_limiter is None:
         _user_limiter = UserRateLimiter()
     return _user_limiter
+
 
 def check_user_rate_limit(
     handler: Any,
@@ -250,6 +254,7 @@ def check_user_rate_limit(
             logger.debug(f"Could not extract user for rate limiting: {e}")
 
     return limiter.allow(client_key, action)
+
 
 __all__ = [
     "USER_RATE_LIMITS",

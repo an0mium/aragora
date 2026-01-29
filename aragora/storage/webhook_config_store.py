@@ -72,6 +72,7 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
+
 def _encrypt_secret(secret: str) -> str:
     """Encrypt webhook secret before storage.
 
@@ -103,6 +104,7 @@ def _encrypt_secret(secret: str) -> str:
         logger.warning(f"Secret encryption failed, storing unencrypted: {e}")
         return secret
 
+
 def _decrypt_secret(encrypted_secret: str) -> str:
     """Decrypt webhook secret, handling legacy unencrypted data."""
     if not CRYPTO_AVAILABLE or not encrypted_secret:
@@ -120,6 +122,7 @@ def _decrypt_secret(encrypted_secret: str) -> str:
     except Exception as e:
         logger.debug(f"Secret decryption failed (may be legacy unencrypted): {e}")
         return encrypted_secret  # Return as-is if decryption fails
+
 
 # Events that can trigger webhooks
 WEBHOOK_EVENTS: set[str] = {
@@ -153,6 +156,7 @@ WEBHOOK_EVENTS: set[str] = {
     "agent_fallback_triggered",
     "explanation_ready",
 }
+
 
 @dataclass
 class WebhookConfig:
@@ -226,6 +230,7 @@ class WebhookConfig:
             return event_type in WEBHOOK_EVENTS
         return event_type in self.events
 
+
 class WebhookConfigStoreBackend(ABC):
     """Abstract base for webhook configuration storage backends."""
 
@@ -293,6 +298,7 @@ class WebhookConfigStoreBackend(ABC):
     def close(self) -> None:
         """Close connections (optional to implement)."""
         pass
+
 
 class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -415,6 +421,7 @@ class InMemoryWebhookConfigStore(WebhookConfigStoreBackend):
         """Clear all entries (for testing)."""
         with self._lock:
             self._webhooks.clear()
+
 
 class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -691,6 +698,7 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             self._local.conn.close()
             del self._local.conn
 
+
 class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     """
     Redis-backed webhook config store with SQLite fallback.
@@ -861,6 +869,7 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
         self._sqlite.close()
         if self._redis:
             self._redis.close()
+
 
 class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
     """
@@ -1206,11 +1215,13 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 # =============================================================================
 # Global Store Factory
 # =============================================================================
 
 _webhook_config_store: WebhookConfigStoreBackend | None = None
+
 
 def get_webhook_config_store() -> WebhookConfigStoreBackend:
     """
@@ -1262,6 +1273,7 @@ def get_webhook_config_store() -> WebhookConfigStoreBackend:
 
     return _webhook_config_store
 
+
 def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     """
     Set custom webhook config store.
@@ -1272,10 +1284,12 @@ def set_webhook_config_store(store: WebhookConfigStoreBackend) -> None:
     _webhook_config_store = store
     logger.debug(f"Webhook config store backend set: {type(store).__name__}")
 
+
 def reset_webhook_config_store() -> None:
     """Reset the global webhook config store (for testing)."""
     global _webhook_config_store
     _webhook_config_store = None
+
 
 __all__ = [
     "WebhookConfig",

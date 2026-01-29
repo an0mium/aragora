@@ -18,6 +18,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class KnowledgePipelineStep(BaseStep):
     """
     Workflow step that executes document ingestion via KnowledgePipeline.

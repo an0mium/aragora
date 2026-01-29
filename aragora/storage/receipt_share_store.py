@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 _store: Optional["ReceiptShareStore"] = None
 _store_lock = threading.Lock()
 
+
 def get_receipt_share_store() -> "ReceiptShareStore":
     """Get the global receipt share store instance."""
     global _store
@@ -31,6 +32,7 @@ def get_receipt_share_store() -> "ReceiptShareStore":
                 db_path = DATA_DIR / "receipt_shares.db"
                 _store = ReceiptShareStore(db_path)
     return _store
+
 
 class ReceiptShareStore:
     """SQLite-backed store for receipt share tokens."""
@@ -273,5 +275,6 @@ class ReceiptShareStore:
         if count > 0:
             logger.info(f"Cleaned up {count} expired receipt share tokens")
         return count
+
 
 __all__ = ["ReceiptShareStore", "get_receipt_share_store"]

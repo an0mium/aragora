@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TenantQuota:
     """Quota limits for a tenant."""
@@ -30,6 +31,7 @@ class TenantQuota:
     concurrent_debates: int = 5
     knowledge_nodes: int = 10000
 
+
 @dataclass
 class TenantSettings:
     """Settings for a tenant."""
@@ -40,6 +42,7 @@ class TenantSettings:
     require_mfa: bool = False
     allowed_domains: list[str] = field(default_factory=list)
     custom_branding: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class Tenant:
@@ -57,6 +60,7 @@ class Tenant:
     updated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class TenantUsage:
     """Current usage statistics for a tenant."""
@@ -69,6 +73,7 @@ class TenantUsage:
     knowledge_nodes_count: int = 0
     period_start: datetime | None = None
     period_end: datetime | None = None
+
 
 class TenantsAPI:
     """API interface for tenant management."""
@@ -458,6 +463,7 @@ class TenantsAPI:
             period_start=period_start,
             period_end=period_end,
         )
+
 
 __all__ = [
     "TenantsAPI",

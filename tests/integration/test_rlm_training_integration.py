@@ -47,7 +47,7 @@ class MockRLMResult:
     iterations: int
     tokens_examined: int
     sub_calls: int
-    refinement_history: List[Dict[str, Any]]
+    refinement_history: list[dict[str, Any]]
 
 
 class MockAragoraRLM:
@@ -57,7 +57,7 @@ class MockAragoraRLM:
         self,
         success_rate: float = 0.8,
         avg_confidence: float = 0.7,
-        strategies: Optional[List[str]] = None,
+        strategies: Optional[list[str]] = None,
     ):
         self.success_rate = success_rate
         self.avg_confidence = avg_confidence
@@ -135,7 +135,7 @@ class MockTrainer:
         self.reward_model = DebateOutcomeReward()
         self.epoch = 0
         self.total_trajectories = 0
-        self.metrics_history: List[Dict[str, float]] = []
+        self.metrics_history: list[dict[str, float]] = []
 
     async def collect_trajectory(
         self,
@@ -200,9 +200,9 @@ class MockTrainer:
 
     async def collect_trajectories(
         self,
-        queries: List[tuple[str, Any]],
+        queries: list[tuple[str, Any]],
         concurrency: int = 5,
-    ) -> List[Trajectory]:
+    ) -> list[Trajectory]:
         """Collect multiple trajectories concurrently."""
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -213,7 +213,7 @@ class MockTrainer:
         tasks = [bounded_collect(q, c) for q, c in queries]
         return await asyncio.gather(*tasks)
 
-    def compute_rewards(self, trajectories: List[Trajectory]) -> List[float]:
+    def compute_rewards(self, trajectories: list[Trajectory]) -> list[float]:
         """Compute rewards for trajectories."""
         rewards = []
         for traj in trajectories:
@@ -221,7 +221,7 @@ class MockTrainer:
             rewards.append(reward)
         return rewards
 
-    def update_policies(self, trajectories: List[Trajectory], rewards: List[float]) -> None:
+    def update_policies(self, trajectories: list[Trajectory], rewards: list[float]) -> None:
         """Update policies based on rewards."""
         for traj, reward in zip(trajectories, rewards):
             # Update strategy weights using the trajectory's strategy and outcome
@@ -236,8 +236,8 @@ class MockTrainer:
 
     async def train_step(
         self,
-        queries: List[tuple[str, Any]],
-    ) -> Dict[str, float]:
+        queries: list[tuple[str, Any]],
+    ) -> dict[str, float]:
         """Execute a single training step."""
         # Collect trajectories
         trajectories = await self.collect_trajectories(queries)
@@ -271,10 +271,10 @@ class MockTrainer:
 
     async def train(
         self,
-        queries_per_epoch: List[List[tuple[str, Any]]],
+        queries_per_epoch: list[list[tuple[str, Any]]],
         checkpoint_dir: Optional[Path] = None,
         checkpoint_interval: int = 5,
-    ) -> List[Dict[str, float]]:
+    ) -> list[dict[str, float]]:
         """Run full training loop."""
         all_metrics = []
 

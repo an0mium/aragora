@@ -28,6 +28,7 @@ __all__ = [
     "get_dock_registry",
 ]
 
+
 class DockRegistry:
     """
     Registry for channel docks.
@@ -188,8 +189,10 @@ class DockRegistry:
         self._dock_instances.clear()
         self._default_configs.clear()
 
+
 # Global registry singleton
 _dock_registry: DockRegistry | None = None
+
 
 def get_dock_registry() -> DockRegistry:
     """
@@ -208,6 +211,7 @@ def get_dock_registry() -> DockRegistry:
         _register_builtin_docks(_dock_registry)
 
     return _dock_registry
+
 
 def _register_builtin_docks(registry: DockRegistry) -> None:
     """

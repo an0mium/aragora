@@ -34,6 +34,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class TemplateStatus(str, Enum):
     """Status of a template package."""
 
@@ -41,6 +42,7 @@ class TemplateStatus(str, Enum):
     STABLE = "stable"  # Ready for production use
     DEPRECATED = "deprecated"  # Should migrate to successor
     ARCHIVED = "archived"  # No longer maintained
+
 
 class TemplateCategory(str, Enum):
     """Template category for organization."""
@@ -61,6 +63,7 @@ class TemplateCategory(str, Enum):
     QUICKSTART = "quickstart"
     RETAIL = "retail"
 
+
 @dataclass
 class TemplateAuthor:
     """Template author information."""
@@ -70,6 +73,7 @@ class TemplateAuthor:
     organization: str | None = None
     url: str | None = None
 
+
 @dataclass
 class TemplateDependency:
     """Dependency on a step type or other template."""
@@ -78,6 +82,7 @@ class TemplateDependency:
     type: str  # "step_type", "template", "agent"
     required: bool = True
     version: str | None = None
+
 
 @dataclass
 class TemplateMetadata:
@@ -147,6 +152,7 @@ class TemplateMetadata:
             ]
 
         return cls(**data)
+
 
 @dataclass
 class TemplatePackage:
@@ -253,6 +259,7 @@ class TemplatePackage:
         data = json.loads(path.read_text())
         return cls.from_dict(data)
 
+
 def create_package(
     template: dict[str, Any],
     version: str = "1.0.0",
@@ -320,6 +327,7 @@ def create_package(
         readme=readme,
     )
 
+
 def package_all_templates() -> dict[str, TemplatePackage]:
     """
     Package all registered workflow templates.
@@ -342,8 +350,10 @@ def package_all_templates() -> dict[str, TemplatePackage]:
 
     return packages
 
+
 # Template registry with versioning support
 _template_registry: dict[str, list[TemplatePackage]] = {}
+
 
 def register_package(package: TemplatePackage) -> None:
     """Register a template package."""
@@ -356,6 +366,7 @@ def register_package(package: TemplatePackage) -> None:
         key=lambda p: p.metadata.version,
         reverse=True,
     )
+
 
 def get_package(
     template_id: str,
@@ -388,6 +399,7 @@ def get_package(
             return pkg
 
     return None
+
 
 def list_packages(
     category: Optional[str | TemplateCategory] = None,
@@ -439,6 +451,7 @@ def list_packages(
         results.append(pkg)
 
     return results
+
 
 __all__ = [
     "TemplatePackage",

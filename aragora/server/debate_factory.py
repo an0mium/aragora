@@ -4,6 +4,7 @@ Factory for creating and configuring debate arenas.
 Extracts agent creation and arena setup logic from unified_server.py
 for better modularity and testability.
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +59,7 @@ if TYPE_CHECKING:
 # Import the unified AgentSpec from agents.spec
 from aragora.agents.spec import AgentSpec
 
+
 @dataclass
 class AgentCreationResult:
     """Result of agent creation attempt."""
@@ -77,6 +79,7 @@ class AgentCreationResult:
     def has_minimum(self) -> bool:
         """Check if minimum number of agents were created."""
         return self.success_count >= 2
+
 
 @dataclass
 class DebateConfig:
@@ -146,6 +149,7 @@ class DebateConfig:
             raise ValueError("At least 2 agents required for a debate")
 
         return specs
+
 
 class DebateFactory:
     """

@@ -45,6 +45,7 @@ from aragora.observability import get_logger
 
 logger = get_logger(__name__)
 
+
 class RegionalEventType(Enum):
     """Types of regional synchronization events."""
 
@@ -65,6 +66,7 @@ class RegionalEventType(Enum):
     REGION_HEALTH = "region_health"
     REGION_JOINED = "region_joined"
     REGION_LEFT = "region_left"
+
 
 @dataclass
 class RegionalEvent:
@@ -108,6 +110,7 @@ class RegionalEvent:
         """Check if this event is newer than another (for conflict resolution)."""
         return self.timestamp > other.timestamp
 
+
 @dataclass
 class RegionalSyncConfig:
     """Configuration for regional synchronization."""
@@ -144,8 +147,10 @@ class RegionalSyncConfig:
         """Get region-specific channel name."""
         return f"{self.channel_prefix}region:{region_id}"
 
+
 # Type alias for event handlers
 RegionalEventHandler = Callable[[RegionalEvent], Coroutine[Any, Any, None]]
+
 
 class RegionalEventBus:
     """
@@ -531,6 +536,7 @@ class RegionalEventBus:
         for event in events:
             await self.publish(event)
 
+
 @dataclass
 class RegionHealth:
     """Health status of a region."""
@@ -541,6 +547,7 @@ class RegionHealth:
     agent_count: int = 0
     task_count: int = 0
     leader_id: str | None = None
+
 
 class RegionalStateManager:
     """
@@ -725,17 +732,21 @@ class RegionalStateManager:
             "is_connected": self._event_bus.is_connected,
         }
 
+
 # Module-level singleton
 _regional_event_bus: RegionalEventBus | None = None
+
 
 def get_regional_event_bus() -> RegionalEventBus | None:
     """Get the global regional event bus instance."""
     return _regional_event_bus
 
+
 def set_regional_event_bus(bus: RegionalEventBus) -> None:
     """Set the global regional event bus instance."""
     global _regional_event_bus
     _regional_event_bus = bus
+
 
 async def init_regional_sync(
     redis_url: str = "redis://localhost:6379",

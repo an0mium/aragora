@@ -34,6 +34,7 @@ MAX_ITEMS_LIMIT = 100
 # Lazy-loaded bridge instance
 _bridge = None
 
+
 def _get_bridge():
     """Get or create the Knowledge + Chat bridge."""
     global _bridge
@@ -42,6 +43,7 @@ def _get_bridge():
 
         _bridge = get_knowledge_chat_bridge()
     return _bridge
+
 
 @with_timeout(15.0)
 async def handle_knowledge_search(
@@ -113,6 +115,7 @@ async def handle_knowledge_search(
             "error": safe_error_message(e),
         }
 
+
 @with_timeout(15.0)
 async def handle_knowledge_inject(
     messages: list[dict[str, Any]],
@@ -156,6 +159,7 @@ async def handle_knowledge_inject(
             "success": False,
             "error": safe_error_message(e),
         }
+
 
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
@@ -218,6 +222,7 @@ async def handle_store_chat_knowledge(
             "error": safe_error_message(e),
         }
 
+
 async def handle_channel_knowledge_summary(
     channel_id: str,
     workspace_id: str = "default",
@@ -248,6 +253,7 @@ async def handle_channel_knowledge_summary(
             "success": False,
             "error": safe_error_message(e),
         }
+
 
 class KnowledgeChatHandler(BaseHandler):
     """
@@ -399,6 +405,7 @@ class KnowledgeChatHandler(BaseHandler):
             return success_response(result)
         else:
             return error_response(result.get("error", "Unknown error"), 400)
+
 
 __all__ = [
     "KnowledgeChatHandler",

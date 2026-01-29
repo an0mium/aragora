@@ -33,6 +33,7 @@ from .blocks import BlocksMixin
 
 logger = logging.getLogger(__name__)
 
+
 class CommandsMixin(BlocksMixin):
     """Mixin providing slash command handling for the Slack handler."""
 

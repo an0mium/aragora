@@ -39,7 +39,7 @@ class MockCritique:
     agent: str
     target_agent: str
     severity: float
-    issues: List[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -64,10 +64,10 @@ class MockDebateResult:
     rounds_used: int = 3
     consensus_variance: float = 0.15
 
-    messages: List[MockMessage] = field(default_factory=list)
-    critiques: List[MockCritique] = field(default_factory=list)
-    votes: List[MockVote] = field(default_factory=list)
-    dissenting_views: List[str] = field(default_factory=list)
+    messages: list[MockMessage] = field(default_factory=list)
+    critiques: list[MockCritique] = field(default_factory=list)
+    votes: list[MockVote] = field(default_factory=list)
+    dissenting_views: list[str] = field(default_factory=list)
 
 
 # =============================================================================

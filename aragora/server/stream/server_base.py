@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Token revalidation interval for long-lived WebSocket connections (5 minutes)
 WS_TOKEN_REVALIDATION_INTERVAL = 300.0
 
+
 @dataclass
 class ServerConfig:
     """Configuration for server behavior."""
@@ -53,6 +54,7 @@ class ServerConfig:
 
     # Client tracking
     max_client_ids: int = 10000  # Max tracked clients
+
 
 class ServerBase:
     """

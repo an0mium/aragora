@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SemanticSearchMixin:
     """Mixin providing semantic vector search for adapters.
 
@@ -226,5 +227,6 @@ class SemanticSearchMixin:
                 )
 
         return enriched
+
 
 __all__ = ["SemanticSearchMixin"]

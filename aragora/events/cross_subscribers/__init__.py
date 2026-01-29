@@ -21,6 +21,7 @@ Usage:
 
     # Subscribers automatically process relevant events
 """
+
 from __future__ import annotations
 
 from aragora.events.subscribers.config import (
@@ -35,6 +36,7 @@ from .manager import CrossSubscriberManager
 # Global manager instance
 _global_manager: CrossSubscriberManager | None = None
 
+
 def get_cross_subscriber_manager() -> CrossSubscriberManager:
     """Get or create the global cross-subscriber manager."""
     global _global_manager
@@ -42,10 +44,12 @@ def get_cross_subscriber_manager() -> CrossSubscriberManager:
         _global_manager = CrossSubscriberManager()
     return _global_manager
 
+
 def reset_cross_subscriber_manager() -> None:
     """Reset the global manager (for testing)."""
     global _global_manager
     _global_manager = None
+
 
 __all__ = [
     "CrossSubscriberManager",

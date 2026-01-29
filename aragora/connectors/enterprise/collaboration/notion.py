@@ -28,6 +28,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class NotionPage:
     """A Notion page."""
@@ -45,6 +46,7 @@ class NotionPage:
     archived: bool = False
     properties: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class NotionDatabase:
     """A Notion database."""
@@ -56,6 +58,7 @@ class NotionDatabase:
     properties: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
     last_edited_at: datetime | None = None
+
 
 class NotionConnector(EnterpriseConnector):
     """
@@ -1312,5 +1315,6 @@ class NotionConnector(EnterpriseConnector):
             return {"status": {"name": str(value)} if value else None}
 
         return {}
+
 
 __all__ = ["NotionConnector", "NotionPage", "NotionDatabase"]

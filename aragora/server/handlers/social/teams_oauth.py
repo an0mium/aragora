@@ -58,11 +58,13 @@ TEAMS_SCOPES = os.environ.get("TEAMS_SCOPES", DEFAULT_SCOPES)
 MS_OAUTH_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MS_OAUTH_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
+
 def _get_state_store():
     """Get the centralized OAuth state store."""
     from aragora.server.oauth_state_store import get_oauth_state_store
 
     return get_oauth_state_store()
+
 
 class TeamsOAuthHandler(SecureHandler):
     """Handler for Microsoft Teams OAuth installation flow.
@@ -473,6 +475,7 @@ class TeamsOAuthHandler(SecureHandler):
                 "expires_in": expires_in,
             }
         )
+
 
 # Handler factory function for registration
 def create_teams_oauth_handler(server_context: Any) -> TeamsOAuthHandler:

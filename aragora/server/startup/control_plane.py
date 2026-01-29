@@ -4,12 +4,14 @@ Server startup control plane initialization.
 This module handles control plane coordinator, shared state,
 witness patrol, mayor coordinator, and persistent task queue initialization.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 async def init_control_plane_coordinator() -> Any | None:
     """Initialize the Control Plane coordinator.
@@ -54,6 +56,7 @@ async def init_control_plane_coordinator() -> Any | None:
         logger.warning(f"Control Plane coordinator not started (Redis may be unavailable): {e}")
         return None
 
+
 async def init_shared_control_plane_state() -> bool:
     """Initialize the shared control plane state for the AgentDashboardHandler.
 
@@ -80,8 +83,10 @@ async def init_shared_control_plane_state() -> bool:
         logger.warning(f"Shared control plane state initialization failed: {e}")
         return False
 
+
 # Global witness instance for handlers to access
 _witness_behavior: Any | None = None
+
 
 def get_witness_behavior() -> Any | None:
     """Get the global witness behavior instance.
@@ -90,6 +95,7 @@ def get_witness_behavior() -> Any | None:
         WitnessBehavior instance if initialized, None otherwise
     """
     return _witness_behavior
+
 
 async def init_witness_patrol() -> bool:
     """Initialize and start the Witness Patrol for Gas Town monitoring.
@@ -143,8 +149,10 @@ async def init_witness_patrol() -> bool:
         logger.warning(f"Witness patrol initialization failed: {e}")
         return False
 
+
 # Global mayor coordinator instance
 _mayor_coordinator: Any | None = None
+
 
 def get_mayor_coordinator() -> Any | None:
     """Get the global mayor coordinator instance.
@@ -153,6 +161,7 @@ def get_mayor_coordinator() -> Any | None:
         MayorCoordinator instance if initialized, None otherwise
     """
     return _mayor_coordinator
+
 
 async def init_mayor_coordinator() -> bool:
     """Initialize the Mayor Coordinator for distributed leadership.
@@ -204,6 +213,7 @@ async def init_mayor_coordinator() -> bool:
     except Exception as e:
         logger.warning(f"Mayor coordinator initialization failed: {e}")
         return False
+
 
 async def init_persistent_task_queue() -> int:
     """Initialize persistent task queue with recovery of pending tasks.

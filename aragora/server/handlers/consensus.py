@@ -62,6 +62,7 @@ _consensus_imports, CONSENSUS_MEMORY_AVAILABLE = try_import(
 ConsensusMemory = _consensus_imports["ConsensusMemory"]
 DissentRetriever = _consensus_imports["DissentRetriever"]
 
+
 class ConsensusHandler(BaseHandler):
     """Handler for consensus memory endpoints."""
 

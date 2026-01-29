@@ -53,6 +53,7 @@ _DECAY_ITEMS_DECAYED: Any = None
 _DECAY_DURATION_SECONDS: Any = None
 _DECAY_AVG_CHANGE: Any = None
 
+
 def _init_decay_metrics() -> bool:
     """Initialize Prometheus metrics for confidence decay. Returns True if successful."""
     global _DECAY_CYCLES, _DECAY_ITEMS_PROCESSED, _DECAY_ITEMS_DECAYED
@@ -95,6 +96,7 @@ def _init_decay_metrics() -> bool:
         logger.debug("prometheus_client not installed - decay metrics disabled")
         return False
 
+
 def record_decay_metrics(report: "DecayScheduleReport") -> None:
     """Record Prometheus metrics for a decay operation."""
     if not _init_decay_metrics():
@@ -106,6 +108,7 @@ def record_decay_metrics(report: "DecayScheduleReport") -> None:
     _DECAY_ITEMS_DECAYED.labels(workspace=workspace).inc(report.items_decayed)
     _DECAY_DURATION_SECONDS.labels(workspace=workspace).observe(report.duration_ms / 1000)
     _DECAY_AVG_CHANGE.labels(workspace=workspace).set(report.average_change)
+
 
 @dataclass
 class DecayScheduleReport:
@@ -130,6 +133,7 @@ class DecayScheduleReport:
             "duration_ms": self.duration_ms,
             "scheduled_at": self.scheduled_at.isoformat(),
         }
+
 
 class ConfidenceDecayScheduler:
     """
@@ -404,17 +408,21 @@ class ConfidenceDecayScheduler:
             "last_run": {k: v.isoformat() for k, v in self._last_run.items()},
         }
 
+
 # Global scheduler instance (can be started by server startup)
 _scheduler: ConfidenceDecayScheduler | None = None
+
 
 def get_decay_scheduler() -> ConfidenceDecayScheduler | None:
     """Get the global confidence decay scheduler instance."""
     return _scheduler
 
+
 def set_decay_scheduler(scheduler: ConfidenceDecayScheduler) -> None:
     """Set the global confidence decay scheduler instance."""
     global _scheduler
     _scheduler = scheduler
+
 
 async def start_decay_scheduler(
     knowledge_mound: "KnowledgeMound",
@@ -446,6 +454,7 @@ async def start_decay_scheduler(
 
     await _scheduler.start()
     return _scheduler
+
 
 async def stop_decay_scheduler() -> None:
     """Stop the global confidence decay scheduler."""

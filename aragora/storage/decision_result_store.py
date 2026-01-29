@@ -53,6 +53,7 @@ DEFAULT_DB_PATH = (
 )
 DEFAULT_CLEANUP_INTERVAL = 300  # 5 minutes
 
+
 @dataclass
 class DecisionResultEntry:
     """A stored decision result entry."""
@@ -100,6 +101,7 @@ class DecisionResultEntry:
             error=data.get("error"),
             ttl_seconds=ttl_seconds,
         )
+
 
 class DecisionResultStore:
     """
@@ -635,9 +637,11 @@ class DecisionResultStore:
             self._backend.close()
             self._backend = None
 
+
 # Global singleton instance
 _decision_result_store: DecisionResultStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_decision_result_store(
     db_path: Optional[str | Path] = None,
@@ -674,6 +678,7 @@ def get_decision_result_store(
 
     return _decision_result_store
 
+
 def reset_decision_result_store() -> None:
     """Reset the global store instance (for testing)."""
     global _decision_result_store
@@ -681,6 +686,7 @@ def reset_decision_result_store() -> None:
         if _decision_result_store is not None:
             _decision_result_store.close()
             _decision_result_store = None
+
 
 __all__ = [
     "DecisionResultStore",

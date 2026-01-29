@@ -82,6 +82,7 @@ except ImportError:
     def record_rbac_check(*args, **kwargs):
         pass
 
+
 def admin_secure_endpoint(
     permission: str | None = None,
     audit: bool = False,
@@ -196,6 +197,7 @@ def admin_secure_endpoint(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
 
 class AdminHandler(SecureHandler):
     """
@@ -1339,5 +1341,6 @@ class AdminHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Failed to reset circuit breakers: {e}", exc_info=True)
             return error_response(f"Failed to reset circuit breakers: {e}", 500)
+
 
 __all__ = ["AdminHandler"]

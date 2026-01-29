@@ -41,6 +41,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class MessageType(Enum):
     """Types of inter-agent messages."""
 
@@ -51,6 +52,7 @@ class MessageType(Enum):
     QUERY = "query"  # Question to other agents
     RESPONSE = "response"  # Response to a query
     SIGNAL = "signal"  # Control signal (ready, done, etc.)
+
 
 @dataclass
 class ChannelMessage:
@@ -94,6 +96,7 @@ class ChannelMessage:
             metadata=data.get("metadata", {}),
             reply_to=data.get("reply_to"),
         )
+
 
 class AgentChannel:
     """
@@ -464,6 +467,7 @@ class AgentChannel:
 
         return "\n".join(lines)
 
+
 class ChannelManager:
     """
     Manager for agent communication channels.
@@ -550,8 +554,10 @@ class ChannelManager:
                 count += 1
         return count
 
+
 # Default manager instance
 _default_manager: ChannelManager | None = None
+
 
 def get_channel_manager() -> ChannelManager:
     """Get or create the default channel manager."""
@@ -560,10 +566,12 @@ def get_channel_manager() -> ChannelManager:
         _default_manager = ChannelManager()
     return _default_manager
 
+
 def reset_channel_manager() -> None:
     """Reset the default channel manager (for testing)."""
     global _default_manager
     _default_manager = None
+
 
 __all__ = [
     "AgentChannel",

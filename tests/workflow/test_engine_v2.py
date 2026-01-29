@@ -598,9 +598,9 @@ class TestMetricsCallback:
         self, mock_step_registry, workflow_config, simple_workflow
     ):
         """Test that metrics callback is called during execution."""
-        callback_data: List[Dict[str, Any]] = []
+        callback_data: list[dict[str, Any]] = []
 
-        def metrics_callback(metrics: Dict[str, Any]) -> None:
+        def metrics_callback(metrics: dict[str, Any]) -> None:
             callback_data.append(metrics)
 
         engine = EnhancedWorkflowEngine(
@@ -621,7 +621,7 @@ class TestMetricsCallback:
     ):
         """Test that errors in metrics callback don't break execution."""
 
-        def failing_callback(metrics: Dict[str, Any]) -> None:
+        def failing_callback(metrics: dict[str, Any]) -> None:
             raise Exception("Callback error")
 
         engine = EnhancedWorkflowEngine(

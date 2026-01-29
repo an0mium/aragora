@@ -38,6 +38,7 @@ from aragora.server.session_store import (
 
 logger = logging.getLogger(__name__)
 
+
 class DebateSessionManager:
     """Manage debate sessions across channels.
 
@@ -291,8 +292,10 @@ class DebateSessionManager:
         session = self._store.get_debate_session(session_id)
         return session.debate_id if session else None
 
+
 # Singleton instance
 _manager: DebateSessionManager | None = None
+
 
 def get_debate_session_manager() -> DebateSessionManager:
     """Get the singleton DebateSessionManager instance."""

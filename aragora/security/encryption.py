@@ -66,6 +66,7 @@ ENCRYPTION_REQUIRED = os.environ.get("ARAGORA_ENCRYPTION_REQUIRED", "").lower() 
     "yes",
 )
 
+
 class EncryptionError(Exception):
     """Raised when encryption/decryption fails and ENCRYPTION_REQUIRED is True."""
 
@@ -77,6 +78,7 @@ class EncryptionError(Exception):
             f"Encryption {operation} failed for {store or 'unknown'}: {reason}. "
             f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
         )
+
 
 def is_encryption_required() -> bool:
     """Check if encryption is required (fail-fast mode).
@@ -95,16 +97,19 @@ def is_encryption_required() -> bool:
         return True
     return False
 
+
 class EncryptionAlgorithm(str, Enum):
     """Supported encryption algorithms."""
 
     AES_256_GCM = "aes-256-gcm"
+
 
 class KeyDerivationFunction(str, Enum):
     """Key derivation functions."""
 
     PBKDF2_SHA256 = "pbkdf2-sha256"
     HKDF_SHA256 = "hkdf-sha256"
+
 
 @dataclass
 class EncryptionKey:
@@ -136,6 +141,7 @@ class EncryptionKey:
             "is_active": self.is_active,
             "is_expired": self.is_expired,
         }
+
 
 @dataclass
 class EncryptedData:
@@ -214,6 +220,7 @@ class EncryptedData:
         """Deserialize from base64 string."""
         return cls.from_bytes(base64.b64decode(data))
 
+
 @dataclass
 class EncryptionConfig:
     """Configuration for encryption service."""
@@ -234,6 +241,7 @@ class EncryptionConfig:
     # Rotation
     auto_rotate: bool = True
     rotation_overlap_days: int = 7  # Keep old keys active for overlap
+
 
 class EncryptionService:
     """
@@ -599,9 +607,7 @@ class EncryptionService:
         plaintext = self.decrypt(encrypted, associated_data)
         return self.encrypt(plaintext, associated_data, new_key_id)
 
-    def _get_key(
-        self, key_id: str | None = None, version: int | None = None
-    ) -> EncryptionKey:
+    def _get_key(self, key_id: str | None = None, version: int | None = None) -> EncryptionKey:
         """Get a key by ID or the active key."""
         if key_id is None:
             key_id = self._active_key_id
@@ -645,8 +651,10 @@ class EncryptionService:
             return None
         return self._keys.get(self._active_key_id)
 
+
 # Singleton service instance
 _encryption_service: EncryptionService | None = None
+
 
 def get_encryption_service() -> EncryptionService:
     """Get the global encryption service instance."""
@@ -671,6 +679,7 @@ def get_encryption_service() -> EncryptionService:
 
     return _encryption_service
 
+
 def init_encryption_service(
     master_key: bytes | None = None,
     config: EncryptionConfig | None = None,
@@ -679,6 +688,7 @@ def init_encryption_service(
     global _encryption_service
     _encryption_service = EncryptionService(config=config, master_key=master_key)
     return _encryption_service
+
 
 __all__ = [
     "EncryptionService",

@@ -46,12 +46,14 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class ScalingDirection(Enum):
     """Direction of scaling action."""
 
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
     NONE = "none"
+
 
 class ScalingReason(Enum):
     """Reason for scaling decision."""
@@ -63,6 +65,7 @@ class ScalingReason(Enum):
     IDLE_AGENTS = "idle_agents"
     COST_OPTIMIZATION = "cost_optimization"
     MANUAL = "manual"
+
 
 @dataclass
 class ScalingPolicy:
@@ -134,6 +137,7 @@ class ScalingPolicy:
             idle_time_threshold_seconds=600.0,
         )
 
+
 @dataclass
 class ScalingMetrics:
     """Current metrics used for scaling decisions."""
@@ -157,6 +161,7 @@ class ScalingMetrics:
             return 1.0  # No agents = exhausted
         return self.busy_agents / self.total_agents
 
+
 @dataclass
 class ScalingDecision:
     """Result of scaling evaluation."""
@@ -174,8 +179,10 @@ class ScalingDecision:
         """Check if scaling action is recommended."""
         return self.direction != ScalingDirection.NONE and self.recommended_delta != 0
 
+
 # Type for scale-up/down callbacks
 ScalingCallback = Callable[[ScalingDecision], "asyncio.Future[bool]"]
+
 
 class AutoScaler:
     """
@@ -625,17 +632,21 @@ class AutoScaler:
         self._policy = policy
         logger.info("Scaling policy updated")
 
+
 # Module-level singleton
 _auto_scaler: AutoScaler | None = None
+
 
 def get_auto_scaler() -> AutoScaler | None:
     """Get the global auto-scaler instance."""
     return _auto_scaler
 
+
 def set_auto_scaler(scaler: AutoScaler) -> None:
     """Set the global auto-scaler instance."""
     global _auto_scaler
     _auto_scaler = scaler
+
 
 def init_auto_scaler(
     registry: Optional["AgentRegistry"] = None,
@@ -652,6 +663,7 @@ def init_auto_scaler(
     )
     set_auto_scaler(scaler)
     return scaler
+
 
 __all__ = [
     "ScalingDirection",

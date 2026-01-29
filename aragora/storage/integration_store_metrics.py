@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class OperationMetrics:
     """Metrics for a single operation type."""
@@ -97,6 +98,7 @@ class OperationMetrics:
             "last_error": self.last_error,
             "last_error_at": self.last_error_at.isoformat() if self.last_error_at else None,
         }
+
 
 @dataclass
 class IntegrationStoreMetrics:
@@ -168,9 +170,11 @@ class IntegrationStoreMetrics:
             },
         }
 
+
 # Global metrics instance
 _metrics: IntegrationStoreMetrics | None = None
 _metrics_lock = asyncio.Lock()
+
 
 def get_metrics() -> IntegrationStoreMetrics:
     """Get the global metrics instance."""
@@ -179,10 +183,12 @@ def get_metrics() -> IntegrationStoreMetrics:
         _metrics = IntegrationStoreMetrics()
     return _metrics
 
+
 def reset_metrics() -> None:
     """Reset global metrics (for testing)."""
     global _metrics
     _metrics = None
+
 
 def track_operation(operation_type: str):
     """
@@ -223,6 +229,7 @@ def track_operation(operation_type: str):
         return wrapper
 
     return decorator
+
 
 class InstrumentedIntegrationStore:
     """
@@ -373,6 +380,7 @@ class InstrumentedIntegrationStore:
         """Delegate to base store for untracked methods."""
         return getattr(self._store, name)
 
+
 async def get_integration_metrics() -> dict[str, Any]:
     """
     Get current integration store metrics.
@@ -381,6 +389,7 @@ async def get_integration_metrics() -> dict[str, Any]:
         Dict with all metrics
     """
     return get_metrics().to_dict()
+
 
 async def get_integration_health() -> dict[str, Any]:
     """
@@ -403,6 +412,7 @@ async def get_integration_health() -> dict[str, Any]:
             "cache_hit_rate": metrics.cache_hit_rate,
         },
     }
+
 
 __all__ = [
     "OperationMetrics",

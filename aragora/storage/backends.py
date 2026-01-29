@@ -50,6 +50,7 @@ except ImportError:
     RealDictCursor = None
     POSTGRESQL_AVAILABLE = False
 
+
 class DatabaseBackend(ABC):
     """
     Abstract base class for database backends.
@@ -114,6 +115,7 @@ class DatabaseBackend(ABC):
         Subclasses should override if needed.
         """
         return sql
+
 
 class SQLiteBackend(DatabaseBackend):
     """
@@ -299,6 +301,7 @@ class SQLiteBackend(DatabaseBackend):
     def __repr__(self) -> str:
         return f"SQLiteBackend({self.db_path!r})"
 
+
 class PostgreSQLBackend(DatabaseBackend):
     """
     PostgreSQL database backend.
@@ -444,10 +447,12 @@ class PostgreSQLBackend(DatabaseBackend):
         safe_url = f"***@{url_parts[-1]}" if len(url_parts) > 1 else "***"
         return f"PostgreSQLBackend({safe_url})"
 
+
 # Global backend instance (protected by _backend_lock)
 _backend: DatabaseBackend | None = None
 _backend_initialized: bool = False
 _backend_lock = threading.Lock()  # Protects initialization
+
 
 def get_database_backend(
     force_sqlite: bool = False,
@@ -526,6 +531,7 @@ def get_database_backend(
         _backend_initialized = True
         return _backend
 
+
 def reset_database_backend() -> None:
     """Reset the database backend (for testing)."""
     global _backend, _backend_initialized
@@ -536,6 +542,7 @@ def reset_database_backend() -> None:
             _backend = None
 
         _backend_initialized = False
+
 
 __all__ = [
     "DatabaseBackend",

@@ -9,6 +9,7 @@ Arena._run_inner() method, handling:
 - Message and event emission
 - Citation need extraction
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 def _record_calibration_adjustment(agent: str) -> None:
     """Record calibration adjustment metric with lazy import."""
     try:
@@ -41,6 +43,7 @@ def _record_calibration_adjustment(agent: str) -> None:
         record_calibration_adjustment(agent)
     except ImportError:
         pass
+
 
 class ProposalPhase:
     """

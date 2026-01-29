@@ -74,8 +74,8 @@ class MockAuthenticatedUser:
     def __init__(
         self,
         user_id: str = "test-user-001",
-        permissions: Optional[Set[str]] = None,
-        roles: Optional[Set[str]] = None,
+        permissions: Optional[set[str]] = None,
+        roles: Optional[set[str]] = None,
     ):
         self.user_id = user_id
         self.permissions = permissions or {
@@ -102,13 +102,13 @@ class MockNoPermissionsUser:
 
     def __init__(self, user_id: str = "restricted-user"):
         self.user_id = user_id
-        self.permissions: Set[str] = set()
-        self.roles: Set[str] = set()
+        self.permissions: set[str] = set()
+        self.roles: set[str] = set()
 
 
 def make_http_handler(
     method: str = "GET",
-    body: Optional[Dict[str, Any]] = None,
+    body: Optional[dict[str, Any]] = None,
     client_ip: str = "127.0.0.1",
 ) -> MagicMock:
     """Create a mock HTTP handler with optional JSON body and client IP."""
@@ -215,7 +215,7 @@ def mock_rbac_for_tests(request, monkeypatch):
 
 
 @pytest.fixture
-def mock_server_context() -> Dict[str, Any]:
+def mock_server_context() -> dict[str, Any]:
     """Create minimal server context for handler initialization."""
     return {
         "storage": None,
@@ -443,7 +443,9 @@ class TestRBACPermissions:
     def test_check_permission_requires_auth(self, handler, get_handler):
         """_check_permission returns 401 when user is not authenticated."""
         with patch.object(
-            handler, "require_auth_or_error", return_value=(None, error_response("Unauthorized", 401))
+            handler,
+            "require_auth_or_error",
+            return_value=(None, error_response("Unauthorized", 401)),
         ):
             result = handler._check_permission(get_handler, "knowledge.read")
             assert result is not None
@@ -562,7 +564,9 @@ class TestFactsRouting:
             "POST",
             {"statement": "Test statement", "workspace_id": "default", "confidence": 0.9},
         )
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts", {}, http)
         assert result is not None
         assert result.status_code == 201
@@ -572,7 +576,9 @@ class TestFactsRouting:
     def test_post_facts_requires_statement(self, handler):
         """POST /api/v1/knowledge/facts requires statement field."""
         http = make_http_handler("POST", {"workspace_id": "default"})
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts", {}, http)
         assert result is not None
         assert result.status_code == 400
@@ -610,7 +616,9 @@ class TestDynamicFactRoutes:
         fact = store.add_fact(statement="Original", workspace_id="default", confidence=0.5)
 
         http = make_http_handler("PUT", {"confidence": 0.95})
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, http)
         assert result is not None
         assert result.status_code == 200
@@ -620,7 +628,9 @@ class TestDynamicFactRoutes:
     def test_put_fact_not_found(self, handler):
         """PUT /api/v1/knowledge/facts/:id returns 404 for unknown fact."""
         http = make_http_handler("PUT", {"confidence": 0.5})
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts/nonexistent", {}, http)
         assert result is not None
         assert result.status_code == 404
@@ -630,7 +640,9 @@ class TestDynamicFactRoutes:
         store = handler._get_fact_store()
         fact = store.add_fact(statement="To delete", workspace_id="default")
 
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, delete_handler)
         assert result is not None
         assert result.status_code == 200
@@ -639,7 +651,9 @@ class TestDynamicFactRoutes:
 
     def test_delete_fact_not_found(self, handler, delete_handler):
         """DELETE /api/v1/knowledge/facts/:id returns 404 for unknown fact."""
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts/nonexistent", {}, delete_handler)
         assert result is not None
         assert result.status_code == 404
@@ -688,9 +702,7 @@ class TestDynamicFactRoutes:
         store = handler._get_fact_store()
         fact = store.add_fact(statement="Related", workspace_id="default")
 
-        result = handler.handle(
-            f"/api/v1/knowledge/facts/{fact.id}/relations", {}, get_handler
-        )
+        result = handler.handle(f"/api/v1/knowledge/facts/{fact.id}/relations", {}, get_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -712,9 +724,7 @@ class TestDynamicFactRoutes:
 
     def test_get_relations_not_found(self, handler, get_handler):
         """GET /api/v1/knowledge/facts/:id/relations returns 404 for unknown fact."""
-        result = handler.handle(
-            "/api/v1/knowledge/facts/nonexistent/relations", {}, get_handler
-        )
+        result = handler.handle("/api/v1/knowledge/facts/nonexistent/relations", {}, get_handler)
         assert result is not None
         assert result.status_code == 404
 
@@ -734,9 +744,7 @@ class TestDynamicFactRoutes:
 
     def test_unknown_subresource_returns_404(self, handler, get_handler):
         """Unknown subresource under /facts/:id/ returns 404."""
-        result = handler.handle(
-            "/api/v1/knowledge/facts/some-id/unknown-action", {}, get_handler
-        )
+        result = handler.handle("/api/v1/knowledge/facts/some-id/unknown-action", {}, get_handler)
         assert result is not None
         assert result.status_code == 404
 
@@ -840,9 +848,7 @@ class TestStatsEndpoint:
 
     def test_stats_with_workspace_id(self, handler, get_handler):
         """GET /api/v1/knowledge/stats supports workspace_id filter."""
-        result = handler.handle(
-            "/api/v1/knowledge/stats", {"workspace_id": "ws-001"}, get_handler
-        )
+        result = handler.handle("/api/v1/knowledge/stats", {"workspace_id": "ws-001"}, get_handler)
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -927,7 +933,9 @@ class TestEdgeCases:
         http.headers = {"Content-Length": "10"}
         http.rfile = BytesIO(b"not valid json")
 
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts", {}, http)
         assert result is not None
         assert result.status_code == 400
@@ -950,9 +958,7 @@ class TestEdgeCases:
 
     def test_deeply_nested_path(self, handler, get_handler):
         """Deeply nested paths return 404."""
-        result = handler.handle(
-            "/api/v1/knowledge/facts/id/verify/extra/nested", {}, get_handler
-        )
+        result = handler.handle("/api/v1/knowledge/facts/id/verify/extra/nested", {}, get_handler)
         assert result is not None
         assert result.status_code == 404
 
@@ -976,7 +982,9 @@ class TestHandlerMethodIntegration:
 
         # POST routes to create
         post_http = make_http_handler("POST", {"statement": "Created"})
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle("/api/v1/knowledge/facts", {}, post_http)
         assert result is not None
         assert result.status_code == 201
@@ -993,13 +1001,17 @@ class TestHandlerMethodIntegration:
 
         # PUT routes to update
         put_http = make_http_handler("PUT", {"confidence": 0.99})
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, put_http)
         assert result.status_code == 200
 
         # DELETE routes to delete
         delete_http = make_http_handler("DELETE")
-        with patch.object(handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)):
+        with patch.object(
+            handler, "require_auth_or_error", return_value=(MockAuthenticatedUser(), None)
+        ):
             result = handler.handle(f"/api/v1/knowledge/facts/{fact.id}", {}, delete_http)
         assert result.status_code == 200
 
@@ -1010,9 +1022,7 @@ class TestHandlerMethodIntegration:
         target = store.add_fact(statement="Target", workspace_id="default")
 
         # GET returns relations
-        result = handler.handle(
-            f"/api/v1/knowledge/facts/{source.id}/relations", {}, get_handler
-        )
+        result = handler.handle(f"/api/v1/knowledge/facts/{source.id}/relations", {}, get_handler)
         assert result.status_code == 200
 
         # POST adds relation
@@ -1020,7 +1030,5 @@ class TestHandlerMethodIntegration:
             "POST",
             {"target_fact_id": target.id, "relation_type": "supports"},
         )
-        result = handler.handle(
-            f"/api/v1/knowledge/facts/{source.id}/relations", {}, post_http
-        )
+        result = handler.handle(f"/api/v1/knowledge/facts/{source.id}/relations", {}, post_http)
         assert result.status_code == 201

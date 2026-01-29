@@ -12,6 +12,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class VulnerabilitySeverity(str, Enum):
     """Severity level of a vulnerability."""
 
@@ -34,6 +35,7 @@ class VulnerabilitySeverity(str, Enum):
             return cls.LOW
         return cls.UNKNOWN
 
+
 class VulnerabilitySource(str, Enum):
     """Source of vulnerability data."""
 
@@ -43,6 +45,7 @@ class VulnerabilitySource(str, Enum):
     SNYK = "snyk"
     CUSTOM = "custom"
 
+
 @dataclass
 class VulnerabilityReference:
     """A reference link for a vulnerability."""
@@ -50,6 +53,7 @@ class VulnerabilityReference:
     url: str
     source: str
     tags: list[str] = field(default_factory=list)
+
 
 @dataclass
 class VulnerabilityFinding:
@@ -115,6 +119,7 @@ class VulnerabilityFinding:
             "remediation_guidance": self.remediation_guidance,
         }
 
+
 @dataclass
 class DependencyInfo:
     """Information about a project dependency."""
@@ -163,6 +168,7 @@ class DependencyInfo:
             "has_vulnerabilities": self.has_vulnerabilities,
             "highest_severity": self.highest_severity.value if self.highest_severity else None,
         }
+
 
 @dataclass
 class ScanResult:
@@ -230,6 +236,7 @@ class ScanResult:
             },
         }
 
+
 class MetricType(str, Enum):
     """Type of code quality metric."""
 
@@ -240,6 +247,7 @@ class MetricType(str, Enum):
     LINES_OF_CODE = "lines_of_code"
     DOCUMENTATION = "documentation"
     SECURITY = "security"
+
 
 @dataclass
 class CodeMetric:
@@ -278,6 +286,7 @@ class CodeMetric:
             "details": self.details,
             "status": self.status,
         }
+
 
 @dataclass
 class HotspotFinding:
@@ -319,6 +328,7 @@ class HotspotFinding:
             "risk_score": self.risk_score,
         }
 
+
 class SecretType(str, Enum):
     """Type of detected secret."""
 
@@ -345,6 +355,7 @@ class SecretType(str, Enum):
     GENERIC_API_KEY = "generic_api_key"
     GENERIC_SECRET = "generic_secret"
     HIGH_ENTROPY = "high_entropy"
+
 
 @dataclass
 class SecretFinding:
@@ -396,6 +407,7 @@ class SecretFinding:
             "verified": self.verified,
             "remediation": self.remediation,
         }
+
 
 @dataclass
 class SecretsScanResult:

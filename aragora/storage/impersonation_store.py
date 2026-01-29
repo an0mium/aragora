@@ -41,6 +41,7 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SessionRecord:
     """Persistent session record."""
@@ -91,6 +92,7 @@ class SessionRecord:
             "ended_by": self.ended_by,
         }
 
+
 @dataclass
 class AuditRecord:
     """Persistent audit log record."""
@@ -130,6 +132,7 @@ class AuditRecord:
             "success": self.success,
             "error_message": self.error_message,
         }
+
 
 class ImpersonationStore:
     """
@@ -729,8 +732,10 @@ class ImpersonationStore:
         """Close database connection."""
         self._backend.close()
 
+
 # Module-level singleton
 _default_store: ImpersonationStore | None = None
+
 
 def get_impersonation_store(
     db_path: str = "aragora_impersonation.db",
@@ -805,12 +810,14 @@ def get_impersonation_store(
 
     return _default_store
 
+
 def reset_impersonation_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
     if _default_store is not None:
         _default_store.close()
         _default_store = None
+
 
 __all__ = [
     "ImpersonationStore",

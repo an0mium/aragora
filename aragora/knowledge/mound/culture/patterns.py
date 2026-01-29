@@ -12,6 +12,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class PatternType(str, Enum):
     """Types of accumulated patterns."""
 
@@ -23,6 +24,7 @@ class PatternType(str, Enum):
     DOMAIN_NORM = "domain_norm"  # Vertical-specific norms
     CONSENSUS_PATTERN = "consensus"  # How consensus was reached
     DISSENT_PATTERN = "dissent"  # Valuable minority opinions
+
 
 @dataclass
 class ReasoningPattern:
@@ -161,6 +163,7 @@ class ReasoningPattern:
                 else datetime.now()
             ),
         )
+
 
 @dataclass
 class DecisionHeuristic:

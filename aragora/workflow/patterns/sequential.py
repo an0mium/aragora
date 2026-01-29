@@ -28,6 +28,7 @@ from aragora.workflow.types import (
 )
 from aragora.workflow.patterns.base import WorkflowPattern, PatternType
 
+
 class SequentialPattern(WorkflowPattern):
     """
     Linear agent pipeline with data passing.

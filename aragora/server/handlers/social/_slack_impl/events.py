@@ -27,6 +27,7 @@ from .messaging import MessagingMixin
 
 logger = logging.getLogger(__name__)
 
+
 class EventsMixin(MessagingMixin):
     """Mixin providing Slack Events API handling."""
 

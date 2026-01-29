@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Callable, ContextManager, Optional
 if TYPE_CHECKING:
     from aragora.billing.models import OrganizationInvitation
 
+
 class InvitationRepository:
     """
     Repository for organization invitation operations.

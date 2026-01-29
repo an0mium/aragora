@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Each factory returns a callback function. Factories that need shared state
 # (like memory_instance) accept it as a parameter and close over it.
 
+
 def create_memory_cleanup_callback(
     nomic_dir: str | None,
     memory_instance: Any | None,
@@ -82,6 +83,7 @@ def create_memory_cleanup_callback(
 
     return memory_cleanup_task
 
+
 def create_memory_consolidation_callback(
     nomic_dir: str | None,
     memory_instance: Any | None,
@@ -121,6 +123,7 @@ def create_memory_consolidation_callback(
 
     return memory_consolidation_task
 
+
 def stale_debate_cleanup() -> None:
     """Clean up stale debates from state manager."""
     try:
@@ -134,6 +137,7 @@ def stale_debate_cleanup() -> None:
         logger.debug("Stale debate cleanup skipped: %s", e)
     except (sqlite3.Error, OSError, IOError) as e:
         logger.warning("Stale debate cleanup failed: %s", e)
+
 
 def circuit_breaker_cleanup() -> None:
     """Clean up and persist circuit breakers."""
@@ -158,6 +162,7 @@ def circuit_breaker_cleanup() -> None:
     except (sqlite3.Error, OSError, IOError) as e:
         logger.warning("Circuit breaker cleanup failed: %s", e)
 
+
 def circuit_breaker_metrics_export() -> None:
     """Export circuit breaker states to Prometheus."""
     try:
@@ -168,6 +173,7 @@ def circuit_breaker_metrics_export() -> None:
         pass  # prometheus module may not be available
     except (ValueError, TypeError) as e:
         logger.debug("Circuit breaker metrics export failed: %s", e)
+
 
 def consensus_cleanup_task() -> None:
     """Clean up old consensus memory records."""
@@ -190,6 +196,7 @@ def consensus_cleanup_task() -> None:
     except (OSError, IOError) as e:
         logger.warning("Consensus cleanup I/O error: %s", e)
 
+
 def lru_cache_cleanup_task() -> None:
     """Clear module-level @lru_cache functions to prevent memory accumulation."""
     try:
@@ -211,6 +218,7 @@ def lru_cache_cleanup_task() -> None:
         logger.debug("cache_registry not available, skipping LRU cleanup")
     except (TypeError, AttributeError) as e:
         logger.warning("LRU cache cleanup failed: %s", e)
+
 
 def km_staleness_check_task() -> None:
     """Check for stale knowledge in the Knowledge Mound and emit events."""
@@ -275,6 +283,7 @@ def km_staleness_check_task() -> None:
         logger.warning("KM staleness check failed: %s", e)
         _record_km_staleness_metric("default", "failed", 0)
 
+
 def _record_km_staleness_metric(workspace_id: str, status: str, stale_count: int) -> None:
     """Record KM staleness check metric (helper to reduce code duplication)."""
     try:
@@ -283,6 +292,7 @@ def _record_km_staleness_metric(workspace_id: str, status: str, stale_count: int
         record_km_staleness_check(workspace_id, status, stale_count)
     except ImportError:
         pass
+
 
 def snooze_processor_task() -> None:
     """Process due snoozed emails and return them to inbox."""
@@ -333,6 +343,7 @@ def snooze_processor_task() -> None:
     except (RuntimeError, ValueError) as e:
         logger.warning("Snooze processing failed: %s", e)
 
+
 def followup_checker_task() -> None:
     """Check for overdue follow-ups and send reminders."""
     try:
@@ -366,6 +377,7 @@ def followup_checker_task() -> None:
     except (RuntimeError, ValueError) as e:
         logger.warning("Follow-up check failed: %s", e)
 
+
 @dataclass
 class TaskConfig:
     """Configuration for a background task."""
@@ -378,6 +390,7 @@ class TaskConfig:
     last_run: float | None = None
     run_count: int = 0
     error_count: int = 0
+
 
 class BackgroundTaskManager:
     """
@@ -577,9 +590,11 @@ class BackgroundTaskManager:
         self._execute_task(task)
         return True
 
+
 # Singleton instance
 _background_manager: BackgroundTaskManager | None = None
 _manager_lock = threading.Lock()
+
 
 def get_background_manager() -> BackgroundTaskManager:
     """Get the singleton BackgroundTaskManager instance."""
@@ -590,6 +605,7 @@ def get_background_manager() -> BackgroundTaskManager:
             _background_manager = BackgroundTaskManager()
 
     return _background_manager
+
 
 def setup_default_tasks(
     nomic_dir: str | None = None,

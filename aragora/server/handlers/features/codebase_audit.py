@@ -56,6 +56,7 @@ CODEBASE_AUDIT_WRITE_PERMISSION = "codebase_audit:write"
 # Enums and Data Classes
 # =============================================================================
 
+
 class ScanType(Enum):
     """Types of code analysis scans."""
 
@@ -66,6 +67,7 @@ class ScanType(Enum):
     DEPENDENCIES = "dependencies"
     METRICS = "metrics"
 
+
 class ScanStatus(Enum):
     """Scan execution status."""
 
@@ -74,6 +76,7 @@ class ScanStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 class FindingSeverity(Enum):
     """Finding severity levels."""
@@ -84,6 +87,7 @@ class FindingSeverity(Enum):
     LOW = "low"
     INFO = "info"
 
+
 class FindingStatus(Enum):
     """Finding status."""
 
@@ -92,6 +96,7 @@ class FindingStatus(Enum):
     FIXED = "fixed"
     FALSE_POSITIVE = "false_positive"
     ACCEPTED_RISK = "accepted_risk"
+
 
 @dataclass
 class Finding:
@@ -142,6 +147,7 @@ class Finding:
             "github_issue_url": self.github_issue_url,
         }
 
+
 @dataclass
 class ScanResult:
     """Result of a codebase scan."""
@@ -180,6 +186,7 @@ class ScanResult:
             "metrics": self.metrics,
         }
 
+
 # =============================================================================
 # In-Memory Storage
 # =============================================================================
@@ -187,19 +194,23 @@ class ScanResult:
 _scan_store: dict[str, dict[str, ScanResult]] = {}  # tenant_id -> scan_id -> ScanResult
 _finding_store: dict[str, dict[str, Finding]] = {}  # tenant_id -> finding_id -> Finding
 
+
 def _get_tenant_scans(tenant_id: str) -> dict[str, ScanResult]:
     if tenant_id not in _scan_store:
         _scan_store[tenant_id] = {}
     return _scan_store[tenant_id]
+
 
 def _get_tenant_findings(tenant_id: str) -> dict[str, Finding]:
     if tenant_id not in _finding_store:
         _finding_store[tenant_id] = {}
     return _finding_store[tenant_id]
 
+
 # =============================================================================
 # Scanner Integration
 # =============================================================================
+
 
 async def run_sast_scan(
     target_path: str,
@@ -249,6 +260,7 @@ async def run_sast_scan(
 
     return findings
 
+
 async def run_bug_scan(
     target_path: str,
     scan_id: str,
@@ -288,6 +300,7 @@ async def run_bug_scan(
 
     return findings
 
+
 async def run_secrets_scan(
     target_path: str,
     scan_id: str,
@@ -325,6 +338,7 @@ async def run_secrets_scan(
         findings = _get_mock_secrets_findings(scan_id)
 
     return findings
+
 
 async def run_dependency_scan(
     target_path: str,
@@ -370,6 +384,7 @@ async def run_dependency_scan(
 
     return findings
 
+
 async def run_metrics_analysis(
     target_path: str,
     scan_id: str,
@@ -408,6 +423,7 @@ async def run_metrics_analysis(
 
     return metrics
 
+
 def _map_severity(severity: Any) -> FindingSeverity:
     """Map various severity representations to FindingSeverity."""
     if hasattr(severity, "value"):
@@ -425,9 +441,11 @@ def _map_severity(severity: Any) -> FindingSeverity:
     }
     return mapping.get(severity_str, FindingSeverity.MEDIUM)
 
+
 # =============================================================================
 # Mock Data for Demo Mode
 # =============================================================================
+
 
 def _get_mock_sast_findings(scan_id: str) -> list[Finding]:
     """Generate mock SAST findings for demo."""
@@ -482,6 +500,7 @@ def _get_mock_sast_findings(scan_id: str) -> list[Finding]:
         ),
     ]
 
+
 def _get_mock_bug_findings(scan_id: str) -> list[Finding]:
     """Generate mock bug findings for demo."""
     return [
@@ -515,6 +534,7 @@ def _get_mock_bug_findings(scan_id: str) -> list[Finding]:
         ),
     ]
 
+
 def _get_mock_secrets_findings(scan_id: str) -> list[Finding]:
     """Generate mock secrets findings for demo."""
     return [
@@ -532,6 +552,7 @@ def _get_mock_secrets_findings(scan_id: str) -> list[Finding]:
             confidence=0.99,
         ),
     ]
+
 
 def _get_mock_dependency_findings(scan_id: str) -> list[Finding]:
     """Generate mock dependency findings for demo."""
@@ -562,6 +583,7 @@ def _get_mock_dependency_findings(scan_id: str) -> list[Finding]:
         ),
     ]
 
+
 def _get_mock_metrics() -> dict[str, Any]:
     """Generate mock metrics for demo."""
     return {
@@ -590,9 +612,11 @@ def _get_mock_metrics() -> dict[str, Any]:
         ],
     }
 
+
 # =============================================================================
 # Handler Class
 # =============================================================================
+
 
 class CodebaseAuditHandler(SecureHandler):
     """Handler for codebase audit API endpoints.
@@ -1242,11 +1266,13 @@ class CodebaseAuditHandler(SecureHandler):
             return dict(request.args)
         return {}
 
+
 # =============================================================================
 # Handler Registration
 # =============================================================================
 
 _handler_instance: CodebaseAuditHandler | None = None
+
 
 def get_codebase_audit_handler() -> CodebaseAuditHandler:
     """Get or create handler instance."""
@@ -1255,10 +1281,12 @@ def get_codebase_audit_handler() -> CodebaseAuditHandler:
         _handler_instance = CodebaseAuditHandler()
     return _handler_instance
 
+
 async def handle_codebase_audit(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for codebase audit requests."""
     handler = get_codebase_audit_handler()
     return await handler.handle(request, path, method)
+
 
 __all__ = [
     "CodebaseAuditHandler",

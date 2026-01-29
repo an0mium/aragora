@@ -30,6 +30,7 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class VulnerabilityPattern:
     """Pattern for detecting security vulnerabilities."""
@@ -43,6 +44,7 @@ class VulnerabilityPattern:
     recommendation: str
     flags: int = re.IGNORECASE | re.MULTILINE
 
+
 @dataclass
 class SecretPattern:
     """Pattern for detecting secrets and API keys."""
@@ -51,6 +53,7 @@ class SecretPattern:
     pattern: str
     severity: str
     description: str = ""
+
 
 class SoftwareKnowledge(BaseVerticalKnowledge):
     """

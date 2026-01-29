@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class StalenessProtocol(Protocol):
     """Protocol defining expected interface for Staleness mixin."""
 
@@ -29,6 +30,7 @@ class StalenessProtocol(Protocol):
 
     def _ensure_initialized(self) -> None: ...
     async def update(self, node_id: str, updates: dict[str, Any]) -> Optional["KnowledgeItem"]: ...
+
 
 class StalenessOperationsMixin:
     """Mixin providing staleness management for KnowledgeMound."""

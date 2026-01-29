@@ -11,6 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def list_trending_topics_tool(
     platform: str = "all",
     category: str = "",
@@ -81,5 +82,6 @@ async def list_trending_topics_tool(
         "category": category or "(all)",
         "min_score": min_score,
     }
+
 
 __all__ = ["list_trending_topics_tool"]

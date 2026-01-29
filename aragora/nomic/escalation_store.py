@@ -33,6 +33,7 @@ Usage:
     # On restart, recover active escalations
     active = await store.get_active_escalations()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,6 +49,7 @@ from aragora.nomic.molecules import EscalationLevel
 
 logger = logging.getLogger(__name__)
 
+
 class EscalationStatus(str, Enum):
     """Status of an escalation chain."""
 
@@ -56,6 +58,7 @@ class EscalationStatus(str, Enum):
     EXPIRED = "expired"  # Timed out without resolution
     CANCELLED = "cancelled"  # Manually cancelled
     SUPPRESSED = "suppressed"  # Suppressed by policy
+
 
 @dataclass
 class EscalationEvent:
@@ -106,6 +109,7 @@ class EscalationEvent:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class EscalationChainConfig:
     """Configuration for escalation chain behavior."""
@@ -129,6 +133,7 @@ class EscalationChainConfig:
     allow_skip_levels: bool = False  # Allow jumping directly to higher levels
     auto_resolve_on_success: bool = True  # Auto-resolve when handler succeeds
     suppress_duplicates_minutes: int = 10  # Suppress duplicate escalations
+
 
 @dataclass
 class EscalationChain:
@@ -474,6 +479,7 @@ class EscalationChain:
         if not self.auto_escalate_at:
             return False
         return datetime.now(timezone.utc) >= self.auto_escalate_at
+
 
 class EscalationStore:
     """
@@ -832,6 +838,7 @@ class EscalationStore:
             "total_events": sum(len(c.events) for c in chains),
         }
 
+
 class EscalationRecovery:
     """
     Handles recovery of escalations on startup.
@@ -874,8 +881,10 @@ class EscalationRecovery:
 
         return recovered
 
+
 # Singleton instance
 _default_store: EscalationStore | None = None
+
 
 async def get_escalation_store(
     storage_dir: Path | None = None,
@@ -886,6 +895,7 @@ async def get_escalation_store(
         _default_store = EscalationStore(storage_dir)
         await _default_store.initialize()
     return _default_store
+
 
 def reset_escalation_store() -> None:
     """Reset the default store (for testing)."""

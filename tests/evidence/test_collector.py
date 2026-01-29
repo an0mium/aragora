@@ -259,7 +259,7 @@ class TestEvidencePack:
     """Tests for EvidencePack dataclass."""
 
     @pytest.fixture
-    def sample_snippets(self) -> List[EvidenceSnippet]:
+    def sample_snippets(self) -> list[EvidenceSnippet]:
         """Create sample snippets for pack tests."""
         return [
             EvidenceSnippet(

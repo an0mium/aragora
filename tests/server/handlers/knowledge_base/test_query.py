@@ -28,21 +28,25 @@ _original_require_permission = None
 
 def _bypass_require_permission(permission):
     """No-op decorator for testing."""
+
     def decorator(func):
         return func
+
     return decorator
 
 
 # Patch the decorator module before importing the mixin
 patch("aragora.rbac.decorators.require_permission", _bypass_require_permission).start()
-patch("aragora.server.handlers.knowledge_base.query.require_permission", _bypass_require_permission).start()
+patch(
+    "aragora.server.handlers.knowledge_base.query.require_permission", _bypass_require_permission
+).start()
 
 from aragora.server.handlers.knowledge_base.query import (
     QueryOperationsMixin,
 )
 
 
-def parse_response(result) -> Dict[str, Any]:
+def parse_response(result) -> dict[str, Any]:
     """Parse HandlerResult body to dict."""
     return json.loads(result.body.decode("utf-8"))
 
@@ -57,13 +61,13 @@ class MockQueryResult:
     """Mock query result object."""
 
     answer: str
-    facts: List[Dict[str, Any]] = field(default_factory=list)
+    facts: list[dict[str, Any]] = field(default_factory=list)
     confidence: float = 0.85
-    citations: List[str] = field(default_factory=list)
+    citations: list[str] = field(default_factory=list)
     chunks_used: int = 5
     processing_time_ms: float = 150.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "answer": self.answer,
             "facts": self.facts,
@@ -87,7 +91,7 @@ class MockHTTPHandler:
     def __init__(
         self,
         body: bytes = b"{}",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
     ):
         self.rfile = BytesIO(body)
         self.headers = headers or {}
@@ -176,9 +180,7 @@ class TestHandleQueryValid:
         """Test query with all options specified."""
         mock_result = MockQueryResult(
             answer="The contract expires on December 31, 2025.",
-            facts=[
-                {"fact": "Contract expiration date is December 31, 2025", "confidence": 0.95}
-            ],
+            facts=[{"fact": "Contract expiration date is December 31, 2025", "confidence": 0.95}],
             confidence=0.92,
             citations=["contract.pdf:page 5"],
             chunks_used=3,

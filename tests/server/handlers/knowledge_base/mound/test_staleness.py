@@ -75,7 +75,7 @@ class MockStaleItem:
 
     node_id: str
     staleness_score: float
-    reasons: List[StalenessReason]
+    reasons: list[StalenessReason]
     last_validated_at: Optional[datetime] = None
     recommended_action: str = "revalidate"
 
@@ -92,7 +92,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

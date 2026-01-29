@@ -32,12 +32,14 @@ _fv_imports, FORMAL_VERIFICATION_AVAILABLE = try_import(
 )
 get_formal_verification_manager = _fv_imports.get("get_formal_verification_manager")
 
+
 def _safe_float(value, default: float = 0.0) -> float:
     """Safely convert value to float, returning default on failure."""
     try:
         return float(value)
     except (ValueError, TypeError):
         return default
+
 
 class VerificationHandler(BaseHandler):
     """Handler for formal verification endpoints."""

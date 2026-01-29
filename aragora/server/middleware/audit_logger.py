@@ -69,6 +69,7 @@ from typing import Any, Callable, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
+
 class AuditSeverity(Enum):
     """Severity levels for audit events."""
 
@@ -77,6 +78,7 @@ class AuditSeverity(Enum):
     WARNING = "warning"  # Anomalous but not critical (failed auth attempts)
     ERROR = "error"  # Failures that need attention
     CRITICAL = "critical"  # Security incidents requiring immediate action
+
 
 class AuditCategory(Enum):
     """Categories for audit events."""
@@ -89,6 +91,7 @@ class AuditCategory(Enum):
     ADMINISTRATIVE = "administrative"  # User management, role changes
     SECURITY = "security"  # Security-related events (rate limits, blocks)
     SYSTEM = "system"  # System events (startup, shutdown)
+
 
 @dataclass
 class AuditEvent:
@@ -168,6 +171,7 @@ class AuditEvent:
         serialized = json.dumps(data, sort_keys=True)
         return hashlib.sha256(serialized.encode()).hexdigest()
 
+
 class AuditBackend(Protocol):
     """Protocol for audit log backends."""
 
@@ -189,6 +193,7 @@ class AuditBackend(Protocol):
     def get_last_hash(self) -> str | None:
         """Get hash of the last event for chain integrity."""
         ...
+
 
 class FileAuditBackend:
     """
@@ -348,6 +353,7 @@ class FileAuditBackend:
         """Get hash of the last event."""
         return self._last_hash
 
+
 class MemoryAuditBackend:
     """
     In-memory audit backend for testing and development.
@@ -417,6 +423,7 @@ class MemoryAuditBackend:
         with self._lock:
             self._events.clear()
             self._last_hash = None
+
 
 class AuditLogger:
     """
@@ -595,6 +602,7 @@ class AuditLogger:
 
         return True
 
+
 # Global audit logger instance
 _audit_logger: AuditLogger | None = None
 _logger_lock = threading.Lock()
@@ -613,6 +621,7 @@ _current_actor_ip: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "audit_actor_ip", default=None
 )
 
+
 def get_audit_logger() -> AuditLogger:
     """Get the global audit logger instance."""
     global _audit_logger
@@ -622,11 +631,13 @@ def get_audit_logger() -> AuditLogger:
                 _audit_logger = AuditLogger()
     return _audit_logger
 
+
 def set_audit_logger(logger: AuditLogger) -> None:
     """Set the global audit logger instance."""
     global _audit_logger
     with _logger_lock:
         _audit_logger = logger
+
 
 def set_audit_context(
     request_id: str | None = None,
@@ -644,12 +655,14 @@ def set_audit_context(
     if actor_ip is not None:
         _current_actor_ip.set(actor_ip)
 
+
 def clear_audit_context() -> None:
     """Clear audit context for the current execution."""
     _current_request_id.set(None)
     _current_session_id.set(None)
     _current_actor.set(None)
     _current_actor_ip.set(None)
+
 
 def audit_event(
     action: str,
@@ -692,6 +705,7 @@ def audit_event(
         category=category,
         details=details,
     )
+
 
 def audit_action(
     action: str,
@@ -820,7 +834,9 @@ def audit_action(
 
     return decorator
 
+
 # Pre-defined audit event helpers for common operations
+
 
 def audit_auth_login(
     user_id: str,
@@ -844,6 +860,7 @@ def audit_auth_login(
         },
     )
 
+
 def audit_auth_logout(user_id: str, ip_address: str | None = None) -> AuditEvent:
     """Log an authentication logout."""
     return audit_event(
@@ -855,6 +872,7 @@ def audit_auth_logout(user_id: str, ip_address: str | None = None) -> AuditEvent
         category=AuditCategory.AUTHENTICATION,
         details={"ip_address": ip_address},
     )
+
 
 def audit_token_revoked(
     token_hash: str,
@@ -872,6 +890,7 @@ def audit_token_revoked(
         category=AuditCategory.AUTHENTICATION,
         details={"reason": reason},
     )
+
 
 def audit_access_denied(
     user_id: str,
@@ -893,6 +912,7 @@ def audit_access_denied(
         },
     )
 
+
 def audit_data_modified(
     user_id: str,
     resource_type: str,
@@ -911,6 +931,7 @@ def audit_data_modified(
         category=AuditCategory.DATA_MODIFICATION,
         details={"changes": changes or {}},
     )
+
 
 def audit_config_changed(
     user_id: str,
@@ -933,6 +954,7 @@ def audit_config_changed(
         },
     )
 
+
 def audit_security_event(
     event_type: str,  # "rate_limit", "blocked_ip", "suspicious_activity"
     actor: str,
@@ -949,6 +971,7 @@ def audit_security_event(
         category=AuditCategory.SECURITY,
         details=details,
     )
+
 
 __all__ = [
     # Core classes

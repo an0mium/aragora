@@ -53,13 +53,16 @@ _current_tenant: ContextVar[str | None] = ContextVar("current_tenant", default=N
 # Type variable for generic functions
 F = TypeVar("F", bound=Callable[..., Any])
 
+
 def get_current_tenant() -> str | None:
     """Get the current tenant/workspace ID from context."""
     return _current_tenant.get()
 
+
 def set_current_tenant(tenant_id: str | None) -> None:
     """Set the current tenant/workspace ID in context."""
     _current_tenant.set(tenant_id)
+
 
 class TenantContext:
     """
@@ -92,6 +95,7 @@ class TenantContext:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         _current_tenant.reset(self._token)
 
+
 def with_tenant(tenant_id: str) -> Callable[[F], F]:
     """
     Decorator to run a function within a tenant context.
@@ -119,6 +123,7 @@ def with_tenant(tenant_id: str) -> Callable[[F], F]:
 
     return decorator
 
+
 @dataclass
 class TenantQuota:
     """
@@ -137,6 +142,7 @@ class TenantQuota:
     max_queued_tasks: int = 1000
     max_task_timeout_seconds: float = 3600.0  # 1 hour
     rate_limit_per_minute: int = 1000
+
 
 @dataclass
 class TenantState:
@@ -185,12 +191,14 @@ class TenantState:
         self._request_timestamps.append(now)
         return True
 
+
 class TenantEnforcementError(Exception):
     """Raised when a tenant operation violates constraints."""
 
     def __init__(self, message: str, tenant_id: str | None = None):
         self.tenant_id = tenant_id
         super().__init__(message)
+
 
 class TenantEnforcer:
     """
@@ -436,8 +444,10 @@ class TenantEnforcer:
 
             return len(to_remove)
 
+
 # Global enforcer instance
 _global_enforcer: TenantEnforcer | None = None
+
 
 def get_global_enforcer() -> TenantEnforcer:
     """Get the global tenant enforcer instance."""
@@ -445,6 +455,7 @@ def get_global_enforcer() -> TenantEnforcer:
     if _global_enforcer is None:
         _global_enforcer = TenantEnforcer()
     return _global_enforcer
+
 
 def set_global_enforcer(enforcer: TenantEnforcer) -> None:
     """Set the global tenant enforcer instance."""

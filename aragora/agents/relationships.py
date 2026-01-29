@@ -27,6 +27,7 @@ from aragora.ranking.relationships import (
 
 logger = logging.getLogger(__name__)
 
+
 class RelationshipTracker(BaseRelationshipTracker):
     """
     Extended RelationshipTracker with agent-specific convenience methods.

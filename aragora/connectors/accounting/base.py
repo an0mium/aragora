@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Type variable for credentials
 C = TypeVar("C")
 
+
 @dataclass
 class RetryConfig:
     """Configuration for request retry behavior."""
@@ -51,6 +52,7 @@ class RetryConfig:
     retryable_statuses: tuple = (429, 500, 502, 503, 504)
     retry_on_connection_error: bool = True
 
+
 @dataclass
 class PaginationConfig:
     """Configuration for pagination."""
@@ -58,6 +60,7 @@ class PaginationConfig:
     page_size: int = 100
     max_pages: int | None = None
     style: str = "offset"  # "offset", "cursor", "page"
+
 
 class AccountingConnectorBase(ABC, Generic[C]):
     """
@@ -543,6 +546,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
             "is_authenticated": self.is_authenticated,
             "base_url": self.BASE_URL,
         }
+
 
 __all__ = [
     "AccountingConnectorBase",

@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Singleton A2A server
 _a2a_server: Any | None = None
 
+
 def get_a2a_server():
     """Get or create the A2A server singleton."""
     global _a2a_server
@@ -41,6 +42,7 @@ def get_a2a_server():
 
         _a2a_server = A2AServer()
     return _a2a_server
+
 
 class A2AHandler(BaseHandler):
     """Handler for A2A protocol endpoints."""
@@ -255,8 +257,10 @@ class A2AHandler(BaseHandler):
             status=426,
         )
 
+
 # Handler factory
 _a2a_handler: Optional["A2AHandler"] = None
+
 
 def get_a2a_handler(server_context: dict | None = None) -> "A2AHandler":
     """Get or create the A2A handler instance."""
@@ -266,5 +270,6 @@ def get_a2a_handler(server_context: dict | None = None) -> "A2AHandler":
             server_context = {}
         _a2a_handler = A2AHandler(server_context)  # type: ignore[arg-type]
     return _a2a_handler
+
 
 __all__ = ["A2AHandler", "get_a2a_handler", "get_a2a_server"]

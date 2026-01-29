@@ -33,6 +33,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 class MongoDBConnector(EnterpriseConnector):
     """
     MongoDB connector for enterprise data sync.

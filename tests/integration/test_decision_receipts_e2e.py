@@ -27,7 +27,7 @@ class TestDecisionReceiptGeneration:
     """Test decision receipt generation from gauntlet results."""
 
     @pytest.fixture
-    def sample_gauntlet_result(self) -> Dict[str, Any]:
+    def sample_gauntlet_result(self) -> dict[str, Any]:
         """Create a sample gauntlet result for testing."""
         return {
             "gauntlet_id": "gnt_test_123",

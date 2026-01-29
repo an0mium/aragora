@@ -19,6 +19,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Pattern
 
+
 class ComplianceSeverity(Enum):
     """Severity levels for compliance issues."""
 
@@ -27,6 +28,7 @@ class ComplianceSeverity(Enum):
     MEDIUM = "medium"  # Moderate concern
     LOW = "low"  # Minor issue or best practice
     INFO = "info"  # Informational only
+
 
 @dataclass
 class ComplianceIssue:
@@ -52,6 +54,7 @@ class ComplianceIssue:
             "line_number": self.line_number,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class ComplianceCheckResult:
@@ -90,6 +93,7 @@ class ComplianceCheckResult:
             "issues": [i.to_dict() for i in self.issues],
             "checked_at": self.checked_at.isoformat(),
         }
+
 
 @dataclass
 class ComplianceRule:
@@ -164,6 +168,7 @@ class ComplianceRule:
 
         return issues
 
+
 @dataclass
 class ComplianceFramework:
     """A compliance framework with its rules."""
@@ -193,6 +198,7 @@ class ComplianceFramework:
             "rule_count": len(self.rules),
             "applicable_verticals": self.applicable_verticals,
         }
+
 
 # =============================================================================
 # Pre-defined Compliance Frameworks
@@ -590,6 +596,7 @@ COMPLIANCE_FRAMEWORKS: dict[str, ComplianceFramework] = {
     "iso_27001": ISO_27001_FRAMEWORK,
 }
 
+
 class ComplianceFrameworkManager:
     """
     Manages compliance checking across multiple frameworks.
@@ -730,6 +737,7 @@ class ComplianceFrameworkManager:
         self._frameworks[framework_id].rules.append(rule)
         return True
 
+
 async def check_compliance(
     content: str,
     frameworks: Optional[list[str]] = None,
@@ -748,6 +756,7 @@ async def check_compliance(
     """
     manager = ComplianceFrameworkManager()
     return manager.check(content, frameworks, min_severity)
+
 
 __all__ = [
     "ComplianceSeverity",

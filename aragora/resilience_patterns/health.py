@@ -28,6 +28,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class HealthStatus:
     """Health status for a component.
@@ -75,6 +76,7 @@ class HealthStatus:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class HealthReport:
     """Aggregated health report for multiple components.
@@ -99,6 +101,7 @@ class HealthReport:
             "checked_at": self.checked_at.isoformat(),
             "summary": self.summary,
         }
+
 
 class HealthChecker:
     """Health checker for a single component.
@@ -207,6 +210,7 @@ class HealthChecker:
             self._last_check = datetime.now(timezone.utc)
             self._latencies.clear()
             self._metadata.clear()
+
 
 class HealthRegistry:
     """Registry for managing multiple health checkers.
@@ -325,9 +329,11 @@ class HealthRegistry:
         with self._lock:
             return list(self._checkers.keys())
 
+
 # Global health registry for convenience
 _global_registry: HealthRegistry | None = None
 _global_registry_lock = threading.Lock()
+
 
 def get_global_health_registry() -> HealthRegistry:
     """Get the global health registry."""

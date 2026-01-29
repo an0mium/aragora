@@ -35,6 +35,7 @@ CHUNK_SIZE = 64 * 1024  # 64KB chunks for streaming
 HEADER_MAGIC = b"ABKP"
 HEADER_SIZE = 4 + 1 + NONCE_SIZE + 32
 
+
 @dataclass
 class EncryptionKey:
     """Encryption key with metadata."""
@@ -48,6 +49,7 @@ class EncryptionKey:
         if len(self.key) != KEY_SIZE:
             raise ValueError(f"Key must be {KEY_SIZE} bytes, got {len(self.key)}")
 
+
 @dataclass
 class EncryptionMetadata:
     """Metadata about encrypted data."""
@@ -57,6 +59,7 @@ class EncryptionMetadata:
     nonce: bytes
     original_size: int = 0
     encrypted_size: int = 0
+
 
 class BackupEncryption:
     """
@@ -287,6 +290,7 @@ class BackupEncryption:
 
         return aesgcm.decrypt(nonce, ciphertext, None)
 
+
 class KeyManager:
     """
     Simple key manager for backup encryption keys.
@@ -390,7 +394,9 @@ class KeyManager:
             description=f"Rotation of {old_key_id}",
         )
 
+
 # Module-level convenience functions
+
 
 def encrypt_backup(
     source_path: Path,
@@ -411,6 +417,7 @@ def encrypt_backup(
     enc = BackupEncryption(key)
     return enc.encrypt_file(source_path, dest_path)
 
+
 def decrypt_backup(
     source_path: Path,
     dest_path: Path,
@@ -429,6 +436,7 @@ def decrypt_backup(
     """
     enc = BackupEncryption(key)
     return enc.decrypt_file(source_path, dest_path)
+
 
 __all__ = [
     "BackupEncryption",

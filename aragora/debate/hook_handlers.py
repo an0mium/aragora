@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class HookHandlerRegistry:
     """Registry of default hook handlers that wire subsystems to HookManager.
@@ -1050,6 +1051,7 @@ class HookHandlerRegistry:
         """Whether handlers have been registered."""
         return self._registered
 
+
 def create_hook_handler_registry(
     hook_manager: "HookManager",
     *,
@@ -1133,5 +1135,6 @@ def create_hook_handler_registry(
         registry.register_all()
 
     return registry
+
 
 __all__ = ["HookHandlerRegistry", "create_hook_handler_registry"]

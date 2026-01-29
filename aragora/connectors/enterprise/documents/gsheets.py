@@ -29,6 +29,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SheetData:
     """Data from a single sheet within a spreadsheet."""
@@ -41,6 +42,7 @@ class SheetData:
     rows: list[list[Any]] = field(default_factory=list)
     frozen_rows: int = 0
     frozen_cols: int = 0
+
 
 @dataclass
 class Spreadsheet:
@@ -55,6 +57,7 @@ class Spreadsheet:
     web_view_link: str = ""
     owner: str = ""
     sheets: list[SheetData] = field(default_factory=list)
+
 
 class GoogleSheetsConnector(EnterpriseConnector):
     """
@@ -676,5 +679,6 @@ class GoogleSheetsConnector(EnterpriseConnector):
         except Exception as e:
             logger.error(f"[{self.name}] DataFrame conversion failed: {e}")
             return None
+
 
 __all__ = ["GoogleSheetsConnector", "Spreadsheet", "SheetData"]

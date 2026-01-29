@@ -49,6 +49,7 @@ if not WHATSAPP_APP_SECRET:
 # WhatsApp Cloud API
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
 
+
 def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     """Verify WhatsApp webhook signature.
 
@@ -67,6 +68,7 @@ def _verify_whatsapp_signature(signature: str, body: bytes) -> bool:
     computed_sig = hmac.new(WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256).hexdigest()
 
     return hmac.compare_digest(expected_sig, computed_sig)
+
 
 class WhatsAppHandler(BotHandlerMixin, SecureHandler):
     """Handler for WhatsApp Cloud API webhook endpoints.

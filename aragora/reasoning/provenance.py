@@ -14,6 +14,7 @@ Key concepts:
 - CitationGraph: Dependencies between claims and evidence
 - ProvenanceVerifier: Validates evidence integrity
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -22,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
 
 class SourceType(Enum):
     """Type of evidence source."""
@@ -38,6 +40,7 @@ class SourceType(Enum):
     AUDIO_TRANSCRIPT = "audio_transcript"  # Transcribed audio/video content
     UNKNOWN = "unknown"
 
+
 class TransformationType(Enum):
     """How evidence was transformed."""
 
@@ -51,6 +54,7 @@ class TransformationType(Enum):
     VERIFIED = "verified"
     REFUTED = "refuted"
     AMENDED = "amended"
+
 
 @dataclass
 class ProvenanceRecord:
@@ -138,6 +142,7 @@ class ProvenanceRecord:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class Citation:
     """A citation linking a claim to evidence."""
@@ -148,6 +153,7 @@ class Citation:
     support_type: str = "supports"  # supports, contradicts, contextualizes
     citation_text: str = ""  # The specific quoted portion
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class ProvenanceChain:
     """
@@ -273,6 +279,7 @@ class ProvenanceChain:
         chain.created_at = datetime.fromisoformat(data["created_at"])
         chain.records = [ProvenanceRecord.from_dict(r) for r in data.get("records", [])]
         return chain
+
 
 class CitationGraph:
     """
@@ -401,6 +408,7 @@ class CitationGraph:
 
         return cycles
 
+
 class MerkleTree:
     """Merkle tree for efficient batch verification of evidence."""
 
@@ -474,6 +482,7 @@ class MerkleTree:
                 current = self._hash(current + sibling_hash)
 
         return current == root
+
 
 class ProvenanceVerifier:
     """Verifies evidence provenance and integrity."""
@@ -584,6 +593,7 @@ class ProvenanceVerifier:
             "verified": record.verified,
             "confidence": record.confidence,
         }
+
 
 class ProvenanceManager:
     """High-level manager for evidence provenance in debates."""

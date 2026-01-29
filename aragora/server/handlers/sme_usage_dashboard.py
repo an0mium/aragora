@@ -33,6 +33,7 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+
 def _get_real_consensus_rate(
     org_id: str,
     start_time: datetime,
@@ -72,8 +73,10 @@ def _get_real_consensus_rate(
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
 
+
 # Rate limiter for usage dashboard (60 requests per minute)
 _dashboard_limiter = RateLimiter(requests_per_minute=60)
+
 
 class SMEUsageDashboardHandler(SecureHandler):
     """Handler for SME usage dashboard endpoints.
@@ -812,5 +815,6 @@ class SMEUsageDashboardHandler(SecureHandler):
                 "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
+
 
 __all__ = ["SMEUsageDashboardHandler"]

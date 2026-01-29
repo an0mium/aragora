@@ -29,6 +29,7 @@ Usage:
     # Handle agent failure
     await coordinator.handle_agent_failure(agent_id)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,6 +55,7 @@ from aragora.nomic.agent_roles import (
 
 logger = logging.getLogger(__name__)
 
+
 class AssignmentStatus(str, Enum):
     """Status of a bead assignment."""
 
@@ -62,6 +64,7 @@ class AssignmentStatus(str, Enum):
     COMPLETED = "completed"  # Work finished
     FAILED = "failed"  # Work failed
     REASSIGNED = "reassigned"  # Moved to another agent
+
 
 class RebalanceReason(str, Enum):
     """Reasons for triggering rebalance."""
@@ -72,6 +75,7 @@ class RebalanceReason(str, Enum):
     PROGRESS_STALLED = "progress_stalled"
     MANUAL = "manual"
     PRIORITY_CHANGE = "priority_change"
+
 
 @dataclass
 class BeadAssignment:
@@ -142,6 +146,7 @@ class BeadAssignment:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class AgentLoad:
     """Tracks current load for an agent."""
@@ -167,6 +172,7 @@ class AgentLoad:
         if self.total_assigned >= max_concurrent:
             return 0.0
         return 1.0 - (self.total_assigned / max_concurrent)
+
 
 @dataclass
 class RebalancePolicy:
@@ -227,6 +233,7 @@ class RebalancePolicy:
                     return RebalanceReason.PROGRESS_STALLED
 
         return None
+
 
 class ConvoyCoordinator:
     """
@@ -930,8 +937,10 @@ class ConvoyCoordinator:
             },
         }
 
+
 # Singleton instance
 _default_coordinator: ConvoyCoordinator | None = None
+
 
 async def get_convoy_coordinator(
     convoy_manager: "ConvoyManager",
@@ -948,6 +957,7 @@ async def get_convoy_coordinator(
         )
         await _default_coordinator.initialize()
     return _default_coordinator
+
 
 def reset_convoy_coordinator() -> None:
     """Reset the default coordinator (for testing)."""

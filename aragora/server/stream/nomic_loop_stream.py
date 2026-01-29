@@ -18,6 +18,7 @@ Usage:
     await server.emit_loop_started(cycles=3, auto_approve=False)
     await server.emit_phase_changed(old_phase="context", new_phase="debate")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,6 +30,7 @@ from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 class NomicLoopEventType(Enum):
     """Types of Nomic Loop events."""
@@ -69,6 +71,7 @@ class NomicLoopEventType(Enum):
     # Error events
     ERROR = "error"
 
+
 @dataclass
 class NomicLoopEvent:
     """Event emitted by the Nomic Loop."""
@@ -88,6 +91,7 @@ class NomicLoopEvent:
     def to_json(self) -> str:
         """Serialize event to JSON string."""
         return json.dumps(self.to_dict())
+
 
 class NomicLoopStreamServer:
     """

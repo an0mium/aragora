@@ -33,6 +33,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class SLOStatus(Enum):
     """Status of SLO compliance."""
 
@@ -44,6 +45,7 @@ class SLOStatus(Enum):
 
     VIOLATED = "violated"
     """SLO has been violated."""
+
 
 class BottleneckSeverity(Enum):
     """Severity of identified bottleneck."""
@@ -62,6 +64,7 @@ class BottleneckSeverity(Enum):
 
     CRITICAL = "critical"
     """Critical bottleneck, system degradation."""
+
 
 class OptimizationType(Enum):
     """Types of optimization recommendations."""
@@ -83,6 +86,7 @@ class OptimizationType(Enum):
 
     SCALE = "scale"
     """Scale resources for adapter."""
+
 
 @dataclass
 class AdapterMetrics:
@@ -149,6 +153,7 @@ class AdapterMetrics:
             "throughput_per_sec": round(self.throughput_per_sec, 2),
         }
 
+
 @dataclass
 class SLOConfig:
     """SLO configuration thresholds."""
@@ -170,6 +175,7 @@ class SLOConfig:
 
     throughput_min_per_sec: float = 10.0
     """Minimum items per second."""
+
 
 @dataclass
 class SLOResult:
@@ -199,6 +205,7 @@ class SLOResult:
             "status": self.status.value,
             "margin": round(self.margin, 4),
         }
+
 
 @dataclass
 class BottleneckAnalysis:
@@ -237,6 +244,7 @@ class BottleneckAnalysis:
             "recommendation": self.recommendation,
         }
 
+
 @dataclass
 class OptimizationRecommendation:
     """Recommendation for optimization."""
@@ -269,6 +277,7 @@ class OptimizationRecommendation:
             "description": self.description,
             "implementation_notes": self.implementation_notes,
         }
+
 
 @dataclass
 class CompositeMetrics:
@@ -333,6 +342,7 @@ class CompositeMetrics:
             "computed_at": self.computed_at.isoformat(),
         }
 
+
 @dataclass
 class SyncResultInput:
     """Input format for sync results (matches BidirectionalCoordinator.SyncResult)."""
@@ -345,6 +355,7 @@ class SyncResultInput:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class CompositeAnalytics:
     """Engine for computing cross-adapter analytics.
@@ -955,8 +966,10 @@ class CompositeAnalytics:
 
         return summary
 
+
 # Singleton instance
 _composite_analytics: CompositeAnalytics | None = None
+
 
 def get_composite_analytics(
     slo_config: SLOConfig | None = None,
@@ -973,6 +986,7 @@ def get_composite_analytics(
     if _composite_analytics is None:
         _composite_analytics = CompositeAnalytics(slo_config)
     return _composite_analytics
+
 
 __all__ = [
     # Enums

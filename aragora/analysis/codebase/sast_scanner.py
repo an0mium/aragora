@@ -66,6 +66,7 @@ logger = logging.getLogger(__name__)
 # Type alias for progress callback
 ProgressCallback = Callable[[int, int, str], Coroutine[Any, Any, None]]
 
+
 class SASTSeverity(Enum):
     """Severity levels for SAST findings."""
 
@@ -104,6 +105,7 @@ class SASTSeverity(Enum):
             return self.level < other.level
         return NotImplemented
 
+
 class OWASPCategory(Enum):
     """OWASP Top 10 2021 categories."""
 
@@ -118,6 +120,7 @@ class OWASPCategory(Enum):
     A09_LOGGING_FAILURES = "A09:2021 - Security Logging and Monitoring Failures"
     A10_SSRF = "A10:2021 - Server-Side Request Forgery"
     UNKNOWN = "Unknown"
+
 
 @dataclass
 class SASTFinding:
@@ -180,6 +183,7 @@ class SASTFinding:
             "triaged": self.triaged,
         }
 
+
 @dataclass
 class SASTScanResult:
     """Result of a SAST scan."""
@@ -232,6 +236,7 @@ class SASTScanResult:
                 "by_owasp": self.findings_by_owasp,
             },
         }
+
 
 @dataclass
 class SASTConfig:
@@ -296,6 +301,7 @@ class SASTConfig:
     # Security event integration
     emit_security_events: bool = True
     critical_finding_threshold: int = 1  # Emit event when this many critical findings
+
 
 # Available Semgrep rulesets with descriptions
 AVAILABLE_RULESETS: dict[str, dict[str, str]] = {
@@ -794,6 +800,7 @@ LANGUAGE_EXTENSIONS: dict[str, list[str]] = {
     "php": [".php"],
     "csharp": [".cs"],
 }
+
 
 class SASTScanner:
     """
@@ -1545,6 +1552,7 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             "most_common": list(sorted_summary.keys())[:3],
         }
 
+
 # Convenience function for quick scans
 async def scan_for_vulnerabilities(
     path: str,
@@ -1587,6 +1595,7 @@ async def scan_for_vulnerabilities(
             min_confidence=min_confidence,
         )
 
+
 async def get_available_rulesets() -> list[dict[str, Any]]:
     """
     Get available Semgrep rulesets.
@@ -1597,6 +1606,7 @@ async def get_available_rulesets() -> list[dict[str, Any]]:
     scanner = SASTScanner()
     await scanner.initialize()
     return await scanner.get_available_rulesets()
+
 
 def check_semgrep_installation() -> dict[str, Any]:
     """
@@ -1629,6 +1639,7 @@ def check_semgrep_installation() -> dict[str, Any]:
         "message": "Semgrep is not installed",
         "instructions": SASTScanner.SEMGREP_INSTALL_INSTRUCTIONS,
     }
+
 
 __all__ = [
     # Main classes

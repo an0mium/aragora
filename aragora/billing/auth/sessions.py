@@ -54,6 +54,7 @@ _SESSION_TTL = int(os.getenv("ARAGORA_JWT_SESSION_TTL", "2592000"))  # 30 days d
 _MAX_SESSIONS_PER_USER = int(os.getenv("ARAGORA_MAX_SESSIONS_PER_USER", "10"))
 _INACTIVITY_TIMEOUT = int(os.getenv("ARAGORA_SESSION_INACTIVITY_TIMEOUT", "86400"))  # 24 hours
 
+
 @dataclass
 class JWTSession:
     """Represents an active JWT session."""
@@ -134,6 +135,7 @@ class JWTSession:
         self.mfa_verified_at = time.time()
         self.mfa_methods_used = methods or ["totp"]
 
+
 def _parse_device_name(user_agent: str | None) -> str:
     """Parse a human-readable device name from user agent string."""
     if not user_agent:
@@ -187,6 +189,7 @@ def _parse_device_name(user_agent: str | None) -> str:
         return "Postman"
 
     return "Unknown Device"
+
 
 class JWTSessionManager:
     """
@@ -483,9 +486,11 @@ class JWTSessionManager:
         if total_removed > 0:
             logger.debug(f"Cleaned up {total_removed} expired/inactive sessions")
 
+
 # Singleton instance
 _session_manager: JWTSessionManager | None = None
 _manager_lock = threading.Lock()
+
 
 def get_session_manager() -> JWTSessionManager:
     """Get the global session manager instance."""
@@ -496,11 +501,13 @@ def get_session_manager() -> JWTSessionManager:
                 _session_manager = JWTSessionManager()
     return _session_manager
 
+
 def reset_session_manager() -> None:
     """Reset the session manager (for testing)."""
     global _session_manager
     with _manager_lock:
         _session_manager = None
+
 
 __all__ = [
     "JWTSession",

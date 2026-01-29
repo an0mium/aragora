@@ -20,7 +20,7 @@ import pytest
 class MockHandler:
     """Mock HTTP handler for tests."""
 
-    headers: Dict[str, str] = None
+    headers: dict[str, str] = None
     rfile: BytesIO = None
 
     def __post_init__(self):

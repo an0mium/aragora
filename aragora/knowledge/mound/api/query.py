@@ -42,6 +42,7 @@ except ImportError:
     def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
         yield _MockSpan()
 
+
 from aragora.knowledge.mound.validation import (
     validate_graph_params,
     validate_id,
@@ -63,6 +64,7 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
 
 class QueryProtocol(Protocol):
     """Protocol defining expected interface for Query mixin."""
@@ -123,6 +125,7 @@ class QueryProtocol(Protocol):
         depth: int = 2,
         max_nodes: int = 50,
     ) -> "GraphQueryResult": ...
+
 
 class QueryOperationsMixin:
     """Mixin providing query operations for KnowledgeMound."""

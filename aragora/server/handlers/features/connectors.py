@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 from uuid import uuid4
 
+
 class ConnectorTypeMeta(TypedDict, total=False):
     """Metadata for a connector type."""
 
@@ -36,6 +37,7 @@ class ConnectorTypeMeta(TypedDict, total=False):
     category: str
     coming_soon: bool
     expected_sync_duration: int
+
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
@@ -66,6 +68,7 @@ _sync_history: list[dict[str, Any]] = []
 # Global store instance (lazily initialized)
 _store: Optional["SyncStore"] = None
 
+
 async def _get_store() -> Optional["SyncStore"]:
     """Get the sync store, initializing if needed."""
     global _store
@@ -79,6 +82,7 @@ async def _get_store() -> Optional["SyncStore"]:
                 "Using in-memory fallback - CONFIGURATIONS WILL BE LOST ON RESTART!"
             )
     return _store
+
 
 # Connector type metadata
 CONNECTOR_TYPES: dict[str, ConnectorTypeMeta] = {
@@ -159,6 +163,7 @@ CONNECTOR_TYPES: dict[str, ConnectorTypeMeta] = {
         "category": "accounting",
     },
 }
+
 
 class ConnectorsHandler(SecureHandler):
     """Handler for enterprise connector endpoints.
@@ -334,7 +339,8 @@ class ConnectorsHandler(SecureHandler):
             connectors = [
                 c
                 for c in connectors
-                if CONNECTOR_TYPES.get(str(c["type"]), empty_meta).get("category") == category_filter
+                if CONNECTOR_TYPES.get(str(c["type"]), empty_meta).get("category")
+                == category_filter
             ]
 
         return self._json_response(
@@ -988,5 +994,6 @@ class ConnectorsHandler(SecureHandler):
     def _error_response(self, status: int, message: str) -> dict[str, Any]:
         """Create an error response."""
         return self._json_response(status, {"error": message})
+
 
 __all__ = ["ConnectorsHandler"]

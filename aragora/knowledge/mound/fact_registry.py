@@ -39,6 +39,7 @@ from aragora.knowledge.mound.verticals import VerticalRegistry
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RegisteredFact:
     """
@@ -227,6 +228,7 @@ class RegisteredFact:
             ),
             superseded_by=data.get("superseded_by"),
         )
+
 
 class FactRegistry:
     """

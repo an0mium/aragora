@@ -47,6 +47,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class RotationStatus(Enum):
     """Key rotation status."""
 
@@ -56,6 +57,7 @@ class RotationStatus(Enum):
     RE_ENCRYPTING = "re_encrypting"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 @dataclass
 class KeyRotationConfig:
@@ -102,6 +104,7 @@ class KeyRotationConfig:
             alert_days_before=int(os.environ.get("ARAGORA_KEY_ROTATION_ALERT_DAYS", "7")),
         )
 
+
 @dataclass
 class KeyRotationResult:
     """Result of a key rotation operation."""
@@ -132,6 +135,7 @@ class KeyRotationResult:
             "error": self.error,
         }
 
+
 @dataclass
 class RotationSchedule:
     """Information about scheduled rotations."""
@@ -141,6 +145,7 @@ class RotationSchedule:
     last_result: KeyRotationResult | None = None
     rotation_count: int = 0
     status: RotationStatus = RotationStatus.IDLE
+
 
 class KeyRotationScheduler:
     """
@@ -722,8 +727,10 @@ class KeyRotationScheduler:
             except Exception as e:
                 logger.error(f"Error in alert callback: {e}")
 
+
 # Global scheduler instance
 _scheduler: KeyRotationScheduler | None = None
+
 
 def get_key_rotation_scheduler() -> KeyRotationScheduler:
     """Get the global key rotation scheduler instance."""
@@ -733,6 +740,7 @@ def get_key_rotation_scheduler() -> KeyRotationScheduler:
         _scheduler = KeyRotationScheduler()
 
     return _scheduler
+
 
 def reset_key_rotation_scheduler() -> None:
     """Reset the global scheduler instance (for testing)."""

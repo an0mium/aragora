@@ -43,6 +43,7 @@ For vector stores, use:
         InMemoryVectorStore,
     )
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
@@ -59,6 +60,7 @@ from aragora.memory.embeddings import (
 
 # Re-export core protocol for type checking
 from aragora.core_protocols import EmbeddingBackend
+
 
 def get_embedding_provider() -> EmbeddingProvider:
     """
@@ -96,6 +98,7 @@ def get_embedding_provider() -> EmbeddingProvider:
     # Fallback to hash-based
     return EmbeddingProvider()
 
+
 @runtime_checkable
 class EmbeddingProviderProtocol(Protocol):
     """Protocol for embedding providers (for type checking)."""
@@ -108,9 +111,11 @@ class EmbeddingProviderProtocol(Protocol):
         """Generate embeddings for multiple texts."""
         ...
 
+
 # Simple convenience functions
 
 _default_provider: EmbeddingProvider | None = None
+
 
 async def embed_text(text: str) -> list[float]:
     """
@@ -130,6 +135,7 @@ async def embed_text(text: str) -> list[float]:
         _default_provider = get_embedding_provider()
     return await _default_provider.embed(text)
 
+
 async def embed_batch(texts: list[str]) -> list[list[float]]:
     """
     Embed multiple texts using the best available provider.
@@ -147,10 +153,12 @@ async def embed_batch(texts: list[str]) -> list[list[float]]:
         _default_provider = get_embedding_provider()
     return await _default_provider.embed_batch(texts)
 
+
 def reset_default_provider() -> None:
     """Reset the default provider (useful for testing)."""
     global _default_provider
     _default_provider = None
+
 
 __all__ = [
     # Core providers

@@ -44,6 +44,7 @@ MAX_MULTIPART_PARTS = 10
 MAX_FILENAME_LENGTH = 255
 MIN_FILE_SIZE = 1  # Minimum 1 byte
 
+
 class UploadErrorCode(Enum):
     """Specific error codes for upload failures."""
 
@@ -62,6 +63,7 @@ class UploadErrorCode(Enum):
     PARSING_FAILED = "parsing_failed"
     STORAGE_FAILED = "storage_failed"
 
+
 @dataclass
 class UploadError:
     """Structured upload error response."""
@@ -79,6 +81,7 @@ class UploadError:
         if self.details:
             payload["details"] = self.details
         return json_response(payload, status=status)
+
 
 class DocumentHandler(BaseHandler):
     """Handler for document-related endpoints."""
@@ -684,9 +687,7 @@ class DocumentHandler(BaseHandler):
 
         return file_content, filename, None
 
-    def _parse_raw_upload(
-        self, handler, content_length: int
-    ) -> tuple[bytes | None, str | None]:
+    def _parse_raw_upload(self, handler, content_length: int) -> tuple[bytes | None, str | None]:
         """Parse raw file upload with X-Filename header (legacy)."""
         content, filename, _ = self._parse_raw_upload_with_error(handler, content_length)
         return content, filename

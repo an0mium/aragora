@@ -25,6 +25,7 @@ from aragora.workflow.types import (
     WorkflowCategory,
 )
 
+
 class PatternType(Enum):
     """Types of workflow patterns."""
 
@@ -36,6 +37,7 @@ class PatternType(Enum):
     DIALECTIC = "dialectic"
     DEBATE = "debate"
     CUSTOM = "custom"
+
 
 @dataclass
 class ResourceLimits:
@@ -56,6 +58,7 @@ class ResourceLimits:
             "max_retries": self.max_retries,
         }
 
+
 @dataclass
 class PatternConfig:
     """Configuration for a workflow pattern."""
@@ -74,6 +77,7 @@ class PatternConfig:
 
     # Output configuration
     output_format: str = "json"  # json, text, structured
+
 
 class WorkflowPattern(ABC):
     """

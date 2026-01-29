@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY_SIZE = 1000
 HISTORY_TTL_SECONDS = 86400  # 24 hours
 
+
 @dataclass
 class VerificationHistoryEntry:
     """A single verification history entry."""
@@ -76,12 +77,14 @@ class VerificationHistoryEntry:
             "has_proof_tree": self.proof_tree is not None,
         }
 
+
 # In-memory history storage (OrderedDict for FIFO eviction)
 # Used as cache, backed by GovernanceStore for persistence
 _verification_history: OrderedDict[str, VerificationHistoryEntry] = OrderedDict()
 
 # Lazy-loaded governance store
 _governance_store = None
+
 
 def _get_governance_store():
     """Get or create governance store for persistence."""
@@ -95,10 +98,12 @@ def _get_governance_store():
             logger.debug("GovernanceStore not available, using in-memory only")
     return _governance_store
 
+
 def _generate_verification_id(claim: str, timestamp: float) -> str:
     """Generate a unique ID for a verification entry."""
     data = f"{claim}:{timestamp}".encode()
     return hashlib.sha256(data).hexdigest()[:16]
+
 
 def _add_to_history(
     claim: str,
@@ -148,12 +153,14 @@ def _add_to_history(
 
     return entry_id
 
+
 def _cleanup_old_history():
     """Remove entries older than TTL."""
     cutoff = time.time() - HISTORY_TTL_SECONDS
     to_remove = [k for k, v in _verification_history.items() if v.timestamp < cutoff]
     for k in to_remove:
         del _verification_history[k]
+
 
 def _build_proof_tree(result: dict) -> list | None:
     """Build a proof tree structure from verification result."""
@@ -218,6 +225,7 @@ def _build_proof_tree(result: dict) -> list | None:
 
     return nodes
 
+
 def _init_verification():
     """Deferred import to avoid circular dependencies."""
     from aragora.verification.formal import (
@@ -235,6 +243,7 @@ def _init_verification():
         "TranslationModel": TranslationModel,
         "get_formal_verification_manager": get_formal_verification_manager,
     }
+
 
 class FormalVerificationHandler(BaseHandler):
     """Handler for formal verification endpoints.
@@ -809,5 +818,6 @@ class FormalVerificationHandler(BaseHandler):
             response["proof_tree"] = entry.proof_tree
 
         return json_response(response)
+
 
 __all__ = ["FormalVerificationHandler"]

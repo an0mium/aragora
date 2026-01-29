@@ -196,6 +196,7 @@ class MockTeamInboxEmitter:
 
     def extract_mentions(self, content: str) -> list[str]:
         import re
+
         return re.findall(r"@(\w+)", content)
 
     async def create_mention(
@@ -300,9 +301,7 @@ class TestGetTeamMembers:
         """Test retrieval when no team members exist."""
         mock_get_emitter.return_value = mock_emitter
 
-        result = await handle_get_team_members(
-            {}, inbox_id="inbox-new", user_id="user-1"
-        )
+        result = await handle_get_team_members({}, inbox_id="inbox-new", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -478,9 +477,7 @@ class TestStartViewing:
     @pytest.mark.asyncio
     async def test_start_viewing_missing_ids(self):
         """Test start viewing fails without required IDs."""
-        result = await handle_start_viewing(
-            {}, inbox_id="", message_id="", user_id="user-1"
-        )
+        result = await handle_start_viewing({}, inbox_id="", message_id="", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 400
@@ -664,9 +661,7 @@ class TestGetMentions:
         """Test filtering unacknowledged mentions."""
         mock_get_emitter.return_value = mock_emitter_with_data
 
-        result = await handle_get_mentions(
-            {"unacknowledged_only": True}, user_id="user-1"
-        )
+        result = await handle_get_mentions({"unacknowledged_only": True}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -677,9 +672,7 @@ class TestGetMentions:
         """Test unacknowledged_only as string parameter."""
         mock_get_emitter.return_value = mock_emitter_with_data
 
-        result = await handle_get_mentions(
-            {"unacknowledged_only": "true"}, user_id="user-1"
-        )
+        result = await handle_get_mentions({"unacknowledged_only": "true"}, user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -694,9 +687,7 @@ class TestAcknowledgeMention:
         """Test successful mention acknowledgment."""
         mock_get_emitter.return_value = mock_emitter_with_data
 
-        result = await handle_acknowledge_mention(
-            {}, mention_id="mention-123", user_id="user-1"
-        )
+        result = await handle_acknowledge_mention({}, mention_id="mention-123", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200
@@ -707,9 +698,7 @@ class TestAcknowledgeMention:
         """Test acknowledgment of non-existent mention."""
         mock_get_emitter.return_value = mock_emitter
 
-        result = await handle_acknowledge_mention(
-            {}, mention_id="nonexistent", user_id="user-1"
-        )
+        result = await handle_acknowledge_mention({}, mention_id="nonexistent", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 404
@@ -734,9 +723,7 @@ class TestGetActivityFeed:
     @pytest.mark.asyncio
     async def test_get_activity_feed_success(self):
         """Test successful activity feed retrieval."""
-        result = await handle_get_activity_feed(
-            {}, inbox_id="inbox-001", user_id="user-1"
-        )
+        result = await handle_get_activity_feed({}, inbox_id="inbox-001", user_id="user-1")
 
         assert result is not None
         assert result.status_code == 200

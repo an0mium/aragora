@@ -31,6 +31,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EmailPriorityScore:
     """Result of email priority scoring."""
@@ -48,6 +49,7 @@ class EmailPriorityScore:
             "reason": self.reason,
             "factors": self.factors,
         }
+
 
 @dataclass
 class UserEmailPreferences:
@@ -72,6 +74,7 @@ class UserEmailPreferences:
             "low_priority_keywords": self.low_priority_keywords,
             "interaction_weights": self.interaction_weights,
         }
+
 
 class EmailPriorityAnalyzer:
     """
@@ -688,6 +691,7 @@ class EmailPriorityAnalyzer:
             factors=factors,
         )
 
+
 class EmailFeedbackLearner:
     """
     Learn user preferences from email interactions.
@@ -832,6 +836,7 @@ class EmailFeedbackLearner:
         except Exception as e:
             logger.error(f"[EmailFeedback] Consolidation failed: {e}")
             return False
+
 
 __all__ = [
     "EmailPriorityAnalyzer",

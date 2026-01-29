@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Supported integration types
 SUPPORTED_INTEGRATIONS = {"slack", "teams", "discord", "email"}
 
+
 class IntegrationsHandler(BaseHandler):
     """
     HTTP handler for managing platform integrations.
@@ -751,6 +752,7 @@ class IntegrationsHandler(BaseHandler):
 
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
 
 # Handler factory function for registration
 def create_integrations_handler(server_context: ServerContext) -> IntegrationsHandler:

@@ -16,6 +16,7 @@ def clear_global_cache():
     """
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass  # Cache module not available
@@ -25,6 +26,7 @@ def clear_global_cache():
     # Clear after test too for good measure
     try:
         from aragora.server.handlers.admin.cache import clear_cache
+
         clear_cache()
     except ImportError:
         pass

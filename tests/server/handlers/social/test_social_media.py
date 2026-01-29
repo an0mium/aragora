@@ -75,7 +75,7 @@ class MockHandler:
     def __init__(
         self,
         body: bytes = b"",
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         path: str = "/",
         method: str = "GET",
     ):
@@ -87,7 +87,7 @@ class MockHandler:
         self.client_address = ("127.0.0.1", 12345)
 
     @classmethod
-    def with_json_body(cls, data: Dict[str, Any], **kwargs) -> "MockHandler":
+    def with_json_body(cls, data: dict[str, Any], **kwargs) -> "MockHandler":
         body = json.dumps(data).encode("utf-8")
         headers = {
             "Content-Type": "application/json",

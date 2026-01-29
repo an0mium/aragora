@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ExplanationFactor:
     """A factor contributing to a decision."""
@@ -32,6 +33,7 @@ class ExplanationFactor:
     weight: float
     evidence: list[str] = field(default_factory=list)
     source_agents: list[str] = field(default_factory=list)
+
 
 @dataclass
 class EvidenceItem:
@@ -46,6 +48,7 @@ class EvidenceItem:
     supporting_claims: list[str] = field(default_factory=list)
     contradicting_claims: list[str] = field(default_factory=list)
 
+
 @dataclass
 class VotePivot:
     """Analysis of a vote that influenced the decision."""
@@ -58,6 +61,7 @@ class VotePivot:
     changed_outcome: bool = False
     counterfactual_result: str | None = None
 
+
 @dataclass
 class Counterfactual:
     """A counterfactual analysis scenario."""
@@ -68,6 +72,7 @@ class Counterfactual:
     alternative_outcome: str
     probability: float
     key_differences: list[str] = field(default_factory=list)
+
 
 @dataclass
 class DecisionExplanation:
@@ -83,6 +88,7 @@ class DecisionExplanation:
     counterfactuals: list[Counterfactual] = field(default_factory=list)
     generated_at: datetime | None = None
 
+
 @dataclass
 class BatchJobStatus:
     """Status of a batch explainability job."""
@@ -97,6 +103,7 @@ class BatchJobStatus:
     created_at: datetime | None = None
     completed_at: datetime | None = None
 
+
 @dataclass
 class BatchDebateResult:
     """Result for a single debate in a batch."""
@@ -106,6 +113,7 @@ class BatchDebateResult:
     explanation: DecisionExplanation | None = None
     error: str | None = None
     processing_time_ms: float = 0.0
+
 
 class ExplainabilityAPI:
     """API interface for decision explainability."""
@@ -425,6 +433,7 @@ class ExplainabilityAPI:
             error=data.get("error"),
             processing_time_ms=data.get("processing_time_ms", 0.0),
         )
+
 
 __all__ = [
     "ExplainabilityAPI",

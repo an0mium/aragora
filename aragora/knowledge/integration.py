@@ -25,6 +25,7 @@ _pipeline_lock = asyncio.Lock()
 # Thread pool for running async code from sync context
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="knowledge-")
 
+
 @dataclass
 class KnowledgeProcessingConfig:
     """Configuration for knowledge processing on upload."""
@@ -43,6 +44,7 @@ class KnowledgeProcessingConfig:
     on_complete: Optional[Callable[[ProcessingResult], None]] = None
     on_error: Optional[Callable[[str, Exception], None]] = None
 
+
 @dataclass
 class ProcessingJob:
     """Tracks a knowledge processing job."""
@@ -57,8 +59,10 @@ class ProcessingJob:
     created_at: datetime = field(default_factory=datetime.utcnow)
     completed_at: datetime | None = None
 
+
 # In-memory job tracking (replace with Redis/DB in production)
 _jobs: dict[str, ProcessingJob] = {}
+
 
 async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
     """Get or create the knowledge pipeline for a workspace.
@@ -84,11 +88,13 @@ async def get_pipeline(workspace_id: str = "default") -> KnowledgePipeline:
 
         return _pipeline
 
+
 def _should_use_weaviate() -> bool:
     """Check if Weaviate should be used based on environment."""
     import os
 
     return os.environ.get("ARAGORA_WEAVIATE_ENABLED", "false").lower() == "true"
+
 
 async def process_document_async(
     content: bytes,
@@ -133,6 +139,7 @@ async def process_document_async(
 
     return result
 
+
 def process_document_sync(
     content: bytes,
     filename: str,
@@ -167,6 +174,7 @@ def process_document_sync(
         )
     finally:
         loop.close()
+
 
 def queue_document_processing(
     content: bytes,
@@ -233,6 +241,7 @@ def queue_document_processing(
     logger.info(f"Queued knowledge processing: {job_id} for {filename}")
     return job_id
 
+
 def get_job_status(job_id: str) -> dict[str, Any] | None:
     """Get the status of a knowledge processing job.
 
@@ -267,6 +276,7 @@ def get_job_status(job_id: str) -> dict[str, Any] | None:
         ),
     }
 
+
 def get_all_jobs(
     workspace_id: str | None = None,
     status: str | None = None,
@@ -295,6 +305,7 @@ def get_all_jobs(
 
     return [get_job_status(j.job_id) for j in jobs[:limit] if get_job_status(j.job_id)]
 
+
 async def shutdown_pipeline() -> None:
     """Shutdown the knowledge pipeline gracefully."""
     global _pipeline
@@ -306,6 +317,7 @@ async def shutdown_pipeline() -> None:
             logger.info("Knowledge pipeline shutdown complete")
 
     _executor.shutdown(wait=True)
+
 
 # Convenience function for document handlers
 def process_uploaded_document(

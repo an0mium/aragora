@@ -39,6 +39,7 @@ except ImportError:
     BROTLI_AVAILABLE = False
     logger.debug("brotli not available, falling back to gzip only")
 
+
 @dataclass
 class CompressionStats:
     """Statistics for compression operations."""
@@ -81,6 +82,7 @@ class CompressionStats:
             "avg_compression_time_ms": round(self.avg_compression_time_ms, 2),
         }
 
+
 # Global stats
 _compression_stats = CompressionStats()
 
@@ -113,6 +115,7 @@ NO_COMPRESS_PATHS: set[str] = {
     "/api/v1/download/",
 }
 
+
 def should_compress(
     content_type: str,
     content_length: int,
@@ -143,6 +146,7 @@ def should_compress(
     # Check content type
     base_type = content_type.split(";")[0].strip().lower()
     return base_type in COMPRESSIBLE_TYPES
+
 
 def parse_accept_encoding(header: str) -> list[tuple[str, float]]:
     """
@@ -179,6 +183,7 @@ def parse_accept_encoding(header: str) -> list[tuple[str, float]]:
     encodings.sort(key=lambda x: x[1], reverse=True)
     return encodings
 
+
 def select_encoding(accept_encoding: str) -> str | None:
     """
     Select best compression encoding based on Accept-Encoding.
@@ -209,6 +214,7 @@ def select_encoding(accept_encoding: str) -> str | None:
 
     return None
 
+
 def compress_gzip(
     data: bytes,
     level: int = 6,
@@ -228,6 +234,7 @@ def compress_gzip(
         f.write(data)
     return buffer.getvalue()
 
+
 def compress_brotli(
     data: bytes,
     level: int = 4,
@@ -245,6 +252,7 @@ def compress_brotli(
     if not BROTLI_AVAILABLE:
         raise RuntimeError("brotli not available")
     return bytes(brotli.compress(data, quality=level))
+
 
 def compress_response(
     data: bytes,
@@ -282,6 +290,7 @@ def compress_response(
     except Exception as e:
         logger.warning(f"Compression failed: {e}")
         return data
+
 
 class CompressionMiddleware:
     """
@@ -395,14 +404,17 @@ class CompressionMiddleware:
             media_type=response.media_type,
         )
 
+
 def get_compression_stats() -> dict[str, Any]:
     """Get compression statistics."""
     return _compression_stats.to_dict()
+
 
 def reset_compression_stats() -> None:
     """Reset compression statistics."""
     global _compression_stats
     _compression_stats = CompressionStats()
+
 
 __all__ = [
     "CompressionMiddleware",

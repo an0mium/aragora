@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class MessageType(str, Enum):
     """Type of chat message."""
 
@@ -21,6 +22,7 @@ class MessageType(str, Enum):
     COMMAND = "command"
     INTERACTION = "interaction"
 
+
 class InteractionType(str, Enum):
     """Type of user interaction."""
 
@@ -28,6 +30,7 @@ class InteractionType(str, Enum):
     SELECT_MENU = "select_menu"
     MODAL_SUBMIT = "modal_submit"
     SHORTCUT = "shortcut"
+
 
 class UserRole(str, Enum):
     """User role in a channel or workspace."""
@@ -38,6 +41,7 @@ class UserRole(str, Enum):
     MEMBER = "member"
     GUEST = "guest"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class ChatUser:
@@ -82,6 +86,7 @@ class ChatUser:
             "is_bot": self.is_bot,
         }
 
+
 class ChannelType(str, Enum):
     """Channel/conversation type."""
 
@@ -91,6 +96,7 @@ class ChannelType(str, Enum):
     GROUP_DM = "group_dm"  # Group direct message
     THREAD = "thread"  # Thread within a channel
     UNKNOWN = "unknown"
+
 
 @dataclass
 class ChatChannel:
@@ -133,6 +139,7 @@ class ChatChannel:
             "is_private": self.is_private,
             "is_dm": self.is_dm,
         }
+
 
 @dataclass
 class ChatMessage:
@@ -184,6 +191,7 @@ class ChatMessage:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class BotCommand:
     """Represents a slash command or bot command."""
@@ -197,6 +205,7 @@ class BotCommand:
     platform: str = ""
     response_url: str | None = None  # For async responses
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class UserInteraction:
@@ -214,6 +223,7 @@ class UserInteraction:
     response_url: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class MessageBlock:
     """Generic rich message block."""
@@ -225,6 +235,7 @@ class MessageBlock:
     accessory: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class MessageButton:
     """Interactive button element."""
@@ -235,6 +246,7 @@ class MessageButton:
     style: str = "default"  # default, primary, danger
     url: str | None = None  # For link buttons
     confirm: dict[str, Any] | None = None  # Confirmation dialog
+
 
 @dataclass
 class FileAttachment:
@@ -248,6 +260,7 @@ class FileAttachment:
     content: bytes | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class VoiceMessage:
     """Voice/audio message for transcription."""
@@ -260,6 +273,7 @@ class VoiceMessage:
     transcription: str | None = None
     platform: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class SendMessageRequest:
@@ -275,6 +289,7 @@ class SendMessageRequest:
     ephemeral_user_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class SendMessageResponse:
     """Response from sending a message."""
@@ -286,8 +301,10 @@ class SendMessageResponse:
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 # Alias for backwards compatibility
 MessageSendResult = SendMessageResponse
+
 
 @dataclass
 class WebhookEvent:
@@ -308,6 +325,7 @@ class WebhookEvent:
     def is_verification(self) -> bool:
         """Check if this is a URL verification challenge."""
         return self.challenge is not None
+
 
 @dataclass
 class ChatEvidence:
@@ -433,6 +451,7 @@ class ChatEvidence:
             metadata=metadata,
         )
 
+
 @dataclass
 class ChannelContext:
     """
@@ -547,9 +566,11 @@ class ChannelContext:
             metadata=message.metadata,
         )
 
+
 # =============================================================================
 # Metadata Cache for TTL-based enrichment caching
 # =============================================================================
+
 
 @dataclass
 class MetadataCacheEntry:
@@ -565,6 +586,7 @@ class MetadataCacheEntry:
         from datetime import timedelta
 
         return datetime.utcnow() > self.enriched_at + timedelta(seconds=self.ttl_seconds)
+
 
 class MetadataCache:
     """
@@ -694,8 +716,10 @@ class MetadataCache:
             "default_ttl_seconds": self.default_ttl,
         }
 
+
 # Global metadata cache instance
 _metadata_cache: MetadataCache | None = None
+
 
 def get_metadata_cache() -> MetadataCache:
     """Get or create global metadata cache."""
@@ -703,6 +727,7 @@ def get_metadata_cache() -> MetadataCache:
     if _metadata_cache is None:
         _metadata_cache = MetadataCache()
     return _metadata_cache
+
 
 def build_chat_context(
     user: ChatUser | None = None,

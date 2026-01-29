@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class _DebatesHandlerProtocol(Protocol):
     """Protocol defining the interface expected by SearchOperationsMixin.
 
@@ -47,6 +48,7 @@ class _DebatesHandlerProtocol(Protocol):
     def get_storage(self) -> Any | None:
         """Get debate storage instance."""
         ...
+
 
 class SearchOperationsMixin:
     """Mixin providing search operations for DebatesHandler."""
@@ -133,5 +135,6 @@ class SearchOperationsMixin:
         except ValueError as e:
             logger.warning("Invalid search query '%s': %s", query, e)
             return error_response(f"Invalid search query: {e}", 400)
+
 
 __all__ = ["SearchOperationsMixin"]

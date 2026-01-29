@@ -95,6 +95,7 @@ __all__ = [
 # Singleton EloSystem instance
 _elo_store: Optional["EloSystem"] = None
 
+
 def get_elo_store() -> "EloSystem":
     """Get the global EloSystem singleton instance.
 
@@ -109,6 +110,7 @@ def get_elo_store() -> "EloSystem":
         _elo_store = EloSystem()
     return _elo_store
 
+
 # Use centralized config values (can be overridden via environment variables)
 DEFAULT_ELO = ELO_INITIAL_RATING
 K_FACTOR = ELO_K_FACTOR
@@ -116,6 +118,7 @@ CALIBRATION_MIN_COUNT = ELO_CALIBRATION_MIN_COUNT
 
 # Maximum agent name length (matches SAFE_AGENT_PATTERN in validation/entities.py)
 MAX_AGENT_NAME_LENGTH = 32
+
 
 def _validate_agent_name(agent_name: str) -> None:
     """Validate agent name length to prevent performance issues.
@@ -131,6 +134,7 @@ def _validate_agent_name(agent_name: str) -> None:
             f"Agent name exceeds {MAX_AGENT_NAME_LENGTH} characters: {len(agent_name)}"
         )
 
+
 def _record_learning_bonus(agent: str, category: str) -> None:
     """Record learning bonus metric with lazy import."""
     try:
@@ -140,6 +144,7 @@ def _record_learning_bonus(agent: str, category: str) -> None:
     except ImportError:
         pass
 
+
 def _record_voting_accuracy(result: str) -> None:
     """Record voting accuracy update metric with lazy import."""
     try:
@@ -148,6 +153,7 @@ def _record_voting_accuracy(result: str) -> None:
         record_voting_accuracy_update(result)
     except ImportError:
         pass
+
 
 @dataclass
 class AgentRating:
@@ -222,6 +228,7 @@ class AgentRating:
         """Total debates (alias for debates_count)."""
         return self.debates_count
 
+
 @dataclass
 class MatchResult:
     """Result of a debate match between agents."""
@@ -232,6 +239,7 @@ class MatchResult:
     domain: str | None
     scores: dict[str, float]  # agent -> score
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
 
 class EloSystem:
     """
@@ -1143,9 +1151,7 @@ class EloSystem:
         """Get calibration statistics for an agent. Delegates to DomainCalibrationEngine."""
         return self._domain_calibration_engine.get_domain_stats(agent_name, domain)
 
-    def get_calibration_by_bucket(
-        self, agent_name: str, domain: str | None = None
-    ) -> list[dict]:
+    def get_calibration_by_bucket(self, agent_name: str, domain: str | None = None) -> list[dict]:
         """Get calibration broken down by confidence bucket. Delegates to DomainCalibrationEngine."""
         buckets = self._domain_calibration_engine.get_calibration_curve(agent_name, domain)
         # Convert BucketStats to dict for backwards compatibility

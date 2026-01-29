@@ -36,6 +36,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
+
 class DeviceHandler(SecureHandler):
     """Handler for device registration and notification endpoints."""
 

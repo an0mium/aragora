@@ -4,6 +4,7 @@ Aragora Configuration.
 Centralized configuration with environment variable overrides.
 Import these values instead of hardcoding throughout the codebase.
 """
+
 from __future__ import annotations
 
 import os
@@ -149,6 +150,7 @@ from aragora.config.env_helpers import (
     env_bool as _env_bool,
 )
 
+
 def get_api_key(*env_vars: str, required: bool = True) -> str | None:
     """Get and validate API key from environment variables or AWS Secrets Manager.
 
@@ -195,6 +197,7 @@ def get_api_key(*env_vars: str, required: bool = True) -> str | None:
         raise ValueError(f"{var_names} environment variable required")
     return None
 
+
 # === Authentication ===
 TOKEN_TTL_SECONDS = _env_int("ARAGORA_TOKEN_TTL", 3600)
 SHAREABLE_LINK_TTL = _env_int("ARAGORA_SHAREABLE_LINK_TTL", 3600)
@@ -230,6 +233,7 @@ PROPOSAL_STAGGER_SECONDS = _env_float("ARAGORA_PROPOSAL_STAGGER_SECONDS", 0.0)
 # Heartbeat and timeout configuration
 HEARTBEAT_INTERVAL_SECONDS = _env_int("ARAGORA_HEARTBEAT_INTERVAL", 15)
 
+
 def get_concurrency_settings():
     """Get concurrency settings with Pydantic validation.
 
@@ -242,6 +246,7 @@ def get_concurrency_settings():
     from aragora.config.settings import get_settings
 
     return get_settings().concurrency
+
 
 # Language enforcement for multilingual models (DeepSeek, Kimi, Qwen)
 DEFAULT_DEBATE_LANGUAGE = _env_str("ARAGORA_DEBATE_LANGUAGE", "English")
@@ -406,6 +411,7 @@ NOMIC_DIR = _env_str("ARAGORA_DATA_DIR", _env_str("ARAGORA_NOMIC_DIR", ".nomic")
 # Production recommended: /var/lib/aragora or ~/.aragora
 DATA_DIR = Path(_env_str("ARAGORA_DATA_DIR", ".nomic")).resolve()
 
+
 def validate_db_path(path_str: str, base_dir: Path | None = None) -> Path:
     """
     Validate database path is within allowed directory.
@@ -438,6 +444,7 @@ def validate_db_path(path_str: str, base_dir: Path | None = None) -> Path:
         )
 
     return resolved
+
 
 def get_db_path(name: str, ensure_dir: bool = True) -> Path:
     """
@@ -484,6 +491,7 @@ def get_db_path(name: str, ensure_dir: bool = True) -> Path:
 
     return validate_db_path(name)
 
+
 def resolve_db_path(path_str: str | Path) -> str:
     """
     Resolve a database path with a guard against stray root-level files.
@@ -514,6 +522,7 @@ def resolve_db_path(path_str: str | Path) -> str:
 
     return str(path)
 
+
 # Database name constants (for use with get_db_path)
 DB_NAMES = {
     "elo": "agent_elo.db",
@@ -528,6 +537,7 @@ DB_NAMES = {
     "blacklist": "token_blacklist.db",
 }
 
+
 # Legacy database path constants (for backwards compatibility)
 # DEPRECATED: Prefer using get_db_path() instead
 # These return relative paths for compatibility; new code should use get_db_path()
@@ -539,6 +549,7 @@ def _deprecated_db_path(var: str, default: str) -> str:
         stacklevel=3,
     )
     return _env_str(var, default)
+
 
 # Lazy deprecation - warn only on access via property-like pattern
 _DB_PATH_DEFAULTS = {
@@ -646,10 +657,12 @@ GRAPHIQL_ENABLED = _env_bool("ARAGORA_GRAPHIQL_ENABLED", _graphiql_default)
 # Configuration Validation
 # ============================================================================
 
+
 class ConfigurationError(Exception):
     """Raised when configuration is invalid."""
 
     pass
+
 
 def validate_configuration(strict: bool = False) -> dict:
     """

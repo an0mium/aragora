@@ -25,6 +25,7 @@ from aragora.protocols.a2a.types import (
 
 logger = logging.getLogger(__name__)
 
+
 class A2AClientError(Exception):
     """Error from A2A client operations."""
 
@@ -37,6 +38,7 @@ class A2AClientError(Exception):
         super().__init__(message)
         self.agent_name = agent_name
         self.task_id = task_id
+
 
 class A2AClient:
     """
@@ -356,6 +358,7 @@ class A2AClient:
             agents = [a for a in agents if a.supports_capability(capability)]
 
         return agents
+
 
 __all__ = [
     "A2AClient",

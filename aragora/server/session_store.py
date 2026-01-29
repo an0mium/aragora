@@ -58,6 +58,7 @@ _SESSION_MAX_DEBATE_STATES = int(os.getenv("ARAGORA_SESSION_MAX_DEBATES", "500")
 _SESSION_MAX_ACTIVE_LOOPS = int(os.getenv("ARAGORA_SESSION_MAX_LOOPS", "1000"))
 _SESSION_MAX_AUTH_STATES = int(os.getenv("ARAGORA_SESSION_MAX_AUTH", "10000"))
 
+
 @dataclass
 class SessionStoreConfig:
     """Configuration for session store.
@@ -91,6 +92,7 @@ class SessionStoreConfig:
 
     # Redis key prefix
     key_prefix: str = "aragora:session:"
+
 
 @dataclass
 class DebateSession:
@@ -155,6 +157,7 @@ class DebateSession:
             created_at=data.get("created_at", time.time()),
             last_active=data.get("last_active", time.time()),
         )
+
 
 @dataclass
 class VoiceSession:
@@ -244,6 +247,7 @@ class VoiceSession:
             metadata=data.get("metadata", {}),
         )
 
+
 @dataclass
 class DeviceSession:
     """Session tracking for registered devices (push notifications).
@@ -320,6 +324,7 @@ class DeviceSession:
             last_active=data.get("last_active", time.time()),
             metadata=data.get("metadata", {}),
         )
+
 
 class SessionStore(ABC):
     """Abstract base class for session stores."""
@@ -479,6 +484,7 @@ class SessionStore(ABC):
     def find_devices_by_user(self, user_id: str) -> list["DeviceSession"]:
         """Find all devices for a user."""
         pass
+
 
 class InMemorySessionStore(SessionStore):
     """In-memory session store for single-server deployment."""
@@ -797,6 +803,7 @@ class InMemorySessionStore(SessionStore):
             counts["device_sessions"] = len(expired)
 
         return counts
+
 
 class RedisSessionStore(SessionStore):
     """Redis-backed session store for horizontal scaling."""
@@ -1382,9 +1389,11 @@ class RedisSessionStore(SessionStore):
         if self._pubsub:
             self._pubsub.close()
 
+
 # Global session store instance
 _session_store: SessionStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_session_store(force_memory: bool = False) -> SessionStore:
     """Get the session store instance.
@@ -1438,6 +1447,7 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
         _session_store = InMemorySessionStore()
         return _session_store
 
+
 def reset_session_store() -> None:
     """Reset session store (for testing)."""
     global _session_store
@@ -1445,6 +1455,7 @@ def reset_session_store() -> None:
         if _session_store is not None and hasattr(_session_store, "close"):
             _session_store.close()
         _session_store = None
+
 
 __all__ = [
     "SessionStore",

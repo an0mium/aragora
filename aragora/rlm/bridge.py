@@ -43,6 +43,7 @@ Usage:
     # Query with RLM (uses TRUE RLM if available, compression as fallback)
     answer = await rlm.query("What consensus was reached?", context)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -78,6 +79,7 @@ from .knowledge_adapter import KnowledgeMoundAdapter
 from .hierarchy_cache import RLMHierarchyCache
 from .streaming_mixin import RLMStreamingMixin
 
+
 @dataclass
 class RLMBackendConfig:
     """Configuration for RLM backend."""
@@ -97,6 +99,7 @@ class RLMBackendConfig:
     # Official RLM kwargs
     verbose: bool = False
     persistent: bool = False  # Keep environment alive between calls
+
 
 class AragoraRLM(RLMStreamingMixin):
     """
@@ -943,6 +946,7 @@ Please provide an improved answer based on the feedback."""
     # - query_with_refinement_stream()
     # - compress_stream()
 
+
 # Convenience function
 def create_aragora_rlm(
     backend: str = "openai",
@@ -973,6 +977,7 @@ def create_aragora_rlm(
         knowledge_mound=knowledge_mound,
         enable_caching=enable_caching,
     )
+
 
 # Re-export extracted classes for backwards compatibility
 __all__ = [

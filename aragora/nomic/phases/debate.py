@@ -6,6 +6,7 @@ Phase 1: Agents debate what to improve
 - Learning context injection
 - Post-debate analysis hooks
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from . import DebateResult
+
 
 @dataclass
 class DebateConfig:
@@ -40,6 +42,7 @@ class DebateConfig:
         from aragora.nomic.debate_profile import NomicDebateProfile
 
         return NomicDebateProfile().to_debate_config()
+
 
 @dataclass
 class LearningContext:
@@ -87,6 +90,7 @@ class LearningContext:
                 parts.append(value)
         return "\n".join(parts)
 
+
 @dataclass
 class PostDebateHooks:
     """Hooks for post-debate processing."""
@@ -105,11 +109,13 @@ class PostDebateHooks:
     on_claims_extracted: Callable | None = None
     on_belief_network_built: Callable | None = None
 
+
 SAFETY_PREAMBLE = """SAFETY RULES:
 1. Propose ADDITIONS, not removals
 2. Build new capabilities, don't simplify existing ones
 3. Check codebase analysis - if a feature exists, don't propose it
 4. Learn from previous failures shown below"""
+
 
 class DebatePhase:
     """
@@ -707,5 +713,6 @@ DO NOT propose features that already exist below.
                 await result
         except Exception as e:
             self._log(f"  Hook error: {e}")
+
 
 __all__ = ["DebatePhase", "DebateConfig", "LearningContext", "PostDebateHooks"]

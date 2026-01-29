@@ -20,6 +20,7 @@ Environment variables:
     ARAGORA_REDIS_MAX_CONNECTIONS: Max pool connections (default: 50)
     ARAGORA_REDIS_SOCKET_TIMEOUT: Socket timeout in seconds (default: 5.0)
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 _redis_pool: Any | None = None
 _redis_available: bool | None = None
 
+
 def get_redis_url() -> str | None:
     """Get the Redis URL from environment.
 
@@ -39,6 +41,7 @@ def get_redis_url() -> str | None:
         Redis URL if configured, None otherwise
     """
     return os.getenv("ARAGORA_REDIS_URL")
+
 
 def get_redis_pool() -> Any | None:
     """Get shared Redis connection pool (lazy initialization).
@@ -104,6 +107,7 @@ def get_redis_pool() -> Any | None:
         _redis_available = False
         return None
 
+
 def is_redis_available() -> bool:
     """Check if Redis is available.
 
@@ -120,6 +124,7 @@ def is_redis_available() -> bool:
     # Try to initialize the pool
     get_redis_pool()
     return _redis_available or False
+
 
 def get_redis_client() -> Any | None:
     """Get a Redis client using the shared pool.
@@ -140,6 +145,7 @@ def get_redis_client() -> Any | None:
     except ImportError:
         return None
 
+
 def close_redis_pool() -> None:
     """Close the Redis connection pool.
 
@@ -159,6 +165,7 @@ def close_redis_pool() -> None:
 
     _redis_available = None
 
+
 def reset_redis_state() -> None:
     """Reset Redis state for testing.
 
@@ -167,6 +174,7 @@ def reset_redis_state() -> None:
     global _redis_pool, _redis_available
     _redis_pool = None
     _redis_available = None
+
 
 __all__ = [
     "get_redis_url",

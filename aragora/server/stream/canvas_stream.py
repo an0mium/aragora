@@ -28,6 +28,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class CanvasStreamServer:
     """
     WebSocket server for Live Canvas real-time collaboration.
@@ -530,8 +531,10 @@ class CanvasStreamServer:
                 )
         return users
 
+
 # Global server instance
 _canvas_server: CanvasStreamServer | None = None
+
 
 def get_canvas_stream_server() -> CanvasStreamServer:
     """Get or create the global canvas stream server."""
@@ -539,6 +542,7 @@ def get_canvas_stream_server() -> CanvasStreamServer:
     if _canvas_server is None:
         _canvas_server = CanvasStreamServer()
     return _canvas_server
+
 
 __all__ = [
     "CanvasStreamServer",

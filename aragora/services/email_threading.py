@@ -19,6 +19,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EmailMessage:
     """A single email message."""
@@ -50,6 +51,7 @@ class EmailMessage:
             "thread_id": self.thread_id,
             "labels": self.labels,
         }
+
 
 @dataclass
 class EmailThread:
@@ -83,6 +85,7 @@ class EmailThread:
             "labels": list(self.labels),
         }
 
+
 @dataclass
 class ThreadSummary:
     """AI-generated summary of a thread."""
@@ -104,6 +107,7 @@ class ThreadSummary:
             "sentiment": self.sentiment,
             "urgency": self.urgency,
         }
+
 
 class EmailThreader:
     """

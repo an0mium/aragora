@@ -34,6 +34,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+
 class DependencyScanner:
     """
     Scanner for project dependency vulnerabilities.
@@ -961,5 +962,6 @@ class DependencyScanner:
                     )
 
         return deps
+
 
 __all__ = ["DependencyScanner"]

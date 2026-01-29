@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class StarterTemplate:
     """A template recommended for onboarding."""
@@ -35,6 +36,7 @@ class StarterTemplate:
     example_prompt: str
     tags: list[str] = field(default_factory=list)
     difficulty: str = "beginner"
+
 
 @dataclass
 class OnboardingFlow:
@@ -54,6 +56,7 @@ class OnboardingFlow:
     completed_at: datetime | None = None
     skipped: bool = False
 
+
 @dataclass
 class QuickStartConfig:
     """A quick-start profile configuration."""
@@ -65,6 +68,7 @@ class QuickStartConfig:
     default_rounds: int
     focus_areas: list[str]
 
+
 @dataclass
 class OnboardingAnalytics:
     """Onboarding funnel analytics."""
@@ -75,6 +79,7 @@ class OnboardingAnalytics:
     completion_rate: float
     step_completion: dict[str, int] = field(default_factory=dict)
     total_events: int = 0
+
 
 class OnboardingAPI:
     """API interface for user onboarding."""
@@ -385,9 +390,7 @@ class OnboardingAPI:
         response = self._client._get("/api/v1/onboarding/analytics", params=params)
         return self._parse_analytics(response)
 
-    async def get_analytics_async(
-        self, organization_id: str | None = None
-    ) -> OnboardingAnalytics:
+    async def get_analytics_async(self, organization_id: str | None = None) -> OnboardingAnalytics:
         """Async version of get_analytics()."""
         params: dict[str, Any] = {}
         if organization_id:
@@ -466,6 +469,7 @@ class OnboardingAPI:
             step_completion=data.get("step_completion", {}),
             total_events=data.get("total_events", 0),
         )
+
 
 __all__ = [
     "OnboardingAPI",

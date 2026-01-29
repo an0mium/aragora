@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SubTask:
     """A subtask extracted from a larger task."""
@@ -34,6 +35,7 @@ class SubTask:
     estimated_complexity: str = "low"  # low, medium, high
     file_scope: list[str] = field(default_factory=list)
 
+
 @dataclass
 class TaskDecomposition:
     """Result of task decomposition analysis."""
@@ -44,6 +46,7 @@ class TaskDecomposition:
     should_decompose: bool
     subtasks: list[SubTask] = field(default_factory=list)
     rationale: str = ""
+
 
 @dataclass
 class DecomposerConfig:
@@ -58,6 +61,7 @@ class DecomposerConfig:
     # Debate-based decomposition settings
     debate_rounds: int = 2  # Rounds for goal decomposition debate
     debate_timeout: int = 120  # Timeout in seconds for debate
+
 
 # Keywords that indicate different complexity areas
 COMPLEXITY_INDICATORS = {
@@ -104,6 +108,7 @@ DECOMPOSITION_CONCEPTS = [
     "configuration",
     "deployment",
 ]
+
 
 class TaskDecomposer:
     """Analyzes tasks and decomposes complex ones into subtasks.
@@ -877,8 +882,10 @@ Prioritize by impact: which improvements would provide the most value?"""
         logger.info(f"debate_agents_loaded count={len(agents)}")
         return agents
 
+
 # Module-level singleton
 _decomposer: TaskDecomposer | None = None
+
 
 def get_task_decomposer() -> TaskDecomposer:
     """Get or create the singleton TaskDecomposer instance."""
@@ -886,6 +893,7 @@ def get_task_decomposer() -> TaskDecomposer:
     if _decomposer is None:
         _decomposer = TaskDecomposer()
     return _decomposer
+
 
 def analyze_task(task: str) -> TaskDecomposition:
     """Convenience function to analyze a task."""

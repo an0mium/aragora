@@ -8,6 +8,7 @@ Plugins must declare:
 
 Manifests are validated before plugins are loaded.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,6 +29,7 @@ ALLOWED_PLUGIN_DIRS = frozenset(
         "aragora/plugins",
     ]
 )
+
 
 def _validate_manifest_path(path: Path, operation: str = "access") -> tuple[bool, str]:
     """
@@ -69,6 +71,7 @@ def _validate_manifest_path(path: Path, operation: str = "access") -> tuple[bool
 
     return True, ""
 
+
 class PluginCapability(Enum):
     """What a plugin can do."""
 
@@ -94,6 +97,7 @@ class PluginCapability(Enum):
     # Utility
     CUSTOM = "custom"  # Custom capability
 
+
 class PluginRequirement(Enum):
     """What a plugin needs to run."""
 
@@ -113,6 +117,7 @@ class PluginRequirement(Enum):
     PYTHON_PACKAGES = "python_packages"  # External Python packages
     SYSTEM_TOOLS = "system_tools"  # External system tools
 
+
 class PluginPricingModel(Enum):
     """Pricing model for plugins."""
 
@@ -120,6 +125,7 @@ class PluginPricingModel(Enum):
     ONE_TIME = "one_time"  # Single purchase
     SUBSCRIPTION = "subscription"  # Monthly/annual
     USAGE_BASED = "usage_based"  # Per-use charge
+
 
 @dataclass
 class PluginPricing:
@@ -159,6 +165,7 @@ class PluginPricing:
             currency=data.get("currency", "USD"),
             developer_share_percent=data.get("developer_share_percent", 70),
         )
+
 
 @dataclass
 class PluginManifest:
@@ -375,6 +382,7 @@ class PluginManifest:
         """Check if plugin has a requirement."""
         return requirement in self.requirements
 
+
 # Built-in plugin manifests
 BUILTIN_MANIFESTS = {
     "lint": PluginManifest(
@@ -419,9 +427,11 @@ BUILTIN_MANIFESTS = {
     ),
 }
 
+
 def list_builtin_plugins() -> list[PluginManifest]:
     """Get list of built-in plugin manifests."""
     return list(BUILTIN_MANIFESTS.values())
+
 
 def get_builtin_plugin(name: str) -> PluginManifest | None:
     """Get a built-in plugin by name."""

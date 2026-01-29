@@ -149,6 +149,7 @@ DEFAULT_TIMEOUT: float = 30.0
 # Maximum timeout allowed
 MAX_TIMEOUT: float = 600.0
 
+
 @dataclass
 class SandboxedResult:
     """Result from a sandboxed subprocess execution."""
@@ -164,10 +165,12 @@ class SandboxedResult:
         """Check if command succeeded (returncode 0)."""
         return self.returncode == 0
 
+
 class SandboxError(Exception):
     """Raised when a command fails sandbox validation."""
 
     pass
+
 
 class SandboxedCommand:
     """Validates and executes sandboxed commands."""
@@ -265,6 +268,7 @@ class SandboxedCommand:
                 safe_env[var] = os.environ[var]
 
         return safe_env
+
 
 async def run_sandboxed(
     cmd: Sequence[str],
@@ -368,6 +372,7 @@ async def run_sandboxed(
             timed_out=True,
         )
 
+
 def run_sandboxed_sync(
     cmd: Sequence[str],
     *,
@@ -451,6 +456,7 @@ def run_sandboxed_sync(
             command=list(cmd),
             timed_out=True,
         )
+
 
 __all__ = [
     "ALLOWED_COMMANDS",

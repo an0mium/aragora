@@ -15,6 +15,7 @@ __all__ = [
     "ConditionConfig",
 ]
 
+
 @dataclass
 class ConditionConfig:
     """
@@ -53,6 +54,7 @@ class ConditionConfig:
             "value": self.value,
             "negate": self.negate,
         }
+
 
 @dataclass
 class ActionConfig:
@@ -93,6 +95,7 @@ class ActionConfig:
         if self.timeout is not None:
             result["timeout"] = self.timeout
         return result
+
 
 @dataclass
 class HookConfig:

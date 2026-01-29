@@ -31,7 +31,7 @@ class MockMemoryEntry:
     failure_count: int = 0
     created_at: str = "2026-01-01T00:00:00"
     updated_at: str = "2026-01-01T00:00:00"
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:

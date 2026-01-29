@@ -7,6 +7,7 @@ Provides:
 - Rollback safety mechanisms
 - Human-in-the-loop approval flows
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,6 +25,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ApprovalStatus(Enum):
     """Status of an approval request."""
 
@@ -32,6 +34,7 @@ class ApprovalStatus(Enum):
     REJECTED = "rejected"
     TIMEOUT = "timeout"
     AUTO_APPROVED = "auto_approved"
+
 
 @dataclass
 class ApprovalRequest:
@@ -51,6 +54,7 @@ class ApprovalRequest:
     rejection_reason: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class RollbackPoint:
     """A point in time to which changes can be rolled back."""
@@ -62,6 +66,7 @@ class RollbackPoint:
     file_backups: dict[str, str] = field(default_factory=dict)
     database_snapshot: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class VerificationResult:
@@ -77,6 +82,7 @@ class VerificationResult:
     coverage_percent: float | None = None
     performance_regressions: list[str] = field(default_factory=list)
     details: dict[str, Any] = field(default_factory=dict)
+
 
 class ApprovalFlow:
     """
@@ -337,6 +343,7 @@ class ApprovalFlow:
             logger.error(f"Failed to load approval request {request_id}: {e}")
             return None
 
+
 class RollbackManager:
     """
     Manages rollback points for safe self-improvement.
@@ -563,6 +570,7 @@ class RollbackManager:
         while len(self._rollback_points) > self.max_rollback_points:
             oldest = min(self._rollback_points, key=lambda p: p.created_at)
             self.delete_rollback_point(oldest.id)
+
 
 class CodeVerifier:
     """
@@ -796,6 +804,7 @@ class CodeVerifier:
 
         return issues
 
+
 class SelfImprovementManager:
     """
     Orchestrates the self-improvement cycle with safety controls.
@@ -945,6 +954,7 @@ class SelfImprovementManager:
         self._current_rollback_point = None
 
         return success
+
 
 __all__ = [
     "ApprovalStatus",

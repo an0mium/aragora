@@ -37,6 +37,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 logger = logging.getLogger(__name__)
 
+
 class SkillMarketplaceHandler(SecureHandler):
     """Handler for skill marketplace endpoints."""
 

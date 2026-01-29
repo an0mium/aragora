@@ -32,7 +32,7 @@ class S3Object:
     last_modified: datetime
     etag: str
     content_type: Optional[str] = None
-    metadata: Dict[str, str] = None
+    metadata: dict[str, str] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -51,8 +51,8 @@ class MockS3Connector:
         aws_secret_access_key: str = "",
         region: str = "us-east-1",
         prefix: str = "",
-        exclude_patterns: List[str] = None,
-        include_patterns: List[str] = None,
+        exclude_patterns: list[str] = None,
+        include_patterns: list[str] = None,
         **kwargs,
     ):
         self.connector_id = f"s3_{bucket_name}"
@@ -65,7 +65,7 @@ class MockS3Connector:
         self.include_patterns = include_patterns or ["*"]
 
         self._client = None
-        self._objects_cache: Dict[str, S3Object] = {}
+        self._objects_cache: dict[str, S3Object] = {}
 
     @property
     def name(self) -> str:
@@ -85,7 +85,7 @@ class MockS3Connector:
         self,
         prefix: str = "",
         continuation_token: Optional[str] = None,
-    ) -> tuple[List[S3Object], Optional[str]]:
+    ) -> tuple[list[S3Object], Optional[str]]:
         """List objects in the bucket."""
         client = await self._get_client()
 
@@ -238,7 +238,7 @@ class MockS3Connector:
             },
         )
 
-    async def search(self, query: str, limit: int = 10) -> List[Any]:
+    async def search(self, query: str, limit: int = 10) -> list[Any]:
         """Search objects by key prefix."""
         results = []
 
@@ -256,7 +256,7 @@ class MockS3Connector:
 
         return results
 
-    async def handle_webhook(self, payload: Dict[str, Any]) -> bool:
+    async def handle_webhook(self, payload: dict[str, Any]) -> bool:
         """Handle S3 event notification."""
         records = payload.get("Records", [])
 

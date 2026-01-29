@@ -21,6 +21,7 @@ from typing import Any, AsyncIterator
 
 logger = logging.getLogger(__name__)
 
+
 class CrawlStatus(Enum):
     """Status of a crawl operation."""
 
@@ -29,6 +30,7 @@ class CrawlStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
 
 class ContentType(Enum):
     """Types of crawled content."""
@@ -39,6 +41,7 @@ class ContentType(Enum):
     DATA = "data"
     BINARY = "binary"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class CrawlResult:
@@ -80,6 +83,7 @@ class CrawlResult:
             "dependencies": self.dependencies,
         }
 
+
 @dataclass
 class CrawlerConfig:
     """Configuration for crawler operations."""
@@ -111,6 +115,7 @@ class CrawlerConfig:
     incremental: bool = True
     last_crawl_timestamp: datetime | None = None
 
+
 @dataclass
 class IndexResult:
     """Result from indexing crawled content."""
@@ -121,6 +126,7 @@ class IndexResult:
     skipped_items: int
     duration_ms: float
     errors: list[str] = field(default_factory=list)
+
 
 @dataclass
 class CrawlStats:
@@ -144,6 +150,7 @@ class CrawlStats:
         if self.total_files == 0:
             return 0.0
         return (self.processed_files / self.total_files) * 100
+
 
 class BaseCrawler(ABC):
     """

@@ -3,6 +3,7 @@ Aragora init command - Project scaffolding.
 
 Creates a new Aragora project with configuration files and directory structure.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -56,6 +57,7 @@ __pycache__/
 .venv/
 """
 
+
 def init_project(
     directory: str | None = None,
     force: bool = False,
@@ -107,6 +109,7 @@ def init_project(
         created["directories"].append(str(traces_dir))
 
     return created
+
 
 def cmd_init(args) -> None:
     """Handle 'init' command."""

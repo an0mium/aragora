@@ -41,6 +41,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class CacheEntry:
     """A cached decision result."""
@@ -50,6 +51,7 @@ class CacheEntry:
     expires_at: float
     hit_count: int = 0
     request_hash: str = ""
+
 
 @dataclass
 class InFlightRequest:
@@ -61,6 +63,7 @@ class InFlightRequest:
     result: Any | None = None
     error: Exception | None = None
     waiters: int = 0
+
 
 @dataclass
 class CacheConfig:
@@ -83,6 +86,7 @@ class CacheConfig:
 
     # Metrics
     track_metrics: bool = True
+
 
 class DecisionCache:
     """
@@ -430,11 +434,13 @@ class DecisionCache:
         self._dedup_hits = 0
         self._evictions = 0
 
+
 # =============================================================================
 # Singleton
 # =============================================================================
 
 _decision_cache_instance: DecisionCache | None = None
+
 
 def get_decision_cache(config: CacheConfig | None = None) -> DecisionCache:
     """
@@ -451,10 +457,12 @@ def get_decision_cache(config: CacheConfig | None = None) -> DecisionCache:
         _decision_cache_instance = DecisionCache(config=config)
     return _decision_cache_instance
 
+
 def reset_decision_cache() -> None:
     """Reset the singleton instance (for testing)."""
     global _decision_cache_instance
     _decision_cache_instance = None
+
 
 __all__ = [
     "DecisionCache",

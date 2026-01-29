@@ -49,7 +49,7 @@ class E2ETestAgent(Agent):
         name: str = "e2e-agent",
         model: str = "test-model",
         role: str = "proposer",
-        responses: Optional[List[str]] = None,
+        responses: Optional[list[str]] = None,
         vote_choice: Optional[str] = None,
         vote_confidence: float = 0.8,
         continue_debate: bool = False,
@@ -65,9 +65,9 @@ class E2ETestAgent(Agent):
         self.critique_severity = critique_severity
 
         # Call tracking
-        self.generate_calls: List[str] = []
-        self.critique_calls: List[str] = []
-        self.vote_calls: List[Dict] = []
+        self.generate_calls: list[str] = []
+        self.critique_calls: list[str] = []
+        self.vote_calls: list[dict] = []
 
     async def generate(self, prompt: str, context: list = None) -> str:
         self.generate_calls.append(prompt)
@@ -191,7 +191,7 @@ def basic_env() -> Environment:
 
 
 @pytest.fixture
-def two_agents() -> List[E2ETestAgent]:
+def two_agents() -> list[E2ETestAgent]:
     """Create two basic test agents."""
     return [
         E2ETestAgent(
@@ -208,7 +208,7 @@ def two_agents() -> List[E2ETestAgent]:
 
 
 @pytest.fixture
-def three_agents_with_disagreement() -> List[E2ETestAgent]:
+def three_agents_with_disagreement() -> list[E2ETestAgent]:
     """Create three agents with initial disagreement."""
     return [
         E2ETestAgent(
@@ -247,7 +247,7 @@ class TestBasicDebateLifecycle:
     async def test_simple_debate_completes(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that a simple debate runs to completion."""
@@ -267,7 +267,7 @@ class TestBasicDebateLifecycle:
     async def test_debate_calls_all_agents(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that all agents are called during debate."""
@@ -287,7 +287,7 @@ class TestBasicDebateLifecycle:
     async def test_multi_round_debate(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         basic_protocol: DebateProtocol,
     ) -> None:
         """Test debate with multiple rounds."""
@@ -525,7 +525,7 @@ class TestEventEmission:
     async def test_events_emitted_during_debate(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that events are emitted during debate lifecycle."""
@@ -541,7 +541,7 @@ class TestEventEmission:
     async def test_round_events(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         basic_protocol: DebateProtocol,
     ) -> None:
         """Test that debate runs through multiple rounds."""
@@ -565,7 +565,7 @@ class TestArenaConfiguration:
     async def test_arena_with_config(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test Arena with configuration via from_config."""
@@ -588,7 +588,7 @@ class TestArenaConfiguration:
     async def test_arena_context_manager(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test Arena as async context manager."""
@@ -600,7 +600,7 @@ class TestArenaConfiguration:
     async def test_arena_with_timeout(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
     ) -> None:
         """Test Arena with timeout configuration."""
         protocol_with_timeout = DebateProtocol(
@@ -629,7 +629,7 @@ class TestDebateTopologies:
     async def test_round_robin_topology(
         self,
         basic_env: Environment,
-        three_agents_with_disagreement: List[E2ETestAgent],
+        three_agents_with_disagreement: list[E2ETestAgent],
     ) -> None:
         """Test round-robin debate topology."""
         protocol = DebateProtocol(
@@ -653,7 +653,7 @@ class TestDebateTopologies:
     async def test_parallel_topology(
         self,
         basic_env: Environment,
-        three_agents_with_disagreement: List[E2ETestAgent],
+        three_agents_with_disagreement: list[E2ETestAgent],
     ) -> None:
         """Test parallel (hive-mind) debate topology."""
         protocol = DebateProtocol(
@@ -741,7 +741,7 @@ class TestMemoryIntegration:
     async def test_debate_with_memory_context(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test debate with memory context provided."""
@@ -764,7 +764,7 @@ class TestMemoryIntegration:
     async def test_debate_outcome_can_be_stored(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that debate outcomes can be stored."""
@@ -792,7 +792,7 @@ class TestUserParticipation:
     @pytest.mark.asyncio
     async def test_debate_accepts_user_context(
         self,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that debates can include user-provided context."""
@@ -819,7 +819,7 @@ class TestCheckpointIntegration:
     async def test_checkpoint_enabled_debate(
         self,
         basic_env: Environment,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         basic_protocol: DebateProtocol,
     ) -> None:
         """Test debate with checkpointing enabled."""
@@ -902,7 +902,7 @@ class TestStressAndEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_task(
         self,
-        two_agents: List[E2ETestAgent],
+        two_agents: list[E2ETestAgent],
         quick_protocol: DebateProtocol,
     ) -> None:
         """Test that empty task is rejected during Environment creation."""

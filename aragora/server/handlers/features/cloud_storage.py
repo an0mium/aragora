@@ -43,6 +43,7 @@ PROVIDERS = ["google_drive", "onedrive", "dropbox", "s3"]
 # In-memory token storage (use Redis/DB in production)
 _tokens: dict[str, dict[str, str]] = {}
 
+
 def get_provider_connector(provider: str):
     """Get connector instance for a provider."""
     if provider == "google_drive":
@@ -63,6 +64,7 @@ def get_provider_connector(provider: str):
         return S3Connector()  # type: ignore[call-arg]
     return None
 
+
 def get_provider_status(provider: str) -> dict[str, Any]:
     """Get connection status for a provider."""
     connector = get_provider_connector(provider)
@@ -78,9 +80,11 @@ def get_provider_status(provider: str) -> dict[str, Any]:
         "account_name": _tokens.get(provider, {}).get("account_name"),
     }
 
+
 def get_all_provider_status() -> dict[str, dict[str, Any]]:
     """Get status for all providers."""
     return {p: get_provider_status(p) for p in PROVIDERS}
+
 
 async def get_auth_url(provider: str, redirect_uri: str, state: str = "") -> str | None:
     """Generate OAuth authorization URL for a provider."""
@@ -92,6 +96,7 @@ async def get_auth_url(provider: str, redirect_uri: str, state: str = "") -> str
         return connector.get_oauth_url(redirect_uri, state)
 
     return None
+
 
 async def handle_auth_callback(
     provider: str,
@@ -130,6 +135,7 @@ async def handle_auth_callback(
         logger.error(f"Auth callback failed for {provider}: {e}")
 
     return False
+
 
 async def list_files(
     provider: str,
@@ -183,6 +189,7 @@ async def list_files(
 
     return files
 
+
 async def download_file(provider: str, file_id: str) -> bytes | None:
     """Download file content."""
     connector = get_provider_connector(provider)
@@ -201,6 +208,7 @@ async def download_file(provider: str, file_id: str) -> bytes | None:
         logger.error(f"Failed to download file from {provider}: {e}")
 
     return None
+
 
 # HTTP Handler
 if HANDLER_BASE_AVAILABLE:

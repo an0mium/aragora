@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
 
+
 class SecureHandler(BaseHandler):
     """
     Security-enhanced base handler.
@@ -264,6 +265,7 @@ class SecureHandler(BaseHandler):
         logger.error(f"Unexpected security error: {error}")
         return error_response("Security error", 500)
 
+
 def secure_endpoint(
     permission: str | None = None,
     require_auth: bool = True,
@@ -370,6 +372,7 @@ def secure_endpoint(
 
     return decorator
 
+
 def audit_sensitive_access(
     resource_type: str,
     action: str = "access",
@@ -419,6 +422,7 @@ def audit_sensitive_access(
         return wrapper  # type: ignore[return-value]
 
     return decorator
+
 
 # Export commonly used items
 __all__ = [

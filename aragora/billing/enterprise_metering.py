@@ -48,6 +48,7 @@ from .usage import PROVIDER_PRICING
 
 logger = logging.getLogger(__name__)
 
+
 class BudgetAlertLevel(Enum):
     """Budget alert threshold levels."""
 
@@ -55,6 +56,7 @@ class BudgetAlertLevel(Enum):
     WARNING = "warning"  # 75% of budget
     CRITICAL = "critical"  # 90% of budget
     EXCEEDED = "exceeded"  # Over budget
+
 
 class InvoiceStatus(Enum):
     """Invoice statuses."""
@@ -64,6 +66,7 @@ class InvoiceStatus(Enum):
     PAID = "paid"
     OVERDUE = "overdue"
     CANCELLED = "cancelled"
+
 
 @dataclass
 class TokenUsageRecord:
@@ -134,6 +137,7 @@ class TokenUsageRecord:
             "timestamp": self.timestamp.isoformat(),
         }
 
+
 @dataclass
 class BudgetConfig:
     """Budget configuration for a tenant."""
@@ -147,6 +151,7 @@ class BudgetConfig:
     rollover_unused: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
+
 
 @dataclass
 class CostBreakdown:
@@ -210,6 +215,7 @@ class CostBreakdown:
             },
         }
 
+
 @dataclass
 class Invoice:
     """Invoice for a billing period."""
@@ -257,6 +263,7 @@ class Invoice:
             "notes": self.notes,
             "created_at": self.created_at.isoformat(),
         }
+
 
 @dataclass
 class UsageForecast:
@@ -307,6 +314,7 @@ class UsageForecast:
             "confidence": self.confidence,
             "data_points_used": self.data_points_used,
         }
+
 
 class EnterpriseMeter:
     """
@@ -1194,8 +1202,10 @@ class EnterpriseMeter:
             self._conn.close()
             self._conn = None
 
+
 # Module-level instance
 _enterprise_meter: EnterpriseMeter | None = None
+
 
 def get_enterprise_meter() -> EnterpriseMeter:
     """Get or create the enterprise meter."""
@@ -1203,6 +1213,7 @@ def get_enterprise_meter() -> EnterpriseMeter:
     if _enterprise_meter is None:
         _enterprise_meter = EnterpriseMeter()
     return _enterprise_meter
+
 
 __all__ = [
     "EnterpriseMeter",

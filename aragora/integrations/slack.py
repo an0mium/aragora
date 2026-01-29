@@ -4,6 +4,7 @@ Slack integration for aragora debates.
 Posts debate summaries, consensus alerts, and error notifications to Slack channels.
 Uses Slack's Block Kit for rich message formatting.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,9 @@ except ImportError:
     def build_trace_headers() -> dict[str, str]:
         return {}
 
+
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class SlackConfig:
@@ -49,6 +52,7 @@ class SlackConfig:
         if not self.webhook_url:
             raise ValueError("Slack webhook URL is required")
 
+
 @dataclass
 class SlackMessage:
     """A Slack message with optional blocks."""
@@ -69,6 +73,7 @@ class SlackMessage:
         if self.attachments:
             payload["attachments"] = self.attachments
         return payload
+
 
 class SlackIntegration:
     """
@@ -808,6 +813,7 @@ class SlackIntegration:
         )
 
         return blocks
+
 
 __all__ = [
     "SlackConfig",

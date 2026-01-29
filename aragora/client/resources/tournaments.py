@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.client.client import AragoraClient
 
+
 @dataclass
 class TournamentStanding:
     """An agent's standing in a tournament."""
@@ -35,6 +36,7 @@ class TournamentStanding:
             points=data.get("points", 0.0),
             elo_change=data.get("elo_change", 0.0),
         )
+
 
 @dataclass
 class TournamentSummary:
@@ -63,6 +65,7 @@ class TournamentSummary:
             completed_at=data.get("completed_at"),
             winner=data.get("winner"),
         )
+
 
 @dataclass
 class Tournament:
@@ -102,6 +105,7 @@ class Tournament:
             completed_at=data.get("completed_at"),
             metadata=data.get("metadata", {}),
         )
+
 
 class TournamentsAPI:
     """

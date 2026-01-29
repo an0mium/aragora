@@ -29,12 +29,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ExtractionHandlerProtocol(Protocol):
     """Protocol for handlers that use ExtractionOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class ExtractionOperationsMixin:
     """Mixin providing knowledge extraction API endpoints."""

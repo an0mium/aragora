@@ -27,6 +27,7 @@ from aragora.utils.json_helpers import safe_json_loads
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class LearningMetrics(SerializableMixin):
     """Metrics for evaluating learning efficiency."""
@@ -41,6 +42,7 @@ class LearningMetrics(SerializableMixin):
     tier_efficiency: dict[str, float] = field(default_factory=dict)
 
     # to_dict() and from_dict() inherited from SerializableMixin
+
 
 @dataclass
 class HyperparameterState(SerializableMixin):
@@ -74,6 +76,7 @@ class HyperparameterState(SerializableMixin):
     meta_learning_rate: float = 0.01  # Rate at which hyperparams change
 
     # to_dict() and from_dict() inherited from SerializableMixin
+
 
 class MetaLearner(SQLiteStore):
     """

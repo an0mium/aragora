@@ -3,6 +3,7 @@ Discord integration for aragora debates.
 Posts debate summaries and consensus alerts using Discord webhooks.
 Uses Discord's rich embed format for message formatting.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +15,7 @@ from typing import Any
 import aiohttp
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DiscordConfig:
@@ -31,6 +33,7 @@ class DiscordConfig:
     rate_limit_per_minute: int = 30
     retry_count: int = 3
     retry_delay: float = 1.0
+
 
 @dataclass
 class DiscordEmbed:
@@ -68,6 +71,7 @@ class DiscordEmbed:
         if self.thumbnail:
             result["thumbnail"] = self.thumbnail
         return result
+
 
 class DiscordIntegration:
     """Discord webhook integration for debate notifications."""
@@ -363,6 +367,7 @@ class DiscordIntegration:
 
         return await self._send_webhook([embed])
 
+
 class DiscordWebhookManager:
     """Manager for multiple Discord webhook targets."""
 
@@ -403,8 +408,10 @@ class DiscordWebhookManager:
         for integration in self._integrations.values():
             await integration.close()
 
+
 # Global manager instance
 discord_manager = DiscordWebhookManager()
+
 
 def create_discord_integration(webhook_url: str, **kwargs: Any) -> DiscordIntegration:
     """Factory function to create a Discord integration."""

@@ -71,6 +71,7 @@ SKIP_DIRS = {
 # Maximum file size to index (1MB per file)
 MAX_FILE_SIZE = 1_000_000
 
+
 @dataclass
 class CodebaseIndex:
     """Index of the codebase for RLM context building."""
@@ -99,6 +100,7 @@ class CodebaseIndex:
         pattern_lower = pattern.lower()
         return [f for f in self.files if pattern_lower in f.relative_path.lower()]
 
+
 @dataclass
 class IndexedFile:
     """A file indexed for RLM context."""
@@ -113,6 +115,7 @@ class IndexedFile:
     def token_estimate(self) -> int:
         """Estimate token count."""
         return self.size_bytes // 4
+
 
 class NomicContextBuilder:
     """

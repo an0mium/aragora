@@ -14,6 +14,7 @@ from aragora.knowledge.mound.verticals.base import BaseVerticalKnowledge
 
 logger = logging.getLogger(__name__)
 
+
 class VerticalRegistry:
     """
     Registry for vertical knowledge modules.
@@ -183,6 +184,7 @@ class VerticalRegistry:
         cls._registry.clear()
         cls._instances.clear()
 
+
 def _register_default_verticals() -> None:
     """Register default vertical implementations."""
     try:
@@ -219,6 +221,7 @@ def _register_default_verticals() -> None:
         VerticalRegistry.register(ResearchKnowledge)
     except ImportError:
         logger.debug("Research vertical not available")
+
 
 # Register defaults on module load
 _register_default_verticals()

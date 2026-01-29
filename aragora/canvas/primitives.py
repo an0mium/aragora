@@ -32,11 +32,13 @@ Usage:
         label="Processing...",
     )
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
 
 class ButtonVariant(str, Enum):
     """Visual variants for buttons."""
@@ -48,6 +50,7 @@ class ButtonVariant(str, Enum):
     DANGER = "danger"
     GHOST = "ghost"
 
+
 class AlertSeverity(str, Enum):
     """Alert severity levels."""
 
@@ -55,6 +58,7 @@ class AlertSeverity(str, Enum):
     SUCCESS = "success"
     WARNING = "warning"
     ERROR = "error"
+
 
 class ChartType(str, Enum):
     """Types of charts."""
@@ -64,6 +68,7 @@ class ChartType(str, Enum):
     PIE = "pie"
     SCATTER = "scatter"
     AREA = "area"
+
 
 @dataclass
 class ButtonPrimitive:
@@ -96,6 +101,7 @@ class ButtonPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class FormField:
     """A single field in a form."""
@@ -120,6 +126,7 @@ class FormField:
             "options": self.options,
             "validation": self.validation,
         }
+
 
 @dataclass
 class FormPrimitive:
@@ -149,6 +156,7 @@ class FormPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class SelectOption:
     """An option in a select control."""
@@ -156,6 +164,7 @@ class SelectOption:
     value: str
     label: str
     disabled: bool = False
+
 
 @dataclass
 class SelectPrimitive:
@@ -189,6 +198,7 @@ class SelectPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ChartDataPoint:
     """A data point in a chart."""
@@ -197,6 +207,7 @@ class ChartDataPoint:
     y: float  # Y-axis value
     label: str | None = None
 
+
 @dataclass
 class ChartSeries:
     """A series of data points in a chart."""
@@ -204,6 +215,7 @@ class ChartSeries:
     name: str
     data: list[ChartDataPoint]
     color: str | None = None
+
 
 @dataclass
 class ChartPrimitive:
@@ -244,6 +256,7 @@ class ChartPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ProgressPrimitive:
     """
@@ -280,6 +293,7 @@ class ProgressPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class AlertPrimitive:
     """
@@ -308,6 +322,7 @@ class AlertPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class CardPrimitive:
     """
@@ -334,6 +349,7 @@ class CardPrimitive:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class TableColumn:
     """A column in a table."""
@@ -342,6 +358,7 @@ class TableColumn:
     header: str
     sortable: bool = False
     width: int | None = None
+
 
 @dataclass
 class TablePrimitive:
@@ -380,6 +397,7 @@ class TablePrimitive:
             "selectable": self.selectable,
             "metadata": self.metadata,
         }
+
 
 # Export all primitives
 __all__ = [

@@ -28,6 +28,7 @@ from aragora.knowledge.mound.verticals.base import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class FinancialPattern:
     """Pattern for detecting financial terms."""
@@ -38,6 +39,7 @@ class FinancialPattern:
     risk_level: str  # high, medium, low
     description: str
 
+
 @dataclass
 class AuditPattern:
     """Pattern for detecting audit-related terms."""
@@ -47,6 +49,7 @@ class AuditPattern:
     category: str  # finding, control, test, etc.
     severity: str
     description: str
+
 
 class AccountingKnowledge(BaseVerticalKnowledge):
     """

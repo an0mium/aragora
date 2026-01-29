@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class RolesManager:
     """
     Manages agent roles, stances, and agreement intensity.
@@ -360,5 +361,6 @@ Do not advocate - analyze impartially."""
                 summary[stance].append(agent.name)
 
         return summary
+
 
 __all__ = ["RolesManager"]

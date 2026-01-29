@@ -20,17 +20,17 @@ import pytest
 class MockHandler:
     """Mock HTTP handler for tests."""
 
-    def __init__(self, json_body: Optional[Dict[str, Any]] = None):
+    def __init__(self, json_body: Optional[dict[str, Any]] = None):
         self._json_body = json_body
 
-    def get_json_body(self) -> Optional[Dict[str, Any]]:
+    def get_json_body(self) -> Optional[dict[str, Any]]:
         return self._json_body
 
 
 class MockForkHandler:
     """Mock handler that includes ForkOperationsMixin methods."""
 
-    def __init__(self, ctx: Dict[str, Any] = None):
+    def __init__(self, ctx: dict[str, Any] = None):
         from aragora.server.handlers.debates.fork import ForkOperationsMixin
 
         self.ctx = ctx or {}
@@ -45,7 +45,7 @@ class MockForkHandler:
                     # Bind the method to self
                     setattr(self, method_name, method.__get__(self, type(self)))
 
-    def read_json_body(self, handler: Any, max_size: int = None) -> Optional[Dict]:
+    def read_json_body(self, handler: Any, max_size: int = None) -> Optional[dict]:
         if hasattr(handler, "_json_body"):
             return handler._json_body
         return None

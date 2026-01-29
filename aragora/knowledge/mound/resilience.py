@@ -42,9 +42,11 @@ else:
             """Fallback timeout context manager (no-op)."""
             yield
 
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
 
 class RetryStrategy(str, Enum):
     """Retry strategies for transient failures."""
@@ -53,12 +55,14 @@ class RetryStrategy(str, Enum):
     LINEAR = "linear"  # n * base_delay
     CONSTANT = "constant"  # base_delay always
 
+
 class TransactionIsolation(str, Enum):
     """Transaction isolation levels."""
 
     READ_COMMITTED = "READ COMMITTED"
     REPEATABLE_READ = "REPEATABLE READ"
     SERIALIZABLE = "SERIALIZABLE"
+
 
 @dataclass
 class RetryConfig:
@@ -93,6 +97,7 @@ class RetryConfig:
 
         return delay
 
+
 @dataclass
 class TransactionConfig:
     """Configuration for transaction behavior."""
@@ -100,6 +105,7 @@ class TransactionConfig:
     isolation: TransactionIsolation = TransactionIsolation.READ_COMMITTED
     timeout_seconds: float = 30.0
     savepoint_on_nested: bool = True
+
 
 @dataclass
 class HealthStatus:
@@ -120,6 +126,7 @@ class HealthStatus:
             "latency_ms": self.latency_ms,
         }
 
+
 @dataclass
 class CacheInvalidationEvent:
     """Event for cache invalidation."""
@@ -138,6 +145,7 @@ class CacheInvalidationEvent:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 class CacheInvalidationBus:
     """
@@ -226,8 +234,10 @@ class CacheInvalidationBus:
         """Get recent invalidation events."""
         return [e.to_dict() for e in self._event_log[-limit:]]
 
+
 # Global cache invalidation bus
 _invalidation_bus: CacheInvalidationBus | None = None
+
 
 def get_invalidation_bus() -> CacheInvalidationBus:
     """Get or create the global cache invalidation bus."""
@@ -235,6 +245,7 @@ def get_invalidation_bus() -> CacheInvalidationBus:
     if _invalidation_bus is None:
         _invalidation_bus = CacheInvalidationBus()
     return _invalidation_bus
+
 
 def with_retry(
     config: RetryConfig | None = None,
@@ -298,6 +309,7 @@ def with_retry(
         return wrapper
 
     return decorator
+
 
 class TransactionManager:
     """
@@ -388,6 +400,7 @@ class TransactionManager:
             "default_isolation": self._config.isolation.value,
             "default_timeout": self._config.timeout_seconds,
         }
+
 
 class ConnectionHealthMonitor:
     """
@@ -502,6 +515,7 @@ class ConnectionHealthMonitor:
         """Get current health status."""
         return self._status
 
+
 @dataclass
 class IntegrityCheckResult:
     """Result of an integrity check."""
@@ -520,6 +534,7 @@ class IntegrityCheckResult:
             "timestamp": self.timestamp.isoformat(),
             "details": self.details,
         }
+
 
 class IntegrityVerifier:
     """
@@ -710,6 +725,7 @@ class IntegrityVerifier:
                 logger.info(f"Repaired orphaned records: {repairs}")
 
         return repairs
+
 
 class ResilientPostgresStore:
     """
@@ -917,9 +933,11 @@ class ResilientPostgresStore:
             raise RuntimeError("ResilientPostgresStore not initialized")
         return await self._integrity_verifier.repair_orphans(dry_run=dry_run)
 
+
 # =============================================================================
 # Adapter Circuit Breaker
 # =============================================================================
+
 
 class AdapterCircuitState(str, Enum):
     """Circuit breaker states for adapters."""
@@ -927,6 +945,7 @@ class AdapterCircuitState(str, Enum):
     CLOSED = "closed"  # Normal operation
     OPEN = "open"  # Blocking requests
     HALF_OPEN = "half_open"  # Testing recovery
+
 
 @dataclass
 class AdapterCircuitBreakerConfig:
@@ -943,6 +962,7 @@ class AdapterCircuitBreakerConfig:
     success_threshold: int = 2
     timeout_seconds: float = 30.0
     half_open_max_calls: int = 1
+
 
 @dataclass
 class AdapterCircuitStats:
@@ -973,6 +993,7 @@ class AdapterCircuitStats:
             "total_successes": self.total_successes,
             "total_circuit_opens": self.total_circuit_opens,
         }
+
 
 class AdapterCircuitBreaker:
     """
@@ -1235,6 +1256,7 @@ class AdapterCircuitBreaker:
             self.record_failure(str(e))
             raise
 
+
 class AdapterUnavailableError(Exception):
     """Raised when an adapter is unavailable due to circuit breaker."""
 
@@ -1250,8 +1272,10 @@ class AdapterUnavailableError(Exception):
             message or f"Adapter '{adapter_name}' unavailable. Retry in {cooldown_remaining:.1f}s"
         )
 
+
 # Global registry of adapter circuit breakers
 _adapter_circuits: dict[str, AdapterCircuitBreaker] = {}
+
 
 def get_adapter_circuit_breaker(
     adapter_name: str,
@@ -1270,6 +1294,7 @@ def get_adapter_circuit_breaker(
         _adapter_circuits[adapter_name] = AdapterCircuitBreaker(adapter_name, config)
     return _adapter_circuits[adapter_name]
 
+
 def get_all_adapter_circuit_stats() -> dict[str, dict[str, Any]]:
     """Get statistics for all adapter circuit breakers.
 
@@ -1277,6 +1302,7 @@ def get_all_adapter_circuit_stats() -> dict[str, dict[str, Any]]:
         Dict mapping adapter names to their stats
     """
     return {name: cb.get_stats().to_dict() for name, cb in _adapter_circuits.items()}
+
 
 def reset_adapter_circuit_breaker(adapter_name: str) -> bool:
     """Reset a specific adapter's circuit breaker.
@@ -1292,6 +1318,7 @@ def reset_adapter_circuit_breaker(adapter_name: str) -> bool:
         return True
     return False
 
+
 def reset_all_adapter_circuit_breakers() -> int:
     """Reset all adapter circuit breakers.
 
@@ -1304,9 +1331,11 @@ def reset_all_adapter_circuit_breakers() -> int:
         count += 1
     return count
 
+
 # =============================================================================
 # SLO Monitoring for Adapters
 # =============================================================================
+
 
 @dataclass
 class AdapterSLOConfig:
@@ -1335,8 +1364,10 @@ class AdapterSLOConfig:
     reverse_query_timeout_s: float = 3.0
     semantic_search_timeout_s: float = 5.0
 
+
 # Default SLO config
 _adapter_slo_config: AdapterSLOConfig | None = None
+
 
 def get_adapter_slo_config() -> AdapterSLOConfig:
     """Get the adapter SLO configuration."""
@@ -1345,10 +1376,12 @@ def get_adapter_slo_config() -> AdapterSLOConfig:
         _adapter_slo_config = AdapterSLOConfig()
     return _adapter_slo_config
 
+
 def set_adapter_slo_config(config: AdapterSLOConfig) -> None:
     """Set a custom adapter SLO configuration."""
     global _adapter_slo_config
     _adapter_slo_config = config
+
 
 def check_adapter_slo(
     operation: str,
@@ -1390,6 +1423,7 @@ def check_adapter_slo(
             f"{adapter_name}.{operation} latency {latency_ms:.1f}ms "
             f"EXCEEDS {percentile} SLO ({threshold}ms)",
         )
+
 
 def record_adapter_slo_check(
     adapter_name: str,
@@ -1465,9 +1499,11 @@ def record_adapter_slo_check(
 
     return passed, message
 
+
 # =============================================================================
 # Bulkhead Pattern for Adapter Isolation
 # =============================================================================
+
 
 @dataclass
 class BulkheadConfig:
@@ -1478,6 +1514,7 @@ class BulkheadConfig:
 
     max_concurrent_calls: int = 10
     max_wait_seconds: float = 5.0
+
 
 class AdapterBulkhead:
     """
@@ -1570,6 +1607,7 @@ class AdapterBulkhead:
             ),
         }
 
+
 class BulkheadFullError(Exception):
     """Raised when bulkhead is at capacity."""
 
@@ -1585,8 +1623,10 @@ class BulkheadFullError(Exception):
             message or f"Bulkhead '{adapter_name}' full (max {max_concurrent} concurrent calls)"
         )
 
+
 # Global registry of adapter bulkheads
 _adapter_bulkheads: dict[str, AdapterBulkhead] = {}
+
 
 def get_adapter_bulkhead(
     adapter_name: str,
@@ -1605,13 +1645,16 @@ def get_adapter_bulkhead(
         _adapter_bulkheads[adapter_name] = AdapterBulkhead(adapter_name, config)
     return _adapter_bulkheads[adapter_name]
 
+
 def get_all_adapter_bulkhead_stats() -> dict[str, dict[str, Any]]:
     """Get statistics for all adapter bulkheads."""
     return {name: bh.get_stats() for name, bh in _adapter_bulkheads.items()}
 
+
 # =============================================================================
 # Resilient Adapter Base
 # =============================================================================
+
 
 class ResilientAdapterMixin:
     """
@@ -1751,9 +1794,11 @@ class ResilientAdapterMixin:
 
         return stats
 
+
 # =============================================================================
 # Timeout Decorator
 # =============================================================================
+
 
 def with_timeout(
     timeout_seconds: float,
@@ -1796,9 +1841,11 @@ def with_timeout(
 
     return decorator
 
+
 # =============================================================================
 # Combined Health Status
 # =============================================================================
+
 
 def get_km_resilience_status() -> dict[str, Any]:
     """Get comprehensive resilience status for all KM components.

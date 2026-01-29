@@ -21,6 +21,7 @@ _CONNECTOR_CLASSES: dict[str, type[ChatPlatformConnector]] = {}
 # Singleton instances
 _CONNECTOR_INSTANCES: dict[str, ChatPlatformConnector] = {}
 
+
 def register_connector(platform: str, connector_class: type[ChatPlatformConnector]) -> None:
     """
     Register a connector class for a platform.
@@ -31,6 +32,7 @@ def register_connector(platform: str, connector_class: type[ChatPlatformConnecto
     """
     _CONNECTOR_CLASSES[platform.lower()] = connector_class
     logger.debug(f"Registered chat connector: {platform}")
+
 
 def get_connector(
     platform: str,
@@ -74,6 +76,7 @@ def get_connector(
     except Exception as e:
         logger.error(f"Failed to create {platform} connector: {e}")
         return None
+
 
 def _lazy_load_connector(platform: str) -> Optional[type[ChatPlatformConnector]]:
     """Lazy-load connector class on first access."""
@@ -134,6 +137,7 @@ def _lazy_load_connector(platform: str) -> Optional[type[ChatPlatformConnector]]
 
     return None
 
+
 def list_available_platforms() -> list[str]:
     """List all registered platform identifiers."""
     # Ensure all connectors are loaded
@@ -150,6 +154,7 @@ def list_available_platforms() -> list[str]:
         _lazy_load_connector(platform)
 
     return list(_CONNECTOR_CLASSES.keys())
+
 
 def get_configured_platforms() -> list[str]:
     """List platforms that have required environment variables set."""
@@ -189,6 +194,7 @@ def get_configured_platforms() -> list[str]:
 
     return configured
 
+
 def get_all_connectors(**config: Any) -> dict[str, ChatPlatformConnector]:
     """
     Get connectors for all configured platforms.
@@ -208,9 +214,11 @@ def get_all_connectors(**config: Any) -> dict[str, ChatPlatformConnector]:
 
     return connectors
 
+
 def clear_instances() -> None:
     """Clear all cached connector instances (for testing)."""
     _CONNECTOR_INSTANCES.clear()
+
 
 class ChatPlatformRegistry:
     """
@@ -285,8 +293,10 @@ class ChatPlatformRegistry:
         for platform, connector in get_all_connectors(**config).items():
             self.register(connector)
 
+
 # Global registry instance
 _registry: ChatPlatformRegistry | None = None
+
 
 def get_registry() -> ChatPlatformRegistry:
     """Get or create the global chat platform registry."""

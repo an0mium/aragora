@@ -63,6 +63,7 @@ DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_FAILURE_THRESHOLD = 5
 DEFAULT_COOLDOWN_SECONDS = 60.0
 
+
 @dataclass
 class RegisteredContent:
     """Content registered in the external environment."""
@@ -84,6 +85,7 @@ class RegisteredContent:
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata (source, timestamp, etc.)."""
+
 
 class RLMContextAdapter:
     """
@@ -810,9 +812,11 @@ Summary:"""
 
         return truncated + "..."
 
+
 # =============================================================================
 # REPLContextAdapter - TRUE RLM with REPL environment
 # =============================================================================
+
 
 class REPLContextAdapter(RLMContextAdapter):
     """
@@ -1192,9 +1196,11 @@ Content ID: {content_id}
             return True
         return False
 
+
 # Global adapter instances
 _global_adapter: RLMContextAdapter | None = None
 _global_repl_adapter: REPLContextAdapter | None = None
+
 
 def get_adapter() -> RLMContextAdapter:
     """Get the global RLMContextAdapter instance."""
@@ -1202,6 +1208,7 @@ def get_adapter() -> RLMContextAdapter:
     if _global_adapter is None:
         _global_adapter = RLMContextAdapter()
     return _global_adapter
+
 
 def get_repl_adapter() -> REPLContextAdapter:
     """
@@ -1217,6 +1224,7 @@ def get_repl_adapter() -> REPLContextAdapter:
     if _global_repl_adapter is None:
         _global_repl_adapter = REPLContextAdapter()
     return _global_repl_adapter
+
 
 __all__ = [
     "RLMContextAdapter",

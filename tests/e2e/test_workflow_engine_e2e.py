@@ -46,13 +46,13 @@ class MockStepOutput:
     """Mock output from a workflow step."""
 
     value: Any
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MockCustomStep(WorkflowStep):
     """Mock step for testing custom step types."""
 
-    def __init__(self, name: str, config: Dict[str, Any]) -> None:
+    def __init__(self, name: str, config: dict[str, Any]) -> None:
         self._name = name
         self._config = config
         self.executed = False
@@ -63,7 +63,7 @@ class MockCustomStep(WorkflowStep):
         return self._name
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         return self._config
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -89,7 +89,7 @@ class MockCustomStep(WorkflowStep):
 class MockFailingStep(WorkflowStep):
     """Step that fails on first N attempts."""
 
-    def __init__(self, name: str, config: Dict[str, Any]) -> None:
+    def __init__(self, name: str, config: dict[str, Any]) -> None:
         self._name = name
         self._config = config
         self.attempt_count = 0
@@ -100,7 +100,7 @@ class MockFailingStep(WorkflowStep):
         return self._name
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         return self._config
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -113,7 +113,7 @@ class MockFailingStep(WorkflowStep):
 
 def create_workflow_engine(
     config: Optional[WorkflowConfig] = None,
-    custom_steps: Optional[Dict[str, type]] = None,
+    custom_steps: Optional[dict[str, type]] = None,
 ) -> WorkflowEngine:
     """Create a workflow engine with optional custom configuration."""
     engine = WorkflowEngine(

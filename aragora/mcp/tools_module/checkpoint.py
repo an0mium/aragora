@@ -11,6 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def create_checkpoint_tool(
     debate_id: str,
     label: str = "",
@@ -152,6 +153,7 @@ async def create_checkpoint_tool(
     except Exception as e:
         return {"error": f"Failed to create checkpoint: {e}"}
 
+
 async def list_checkpoints_tool(
     debate_id: str = "",
     include_expired: bool = False,
@@ -200,6 +202,7 @@ async def list_checkpoints_tool(
     except Exception as e:
         return {"error": f"Failed to list checkpoints: {e}"}
 
+
 async def resume_checkpoint_tool(
     checkpoint_id: str,
 ) -> dict[str, Any]:
@@ -240,6 +243,7 @@ async def resume_checkpoint_tool(
     except Exception as e:
         return {"error": f"Failed to resume checkpoint: {e}"}
 
+
 async def delete_checkpoint_tool(
     checkpoint_id: str,
 ) -> dict[str, Any]:
@@ -272,6 +276,7 @@ async def delete_checkpoint_tool(
         return {"error": "Checkpoint module not available"}
     except Exception as e:
         return {"error": f"Failed to delete checkpoint: {e}"}
+
 
 __all__ = [
     "create_checkpoint_tool",

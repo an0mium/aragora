@@ -61,6 +61,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class ComputerUseHandler(BaseHandler):
     """
     HTTP request handler for computer use API endpoints.
@@ -139,9 +140,7 @@ class ComputerUseHandler(BaseHandler):
         """Check if this handler can handle the given path."""
         return path.startswith("/api/v1/computer-use/")
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):
             return None
@@ -450,5 +449,6 @@ class ComputerUseHandler(BaseHandler):
             },
             status=201,
         )
+
 
 __all__ = ["ComputerUseHandler"]

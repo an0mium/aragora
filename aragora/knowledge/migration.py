@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MigrationResult:
     """Result of a migration operation."""
@@ -91,6 +92,7 @@ class MigrationResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
+
 @dataclass
 class MigrationCheckpoint:
     """Checkpoint for resumable migrations."""
@@ -102,6 +104,7 @@ class MigrationCheckpoint:
     workspace_id: str
     created_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class MigrationContext:
     """Context manager for migrations with rollback support."""
@@ -148,6 +151,7 @@ class MigrationContext:
     def record_relationship(self, rel_id: str) -> None:
         """Record a created relationship for potential rollback."""
         self._created_relationship_ids.append(rel_id)
+
 
 class KnowledgeMoundMigrator:
     """
@@ -618,6 +622,7 @@ class KnowledgeMoundMigrator:
 
         return estimates
 
+
 async def run_migration_cli(
     workspace_id: str = "default",
     dry_run: bool = False,
@@ -661,6 +666,7 @@ async def run_migration_cli(
                 pass
 
     await mound.close()
+
 
 if __name__ == "__main__":
     import argparse

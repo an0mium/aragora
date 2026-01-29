@@ -30,12 +30,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ConfidenceDecayHandlerProtocol(Protocol):
     """Protocol for handlers that use ConfidenceDecayOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class ConfidenceDecayOperationsMixin:
     """Mixin providing confidence decay API endpoints."""

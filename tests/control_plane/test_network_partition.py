@@ -36,9 +36,9 @@ class MockRegionState:
     region_id: str
     is_leader: bool = False
     is_connected: bool = True
-    received_events: List[RegionalEvent] = field(default_factory=list)
-    buffered_events: List[RegionalEvent] = field(default_factory=list)
-    known_entities: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    received_events: list[RegionalEvent] = field(default_factory=list)
+    buffered_events: list[RegionalEvent] = field(default_factory=list)
+    known_entities: dict[str, dict[str, Any]] = field(default_factory=dict)
     last_leader_heartbeat: float = 0.0
     leader_id: Optional[str] = None
 
@@ -48,10 +48,10 @@ class MockPartitionableEventBus:
 
     def __init__(self, config: RegionalSyncConfig):
         self.config = config
-        self.connected_regions: Set[str] = set()
-        self.partition_matrix: Dict[str, Set[str]] = {}  # region -> reachable regions
-        self.published_events: List[RegionalEvent] = []
-        self.subscriptions: Dict[str, List[callable]] = {}
+        self.connected_regions: set[str] = set()
+        self.partition_matrix: dict[str, set[str]] = {}  # region -> reachable regions
+        self.published_events: list[RegionalEvent] = []
+        self.subscriptions: dict[str, list[callable]] = {}
 
     async def connect(self, region_id: str) -> None:
         """Connect a region."""
@@ -598,7 +598,7 @@ class TestEventBufferExhaustion:
     def test_buffer_overflow_drops_oldest(self):
         """Test that buffer overflow drops oldest events."""
         max_buffer = 5
-        buffer: List[RegionalEvent] = []
+        buffer: list[RegionalEvent] = []
 
         # Fill buffer beyond capacity
         for i in range(10):
@@ -619,7 +619,7 @@ class TestEventBufferExhaustion:
         """Test that buffer overflow is tracked in metrics."""
         metrics = {"events_buffered": 0, "events_dropped": 0}
         max_buffer = 3
-        buffer: List[RegionalEvent] = []
+        buffer: list[RegionalEvent] = []
 
         for i in range(5):
             event = RegionalEvent(

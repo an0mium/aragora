@@ -47,12 +47,14 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 P = ParamSpec("P")
 
+
 class CircuitState(str, Enum):
     """Circuit breaker states."""
 
     CLOSED = "closed"  # Normal operation
     OPEN = "open"  # Failing fast
     HALF_OPEN = "half_open"  # Testing recovery
+
 
 class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is open and request is rejected."""
@@ -66,6 +68,7 @@ class CircuitBreakerOpenError(Exception):
         super().__init__(message)
         self.circuit_name = circuit_name
         self.cooldown_remaining = cooldown_remaining
+
 
 @dataclass
 class CircuitBreakerConfig:
@@ -89,6 +92,7 @@ class CircuitBreakerConfig:
     window_size: float = 60.0
     excluded_exceptions: tuple[type[Exception], ...] = ()
     on_state_change: Optional[Callable[[str, CircuitState, CircuitState], None]] = None
+
 
 @dataclass
 class CircuitBreakerStats:
@@ -118,6 +122,7 @@ class CircuitBreakerStats:
             "total_failures": self.total_failures,
             "cooldown_remaining": self.cooldown_remaining,
         }
+
 
 class BaseCircuitBreaker:
     """Base circuit breaker implementation.
@@ -371,6 +376,7 @@ class BaseCircuitBreaker:
         failures = sum(1 for _, success in self._recent_results if not success)
         return failures / len(self._recent_results)
 
+
 def with_circuit_breaker(
     name: str,
     config: CircuitBreakerConfig | None = None,
@@ -416,6 +422,7 @@ def with_circuit_breaker(
 
     return decorator
 
+
 def with_circuit_breaker_sync(
     name: str,
     config: CircuitBreakerConfig | None = None,
@@ -450,12 +457,14 @@ def with_circuit_breaker_sync(
 
     return decorator
 
+
 # =============================================================================
 # Global Circuit Breaker Registry (backward-compatible with aragora.resilience)
 # =============================================================================
 
 _circuit_breakers: dict[str, BaseCircuitBreaker] = {}
 _circuit_breakers_lock = threading.Lock()
+
 
 def get_circuit_breaker(
     name: str,
@@ -503,6 +512,7 @@ def get_circuit_breaker(
 
         return _circuit_breakers[name]
 
+
 def reset_all_circuit_breakers() -> None:
     """Reset all global circuit breakers. Useful for testing."""
     with _circuit_breakers_lock:
@@ -510,6 +520,7 @@ def reset_all_circuit_breakers() -> None:
             cb.reset()
         count = len(_circuit_breakers)
     logger.info(f"Reset {count} circuit breakers")
+
 
 def get_all_circuit_breakers() -> dict[str, BaseCircuitBreaker]:
     """Get all registered circuit breakers.

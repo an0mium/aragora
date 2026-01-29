@@ -274,7 +274,7 @@ class TestBatchingIntegration:
         """Test that different event types are batched separately."""
         from aragora.events.batch_dispatcher import BatchWebhookDispatcher
 
-        delivered: List[tuple] = []
+        delivered: list[tuple] = []
         dispatcher = BatchWebhookDispatcher(
             batch_window=1.0,
             max_batch_size=10,
@@ -300,7 +300,7 @@ class TestBatchingIntegration:
         """Test handling high volume of events."""
         from aragora.events.batch_dispatcher import BatchWebhookDispatcher
 
-        delivered: List[tuple] = []
+        delivered: list[tuple] = []
         # Use empty priority events so nothing bypasses batching
         dispatcher = BatchWebhookDispatcher(
             batch_window=5.0,

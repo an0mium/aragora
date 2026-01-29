@@ -21,6 +21,7 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
+
 class UnifiedAuditCategory(str, Enum):
     """Unified audit categories across all systems."""
 
@@ -83,6 +84,7 @@ class UnifiedAuditCategory(str, Enum):
     PRIVACY_CONSENT_WITHDRAWN = "privacy.consent_withdrawn"
     PRIVACY_DATA_REQUEST = "privacy.data_request"
 
+
 class AuditOutcome(str, Enum):
     """Outcome of an audited action."""
 
@@ -92,6 +94,7 @@ class AuditOutcome(str, Enum):
     ERROR = "error"
     PARTIAL = "partial"
 
+
 class AuditSeverity(str, Enum):
     """Severity level for audit events."""
 
@@ -100,6 +103,7 @@ class AuditSeverity(str, Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
+
 
 @dataclass
 class UnifiedAuditEvent:
@@ -162,6 +166,7 @@ class UnifiedAuditEvent:
             "reason": self.reason,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 class UnifiedAuditLogger:
     """
@@ -607,8 +612,10 @@ class UnifiedAuditLogger:
             )
         )
 
+
 # Global instance
 _unified_logger: UnifiedAuditLogger | None = None
+
 
 def get_unified_audit_logger() -> UnifiedAuditLogger:
     """Get the global unified audit logger instance."""
@@ -617,24 +624,29 @@ def get_unified_audit_logger() -> UnifiedAuditLogger:
         _unified_logger = UnifiedAuditLogger()
     return _unified_logger
 
+
 def configure_unified_audit_logger(**kwargs) -> UnifiedAuditLogger:
     """Configure and return a new unified audit logger."""
     global _unified_logger
     _unified_logger = UnifiedAuditLogger(**kwargs)
     return _unified_logger
 
+
 # Convenience functions
 def audit_log(event: UnifiedAuditEvent) -> None:
     """Log an audit event using the global logger."""
     get_unified_audit_logger().log(event)
 
+
 def audit_login(user_id: str, success: bool = True, **kwargs) -> None:
     """Log a login attempt."""
     get_unified_audit_logger().log_auth_login(user_id, success, **kwargs)
 
+
 def audit_logout(user_id: str, **kwargs) -> None:
     """Log a logout."""
     get_unified_audit_logger().log_auth_logout(user_id, **kwargs)
+
 
 def audit_access(
     user_id: str,
@@ -644,6 +656,7 @@ def audit_access(
 ) -> None:
     """Log an access control check."""
     get_unified_audit_logger().log_access_check(user_id, permission, granted=granted, **kwargs)
+
 
 def audit_data(
     user_id: str,
@@ -657,17 +670,21 @@ def audit_data(
         user_id, resource_type, resource_id, action, **kwargs
     )
 
+
 def audit_admin(admin_id: str, action: str, **kwargs) -> None:
     """Log an administrative action."""
     get_unified_audit_logger().log_admin_action(admin_id, action, **kwargs)
+
 
 def audit_security(event_type: str, **kwargs) -> None:
     """Log a security event."""
     get_unified_audit_logger().log_security_event(event_type, **kwargs)
 
+
 def audit_debate(debate_id: str, action: str, **kwargs) -> None:
     """Log a debate event."""
     get_unified_audit_logger().log_debate_event(debate_id, action, **kwargs)
+
 
 def audit_action(
     user_id: str,
@@ -698,6 +715,7 @@ def audit_action(
             details=kwargs,
         )
     )
+
 
 __all__ = [
     "UnifiedAuditCategory",

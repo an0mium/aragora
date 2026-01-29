@@ -19,6 +19,7 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+
 class SignalType(str, Enum):
     """Types of stigmergic signals."""
 
@@ -31,6 +32,7 @@ class SignalType(str, Enum):
     DEPENDENCY = "dependency"  # "This relates to X"
     CONTROVERSY = "controversy"  # "Agents disagreed here"
     CONSENSUS = "consensus"  # "Agents agreed here"
+
 
 @dataclass
 class StigmergicSignal:
@@ -134,6 +136,7 @@ class StigmergicSignal:
             ),
         )
 
+
 @dataclass
 class PheromoneTrail:
     """
@@ -155,6 +158,7 @@ class PheromoneTrail:
     def strength(self) -> float:
         """Trail strength based on usage and intensity."""
         return self.total_intensity * (1.0 + 0.1 * self.agent_count)
+
 
 class StigmergyManager:
     """

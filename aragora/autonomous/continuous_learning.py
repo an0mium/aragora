@@ -7,6 +7,7 @@ Provides:
 - Cross-debate pattern extraction
 - Knowledge decay management
 """
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class LearningEventType(Enum):
     """Types of learning events."""
 
@@ -31,6 +33,7 @@ class LearningEventType(Enum):
     CALIBRATION_UPDATED = "calibration_updated"
     KNOWLEDGE_DECAYED = "knowledge_decayed"
     USER_FEEDBACK = "user_feedback"
+
 
 @dataclass
 class LearningEvent:
@@ -44,6 +47,7 @@ class LearningEvent:
     applied: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class AgentCalibration:
     """Calibration data for an agent."""
@@ -56,6 +60,7 @@ class AgentCalibration:
     last_updated: datetime | None = None
     total_debates: int = 0
     win_rate: float = 0.5
+
 
 @dataclass
 class ExtractedPattern:
@@ -71,6 +76,7 @@ class ExtractedPattern:
     agents_involved: list[str] = field(default_factory=list)
     topics: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class EloUpdater:
     """
@@ -214,6 +220,7 @@ class EloUpdater:
     def get_all_ratings(self) -> dict[str, float]:
         """Get all agent ratings."""
         return self._ratings.copy()
+
 
 class PatternExtractor:
     """
@@ -434,6 +441,7 @@ class PatternExtractor:
         }
         self.storage_path.write_text(json.dumps(data, indent=2))
 
+
 class KnowledgeDecayManager:
     """
     Manages knowledge decay over time.
@@ -561,6 +569,7 @@ class KnowledgeDecayManager:
                 stale.append(kid)
 
         return stale
+
 
 class ContinuousLearner:
     """
@@ -833,6 +842,7 @@ class ContinuousLearner:
     def get_all_calibrations(self) -> dict[str, AgentCalibration]:
         """Get all agent calibrations."""
         return self._calibrations.copy()
+
 
 __all__ = [
     "LearningEventType",

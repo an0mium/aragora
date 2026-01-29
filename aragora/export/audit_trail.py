@@ -32,6 +32,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+
 @runtime_checkable
 class GauntletResultProtocol(Protocol):
     """Protocol defining the expected interface for GauntletResult objects."""
@@ -55,6 +56,7 @@ class GauntletResultProtocol(Protocol):
     robustness_score: float
     checksum: str
 
+
 class AuditEventType(Enum):
     """Types of audit events."""
 
@@ -76,6 +78,7 @@ class AuditEventType(Enum):
     FINDING_ADDED = "finding_added"
     VERDICT_DETERMINED = "verdict_determined"
     RECEIPT_GENERATED = "receipt_generated"
+
 
 @dataclass
 class AuditEvent:
@@ -104,6 +107,7 @@ class AuditEvent:
             "agent": self.agent,
             "parent_event_id": self.parent_event_id,
         }
+
 
 @dataclass
 class AuditTrail:
@@ -389,6 +393,7 @@ class AuditTrail:
         """Load trail from file."""
         return cls.from_json(path.read_text())
 
+
 class AuditTrailGenerator:
     """
     Generates audit trails from Gauntlet results.
@@ -587,6 +592,7 @@ class AuditTrailGenerator:
         )
 
         return trail
+
 
 def generate_audit_trail(result: GauntletResultProtocol) -> AuditTrail:
     """

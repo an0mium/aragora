@@ -81,6 +81,7 @@ BUNDLE_INFO = {
     },
 }
 
+
 def list_bundles() -> list[dict[str, Any]]:
     """
     List all available SME bundles with metadata.
@@ -102,6 +103,7 @@ def list_bundles() -> list[dict[str, Any]]:
             }
         )
     return bundles
+
 
 def get_bundle(bundle_id: str) -> Optional[dict[str, Any]]:
     """
@@ -134,6 +136,7 @@ def get_bundle(bundle_id: str) -> Optional[dict[str, Any]]:
         logger.error(f"Failed to load bundle {bundle_id}: {e}")
         return None
 
+
 def load_all_bundles() -> dict[str, dict[str, Any]]:
     """
     Load all available bundles.
@@ -152,6 +155,7 @@ def load_all_bundles() -> dict[str, dict[str, Any]]:
         if bundle:
             bundles[bundle_id] = bundle
     return bundles
+
 
 def get_bundle_for_use_case(use_case: str) -> Optional[dict[str, Any]]:
     """
@@ -192,6 +196,7 @@ def get_bundle_for_use_case(use_case: str) -> Optional[dict[str, Any]]:
         return get_bundle(best_match)
 
     return None
+
 
 __all__ = [
     "BUNDLE_INFO",

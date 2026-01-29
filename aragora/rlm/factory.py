@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RLMFactoryMetrics:
     """Metrics for RLM factory observability.
@@ -107,11 +108,13 @@ class RLMFactoryMetrics:
         self.singleton_hits = 0
         self.singleton_misses = 0
 
+
 # Global metrics instance
 _metrics = RLMFactoryMetrics()
 
 # Singleton instance for reuse
 _rlm_instance: Optional["AragoraRLM"] = None
+
 
 def get_rlm(
     config: Optional["RLMConfig"] = None,
@@ -273,6 +276,7 @@ def get_rlm(
 
     return rlm
 
+
 def get_compressor(config: Optional["RLMConfig"] = None) -> "HierarchicalCompressor":
     """
     Get HierarchicalCompressor directly (for specific compression-only use cases).
@@ -295,6 +299,7 @@ def get_compressor(config: Optional["RLMConfig"] = None) -> "HierarchicalCompres
     _metrics.compressor_instances_created += 1
     logger.debug("[RLM Factory] Creating direct HierarchicalCompressor (compression-only)")
     return HierarchicalCompressor(config=config)
+
 
 async def compress_and_query(
     query: str,
@@ -361,6 +366,7 @@ async def compress_and_query(
         logger.exception(f"RLM compress_and_query failed with unexpected error: {e}")
         raise
 
+
 def reset_singleton() -> None:
     """
     Reset the singleton RLM instance.
@@ -370,6 +376,7 @@ def reset_singleton() -> None:
     global _rlm_instance
     _rlm_instance = None
     logger.debug("[RLM Factory] Singleton instance reset")
+
 
 def get_factory_metrics() -> dict[str, int]:
     """
@@ -396,6 +403,7 @@ def get_factory_metrics() -> dict[str, int]:
     """
     return _metrics.to_dict()
 
+
 def reset_metrics() -> None:
     """
     Reset all factory metrics to zero.
@@ -404,6 +412,7 @@ def reset_metrics() -> None:
     """
     _metrics.reset()
     logger.debug("[RLM Factory] Metrics reset")
+
 
 def log_metrics_summary() -> None:
     """
@@ -426,6 +435,7 @@ def log_metrics_summary() -> None:
         f"  Singleton: hits={metrics['singleton_hits']}, "
         f"misses={metrics['singleton_misses']}"
     )
+
 
 def require_true_rlm_decorator():
     """
@@ -464,6 +474,7 @@ def require_true_rlm_decorator():
 
     return decorator
 
+
 def is_true_rlm_available() -> bool:
     """
     Check if TRUE RLM (official library) is available.
@@ -480,6 +491,7 @@ def is_true_rlm_available() -> bool:
     from .bridge import HAS_OFFICIAL_RLM
 
     return HAS_OFFICIAL_RLM
+
 
 def get_rlm_mode_info() -> dict:
     """
@@ -522,6 +534,7 @@ def get_rlm_mode_info() -> dict:
             else None
         ),
     }
+
 
 __all__ = [
     "get_rlm",

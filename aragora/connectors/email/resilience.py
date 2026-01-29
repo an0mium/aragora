@@ -50,6 +50,7 @@ T = TypeVar("T")
 # Configuration
 # =============================================================================
 
+
 @dataclass
 class RetryConfig:
     """Configuration for retry behavior."""
@@ -66,6 +67,7 @@ class RetryConfig:
     )
     retryable_status_codes: tuple = (429, 500, 502, 503, 504)
 
+
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker."""
@@ -75,6 +77,7 @@ class CircuitBreakerConfig:
     half_open_max_calls: int = 3
     success_threshold: int = 2
 
+
 @dataclass
 class RateLimitConfig:
     """Configuration for rate limiting."""
@@ -83,9 +86,11 @@ class RateLimitConfig:
     burst_size: int = 10
     window_seconds: float = 60.0
 
+
 # =============================================================================
 # Circuit Breaker
 # =============================================================================
+
 
 class CircuitState(Enum):
     """Circuit breaker states."""
@@ -93,6 +98,7 @@ class CircuitState(Enum):
     CLOSED = "closed"  # Normal operation
     OPEN = "open"  # Failing, reject calls
     HALF_OPEN = "half_open"  # Testing recovery
+
 
 class EmailCircuitBreaker:
     """
@@ -199,9 +205,11 @@ class EmailCircuitBreaker:
             "last_failure_time": self._last_failure_time,
         }
 
+
 # =============================================================================
 # Retry with Exponential Backoff
 # =============================================================================
+
 
 class RetryExecutor:
     """Executes operations with retry and exponential backoff."""
@@ -292,9 +300,11 @@ class RetryExecutor:
             raise last_error
         raise RuntimeError(f"Retry loop exited unexpectedly for {operation_name}")
 
+
 # =============================================================================
 # OAuth Token Store
 # =============================================================================
+
 
 @dataclass
 class OAuthToken:
@@ -340,6 +350,7 @@ class OAuthToken:
             tenant_id=data.get("tenant_id", ""),
             user_id=data.get("user_id", ""),
         )
+
 
 class OAuthTokenStore:
     """
@@ -570,9 +581,11 @@ class OAuthTokenStore:
 
         return tokens
 
+
 # =============================================================================
 # Resilient Email Client
 # =============================================================================
+
 
 class ResilientEmailClient:
     """
@@ -709,10 +722,12 @@ class ResilientEmailClient:
             "requests_in_window": len(self._request_times),
         }
 
+
 class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is open and blocking calls."""
 
     pass
+
 
 # =============================================================================
 # Exports

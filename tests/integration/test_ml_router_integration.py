@@ -34,7 +34,7 @@ class MockDebateResult:
     consensus_text: str = "Test consensus"
     winner_agent: str = "claude"
     rounds_used: int = 3
-    messages: List[Any] = field(default_factory=list)
+    messages: list[Any] = field(default_factory=list)
 
 
 class TestRouterToDebateIntegration:

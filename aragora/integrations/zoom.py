@@ -41,6 +41,7 @@ from aragora.http_client import DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ZoomConfig:
     """Configuration for Zoom integration."""
@@ -96,6 +97,7 @@ class ZoomConfig:
         """Check if Zoom integration is configured."""
         return bool(self.client_id and self.client_secret and self.account_id)
 
+
 @dataclass
 class ZoomMeetingInfo:
     """Information about a Zoom meeting."""
@@ -129,6 +131,7 @@ class ZoomMeetingInfo:
             password=data.get("password", ""),
         )
 
+
 @dataclass
 class ZoomWebhookEvent:
     """A Zoom webhook event."""
@@ -147,6 +150,7 @@ class ZoomWebhookEvent:
             event_ts=data.get("event_ts", 0),
             account_id=data.get("payload", {}).get("account_id", ""),
         )
+
 
 class ZoomIntegration:
     """

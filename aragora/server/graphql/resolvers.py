@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Context and Types
 # =============================================================================
 
+
 @dataclass
 class ResolverContext:
     """Context passed to resolvers during execution.
@@ -56,6 +57,7 @@ class ResolverContext:
     def __post_init__(self) -> None:
         pass  # variables now has proper default factory
 
+
 @dataclass
 class ResolverResult:
     """Result from a resolver execution.
@@ -75,9 +77,11 @@ class ResolverResult:
     def success(self) -> bool:
         return len(self.errors) == 0
 
+
 # =============================================================================
 # Status Mapping Utilities
 # =============================================================================
+
 
 def _normalize_debate_status(status: str | None) -> str:
     """Normalize internal debate status to GraphQL enum value."""
@@ -96,6 +100,7 @@ def _normalize_debate_status(status: str | None) -> str:
         return "PENDING"
     return status_map.get(status.lower(), status.upper())
 
+
 def _normalize_agent_status(status: str | None) -> str:
     """Normalize agent status to GraphQL enum value."""
     status_map = {
@@ -110,6 +115,7 @@ def _normalize_agent_status(status: str | None) -> str:
     if not status:
         return "OFFLINE"
     return status_map.get(status.lower(), status.upper())
+
 
 def _normalize_task_status(status: str | None) -> str:
     """Normalize task status to GraphQL enum value."""
@@ -129,6 +135,7 @@ def _normalize_task_status(status: str | None) -> str:
         return "PENDING"
     return status_map.get(status.lower(), status.upper())
 
+
 def _normalize_priority(priority: str | None) -> str:
     """Normalize priority to GraphQL enum value."""
     priority_map = {
@@ -142,6 +149,7 @@ def _normalize_priority(priority: str | None) -> str:
     if not priority:
         return "NORMAL"
     return priority_map.get(priority.lower(), priority.upper())
+
 
 def _normalize_health_status(status: str | None) -> str:
     """Normalize health status to GraphQL enum value."""
@@ -158,6 +166,7 @@ def _normalize_health_status(status: str | None) -> str:
         return "HEALTHY"
     return status_map.get(status.lower(), status.upper())
 
+
 def _to_iso_datetime(value: Any) -> str | None:
     """Convert various datetime formats to ISO string."""
     if value is None:
@@ -170,9 +179,11 @@ def _to_iso_datetime(value: Any) -> str | None:
         return datetime.fromtimestamp(value).isoformat()
     return str(value)
 
+
 # =============================================================================
 # Query Resolvers
 # =============================================================================
+
 
 class QueryResolvers:
     """Resolvers for GraphQL Query operations."""
@@ -671,9 +682,11 @@ class QueryResolvers:
             logger.exception(f"Error resolving stats: {e}")
             return ResolverResult(errors=[f"Failed to resolve stats: {e}"])
 
+
 # =============================================================================
 # Mutation Resolvers
 # =============================================================================
+
 
 class MutationResolvers:
     """Resolvers for GraphQL Mutation operations."""
@@ -1072,9 +1085,11 @@ class MutationResolvers:
             logger.exception(f"Error unregistering agent: {e}")
             return ResolverResult(errors=[f"Failed to unregister agent: {e}"])
 
+
 # =============================================================================
 # Subscription Resolvers
 # =============================================================================
+
 
 class SubscriptionResolvers:
     """Resolvers for GraphQL Subscription operations.
@@ -1157,9 +1172,11 @@ class SubscriptionResolvers:
         except asyncio.CancelledError:
             pass
 
+
 # =============================================================================
 # Transform Functions
 # =============================================================================
+
 
 def _transform_debate(debate: dict[str, Any]) -> dict[str, Any]:
     """Transform internal debate format to GraphQL format."""
@@ -1272,6 +1289,7 @@ def _transform_debate(debate: dict[str, Any]) -> dict[str, Any]:
         "winner": debate.get("winner"),
     }
 
+
 def _transform_agent(agent: Any, agent_id: str | None = None) -> dict[str, Any]:
     """Transform internal agent format to GraphQL format."""
     if isinstance(agent, dict):
@@ -1329,6 +1347,7 @@ def _transform_agent(agent: Any, agent_id: str | None = None) -> dict[str, Any]:
         "provider": getattr(agent, "provider", None),
     }
 
+
 def _transform_task(task: Any) -> dict[str, Any]:
     """Transform internal task format to GraphQL format."""
     if isinstance(task, dict):
@@ -1366,6 +1385,7 @@ def _transform_task(task: Any) -> dict[str, Any]:
         "payload": getattr(task, "payload", None),
         "metadata": getattr(task, "metadata", None),
     }
+
 
 # =============================================================================
 # Resolver Registry

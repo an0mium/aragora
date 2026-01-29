@@ -42,7 +42,7 @@ class MockReviewFinding:
     line_end: int
     suggestion: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "severity": self.severity,
             "category": self.category,
@@ -59,12 +59,12 @@ class MockReviewResult:
 
     id: str
     summary: str
-    findings: List[MockReviewFinding]
+    findings: list[MockReviewFinding]
     overall_score: float
-    review_types: List[str]
+    review_types: list[str]
     language: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "summary": self.summary,
@@ -80,7 +80,7 @@ class MockReviewResult:
 # ===========================================================================
 
 
-def get_response_data(result) -> Dict[str, Any]:
+def get_response_data(result) -> dict[str, Any]:
     """Extract JSON data from HandlerResult."""
     return json.loads(result.body)
 

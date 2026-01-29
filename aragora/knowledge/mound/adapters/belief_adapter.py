@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # Reverse Flow Dataclasses (KM → BeliefNetwork)
 # ============================================================================
 
+
 @dataclass
 class KMThresholdUpdate:
     """Result of updating belief thresholds from KM patterns."""
@@ -56,6 +57,7 @@ class KMThresholdUpdate:
     confidence: float = 0.7
     recommendation: str = "keep"  # "increase", "decrease", "keep"
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class KMBeliefValidation:
@@ -71,6 +73,7 @@ class KMBeliefValidation:
     adjustment: float = 0.0  # Confidence adjustment amount
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class KMPriorRecommendation:
     """KM-validated prior probability for a claim type."""
@@ -82,6 +85,7 @@ class KMPriorRecommendation:
     supporting_debates: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class BeliefThresholdSyncResult:
     """Result of syncing thresholds from KM patterns."""
@@ -92,6 +96,7 @@ class BeliefThresholdSyncResult:
     validation_results: list[KMBeliefValidation] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
+
 
 @dataclass
 class BeliefSearchResult:
@@ -105,6 +110,7 @@ class BeliefSearchResult:
         if self.matched_topics is None:
             self.matched_topics = []
 
+
 @dataclass
 class CruxSearchResult:
     """Wrapper for crux search results."""
@@ -116,6 +122,7 @@ class CruxSearchResult:
     def __post_init__(self) -> None:
         if self.debate_ids is None:
             self.debate_ids = []
+
 
 class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
     """
@@ -1362,6 +1369,7 @@ class BeliefAdapter(FusionMixin, ResilientAdapterMixin):
         # Reset thresholds to defaults
         self.MIN_BELIEF_CONFIDENCE = 0.8
         self.MIN_CRUX_SCORE = 0.3
+
 
 __all__ = [
     "BeliefAdapter",

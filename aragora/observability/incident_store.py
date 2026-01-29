@@ -45,6 +45,7 @@ from typing import Iterator
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class IncidentUpdate:
     """A timestamped update to an incident."""
@@ -53,6 +54,7 @@ class IncidentUpdate:
     status: str
     message: str
     timestamp: str
+
 
 @dataclass
 class IncidentRecord:
@@ -90,6 +92,7 @@ class IncidentRecord:
             ],
             "source": self.source,
         }
+
 
 class IncidentStore:
     """SQLite-backed incident store for the status page."""
@@ -358,12 +361,14 @@ class IncidentStore:
             initial_message=message,
         )
 
+
 # ---------------------------------------------------------------------------
 # Global singleton
 # ---------------------------------------------------------------------------
 
 _global_store: IncidentStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_incident_store(db_path: str | None = None) -> IncidentStore:
     """Get or create the global incident store."""
@@ -373,11 +378,13 @@ def get_incident_store(db_path: str | None = None) -> IncidentStore:
             _global_store = IncidentStore(db_path=db_path)
         return _global_store
 
+
 def reset_incident_store() -> None:
     """Reset the global store (for testing)."""
     global _global_store
     with _store_lock:
         _global_store = None
+
 
 __all__ = [
     "IncidentStore",

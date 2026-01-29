@@ -52,6 +52,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class CalibrationSyncResult(TypedDict):
     """Result type for calibration sync operations."""
 
@@ -62,6 +63,7 @@ class CalibrationSyncResult(TypedDict):
     needs_review_count: int
     errors: list[str]
     duration_ms: float
+
 
 @dataclass
 class CalibrationSearchResult:
@@ -78,6 +80,7 @@ class CalibrationSearchResult:
             "similarity": self.similarity,
             "stored_at": self.stored_at.isoformat() if self.stored_at else None,
         }
+
 
 class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
     """
@@ -604,6 +607,7 @@ class CalibrationFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
             "engine_stats": self._engine.get_stats(),
         }
         return {**base_health, **calibration_health}
+
 
 __all__ = [
     "CalibrationFusionAdapter",

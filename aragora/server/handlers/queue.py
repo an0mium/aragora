@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 _queue_instance: Any | None = None
 _queue_lock = asyncio.Lock()
 
+
 async def _get_queue() -> Any | None:
     """Get or create the queue instance.
 
@@ -72,6 +73,7 @@ async def _get_queue() -> Any | None:
         except RuntimeError as e:
             logger.warning(f"Runtime error creating queue: {e}")
             return None
+
 
 class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  # type: ignore[misc]
     """Handler for job queue management endpoints.

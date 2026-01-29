@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
+
 @dataclass
 class QueueConfig:
     """Configuration for the Redis Streams queue system."""
@@ -93,8 +94,10 @@ class QueueConfig:
         """Get job TTL in seconds."""
         return self.max_job_ttl_days * 86400
 
+
 # Global config instance (lazy loaded)
 _config: QueueConfig | None = None
+
 
 def get_queue_config() -> QueueConfig:
     """Get the global queue configuration."""
@@ -103,10 +106,12 @@ def get_queue_config() -> QueueConfig:
         _config = QueueConfig()
     return _config
 
+
 def set_queue_config(config: QueueConfig) -> None:
     """Set a custom queue configuration (for testing)."""
     global _config
     _config = config
+
 
 def reset_queue_config() -> None:
     """Reset to default configuration (for testing)."""

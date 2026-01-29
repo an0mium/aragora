@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 _ar_invoice_store: Optional["ARInvoiceStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 class DecimalEncoder(json.JSONEncoder):
     """JSON encoder that handles Decimal types."""
 
@@ -46,6 +47,7 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return str(obj)
         return super().default(obj)
+
 
 def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
     """JSON decoder hook that converts decimal strings back to Decimal."""
@@ -56,6 +58,7 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
     return dct
+
 
 class ARInvoiceStoreBackend(ABC):
     """Abstract base class for AR invoice storage backends."""
@@ -167,6 +170,7 @@ class ARInvoiceStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
     """In-memory AR invoice store for testing."""
@@ -382,6 +386,7 @@ class InMemoryARInvoiceStore(ARInvoiceStoreBackend):
 
     async def close(self) -> None:
         pass
+
 
 class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
     """SQLite-backed AR invoice store."""
@@ -898,6 +903,7 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
+
 class PostgresARInvoiceStore(ARInvoiceStoreBackend):
     """PostgreSQL-backed AR invoice store for production."""
 
@@ -1337,6 +1343,7 @@ class PostgresARInvoiceStore(ARInvoiceStoreBackend):
     async def close(self) -> None:
         pass
 
+
 def get_ar_invoice_store() -> ARInvoiceStoreBackend:
     """
     Get the global AR invoice store instance.
@@ -1371,17 +1378,20 @@ def get_ar_invoice_store() -> ARInvoiceStoreBackend:
 
         return _ar_invoice_store
 
+
 def set_ar_invoice_store(store: ARInvoiceStoreBackend) -> None:
     """Set a custom AR invoice store instance."""
     global _ar_invoice_store
     with _store_lock:
         _ar_invoice_store = store
 
+
 def reset_ar_invoice_store() -> None:
     """Reset the global AR invoice store (for testing)."""
     global _ar_invoice_store
     with _store_lock:
         _ar_invoice_store = None
+
 
 __all__ = [
     "ARInvoiceStoreBackend",

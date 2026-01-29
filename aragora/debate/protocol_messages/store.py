@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _protocol_store: Optional["ProtocolMessageStore"] = None
 _store_lock = threading.Lock()
 
+
 def get_protocol_store(db_path: str | None = None) -> "ProtocolMessageStore":
     """Get or create the global protocol message store."""
     global _protocol_store
@@ -33,6 +34,7 @@ def get_protocol_store(db_path: str | None = None) -> "ProtocolMessageStore":
         if _protocol_store is None:
             _protocol_store = ProtocolMessageStore(db_path)
         return _protocol_store
+
 
 @dataclass
 class QueryFilters:
@@ -53,6 +55,7 @@ class QueryFilters:
     offset: int = 0
     order_by: str = "timestamp"
     order_desc: bool = False
+
 
 class ProtocolMessageStore:
     """

@@ -44,6 +44,7 @@ SLOW_THRESHOLD_MS = float(os.environ.get("ARAGORA_QUERY_SLOW_THRESHOLD_MS", "100
 # Maximum slow queries to retain
 MAX_SLOW_QUERIES = 1000
 
+
 @dataclass
 class QueryPlanIssue:
     """An issue detected in a query plan."""
@@ -67,6 +68,7 @@ class QueryPlanIssue:
             "timestamp": self.timestamp,
         }
 
+
 @dataclass
 class SlowQuery:
     """A slow query record."""
@@ -87,8 +89,10 @@ class SlowQuery:
             "context": self.context,
         }
 
+
 # Global storage for slow queries
 _slow_queries: deque[SlowQuery] = deque(maxlen=MAX_SLOW_QUERIES)
+
 
 class QueryPlanAnalyzer:
     """
@@ -354,8 +358,10 @@ class QueryPlanAnalyzer:
         """Clear recorded issues."""
         self._issues.clear()
 
+
 # Global analyzer instance
 _analyzer: QueryPlanAnalyzer | None = None
+
 
 def get_analyzer() -> QueryPlanAnalyzer:
     """Get the global query analyzer."""
@@ -363,6 +369,7 @@ def get_analyzer() -> QueryPlanAnalyzer:
     if _analyzer is None:
         _analyzer = QueryPlanAnalyzer()
     return _analyzer
+
 
 async def analyze_query(
     query: str,
@@ -383,6 +390,7 @@ async def analyze_query(
         QueryPlanIssue if issue detected
     """
     return await get_analyzer().analyze(query, duration_ms, connection, context)
+
 
 def get_slow_queries(
     threshold_ms: float | None = None,
@@ -408,9 +416,11 @@ def get_slow_queries(
 
     return [q.to_dict() for q in queries[:limit]]
 
+
 def clear_slow_queries() -> None:
     """Clear the slow query history."""
     _slow_queries.clear()
+
 
 def get_query_analysis_stats() -> dict[str, Any]:
     """Get query analysis statistics."""
@@ -429,6 +439,7 @@ def get_query_analysis_stats() -> dict[str, Any]:
         "issue_count": len(issues),
         "issues_by_type": issue_counts,
     }
+
 
 __all__ = [
     "QueryPlanAnalyzer",

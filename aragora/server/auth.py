@@ -26,6 +26,7 @@ from aragora.server.cors_config import cors_config
 
 _logger = logging.getLogger(__name__)
 
+
 def _parse_cleanup_interval() -> int:
     """Parse cleanup interval with validation and bounds checking.
 
@@ -45,6 +46,7 @@ def _parse_cleanup_interval() -> int:
     except ValueError:
         _logger.warning(f"Invalid ARAGORA_AUTH_CLEANUP_INTERVAL='{raw}', using default 300")
         return 300
+
 
 class AuthConfig:
     """Configuration for authentication."""
@@ -634,9 +636,11 @@ class AuthConfig:
         # Tokens in URLs appear in logs and browser history
         return None
 
+
 # Global auth config instance
 auth_config = AuthConfig()
 auth_config.configure_from_env()
+
 
 def check_auth(
     headers: dict[str, Any], query_string: str = "", loop_id: str = "", ip_address: str = ""
@@ -725,6 +729,7 @@ def check_auth(
         return True, min(remaining, ip_remaining)
     return True, remaining
 
+
 def generate_shareable_link(
     base_url: str, loop_id: str, expires_in: int = SHAREABLE_LINK_TTL
 ) -> str:
@@ -748,6 +753,7 @@ def generate_shareable_link(
 
     separator = "&" if "?" in base_url else "?"
     return f"{base_url}{separator}session={session_id}"
+
 
 def resolve_shareable_session(session_id: str) -> tuple[bool, str, str]:
     """Resolve a shareable session from URL parameter.

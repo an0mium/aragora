@@ -32,6 +32,7 @@ from .decision import (
 
 logger = logging.getLogger(__name__)
 
+
 class ExplanationBuilder:
     """
     Builds Decision entities from debate results.
@@ -156,9 +157,7 @@ class ExplanationBuilder:
     # Evidence Chain
     # ==========================================================================
 
-    async def _build_evidence_chain(
-        self, result: Any, context: Any | None
-    ) -> list[EvidenceLink]:
+    async def _build_evidence_chain(self, result: Any, context: Any | None) -> list[EvidenceLink]:
         """Build evidence chain from proposals and critiques."""
         evidence: list[EvidenceLink] = []
 
@@ -683,5 +682,6 @@ class ExplanationBuilder:
             lines.append("")
 
         return "\n".join(lines)
+
 
 __all__ = ["ExplanationBuilder"]

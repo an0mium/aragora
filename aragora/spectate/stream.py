@@ -5,6 +5,7 @@ Provides a lightweight, synchronous, read-only event stream that visualizes
 the internal state of the debate in real-time to the terminal (stdout).
 Safe for TTY, encoding, and NO_COLOR environments.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,6 +39,7 @@ VALID_EVENT_TYPES = frozenset(
         SpectatorEvents.ERROR,
     ]
 )
+
 
 @dataclass
 class SpectatorStream:

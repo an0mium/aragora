@@ -58,6 +58,7 @@ try:
 except ImportError:
     pass
 
+
 class TournamentHandler(BaseHandler):
     """Handler for tournament-related endpoints."""
 

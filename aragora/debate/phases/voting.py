@@ -8,6 +8,7 @@ Provides utilities for:
 - Vote result analysis
 - Consensus strength calculation
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -29,12 +30,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WeightSource(Protocol):
     """Protocol for weight providers."""
 
     def get_weight(self, agent_name: str) -> float:
         """Return weight for agent (typically 0.5-1.5 range)."""
         ...
+
 
 @dataclass
 class WeightedVoteResult:
@@ -48,6 +51,7 @@ class WeightedVoteResult:
     consensus_strength: str = "none"  # "unanimous", "strong", "medium", "weak", "none"
     consensus_variance: float = 0.0
     choice_mapping: dict[str, str] = field(default_factory=dict)  # variant -> canonical
+
 
 class VoteWeightCalculator:
     """Calculates vote weights from multiple sources.
@@ -134,6 +138,7 @@ class VoteWeightCalculator:
     def clear_cache(self) -> None:
         """Clear the weight cache."""
         self._cache.clear()
+
 
 class VotingPhase:
     """Handles vote collection and aggregation logic.

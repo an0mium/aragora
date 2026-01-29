@@ -4,6 +4,7 @@ Database abstraction for the calibration engine.
 Provides thread-safe database access by delegating to DatabaseManager
 with per-operation connections for concurrent access patterns.
 """
+
 from __future__ import annotations
 
 import logging
@@ -16,6 +17,7 @@ from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.storage.schema import DatabaseManager
 
 logger = logging.getLogger(__name__)
+
 
 class CalibrationDatabase:
     """

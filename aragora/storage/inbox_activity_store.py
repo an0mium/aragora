@@ -50,6 +50,7 @@ DEFAULT_DB_PATH = (
     Path(os.environ.get("ARAGORA_DATA_DIR", str(Path.home() / ".aragora"))) / "inbox_activities.db"
 )
 
+
 class InboxActivityAction:
     """Constants for inbox activity action types."""
 
@@ -69,6 +70,7 @@ class InboxActivityAction:
     PRIORITY_CHANGED = "priority_changed"
     MERGED = "merged"
     SPLIT = "split"
+
 
 @dataclass
 class InboxActivity:
@@ -117,6 +119,7 @@ class InboxActivity:
             metadata=data.get("metadata", {}),
             created_at=created_at,
         )
+
 
 class InboxActivityStore:
     """
@@ -517,9 +520,11 @@ class InboxActivityStore:
             self._backend.close()
             self._backend = None
 
+
 # Module-level singleton
 _default_store: InboxActivityStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_inbox_activity_store(
     db_path: Path | None = None,
@@ -575,6 +580,7 @@ def get_inbox_activity_store(
 
     return _default_store
 
+
 def reset_inbox_activity_store() -> None:
     """Reset the default store instance (for testing)."""
     global _default_store
@@ -582,6 +588,7 @@ def reset_inbox_activity_store() -> None:
         if _default_store is not None:
             _default_store.close()
             _default_store = None
+
 
 __all__ = [
     "InboxActivity",

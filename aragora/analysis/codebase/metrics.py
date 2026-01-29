@@ -19,6 +19,7 @@ from typing import Any, Optional
 
 from .models import CodeMetric, HotspotFinding, MetricType
 
+
 @dataclass
 class FunctionMetrics:
     """Metrics for a single function or method."""
@@ -34,6 +35,7 @@ class FunctionMetrics:
     return_count: int = 0
     nested_depth: int = 0
     class_name: str | None = None
+
 
 @dataclass
 class FileMetrics:
@@ -51,6 +53,7 @@ class FileMetrics:
     max_complexity: int = 0
     maintainability_index: float = 100.0
 
+
 @dataclass
 class DuplicateBlock:
     """A duplicated code block."""
@@ -58,6 +61,7 @@ class DuplicateBlock:
     hash: str
     lines: int
     occurrences: list[tuple[str, int, int]]  # [(file_path, start_line, end_line), ...]
+
 
 @dataclass
 class MetricsReport:
@@ -112,6 +116,7 @@ class MetricsReport:
             ],
             "metrics": [m.to_dict() for m in self.metrics],
         }
+
 
 class ComplexityVisitor(ast.NodeVisitor):
     """AST visitor for calculating complexity metrics."""
@@ -183,6 +188,7 @@ class ComplexityVisitor(ast.NodeVisitor):
         self.cyclomatic += 1
         self.cognitive += 1 + self.nesting_level
         self.generic_visit(node)
+
 
 class PythonAnalyzer:
     """Analyzer for Python code metrics."""
@@ -285,6 +291,7 @@ class PythonAnalyzer:
             nested_depth=visitor.max_nesting,
             class_name=class_name,
         )
+
 
 class TypeScriptAnalyzer:
     """Basic analyzer for TypeScript/JavaScript metrics."""
@@ -393,6 +400,7 @@ class TypeScriptAnalyzer:
 
         return metrics
 
+
 class DuplicateDetector:
     """Detects duplicate code blocks."""
 
@@ -444,6 +452,7 @@ class DuplicateDetector:
                     )
 
         return duplicates
+
 
 class CodeMetricsAnalyzer:
     """Main analyzer for code metrics across a codebase."""

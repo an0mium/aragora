@@ -12,6 +12,7 @@ Usage:
     if tracker_cls:
         tracker = tracker_cls(...)
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
     from aragora.reasoning.citations import CitationExtractor
     from aragora.visualization.mapper import ArgumentCartographer
+
 
 class OptionalImports:
     """

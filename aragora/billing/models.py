@@ -44,6 +44,7 @@ ALLOW_INSECURE_PASSWORDS = os.environ.get("ARAGORA_ALLOW_INSECURE_PASSWORDS", ""
     "yes",
 )
 
+
 class SubscriptionTier(Enum):
     """Available subscription tiers."""
 
@@ -52,6 +53,7 @@ class SubscriptionTier(Enum):
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
     ENTERPRISE_PLUS = "enterprise_plus"
+
 
 @dataclass
 class TierLimits(SerializableMixin):
@@ -77,6 +79,7 @@ class TierLimits(SerializableMixin):
     token_based_billing: bool = False
 
     # to_dict() inherited from SerializableMixin
+
 
 # Tier configurations
 TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
@@ -145,6 +148,7 @@ TIER_LIMITS: dict[SubscriptionTier, TierLimits] = {
     ),
 }
 
+
 def _hash_password_sha256(password: str, salt: str | None = None) -> tuple[str, str]:
     """
     Legacy SHA-256 password hashing (for backward compatibility).
@@ -161,6 +165,7 @@ def _hash_password_sha256(password: str, salt: str | None = None) -> tuple[str, 
     hash_input = f"{salt}{password}".encode("utf-8")
     password_hash = hashlib.sha256(hash_input).hexdigest()
     return password_hash, salt
+
 
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     """
@@ -202,6 +207,7 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
             "Install it with: pip install bcrypt. "
             "For development/testing only, set ARAGORA_ALLOW_INSECURE_PASSWORDS=1",
         )
+
 
 def verify_password(password: str, password_hash: str, salt: str) -> bool:
     """
@@ -246,6 +252,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
         logger.warning(f"Unknown password hash format (length={len(password_hash)})")
         return False
 
+
 def needs_rehash(password_hash: str) -> bool:
     """
     Check if a password hash should be upgraded to the current algorithm.
@@ -272,6 +279,7 @@ def needs_rehash(password_hash: str) -> bool:
         return False
 
     return False
+
 
 @dataclass
 class User:
@@ -617,6 +625,7 @@ class User:
             user.mfa_enabled = data.get("mfa_enabled", False)
         return user
 
+
 @dataclass
 class Organization:
     """An organization (team/company)."""
@@ -725,6 +734,7 @@ class Organization:
                 org.billing_cycle_start = data["billing_cycle_start"]
         return org
 
+
 @dataclass
 class Subscription:
     """A subscription record."""
@@ -817,6 +827,7 @@ class Subscription:
                     value = datetime.fromisoformat(value)
                 setattr(sub, field_name, value)
         return sub
+
 
 @dataclass
 class OrganizationInvitation:
@@ -913,6 +924,7 @@ class OrganizationInvitation:
                 setattr(inv, field_name, value)
         return inv
 
+
 def generate_slug(name: str) -> str:
     """Generate URL-friendly slug from name."""
     import re
@@ -923,6 +935,7 @@ def generate_slug(name: str) -> str:
     slug = re.sub(r"-+", "-", slug)
     slug = slug.strip("-")
     return slug[:50] or "org"
+
 
 __all__ = [
     "SubscriptionTier",

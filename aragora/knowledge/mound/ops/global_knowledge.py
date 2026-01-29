@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Special workspace ID for global/system knowledge
 SYSTEM_WORKSPACE_ID = "__system__"
 
+
 class GlobalKnowledgeProtocol(Protocol):
     """Protocol defining expected interface for GlobalKnowledge mixin."""
 
@@ -75,6 +76,7 @@ class GlobalKnowledgeProtocol(Protocol):
         min_confidence: float = 0.5,
         topics: Optional[list[str]] = None,
     ) -> list["KnowledgeItem"]: ...
+
 
 class GlobalKnowledgeMixin:
     """Mixin providing global knowledge operations for KnowledgeMound."""

@@ -51,7 +51,7 @@ class TestStoresHandler(StoresMixin):
         storage: Any = None,
         elo_system: Any = None,
         nomic_dir: Path | None = None,
-        ctx: Dict[str, Any] | None = None,
+        ctx: dict[str, Any] | None = None,
     ):
         self._storage = storage
         self._elo_system = elo_system

@@ -71,6 +71,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class AuthHandler(SecureHandler):
     """Handler for user authentication endpoints.
 
@@ -908,16 +909,12 @@ class AuthHandler(SecureHandler):
 
             if rate_error:
                 # Rate limit hit - still return generic success for security
-                logger.warning(
-                    f"Password reset rate limited: email={email}, ip={client_ip}"
-                )
+                logger.warning(f"Password reset rate limited: email={email}, ip={client_ip}")
             elif token:
                 # Build reset link (frontend URL with token)
                 import os
 
-                base_url = os.environ.get(
-                    "ARAGORA_FRONTEND_URL", "https://aragora.ai"
-                )
+                base_url = os.environ.get("ARAGORA_FRONTEND_URL", "https://aragora.ai")
                 reset_link = f"{base_url}/reset-password?token={token}"
 
                 # Send email asynchronously
@@ -1001,7 +998,7 @@ class AuthHandler(SecureHandler):
             <h1>Password Reset Request</h1>
         </div>
         <div class="content">
-            <p>Hi {user.name or 'there'},</p>
+            <p>Hi {user.name or "there"},</p>
             <p>We received a request to reset your password for your Aragora account.</p>
             <p>Click the button below to reset your password:</p>
             <div style="text-align: center;">
@@ -1029,7 +1026,7 @@ class AuthHandler(SecureHandler):
                     text_body = f"""Password Reset Request
 ======================
 
-Hi {user.name or 'there'},
+Hi {user.name or "there"},
 
 We received a request to reset your password for your Aragora account.
 
@@ -1109,9 +1106,7 @@ This is an automated message. Please do not reply.
         email, token_error = store.validate_token(token)
 
         if token_error:
-            logger.warning(
-                f"Invalid password reset attempt: ip={client_ip}, error={token_error}"
-            )
+            logger.warning(f"Invalid password reset attempt: ip={client_ip}, error={token_error}")
             return error_response(token_error, 400)
 
         # Get user store
@@ -1880,5 +1875,6 @@ This is an automated message. Please do not reply.
                 "session_id": session_id,
             }
         )
+
 
 __all__ = ["AuthHandler"]

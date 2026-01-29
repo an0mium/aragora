@@ -123,10 +123,12 @@ if PROMETHEUS_AVAILABLE:
         "Timestamp of the last successful sync (Unix epoch)",
     )
 
+
 def _record_sync_start() -> None:
     """Record sync operation starting."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_SYNC_IN_PROGRESS.set(1)
+
 
 def _record_sync_end(
     status: str,
@@ -166,20 +168,24 @@ def _record_sync_end(
     if status == "completed":
         KM_ELO_LAST_SYNC_TIMESTAMP.set(time.time())
 
+
 def _record_patterns_for_agent(agent_name: str, pattern_count: int) -> None:
     """Record patterns detected for a specific agent."""
     if PROMETHEUS_AVAILABLE and pattern_count > 0:
         KM_ELO_PATTERNS_DETECTED.labels(agent=agent_name).inc(pattern_count)
+
 
 def _update_pending_adjustments(count: int) -> None:
     """Update the pending adjustments gauge."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_PENDING_ADJUSTMENTS.set(count)
 
+
 def _update_total_syncs(count: int) -> None:
     """Update the total syncs gauge."""
     if PROMETHEUS_AVAILABLE:
         KM_ELO_TOTAL_SYNCS.set(count)
+
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.elo_adapter import (  # type: ignore[attr-defined]
@@ -191,6 +197,7 @@ if TYPE_CHECKING:
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class KMEloBridgeConfig:
@@ -210,6 +217,7 @@ class KMEloBridgeConfig:
     track_history: bool = True  # Track adjustment history
     batch_size: int = 20  # Agents to process per sync batch
 
+
 @dataclass
 class KMEloBridgeSyncResult:
     """Result of a KM → ELO sync operation."""
@@ -224,6 +232,7 @@ class KMEloBridgeSyncResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
     timestamp: str = ""
+
 
 class KMEloBridge:
     """
@@ -610,6 +619,7 @@ class KMEloBridge:
         if self._elo_adapter:
             self._elo_adapter.clear_pending_adjustments()
 
+
 def create_km_elo_bridge(
     elo_system: Optional["EloSystem"] = None,
     elo_adapter: Optional["EloAdapter"] = None,
@@ -623,6 +633,7 @@ def create_km_elo_bridge(
         knowledge_mound=knowledge_mound,
         config=config,
     )
+
 
 __all__ = [
     "KMEloBridge",

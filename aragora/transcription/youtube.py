@@ -62,6 +62,7 @@ YOUTUBE_PATTERNS = [
 # Data Classes
 # =============================================================================
 
+
 @dataclass
 class YouTubeVideoInfo:
     """Information about a YouTube video."""
@@ -101,9 +102,11 @@ class YouTubeVideoInfo:
             "url": self.url,
         }
 
+
 # =============================================================================
 # YouTube Fetcher
 # =============================================================================
+
 
 class YouTubeFetcher:
     """Fetches audio from YouTube videos using yt-dlp."""
@@ -293,9 +296,11 @@ class YouTubeFetcher:
             deleted += 1
         return deleted
 
+
 # =============================================================================
 # Convenience Functions
 # =============================================================================
+
 
 async def fetch_youtube_audio(
     url: str,
@@ -312,6 +317,7 @@ async def fetch_youtube_audio(
     """
     fetcher = YouTubeFetcher()
     return await fetcher.download_audio(url, use_cache)
+
 
 async def transcribe_youtube(
     url: str,
@@ -350,6 +356,7 @@ async def transcribe_youtube(
     result.model = f"{result.model} (YouTube: {video_info.video_id})"
 
     return result
+
 
 async def get_youtube_info(url: str) -> YouTubeVideoInfo:
     """Get information about a YouTube video.

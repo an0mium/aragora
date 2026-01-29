@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # Default database location
 DEFAULT_DB_PATH = os.path.expanduser("~/.aragora/data/rules.db")
 
+
 class RulesStore:
     """
     SQLite-backed persistent storage for routing rules.
@@ -846,9 +847,11 @@ class RulesStore:
             self._local.connection.close()
             self._local.connection = None
 
+
 # Singleton instance for shared use
 _default_store: RulesStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_rules_store(db_path: str | None = None) -> RulesStore:
     """Get the default rules store instance."""

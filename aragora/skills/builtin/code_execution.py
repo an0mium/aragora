@@ -23,6 +23,7 @@ from ..base import (
 
 logger = logging.getLogger(__name__)
 
+
 class CodeExecutionSkill(Skill):
     """
     Skill for executing code in a sandboxed environment.
@@ -298,6 +299,7 @@ console.log("__RESULT__:" + JSON.stringify({{result}}));
             "stdout": stdout.decode()[: self._max_output_size],
             "stderr": stderr.decode()[: self._max_output_size],
         }
+
 
 # Skill instance for registration
 SKILLS = [CodeExecutionSkill()]

@@ -82,9 +82,9 @@ class TestClient:
     async def get(
         self,
         path: str,
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        headers: Optional[dict[str, str]] = None,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         import aiohttp
 
         async with aiohttp.ClientSession() as session:
@@ -104,9 +104,9 @@ class TestClient:
     async def post(
         self,
         path: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
         import aiohttp
 
         async with aiohttp.ClientSession() as session:
@@ -126,9 +126,9 @@ class TestClient:
     async def put(
         self,
         path: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> dict[str, Any]:
         import aiohttp
 
         async with aiohttp.ClientSession() as session:
@@ -145,7 +145,7 @@ class TestClient:
                     "text": await response.text(),
                 }
 
-    async def delete(self, path: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    async def delete(self, path: str, headers: Optional[dict[str, str]] = None) -> dict[str, Any]:
         import aiohttp
 
         async with aiohttp.ClientSession() as session:
@@ -187,7 +187,7 @@ class TestTenant:
     tier: str = "standard"
 
     @property
-    def auth_headers(self) -> Dict[str, str]:
+    def auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}", "X-Tenant-ID": self.id}
 
 
@@ -212,7 +212,7 @@ def tenant_b() -> TestTenant:
 
 
 @pytest.fixture
-def isolated_tenants(tenant_a: TestTenant, tenant_b: TestTenant) -> List[TestTenant]:
+def isolated_tenants(tenant_a: TestTenant, tenant_b: TestTenant) -> list[TestTenant]:
     return [tenant_a, tenant_b]
 
 
@@ -518,7 +518,7 @@ def mock_notion_api():
 class MockAgentResponse:
     content: str
     model: str = "mock-model"
-    usage: Dict[str, int] = field(
+    usage: dict[str, int] = field(
         default_factory=lambda: {"prompt_tokens": 100, "completion_tokens": 50}
     )
 
@@ -556,12 +556,12 @@ def mock_llm_agents():
 @dataclass
 class DebateSetup:
     topic: str
-    agents: List[str]
+    agents: list[str]
     rounds: int
     protocol: str = "structured"
     consensus_threshold: float = 0.7
 
-    def to_config(self) -> Dict[str, Any]:
+    def to_config(self) -> dict[str, Any]:
         return {
             "topic": self.topic,
             "agents": self.agents,
@@ -599,7 +599,7 @@ def extended_debate() -> DebateSetup:
 
 
 @pytest.fixture
-def sample_facts() -> List[Dict[str, Any]]:
+def sample_facts() -> list[dict[str, Any]]:
     return [
         {"content": "Python is a programming language.", "source": "e2e_test", "confidence": 0.99},
         {"content": "Machine learning requires data.", "source": "e2e_test", "confidence": 0.95},
@@ -743,7 +743,7 @@ def mock_agent_factory():
 
     def factory(
         name: str,
-        capabilities: Optional[List[str]] = None,
+        capabilities: Optional[list[str]] = None,
         response: str = "Default response",
         fail_rate: float = 0.0,
         response_delay: float = 0.05,

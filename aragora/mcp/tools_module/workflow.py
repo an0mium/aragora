@@ -15,6 +15,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 async def run_workflow_tool(
     template: str,
     inputs: str = "",
@@ -89,6 +90,7 @@ async def run_workflow_tool(
         logger.error(f"Workflow execution failed: {e}")
         return {"error": f"Execution failed: {str(e)}"}
 
+
 async def get_workflow_status_tool(
     execution_id: str,
 ) -> dict[str, Any]:
@@ -126,6 +128,7 @@ async def get_workflow_status_tool(
     except Exception as e:
         logger.error(f"Failed to get workflow status: {e}")
         return {"error": f"Status check failed: {str(e)}"}
+
 
 async def list_workflow_templates_tool(
     category: str = "all",
@@ -194,6 +197,7 @@ async def list_workflow_templates_tool(
         logger.error(f"Failed to list templates: {e}")
         return {"error": f"List failed: {str(e)}"}
 
+
 async def cancel_workflow_tool(
     execution_id: str,
     reason: str = "",
@@ -226,6 +230,7 @@ async def cancel_workflow_tool(
     except Exception as e:
         logger.error(f"Failed to cancel workflow: {e}")
         return {"error": f"Cancel failed: {str(e)}"}
+
 
 # Export all tools
 __all__ = [

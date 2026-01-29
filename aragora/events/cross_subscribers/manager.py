@@ -4,6 +4,7 @@ Cross-Subscriber Manager.
 Core CrossSubscriberManager class that orchestrates event dispatch
 and subscriber lifecycle management.
 """
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +37,7 @@ except ImportError:
     def get_settings() -> None:  # type: ignore[misc]
         return None
 
+
 # Import metrics (optional - graceful fallback if not available)
 try:
     from aragora.server.prometheus_cross_pollination import (
@@ -57,6 +59,7 @@ except ImportError:
     def set_circuit_breaker_state(handler: str, is_open: bool) -> None:  # type: ignore[misc]
         pass
 
+
 # Import SLO metrics (optional - graceful fallback)
 try:
     from aragora.observability.metrics.slo import check_and_record_slo
@@ -70,7 +73,9 @@ except ImportError:
     ) -> tuple[bool, str]:
         return True, f"SLO metrics not available for {operation}"
 
+
 logger = logging.getLogger(__name__)
+
 
 def _default_async_event_types() -> set:
     """Default event types for async dispatch."""
@@ -80,6 +85,7 @@ def _default_async_event_types() -> set:
         StreamEventType.KNOWLEDGE_QUERIED,
         StreamEventType.RLM_COMPRESSION_COMPLETE,
     }
+
 
 class CrossSubscriberManager(
     BasicHandlersMixin,

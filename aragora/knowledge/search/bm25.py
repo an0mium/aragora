@@ -21,6 +21,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BM25Config:
     """Configuration for BM25 scoring."""
@@ -39,6 +40,7 @@ class BM25Config:
     fuzzy_max_distance: int = 2  # Max edit distance for fuzzy matching
     fuzzy_min_length: int = 4  # Min word length for fuzzy matching
 
+
 @dataclass
 class BM25Document:
     """Document indexed for BM25 search."""
@@ -50,6 +52,7 @@ class BM25Document:
     length: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class BM25SearchResult:
     """Result from BM25 search."""
@@ -59,6 +62,7 @@ class BM25SearchResult:
     score: float
     matched_terms: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class BM25Index:
     """
@@ -347,6 +351,7 @@ class BM25Index:
         self._avg_doc_length = 0.0
         self._total_length = 0
 
+
 class HybridSearcher:
     """
     Combines BM25 keyword search with vector search.
@@ -465,6 +470,7 @@ class HybridSearcher:
             if result_id == doc_id:
                 return i + 1
         return len(results) + 1
+
 
 __all__ = [
     "BM25Config",

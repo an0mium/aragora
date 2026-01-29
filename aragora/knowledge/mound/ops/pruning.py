@@ -7,6 +7,7 @@ or redundant knowledge items:
 - Batch prune operations
 - Pruning history and audit trail
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
+
 class PruningAction(str, Enum):
     """Actions that can be taken on prunable items."""
 
@@ -24,6 +26,7 @@ class PruningAction(str, Enum):
     DELETE = "delete"
     DEMOTE = "demote"  # Move to lower tier
     FLAG = "flag"  # Mark for review
+
 
 @dataclass
 class PruningPolicy:
@@ -56,6 +59,7 @@ class PruningPolicy:
     auto_prune: bool = False
     schedule_cron: str | None = None  # e.g., "0 2 * * *" for 2am daily
 
+
 @dataclass
 class PrunableItem:
     """An item that matches pruning criteria."""
@@ -70,6 +74,7 @@ class PrunableItem:
     created_at: datetime
     prune_reason: str
     recommended_action: PruningAction
+
 
 @dataclass
 class PruneResult:
@@ -87,6 +92,7 @@ class PruneResult:
     pruned_item_ids: list[str]
     errors: list[str] = field(default_factory=list)
 
+
 @dataclass
 class PruneHistory:
     """Historical record of pruning operations."""
@@ -100,6 +106,7 @@ class PruneHistory:
     pruned_item_ids: list[str]
     reason: str
     executed_by: str | None
+
 
 class PruningOperationsMixin:
     """Mixin providing pruning operations for Knowledge Mound."""

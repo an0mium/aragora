@@ -35,6 +35,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class ContainerState(str, Enum):
     """State of a pooled container."""
 
@@ -44,6 +45,7 @@ class ContainerState(str, Enum):
     UNHEALTHY = "unhealthy"
     DESTROYING = "destroying"
 
+
 class PoolState(str, Enum):
     """State of the container pool."""
 
@@ -52,6 +54,7 @@ class PoolState(str, Enum):
     RUNNING = "running"
     STOPPING = "stopping"
     DRAINING = "draining"
+
 
 @dataclass
 class ContainerPoolConfig:
@@ -127,6 +130,7 @@ class ContainerPoolConfig:
             "container_prefix": self.container_prefix,
         }
 
+
 @dataclass
 class PooledContainer:
     """A container managed by the pool."""
@@ -183,6 +187,7 @@ class PooledContainer:
             "health_check_failures": self.health_check_failures,
         }
 
+
 @dataclass
 class PoolStats:
     """Statistics for the container pool."""
@@ -221,20 +226,24 @@ class PoolStats:
             "pool_utilization": self.pool_utilization,
         }
 
+
 class ContainerPoolError(Exception):
     """Base exception for container pool errors."""
 
     pass
+
 
 class PoolExhaustedError(ContainerPoolError):
     """Raised when no containers are available."""
 
     pass
 
+
 class ContainerCreationError(ContainerPoolError):
     """Raised when container creation fails."""
 
     pass
+
 
 class ContainerPool:
     """
@@ -893,11 +902,13 @@ class ContainerPool:
             return self._containers.get(container_id)
         return None
 
+
 # ==========================================================================
 # Global Pool Instance
 # ==========================================================================
 
 _pool_instance: ContainerPool | None = None
+
 
 def get_container_pool() -> ContainerPool:
     """Get or create the global container pool."""
@@ -912,10 +923,12 @@ def get_container_pool() -> ContainerPool:
         _pool_instance = ContainerPool(config)
     return _pool_instance
 
+
 def set_container_pool(pool: ContainerPool) -> None:
     """Set the global container pool instance."""
     global _pool_instance
     _pool_instance = pool
+
 
 __all__ = [
     "ContainerCreationError",

@@ -17,6 +17,7 @@ from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
 
+
 class EnterpriseConnectorMethods(Protocol):
     """Protocol defining expected methods from EnterpriseConnector base class."""
 
@@ -24,6 +25,7 @@ class EnterpriseConnectorMethods(Protocol):
     def get_circuit_breaker_status(self) -> dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
+
 
 # Gmail API scopes
 # Note: gmail.metadata doesn't support search queries ('q' parameter)
@@ -43,6 +45,7 @@ GMAIL_SCOPES_FULL = [
 # Default to read-only for backward compatibility
 GMAIL_SCOPES = GMAIL_SCOPES_READONLY
 
+
 def _get_client_credentials() -> tuple[str, str]:
     """Get OAuth client ID and secret from environment."""
     client_id = (
@@ -56,6 +59,7 @@ def _get_client_credentials() -> tuple[str, str]:
         or os.environ.get("GOOGLE_CLIENT_SECRET", "")
     )
     return client_id, client_secret
+
 
 class GmailClientMixin(EnterpriseConnectorMethods):
     """Mixin providing OAuth2 authentication and API request infrastructure."""

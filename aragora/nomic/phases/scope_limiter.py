@@ -15,6 +15,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ScopeEvaluation:
     """Result of scope evaluation."""
@@ -43,6 +44,7 @@ class ScopeEvaluation:
             "reason": self.reason,
         }
 
+
 # Patterns that indicate high complexity
 COMPLEXITY_PATTERNS = [
     (r"refactor\s+(?:the\s+)?entire", 0.3, "Full refactor mentioned"),
@@ -64,6 +66,7 @@ SIMPLICITY_PATTERNS = [
     (r"add\s+(?:logging|comments|docstrings)", -0.1, "Documentation"),
     (r"single\s+file\s+(?:change|modification)", -0.15, "Single file"),
 ]
+
 
 class ScopeLimiter:
     """
@@ -234,6 +237,7 @@ class ScopeLimiter:
 
         return simplified, note
 
+
 def check_design_scope(design: str, max_files: int = 5) -> ScopeEvaluation:
     """
     Convenience function to check design scope.
@@ -247,5 +251,6 @@ def check_design_scope(design: str, max_files: int = 5) -> ScopeEvaluation:
     """
     limiter = ScopeLimiter(max_files=max_files)
     return limiter.evaluate(design)
+
 
 __all__ = ["ScopeLimiter", "ScopeEvaluation", "check_design_scope"]

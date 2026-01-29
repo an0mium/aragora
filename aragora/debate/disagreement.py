@@ -5,6 +5,7 @@ Extracts and reports on areas of agreement and disagreement from debate
 votes and critiques, surfacing unanimous critiques (high confidence issues)
 and split opinions (risk areas requiring attention).
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
 from collections import Counter
 
 from aragora.core import Critique, DisagreementReport, Vote
+
 
 class DisagreementReporter:
     """

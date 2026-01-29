@@ -34,6 +34,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Deprecation Registry
 # =============================================================================
 
+
 @dataclass
 class DeprecationInfo:
     """Information about a deprecated item."""
@@ -55,6 +56,7 @@ class DeprecationInfo:
         if self.message:
             parts.append(self.message)
         return " ".join(parts)
+
 
 class DeprecationRegistry:
     """Registry of deprecated items for tracking and reporting.
@@ -116,8 +118,10 @@ class DeprecationRegistry:
         self._deprecations.clear()
         self._call_counts.clear()
 
+
 # Global registry instance
 _registry: DeprecationRegistry | None = None
+
 
 def get_deprecation_registry() -> DeprecationRegistry:
     """Get the global deprecation registry."""
@@ -126,9 +130,11 @@ def get_deprecation_registry() -> DeprecationRegistry:
         _registry = DeprecationRegistry()
     return _registry
 
+
 # =============================================================================
 # Deprecation Decorator
 # =============================================================================
+
 
 def deprecated(
     sunset: str | None = None,
@@ -208,9 +214,11 @@ def deprecated(
 
     return decorator
 
+
 # =============================================================================
 # HTTP Header Utilities
 # =============================================================================
+
 
 def add_deprecation_headers(
     headers: dict[str, str],
@@ -274,6 +282,7 @@ def add_deprecation_headers(
 
     return headers
 
+
 def parse_deprecation_headers(headers: dict[str, str]) -> DeprecationInfo | None:
     """
     Parse deprecation info from HTTP response headers.
@@ -312,17 +321,21 @@ def parse_deprecation_headers(headers: dict[str, str]) -> DeprecationInfo | None
         deprecated_since=deprecation if deprecation != "true" else None,
     )
 
+
 # =============================================================================
 # Deprecation Checking Utilities
 # =============================================================================
+
 
 def is_deprecated(func: Callable[..., Any]) -> bool:
     """Check if a function is marked as deprecated."""
     return getattr(func, "_deprecated", False)
 
+
 def get_deprecation_info(func: Callable[..., Any]) -> DeprecationInfo | None:
     """Get deprecation info for a function."""
     return getattr(func, "_deprecation_info", None)
+
 
 def is_past_sunset(sunset: str | None) -> bool:
     """Check if a sunset date has passed."""
@@ -333,6 +346,7 @@ def is_past_sunset(sunset: str | None) -> bool:
         return datetime.now() > sunset_dt
     except ValueError:
         return False
+
 
 def days_until_sunset(sunset: str | None) -> int | None:
     """Calculate days until sunset date."""
@@ -345,9 +359,11 @@ def days_until_sunset(sunset: str | None) -> int | None:
     except ValueError:
         return None
 
+
 # =============================================================================
 # Sunset Response
 # =============================================================================
+
 
 def sunset_response(
     replacement: str | None = None,
@@ -375,6 +391,7 @@ def sunset_response(
         response["error"]["replacement"] = replacement
         response["error"]["suggestion"] = f"Use {replacement} instead"
     return response
+
 
 __all__ = [
     # Decorator

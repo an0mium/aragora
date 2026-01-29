@@ -4,6 +4,7 @@ Outbound webhook dispatcher for aragora events.
 Non-blocking, bounded-queue implementation that sends events to external endpoints
 without affecting debate loop performance.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -29,6 +30,7 @@ from urllib.parse import urlparse
 from aragora.resilience import get_circuit_breaker
 
 logger = logging.getLogger(__name__)
+
 
 def _safe_log(level: int, msg: str) -> None:
     """Log a message safely, ignoring errors during interpreter shutdown.
@@ -63,6 +65,7 @@ def _safe_log(level: int, msg: str) -> None:
     except (ValueError, RuntimeError, AttributeError, OSError, TypeError):
         # Logging system is shutting down - silently ignore
         pass
+
 
 # Default event types that webhooks receive (low-frequency, high-value)
 DEFAULT_EVENT_TYPES = frozenset(
@@ -99,6 +102,7 @@ DEFAULT_EVENT_TYPES = frozenset(
     }
 )
 
+
 class AragoraJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder for aragora events.
 
@@ -121,6 +125,7 @@ class AragoraJSONEncoder(json.JSONEncoder):
             return super().default(obj)
         except TypeError:
             return str(obj)
+
 
 @dataclass
 class WebhookConfig:
@@ -186,6 +191,7 @@ class WebhookConfig:
             backoff_base_s=float(safe_data.get("backoff_base_s", 1.0)),
         )
 
+
 def sign_payload(secret: str, body: bytes) -> str:
     """Generate HMAC-SHA256 signature for webhook payload.
 
@@ -199,6 +205,7 @@ def sign_payload(secret: str, body: bytes) -> str:
     except Exception as e:
         logger.debug(f"Failed to sign payload: {e}")
         return ""
+
 
 def load_webhook_configs() -> list[WebhookConfig]:
     """Load webhook configs from environment.
@@ -252,6 +259,7 @@ def load_webhook_configs() -> list[WebhookConfig]:
             return []
 
     return []
+
 
 class WebhookDispatcher:
     """Thread-safe webhook dispatcher with bounded queue.
@@ -668,12 +676,15 @@ class WebhookDispatcher:
             }
         return status
 
+
 # Module-level singleton
 _dispatcher: WebhookDispatcher | None = None
+
 
 def get_dispatcher() -> WebhookDispatcher | None:
     """Get the global webhook dispatcher (may be None if not configured)."""
     return _dispatcher
+
 
 def init_dispatcher(configs: Optional[list[WebhookConfig]] = None) -> WebhookDispatcher | None:
     """Initialize the global webhook dispatcher.
@@ -695,12 +706,14 @@ def init_dispatcher(configs: Optional[list[WebhookConfig]] = None) -> WebhookDis
     _dispatcher.start()
     return _dispatcher
 
+
 def shutdown_dispatcher() -> None:
     """Shutdown the global dispatcher gracefully."""
     global _dispatcher
     if _dispatcher:
         _dispatcher.stop()
         _dispatcher = None
+
 
 # Alias for backward compatibility
 get_webhook_dispatcher = get_dispatcher

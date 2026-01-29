@@ -34,6 +34,7 @@ JOB_TYPE_ROUTING = "routing"
 JOB_TYPE_ROUTING_DEBATE = "routing_debate"
 JOB_TYPE_ROUTING_EMAIL = "routing_email"
 
+
 class RoutingWorker:
     """
     Worker that processes routing jobs to deliver results to originating channels.
@@ -234,6 +235,7 @@ class RoutingWorker:
         )
         return bool(email_result)
 
+
 async def enqueue_routing_job(
     job_id: str,
     debate_id: str,
@@ -286,6 +288,7 @@ async def enqueue_routing_job(
     logger.info(f"Enqueued routing job: {job_id} ({job_type})")
     return job
 
+
 async def recover_interrupted_routing() -> int:
     """
     Recover interrupted routing jobs after server restart.
@@ -319,6 +322,7 @@ async def recover_interrupted_routing() -> int:
         logger.info(f"Recovered {recovered} interrupted routing jobs")
 
     return recovered
+
 
 __all__ = [
     "RoutingWorker",

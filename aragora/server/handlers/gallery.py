@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for gallery endpoints (60 requests per minute)
 _gallery_limiter = RateLimiter(requests_per_minute=60)
 
+
 @dataclass
 class PublicDebate:
     """A debate entry for the public gallery."""
@@ -66,6 +67,7 @@ class PublicDebate:
             "preview": self.preview,
         }
 
+
 def generate_stable_id(debate_id: str, loop_id: str | None = None) -> str:
     """
     Generate a stable, shareable ID for a debate.
@@ -77,6 +79,7 @@ def generate_stable_id(debate_id: str, loop_id: str | None = None) -> str:
     if loop_id:
         source = f"{loop_id}:{debate_id}"
     return hashlib.sha256(source.encode()).hexdigest()[:12]
+
 
 class GalleryHandler(BaseHandler):
     """Handler for public gallery endpoints."""
@@ -321,6 +324,7 @@ class GalleryHandler(BaseHandler):
                 continue
 
         return None
+
 
 # Convenience function to register with handler registry
 def get_handler_class() -> type[GalleryHandler]:

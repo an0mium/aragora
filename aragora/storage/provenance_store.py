@@ -4,6 +4,7 @@ Provenance Store - Persistent storage for evidence provenance chains.
 Stores provenance chains, records, and citations with SQLite backend.
 Follows the SQLiteStore pattern for schema management and migrations.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ from aragora.reasoning.provenance import (
 from aragora.storage.base_store import SQLiteStore
 
 logger = logging.getLogger(__name__)
+
 
 class ProvenanceStore(SQLiteStore):
     """
@@ -651,5 +653,6 @@ class ProvenanceStore(SQLiteStore):
             "record_count": self.count("provenance_records"),
             "citation_count": self.count("provenance_citations"),
         }
+
 
 __all__ = ["ProvenanceStore"]

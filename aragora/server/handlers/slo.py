@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for SLO endpoints (30 requests per minute)
 _slo_limiter = RateLimiter(requests_per_minute=30)
 
+
 class SLOHandler(BaseHandler):
     """Handler for SLO monitoring endpoints."""
 
@@ -286,5 +287,6 @@ class SLOHandler(BaseHandler):
 
         exhaustion_time = result.window_end + timedelta(hours=hours_remaining)
         return exhaustion_time.isoformat()
+
 
 __all__ = ["SLOHandler"]

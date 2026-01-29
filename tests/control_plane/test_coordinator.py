@@ -68,7 +68,7 @@ class TestAgentOperations:
 
     @pytest.mark.asyncio
     async def test_register_agent(
-        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+        self, coordinator: ControlPlaneCoordinator, sample_agent: dict[str, Any]
     ):
         """Test registering an agent."""
         agent = await coordinator.register_agent(
@@ -101,7 +101,7 @@ class TestAgentOperations:
 
     @pytest.mark.asyncio
     async def test_unregister_agent(
-        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+        self, coordinator: ControlPlaneCoordinator, sample_agent: dict[str, Any]
     ):
         """Test unregistering an agent."""
         await coordinator.register_agent(
@@ -123,7 +123,7 @@ class TestAgentOperations:
 
     @pytest.mark.asyncio
     async def test_heartbeat(
-        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+        self, coordinator: ControlPlaneCoordinator, sample_agent: dict[str, Any]
     ):
         """Test agent heartbeat."""
         await coordinator.register_agent(
@@ -140,7 +140,7 @@ class TestAgentOperations:
 
     @pytest.mark.asyncio
     async def test_heartbeat_with_status_update(
-        self, coordinator: ControlPlaneCoordinator, sample_agent: Dict[str, Any]
+        self, coordinator: ControlPlaneCoordinator, sample_agent: dict[str, Any]
     ):
         """Test heartbeat with status update."""
         await coordinator.register_agent(
@@ -253,7 +253,7 @@ class TestTaskOperations:
 
     @pytest.mark.asyncio
     async def test_submit_task(
-        self, coordinator: ControlPlaneCoordinator, sample_task: Dict[str, Any]
+        self, coordinator: ControlPlaneCoordinator, sample_task: dict[str, Any]
     ):
         """Test submitting a task."""
         task_id = await coordinator.submit_task(

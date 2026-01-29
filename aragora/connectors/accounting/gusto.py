@@ -40,12 +40,14 @@ from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
+
 class PayrollStatus(str, Enum):
     """Payroll run status."""
 
     UNPROCESSED = "unprocessed"
     PROCESSED = "processed"
     CANCELLED = "cancelled"
+
 
 class EmploymentType(str, Enum):
     """Employee type."""
@@ -54,11 +56,13 @@ class EmploymentType(str, Enum):
     PART_TIME = "part_time"
     CONTRACTOR = "contractor"
 
+
 class PayType(str, Enum):
     """Compensation type."""
 
     HOURLY = "hourly"
     SALARY = "salary"
+
 
 @dataclass
 class GustoCredentials:
@@ -78,6 +82,7 @@ class GustoCredentials:
         if not self.expires_at:
             return True
         return datetime.now(timezone.utc) >= self.expires_at
+
 
 @dataclass
 class Employee(ConnectorDataclass):
@@ -106,6 +111,7 @@ class Employee(ConnectorDataclass):
         result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
         result["full_name"] = f"{self.first_name} {self.last_name}"
         return result
+
 
 @dataclass
 class PayrollItem(ConnectorDataclass):
@@ -190,6 +196,7 @@ class PayrollItem(ConnectorDataclass):
         result["total_employer_cost"] = float(self.total_employer_cost)
         return result
 
+
 @dataclass
 class PayrollRun(ConnectorDataclass):
     """A payroll run (pay period)."""
@@ -229,6 +236,7 @@ class PayrollRun(ConnectorDataclass):
         result["total_employer_cost"] = float(self.total_employer_cost)
         result["employee_count"] = len(self.payroll_items)
         return result
+
 
 @dataclass
 class JournalEntry:
@@ -290,6 +298,7 @@ class JournalEntry:
             "total_debits": sum(line["debit"] for line in self.lines),
             "total_credits": sum(line["credit"] for line in self.lines),
         }
+
 
 class GustoConnector:
     """
@@ -917,9 +926,11 @@ class GustoConnector:
         """Set a custom account mapping."""
         self._account_mappings[mapping_key] = (account_id, account_name)
 
+
 # =============================================================================
 # Mock Data for Demo
 # =============================================================================
+
 
 def get_mock_employees() -> list[Employee]:
     """Generate mock employee data."""
@@ -961,6 +972,7 @@ def get_mock_employees() -> list[Employee]:
             hourly_rate=Decimal("35"),
         ),
     ]
+
 
 def get_mock_payroll_run() -> PayrollRun:
     """Generate mock payroll run."""
@@ -1011,6 +1023,7 @@ def get_mock_payroll_run() -> PayrollRun:
         ],
         processed_at=datetime.now(timezone.utc) - timedelta(days=2),
     )
+
 
 __all__ = [
     "GustoConnector",

@@ -48,6 +48,7 @@ DEFAULT_TTL_SECONDS = int(os.environ.get("ARAGORA_ORIGIN_TTL", 86400))
 # Maximum LRU cache size
 MAX_CACHE_SIZE = int(os.environ.get("ARAGORA_ORIGIN_CACHE_SIZE", 10000))
 
+
 @dataclass
 class OriginRecord:
     """A routing origin record."""
@@ -105,6 +106,7 @@ class OriginRecord:
             result_sent=data.get("result_sent", False),
             result_sent_at=data.get("result_sent_at"),
         )
+
 
 class PersistentOriginStore:
     """
@@ -749,9 +751,11 @@ class PersistentOriginStore:
         if origin_id in self._cache_order:
             self._cache_order.remove(origin_id)
 
+
 # Global singleton
 _store: PersistentOriginStore | None = None
 _store_lock = asyncio.Lock()
+
 
 async def get_origin_store() -> PersistentOriginStore:
     """Get the global PersistentOriginStore instance."""
@@ -763,10 +767,12 @@ async def get_origin_store() -> PersistentOriginStore:
                 await _store.initialize()
     return _store
 
+
 def reset_origin_store() -> None:
     """Reset the global origin store (for testing)."""
     global _store
     _store = None
+
 
 __all__ = [
     "PersistentOriginStore",

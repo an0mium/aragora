@@ -41,6 +41,7 @@ TEAMS_TENANT_DB_PATH = os.environ.get(
 # Encryption key for tokens (optional but recommended)
 ENCRYPTION_KEY = os.environ.get("ARAGORA_ENCRYPTION_KEY", "")
 
+
 @dataclass
 class TeamsTenant:
     """Represents an installed Microsoft Teams tenant."""
@@ -107,6 +108,7 @@ class TeamsTenant:
 
         # Consider expired if within 5 minutes of expiration
         return time.time() > (self.expires_at - 300)
+
 
 class TeamsTenantStore:
     """
@@ -552,8 +554,10 @@ class TeamsTenantStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
+
 # Environment configuration
 ARAGORA_ENV = os.environ.get("ARAGORA_ENV", "development")
+
 
 class SupabaseTeamsTenantStore:
     """
@@ -893,8 +897,10 @@ class SupabaseTeamsTenantStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_tenants": 0, "active_tenants": 0}
 
+
 # Singleton instance
 _tenant_store: Any | None = None
+
 
 def get_teams_tenant_store(db_path: str | None = None) -> Any:
     """Get or create the tenant store singleton.

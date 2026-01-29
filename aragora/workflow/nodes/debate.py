@@ -18,6 +18,7 @@ from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
 
+
 class DebateStep(BaseStep):
     """
     Debate step for executing Aragora debates within workflows.
@@ -225,6 +226,7 @@ class DebateStep(BaseStep):
             text = text.replace(f"{{state.{key}}}", str(value))
 
         return text
+
 
 class QuickDebateStep(BaseStep):
     """

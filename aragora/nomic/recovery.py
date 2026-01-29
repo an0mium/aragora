@@ -5,6 +5,7 @@ Provides structured error handling and recovery strategies for the
 nomic loop state machine. Includes circuit breakers, exponential backoff,
 and intelligent recovery decisions.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,6 +21,7 @@ from .states import NomicState, StateContext, get_state_config
 
 logger = logging.getLogger(__name__)
 
+
 class RecoveryStrategy(Enum):
     """Strategies for recovering from errors."""
 
@@ -29,6 +31,7 @@ class RecoveryStrategy(Enum):
     RESTART = auto()  # Restart from beginning
     PAUSE = auto()  # Pause and wait for human
     FAIL = auto()  # Mark as failed, stop
+
 
 @dataclass
 class RecoveryDecision:
@@ -48,6 +51,7 @@ class RecoveryDecision:
             "reason": self.reason,
             "requires_human": self.requires_human,
         }
+
 
 class CircuitBreaker:
     """
@@ -126,6 +130,7 @@ class CircuitBreaker:
             "last_failure": self._last_failure_time,
         }
 
+
 class CircuitBreakerRegistry:
     """Registry of circuit breakers for agents and services."""
 
@@ -163,6 +168,7 @@ class CircuitBreakerRegistry:
     def to_dict(self) -> dict[str, Any]:
         return {name: cb.to_dict() for name, cb in self._breakers.items()}
 
+
 def calculate_backoff(
     attempt: int,
     base_delay: float = 1.0,
@@ -190,6 +196,7 @@ def calculate_backoff(
         delay *= 1 + random.uniform(-0.25, 0.25)
 
     return delay
+
 
 class RecoveryManager:
     """
@@ -372,6 +379,7 @@ class RecoveryManager:
     def clear_history(self) -> None:
         """Clear recovery history."""
         self._recovery_history = []
+
 
 async def recovery_handler(
     context: StateContext,

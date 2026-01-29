@@ -25,6 +25,7 @@ Usage:
     # Get current mayor info
     mayor_info = coordinator.get_mayor_info()
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,6 +37,7 @@ from typing import Any, Callable, Optional
 from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class MayorInfo:
@@ -56,6 +58,7 @@ class MayorInfo:
             "region": self.region,
             "metadata": self.metadata,
         }
+
 
 class MayorCoordinator:
     """
@@ -278,12 +281,15 @@ class MayorCoordinator:
             except Exception as e:
                 logger.error(f"Failed to demote from MAYOR: {e}")
 
+
 # Global coordinator instance
 _mayor_coordinator: MayorCoordinator | None = None
+
 
 def get_mayor_coordinator() -> MayorCoordinator | None:
     """Get the global mayor coordinator instance."""
     return _mayor_coordinator
+
 
 async def init_mayor_coordinator(
     hierarchy: AgentHierarchy,

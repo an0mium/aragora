@@ -191,8 +191,8 @@ class ContextPhase:
         gathered_context = "\n\n".join(combined_context)
 
         # Collect audit results
-        audit_findings: List[AuditFindingSummary] = []
-        audit_proposals: List[str] = []
+        audit_findings: list[AuditFindingSummary] = []
+        audit_proposals: list[str] = []
         if audit_task:
             try:
                 audit_findings, audit_proposals = await audit_task
@@ -271,7 +271,7 @@ What's genuinely missing (not already implemented).
 
 CRITICAL: Be thorough. Features you miss here may be accidentally proposed for recreation."""
 
-    async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> Tuple[str, str, str]:
+    async def _gather_with_agent(self, agent: Any, name: str, harness: str) -> tuple[str, str, str]:
         """Run exploration with one agent."""
         agent_start = time.perf_counter()
         try:
@@ -294,7 +294,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                 agent_duration = time.perf_counter() - agent_start
                 _agent_metrics_recorder("context", name, agent_duration)
 
-    async def _run_codebase_audit(self) -> Tuple[List[AuditFindingSummary], List[str]]:
+    async def _run_codebase_audit(self) -> tuple[list[AuditFindingSummary], list[str]]:
         """Run codebase audit and return findings with proposals.
 
         Returns:
@@ -308,7 +308,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             result = await self.codebase_auditor.audit_codebase()
 
             # Convert findings to summary format
-            findings: List[AuditFindingSummary] = []
+            findings: list[AuditFindingSummary] = []
             for finding in result.findings[:10]:  # Limit to top 10
                 findings.append(
                     AuditFindingSummary(
@@ -337,7 +337,7 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             logger.warning(f"Codebase audit error: {e}")
             return [], []
 
-    def _format_audit_findings(self, findings: List[AuditFindingSummary]) -> str:
+    def _format_audit_findings(self, findings: list[AuditFindingSummary]) -> str:
         """Format audit findings for inclusion in context."""
         if not findings:
             return ""

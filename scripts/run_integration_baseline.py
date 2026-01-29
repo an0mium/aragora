@@ -66,7 +66,7 @@ class TestTier:
 
     name: str
     description: str
-    pytest_args: List[str]
+    pytest_args: list[str]
     timeout_minutes: int
     parallel: bool = True
     requires_server: bool = False
@@ -171,8 +171,8 @@ def get_pytest_command(
     parallel_workers: Optional[int] = None,
     timeout: Optional[int] = None,
     verbose: bool = False,
-    extra_args: Optional[List[str]] = None,
-) -> List[str]:
+    extra_args: Optional[list[str]] = None,
+) -> list[str]:
     """Build pytest command for the given tier."""
     cmd = ["python", "-m", "pytest"]
 
@@ -212,7 +212,7 @@ def get_pytest_command(
     return cmd
 
 
-def check_prerequisites(tier: TestTier) -> List[str]:
+def check_prerequisites(tier: TestTier) -> list[str]:
     """Check if tier prerequisites are met. Returns list of warnings."""
     warnings = []
 

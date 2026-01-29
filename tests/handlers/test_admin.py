@@ -98,9 +98,9 @@ class MockUserStore:
     """Mock user store for testing."""
 
     def __init__(self):
-        self._users: Dict[str, MockUser] = {}
-        self._orgs: Dict[str, MockOrganization] = {}
-        self._audit_events: List[dict] = []
+        self._users: dict[str, MockUser] = {}
+        self._orgs: dict[str, MockOrganization] = {}
+        self._audit_events: list[dict] = []
 
     def add_user(self, user: MockUser):
         self._users[user.id] = user
@@ -118,7 +118,7 @@ class MockUserStore:
         org_id_filter: Optional[str] = None,
         role_filter: Optional[str] = None,
         active_only: bool = False,
-    ) -> tuple[List[MockUser], int]:
+    ) -> tuple[list[MockUser], int]:
         users = list(self._users.values())
         if org_id_filter:
             users = [u for u in users if u.org_id == org_id_filter]
@@ -134,7 +134,7 @@ class MockUserStore:
         limit: int = 50,
         offset: int = 0,
         tier_filter: Optional[str] = None,
-    ) -> tuple[List[MockOrganization], int]:
+    ) -> tuple[list[MockOrganization], int]:
         orgs = list(self._orgs.values())
         if tier_filter:
             orgs = [o for o in orgs if o.tier == tier_filter]

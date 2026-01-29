@@ -31,12 +31,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class PruningHandlerProtocol(Protocol):
     """Protocol for handlers that use PruningOperationsMixin."""
 
     ctx: dict[str, Any]
 
     def _get_mound(self) -> Optional["KnowledgeMound"]: ...
+
 
 class PruningOperationsMixin:
     """Mixin providing pruning API endpoints."""

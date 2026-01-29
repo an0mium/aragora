@@ -4,6 +4,7 @@ Uncertainty Estimator.
 Quantifies epistemic uncertainty in agent responses and debate outcomes,
 providing confidence calibration and disagreement analysis.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +18,7 @@ from typing import Any, Optional, cast
 logger = logging.getLogger(__name__)
 
 from aragora.core import Agent, Message, Vote
+
 
 @dataclass
 class ConfidenceScore:
@@ -34,6 +36,7 @@ class ConfidenceScore:
             "reasoning": self.reasoning,
             "timestamp": self.timestamp.isoformat(),
         }
+
 
 @dataclass
 class DisagreementCrux:
@@ -59,6 +62,7 @@ class DisagreementCrux:
             "severity": self.severity,
         }
 
+
 @dataclass
 class FollowUpSuggestion:
     """A suggested follow-up debate to resolve a crux."""
@@ -80,6 +84,7 @@ class FollowUpSuggestion:
             "divergent_agents": self.crux.divergent_agents,
         }
 
+
 @dataclass
 class UncertaintyMetrics:
     """Comprehensive uncertainty quantification for a debate."""
@@ -100,6 +105,7 @@ class UncertaintyMetrics:
             "cruxes": [crux.to_dict() for crux in self.cruxes],
             "calibration_quality": self.calibration_quality,
         }
+
 
 class ConfidenceEstimator:
     """Estimates confidence in agent responses and calibrates over time."""
@@ -208,6 +214,7 @@ class ConfidenceEstimator:
     ) -> UncertaintyMetrics:
         """Analyze disagreement using the shared analyzer."""
         return self.disagreement_analyzer.analyze_disagreement(messages, votes, proposals)
+
 
 class DisagreementAnalyzer:
     """Analyzes why agents disagree in debates."""
@@ -450,6 +457,7 @@ class DisagreementAnalyzer:
             return f"Resolve: {description}"
         else:
             return f"Debate: Should we accept that {description.lower()}?"
+
 
 class UncertaintyAggregator:
     """Aggregates uncertainty from multiple sources."""

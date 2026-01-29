@@ -18,6 +18,7 @@ from aragora.persistence.db_config import DatabaseType
 
 logger = logging.getLogger(__name__)
 
+
 class OnboardingRepository:
     """
     Repository for onboarding flow persistence.
@@ -333,8 +334,10 @@ class OnboardingRepository:
             "step_distribution": step_counts,
         }
 
+
 # Global repository instance
 _onboarding_repo: OnboardingRepository | None = None
+
 
 def get_onboarding_repository() -> OnboardingRepository:
     """Get or create the global onboarding repository."""

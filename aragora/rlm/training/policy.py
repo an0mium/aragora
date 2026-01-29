@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PolicyState:
     """
@@ -68,6 +69,7 @@ class PolicyState:
 
         return base_features + extra_features
 
+
 class Policy(ABC):
     """Abstract base class for RLM policies."""
 
@@ -96,6 +98,7 @@ class Policy(ABC):
             Dictionary mapping actions to probabilities
         """
         pass
+
 
 class StrategyPolicy(Policy):
     """
@@ -202,6 +205,7 @@ class StrategyPolicy(Policy):
         current = self._weights[strategy].get(feature, 0.0)
         self._weights[strategy][feature] = current + learning_rate * delta
 
+
 class RefinementPolicy(Policy):
     """
     Policy for deciding when to continue refinement.
@@ -264,6 +268,7 @@ class RefinementPolicy(Policy):
             "refine": 1 - accept_prob,
         }
 
+
 @dataclass
 class CompositePolicy(Policy):
     """
@@ -301,6 +306,7 @@ class CompositePolicy(Policy):
     def get_policy(self, name: str) -> Policy | None:
         """Get a specific sub-policy."""
         return self.policies.get(name)
+
 
 __all__ = [
     "PolicyState",

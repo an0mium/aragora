@@ -75,6 +75,7 @@ except ImportError:
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
 
+
 # Import metrics (optional - graceful degradation if not available)
 try:
     from aragora.observability.metrics import (  # type: ignore[attr-defined]
@@ -92,6 +93,7 @@ except ImportError:
     def record_encryption_error(*args, **kwargs):  # type: ignore[misc,no-redef]
         pass
 
+
 # Credential fields that should be encrypted
 CREDENTIAL_KEYWORDS = frozenset(
     [
@@ -107,10 +109,12 @@ CREDENTIAL_KEYWORDS = frozenset(
     ]
 )
 
+
 def _is_sensitive_key(key: str) -> bool:
     """Check if a config key is sensitive (should be encrypted)."""
     key_lower = key.lower()
     return any(kw in key_lower for kw in CREDENTIAL_KEYWORDS)
+
 
 def _encrypt_config(
     config: dict[str, Any], use_encryption: bool, connector_id: str = ""
@@ -163,6 +167,7 @@ def _encrypt_config(
         logger.warning(f"Config encryption unavailable for {connector_id}: {e}")
         return config
 
+
 def _decrypt_config(
     config: dict[str, Any], use_encryption: bool, connector_id: str = ""
 ) -> dict[str, Any]:
@@ -200,6 +205,7 @@ def _decrypt_config(
         record_encryption_error("decrypt", type(e).__name__)
         return config
 
+
 @dataclass
 class ConnectorConfig:
     """Stored connector configuration."""
@@ -216,6 +222,7 @@ class ConnectorConfig:
     items_indexed: int = 0
     error_message: str | None = None
 
+
 @dataclass
 class SyncJob:
     """Record of a sync operation."""
@@ -229,6 +236,7 @@ class SyncJob:
     items_failed: int = 0
     error_message: str | None = None
     duration_seconds: float | None = None
+
 
 class SyncStore:
     """
@@ -1005,8 +1013,10 @@ class SyncStore:
 
         return stats
 
+
 # Global instance for easy access
 _store: SyncStore | None = None
+
 
 async def get_sync_store() -> SyncStore:
     """Get the global SyncStore instance, initializing if needed."""
@@ -1015,6 +1025,7 @@ async def get_sync_store() -> SyncStore:
         _store = SyncStore()
         await _store.initialize()
     return _store
+
 
 __all__ = [
     "SyncStore",

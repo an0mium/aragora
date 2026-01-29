@@ -46,6 +46,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class CalibrationFusionStrategy(Enum):
     """Strategy for fusing calibration predictions."""
 
@@ -66,6 +67,7 @@ class CalibrationFusionStrategy(Enum):
 
     CONSENSUS_ONLY = "consensus_only"
     """Only use predictions that agree with majority."""
+
 
 @dataclass
 class AgentPrediction:
@@ -111,6 +113,7 @@ class AgentPrediction:
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class CalibrationConsensus:
@@ -199,6 +202,7 @@ class CalibrationConsensus:
             or self.krippendorff_alpha < 0.4
         )
 
+
 @dataclass
 class CalibrationFusionConfig:
     """Configuration for calibration fusion."""
@@ -224,8 +228,10 @@ class CalibrationFusionConfig:
     confidence_level: float = 0.95
     """Confidence level for interval estimation."""
 
+
 # Alias for backward compatibility
 FusionConfig = CalibrationFusionConfig
+
 
 class CalibrationFusionEngine:
     """Engine for fusing multi-party calibration predictions.
@@ -776,8 +782,10 @@ class CalibrationFusionEngine:
             counts[strategy] = counts.get(strategy, 0) + 1
         return counts
 
+
 # Singleton instance
 _calibration_fusion_engine: CalibrationFusionEngine | None = None
+
 
 def get_calibration_fusion_engine(
     config: FusionConfig | None = None,
@@ -794,6 +802,7 @@ def get_calibration_fusion_engine(
     if _calibration_fusion_engine is None:
         _calibration_fusion_engine = CalibrationFusionEngine(config)
     return _calibration_fusion_engine
+
 
 __all__ = [
     # Enums

@@ -47,14 +47,14 @@ from aragora.core import DebateResult
 class MockSMTPServer:
     """Mock SMTP server for testing."""
 
-    sent_emails: List[Dict[str, Any]] = field(default_factory=list)
+    sent_emails: list[dict[str, Any]] = field(default_factory=list)
     fail_count: int = 0
     current_failures: int = 0
 
     def send_email(
         self,
         from_addr: str,
-        to_addrs: List[str],
+        to_addrs: list[str],
         message: str,
     ) -> None:
         """Simulate sending an email."""
@@ -188,7 +188,7 @@ def sample_email_input() -> EmailInput:
 
 
 @pytest.fixture
-def batch_email_inputs() -> List[EmailInput]:
+def batch_email_inputs() -> list[EmailInput]:
     """Create batch of test emails with varying priorities."""
     return [
         create_test_email_input(
@@ -623,7 +623,7 @@ class TestCompleteEmailWorkflow:
     @pytest.mark.asyncio
     async def test_email_categorization_workflow(
         self,
-        batch_email_inputs: List[EmailInput],
+        batch_email_inputs: list[EmailInput],
     ) -> None:
         """Test email categorization workflow."""
         # Simulate categorization results

@@ -51,6 +51,7 @@ except ImportError:
     Record = None
     HAS_TWILIO = False
 
+
 @dataclass
 class TwilioVoiceConfig:
     """Configuration for Twilio Voice integration."""
@@ -99,6 +100,7 @@ class TwilioVoiceConfig:
         base = self.webhook_base_url.rstrip("/")
         return f"{base}{path}" if base else path
 
+
 @dataclass
 class CallSession:
     """Tracks an active voice call session."""
@@ -113,6 +115,7 @@ class CallSession:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class TwilioVoiceIntegration:
     """
@@ -538,8 +541,10 @@ class TwilioVoiceIntegration:
             session.debate_id = debate_id
             session.updated_at = datetime.now()
 
+
 # Singleton instance
 _voice_integration: TwilioVoiceIntegration | None = None
+
 
 def get_twilio_voice(config: TwilioVoiceConfig | None = None) -> TwilioVoiceIntegration:
     """Get or create the Twilio Voice integration singleton."""
@@ -547,6 +552,7 @@ def get_twilio_voice(config: TwilioVoiceConfig | None = None) -> TwilioVoiceInte
     if _voice_integration is None:
         _voice_integration = TwilioVoiceIntegration(config)
     return _voice_integration
+
 
 __all__ = [
     "TwilioVoiceConfig",

@@ -9,12 +9,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+
 class FileChangeType(str, Enum):
     """Type of file change detected."""
 
     ADDED = "added"
     MODIFIED = "modified"
     DELETED = "deleted"
+
 
 class SyncStatus(str, Enum):
     """Status of a sync operation."""
@@ -25,6 +27,7 @@ class SyncStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
+
 
 @dataclass
 class FileChange:
@@ -64,6 +67,7 @@ class FileChange:
             "error": self.error,
         }
 
+
 @dataclass
 class SyncConfig:
     """Configuration for directory synchronization."""
@@ -96,6 +100,7 @@ class SyncConfig:
     # Batch settings
     batch_size: int = 10  # Files to process per batch
     max_concurrent: int = 4  # Concurrent processing tasks
+
 
 @dataclass
 class SyncState:
@@ -137,6 +142,7 @@ class SyncState:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
+
 
 @dataclass
 class SyncResult:
@@ -190,6 +196,7 @@ class SyncResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "duration_seconds": self.duration_seconds,
         }
+
 
 __all__ = [
     "FileChange",

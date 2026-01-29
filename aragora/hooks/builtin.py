@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Logging Handlers
 # =============================================================================
 
+
 async def log_event(
     message: str = "",
     level: str = "info",
@@ -76,6 +77,7 @@ async def log_event(
     else:
         log_fn(formatted)
 
+
 async def log_metric(
     metric_name: str,
     value: Any,
@@ -102,9 +104,11 @@ async def log_metric(
     tag_str = ",".join(f"{k}={v}" for k, v in tags.items())
     logger.info(f"METRIC {metric_name}={value} {tag_str}")
 
+
 # =============================================================================
 # Notification Handlers
 # =============================================================================
+
 
 async def send_webhook(
     url: str,
@@ -169,6 +173,7 @@ async def send_webhook(
         logger.error(f"Webhook error: {e}")
         return False
 
+
 async def send_slack_notification(
     channel: str,
     message_template: str,
@@ -213,9 +218,11 @@ async def send_slack_notification(
         **context,
     )
 
+
 # =============================================================================
 # Persistence Handlers
 # =============================================================================
+
 
 async def save_checkpoint(
     path: str = "checkpoints",
@@ -271,6 +278,7 @@ async def save_checkpoint(
         logger.error(f"Checkpoint save error: {e}")
         return None
 
+
 async def store_fact(
     fact_type: str,
     content_field: str = "final_answer",
@@ -317,9 +325,11 @@ async def store_fact(
         logger.error(f"Fact storage error: {e}")
         return False
 
+
 # =============================================================================
 # Control Flow Handlers
 # =============================================================================
+
 
 async def set_context_var(
     var_name: str,
@@ -337,6 +347,7 @@ async def set_context_var(
         **context: Current context (modified in-place)
     """
     context[var_name] = value
+
 
 async def delay_execution(
     seconds: float = 1.0,

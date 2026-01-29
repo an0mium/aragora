@@ -66,6 +66,7 @@ PROCESS_INTERVAL = float(os.environ.get("ARAGORA_WEBHOOK_RETRY_INTERVAL", "1.0")
 # Delivery Status
 # =============================================================================
 
+
 class DeliveryStatus(str, Enum):
     """Status of a webhook delivery attempt."""
 
@@ -75,9 +76,11 @@ class DeliveryStatus(str, Enum):
     FAILED = "failed"
     DEAD_LETTER = "dead_letter"
 
+
 # =============================================================================
 # Webhook Delivery
 # =============================================================================
+
 
 @dataclass
 class WebhookDelivery:
@@ -191,9 +194,11 @@ class WebhookDelivery:
         """Deserialize delivery from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
+
 # =============================================================================
 # Storage Backends
 # =============================================================================
+
 
 class WebhookDeliveryStore(ABC):
     """Abstract base class for webhook delivery storage backends."""
@@ -243,6 +248,7 @@ class WebhookDeliveryStore(ABC):
     async def close(self) -> None:
         """Close the store (optional to implement)."""
         pass
+
 
 class InMemoryDeliveryStore(WebhookDeliveryStore):
     """
@@ -318,6 +324,7 @@ class InMemoryDeliveryStore(WebhookDeliveryStore):
             count = len(self._deliveries)
             self._deliveries.clear()
             return count
+
 
 class RedisDeliveryStore(WebhookDeliveryStore):
     """
@@ -499,12 +506,14 @@ class RedisDeliveryStore(WebhookDeliveryStore):
             self._redis = None
             self._connected = False
 
+
 # =============================================================================
 # Webhook Retry Queue
 # =============================================================================
 
 # Type alias for delivery callback
 DeliveryCallback = Callable[[WebhookDelivery], Awaitable[None]]
+
 
 class WebhookRetryQueue:
     """
@@ -818,9 +827,7 @@ class WebhookRetryQueue:
         except Exception as e:
             return False, 0, str(e)
 
-    async def _send_webhook_sync(
-        self, delivery: WebhookDelivery
-    ) -> tuple[bool, int, str | None]:
+    async def _send_webhook_sync(self, delivery: WebhookDelivery) -> tuple[bool, int, str | None]:
         """
         Fallback synchronous webhook delivery using urllib.
 
@@ -952,11 +959,13 @@ class WebhookRetryQueue:
         logger.info(f"Delivery {delivery_id} cancelled")
         return True
 
+
 # =============================================================================
 # Factory Functions
 # =============================================================================
 
 _global_queue: WebhookRetryQueue | None = None
+
 
 def get_retry_queue() -> WebhookRetryQueue:
     """
@@ -991,10 +1000,12 @@ def get_retry_queue() -> WebhookRetryQueue:
 
     return _global_queue
 
+
 def set_retry_queue(queue: WebhookRetryQueue) -> None:
     """Set the global webhook retry queue."""
     global _global_queue
     _global_queue = queue
+
 
 async def reset_retry_queue() -> None:
     """Reset the global webhook retry queue."""
@@ -1002,6 +1013,7 @@ async def reset_retry_queue() -> None:
     if _global_queue is not None:
         await _global_queue.stop()
         _global_queue = None
+
 
 # =============================================================================
 # Exports

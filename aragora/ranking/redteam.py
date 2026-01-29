@@ -13,6 +13,7 @@ Usage:
     )
     summary = integrator.get_vulnerability_summary("claude")
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 K_FACTOR = ELO_K_FACTOR
 
+
 @dataclass
 class RedTeamResult:
     """Result of a red team assessment."""
@@ -47,6 +49,7 @@ class RedTeamResult:
     session_id: str | None
     elo_change: float
 
+
 @dataclass
 class VulnerabilitySummary:
     """Summary of an agent's red team history."""
@@ -54,6 +57,7 @@ class VulnerabilitySummary:
     redteam_sessions: int
     total_elo_impact: float
     last_session: str | None
+
 
 class RedTeamIntegrator:
     """

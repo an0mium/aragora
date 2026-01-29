@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class EventEmitter:
     """Handles event emission for Arena debates.
 
@@ -472,5 +473,6 @@ class EventEmitter:
             total_rounds=total_rounds,
             duration_ms=duration_ms,
         )
+
 
 __all__ = ["EventEmitter"]

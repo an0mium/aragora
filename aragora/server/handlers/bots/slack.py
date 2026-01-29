@@ -71,6 +71,7 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
 # Slack integration singleton
 _slack_integration: Any | None = None
 
+
 def get_slack_integration() -> Any | None:
     """Get the Slack integration singleton.
 
@@ -97,6 +98,7 @@ def get_slack_integration() -> Any | None:
         logger.debug("SlackConnector not available")
         return None
 
+
 def verify_slack_signature(
     body: bytes,
     timestamp: str,
@@ -122,6 +124,7 @@ def verify_slack_signature(
     )
 
     return hmac.compare_digest(my_signature, signature)
+
 
 async def _start_slack_debate(
     topic: str,
@@ -199,6 +202,7 @@ async def _start_slack_debate(
         logger.error(f"DecisionRouter failed: {e}, using fallback")
         return await _fallback_start_debate(topic, channel_id, user_id, debate_id, thread_ts)
 
+
 async def _fallback_start_debate(
     topic: str,
     channel_id: str,
@@ -254,6 +258,7 @@ async def _fallback_start_debate(
     }
 
     return debate_id
+
 
 def build_debate_message_blocks(
     debate_id: str,
@@ -381,6 +386,7 @@ def build_debate_message_blocks(
 
     return blocks
 
+
 def build_consensus_message_blocks(
     debate_id: str,
     task: str,
@@ -489,8 +495,10 @@ def build_consensus_message_blocks(
 
     return blocks
 
+
 # Alias for backward compatibility
 build_debate_result_blocks = build_consensus_message_blocks
+
 
 async def handle_slack_events(request: Any) -> HandlerResult:
     """Handle Slack Events API webhook."""
@@ -531,6 +539,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
     except Exception as e:
         logger.error(f"Slack events handler error: {e}")
         return json_response({"error": str(e)}, status=500)
+
 
 async def handle_slack_interactions(request: Any) -> HandlerResult:
     """Handle Slack interactive components (button clicks, votes)."""
@@ -697,6 +706,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
         logger.error(f"Slack interactions handler error: {e}")
         return json_response({"error": str(e)}, status=500)
 
+
 async def handle_slack_commands(request: Any) -> HandlerResult:
     """Handle Slack slash commands (/aragora)."""
     try:
@@ -795,6 +805,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
             }
         )
 
+
 def _build_start_debate_modal() -> dict[str, Any]:
     """Build modal for starting a new debate."""
     return {
@@ -885,6 +896,7 @@ def _build_start_debate_modal() -> dict[str, Any]:
         ],
     }
 
+
 def get_debate_vote_counts(debate_id: str) -> dict[str, int]:
     """Get vote counts for a debate."""
     votes = _user_votes.get(debate_id, {})
@@ -892,6 +904,7 @@ def get_debate_vote_counts(debate_id: str) -> dict[str, int]:
     for agent in votes.values():
         counts[agent] = counts.get(agent, 0) + 1
     return counts
+
 
 class SlackHandler(BotHandlerMixin, SecureHandler):
     """Handler for Slack bot integration endpoints.
@@ -933,9 +946,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         """Check if Slack bot is configured."""
         return bool(SLACK_BOT_TOKEN) or bool(SLACK_SIGNING_SECRET)
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle requests for Slack endpoints.
 
         Handles:
@@ -1255,6 +1266,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             response["text"] = text
         return json_response(response)
 
+
 def register_slack_routes(router: Any) -> None:
     """Register Slack routes with the server router.
 
@@ -1275,6 +1287,7 @@ def register_slack_routes(router: Any) -> None:
     router.add_route("POST", "/api/bots/slack/events", events_handler)
     router.add_route("POST", "/api/bots/slack/interactions", interactions_handler)
     router.add_route("POST", "/api/bots/slack/commands", commands_handler)
+
 
 __all__ = [
     "SlackHandler",

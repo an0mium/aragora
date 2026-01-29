@@ -42,6 +42,7 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
 if not ZOOM_SECRET_TOKEN:
     logger.warning("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
 
+
 class ZoomHandler(BotHandlerMixin, SecureHandler):
     """Handler for Zoom Bot endpoints.
 
@@ -225,5 +226,6 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Zoom event", return_200_on_error=False)
+
 
 __all__ = ["ZoomHandler"]

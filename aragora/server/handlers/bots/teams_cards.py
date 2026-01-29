@@ -34,6 +34,7 @@ from typing import Any, Optional
 SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json"
 VERSION = "1.4"
 
+
 def _base_card() -> dict[str, Any]:
     """Create base Adaptive Card structure."""
     return {
@@ -43,6 +44,7 @@ def _base_card() -> dict[str, Any]:
         "body": [],
         "actions": [],
     }
+
 
 def _header(text: str, size: str = "Large", color: str | None = None) -> dict[str, Any]:
     """Create a header text block."""
@@ -57,6 +59,7 @@ def _header(text: str, size: str = "Large", color: str | None = None) -> dict[st
         block["color"] = color
     return block
 
+
 def _text(text: str, wrap: bool = True, size: str = "Default") -> dict[str, Any]:
     """Create a text block."""
     return {
@@ -66,12 +69,14 @@ def _text(text: str, wrap: bool = True, size: str = "Default") -> dict[str, Any]
         "size": size,
     }
 
+
 def _fact_set(facts: list[tuple[str, str]]) -> dict[str, Any]:
     """Create a fact set from key-value pairs."""
     return {
         "type": "FactSet",
         "facts": [{"title": k, "value": v} for k, v in facts],
     }
+
 
 def _submit_action(title: str, data: dict[str, Any], style: str | None = None) -> dict[str, Any]:
     """Create a submit action button."""
@@ -84,12 +89,14 @@ def _submit_action(title: str, data: dict[str, Any], style: str | None = None) -
         action["style"] = style
     return action
 
+
 def _column_set(columns: list[dict[str, Any]]) -> dict[str, Any]:
     """Create a column set."""
     return {
         "type": "ColumnSet",
         "columns": columns,
     }
+
 
 def _column(items: list[dict[str, Any]], width: str = "auto") -> dict[str, Any]:
     """Create a column."""
@@ -98,6 +105,7 @@ def _column(items: list[dict[str, Any]], width: str = "auto") -> dict[str, Any]:
         "width": width,
         "items": items,
     }
+
 
 def _progress_bar(value: int, label: str | None = None) -> list[dict[str, Any]]:
     """Create a visual progress bar using ColumnSets.
@@ -148,6 +156,7 @@ def _progress_bar(value: int, label: str | None = None) -> list[dict[str, Any]]:
     elements.append(_text(f"{value}%", size="Small"))
 
     return elements
+
 
 def create_debate_card(
     debate_id: str,
@@ -251,6 +260,7 @@ def create_debate_card(
 
     return card
 
+
 def create_voting_card(
     debate_id: str,
     topic: str,
@@ -313,6 +323,7 @@ def create_voting_card(
         )
 
     return card
+
 
 def create_consensus_card(
     debate_id: str,
@@ -432,6 +443,7 @@ def create_consensus_card(
 
     return card
 
+
 def create_leaderboard_card(
     standings: list[dict[str, Any]],
     period: str = "all_time",
@@ -496,6 +508,7 @@ def create_leaderboard_card(
     )
 
     return card
+
 
 def create_debate_progress_card(
     debate_id: str,
@@ -593,6 +606,7 @@ def create_debate_progress_card(
 
     return card
 
+
 def create_error_card(
     title: str,
     message: str,
@@ -642,6 +656,7 @@ def create_error_card(
     )
 
     return card
+
 
 def create_help_card(
     commands: Optional[list[dict[str, str]]] = None,
@@ -700,6 +715,7 @@ def create_help_card(
     )
 
     return card
+
 
 __all__ = [
     "create_debate_card",

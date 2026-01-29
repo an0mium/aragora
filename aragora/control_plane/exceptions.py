@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from aragora.exceptions import AragoraError
 
+
 class ControlPlaneError(AragoraError):
     """Base exception for all control plane errors.
 
@@ -37,9 +38,11 @@ class ControlPlaneError(AragoraError):
         super().__init__(message, full_details)
         self.recoverable = recoverable
 
+
 # =============================================================================
 # Connection Errors (Transient - usually recoverable with retry)
 # =============================================================================
+
 
 class SchedulerConnectionError(ControlPlaneError):
     """Redis or backend connection failure.
@@ -56,6 +59,7 @@ class SchedulerConnectionError(ControlPlaneError):
         super().__init__(message, details, recoverable=True)
         self.backend = backend
 
+
 class PolicyCacheConnectionError(ControlPlaneError):
     """Policy cache (Redis) connection failure."""
 
@@ -66,9 +70,11 @@ class PolicyCacheConnectionError(ControlPlaneError):
     ):
         super().__init__(message, details, recoverable=True)
 
+
 # =============================================================================
 # Task Lifecycle Errors
 # =============================================================================
+
 
 class TaskNotFoundError(ControlPlaneError):
     """Task doesn't exist in the scheduler."""
@@ -84,6 +90,7 @@ class TaskNotFoundError(ControlPlaneError):
             recoverable=False,
         )
         self.task_id = task_id
+
 
 class TaskTimeoutError(ControlPlaneError):
     """Task exceeded its timeout limit."""
@@ -108,6 +115,7 @@ class TaskTimeoutError(ControlPlaneError):
         self.task_id = task_id
         self.timeout_seconds = timeout_seconds
         self.elapsed_seconds = elapsed_seconds
+
 
 class InvalidTaskStateError(ControlPlaneError):
     """Task is in the wrong state for the requested operation.
@@ -140,6 +148,7 @@ class InvalidTaskStateError(ControlPlaneError):
         self.expected_states = expected_states
         self.operation = operation
 
+
 class TaskClaimError(ControlPlaneError):
     """Failed to claim a task for execution."""
 
@@ -163,9 +172,11 @@ class TaskClaimError(ControlPlaneError):
         self.worker_id = worker_id
         self.reason = reason
 
+
 # =============================================================================
 # Agent Errors
 # =============================================================================
+
 
 class AgentUnavailableError(ControlPlaneError):
     """Agent is not responding or not registered."""
@@ -183,6 +194,7 @@ class AgentUnavailableError(ControlPlaneError):
         )
         self.agent_id = agent_id
         self.reason = reason
+
 
 class AgentOverloadedError(ControlPlaneError):
     """Agent has too many concurrent tasks."""
@@ -207,9 +219,11 @@ class AgentOverloadedError(ControlPlaneError):
         self.current_tasks = current_tasks
         self.max_tasks = max_tasks
 
+
 # =============================================================================
 # Resource Errors
 # =============================================================================
+
 
 class ResourceQuotaExceededError(ControlPlaneError):
     """Organization or workspace quota exceeded."""
@@ -240,6 +254,7 @@ class ResourceQuotaExceededError(ControlPlaneError):
         self.org_id = org_id
         self.workspace_id = workspace_id
 
+
 class RateLimitExceededError(ControlPlaneError):
     """Rate limit exceeded for operations."""
 
@@ -266,9 +281,11 @@ class RateLimitExceededError(ControlPlaneError):
         self.window_seconds = window_seconds
         self.retry_after_seconds = retry_after_seconds
 
+
 # =============================================================================
 # Policy Errors
 # =============================================================================
+
 
 class PolicyConflictError(ControlPlaneError):
     """Two or more policies conflict with each other."""
@@ -290,6 +307,7 @@ class PolicyConflictError(ControlPlaneError):
         self.policy_ids = policy_ids
         self.conflict_type = conflict_type
 
+
 class PolicyNotFoundError(ControlPlaneError):
     """Policy doesn't exist."""
 
@@ -304,6 +322,7 @@ class PolicyNotFoundError(ControlPlaneError):
             recoverable=False,
         )
         self.policy_id = policy_id
+
 
 class PolicyEvaluationError(ControlPlaneError):
     """Error during policy evaluation."""
@@ -322,9 +341,11 @@ class PolicyEvaluationError(ControlPlaneError):
         self.policy_id = policy_id
         self.reason = reason
 
+
 # =============================================================================
 # Policy Store Errors
 # =============================================================================
+
 
 class PolicyStoreAccessError(ControlPlaneError):
     """Store read/write failure during policy operations.
@@ -346,6 +367,7 @@ class PolicyStoreAccessError(ControlPlaneError):
         )
         self.operation = operation
         self.reason = reason
+
 
 class PolicyConversionError(ControlPlaneError):
     """Policy format conversion failed.
@@ -378,6 +400,7 @@ class PolicyConversionError(ControlPlaneError):
         self.target_format = target_format
         self.reason = reason
 
+
 class CallbackExecutionError(ControlPlaneError):
     """User-provided callback raised exception.
 
@@ -397,6 +420,7 @@ class CallbackExecutionError(ControlPlaneError):
         )
         self.callback_type = callback_type
         self.original_error = original_error
+
 
 class MetricsRecordingError(ControlPlaneError):
     """Prometheus metrics recording failed.
@@ -419,9 +443,11 @@ class MetricsRecordingError(ControlPlaneError):
         self.metric_name = metric_name
         self.reason = reason
 
+
 # =============================================================================
 # Serialization Errors
 # =============================================================================
+
 
 class TaskSerializationError(ControlPlaneError):
     """Failed to serialize or deserialize task data."""
@@ -446,9 +472,11 @@ class TaskSerializationError(ControlPlaneError):
         self.operation = operation
         self.reason = reason
 
+
 # =============================================================================
 # Region Errors
 # =============================================================================
+
 
 class RegionUnavailableError(ControlPlaneError):
     """Target region is not available."""
@@ -466,6 +494,7 @@ class RegionUnavailableError(ControlPlaneError):
         )
         self.region_id = region_id
         self.reason = reason
+
 
 class RegionRoutingError(ControlPlaneError):
     """Failed to route task to appropriate region."""
@@ -492,6 +521,7 @@ class RegionRoutingError(ControlPlaneError):
         self.target_region = target_region
         self.available_regions = available_regions
         self.reason = reason
+
 
 __all__ = [
     # Base

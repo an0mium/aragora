@@ -24,6 +24,7 @@ from ..models import (
 if TYPE_CHECKING:
     from ..client import AragoraClient
 
+
 class AuditAPI:
     """API interface for enterprise audit features.
 

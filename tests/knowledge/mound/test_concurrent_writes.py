@@ -78,8 +78,8 @@ class DelayingMemorySystem:
         self.name = name
         self.delay_ms = delay_ms
         self.fail_rate = fail_rate
-        self.writes: List[Dict[str, Any]] = []
-        self.deleted: List[str] = []
+        self.writes: list[dict[str, Any]] = []
+        self.deleted: list[str] = []
         self._lock = asyncio.Lock()
         self._write_count = 0
 
@@ -111,11 +111,11 @@ class ConcurrentAdapter:
         self.name = name
         self.delay_ms = delay_ms
         self.fail_rate = fail_rate
-        self.forward_calls: List[datetime] = []
-        self.reverse_calls: List[datetime] = []
+        self.forward_calls: list[datetime] = []
+        self.reverse_calls: list[datetime] = []
         self._lock = asyncio.Lock()
 
-    async def sync_to_km(self) -> Dict[str, Any]:
+    async def sync_to_km(self) -> dict[str, Any]:
         """Forward sync with delay."""
         await asyncio.sleep(self.delay_ms / 1000)
 
@@ -131,8 +131,8 @@ class ConcurrentAdapter:
         }
 
     async def sync_from_km(
-        self, km_items: List[Dict[str, Any]], min_confidence: float = 0.7
-    ) -> Dict[str, Any]:
+        self, km_items: list[dict[str, Any]], min_confidence: float = 0.7
+    ) -> dict[str, Any]:
         """Reverse sync with delay."""
         await asyncio.sleep(self.delay_ms / 1000)
 
@@ -327,7 +327,7 @@ class TestMemoryCoordinatorConcurrentWrites:
         """Test that sequential writes preserve order."""
         continuum, consensus, critique, mound = mock_memory_systems
 
-        write_order: List[str] = []
+        write_order: list[str] = []
 
         def track_continuum(**kwargs):
             write_order.append("continuum")
@@ -473,7 +473,7 @@ class TestBidirectionalCoordinatorConcurrentSync:
         config = CoordinatorConfig(parallel_sync=False)
         coordinator = BidirectionalCoordinator(config=config)
 
-        sync_order: List[str] = []
+        sync_order: list[str] = []
 
         class OrderTrackingAdapter:
             def __init__(self, name):
@@ -522,7 +522,7 @@ class TestConflictResolution:
         from aragora.memory.coordinator import MemoryCoordinator, CoordinatorOptions
 
         # Track what gets written
-        stored_items: List[Dict[str, Any]] = []
+        stored_items: list[dict[str, Any]] = []
 
         continuum = MagicMock()
 

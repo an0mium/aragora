@@ -45,7 +45,7 @@ class MockEloSyncResult:
     adjustments_applied: int = 0
     adjustments_skipped: int = 0
     total_elo_change: float = 0.0
-    agents_affected: List[str] = field(default_factory=list)
+    agents_affected: list[str] = field(default_factory=list)
 
 
 class MockEloSystem:
@@ -58,7 +58,7 @@ class MockEloSystem:
             "gemini": MockAgentRating("gemini", 1100.0),
         }
 
-    def get_all_ratings(self) -> List[MockAgentRating]:
+    def get_all_ratings(self) -> list[MockAgentRating]:
         return list(self.ratings.values())
 
     def get_rating(self, agent_name: str) -> Optional[MockAgentRating]:
@@ -69,7 +69,7 @@ class MockEloAdapter:
     """Mock ELO adapter for testing."""
 
     def __init__(self):
-        self.patterns: Dict[str, List[MockKMEloPattern]] = {}
+        self.patterns: dict[str, list[MockKMEloPattern]] = {}
         self.pending_adjustments = []
         self.applied_adjustments = []
         self.analyze_calls = []
@@ -81,9 +81,9 @@ class MockEloAdapter:
     async def analyze_km_patterns_for_agent(
         self,
         agent_name: str,
-        km_items: List[Dict],
+        km_items: list[dict],
         min_confidence: float = 0.7,
-    ) -> List[MockKMEloPattern]:
+    ) -> list[MockKMEloPattern]:
         self.analyze_calls.append(
             {"agent_name": agent_name, "km_items": km_items, "min_confidence": min_confidence}
         )
@@ -100,7 +100,7 @@ class MockEloAdapter:
 
     async def sync_km_to_elo(
         self,
-        agent_patterns: Dict[str, List],
+        agent_patterns: dict[str, list],
         max_adjustment: float = 50.0,
         min_confidence: float = 0.7,
         auto_apply: bool = False,
@@ -120,10 +120,10 @@ class MockEloAdapter:
             agents_affected=list(agent_patterns.keys()) if auto_apply else [],
         )
 
-    def get_agent_km_patterns(self, agent_name: str) -> List[MockKMEloPattern]:
+    def get_agent_km_patterns(self, agent_name: str) -> list[MockKMEloPattern]:
         return self.patterns.get(agent_name, [])
 
-    def get_pending_adjustments(self) -> List:
+    def get_pending_adjustments(self) -> list:
         return self.pending_adjustments
 
     def clear_pending_adjustments(self) -> int:
@@ -152,7 +152,7 @@ class MockKnowledgeMound:
         }
         self.query_calls = []
 
-    async def query_by_agent(self, agent_name: str, limit: int = 100) -> List[Dict]:
+    async def query_by_agent(self, agent_name: str, limit: int = 100) -> list[dict]:
         self.query_calls.append({"agent_name": agent_name, "limit": limit})
         return self.items.get(agent_name, [])
 

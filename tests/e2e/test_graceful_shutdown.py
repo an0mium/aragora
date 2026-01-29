@@ -26,11 +26,11 @@ class TestShutdownWaitsForDebates:
     """Test that shutdown waits for active debates to complete."""
 
     @pytest.fixture
-    def mock_active_debates(self) -> Callable[[], Dict[str, Any]]:
+    def mock_active_debates(self) -> Callable[[], dict[str, Any]]:
         """Create a mutable active debates dict."""
-        debates: Dict[str, Any] = {}
+        debates: dict[str, Any] = {}
 
-        def get_debates() -> Dict[str, Any]:
+        def get_debates() -> dict[str, Any]:
             return debates
 
         get_debates.debates = debates  # type: ignore

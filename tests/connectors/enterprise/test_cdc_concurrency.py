@@ -56,7 +56,7 @@ def event_factory():
         source_type: str = "postgresql",
         operation: str = "insert",
         table: str = "products",
-        data: Dict[str, Any] = None,
+        data: dict[str, Any] = None,
         event_id: str = None,
     ) -> ChangeEvent:
         if data is None:
@@ -123,9 +123,9 @@ def tracking_handler():
 
     class TrackingHandler(ChangeEventHandler):
         def __init__(self):
-            self.events_processed: List[ChangeEvent] = []
-            self.processing_times: List[float] = []
-            self.errors: List[Exception] = []
+            self.events_processed: list[ChangeEvent] = []
+            self.processing_times: list[float] = []
+            self.errors: list[Exception] = []
 
         async def handle(self, event: ChangeEvent) -> bool:
             start = time.monotonic()

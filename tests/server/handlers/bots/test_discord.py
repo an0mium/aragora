@@ -32,7 +32,7 @@ class MockHandler:
 
     def __init__(
         self,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[dict[str, str]] = None,
         body: bytes = b"",
         path: str = "/",
         method: str = "POST",
@@ -90,7 +90,7 @@ def handler(mock_server_context):
 
 
 @pytest.fixture
-def ping_interaction() -> Dict[str, Any]:
+def ping_interaction() -> dict[str, Any]:
     """Create a PING interaction payload for URL verification."""
     return {
         "type": 1,  # PING
@@ -100,7 +100,7 @@ def ping_interaction() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def command_interaction() -> Dict[str, Any]:
+def command_interaction() -> dict[str, Any]:
     """Create an application command (slash command) interaction."""
     return {
         "type": 2,  # APPLICATION_COMMAND
@@ -123,7 +123,7 @@ def command_interaction() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def member_command_interaction() -> Dict[str, Any]:
+def member_command_interaction() -> dict[str, Any]:
     """Create an application command interaction from a guild member."""
     return {
         "type": 2,
@@ -147,7 +147,7 @@ def member_command_interaction() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def button_interaction() -> Dict[str, Any]:
+def button_interaction() -> dict[str, Any]:
     """Create a button click (MESSAGE_COMPONENT) interaction."""
     return {
         "type": 3,  # MESSAGE_COMPONENT
@@ -166,7 +166,7 @@ def button_interaction() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def modal_interaction() -> Dict[str, Any]:
+def modal_interaction() -> dict[str, Any]:
     """Create a modal submission interaction."""
     return {
         "type": 5,  # MODAL_SUBMIT

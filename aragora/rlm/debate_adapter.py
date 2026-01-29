@@ -4,6 +4,7 @@ Debate context adapter for RLM.
 Extracted from bridge.py for maintainability.
 Provides DebateContextAdapter for formatting debate history for RLM processing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +18,7 @@ from .compressor import HierarchicalCompressor
 from .types import AbstractionLevel
 
 logger = logging.getLogger(__name__)
+
 
 class DebateContextAdapter:
     """
@@ -360,5 +362,6 @@ class DebateContextAdapter:
             parts.append(str(data["CONSENSUS"]))
 
         return "\n".join(parts)
+
 
 __all__ = ["DebateContextAdapter"]

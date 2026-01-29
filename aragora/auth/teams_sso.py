@@ -42,6 +42,7 @@ AZURE_AD_AUTHORITY = f"https://login.microsoftonline.com/{AZURE_AD_TENANT_ID}"
 AZURE_AD_TOKEN_URL = f"{AZURE_AD_AUTHORITY}/oauth2/v2.0/token"
 AZURE_AD_JWKS_URL = f"{AZURE_AD_AUTHORITY}/discovery/v2.0/keys"
 
+
 @dataclass
 class TeamsTokenInfo:
     """Information extracted from a Teams/Azure AD token."""
@@ -69,6 +70,7 @@ class TeamsTokenInfo:
         if self.exp is None:
             return False
         return time.time() > self.exp
+
 
 class TeamsSSO:
     """
@@ -379,8 +381,10 @@ class TeamsSSO:
             logger.error(f"Graph API error: {e}")
             return None
 
+
 # Singleton instance
 _sso: TeamsSSO | None = None
+
 
 def get_teams_sso() -> TeamsSSO:
     """Get or create the Teams SSO singleton."""

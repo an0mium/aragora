@@ -18,6 +18,7 @@ Usage:
     # Or specify backend explicitly
     backend = get_tts_backend("elevenlabs")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,10 +43,12 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 def _parse_csv(value: str | None) -> list[str] | None:
     if not value:
         return None
     return [item.strip() for item in value.split(",") if item.strip()]
+
 
 def _parse_json_env(name: str) -> Any | None:
     raw = os.getenv(name)
@@ -56,6 +59,7 @@ def _parse_json_env(name: str) -> Any | None:
     except json.JSONDecodeError:
         logger.warning("Invalid JSON in %s", name)
         return None
+
 
 def _normalize_backend_name(name: str) -> str:
     aliases = {
@@ -70,6 +74,7 @@ def _normalize_backend_name(name: str) -> str:
         "fallback": "pyttsx3",
     }
     return aliases.get(name, name)
+
 
 @dataclass
 class TTSConfig:
@@ -177,6 +182,7 @@ class TTSConfig:
             ),
         )
 
+
 # =============================================================================
 # Voice Mappings
 # =============================================================================
@@ -227,6 +233,7 @@ POLLY_VOICES: dict[str, str] = {
 # Base Backend Interface
 # =============================================================================
 
+
 class TTSBackend(ABC):
     """Abstract base class for TTS backends."""
 
@@ -263,9 +270,11 @@ class TTSBackend(ABC):
         """Get the voice ID for a speaker name."""
         return speaker
 
+
 # =============================================================================
 # ElevenLabs Backend
 # =============================================================================
+
 
 class ElevenLabsBackend(TTSBackend):
     """
@@ -364,9 +373,11 @@ class ElevenLabsBackend(TTSBackend):
 
         return None
 
+
 # =============================================================================
 # Coqui XTTS Backend
 # =============================================================================
+
 
 class XTTSBackend(TTSBackend):
     """
@@ -510,9 +521,11 @@ class XTTSBackend(TTSBackend):
 
         return None
 
+
 # =============================================================================
 # Edge-TTS Backend
 # =============================================================================
+
 
 class EdgeTTSBackend(TTSBackend):
     """
@@ -608,9 +621,11 @@ class EdgeTTSBackend(TTSBackend):
 
         return None
 
+
 # =============================================================================
 # Amazon Polly Backend
 # =============================================================================
+
 
 class PollyBackend(TTSBackend):
     """
@@ -719,9 +734,11 @@ class PollyBackend(TTSBackend):
 
         return None
 
+
 # =============================================================================
 # pyttsx3 Backend (Offline Fallback)
 # =============================================================================
+
 
 class Pyttsx3Backend(TTSBackend):
     """
@@ -777,6 +794,7 @@ class Pyttsx3Backend(TTSBackend):
 
         return None
 
+
 # =============================================================================
 # Backend Factory
 # =============================================================================
@@ -789,6 +807,7 @@ BACKEND_REGISTRY: dict[str, type] = {
     "edge-tts": EdgeTTSBackend,
     "pyttsx3": Pyttsx3Backend,
 }
+
 
 def get_tts_backend(
     backend_name: str | None = None,
@@ -841,6 +860,7 @@ def get_tts_backend(
         component="TTSBackend",
         reason="No TTS backends available. Install at least one: elevenlabs, boto3, edge-tts, or pyttsx3",
     )
+
 
 class FallbackTTSBackend(TTSBackend):
     """
@@ -905,9 +925,11 @@ class FallbackTTSBackend(TTSBackend):
         logger.error("All TTS backends failed")
         return None
 
+
 def get_fallback_backend(config: TTSConfig | None = None) -> FallbackTTSBackend:
     """Get a TTS backend with fallback support."""
     return FallbackTTSBackend(config)
+
 
 __all__ = [
     # Config

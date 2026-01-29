@@ -36,6 +36,7 @@ _BACKEND_ALIASES = {
 }
 _VALID_BACKENDS = {"auto", "sentence-transformer", "tfidf", "jaccard"}
 
+
 def _normalize_backend_name(value: str) -> str | None:
     """Normalize backend name from environment variable."""
     if not value:
@@ -44,6 +45,7 @@ def _normalize_backend_name(value: str) -> str | None:
     key = key.replace("_", "-")
     key = _BACKEND_ALIASES.get(key, key)
     return key if key in _VALID_BACKENDS else None
+
 
 class SimilarityBackend(ABC):
     """Abstract base class for similarity computation backends."""
@@ -182,6 +184,7 @@ class SimilarityBackend(ABC):
 
         return total / count if count > 0 else 0.0
 
+
 class JaccardBackend(SimilarityBackend):
     """
     Jaccard similarity using word overlap.
@@ -250,6 +253,7 @@ class JaccardBackend(SimilarityBackend):
         with cls._cache_lock:
             cls._similarity_cache.clear()
 
+
 class TFIDFBackend(SimilarityBackend):
     """
     TF-IDF similarity backend.
@@ -315,6 +319,7 @@ class TFIDFBackend(SimilarityBackend):
         """Clear the similarity cache (thread-safe)."""
         with cls._cache_lock:
             cls._similarity_cache.clear()
+
 
 class SentenceTransformerBackend(SimilarityBackend):
     """
@@ -640,6 +645,7 @@ class SentenceTransformerBackend(SimilarityBackend):
 
         return similarities
 
+
 def get_similarity_backend(
     preferred: str = "auto",
     debate_id: str | None = None,
@@ -689,6 +695,7 @@ def get_similarity_backend(
         logger.debug("scikit-learn not available for auto-select")
 
     return JaccardBackend()
+
 
 __all__ = [
     "SimilarityBackend",

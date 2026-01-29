@@ -13,6 +13,7 @@ from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+
 class AuditRepository:
     """
     Repository for audit logging operations.

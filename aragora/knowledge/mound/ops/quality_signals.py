@@ -38,6 +38,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class QualityDimension(Enum):
     """Dimensions of quality assessment."""
 
@@ -59,6 +60,7 @@ class QualityDimension(Enum):
     VALIDATION = "validation"
     """Validation feedback history."""
 
+
 class OverconfidenceLevel(Enum):
     """Levels of overconfidence severity."""
 
@@ -73,6 +75,7 @@ class OverconfidenceLevel(Enum):
 
     SEVERE = "severe"
     """Severe overconfidence (ECE >= 0.2)."""
+
 
 class QualityTier(Enum):
     """Quality tiers for knowledge items."""
@@ -91,6 +94,7 @@ class QualityTier(Enum):
 
     UNRELIABLE = "unreliable"
     """Unreliable, should not be trusted (score < 0.3)."""
+
 
 @dataclass
 class CalibrationMetrics:
@@ -124,6 +128,7 @@ class CalibrationMetrics:
             "overconfidence_ratio": round(self.overconfidence_ratio, 4),
             "underconfidence_ratio": round(self.underconfidence_ratio, 4),
         }
+
 
 @dataclass
 class SourceReliability:
@@ -161,6 +166,7 @@ class SourceReliability:
             "confidence_calibration": round(self.confidence_calibration, 4),
             "domain_scores": {k: round(v, 4) for k, v in self.domain_scores.items()},
         }
+
 
 @dataclass
 class QualitySignals:
@@ -231,6 +237,7 @@ class QualitySignals:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class ContributorCalibration:
     """Calibration data for a single contributor."""
@@ -252,6 +259,7 @@ class ContributorCalibration:
 
     reliability_weight: float = 1.0
     """Weight for this contributor."""
+
 
 @dataclass
 class QualityEngineConfig:
@@ -298,6 +306,7 @@ class QualityEngineConfig:
 
     reliability_decay_factor: float = 0.95
     """Decay factor for older validations."""
+
 
 class QualitySignalEngine:
     """Engine for computing calibration-driven quality signals.
@@ -965,8 +974,10 @@ class QualitySignalEngine:
             "avg_warnings_per_item": round(total_warnings / len(signals_list), 2),
         }
 
+
 # Singleton instance
 _quality_signal_engine: QualitySignalEngine | None = None
+
 
 def get_quality_signal_engine(
     config: QualityEngineConfig | None = None,
@@ -983,6 +994,7 @@ def get_quality_signal_engine(
     if _quality_signal_engine is None:
         _quality_signal_engine = QualitySignalEngine(config)
     return _quality_signal_engine
+
 
 __all__ = [
     # Enums

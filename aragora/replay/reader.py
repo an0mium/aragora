@@ -3,6 +3,7 @@ Replay Reader for loading and navigating debate recordings.
 
 Provides filtering, seeking, and integrity validation for replay data.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -15,6 +16,7 @@ from typing import Any, Callable, Iterator, Optional
 from .schema import ReplayEvent, ReplayMeta
 
 logger = logging.getLogger(__name__)
+
 
 class ReplayReader:
     """

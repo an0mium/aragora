@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Default database path for billing events
 DEFAULT_BILLING_DB_PATH = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")) / "billing_events.db"
 
+
 class BillingEventType(Enum):
     """Types of billing events."""
 
@@ -50,12 +51,14 @@ class BillingEventType(Enum):
     EXPORT = "export"
     SSO_AUTH = "sso_auth"
 
+
 class BillingPeriod(Enum):
     """Billing period types."""
 
     HOURLY = "hourly"
     DAILY = "daily"
     MONTHLY = "monthly"
+
 
 @dataclass
 class BillingEvent:
@@ -142,6 +145,7 @@ class BillingEvent:
                 event.timestamp = data["timestamp"]
         return event
 
+
 @dataclass
 class UsageSummary:
     """Summary of usage for billing."""
@@ -194,6 +198,7 @@ class UsageSummary:
             "cost_by_day": {k: str(v) for k, v in self.cost_by_day.items()},
         }
 
+
 @dataclass
 class MeteringConfig:
     """Configuration for usage metering."""
@@ -237,6 +242,7 @@ class MeteringConfig:
 
     detailed_logging: bool = True
     """Enable detailed event logging."""
+
 
 class UsageMeter:
     """
@@ -802,8 +808,10 @@ class UsageMeter:
             },
         }
 
+
 # Module-level meter instance
 _meter: UsageMeter | None = None
+
 
 def get_usage_meter() -> UsageMeter:
     """Get or create the global usage meter."""
@@ -811,6 +819,7 @@ def get_usage_meter() -> UsageMeter:
     if _meter is None:
         _meter = UsageMeter()
     return _meter
+
 
 async def record_usage(
     event_type: BillingEventType,

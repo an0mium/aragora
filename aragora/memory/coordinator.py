@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class WriteStatus(Enum):
     """Status of a write operation."""
 
@@ -41,6 +42,7 @@ class WriteStatus(Enum):
     SUCCESS = "success"
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
+
 
 @dataclass
 class WriteOperation:
@@ -63,6 +65,7 @@ class WriteOperation:
         """Mark operation as failed."""
         self.status = WriteStatus.FAILED
         self.error = error
+
 
 @dataclass
 class MemoryTransaction:
@@ -94,6 +97,7 @@ class MemoryTransaction:
         """Get all successful operations."""
         return [op for op in self.operations if op.status == WriteStatus.SUCCESS]
 
+
 @dataclass
 class CoordinatorOptions:
     """Configuration for memory coordination behavior."""
@@ -114,6 +118,7 @@ class CoordinatorOptions:
     max_retries: int = 2
     retry_delay_seconds: float = 0.5
 
+
 @dataclass
 class CoordinatorMetrics:
     """Metrics for memory coordination operations."""
@@ -125,6 +130,7 @@ class CoordinatorMetrics:
     rollbacks_performed: int = 0
     total_writes: int = 0
     writes_per_target: dict[str, int] = field(default_factory=dict)
+
 
 class MemoryCoordinator:
     """
@@ -640,6 +646,7 @@ class MemoryCoordinator:
                 else 0.0
             ),
         }
+
 
 __all__ = [
     "MemoryCoordinator",

@@ -41,6 +41,7 @@ from .base import Skill, SkillCapability
 
 logger = logging.getLogger(__name__)
 
+
 class SkillTier(str, Enum):
     """Skill tiers for access control and pricing."""
 
@@ -48,6 +49,7 @@ class SkillTier(str, Enum):
     STANDARD = "standard"  # Requires standard subscription
     PREMIUM = "premium"  # Requires premium subscription
     ENTERPRISE = "enterprise"  # Enterprise-only
+
 
 class SkillCategory(str, Enum):
     """Skill categories for organization."""
@@ -61,6 +63,7 @@ class SkillCategory(str, Enum):
     INTEGRATIONS = "integrations"
     DEBATE = "debate"
     CUSTOM = "custom"
+
 
 @dataclass
 class SkillRating:
@@ -84,6 +87,7 @@ class SkillRating:
             "helpful_votes": self.helpful_votes,
         }
 
+
 @dataclass
 class SkillVersion:
     """A specific version of a skill."""
@@ -106,6 +110,7 @@ class SkillVersion:
             "min_aragora_version": self.min_aragora_version,
         }
 
+
 @dataclass
 class SkillDependency:
     """A dependency on another skill."""
@@ -121,6 +126,7 @@ class SkillDependency:
             "version_constraint": self.version_constraint,
             "optional": self.optional,
         }
+
 
 @dataclass
 class SkillListing:
@@ -208,6 +214,7 @@ class SkillListing:
             "screenshots": self.screenshots,
         }
 
+
 @dataclass
 class InstallResult:
     """Result of a skill installation."""
@@ -229,6 +236,7 @@ class InstallResult:
             "installed_at": self.installed_at.isoformat(),
             "dependencies_installed": self.dependencies_installed,
         }
+
 
 class SkillMarketplace:
     """
@@ -1046,12 +1054,14 @@ class SkillMarketplace:
             "categories": categories,
         }
 
+
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
 _marketplace: SkillMarketplace | None = None
 _marketplace_lock = threading.Lock()
+
 
 def get_marketplace() -> SkillMarketplace:
     """Get the global skill marketplace instance."""

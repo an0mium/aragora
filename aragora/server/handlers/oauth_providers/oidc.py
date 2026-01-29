@@ -26,6 +26,7 @@ from aragora.server.handlers.oauth_providers.base import (
 
 logger = logging.getLogger(__name__)
 
+
 class OIDCProvider(OAuthProvider):
     """
     Generic OpenID Connect provider.
@@ -390,5 +391,6 @@ class OIDCProvider(OAuthProvider):
         if params:
             return f"{end_session_endpoint}?{urlencode(params)}"
         return end_session_endpoint
+
 
 __all__ = ["OIDCProvider"]

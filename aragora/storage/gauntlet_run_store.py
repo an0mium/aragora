@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 _gauntlet_run_store: Optional["GauntletRunStoreBackend"] = None
 _store_lock = threading.RLock()
 
+
 @dataclass
 class GauntletRunItem:
     """
@@ -122,6 +123,7 @@ class GauntletRunItem:
         """Create from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
+
 class GauntletRunStoreBackend(ABC):
     """Abstract base class for gauntlet run storage backends."""
 
@@ -171,6 +173,7 @@ class GauntletRunStoreBackend(ABC):
     async def close(self) -> None:
         """Close any resources."""
         pass
+
 
 class InMemoryGauntletRunStore(GauntletRunStoreBackend):
     """
@@ -245,6 +248,7 @@ class InMemoryGauntletRunStore(GauntletRunStoreBackend):
     async def close(self) -> None:
         """No-op for in-memory store."""
         pass
+
 
 class SQLiteGauntletRunStore(GauntletRunStoreBackend):
     """
@@ -583,6 +587,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
         """No-op for SQLite (connections are per-operation)."""
         pass
 
+
 class RedisGauntletRunStore(GauntletRunStoreBackend):
     """
     Redis-backed gauntlet run store with SQLite fallback.
@@ -846,6 +851,7 @@ class RedisGauntletRunStore(GauntletRunStoreBackend):
             except Exception as e:
                 logger.debug(f"Redis close failed: {e}")
 
+
 class PostgresGauntletRunStore(GauntletRunStoreBackend):
     """
     PostgreSQL-backed gauntlet run store.
@@ -1092,6 +1098,7 @@ class PostgresGauntletRunStore(GauntletRunStoreBackend):
         """Close is a no-op for pool-based stores (pool managed externally)."""
         pass
 
+
 def get_gauntlet_run_store() -> GauntletRunStoreBackend:
     """
     Get the global gauntlet run store instance.
@@ -1139,6 +1146,7 @@ def get_gauntlet_run_store() -> GauntletRunStoreBackend:
 
         return _gauntlet_run_store
 
+
 def set_gauntlet_run_store(store: GauntletRunStoreBackend) -> None:
     """Set a custom gauntlet run store instance."""
     global _gauntlet_run_store
@@ -1146,12 +1154,14 @@ def set_gauntlet_run_store(store: GauntletRunStoreBackend) -> None:
     with _store_lock:
         _gauntlet_run_store = store
 
+
 def reset_gauntlet_run_store() -> None:
     """Reset the global gauntlet run store (for testing)."""
     global _gauntlet_run_store
 
     with _store_lock:
         _gauntlet_run_store = None
+
 
 __all__ = [
     "GauntletRunItem",

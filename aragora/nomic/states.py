@@ -4,12 +4,14 @@ Nomic Loop State Definitions.
 Defines all possible states and valid transitions for the nomic loop
 state machine. Each state is idempotent and can be safely retried.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from typing import Any, Optional
+
 
 class NomicState(Enum):
     """
@@ -42,6 +44,7 @@ class NomicState(Enum):
     COMPLETED = auto()  # Cycle completed successfully
     FAILED = auto()  # Cycle failed, cannot recover
     PAUSED = auto()  # Manually paused, awaiting resume
+
 
 # Valid state transitions
 # All active states can transition to PAUSED (for manual pause)
@@ -101,6 +104,7 @@ VALID_TRANSITIONS: dict[NomicState, set[NomicState]] = {
     },
 }
 
+
 @dataclass
 class StateMetadata:
     """Metadata for a state in the state machine."""
@@ -111,6 +115,7 @@ class StateMetadata:
     max_retries: int
     is_critical: bool  # If True, failure goes to FAILED instead of RECOVERY
     requires_checkpoint: bool  # If True, must checkpoint after this state
+
 
 # State configuration
 STATE_CONFIG: dict[NomicState, StateMetadata] = {
@@ -204,6 +209,7 @@ STATE_CONFIG: dict[NomicState, StateMetadata] = {
     ),
 }
 
+
 @dataclass
 class StateContext:
     """
@@ -286,9 +292,11 @@ class StateContext:
         ctx.total_tokens_used = data.get("total_tokens_used", 0)
         return ctx
 
+
 def is_valid_transition(from_state: NomicState, to_state: NomicState) -> bool:
     """Check if a state transition is valid."""
     return to_state in VALID_TRANSITIONS.get(from_state, set())
+
 
 def get_state_config(state: NomicState) -> StateMetadata:
     """Get configuration for a state."""

@@ -31,6 +31,7 @@ Usage:
     await store.update_status(bead.id, BeadStatus.COMPLETED)
     await store.commit_to_git("Completed task: Implement feature X")
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 # Safe pattern for bead identifiers (alphanumeric, hyphens, underscores)
 _SAFE_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
+
 class BeadType(str, Enum):
     """Type of work unit."""
 
@@ -57,6 +59,7 @@ class BeadType(str, Enum):
     EPIC = "epic"  # Large work item containing subtasks
     HOOK = "hook"  # Special: per-agent work queue entry
     DEBATE_DECISION = "debate_decision"  # Decision from a multi-agent debate
+
 
 class BeadStatus(str, Enum):
     """Lifecycle status of a bead."""
@@ -69,6 +72,7 @@ class BeadStatus(str, Enum):
     CANCELLED = "cancelled"  # Cancelled before completion
     BLOCKED = "blocked"  # Waiting on dependencies
 
+
 class BeadPriority(int, Enum):
     """Priority levels for beads."""
 
@@ -76,6 +80,7 @@ class BeadPriority(int, Enum):
     NORMAL = 50
     HIGH = 75
     URGENT = 100
+
 
 @dataclass
 class Bead:
@@ -194,6 +199,7 @@ class Bead:
         """Check if bead can be retried."""
         return self.status == BeadStatus.FAILED and self.attempt_count < self.max_attempts
 
+
 @dataclass
 class BeadEvent:
     """Event recording a bead state change."""
@@ -219,6 +225,7 @@ class BeadEvent:
             "new_status": self.new_status.value if self.new_status else None,
             "data": self.data,
         }
+
 
 class BeadStore:
     """
@@ -643,6 +650,7 @@ class BeadStore:
             logger.warning(f"Git commit failed: {e}")
             return None
 
+
 # Convenience functions
 async def create_bead_store(
     bead_dir: str = ".beads",
@@ -658,8 +666,10 @@ async def create_bead_store(
     await store.initialize()
     return store
 
+
 # Singleton store instance
 _default_store: BeadStore | None = None
+
 
 async def get_bead_store(bead_dir: str = ".beads") -> BeadStore:
     """Get the default bead store instance."""
@@ -667,6 +677,7 @@ async def get_bead_store(bead_dir: str = ".beads") -> BeadStore:
     if _default_store is None:
         _default_store = await create_bead_store(bead_dir)
     return _default_store
+
 
 def reset_bead_store() -> None:
     """Reset the default store (for testing)."""

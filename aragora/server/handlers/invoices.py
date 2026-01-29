@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 _invoice_processor: Any | None = None
 _invoice_processor_lock = threading.Lock()
 
+
 def get_invoice_processor():
     """Get or create invoice processor (thread-safe singleton)."""
     global _invoice_processor
@@ -64,9 +65,11 @@ def get_invoice_processor():
             _invoice_processor = InvoiceProcessor()
         return _invoice_processor
 
+
 # =============================================================================
 # Invoice Upload and Extraction
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_upload_invoice(
@@ -119,9 +122,11 @@ async def handle_upload_invoice(
         logger.exception("Error processing invoice")
         return error_response(f"Failed to process invoice: {e}", status=500)
 
+
 # =============================================================================
 # Invoice CRUD
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_create_invoice(
@@ -193,6 +198,7 @@ async def handle_create_invoice(
     except Exception as e:
         logger.exception("Error creating invoice")
         return error_response(f"Failed to create invoice: {e}", status=500)
+
 
 @require_permission("finance:read")
 async def handle_list_invoices(
@@ -267,6 +273,7 @@ async def handle_list_invoices(
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
+
 @require_permission("finance:read")
 async def handle_get_invoice(
     invoice_id: str,
@@ -290,9 +297,11 @@ async def handle_get_invoice(
         logger.exception("Error getting invoice")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
+
 # =============================================================================
 # Approval Workflow
 # =============================================================================
+
 
 @require_permission("finance:approve")
 async def handle_approve_invoice(
@@ -328,6 +337,7 @@ async def handle_approve_invoice(
         logger.exception("Error approving invoice")
         return error_response(f"Failed to approve invoice: {e}", status=500)
 
+
 @require_permission("finance:approve")
 async def handle_reject_invoice(
     invoice_id: str,
@@ -362,6 +372,7 @@ async def handle_reject_invoice(
         logger.exception("Error rejecting invoice")
         return error_response(f"Failed to reject invoice: {e}", status=500)
 
+
 @require_permission("finance:read")
 async def handle_get_pending_approvals(
     user_id: str = "default",
@@ -387,9 +398,11 @@ async def handle_get_pending_approvals(
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
+
 # =============================================================================
 # PO Matching
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_match_to_po(
@@ -421,9 +434,11 @@ async def handle_match_to_po(
         logger.exception("Error matching invoice to PO")
         return error_response(f"Failed to match invoice: {e}", status=500)
 
+
 # =============================================================================
 # Anomaly Detection
 # =============================================================================
+
 
 @require_permission("finance:read")
 async def handle_get_anomalies(
@@ -455,9 +470,11 @@ async def handle_get_anomalies(
         logger.exception("Error detecting anomalies")
         return error_response(f"Failed to detect anomalies: {e}", status=500)
 
+
 # =============================================================================
 # Payment Scheduling
 # =============================================================================
+
 
 @require_permission("finance:approve")
 async def handle_schedule_payment(
@@ -511,6 +528,7 @@ async def handle_schedule_payment(
         logger.exception("Error scheduling payment")
         return error_response(f"Failed to schedule payment: {e}", status=500)
 
+
 @require_permission("finance:read")
 async def handle_get_scheduled_payments(
     query_params: dict[str, Any],
@@ -562,9 +580,11 @@ async def handle_get_scheduled_payments(
         logger.exception("Error getting scheduled payments")
         return error_response(f"Failed to get scheduled payments: {e}", status=500)
 
+
 # =============================================================================
 # Purchase Orders
 # =============================================================================
+
 
 @require_permission("finance:write")
 async def handle_create_purchase_order(
@@ -635,9 +655,11 @@ async def handle_create_purchase_order(
         logger.exception("Error creating purchase order")
         return error_response(f"Failed to create purchase order: {e}", status=500)
 
+
 # =============================================================================
 # Statistics
 # =============================================================================
+
 
 @require_permission("finance:read")
 async def handle_get_invoice_stats(
@@ -658,6 +680,7 @@ async def handle_get_invoice_stats(
     except Exception as e:
         logger.exception("Error getting invoice stats")
         return error_response(f"Failed to get invoice stats: {e}", status=500)
+
 
 @require_permission("finance:read")
 async def handle_get_overdue_invoices(
@@ -685,9 +708,11 @@ async def handle_get_overdue_invoices(
         logger.exception("Error getting overdue invoices")
         return error_response(f"Failed to get overdue invoices: {e}", status=500)
 
+
 # =============================================================================
 # Handler Class for Router Registration
 # =============================================================================
+
 
 class InvoiceHandler(BaseHandler):
     """Handler for invoice-related routes."""

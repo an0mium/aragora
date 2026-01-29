@@ -92,9 +92,9 @@ class MockNode:
 
     id: str
     content: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "content": self.content, "metadata": self.metadata}
 
 
@@ -105,11 +105,11 @@ class MockAccessGrant:
     item_id: str
     grantee_type: str
     grantee_id: str
-    permissions: List[str]
+    permissions: list[str]
     granted_by: str
     expires_at: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "grantee_type": self.grantee_type,
@@ -133,7 +133,7 @@ class MockKnowledgeMound:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: bytes = b"", headers: Optional[Dict[str, str]] = None):
+    def __init__(self, body: bytes = b"", headers: Optional[dict[str, str]] = None):
         self.headers = headers or {}
         self._body = body
         self.rfile = io.BytesIO(body)

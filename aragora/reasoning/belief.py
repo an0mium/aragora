@@ -11,6 +11,7 @@ Extends the Claims Kernel with probabilistic graphical model capabilities:
 
 This moves aragora from binary accept/reject to nuanced probabilistic reasoning.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,6 +35,7 @@ _CRUX_EXPORTS = {
     "CruxDetector",
 }
 
+
 def __getattr__(name: str):
     if name in _CRUX_EXPORTS:
         from aragora.reasoning import crux_detector
@@ -41,10 +43,12 @@ def __getattr__(name: str):
         return getattr(crux_detector, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
 logger = logging.getLogger(__name__)
+
 
 class BeliefStatus(Enum):
     """Status of a belief node."""
@@ -53,6 +57,7 @@ class BeliefStatus(Enum):
     UPDATED = "updated"  # Updated via propagation
     CONVERGED = "converged"  # Stable after propagation
     CONTESTED = "contested"  # Multiple conflicting updates
+
 
 @dataclass
 class BeliefDistribution:
@@ -139,6 +144,7 @@ class BeliefDistribution:
             p_false=data.get("p_false", 0.5),
             p_unknown=data.get("p_unknown", 0.0),
         )
+
 
 @dataclass
 class BeliefNode:
@@ -227,6 +233,7 @@ class BeliefNode:
             update_count=data.get("update_count", 0),
         )
 
+
 @dataclass
 class Factor:
     """
@@ -292,6 +299,7 @@ class Factor:
             else:
                 return 0.4
 
+
 @dataclass
 class PropagationResult:
     """Result of belief propagation."""
@@ -310,6 +318,7 @@ class PropagationResult:
             "node_posteriors": {k: v.to_dict() for k, v in self.node_posteriors.items()},
             "centralities": self.centralities,
         }
+
 
 class BeliefNetwork:
     """
@@ -997,6 +1006,7 @@ class BeliefNetwork:
         network.claim_to_node = data.get("claim_to_node", {})
 
         return network
+
 
 # Re-export crux detection classes for backward compatibility
 # (extracted to aragora.reasoning.crux_detector for better modularity)

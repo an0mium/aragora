@@ -13,6 +13,7 @@ Usage:
     # Execute debate
     result = await executor.execute(context)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,6 +28,7 @@ from aragora.observability.tracing import trace_debate_phase
 
 logger = logging.getLogger(__name__)
 
+
 class PhaseStatus(Enum):
     """Status of a phase execution."""
 
@@ -35,6 +37,7 @@ class PhaseStatus(Enum):
     COMPLETED = "completed"
     SKIPPED = "skipped"
     FAILED = "failed"
+
 
 @dataclass
 class PhaseResult:
@@ -54,6 +57,7 @@ class PhaseResult:
         """Check if phase completed successfully."""
         return self.status in (PhaseStatus.COMPLETED, PhaseStatus.SKIPPED)
 
+
 @dataclass
 class ExecutionResult:
     """Result from full phase execution."""
@@ -72,6 +76,7 @@ class ExecutionResult:
                 return phase
         return None
 
+
 class Phase(Protocol):
     """Protocol for debate phases."""
 
@@ -83,6 +88,7 @@ class Phase(Protocol):
     async def execute(self, context: Any) -> Any:
         """Execute the phase with given context."""
         ...
+
 
 @dataclass
 class PhaseConfig:
@@ -103,6 +109,7 @@ class PhaseConfig:
     # Metrics
     metrics_callback: Optional[Callable[[str, float], None]] = None
 
+
 # Phase ordering for standard debate flow
 STANDARD_PHASE_ORDER = [
     "context_initializer",  # Phase 0: Gather context
@@ -119,6 +126,7 @@ OPTIONAL_PHASES = {"analytics", "feedback"}
 # Critical phases that MUST run even if earlier phases fail
 # Consensus phase generates synthesis which is required for debate completion
 CRITICAL_PHASES = {"consensus"}
+
 
 class PhaseExecutor:
     """
@@ -558,6 +566,7 @@ class PhaseExecutor:
             "terminated_early": self._should_terminate,
             "termination_reason": self._termination_reason,
         }
+
 
 __all__ = [
     "PhaseExecutor",

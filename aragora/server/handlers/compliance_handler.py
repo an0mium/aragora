@@ -45,6 +45,7 @@ from aragora.deletion_coordinator import (
 
 logger = logging.getLogger(__name__)
 
+
 def _extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:
     """
     Extract user ID from Authorization header.
@@ -77,6 +78,7 @@ def _extract_user_id_from_headers(headers: Optional[dict[str, str]]) -> str:
         pass
 
     return "compliance_api"
+
 
 class ComplianceHandler(BaseHandler):
     """
@@ -1732,6 +1734,7 @@ class ComplianceHandler(BaseHandler):
             pass
 
         return None
+
 
 def create_compliance_handler(server_context: ServerContext) -> ComplianceHandler:
     """Factory function for handler registration."""

@@ -3,6 +3,7 @@ Supabase client for aragora persistence.
 
 Handles all database operations and real-time subscriptions.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Slow query threshold in seconds
 SLOW_QUERY_THRESHOLD = float(os.getenv("ARAGORA_SLOW_QUERY_MS", "500")) / 1000.0
 
+
 def _log_slow_query(operation: str, elapsed: float, context: str = "") -> None:
     """Log slow database operations for performance monitoring.
 
@@ -45,6 +47,7 @@ def _log_slow_query(operation: str, elapsed: float, context: str = "") -> None:
             f"Slow query ({elapsed:.3f}s): {operation}{ctx} "
             f"(threshold: {SLOW_QUERY_THRESHOLD:.3f}s)"
         )
+
 
 class SupabaseClient:
     """

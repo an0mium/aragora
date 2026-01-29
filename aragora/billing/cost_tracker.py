@@ -39,10 +39,12 @@ except ImportError:
     def record_cost_usd(provider: str, model: str, agent_id: str, cost_usd: float) -> None:
         pass  # No-op if Prometheus not available
 
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.cost_adapter import CostAdapter
 
 logger = logging.getLogger(__name__)
+
 
 class BudgetAlertLevel(str, Enum):
     """Budget alert severity levels."""
@@ -51,6 +53,7 @@ class BudgetAlertLevel(str, Enum):
     WARNING = "warning"  # 75% of budget
     CRITICAL = "critical"  # 90% of budget
     EXCEEDED = "exceeded"  # Over budget
+
 
 class DebateBudgetExceededError(Exception):
     """Raised when a debate exceeds its cost budget."""
@@ -69,6 +72,7 @@ class DebateBudgetExceededError(Exception):
             message or f"Debate {debate_id} exceeded budget: ${current_cost:.4f} > ${limit:.4f}"
         )
 
+
 class CostGranularity(str, Enum):
     """Cost aggregation granularity."""
 
@@ -76,6 +80,7 @@ class CostGranularity(str, Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
+
 
 @dataclass
 class TokenUsage:
@@ -163,6 +168,7 @@ class TokenUsage:
                 usage.timestamp = data["timestamp"]
         return usage
 
+
 @dataclass
 class Budget:
     """Budget configuration for a workspace or organization."""
@@ -229,6 +235,7 @@ class Budget:
             "alert_level": self.check_alert_level().value if self.check_alert_level() else None,
         }
 
+
 @dataclass
 class BudgetAlert:
     """A budget alert event."""
@@ -246,6 +253,7 @@ class BudgetAlert:
     acknowledged: bool = False
     acknowledged_at: datetime | None = None
     acknowledged_by: str | None = None
+
 
 @dataclass
 class CostReport:
@@ -315,7 +323,9 @@ class CostReport:
             ),
         }
 
+
 AlertCallback = Callable[[BudgetAlert], None]
+
 
 class CostTracker:
     """
@@ -991,8 +1001,10 @@ class CostTracker:
         # Reset workspace stats
         self._workspace_stats.clear()
 
+
 # Global cost tracker instance
 _cost_tracker: CostTracker | None = None
+
 
 def get_cost_tracker() -> CostTracker:
     """Get or create the global cost tracker.
@@ -1027,6 +1039,7 @@ def get_cost_tracker() -> CostTracker:
             logger.warning(f"Failed to wire KM CostAdapter: {km_e}")
 
     return _cost_tracker
+
 
 async def record_usage(
     workspace_id: str,
@@ -1075,6 +1088,7 @@ async def record_usage(
     await tracker.record(usage)
 
     return usage
+
 
 __all__ = [
     "CostTracker",

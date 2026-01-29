@@ -37,6 +37,7 @@ from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+
 class TriggerType(str, Enum):
     """Types of schedule triggers."""
 
@@ -47,6 +48,7 @@ class TriggerType(str, Enum):
     MANUAL = "manual"  # Manual trigger
     INTERVAL = "interval"  # Fixed interval
 
+
 class ScheduleStatus(str, Enum):
     """Status of a scheduled job."""
 
@@ -55,6 +57,7 @@ class ScheduleStatus(str, Enum):
     DISABLED = "disabled"
     RUNNING = "running"
     ERROR = "error"
+
 
 @dataclass
 class ScheduleConfig:
@@ -90,6 +93,7 @@ class ScheduleConfig:
     created_by: str | None = None
     tags: list[str] = field(default_factory=list)
 
+
 @dataclass
 class ScheduledJob:
     """A scheduled audit job instance."""
@@ -119,6 +123,7 @@ class ScheduledJob:
             "error_count": self.error_count,
         }
 
+
 @dataclass
 class JobRun:
     """Record of a single job execution."""
@@ -146,6 +151,7 @@ class JobRun:
             "error_message": self.error_message,
             "duration_ms": self.duration_ms,
         }
+
 
 class CronParser:
     """Simple cron expression parser."""
@@ -227,6 +233,7 @@ class CronParser:
             candidate += timedelta(minutes=1)
 
         raise ValueError(f"Could not find next run time for: {expression}")
+
 
 class AuditScheduler:
     """
@@ -648,8 +655,10 @@ class AuditScheduler:
 
         return hmac.compare_digest(signature, expected)
 
+
 # Singleton scheduler instance
 _scheduler: AuditScheduler | None = None
+
 
 def get_scheduler() -> AuditScheduler:
     """Get the global scheduler instance."""
@@ -657,6 +666,7 @@ def get_scheduler() -> AuditScheduler:
     if _scheduler is None:
         _scheduler = AuditScheduler()
     return _scheduler
+
 
 __all__ = [
     "AuditScheduler",

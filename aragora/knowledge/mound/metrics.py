@@ -33,6 +33,7 @@ from typing import Any, Generator, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class HealthStatus(str, Enum):
     """Health status levels."""
 
@@ -40,6 +41,7 @@ class HealthStatus(str, Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
+
 
 class OperationType(str, Enum):
     """Types of KM operations to track."""
@@ -55,6 +57,7 @@ class OperationType(str, Enum):
     ADAPTER_REVERSE = "adapter_reverse"
     EVENT_EMIT = "event_emit"
 
+
 @dataclass
 class OperationSample:
     """A single operation sample."""
@@ -64,6 +67,7 @@ class OperationSample:
     success: bool
     timestamp: float = field(default_factory=time.time)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class OperationStats:
@@ -110,6 +114,7 @@ class OperationStats:
             "last_error_at": self.last_error_at,
         }
 
+
 @dataclass
 class HealthReport:
     """Health status report."""
@@ -129,6 +134,7 @@ class HealthReport:
             "checks": self.checks,
             "recommendations": self.recommendations,
         }
+
 
 class KMMetrics:
     """
@@ -528,8 +534,10 @@ class KMMetrics:
             "uptime_seconds": round(time.time() - self._started_at, 1),
         }
 
+
 # Global metrics instance (can be replaced per-workspace)
 _global_metrics: KMMetrics | None = None
+
 
 def get_metrics() -> KMMetrics:
     """Get the global metrics instance."""
@@ -538,10 +546,12 @@ def get_metrics() -> KMMetrics:
         _global_metrics = KMMetrics()
     return _global_metrics
 
+
 def set_metrics(metrics: KMMetrics) -> None:
     """Set the global metrics instance."""
     global _global_metrics
     _global_metrics = metrics
+
 
 __all__ = [
     "KMMetrics",

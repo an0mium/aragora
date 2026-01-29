@@ -23,7 +23,7 @@ class MockStreamEvent:
     """Mock stream event for testing."""
 
     event_type: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     sequence: int = 0
 
 
@@ -101,7 +101,7 @@ class TestEventStreaming:
     @pytest.mark.asyncio
     async def test_events_delivered_in_order(self):
         """Events should be delivered in sequence order."""
-        received_events: List[MockStreamEvent] = []
+        received_events: list[MockStreamEvent] = []
 
         async def receive_event(event: MockStreamEvent):
             received_events.append(event)
@@ -203,7 +203,7 @@ class TestWebSocketReconnection:
         last_sequence = 5
         missed_events = []
 
-        async def get_events_since(sequence: int) -> List[MockStreamEvent]:
+        async def get_events_since(sequence: int) -> list[MockStreamEvent]:
             # Simulate getting missed events
             return [
                 MockStreamEvent("agent_message", {"content": "msg6"}, sequence=6),
@@ -263,7 +263,7 @@ class TestMessageBuffering:
     @pytest.mark.asyncio
     async def test_messages_buffered_during_disconnect(self):
         """Messages should be buffered when connection drops."""
-        buffer: List[MockStreamEvent] = []
+        buffer: list[MockStreamEvent] = []
         connected = False
 
         async def send_event(event: MockStreamEvent):
@@ -283,8 +283,8 @@ class TestMessageBuffering:
     @pytest.mark.asyncio
     async def test_buffer_flushed_on_reconnect(self):
         """Buffer should flush on reconnection."""
-        buffer: List[MockStreamEvent] = []
-        sent: List[MockStreamEvent] = []
+        buffer: list[MockStreamEvent] = []
+        sent: list[MockStreamEvent] = []
 
         # Buffer some events
         buffer.append(MockStreamEvent("msg", {"content": "1"}, 1))
@@ -304,7 +304,7 @@ class TestMessageBuffering:
     async def test_buffer_overflow_handling(self):
         """Buffer overflow should be handled gracefully."""
         max_buffer_size = 100
-        buffer: List[MockStreamEvent] = []
+        buffer: list[MockStreamEvent] = []
 
         def add_to_buffer(event: MockStreamEvent) -> bool:
             if len(buffer) >= max_buffer_size:
@@ -390,7 +390,7 @@ class TestStreamSubscription:
     @pytest.mark.asyncio
     async def test_subscribe_to_debate(self):
         """Should be able to subscribe to specific debate."""
-        subscriptions: Dict[str, List[str]] = {}
+        subscriptions: dict[str, list[str]] = {}
 
         async def subscribe(client_id: str, debate_id: str):
             if debate_id not in subscriptions:
@@ -423,7 +423,7 @@ class TestStreamSubscription:
             "debate-123": ["client-1"],
             "debate-456": ["client-2"],
         }
-        messages_sent: Dict[str, List[str]] = {"client-1": [], "client-2": []}
+        messages_sent: dict[str, list[str]] = {"client-1": [], "client-2": []}
 
         async def broadcast(debate_id: str, event: MockStreamEvent):
             for client_id in subscriptions.get(debate_id, []):
@@ -481,7 +481,7 @@ class TestStreamRateLimiting:
         sent_count = 0
         blocked_count = 0
 
-        async def try_send(rate_limiter: Dict[str, Any]) -> bool:
+        async def try_send(rate_limiter: dict[str, Any]) -> bool:
             nonlocal sent_count, blocked_count
             now = asyncio.get_event_loop().time()
 
@@ -507,7 +507,7 @@ class TestStreamRateLimiting:
         """Each client should have separate rate limits."""
         client_limits = {}
 
-        def get_client_limiter(client_id: str) -> Dict[str, int]:
+        def get_client_limiter(client_id: str) -> dict[str, int]:
             if client_id not in client_limits:
                 client_limits[client_id] = {"tokens": 10}
             return client_limits[client_id]

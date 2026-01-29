@@ -25,6 +25,7 @@ from aragora.core import Agent, DebateResult, Environment
 from aragora.ranking.elo import EloSystem
 from aragora.tournaments.database import TournamentDatabase
 
+
 class TournamentFormat(Enum):
     """Tournament format types."""
 
@@ -32,6 +33,7 @@ class TournamentFormat(Enum):
     SINGLE_ELIMINATION = "single_elimination"  # Bracket style
     SWISS = "swiss"  # Swiss-system pairing
     FREE_FOR_ALL = "free_for_all"  # All agents in every debate
+
 
 @dataclass
 class TournamentTask:
@@ -42,6 +44,7 @@ class TournamentTask:
     domain: str  # e.g., "security", "architecture"
     difficulty: float = 0.5  # 0-1
     time_limit: int = 300  # seconds
+
 
 @dataclass
 class TournamentMatch:
@@ -61,6 +64,7 @@ class TournamentMatch:
     def is_complete(self) -> bool:
         return self.result is not None
 
+
 @dataclass
 class TournamentStanding:
     """An agent's standing in the tournament."""
@@ -77,6 +81,7 @@ class TournamentStanding:
     def win_rate(self) -> float:
         return self.wins / self.matches_played if self.matches_played > 0 else 0.0
 
+
 @dataclass
 class TournamentResult:
     """Final result of a tournament."""
@@ -90,6 +95,7 @@ class TournamentResult:
     total_rounds: int
     started_at: str
     completed_at: str
+
 
 class Tournament:
     """
@@ -492,6 +498,7 @@ class Tournament:
             reverse=True,
         )
 
+
 def create_default_tasks() -> list[TournamentTask]:
     """Create a default set of tournament tasks."""
     return [
@@ -526,6 +533,7 @@ def create_default_tasks() -> list[TournamentTask]:
             difficulty=0.4,
         ),
     ]
+
 
 class TournamentManager:
     """

@@ -8,6 +8,7 @@ Consolidates security checks that were scattered in unified_server.py:
 - Request rate limiting coordination
 - Security headers for responses
 """
+
 from __future__ import annotations
 
 import logging
@@ -80,6 +81,7 @@ CSP_DEVELOPMENT = (
 # Legacy default for backwards compatibility
 CSP_DEFAULT = CSP_DEVELOPMENT
 
+
 def get_security_headers(
     production: bool = False,
     enable_hsts: bool = True,
@@ -144,6 +146,7 @@ def get_security_headers(
 
     return headers
 
+
 def apply_security_headers(
     handler,
     production: bool = False,
@@ -179,6 +182,7 @@ def apply_security_headers(
     for name, value in headers.items():
         handler.send_header(name, value)
 
+
 def generate_nonce() -> str:
     """
     Generate a cryptographically secure nonce for CSP script-src.
@@ -198,6 +202,7 @@ def generate_nonce() -> str:
     import secrets
 
     return base64.b64encode(secrets.token_bytes(16)).decode("ascii")
+
 
 @dataclass
 class SecurityConfig:
@@ -224,9 +229,7 @@ class SecurityConfig:
     csp_mode: str = field(
         default_factory=lambda: os.getenv("ARAGORA_CSP_MODE", "standard")
     )  # "api", "standard", "development"
-    csp_report_uri: str | None = field(
-        default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_URI")
-    )
+    csp_report_uri: str | None = field(default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_URI"))
     csp_report_only: bool = field(
         default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_ONLY", "true").lower()
         in ("true", "1", "yes")
@@ -269,6 +272,7 @@ class SecurityConfig:
         }
     )
 
+
 @dataclass
 class ValidationResult:
     """Result of request validation."""
@@ -286,6 +290,7 @@ class ValidationResult:
     def error(cls, message: str, code: int = 400) -> "ValidationResult":
         """Return failed validation result."""
         return cls(valid=False, error_message=message, error_code=code)
+
 
 class SecurityMiddleware:
     """Middleware for security validation and DoS protection.
@@ -460,6 +465,7 @@ class SecurityMiddleware:
                 code=413,
             )
         return ValidationResult.ok()
+
 
 __all__ = [
     # Security headers

@@ -14,6 +14,7 @@ from ..models import GmailSyncState
 
 logger = logging.getLogger(__name__)
 
+
 class GmailStateMixin:
     """Mixin providing state persistence and statistics operations."""
 

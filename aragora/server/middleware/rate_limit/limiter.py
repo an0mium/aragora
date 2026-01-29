@@ -26,6 +26,7 @@ from .bucket import TokenBucket
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class RateLimitConfig:
     """Configuration for a rate limit rule."""
@@ -34,6 +35,7 @@ class RateLimitConfig:
     burst_size: int | None = None
     key_type: str = "ip"  # "ip", "token", "endpoint", "combined"
     enabled: bool = True
+
 
 @dataclass
 class RateLimitResult:
@@ -44,6 +46,7 @@ class RateLimitResult:
     limit: int = 0
     retry_after: float = 0
     key: str = ""
+
 
 class RateLimiter:
     """
@@ -399,6 +402,7 @@ class RateLimiter:
         # Only trust XFF from configured trusted proxies
         client_ip = _extract_client_ip(headers, remote_ip)
         return sanitize_rate_limit_key_component(client_ip)
+
 
 __all__ = [
     "RateLimitConfig",

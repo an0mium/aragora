@@ -51,12 +51,14 @@ from aragora.debate.distributed_events import (
 
 logger = logging.getLogger(__name__)
 
+
 class CoordinatorRole(str, Enum):
     """Role of this instance in distributed debate."""
 
     COORDINATOR = "coordinator"  # Orchestrates the debate
     PARTICIPANT = "participant"  # Provides agents only
     OBSERVER = "observer"  # Watches but doesn't participate
+
 
 @dataclass
 class DistributedDebateConfig:
@@ -72,6 +74,7 @@ class DistributedDebateConfig:
     allow_remote_agents: bool = True
     sync_interval_seconds: float = 5.0
     failover_timeout_seconds: float = 30.0
+
 
 @dataclass
 class DistributedDebateResult:
@@ -106,6 +109,7 @@ class DistributedDebateResult:
             "proposals": self.proposals,
             "votes": self.votes,
         }
+
 
 class DistributedDebateCoordinator:
     """

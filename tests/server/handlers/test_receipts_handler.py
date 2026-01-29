@@ -25,6 +25,7 @@ from aragora.server.handlers.receipts import (
     ReceiptsHandler,
     create_receipts_handler,
 )
+import builtins
 
 
 # ===========================================================================
@@ -51,9 +52,9 @@ class MockStoredReceipt:
     signature_key_id: Optional[str] = None
     signed_at: Optional[float] = None
     audit_trail_id: Optional[str] = "audit-001"
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         result = {
             "receipt_id": self.receipt_id,
             "gauntlet_id": self.gauntlet_id,
@@ -76,7 +77,7 @@ class MockStoredReceipt:
             }
         return result
 
-    def to_full_dict(self) -> Dict[str, Any]:
+    def to_full_dict(self) -> dict[str, Any]:
         result = self.to_dict()
         result.update(self.data)
         return result
@@ -94,7 +95,7 @@ class MockSignatureVerificationResult:
     verified_at: float = 1700001000.0
     error: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "receipt_id": self.receipt_id,
             "signature_valid": self.is_valid,
@@ -112,10 +113,10 @@ class MockReceiptStore:
     """Mock receipt store for testing."""
 
     def __init__(self):
-        self.receipts: Dict[str, MockStoredReceipt] = {}
+        self.receipts: dict[str, MockStoredReceipt] = {}
         self._next_id = 0
 
-    def save(self, receipt_dict: Dict, signed_receipt: Optional[Dict] = None) -> str:
+    def save(self, receipt_dict: dict, signed_receipt: Optional[dict] = None) -> str:
         receipt_id = receipt_dict.get("receipt_id", f"receipt-{self._next_id}")
         self._next_id += 1
         self.receipts[receipt_id] = MockStoredReceipt(
@@ -149,7 +150,7 @@ class MockReceiptStore:
         signed_only: bool = False,
         sort_by: str = "created_at",
         order: str = "desc",
-    ) -> List[MockStoredReceipt]:
+    ) -> builtins.list[MockStoredReceipt]:
         results = list(self.receipts.values())
         if verdict:
             results = [r for r in results if r.verdict == verdict]
@@ -176,7 +177,7 @@ class MockReceiptStore:
             results = [r for r in results if r.signature is not None]
         return len(results)
 
-    def verify_integrity(self, receipt_id: str) -> Dict[str, Any]:
+    def verify_integrity(self, receipt_id: str) -> dict[str, Any]:
         if receipt_id not in self.receipts:
             return {
                 "receipt_id": receipt_id,
@@ -203,8 +204,8 @@ class MockReceiptStore:
         )
 
     def verify_batch(
-        self, receipt_ids: List[str]
-    ) -> tuple[List[MockSignatureVerificationResult], Dict[str, int]]:
+        self, receipt_ids: builtins.list[str]
+    ) -> tuple[builtins.list[MockSignatureVerificationResult], dict[str, int]]:
         results = []
         summary = {"total": len(receipt_ids), "valid": 0, "invalid": 0, "not_signed": 0}
         for rid in receipt_ids:
@@ -218,7 +219,7 @@ class MockReceiptStore:
                 summary["invalid"] += 1
         return results, summary
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "total": len(self.receipts),
             "signed": sum(1 for r in self.receipts.values() if r.signature),
@@ -234,7 +235,7 @@ class MockReceiptStore:
         limit: int = 100,
         offset: int = 0,
         include_data: bool = True,
-    ) -> tuple[List[MockStoredReceipt], int]:
+    ) -> tuple[builtins.list[MockStoredReceipt], int]:
         """Get receipts by user ID for GDPR DSAR."""
         matches = []
         for receipt in self.receipts.values():
@@ -248,7 +249,7 @@ class MockReceiptStore:
         total = len(matches)
         return matches[offset : offset + limit], total
 
-    def get_retention_status(self) -> Dict[str, Any]:
+    def get_retention_status(self) -> dict[str, Any]:
         """Get retention status for GDPR compliance."""
         return {
             "retention_policy": {
@@ -297,7 +298,7 @@ def receipts_handler(mock_server_context, mock_receipt_store):
     return handler
 
 
-def parse_handler_response(result) -> Dict[str, Any]:
+def parse_handler_response(result) -> dict[str, Any]:
     """Parse handler result body as JSON."""
     if hasattr(result, "body"):
         body = result.body
@@ -1024,7 +1025,7 @@ class MockReceiptShareStore:
     """Mock share store for testing."""
 
     def __init__(self):
-        self.shares: Dict[str, Dict[str, Any]] = {}
+        self.shares: dict[str, dict[str, Any]] = {}
 
     def save(
         self,
@@ -1041,7 +1042,7 @@ class MockReceiptShareStore:
             "access_count": 0,
         }
 
-    def get_by_token(self, token: str) -> Optional[Dict[str, Any]]:
+    def get_by_token(self, token: str) -> Optional[dict[str, Any]]:
         return self.shares.get(token)
 
     def increment_access(self, token: str) -> None:

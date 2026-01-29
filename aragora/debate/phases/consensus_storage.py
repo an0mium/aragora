@@ -8,6 +8,7 @@ This module extracts consensus memory storage from FeedbackPhase:
 Used to enable future debates to benefit from past decisions,
 dissenting views, and learned patterns.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from aragora.type_protocols import ConsensusMemoryProtocol
 
 logger = logging.getLogger(__name__)
+
 
 class ConsensusStorage:
     """Handles consensus outcome storage and crux extraction.
@@ -268,5 +270,6 @@ class ConsensusStorage:
             )
         except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
             logger.debug("Crux storage failed: %s", e)
+
 
 __all__ = ["ConsensusStorage"]

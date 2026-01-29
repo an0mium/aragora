@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PolicyRule:
     """A rule within a policy."""
@@ -30,6 +31,7 @@ class PolicyRule:
     severity: str  # critical, high, medium, low
     enabled: bool = True
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class Policy:
@@ -47,6 +49,7 @@ class Policy:
     created_at: datetime | None = None
     updated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class PolicyViolation:
@@ -69,6 +72,7 @@ class PolicyViolation:
     resolution_notes: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class ComplianceCheckResult:
     """Result of a compliance check."""
@@ -77,6 +81,7 @@ class ComplianceCheckResult:
     score: float
     issues: list[dict[str, Any]] = field(default_factory=list)
     checked_at: datetime | None = None
+
 
 @dataclass
 class ComplianceStats:
@@ -89,6 +94,7 @@ class ComplianceStats:
     violations_open: int = 0
     violations_by_severity: dict[str, int] = field(default_factory=dict)
     risk_score: int = 0
+
 
 class PoliciesAPI:
     """API interface for compliance policy management."""
@@ -694,6 +700,7 @@ class PoliciesAPI:
             violations_by_severity=violations.get("by_severity", {}),
             risk_score=data.get("risk_score", 0),
         )
+
 
 __all__ = [
     "PoliciesAPI",

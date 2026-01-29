@@ -68,7 +68,7 @@ class MockTierStats:
     promotions: int = 20
     demotions: int = 5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "tier_name": self.tier_name,
             "total_items": self.total_items,
@@ -82,12 +82,12 @@ class MockTierStats:
 class MockAnalytics:
     """Mock analytics result."""
 
-    tier_stats: Dict[str, MockTierStats] = field(default_factory=dict)
+    tier_stats: dict[str, MockTierStats] = field(default_factory=dict)
     promotion_effectiveness: float = 0.85
     learning_velocity: float = 0.7
     recommendations: list = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "tier_stats": {k: v.to_dict() for k, v in self.tier_stats.items()},
             "promotion_effectiveness": self.promotion_effectiveness,

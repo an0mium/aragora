@@ -356,7 +356,7 @@ class TestRedactSensitive:
     def test_redact_max_depth(self):
         """Should stop recursion at max depth (5)."""
         # Create deeply nested structure
-        data: Dict[str, Any] = {"level": 0}
+        data: dict[str, Any] = {"level": 0}
         current = data
         for i in range(1, 10):
             current["nested"] = {"level": i, "password": "secret"}
@@ -1618,7 +1618,7 @@ class TestEdgeCases:
             args=(),
             exc_info=None,
         )
-        circular: Dict[str, Any] = {"key": "value"}
+        circular: dict[str, Any] = {"key": "value"}
         circular["self"] = circular
         record.circular = circular
 

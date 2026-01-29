@@ -73,6 +73,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 
+
 class CachedCallable(Protocol[T_co]):
     """Protocol for callable with cache attributes attached."""
 
@@ -80,6 +81,7 @@ class CachedCallable(Protocol[T_co]):
     cache_key_prefix: str
 
     def __call__(self, *args: Any, **kwargs: Any) -> T_co: ...
+
 
 class TTLCache(Generic[T]):
     """
@@ -161,12 +163,14 @@ class TTLCache(Generic[T]):
     def __len__(self) -> int:
         return len(self._cache)
 
+
 # Global cache instances for different purposes
 _method_cache = TTLCache[Any](maxsize=1000, ttl_seconds=CACHE_TTL_METHOD)
 _query_cache = TTLCache[Any](maxsize=500, ttl_seconds=CACHE_TTL_QUERY)
 
 # Track registration status
 _caches_registered = False
+
 
 def _register_caches_with_service_registry() -> None:
     """Register caches with ServiceRegistry for observability.
@@ -197,15 +201,18 @@ def _register_caches_with_service_registry() -> None:
     except ImportError:
         pass  # Services module not available
 
+
 def get_method_cache() -> TTLCache[Any]:
     """Get the global method cache, registering with ServiceRegistry if available."""
     _register_caches_with_service_registry()
     return _method_cache
 
+
 def get_query_cache() -> TTLCache[Any]:
     """Get the global query cache, registering with ServiceRegistry if available."""
     _register_caches_with_service_registry()
     return _query_cache
+
 
 def lru_cache_with_ttl(
     ttl_seconds: float = 300.0,
@@ -275,6 +282,7 @@ def lru_cache_with_ttl(
 
     return decorator
 
+
 def cached_property_ttl(ttl_seconds: float = 300.0):
     """
     Decorator for cached properties with TTL expiry.
@@ -313,9 +321,11 @@ def cached_property_ttl(ttl_seconds: float = 300.0):
 
     return decorator
 
+
 def invalidate_method_cache(prefix: str) -> int:
     """Invalidate entries in the global method cache by prefix."""
     return _method_cache.clear_prefix(prefix)
+
 
 def get_cache_stats() -> dict[str, Any]:
     """Get statistics for global caches."""
@@ -327,6 +337,7 @@ def get_cache_stats() -> dict[str, Any]:
         "query_cache": _query_cache.stats,
     }
 
+
 def clear_all_caches() -> dict[str, int]:
     """Clear all global caches."""
     return {
@@ -334,12 +345,14 @@ def clear_all_caches() -> dict[str, int]:
         "query_cache": _query_cache.clear(),
     }
 
+
 # =============================================================================
 # Handler-style cache utilities (for use by memory and other modules)
 # =============================================================================
 
 # Global bounded cache for handler-style caching
 _handler_cache: TTLCache[Any] = TTLCache(maxsize=1000, ttl_seconds=60.0)
+
 
 def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
     """
@@ -385,6 +398,7 @@ def ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool 
 
     return decorator
 
+
 def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first: bool = True):
     """
     Async decorator for caching coroutine results with TTL expiry.
@@ -420,6 +434,7 @@ def async_ttl_cache(ttl_seconds: float = 60.0, key_prefix: str = "", skip_first:
 
     return decorator
 
+
 # Maps data sources to cache prefixes that should be invalidated
 CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     # Memory module events
@@ -433,6 +448,7 @@ CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     # Agent events
     "agent": ["agent_profile", "agents_list"],
 }
+
 
 def invalidate_cache(data_source: str) -> int:
     """Invalidate cache entries associated with a data source.
@@ -461,13 +477,16 @@ def invalidate_cache(data_source: str) -> int:
 
     return total_cleared
 
+
 def get_handler_cache() -> TTLCache[Any]:
     """Get the global handler cache instance."""
     return _handler_cache
 
+
 # =============================================================================
 # Unified CacheManager with TTL Presets
 # =============================================================================
+
 
 class CachePreset:
     """Named cache preset with preconfigured TTL and maxsize."""
@@ -530,6 +549,7 @@ class CachePreset:
         stats["name"] = self.name
         stats["initialized"] = True
         return stats
+
 
 class CacheManager:
     """
@@ -880,6 +900,7 @@ class CacheManager:
     def list_domains(self) -> list[str]:
         """List all available domain names."""
         return sorted(self.DOMAIN_PRESETS.keys())
+
 
 # Convenience function for getting the global CacheManager
 def get_cache_manager() -> CacheManager:

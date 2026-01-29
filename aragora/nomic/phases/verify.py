@@ -9,6 +9,7 @@ Phase 4: Verify changes work
 - Evidence staleness check
 - Test quality gate
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from aragora.nomic.gates import TestQualityGate
 
 logger = logging.getLogger(__name__)
+
 
 class VerifyPhase:
     """
@@ -392,5 +394,6 @@ Be concise - this is a quality gate, not a full review."""
         except (OSError, IOError, asyncio.TimeoutError, RuntimeError) as e:
             self._log(f"  [integration] Staleness check failed: {e}")
         return []
+
 
 __all__ = ["VerifyPhase"]

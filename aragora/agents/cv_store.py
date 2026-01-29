@@ -37,6 +37,7 @@ CV_SCHEMA_VERSION = 1
 # Default cache TTL (5 minutes)
 DEFAULT_CACHE_TTL_SECONDS = 300
 
+
 class CVStore(SQLiteStore):
     """
     Persistent storage for Agent CVs.
@@ -392,8 +393,10 @@ class CVStore(SQLiteStore):
 
         return domain_cvs[:limit]
 
+
 # Singleton store instance
 _cv_store: CVStore | None = None
+
 
 def get_cv_store() -> CVStore:
     """Get the global CVStore singleton instance."""

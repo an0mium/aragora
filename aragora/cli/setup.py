@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
 def _prompt(message: str, default: str | None = None, secret: bool = False) -> str:
     """Prompt user for input with optional default and secret mode."""
     suffix = f" [{default}]" if default else ""
@@ -30,6 +31,7 @@ def _prompt(message: str, default: str | None = None, secret: bool = False) -> s
         print("\nSetup cancelled.")
         sys.exit(0)
 
+
 def _confirm(message: str, default: bool = True) -> bool:
     """Ask for yes/no confirmation."""
     suffix = " [Y/n]" if default else " [y/N]"
@@ -42,16 +44,19 @@ def _confirm(message: str, default: bool = True) -> bool:
         print("\nSetup cancelled.")
         sys.exit(0)
 
+
 def _print_header(text: str) -> None:
     """Print a section header."""
     print(f"\n{'=' * 60}")
     print(f"  {text}")
     print(f"{'=' * 60}\n")
 
+
 def _print_step(step: int, total: int, text: str) -> None:
     """Print a step indicator."""
     print(f"\n[{step}/{total}] {text}")
     print("-" * 40)
+
 
 def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
     """Test an API key by making a minimal request."""
@@ -120,6 +125,7 @@ def _test_api_key(provider: str, key: str) -> tuple[bool, str]:
         return True, "Stored (httpx not installed for validation)"
     except Exception as e:
         return False, f"Connection error: {str(e)[:50]}"
+
 
 def _generate_env_content(config: dict[str, Any]) -> str:
     """Generate .env file content from config."""
@@ -232,6 +238,7 @@ def _generate_env_content(config: dict[str, Any]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
 
 def run_setup(
     output_path: str | None = None,
@@ -426,6 +433,7 @@ def run_setup(
     print("\nFor more help, run: aragora --help")
 
     return config
+
 
 def cmd_setup(args) -> None:
     """Handle 'setup' command."""

@@ -6,6 +6,7 @@ support for listing, filtering, and comparison operations.
 
 Supports both SQLite (default) and PostgreSQL (via DATABASE_URL env var).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,6 +27,7 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class GauntletMetadata:
     """Summary metadata for a stored Gauntlet result."""
@@ -43,6 +45,7 @@ class GauntletMetadata:
     template_used: str | None
     created_at: datetime
     duration_seconds: float
+
 
 @dataclass
 class GauntletInflightRun:
@@ -90,6 +93,7 @@ class GauntletInflightRun:
             "error": self.error,
             "org_id": self.org_id,
         }
+
 
 class GauntletStorage:
     """
@@ -1036,8 +1040,10 @@ class GauntletStorage:
             updated_at=parse_dt(row[14]),
         )
 
+
 # Module-level singleton for convenience
 _default_storage: GauntletStorage | None = None
+
 
 def get_storage(
     db_path: str = "aragora_gauntlet.db",
@@ -1063,6 +1069,7 @@ def get_storage(
             database_url=database_url,
         )
     return _default_storage
+
 
 def reset_storage() -> None:
     """Reset the default storage instance (for testing)."""

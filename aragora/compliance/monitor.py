@@ -40,6 +40,7 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class ComplianceHealth(Enum):
     """Overall compliance health status."""
 
@@ -48,12 +49,14 @@ class ComplianceHealth(Enum):
     AT_RISK = "at_risk"  # Major violations pending
     CRITICAL = "critical"  # Critical violations requiring immediate action
 
+
 class ViolationTrend(Enum):
     """Trend direction for violations."""
 
     IMPROVING = "improving"  # Fewer violations over time
     STABLE = "stable"  # Consistent violation count
     WORSENING = "worsening"  # More violations over time
+
 
 @dataclass
 class FrameworkStatus:
@@ -82,6 +85,7 @@ class FrameworkStatus:
             return ComplianceHealth.DEGRADED
         return ComplianceHealth.HEALTHY
 
+
 @dataclass
 class ComplianceStatus:
     """Overall compliance status across all frameworks."""
@@ -97,6 +101,7 @@ class ComplianceStatus:
     audit_trail_verified: bool = True
     last_full_scan: datetime | None = None
 
+
 @dataclass
 class DriftEvent:
     """Represents a compliance configuration drift event."""
@@ -108,6 +113,7 @@ class DriftEvent:
     severity: str
     current_value: Any
     expected_value: Any
+
 
 @dataclass
 class ComplianceMonitorConfig:
@@ -132,6 +138,7 @@ class ComplianceMonitorConfig:
     # Thresholds
     critical_score_threshold: float = 70.0  # Alert if score drops below
     degraded_score_threshold: float = 85.0
+
 
 class ComplianceMonitor:
     """
@@ -573,12 +580,15 @@ class ComplianceMonitor:
             except Exception as e:
                 logger.warning(f"Drift callback failed: {e}")
 
+
 # Global monitor instance
 _monitor: ComplianceMonitor | None = None
+
 
 def get_compliance_monitor() -> ComplianceMonitor | None:
     """Get the global compliance monitor instance."""
     return _monitor
+
 
 def init_compliance_monitoring(
     check_interval_seconds: float = 300.0,
@@ -618,21 +628,25 @@ def init_compliance_monitoring(
 
     return _monitor
 
+
 async def start_compliance_monitoring() -> None:
     """Start the compliance monitoring background task."""
     if _monitor:
         await _monitor.start()
+
 
 async def stop_compliance_monitoring() -> None:
     """Stop the compliance monitoring background task."""
     if _monitor:
         await _monitor.stop()
 
+
 async def get_compliance_status() -> ComplianceStatus | None:
     """Get current compliance status."""
     if _monitor:
         return _monitor.get_status()
     return None
+
 
 __all__ = [
     "ComplianceHealth",

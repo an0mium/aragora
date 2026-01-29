@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Role-Based Access Control
 # =============================================================================
 
+
 class Permission(str, Enum):
     """Knowledge Mound permissions."""
 
@@ -51,6 +52,7 @@ class Permission(str, Enum):
     # System permissions
     ADMIN = "admin"  # Full access
 
+
 class BuiltinRole(str, Enum):
     """Built-in role templates."""
 
@@ -59,6 +61,7 @@ class BuiltinRole(str, Enum):
     EDITOR = "editor"  # Read + create + update
     MANAGER = "manager"  # Full item access + sharing
     ADMIN = "admin"  # Full access including user management
+
 
 @dataclass
 class Role:
@@ -92,6 +95,7 @@ class Role:
             "is_builtin": self.is_builtin,
         }
 
+
 @dataclass
 class RoleAssignment:
     """Assignment of a role to a user."""
@@ -121,6 +125,7 @@ class RoleAssignment:
             "assigned_by": self.assigned_by,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
+
 
 # Built-in role definitions
 BUILTIN_ROLES: dict[BuiltinRole, Role] = {
@@ -168,6 +173,7 @@ BUILTIN_ROLES: dict[BuiltinRole, Role] = {
         is_builtin=True,
     ),
 }
+
 
 class RBACManager:
     """Manages role-based access control."""
@@ -391,9 +397,11 @@ class RBACManager:
 
             return roles
 
+
 # =============================================================================
 # Audit Trail
 # =============================================================================
+
 
 class AuditAction(str, Enum):
     """Auditable actions in Knowledge Mound."""
@@ -422,6 +430,7 @@ class AuditAction(str, Enum):
     EXPORT = "export"
     IMPORT = "import"
     BULK_DELETE = "bulk_delete"
+
 
 @dataclass
 class AuditEntry:
@@ -456,6 +465,7 @@ class AuditEntry:
             "success": self.success,
             "error_message": self.error_message,
         }
+
 
 class AuditTrail:
     """Manages audit trail logging with optional persistent storage."""
@@ -861,9 +871,11 @@ class AuditTrail:
             ),
         }
 
+
 # =============================================================================
 # Governance Mixin
 # =============================================================================
+
 
 class GovernanceMixin:
     """Mixin for governance operations on KnowledgeMound."""
@@ -986,9 +998,11 @@ class GovernanceMixin:
             "audit": self._get_audit_trail().get_stats(),
         }
 
+
 # Singleton instances
 _rbac_manager: RBACManager | None = None
 _audit_trail: AuditTrail | None = None
+
 
 def get_rbac_manager() -> RBACManager:
     """Get the global RBAC manager instance."""
@@ -996,6 +1010,7 @@ def get_rbac_manager() -> RBACManager:
     if _rbac_manager is None:
         _rbac_manager = RBACManager()
     return _rbac_manager
+
 
 def get_audit_trail() -> AuditTrail:
     """Get the global audit trail instance."""

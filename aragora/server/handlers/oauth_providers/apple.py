@@ -37,6 +37,7 @@ APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
 APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_REVOCATION_URL = "https://appleid.apple.com/auth/revoke"
 
+
 class AppleOAuthProvider(OAuthProvider):
     """
     Apple OAuth provider (Sign in with Apple).
@@ -548,5 +549,6 @@ class AppleOAuthProvider(OAuthProvider):
         except Exception as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Token revocation failed: {e}")
             return False
+
 
 __all__ = ["AppleOAuthProvider"]

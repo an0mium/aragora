@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from aragora.export.audit_trail import AuditTrail
     from aragora.gauntlet import OrchestratorResult as GauntletResult  # Full orchestrator result
 
+
 @dataclass
 class ReceiptFinding:
     """Simplified finding for receipt export."""
@@ -39,6 +40,7 @@ class ReceiptFinding:
     source: str = ""
     verified: bool = False
 
+
 @dataclass
 class ReceiptDissent:
     """Simplified dissent record for receipt export."""
@@ -49,6 +51,7 @@ class ReceiptDissent:
     reasons: list[str]
     alternative: str | None = None
 
+
 @dataclass
 class ReceiptVerification:
     """Verification result for receipt export."""
@@ -57,6 +60,7 @@ class ReceiptVerification:
     verified: bool
     method: str
     proof_hash: str | None = None
+
 
 @dataclass
 class DecisionReceipt:
@@ -1068,6 +1072,7 @@ class DecisionReceipt:
             budget_limit_usd=budget_limit_usd,
         )
 
+
 class DecisionReceiptGenerator:
     """
     Generates Decision Receipts from Gauntlet results.
@@ -1177,6 +1182,7 @@ class DecisionReceiptGenerator:
             duration_seconds=result.duration_seconds,
         )
 
+
 def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
     """
     Convenience function to generate a DecisionReceipt.
@@ -1193,6 +1199,7 @@ def generate_decision_receipt(result: "GauntletResult") -> DecisionReceipt:
         receipt.save(Path("./receipts/decision.html"), format="html")
     """
     return DecisionReceiptGenerator.from_gauntlet_result(result)
+
 
 def link_receipt_to_trail(
     receipt: DecisionReceipt,
@@ -1230,6 +1237,7 @@ def link_receipt_to_trail(
     # Note: trail.checksum is a property, automatically recomputed
 
     return receipt, trail
+
 
 @dataclass
 class SignedDecisionReceipt:

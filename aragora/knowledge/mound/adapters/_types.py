@@ -20,6 +20,7 @@ from typing import Any, Generic, Optional, TypeVar
 # Generic type for adapter-specific items
 T = TypeVar("T")
 
+
 class SyncResult:
     """Result type for forward sync operations (Source -> Knowledge Mound).
 
@@ -70,6 +71,7 @@ class SyncResult:
             return 100.0
         return (self.records_synced / total) * 100
 
+
 class ValidationSyncResult:
     """Result type for reverse validation sync operations (KM -> Source).
 
@@ -113,6 +115,7 @@ class ValidationSyncResult:
             "duration_ms": self.duration_ms,
         }
 
+
 @dataclass
 class SearchResult(Generic[T]):
     """Generic search result wrapper with relevance metadata.
@@ -141,6 +144,7 @@ class SearchResult(Generic[T]):
             "similarity": self.similarity,
             "matched_fields": self.matched_fields,
         }
+
 
 @dataclass
 class ValidationResult:
@@ -189,6 +193,7 @@ class ValidationResult:
             "metadata": self.metadata,
         }
 
+
 @dataclass
 class BatchSyncResult:
     """Result for batch sync operations across multiple adapters.
@@ -228,6 +233,7 @@ class BatchSyncResult:
             "total_failed": self.total_failed,
             "duration_ms": self.duration_ms,
         }
+
 
 __all__ = [
     "SyncResult",

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class ServerLifecycleManager:
     """Manages server startup and shutdown lifecycle.
 
@@ -235,5 +236,6 @@ class ServerLifecycleManager:
                     await result
             except Exception as e:
                 logger.warning(f"Shutdown callback error: {e}")
+
 
 __all__ = ["ServerLifecycleManager"]

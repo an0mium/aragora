@@ -67,6 +67,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class SpamCategory(Enum):
     """Spam classification categories."""
 
@@ -75,6 +76,7 @@ class SpamCategory(Enum):
     PROMOTIONAL = "promotional"  # Marketing/promotional
     SUSPICIOUS = "suspicious"  # Possibly spam
     PHISHING = "phishing"  # Phishing attempt
+
 
 @dataclass
 class SpamClassificationResult:
@@ -149,6 +151,7 @@ class SpamClassificationResult:
         if self.category == SpamCategory.PROMOTIONAL:
             return 0.3
         return 0.0
+
 
 @dataclass
 class EmailFeatures:
@@ -304,6 +307,7 @@ class EmailFeatures:
             "top_bigrams": self.top_bigrams[:10],
         }
 
+
 @dataclass
 class SpamClassifierConfig:
     """Configuration for spam classifier."""
@@ -328,6 +332,7 @@ class SpamClassifierConfig:
 
     # Storage
     feedback_db_path: str = "spam_feedback.db"
+
 
 # Spam indicator patterns
 SPAM_WORDS = {
@@ -570,6 +575,7 @@ REQUIRED_HEADERS = {
     "date",
     "message-id",
 }
+
 
 class SpamFeatures:
     """
@@ -871,6 +877,7 @@ class SpamFeatures:
         bigram_counts = Counter(bigrams)
         features.top_bigrams = bigram_counts.most_common(n_top)
 
+
 @dataclass
 class SpamFeedback:
     """
@@ -901,6 +908,7 @@ class SpamFeedback:
             "content_hash": self.content_hash,
             "created_at": self.created_at.isoformat(),
         }
+
 
 class NaiveBayesClassifier:
     """Simple Naive Bayes classifier for spam detection."""
@@ -1037,6 +1045,7 @@ class NaiveBayesClassifier:
     def is_trained(self) -> bool:
         """Check if model has been trained."""
         return self.spam_count > 0 or self.ham_count > 0
+
 
 class SpamClassifier:
     """
@@ -1866,6 +1875,7 @@ class SpamClassifier:
             self._db_conn.close()
             self._db_conn = None
 
+
 # Convenience function
 async def classify_email_spam(
     email_id: str,
@@ -1903,6 +1913,7 @@ async def classify_email_spam(
         )
     finally:
         await classifier.close()
+
 
 async def classify_email(email: dict[str, Any]) -> SpamClassificationResult:
     """
@@ -1945,6 +1956,7 @@ async def classify_email(email: dict[str, Any]) -> SpamClassificationResult:
         attachments=email.get("attachments"),
     )
 
+
 async def classify_emails_batch(
     emails: list[dict[str, Any]],
     max_concurrent: int = 10,
@@ -1981,6 +1993,7 @@ async def classify_emails_batch(
         return await asyncio.gather(*tasks)
     finally:
         await classifier.close()
+
 
 __all__ = [
     # Core classes

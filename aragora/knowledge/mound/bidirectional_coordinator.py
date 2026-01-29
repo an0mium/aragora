@@ -32,6 +32,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AdapterRegistration:
     """Registration information for an adapter."""
@@ -48,6 +49,7 @@ class AdapterRegistration:
     reverse_errors: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class SyncResult:
     """Result of a single adapter sync operation."""
@@ -60,6 +62,7 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
     duration_ms: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class BidirectionalSyncReport:
@@ -75,6 +78,7 @@ class BidirectionalSyncReport:
     timestamp: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class CoordinatorConfig:
     """Configuration for the BidirectionalCoordinator."""
@@ -87,6 +91,7 @@ class CoordinatorConfig:
     parallel_sync: bool = True  # Sync adapters in parallel
     timeout_seconds: float = 60.0  # Timeout per adapter sync
     enable_metrics: bool = True
+
 
 class BidirectionalCoordinator:
     """
@@ -648,6 +653,7 @@ class BidirectionalCoordinator:
             reg.reverse_errors = 0
             reg.last_forward_sync = None
             reg.last_reverse_sync = None
+
 
 __all__ = [
     "BidirectionalCoordinator",

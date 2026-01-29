@@ -58,6 +58,7 @@ logger = logging.getLogger(__name__)
 # Sentinel value for deprecated rlm_backend parameter
 _DEPRECATED_RLM_BACKEND = object()
 
+
 @dataclass
 class RLMCognitiveBudget(CognitiveBudget):
     """Extended budget with RLM compression parameters."""
@@ -68,6 +69,7 @@ class RLMCognitiveBudget(CognitiveBudget):
     max_recent_full_messages: int = 5  # Keep N most recent at full detail
     summary_level: str = "SUMMARY"  # Default abstraction level for older content
     preserve_first_message: bool = True  # Always keep task description full
+
 
 @dataclass
 class CompressedContext:
@@ -95,6 +97,7 @@ class CompressedContext:
         if self.original_chars == 0:
             return 1.0
         return self.compressed_chars / self.original_chars
+
 
 class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
     """
@@ -883,6 +886,7 @@ class RLMCognitiveLoadLimiter(CognitiveLoadLimiter):
 
         return "No directly relevant information found. Try a more specific query."
 
+
 def create_rlm_limiter(
     stress_level: str = "elevated",
     compressor: Optional["HierarchicalCompressor"] = None,
@@ -928,6 +932,7 @@ def create_rlm_limiter(
     if compressor:
         limiter._compressor = compressor
     return limiter
+
 
 # Export flag for checking RLM availability
 __all__ = [

@@ -25,12 +25,14 @@ logger = logging.getLogger(__name__)
 # Singleton instance
 _debate_store: Optional["DebateStore"] = None
 
+
 def get_debate_store() -> "DebateStore":
     """Get or create the singleton DebateStore instance."""
     global _debate_store
     if _debate_store is None:
         _debate_store = DebateStore()
     return _debate_store
+
 
 class DebateStore:
     """

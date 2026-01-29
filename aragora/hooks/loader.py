@@ -28,6 +28,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+
 class HookConfigLoader:
     """
     Loads and manages hook configurations from YAML files.
@@ -448,8 +449,10 @@ class HookConfigLoader:
 
         return errors
 
+
 # Global loader singleton
 _hook_loader: HookConfigLoader | None = None
+
 
 def get_hook_loader() -> HookConfigLoader:
     """
@@ -462,6 +465,7 @@ def get_hook_loader() -> HookConfigLoader:
     if _hook_loader is None:
         _hook_loader = HookConfigLoader()
     return _hook_loader
+
 
 def setup_arena_hooks(
     hook_manager: "HookManager",
@@ -526,6 +530,7 @@ def setup_arena_hooks(
     )
 
     return registered
+
 
 def setup_arena_hooks_from_config(
     hook_manager: "HookManager",

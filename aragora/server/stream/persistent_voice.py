@@ -42,6 +42,7 @@ VOICE_RECONNECT_WINDOW_SECONDS = int(os.environ.get("ARAGORA_VOICE_RECONNECT_WIN
 VOICE_HEARTBEAT_INTERVAL_SECONDS = int(os.environ.get("ARAGORA_VOICE_HEARTBEAT_INTERVAL", "30"))
 VOICE_HEARTBEAT_TIMEOUT_SECONDS = int(os.environ.get("ARAGORA_VOICE_HEARTBEAT_TIMEOUT", "90"))
 
+
 @dataclass
 class PersistentVoiceSession:
     """
@@ -142,6 +143,7 @@ class PersistentVoiceSession:
             "expires_at": datetime.fromtimestamp(self.expires_at, tz=timezone.utc).isoformat(),
             "metadata": self.metadata,
         }
+
 
 class PersistentVoiceManager:
     """
@@ -590,11 +592,13 @@ class PersistentVoiceManager:
             "running": self._running,
         }
 
+
 # ==========================================================================
 # Global Instance
 # ==========================================================================
 
 _manager: PersistentVoiceManager | None = None
+
 
 def get_persistent_voice_manager() -> PersistentVoiceManager:
     """Get the global persistent voice manager."""

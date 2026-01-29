@@ -23,6 +23,7 @@ from aragora.workflow.queue.task import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TaskQueueConfig:
     """Configuration for the task queue."""
@@ -36,6 +37,7 @@ class TaskQueueConfig:
     enable_priority: bool = True
     drain_timeout_seconds: float = 60.0
 
+
 @dataclass
 class QueueStats:
     """Statistics about the task queue."""
@@ -48,6 +50,7 @@ class QueueStats:
     total_tasks: int = 0
     avg_wait_time_ms: float = 0
     avg_execution_time_ms: float = 0
+
 
 class TaskQueue:
     """

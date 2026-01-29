@@ -16,6 +16,7 @@ __all__ = [
 
 from dataclasses import dataclass
 
+
 @dataclass
 class PRCommentConfig:
     """Configuration for PR comment formatting."""
@@ -28,6 +29,7 @@ class PRCommentConfig:
     include_footer: bool = True
     include_artifact_link: bool = True
     artifact_url: str | None = None
+
 
 def format_pr_comment(
     findings: dict,
@@ -179,6 +181,7 @@ def format_pr_comment(
 
     return "\n".join(lines)
 
+
 def format_compact_comment(findings: dict) -> str:
     """Format a compact single-line summary for quick status checks.
 
@@ -202,6 +205,7 @@ def format_compact_comment(findings: dict) -> str:
         return f"AI Review: No major issues found | {agreement:.0%} agreement"
 
     return f"AI Review: {', '.join(parts)} | {agreement:.0%} agreement"
+
 
 def format_slack_message(findings: dict) -> dict:
     """Format findings as a Slack message payload.
@@ -272,6 +276,7 @@ def format_slack_message(findings: dict) -> dict:
             }
         ]
     }
+
 
 def _format_agent_names(agents_used: list) -> str:
     """Extract and deduplicate agent provider names."""

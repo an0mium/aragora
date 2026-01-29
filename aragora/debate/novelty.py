@@ -15,6 +15,7 @@ Novelty score = 1 - max(similarity to any prior proposal)
 - Medium novelty (0.3-0.7): Building on prior ideas
 - Low novelty (<0.15): Too similar, may need intervention
 """
+
 from __future__ import annotations
 
 __all__ = [
@@ -29,6 +30,7 @@ from dataclasses import dataclass, field
 from .convergence import SimilarityBackend, get_similarity_backend
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class NoveltyScore:
@@ -45,6 +47,7 @@ class NoveltyScore:
         """Check if novelty is below threshold."""
         return self.novelty < threshold
 
+
 @dataclass
 class NoveltyResult:
     """Result of novelty computation for a round."""
@@ -60,6 +63,7 @@ class NoveltyResult:
     def has_low_novelty(self) -> bool:
         """Check if any agent has low novelty."""
         return len(self.low_novelty_agents) > 0
+
 
 class NoveltyTracker:
     """

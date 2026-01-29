@@ -62,6 +62,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+
 class DebateSessionState(Enum):
     """Session lifecycle states."""
 
@@ -71,6 +72,7 @@ class DebateSessionState(Enum):
     COMPLETED = "completed"  # Finished successfully
     FAILED = "failed"  # Error state
     CANCELLED = "cancelled"  # User cancelled
+
 
 class SessionEventType(Enum):
     """Types of session lifecycle events."""
@@ -85,6 +87,7 @@ class SessionEventType(Enum):
     STATE_CHANGED = "state_changed"
     CHECKPOINT_CREATED = "checkpoint_created"
 
+
 @dataclass
 class SessionEvent:
     """Event emitted during session lifecycle."""
@@ -95,6 +98,7 @@ class SessionEvent:
     data: dict = field(default_factory=dict)
     previous_state: DebateSessionState | None = None
     new_state: DebateSessionState | None = None
+
 
 @dataclass
 class DebateSession:
@@ -495,9 +499,7 @@ class DebateSession:
 
         logger.info(f"session_cancelled id={self.id} reason={reason}")
 
-    async def wait_for_completion(
-        self, timeout: float | None = None
-    ) -> Optional["DebateResult"]:
+    async def wait_for_completion(self, timeout: float | None = None) -> Optional["DebateResult"]:
         """
         Wait for the session to complete.
 
@@ -563,6 +565,7 @@ class DebateSession:
             "duration_seconds": self.duration_seconds,
             "error_message": self.error_message,
         }
+
 
 class SessionManager:
     """

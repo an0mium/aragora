@@ -32,7 +32,7 @@ class MockAgent:
     def __init__(
         self,
         agent_id: str,
-        capabilities: Optional[Set[str]] = None,
+        capabilities: Optional[set[str]] = None,
         status: str = "ready",
     ):
         self.agent_id = agent_id
@@ -46,15 +46,15 @@ class MockAgentRegistry:
     """Mock agent registry for testing state divergence."""
 
     def __init__(self):
-        self._agents: Dict[str, MockAgent] = {}
+        self._agents: dict[str, MockAgent] = {}
         self._offline_threshold = 30.0
         self._cleanup_interval = 10.0
-        self._status_updates: List[Dict[str, Any]] = []
+        self._status_updates: list[dict[str, Any]] = []
 
     async def register(
         self,
         agent_id: str,
-        capabilities: Optional[Set[str]] = None,
+        capabilities: Optional[set[str]] = None,
         **kwargs,
     ) -> MockAgent:
         """Register an agent."""
@@ -82,7 +82,7 @@ class MockAgentRegistry:
                 }
             )
 
-    async def cleanup_stale_agents(self) -> List[str]:
+    async def cleanup_stale_agents(self) -> list[str]:
         """Clean up agents that haven't sent heartbeats."""
         now = time.time()
         stale = []
@@ -97,11 +97,11 @@ class MockAgentRegistry:
         """Get agent by ID."""
         return self._agents.get(agent_id)
 
-    def get_agents_by_status(self, status: str) -> List[MockAgent]:
+    def get_agents_by_status(self, status: str) -> list[MockAgent]:
         """Get agents by status."""
         return [a for a in self._agents.values() if a.status == status]
 
-    def get_agents_by_capability(self, capability: str) -> List[MockAgent]:
+    def get_agents_by_capability(self, capability: str) -> list[MockAgent]:
         """Get agents with a specific capability."""
         return [
             a for a in self._agents.values() if capability in a.capabilities and a.status == "ready"
@@ -114,7 +114,7 @@ class MockTask:
     def __init__(
         self,
         task_id: str,
-        required_capabilities: Optional[Set[str]] = None,
+        required_capabilities: Optional[set[str]] = None,
         priority: str = "normal",
     ):
         self.task_id = task_id
@@ -133,14 +133,14 @@ class MockTaskScheduler:
 
     def __init__(self, registry: MockAgentRegistry):
         self._registry = registry
-        self._tasks: Dict[str, MockTask] = {}
-        self._dead_letter_queue: List[MockTask] = []
+        self._tasks: dict[str, MockTask] = {}
+        self._dead_letter_queue: list[MockTask] = []
         self._claim_timeout = 60.0
 
     async def submit(
         self,
         task_id: str,
-        required_capabilities: Optional[Set[str]] = None,
+        required_capabilities: Optional[set[str]] = None,
         priority: str = "normal",
     ) -> MockTask:
         """Submit a new task."""
@@ -200,7 +200,7 @@ class MockTaskScheduler:
             self._dead_letter_queue.append(task)
             return True
 
-    async def claim_stale_tasks(self) -> List[str]:
+    async def claim_stale_tasks(self) -> list[str]:
         """Reclaim tasks that have been running too long."""
         now = time.time()
         reclaimed = []
@@ -216,7 +216,7 @@ class MockTaskScheduler:
 
         return reclaimed
 
-    def get_pending_tasks(self) -> List[MockTask]:
+    def get_pending_tasks(self) -> list[MockTask]:
         """Get all pending tasks."""
         return [t for t in self._tasks.values() if t.status == "pending"]
 
@@ -230,7 +230,7 @@ class MockHealthMonitor:
 
     def __init__(self, registry: MockAgentRegistry):
         self._registry = registry
-        self._health_checks: Dict[str, Dict[str, Any]] = {}
+        self._health_checks: dict[str, dict[str, Any]] = {}
         self._failure_threshold = 3
         self._recovery_threshold = 2
 

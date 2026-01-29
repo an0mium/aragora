@@ -15,6 +15,7 @@ Supports multiple compliance frameworks:
 - ISO 27001 (Information Security Management)
 - Custom templates
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,6 +27,7 @@ from typing import Any
 
 from aragora.core import DebateResult
 
+
 class ComplianceFramework(Enum):
     """Supported compliance frameworks."""
 
@@ -36,6 +38,7 @@ class ComplianceFramework(Enum):
     CUSTOM = "custom"
     GENERAL = "general"
 
+
 class ReportFormat(Enum):
     """Report output formats."""
 
@@ -43,6 +46,7 @@ class ReportFormat(Enum):
     HTML = "html"
     MARKDOWN = "markdown"
     PDF = "pdf"
+
 
 @dataclass
 class ReportSection:
@@ -53,6 +57,7 @@ class ReportSection:
     data: dict[str, Any] = field(default_factory=dict)
     subsections: list["ReportSection"] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class ComplianceReport:
@@ -90,6 +95,7 @@ class ComplianceReport:
             "subsections": [self._section_to_dict(s) for s in section.subsections],
             "metadata": section.metadata,
         }
+
 
 class ComplianceReportGenerator:
     """
@@ -579,6 +585,7 @@ curl -X GET /api/debates/{debate_id}/provenance/verify
 
         return lines
 
+
 # Convenience functions
 def generate_soc2_report(
     debate_result: DebateResult,
@@ -593,6 +600,7 @@ def generate_soc2_report(
         framework=ComplianceFramework.SOC2,
     )
 
+
 def generate_gdpr_report(
     debate_result: DebateResult,
     debate_id: str,
@@ -605,6 +613,7 @@ def generate_gdpr_report(
         debate_id=debate_id,
         framework=ComplianceFramework.GDPR,
     )
+
 
 __all__ = [
     "ComplianceFramework",

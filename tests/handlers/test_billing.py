@@ -154,7 +154,7 @@ class MockUsageSummary:
         total_tokens_out: int = 0,
         total_cost_usd: Decimal = Decimal("0.00"),
         total_cost: Decimal = Decimal("0.00"),
-        cost_by_provider: Optional[Dict[str, Decimal]] = None,
+        cost_by_provider: Optional[dict[str, Decimal]] = None,
     ):
         self.total_tokens = total_tokens
         self.total_tokens_in = total_tokens_in
@@ -242,7 +242,7 @@ class MockStripeClient:
         subscription: Optional[MockStripeSubscription] = None,
         checkout_session: Optional[MockCheckoutSession] = None,
         portal_session: Optional[MockPortalSession] = None,
-        invoices: Optional[List[dict]] = None,
+        invoices: Optional[list[dict]] = None,
     ):
         self._subscription = subscription
         self._checkout_session = checkout_session or MockCheckoutSession("cs_test_123")
@@ -270,7 +270,7 @@ class MockStripeClient:
             self._subscription.cancel_at_period_end = False
         return self._subscription
 
-    def list_invoices(self, customer_id: str, limit: int = 10) -> List[dict]:
+    def list_invoices(self, customer_id: str, limit: int = 10) -> list[dict]:
         return self._invoices[:limit]
 
 
@@ -278,11 +278,11 @@ class MockUserStore:
     """Mock user store for billing tests."""
 
     def __init__(self):
-        self._users: Dict[str, MockUser] = {}
-        self._orgs: Dict[str, MockOrganization] = {}
-        self._orgs_by_subscription: Dict[str, MockOrganization] = {}
-        self._orgs_by_customer: Dict[str, MockOrganization] = {}
-        self._audit_log: List[dict] = []
+        self._users: dict[str, MockUser] = {}
+        self._orgs: dict[str, MockOrganization] = {}
+        self._orgs_by_subscription: dict[str, MockOrganization] = {}
+        self._orgs_by_customer: dict[str, MockOrganization] = {}
+        self._audit_log: list[dict] = []
 
     def add_user(self, user: MockUser):
         self._users[user.id] = user
@@ -332,7 +332,7 @@ class MockUserStore:
         resource_type: str = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[dict]:
+    ) -> list[dict]:
         entries = self._audit_log
         if org_id:
             entries = [e for e in entries if e.get("org_id") == org_id]
@@ -363,7 +363,7 @@ class MockAuthContext:
         is_authenticated: bool = True,
         org_id: Optional[str] = None,
         role: str = "member",
-        permissions: Optional[List[str]] = None,
+        permissions: Optional[list[str]] = None,
         error_reason: Optional[str] = None,
     ):
         self.user_id = user_id

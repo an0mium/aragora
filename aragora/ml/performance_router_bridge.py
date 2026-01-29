@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SyncResult:
     """Result of a performance sync operation."""
@@ -45,6 +46,7 @@ class SyncResult:
     records_added: int
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     agents_updated: list[str] = field(default_factory=list)
+
 
 @dataclass
 class PerformanceRouterBridgeConfig:
@@ -67,6 +69,7 @@ class PerformanceRouterBridgeConfig:
 
     # Auto-sync interval (number of calls between syncs)
     auto_sync_interval: int = 20
+
 
 @dataclass
 class PerformanceRouterBridge:
@@ -352,6 +355,7 @@ class PerformanceRouterBridge:
             "agents_tracked": len(self._last_sync_counts),
         }
 
+
 def create_performance_router_bridge(
     performance_monitor: Optional["AgentPerformanceMonitor"] = None,
     agent_router: Optional["AgentRouter"] = None,
@@ -380,6 +384,7 @@ def create_performance_router_bridge(
         bridge.enable_auto_sync()
 
     return bridge
+
 
 __all__ = [
     "PerformanceRouterBridge",

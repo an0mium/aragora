@@ -3,6 +3,7 @@
 This module provides context managers and utilities for operations that
 need timeout protection, particularly for thread synchronization primitives.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,6 +15,7 @@ T = TypeVar("T")
 
 # Default timeout for lock acquisition (seconds)
 DEFAULT_LOCK_TIMEOUT = 30.0
+
 
 @contextmanager
 def timed_lock(
@@ -59,6 +61,7 @@ def timed_lock(
     finally:
         lock.release()
 
+
 @contextmanager
 def timed_rlock(
     lock: threading.RLock,
@@ -93,6 +96,7 @@ def timed_rlock(
     finally:
         lock.release()
 
+
 async def async_timeout(
     coro: Awaitable[T],
     timeout: float = DEFAULT_LOCK_TIMEOUT,
@@ -119,6 +123,7 @@ async def async_timeout(
     except asyncio.TimeoutError:
         op_name = f" ({operation_name})" if operation_name else ""
         raise TimeoutError(f"Async operation{op_name} timed out after {timeout}s") from None
+
 
 __all__ = [
     "DEFAULT_LOCK_TIMEOUT",

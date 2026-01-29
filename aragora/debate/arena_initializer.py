@@ -38,6 +38,7 @@ except ImportError:
     PromptEvolver: Optional[type[Any]] = None  # type: ignore[no-redef]
     PROMPT_EVOLVER_AVAILABLE = False
 
+
 @dataclass
 class CoreComponents:
     """Container for core Arena components initialized by ArenaInitializer."""
@@ -91,6 +92,7 @@ class CoreComponents:
     ml_quality_gate: Any = None
     ml_consensus_estimator: Any = None
 
+
 @dataclass
 class TrackerComponents:
     """Container for tracking subsystems initialized by ArenaInitializer."""
@@ -117,6 +119,7 @@ class TrackerComponents:
     # Vertical personas
     vertical: Any = None  # Vertical enum
     vertical_persona_manager: Any = None  # VerticalPersonaManager
+
 
 class ArenaInitializer:
     """Handles Arena initialization to reduce orchestrator complexity."""

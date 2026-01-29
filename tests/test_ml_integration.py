@@ -34,8 +34,8 @@ class MockRoutingDecision:
 
     task_type: MagicMock
     confidence: float
-    selected_agents: List[str]
-    agent_scores: Dict[str, float]
+    selected_agents: list[str]
+    agent_scores: dict[str, float]
 
 
 @dataclass
@@ -56,8 +56,8 @@ class MockConsensusPrediction:
     early_termination_safe: bool
     needs_intervention: bool
     estimated_rounds: int
-    key_factors: List[str]
-    features: Dict[str, float]
+    key_factors: list[str]
+    features: dict[str, float]
 
 
 class TestMLIntegrationConfig:

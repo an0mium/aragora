@@ -45,6 +45,7 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
+
 class FineTuneTask(str, Enum):
     """Types of fine-tuning tasks."""
 
@@ -52,6 +53,7 @@ class FineTuneTask(str, Enum):
     INSTRUCTION = "instruction"  # Instruction following
     PREFERENCE = "preference"  # DPO/RLHF preference learning
     CLASSIFICATION = "classification"  # Text classification
+
 
 @dataclass
 class TrainingExample:
@@ -98,6 +100,7 @@ class TrainingExample:
             rejected=losing_response or "",
             metadata={"source": "debate"},
         )
+
 
 @dataclass
 class TrainingData:
@@ -179,6 +182,7 @@ class TrainingData:
 
         return data
 
+
 @dataclass
 class FineTuneConfig:
     """Configuration for fine-tuning."""
@@ -209,6 +213,7 @@ class FineTuneConfig:
     logging_steps: int = 10
     save_steps: int = 100
 
+
 @dataclass
 class FineTuneResult:
     """Result of fine-tuning."""
@@ -227,6 +232,7 @@ class FineTuneResult:
             "training_time_seconds": round(self.training_time_seconds, 2),
             "error": self.error,
         }
+
 
 class LocalFineTuner:
     """Local fine-tuning with PEFT/LoRA.
@@ -586,12 +592,14 @@ class LocalFineTuner:
             None, lambda: self.generate(prompt, max_new_tokens, temperature, top_p)
         )
 
+
 @dataclass
 class DPOConfig(FineTuneConfig):
     """Configuration for Direct Preference Optimization training."""
 
     beta: float = 0.1  # DPO beta parameter
     reference_free: bool = False
+
 
 class DPOFineTuner(LocalFineTuner):
     """Fine-tuner using Direct Preference Optimization.
@@ -706,6 +714,7 @@ class DPOFineTuner(LocalFineTuner):
                 error=str(e),
                 training_time_seconds=time.time() - start_time,
             )
+
 
 # Factory function
 def create_fine_tuner(

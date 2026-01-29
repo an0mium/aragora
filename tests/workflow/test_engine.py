@@ -244,7 +244,7 @@ class SimpleTestStep(BaseStep):
     """Simple step for testing."""
 
     def __init__(
-        self, name: str = "test", config: Dict[str, Any] = None, output_value: Any = "done"
+        self, name: str = "test", config: dict[str, Any] = None, output_value: Any = "done"
     ):
         super().__init__(name, config)
         self._output_value = output_value
@@ -256,7 +256,7 @@ class SimpleTestStep(BaseStep):
 class FailingStep(BaseStep):
     """Step that always fails for testing."""
 
-    def __init__(self, name: str = "failing", config: Dict[str, Any] = None):
+    def __init__(self, name: str = "failing", config: dict[str, Any] = None):
         super().__init__(name, config)
 
     async def execute(self, context: WorkflowContext) -> Any:
@@ -338,7 +338,7 @@ class TestWorkflowEngine:
         outputs = []
 
         class RecordingStep(BaseStep):
-            def __init__(self, name: str = "record", config: Dict[str, Any] = None, order: int = 1):
+            def __init__(self, name: str = "record", config: dict[str, Any] = None, order: int = 1):
                 super().__init__(name, config)
                 self._order = order
 
@@ -348,15 +348,15 @@ class TestWorkflowEngine:
 
         # Register steps - engine will pass name/config, we add order via subclass
         class Record1Step(RecordingStep):
-            def __init__(self, name: str = "record_1", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "record_1", config: dict[str, Any] = None):
                 super().__init__(name, config, order=1)
 
         class Record2Step(RecordingStep):
-            def __init__(self, name: str = "record_2", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "record_2", config: dict[str, Any] = None):
                 super().__init__(name, config, order=2)
 
         class Record3Step(RecordingStep):
-            def __init__(self, name: str = "record_3", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "record_3", config: dict[str, Any] = None):
                 super().__init__(name, config, order=3)
 
         engine.register_step_type("record_1", Record1Step)
@@ -405,7 +405,7 @@ class TestWorkflowEngine:
         received_inputs = {}
 
         class InputStep(BaseStep):
-            def __init__(self, name: str = "input_step", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "input_step", config: dict[str, Any] = None):
                 super().__init__(name, config)
 
             async def execute(self, context: WorkflowContext) -> Any:
@@ -437,14 +437,14 @@ class TestWorkflowEngine:
         """Test that step outputs are available to subsequent steps."""
 
         class ProducerStep(BaseStep):
-            def __init__(self, name: str = "producer", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "producer", config: dict[str, Any] = None):
                 super().__init__(name, config)
 
             async def execute(self, context: WorkflowContext) -> Any:
                 return {"value": 42}
 
         class ConsumerStep(BaseStep):
-            def __init__(self, name: str = "consumer", config: Dict[str, Any] = None):
+            def __init__(self, name: str = "consumer", config: dict[str, Any] = None):
                 super().__init__(name, config)
 
             async def execute(self, context: WorkflowContext) -> Any:

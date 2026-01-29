@@ -25,6 +25,7 @@ from typing import Any, Optional, Sequence
 from aragora.observability import (
     get_logger,
 )
+
 # Resilience
 from aragora.resilience_patterns import (
     get_circuit_breaker,
@@ -33,9 +34,8 @@ from aragora.resilience_patterns import (
 logger = get_logger(__name__)
 
 # Circuit breaker for Redis operations in registry
-_registry_redis_cb = get_circuit_breaker(
-    "registry_redis", failure_threshold=3, cooldown_seconds=30
-)
+_registry_redis_cb = get_circuit_breaker("registry_redis", failure_threshold=3, cooldown_seconds=30)
+
 
 class AgentStatus(Enum):
     """Agent lifecycle status."""
@@ -46,6 +46,7 @@ class AgentStatus(Enum):
     DRAINING = "draining"  # Agent is completing current task, no new tasks
     OFFLINE = "offline"  # Agent is not responding
     FAILED = "failed"  # Agent has failed
+
 
 class AgentCapability(Enum):
     """Standard agent capabilities."""
@@ -60,6 +61,7 @@ class AgentCapability(Enum):
     RESEARCH = "research"  # Can perform research tasks
     AUDIT = "audit"  # Can perform audits
     SUMMARIZE = "summarize"  # Can summarize content
+
 
 @dataclass
 class AgentInfo:
@@ -194,6 +196,7 @@ class AgentInfo:
             last_heartbeat_by_region=data.get("last_heartbeat_by_region", {}),
         )
 
+
 class AgentRegistry:
     """
     Redis-backed registry for agent service discovery.
@@ -258,9 +261,7 @@ class AgentRegistry:
 
         # Check circuit breaker before attempting Redis connection
         if not _registry_redis_cb.can_execute():
-            logger.warning(
-                "AgentRegistry Redis circuit breaker open, using in-memory fallback"
-            )
+            logger.warning("AgentRegistry Redis circuit breaker open, using in-memory fallback")
             self._redis = None
             return
 

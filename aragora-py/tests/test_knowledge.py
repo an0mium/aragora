@@ -183,7 +183,7 @@ class TestKnowledgeAPISearch:
 
         mock_client._get.assert_called_once_with(
             "/api/v1/knowledge/search",
-            params={"query": "capital of France", "limit": 10},
+            params={"q": "capital of France", "limit": 10},
         )
         assert len(results) == 1
         assert isinstance(results[0], KnowledgeSearchResult)
@@ -208,7 +208,7 @@ class TestKnowledgeAPISearch:
         mock_client._get.assert_called_once_with(
             "/api/v1/knowledge/search",
             params={
-                "query": "test query",
+                "q": "test query",
                 "limit": 20,
                 "min_score": 0.8,
                 "source": "wikipedia",
@@ -293,13 +293,18 @@ class TestKnowledgeAPIAdd:
         mock_client: MagicMock,
     ) -> None:
         """Test adding entry with minimal fields."""
-        mock_client._post.return_value = {"id": "entry-new", "created_at": "2026-01-01"}
+        mock_client._post.return_value = {
+            "id": "entry-new",
+            "statement": "New knowledge content",
+            "created_at": "2026-01-01",
+        }
 
         result = await knowledge_api.add("New knowledge content")
 
         call_body = mock_client._post.call_args[0][1]
-        assert call_body["content"] == "New knowledge content"
-        assert result["id"] == "entry-new"
+        assert call_body["statement"] == "New knowledge content"
+        assert isinstance(result, KnowledgeEntry)
+        assert result.id == "entry-new"
 
     @pytest.mark.asyncio
     async def test_add_full(
@@ -308,7 +313,10 @@ class TestKnowledgeAPIAdd:
         mock_client: MagicMock,
     ) -> None:
         """Test adding entry with all fields."""
-        mock_client._post.return_value = {"id": "entry-full"}
+        mock_client._post.return_value = {
+            "id": "entry-full",
+            "statement": "Full content",
+        }
 
         await knowledge_api.add(
             "Full content",
@@ -320,10 +328,9 @@ class TestKnowledgeAPIAdd:
         )
 
         call_body = mock_client._post.call_args[0][1]
-        assert call_body["content"] == "Full content"
-        assert call_body["source"] == "manual_entry"
-        assert call_body["source_type"] == "manual"
-        assert call_body["tags"] == ["test", "example"]
+        assert call_body["statement"] == "Full content"
+        assert call_body["source_documents"] == ["manual_entry"]
+        assert call_body["topics"] == ["test", "example"]
 
 
 class TestKnowledgeAPIGet:
@@ -341,7 +348,7 @@ class TestKnowledgeAPIGet:
 
         result = await knowledge_api.get("entry-123")
 
-        mock_client._get.assert_called_once_with("/api/v1/knowledge/entry-123")
+        mock_client._get.assert_called_once_with("/api/v1/knowledge/facts/entry-123")
         assert isinstance(result, KnowledgeEntry)
         assert result.id == "entry-123"
 
@@ -356,14 +363,14 @@ class TestKnowledgeAPIUpdate:
         mock_client: MagicMock,
         entry_response: dict[str, Any],
     ) -> None:
-        """Test updating entry content."""
+        """Test updating entry confidence."""
         mock_client._put.return_value = entry_response
 
-        result = await knowledge_api.update("entry-123", content="Updated content")
+        result = await knowledge_api.update("entry-123", confidence=0.99)
 
         mock_client._put.assert_called_once_with(
-            "/api/v1/knowledge/entry-123",
-            {"content": "Updated content"},
+            "/api/v1/knowledge/facts/entry-123",
+            {"confidence": 0.99},
         )
         assert isinstance(result, KnowledgeEntry)
 
@@ -379,16 +386,14 @@ class TestKnowledgeAPIUpdate:
 
         await knowledge_api.update(
             "entry-123",
-            content="New content",
             metadata={"updated": True},
             tags=["new-tag"],
             confidence=0.99,
         )
 
         call_body = mock_client._put.call_args[0][1]
-        assert call_body["content"] == "New content"
         assert call_body["metadata"] == {"updated": True}
-        assert call_body["tags"] == ["new-tag"]
+        assert call_body["topics"] == ["new-tag"]
         assert call_body["confidence"] == 0.99
 
 
@@ -406,8 +411,8 @@ class TestKnowledgeAPIDelete:
 
         result = await knowledge_api.delete("entry-123")
 
-        mock_client._delete.assert_called_once_with("/api/v1/knowledge/entry-123")
-        assert result == {"deleted": True}
+        mock_client._delete.assert_called_once_with("/api/v1/knowledge/facts/entry-123")
+        assert result["deleted"] is True
 
 
 # =============================================================================
@@ -632,8 +637,11 @@ class TestKnowledgeAPIBulkImport:
         knowledge_api: KnowledgeAPI,
         mock_client: MagicMock,
     ) -> None:
-        """Test bulk import with defaults."""
-        mock_client._post.return_value = {"imported": 10, "skipped": 2}
+        """Test bulk import with defaults (sequential add calls)."""
+        mock_client._post.return_value = {
+            "id": "new-fact",
+            "statement": "Fact content",
+        }
         entries = [
             {"content": "Fact 1"},
             {"content": "Fact 2"},
@@ -641,11 +649,9 @@ class TestKnowledgeAPIBulkImport:
 
         result = await knowledge_api.bulk_import(entries)
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/knowledge/bulk-import",
-            {"entries": entries, "skip_duplicates": True},
-        )
-        assert result["imported"] == 10
+        assert mock_client._post.call_count == 2
+        assert result["imported"] == 2
+        assert result["skip_duplicates"] is True
 
     @pytest.mark.asyncio
     async def test_bulk_import_no_skip(
@@ -654,14 +660,16 @@ class TestKnowledgeAPIBulkImport:
         mock_client: MagicMock,
     ) -> None:
         """Test bulk import without skipping duplicates."""
-        mock_client._post.return_value = {"imported": 5, "errors": 0}
+        mock_client._post.return_value = {
+            "id": "new-fact",
+            "statement": "Entry content",
+        }
 
-        await knowledge_api.bulk_import(
+        result = await knowledge_api.bulk_import(
             [{"content": "Entry"}],
             skip_duplicates=False,
         )
 
-        mock_client._post.assert_called_once_with(
-            "/api/v1/knowledge/bulk-import",
-            {"entries": [{"content": "Entry"}], "skip_duplicates": False},
-        )
+        assert mock_client._post.call_count == 1
+        assert result["imported"] == 1
+        assert result["skip_duplicates"] is False

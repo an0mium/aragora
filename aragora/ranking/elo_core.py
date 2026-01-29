@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 DEFAULT_ELO = ELO_INITIAL_RATING
 K_FACTOR = ELO_K_FACTOR
 
+
 def expected_score(elo_a: float, elo_b: float) -> float:
     """
     Calculate expected score for player A against player B.
@@ -35,6 +36,7 @@ def expected_score(elo_a: float, elo_b: float) -> float:
         Expected score for player A (0.0 to 1.0)
     """
     return 1 / (1 + 10 ** ((elo_b - elo_a) / 400))
+
 
 def calculate_new_elo(
     current_elo: float,
@@ -58,6 +60,7 @@ def calculate_new_elo(
         New ELO rating
     """
     return current_elo + k * (actual - expected)
+
 
 def calculate_pairwise_elo_changes(
     participants: list[str],
@@ -127,6 +130,7 @@ def calculate_pairwise_elo_changes(
 
     return elo_changes
 
+
 def apply_elo_changes(
     elo_changes: dict[str, float],
     ratings: dict[str, "AgentRating"],
@@ -182,6 +186,7 @@ def apply_elo_changes(
 
     return ratings_to_save, history_entries
 
+
 def calculate_win_probability(elo_a: float, elo_b: float) -> float:
     """
     Calculate probability that player A beats player B.
@@ -197,6 +202,7 @@ def calculate_win_probability(elo_a: float, elo_b: float) -> float:
         Probability of A winning (0.0 to 1.0)
     """
     return expected_score(elo_a, elo_b)
+
 
 def elo_diff_for_probability(target_probability: float) -> float:
     """
@@ -219,6 +225,7 @@ def elo_diff_for_probability(target_probability: float) -> float:
     import math
 
     return 400 * math.log10(target_probability / (1 - target_probability))
+
 
 __all__ = [
     "DEFAULT_ELO",

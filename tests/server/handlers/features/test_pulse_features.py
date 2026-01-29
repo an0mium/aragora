@@ -45,7 +45,7 @@ def _parse_result(result):
 
 def _make_handler(
     *,
-    headers: Optional[Dict[str, str]] = None,
+    headers: Optional[dict[str, str]] = None,
     rfile: Optional[BytesIO] = None,
     content_length: int = 0,
 ):

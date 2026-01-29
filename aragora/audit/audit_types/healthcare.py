@@ -29,6 +29,7 @@ from aragora.audit.document_auditor import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PHIPattern:
     """A pattern for detecting Protected Health Information."""
@@ -39,6 +40,7 @@ class PHIPattern:
     severity: FindingSeverity
     description: str
     hipaa_reference: str
+
 
 # HIPAA 18 PHI Identifiers
 PHI_PATTERNS = [
@@ -164,6 +166,7 @@ CLINICAL_PATTERNS = [
     ),
 ]
 
+
 @dataclass
 class HIPAAViolation:
     """Represents a potential HIPAA violation."""
@@ -173,6 +176,7 @@ class HIPAAViolation:
     description: str
     severity: FindingSeverity
     remediation: str
+
 
 # Common HIPAA violations to check
 HIPAA_VIOLATIONS = [
@@ -205,6 +209,7 @@ HIPAA_VIOLATIONS = [
         remediation="Follow breach notification procedures within 60 days",
     ),
 ]
+
 
 class HealthcareAuditor(BaseAuditor):
     """
@@ -442,6 +447,7 @@ If no issues, respond with: []"""
 
         return unique_findings
 
+
 class PHIDetector:
     """
     Standalone PHI detector for quick scanning.
@@ -495,5 +501,6 @@ class PHIDetector:
             redacted = redacted[:start] + f"[{name} REDACTED]" + redacted[end:]
 
         return redacted
+
 
 __all__ = ["HealthcareAuditor", "PHIDetector", "PHI_PATTERNS"]

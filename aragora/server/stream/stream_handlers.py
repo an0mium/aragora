@@ -16,6 +16,7 @@ Handlers are organized by domain:
 - Replays (debate replay generation)
 - Debate control (start debate)
 """
+
 from __future__ import annotations
 
 import json
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from aragora.visualization.mapper import ArgumentCartographer
 
 logger = logging.getLogger(__name__)
+
 
 class StreamAPIHandlersMixin:
     """
@@ -1065,5 +1067,6 @@ class StreamAPIHandlersMixin:
                 status=500,
                 headers=self._cors_headers(origin),
             )
+
 
 __all__ = ["StreamAPIHandlersMixin"]

@@ -35,6 +35,7 @@ _loaders_context: contextvars.ContextVar[Optional["DebateLoaders"]] = contextvar
     "debate_loaders", default=None
 )
 
+
 @dataclass
 class ELORating:
     """ELO rating data for an agent."""
@@ -46,6 +47,7 @@ class ELORating:
     losses: int
     last_updated: str | None = None
 
+
 @dataclass
 class AgentStats:
     """Aggregated statistics for an agent."""
@@ -56,6 +58,7 @@ class AgentStats:
     avg_confidence: float
     avg_response_time_ms: float
     domains: list[str]
+
 
 class DebateLoaders:
     """
@@ -285,9 +288,11 @@ class DebateLoaders:
             self._token = None
         self.clear()
 
+
 def get_debate_loaders() -> DebateLoaders | None:
     """Get the current request-scoped debate loaders."""
     return _loaders_context.get()
+
 
 @contextmanager
 def debate_loader_context(
@@ -320,6 +325,7 @@ def debate_loader_context(
     )
     with loaders:
         yield loaders
+
 
 __all__ = [
     "DebateLoaders",

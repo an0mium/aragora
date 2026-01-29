@@ -27,10 +27,12 @@ from aragora.nomic.hook_queue import HookQueue
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ReviewResult:
     approved: bool
     notes: str
+
 
 class GastownConvoyExecutor:
     """Execute ImplementPlan tasks via Gastown-style convoys and beads."""
@@ -435,5 +437,6 @@ Be concise. If unsure, choose APPROVE and note uncertainty.
         name = getattr(wrapped, "name", "").lower()
         cls_name = wrapped.__class__.__name__.lower()
         return "codex" in name or "codex" in cls_name
+
 
 __all__ = ["GastownConvoyExecutor"]

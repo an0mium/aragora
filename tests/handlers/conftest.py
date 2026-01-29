@@ -220,14 +220,14 @@ class MockAgentInfo:
     """Mock agent info."""
 
     agent_id: str
-    capabilities: List[str]
+    capabilities: list[str]
     model: str
     provider: str
     status: AgentStatus
     last_heartbeat: datetime
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "capabilities": self.capabilities,
@@ -245,17 +245,17 @@ class MockTask:
 
     task_id: str
     task_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: TaskStatus
     priority: TaskPriority
-    required_capabilities: List[str]
+    required_capabilities: list[str]
     assigned_agent: Optional[str]
     result: Optional[Any]
     error: Optional[str]
     created_at: datetime
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "task_id": self.task_id,
             "task_type": self.task_type,
@@ -281,7 +281,7 @@ class MockHealthCheck:
     latency_ms: float
     error_rate: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "status": self.status.value,
@@ -295,19 +295,19 @@ class MockCoordinator:
     """Mock control plane coordinator for testing."""
 
     def __init__(self):
-        self._agents: Dict[str, MockAgentInfo] = {}
-        self._tasks: Dict[str, MockTask] = {}
-        self._health: Dict[str, MockHealthCheck] = {}
+        self._agents: dict[str, MockAgentInfo] = {}
+        self._tasks: dict[str, MockTask] = {}
+        self._health: dict[str, MockHealthCheck] = {}
         self._health_monitor = MagicMock()
         self._health_monitor.get_all_health.return_value = {}
 
     async def register_agent(
         self,
         agent_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         model: str,
         provider: str,
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ) -> MockAgentInfo:
         """Register an agent."""
         agent = MockAgentInfo(
@@ -337,7 +337,7 @@ class MockCoordinator:
         self,
         capability: Optional[str] = None,
         only_available: bool = True,
-    ) -> List[MockAgentInfo]:
+    ) -> list[MockAgentInfo]:
         """List agents."""
         agents = list(self._agents.values())
         if capability:
@@ -359,11 +359,11 @@ class MockCoordinator:
     async def submit_task(
         self,
         task_type: str,
-        payload: Dict[str, Any],
-        required_capabilities: List[str] = None,
+        payload: dict[str, Any],
+        required_capabilities: list[str] = None,
         priority: TaskPriority = TaskPriority.NORMAL,
         timeout_seconds: Optional[int] = None,
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ) -> str:
         """Submit a task."""
         import uuid
@@ -392,7 +392,7 @@ class MockCoordinator:
     async def claim_task(
         self,
         agent_id: str,
-        capabilities: List[str],
+        capabilities: list[str],
         block_ms: int = 5000,
     ) -> Optional[MockTask]:
         """Claim a task for an agent."""
@@ -465,7 +465,7 @@ class MockCoordinator:
         """Get agent health."""
         return self._health.get(agent_id)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get control plane statistics."""
         return {
             "agents": {
@@ -491,15 +491,15 @@ class MockRequest:
         self,
         method: str = "GET",
         path: str = "/",
-        query: Optional[Dict[str, str]] = None,
-        body: Optional[Dict[str, Any]] = None,
+        query: Optional[dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
     ):
         self.method = method
         self.path = path
         self.query = query or {}
         self._body = body
 
-    async def json(self) -> Dict[str, Any]:
+    async def json(self) -> dict[str, Any]:
         """Get JSON body."""
         return self._body or {}
 
@@ -513,7 +513,7 @@ class MockRequest:
 class MockHandler:
     """Mock HTTP handler for testing."""
 
-    def __init__(self, body: Optional[Dict[str, Any]] = None):
+    def __init__(self, body: Optional[dict[str, Any]] = None):
         self.rfile = MagicMock()
         self._body = body
         if body:
@@ -540,8 +540,8 @@ def mock_request():
     def _create_request(
         method: str = "GET",
         path: str = "/",
-        query: Optional[Dict[str, str]] = None,
-        body: Optional[Dict[str, Any]] = None,
+        query: Optional[dict[str, str]] = None,
+        body: Optional[dict[str, Any]] = None,
     ) -> MockRequest:
         return MockRequest(method=method, path=path, query=query, body=body)
 
@@ -552,7 +552,7 @@ def mock_request():
 def mock_handler():
     """Factory for creating mock handlers."""
 
-    def _create_handler(body: Optional[Dict[str, Any]] = None) -> MockHandler:
+    def _create_handler(body: Optional[dict[str, Any]] = None) -> MockHandler:
         return MockHandler(body=body)
 
     return _create_handler

@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class EmailCategory(Enum):
     """Email category types for smart folders."""
 
@@ -56,6 +57,7 @@ class EmailCategory(Enum):
     SOCIAL = "social"  # Social media notifications
     UNCATEGORIZED = "uncategorized"  # Default
 
+
 @dataclass
 class CategoryPattern:
     """Pattern definition for category detection."""
@@ -63,6 +65,7 @@ class CategoryPattern:
     pattern: str
     weight: float = 1.0
     field: str = "all"  # "subject", "body", "from", "all"
+
 
 # Category detection patterns
 CATEGORY_PATTERNS: dict[EmailCategory, list[CategoryPattern]] = {
@@ -207,6 +210,7 @@ SENDER_DOMAIN_CATEGORIES: dict[str, EmailCategory] = {
     "square.com": EmailCategory.INVOICES,
 }
 
+
 @dataclass
 class CategorizationResult:
     """Result of email categorization."""
@@ -235,6 +239,7 @@ class CategorizationResult:
             "rationale": self.rationale,
         }
 
+
 @dataclass
 class EmailCategorizerConfig:
     """Configuration for email categorizer."""
@@ -254,6 +259,7 @@ class EmailCategorizerConfig:
     enabled_categories: set[EmailCategory] = field(
         default_factory=lambda: {cat for cat in EmailCategory if cat != EmailCategory.UNCATEGORIZED}
     )
+
 
 class EmailCategorizer:
     """
@@ -561,6 +567,7 @@ class EmailCategorizer:
         stats["confidence_avg"] = sum(r.confidence for r in results) / len(results)
 
         return stats
+
 
 # Convenience function for quick categorization
 async def categorize_email_quick(

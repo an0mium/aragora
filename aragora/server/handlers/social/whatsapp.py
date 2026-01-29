@@ -38,6 +38,7 @@ from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
 
+
 def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
     """Handle exceptions from fire-and-forget async tasks."""
     if task.cancelled():
@@ -46,11 +47,13 @@ def _handle_task_exception(task: asyncio.Task[Any], task_name: str) -> None:
         exc = task.exception()
         logger.error(f"Task {task_name} failed with exception: {exc}", exc_info=exc)
 
+
 def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create an async task with exception logging."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: _handle_task_exception(t, name))
     return task
+
 
 from ..base import (
     BaseHandler,
@@ -117,6 +120,7 @@ if not WHATSAPP_VERIFY_TOKEN:
 if not WHATSAPP_APP_SECRET:
     logger.warning("WHATSAPP_APP_SECRET not configured - signature verification disabled")
 
+
 class WhatsAppHandler(BaseHandler):
     """Handler for WhatsApp Business API integration endpoints."""
 
@@ -172,9 +176,7 @@ class WhatsAppHandler(BaseHandler):
 
         return None
 
-    def handle(
-        self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Route WhatsApp requests to appropriate methods."""
         logger.debug(f"WhatsApp request: {path} {handler.command}")
 
@@ -1245,8 +1247,10 @@ class WhatsAppHandler(BaseHandler):
         except Exception as e:
             logger.error(f"Error sending WhatsApp voice message: {e}")
 
+
 # Export handler factory
 _whatsapp_handler: Optional["WhatsAppHandler"] = None
+
 
 def get_whatsapp_handler(server_context: dict | None = None) -> "WhatsAppHandler":
     """Get or create the WhatsApp handler instance."""
@@ -1256,5 +1260,6 @@ def get_whatsapp_handler(server_context: dict | None = None) -> "WhatsAppHandler
             server_context = {}
         _whatsapp_handler = WhatsAppHandler(server_context)  # type: ignore[arg-type]
     return _whatsapp_handler
+
 
 __all__ = ["WhatsAppHandler", "get_whatsapp_handler"]

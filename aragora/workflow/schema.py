@@ -46,12 +46,14 @@ except ImportError:
     PYDANTIC_AVAILABLE = False
     BaseModel = object  # type: ignore[misc,assignment]
 
+
 class ValidationSeverity(Enum):
     """Severity levels for validation messages."""
 
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
+
 
 @dataclass
 class ValidationMessage:
@@ -66,6 +68,7 @@ class ValidationMessage:
         prefix = f"[{self.severity.value.upper()}]"
         location = f" at {self.path}" if self.path else ""
         return f"{prefix}{location}: {self.message}"
+
 
 @dataclass
 class ValidationResult:
@@ -118,6 +121,7 @@ class ValidationResult:
             )
         )
 
+
 # Valid step types
 VALID_STEP_TYPES = {
     "agent",
@@ -154,6 +158,7 @@ VALID_TASK_TYPES = {
     "validate",
     "aggregate",
 }
+
 
 class WorkflowValidator:
     """
@@ -596,6 +601,7 @@ class WorkflowValidator:
                     "INVALID_TIMEOUT",
                 )
 
+
 def validate_workflow(workflow: dict[str, Any] | str) -> ValidationResult:
     """
     Validate a workflow definition.
@@ -627,6 +633,7 @@ def validate_workflow(workflow: dict[str, Any] | str) -> ValidationResult:
     validator = WorkflowValidator()
     return validator.validate(workflow_dict)
 
+
 def validate_workflow_file(path: str) -> ValidationResult:
     """
     Validate a workflow from a file.
@@ -649,6 +656,7 @@ def validate_workflow_file(path: str) -> ValidationResult:
         result = ValidationResult(valid=False)
         result.add_error(f"Error reading file: {e}", "", "READ_ERROR")
         return result
+
 
 # Pydantic schemas for stricter validation (if available)
 if PYDANTIC_AVAILABLE:
@@ -749,6 +757,7 @@ if PYDANTIC_AVAILABLE:
                         raise ValueError(f"Step '{step.id}' references unknown: {next_id}")
 
             return self
+
 
 __all__ = [
     "ValidationSeverity",

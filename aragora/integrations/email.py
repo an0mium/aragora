@@ -25,6 +25,7 @@ Usage:
         ses_region="us-east-1"
     ))
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,6 +55,7 @@ import threading
 _circuit_breakers: dict[str, Any] = {}
 _circuit_breakers_lock = threading.Lock()
 
+
 def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: float = 60.0) -> Any:
     """Get or create circuit breaker for email provider (thread-safe)."""
     # Quick check without lock for common case (circuit breaker already exists)
@@ -78,12 +80,14 @@ def _get_email_circuit_breaker(provider: str, threshold: int = 5, cooldown: floa
                 _circuit_breakers[provider] = None
     return _circuit_breakers.get(provider)
 
+
 class EmailProvider(Enum):
     """Email service provider."""
 
     SMTP = "smtp"
     SENDGRID = "sendgrid"
     SES = "ses"
+
 
 @dataclass
 class EmailConfig:
@@ -170,6 +174,7 @@ class EmailConfig:
         """Get the email provider enum."""
         return EmailProvider(self.provider)
 
+
 @dataclass
 class EmailRecipient:
     """An email recipient."""
@@ -184,6 +189,7 @@ class EmailRecipient:
         if self.name:
             return f"{self.name} <{self.email}>"
         return self.email
+
 
 class EmailIntegration:
     """
@@ -1030,6 +1036,7 @@ class EmailIntegration:
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Async context manager exit."""
         await self.close()
+
 
 __all__ = [
     "EmailConfig",

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class TokenBucket:
     """
     Thread-safe token bucket rate limiter.
@@ -71,6 +72,7 @@ class TokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens (approximate, no lock)."""
         return max(0, int(self.tokens))
+
 
 class RedisTokenBucket:
     """
@@ -205,5 +207,6 @@ class RedisTokenBucket:
         except Exception as e:
             logger.debug(f"Error getting remaining tokens, defaulting to burst_size: {e}")
             return self.burst_size
+
 
 __all__ = ["TokenBucket", "RedisTokenBucket"]

@@ -26,6 +26,7 @@ from aragora.verticals.config import (
 
 logger = logging.getLogger(__name__)
 
+
 class VerticalSpecialistAgent(APIAgent):
     """
     Base class for vertical specialist agents.

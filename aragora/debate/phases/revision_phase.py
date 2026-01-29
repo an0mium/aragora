@@ -4,6 +4,7 @@ Revision phase module for debate rounds.
 Handles parallel revision generation with bounded concurrency.
 This module is extracted from debate_rounds.py for better modularity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Base timeout for the entire revision phase gather (prevents indefinite stalls)
 REVISION_PHASE_BASE_TIMEOUT = 120.0
 
+
 def calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     """Calculate dynamic phase timeout based on agent count.
 
@@ -45,6 +47,7 @@ def calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     # Add 60s buffer for gather overhead and safety margin
     calculated = (num_agents / MAX_CONCURRENT_REVISIONS) * agent_timeout + 60.0
     return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
+
 
 class RevisionGenerator:
     """

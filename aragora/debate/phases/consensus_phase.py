@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ConsensusDependencies:
     """Core dependencies for consensus phase execution.
@@ -65,6 +66,7 @@ class ConsensusDependencies:
     recorder: Any = None
     hooks: dict = field(default_factory=dict)
     user_votes: list = field(default_factory=list)
+
 
 @dataclass
 class ConsensusCallbacks:
@@ -87,6 +89,7 @@ class ConsensusCallbacks:
     get_belief_analyzer: Callable | None = None
     user_vote_multiplier: Callable | None = None
     verify_claims: Callable | None = None  # Optional verification callback
+
 
 class ConsensusPhase:
     """

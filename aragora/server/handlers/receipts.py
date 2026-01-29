@@ -50,6 +50,7 @@ from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
+
 class ReceiptsHandler(BaseHandler):
     """
     HTTP handler for decision receipt operations.
@@ -1091,6 +1092,7 @@ class ReceiptsHandler(BaseHandler):
             pass
 
         return None
+
 
 # Handler factory function for registration
 def create_receipts_handler(server_context: ServerContext) -> ReceiptsHandler:

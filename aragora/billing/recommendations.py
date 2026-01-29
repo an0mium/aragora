@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Any, Optional
 from uuid import uuid4
 
+
 class RecommendationType(str, Enum):
     """Types of cost optimization recommendations."""
 
@@ -26,6 +27,7 @@ class RecommendationType(str, Enum):
     TIME_SHIFTING = "time_shifting"  # Shift load to off-peak
     QUOTA_ADJUSTMENT = "quota_adjustment"  # Adjust usage quotas
 
+
 class RecommendationPriority(str, Enum):
     """Priority levels for recommendations."""
 
@@ -33,6 +35,7 @@ class RecommendationPriority(str, Enum):
     HIGH = "high"  # Should implement soon
     MEDIUM = "medium"  # Good to have
     LOW = "low"  # Minor optimization
+
 
 class RecommendationStatus(str, Enum):
     """Status of a recommendation."""
@@ -42,6 +45,7 @@ class RecommendationStatus(str, Enum):
     DISMISSED = "dismissed"  # User dismissed
     EXPIRED = "expired"  # No longer applicable
     PARTIAL = "partial"  # Partially applied
+
 
 @dataclass
 class ModelAlternative:
@@ -55,6 +59,7 @@ class ModelAlternative:
     latency_multiplier: float  # 1.0 = same, 2.0 = 2x slower
     suitable_for: list[str] = field(default_factory=list)  # Task types
 
+
 @dataclass
 class CachingOpportunity:
     """Details about a caching opportunity."""
@@ -64,6 +69,7 @@ class CachingOpportunity:
     unique_queries: int
     repeat_count: int
     cache_strategy: str  # "exact", "semantic", "prefix"
+
 
 @dataclass
 class BatchingOpportunity:
@@ -75,6 +81,7 @@ class BatchingOpportunity:
     requests_per_hour: int
     latency_impact_ms: float
 
+
 @dataclass
 class ImplementationStep:
     """A step to implement a recommendation."""
@@ -84,6 +91,7 @@ class ImplementationStep:
     code_snippet: str | None = None
     config_change: Optional[dict[str, Any]] = None
     estimated_effort: str = "low"  # low, medium, high
+
 
 @dataclass
 class OptimizationRecommendation:
@@ -259,6 +267,7 @@ class OptimizationRecommendation:
         """Mark recommendation as dismissed."""
         self.status = RecommendationStatus.DISMISSED
 
+
 @dataclass
 class RecommendationSummary:
     """Summary of recommendations for a workspace."""
@@ -300,6 +309,7 @@ class RecommendationSummary:
             },
             "by_type": self.by_type,
         }
+
 
 __all__ = [
     "RecommendationType",

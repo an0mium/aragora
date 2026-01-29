@@ -60,7 +60,7 @@ class MockKnowledgeMound:
 class ValidHandler:
     """Handler that satisfies the protocol."""
 
-    ctx: Dict[str, Any] = {}
+    ctx: dict[str, Any] = {}
 
     def _get_mound(self) -> Optional[MockKnowledgeMound]:
         return MockKnowledgeMound()
@@ -69,7 +69,7 @@ class ValidHandler:
 class InvalidHandler:
     """Handler that does NOT satisfy the protocol (missing _get_mound)."""
 
-    ctx: Dict[str, Any] = {}
+    ctx: dict[str, Any] = {}
 
 
 class PartialHandler:
@@ -202,7 +202,7 @@ class TestStructuralTyping:
 
         # A class with ctx should have the attribute
         class WithCtx:
-            ctx: Dict[str, Any] = {"key": "value"}
+            ctx: dict[str, Any] = {"key": "value"}
 
             def _get_mound(self):
                 return None

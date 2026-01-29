@@ -34,6 +34,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class EncryptionMigration:
     """Handles migration of unencrypted data to encrypted format."""
 
@@ -517,6 +518,7 @@ class EncryptionMigration:
         logger.info("Rollback complete")
         return True
 
+
 def main():
     """Main entry point for CLI."""
     parser = argparse.ArgumentParser(description="Migrate unencrypted data to encrypted format")
@@ -567,6 +569,7 @@ def main():
 
     result = migration.run()
     sys.exit(0 if result["success"] else 1)
+
 
 if __name__ == "__main__":
     main()

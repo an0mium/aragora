@@ -38,7 +38,7 @@ class MockClaim:
     source_agent: str
     round: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "content": self.content,
@@ -56,7 +56,7 @@ class MockRelationship:
     target_id: str
     relationship_type: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "source_id": self.source_id,
             "target_id": self.target_id,
@@ -69,10 +69,10 @@ class MockExtractionResult:
     """Mock extraction result."""
 
     debate_id: str
-    claims: List[MockClaim]
-    relationships: List[MockRelationship]
+    claims: list[MockClaim]
+    relationships: list[MockRelationship]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "debate_id": self.debate_id,
             "claims": [c.to_dict() for c in self.claims],

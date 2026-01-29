@@ -22,6 +22,7 @@ from aragora.protocols.a2a.types import (
 
 logger = logging.getLogger(__name__)
 
+
 class TaskHandler:
     """Handler for a specific task type."""
 
@@ -34,6 +35,7 @@ class TaskHandler:
         self.capability = capability
         self.handler = handler
         self.stream_handler = stream_handler
+
 
 class A2AServer:
     """
@@ -514,6 +516,7 @@ class A2AServer:
                 },
             },
         }
+
 
 __all__ = [
     "A2AServer",

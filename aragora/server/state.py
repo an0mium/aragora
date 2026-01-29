@@ -4,6 +4,7 @@ Centralized server state management.
 Consolidates global state that was previously scattered across
 stream.py and unified_server.py to prevent inconsistencies.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -17,6 +18,7 @@ from typing import Any, Callable
 from aragora.config import DEFAULT_ROUNDS
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DebateState:
@@ -47,6 +49,7 @@ class DebateState:
             "subscriber_count": len(self.subscribers),
             "elapsed_seconds": time.time() - self.start_time,
         }
+
 
 class StateManager:
     """
@@ -389,8 +392,10 @@ class StateManager:
             "cleanup_counter": self._cleanup_counter,
         }
 
+
 # Use ServiceRegistry for singleton management
 from aragora.services import ServiceRegistry
+
 
 def get_state_manager() -> StateManager:
     """
@@ -406,6 +411,7 @@ def get_state_manager() -> StateManager:
         atexit.register(_shutdown_state_manager)
 
     return registry.resolve(StateManager)
+
 
 def _shutdown_state_manager() -> None:
     """Atexit handler to cleanup StateManager resources.
@@ -425,6 +431,7 @@ def _shutdown_state_manager() -> None:
     except Exception:
         # Silently ignore errors during shutdown - logging is disabled anyway
         pass
+
 
 def reset_state_manager() -> None:
     """

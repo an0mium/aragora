@@ -53,6 +53,7 @@ ANALYTICS_PERMISSION = "analytics:read"
 # Rate limiter for analytics endpoints (30 requests per minute - cached data)
 _analytics_limiter = RateLimiter(requests_per_minute=30)
 
+
 class AnalyticsHandler(SecureHandler):
     """Handler for analytics and metrics endpoints.
 

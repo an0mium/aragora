@@ -18,6 +18,7 @@ from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class ShutdownPhase:
     """A single phase in the shutdown sequence.
@@ -33,6 +34,7 @@ class ShutdownPhase:
     execute: Callable[[], Coroutine[Any, Any, None]]
     timeout: float = 5.0
     critical: bool = False
+
 
 class ShutdownSequence:
     """Orchestrates multi-phase graceful shutdown.
@@ -139,6 +141,7 @@ class ShutdownSequence:
             else:
                 logger.debug(f"Shutdown phase failed: {phase.name}: {e}")
             return False
+
 
 def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
     """Create the standard shutdown sequence for UnifiedServer.

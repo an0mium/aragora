@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Rate limiter for checkpoint endpoints (30 requests per minute)
 _checkpoint_limiter = RateLimiter(requests_per_minute=30)
 
+
 class CheckpointHandler(BaseHandler):
     """Handler for checkpoint management endpoints."""
 

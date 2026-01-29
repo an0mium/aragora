@@ -31,6 +31,7 @@ from typing import Any, Sequence
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EvidenceSource:
     """A source of evidence supporting a finding."""
@@ -58,6 +59,7 @@ class EvidenceSource:
             "url": self.url,
             "metadata": self.metadata,
         }
+
 
 @dataclass
 class EvidenceEnrichment:
@@ -97,6 +99,7 @@ class EvidenceEnrichment:
             "has_strong_evidence": self.has_strong_evidence,
         }
 
+
 @dataclass
 class EvidenceConfig:
     """Configuration for evidence collection."""
@@ -115,6 +118,7 @@ class EvidenceConfig:
     # Search settings
     search_window: int = 500  # Characters around finding to search
     max_parallel_searches: int = 5
+
 
 class FindingEvidenceCollector:
     """
@@ -594,6 +598,7 @@ class FindingEvidenceCollector:
 
         return occurrences
 
+
 # Convenience function
 async def enrich_finding_with_evidence(
     finding: Any,
@@ -613,6 +618,7 @@ async def enrich_finding_with_evidence(
     """
     collector = FindingEvidenceCollector(config=config)
     return await collector.enrich_finding(finding, document_content)
+
 
 __all__ = [
     "FindingEvidenceCollector",

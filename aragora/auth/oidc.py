@@ -65,6 +65,7 @@ try:
 except ImportError:
     HAS_HTTPX = False
 
+
 def _is_production_mode() -> bool:
     """Check if running in production mode.
 
@@ -75,6 +76,7 @@ def _is_production_mode() -> bool:
 
     env = os.environ.get("ARAGORA_ENV", "production").lower()
     return env not in ("development", "dev", "local", "test")
+
 
 def _allow_dev_auth_fallback() -> bool:
     """Check if dev auth fallback is explicitly allowed.
@@ -89,11 +91,13 @@ def _allow_dev_auth_fallback() -> bool:
         return False
     return os.environ.get("ARAGORA_ALLOW_DEV_AUTH_FALLBACK", "").lower() in ("1", "true", "yes")
 
+
 class OIDCError(SSOError):
     """OIDC-specific error."""
 
     def __init__(self, message: str, details: dict | None = None):
         super().__init__(message, "OIDC_ERROR", details)
+
 
 @dataclass
 class OIDCConfig(SSOConfig):
@@ -238,6 +242,7 @@ class OIDCConfig(SSOConfig):
 
         return errors
 
+
 # Well-known provider configurations
 PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
     "azure_ad": {
@@ -265,6 +270,7 @@ PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
         # GitHub doesn't use JWKS (uses opaque tokens)
     },
 }
+
 
 class OIDCProvider(SSOProvider):
     """
@@ -788,6 +794,7 @@ class OIDCProvider(SSOProvider):
         if params:
             return f"{end_session}?{urlencode(params)}"
         return end_session
+
 
 __all__ = [
     "OIDCError",

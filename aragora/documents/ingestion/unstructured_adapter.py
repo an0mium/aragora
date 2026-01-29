@@ -142,6 +142,7 @@ SUPPORTED_FORMATS: dict[str, dict[str, Any]] = {
     ".rb": {"mime": "application/x-ruby", "parser": "text"},
 }
 
+
 @dataclass
 class ParsedElement:
     """A single parsed element from a document."""
@@ -150,6 +151,7 @@ class ParsedElement:
     text: str
     page_number: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass
 class ParseResult:
@@ -164,6 +166,7 @@ class ParseResult:
     parser_used: str
     parse_duration_ms: int
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 class UnstructuredParser:
     """
@@ -525,6 +528,7 @@ class UnstructuredParser:
 
         return doc
 
+
 # Convenience functions
 def parse_document(
     content: bytes,
@@ -544,6 +548,7 @@ def parse_document(
     """
     parser = UnstructuredParser(enable_ocr=enable_ocr)
     return parser.parse(content, filename)
+
 
 def get_supported_formats() -> dict[str, Any]:
     """Get information about supported document formats."""
@@ -566,6 +571,7 @@ def get_supported_formats() -> dict[str, Any]:
         "max_size_mb": 100,  # With streaming support
     }
 
+
 def _check_format_available(ext: str) -> bool:
     """Check if a format is available for parsing."""
     if UNSTRUCTURED_AVAILABLE:
@@ -580,6 +586,7 @@ def _check_format_available(ext: str) -> bool:
         return True
 
     return False
+
 
 __all__ = [
     "UnstructuredParser",

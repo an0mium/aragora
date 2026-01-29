@@ -32,6 +32,7 @@ _dashboard_limiter = RateLimiter(requests_per_minute=60)
 # Permission required for dashboard access
 DASHBOARD_PERMISSION = "dashboard.read"
 
+
 class DashboardHandler(SecureHandler):
     """Handler for dashboard endpoint.
 
@@ -217,9 +218,7 @@ class DashboardHandler(SecureHandler):
     @ttl_cache(
         ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_debates", skip_first=True
     )
-    def _get_debates_dashboard(
-        self, domain: str | None, limit: int, hours: int
-    ) -> HandlerResult:
+    def _get_debates_dashboard(self, domain: str | None, limit: int, hours: int) -> HandlerResult:
         """Get consolidated debate metrics for dashboard.
 
         Args:
@@ -558,7 +557,9 @@ class DashboardHandler(SecureHandler):
                 activity["domains_active"] = list(domain_counts.keys())[:10]
 
                 if domain_counts:
-                    activity["most_active_domain"] = max(domain_counts, key=lambda k: domain_counts[k])
+                    activity["most_active_domain"] = max(
+                        domain_counts, key=lambda k: domain_counts[k]
+                    )
         except Exception as e:
             logger.warning("Recent activity error: %s: %s", type(e).__name__, e)
 

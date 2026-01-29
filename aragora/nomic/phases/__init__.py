@@ -12,12 +12,14 @@ Each phase handles a specific step of the self-improvement cycle:
 Note: Phase implementations are currently in the main NomicLoop class.
 This package provides type definitions and helpers for future extraction.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any, TypedDict
 
 logger = logging.getLogger(__name__)
+
 
 class PhaseResult(TypedDict, total=False):
     """Result from a phase execution."""
@@ -27,12 +29,14 @@ class PhaseResult(TypedDict, total=False):
     data: dict
     duration_seconds: float
 
+
 class ContextResult(PhaseResult):
     """Result from context gathering phase."""
 
     codebase_summary: str
     recent_changes: str
     open_issues: list[str]
+
 
 class DebateResult(PhaseResult):
     """Result from debate phase."""
@@ -42,6 +46,7 @@ class DebateResult(PhaseResult):
     confidence: float
     votes: list[tuple]
 
+
 class DesignResult(PhaseResult):
     """Result from design phase."""
 
@@ -49,11 +54,13 @@ class DesignResult(PhaseResult):
     files_affected: list[str]
     complexity_estimate: str
 
+
 class ImplementResult(PhaseResult):
     """Result from implement phase."""
 
     files_modified: list[str]
     diff_summary: str
+
 
 class VerifyResult(PhaseResult):
     """Result from verify phase."""
@@ -62,11 +69,13 @@ class VerifyResult(PhaseResult):
     test_output: str
     syntax_valid: bool
 
+
 class CommitResult(PhaseResult):
     """Result from commit phase."""
 
     commit_hash: str | None
     committed: bool
+
 
 class PhaseValidationError(Exception):
     """Raised when phase result validation fails."""
@@ -75,6 +84,7 @@ class PhaseValidationError(Exception):
         self.phase = phase
         self.recoverable = recoverable
         super().__init__(f"[{phase}] Validation failed: {message}")
+
 
 class PhaseValidator:
     """
@@ -231,6 +241,7 @@ class PhaseValidator:
 
         return result
 
+
 def validate_agents_list(agents: list[Any], min_agents: int = 1) -> tuple[bool, str]:
     """
     Validate that agents list is properly formed.
@@ -257,6 +268,7 @@ def validate_agents_list(agents: list[Any], min_agents: int = 1) -> tuple[bool, 
             return False, f"Agent at index {i} missing 'generate' method"
 
     return True, ""
+
 
 # Phase implementations
 from .commit import CommitPhase

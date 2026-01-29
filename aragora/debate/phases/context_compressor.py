@@ -5,6 +5,7 @@ Handles compressing debate context using RLM cognitive load limiter
 for long debates. This module is extracted from debate_rounds.py
 for better modularity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ DEFAULT_CALLBACK_TIMEOUT = 30.0
 # Minimum messages before compression is triggered
 MIN_MESSAGES_FOR_COMPRESSION = 10
 
+
 async def _with_callback_timeout(
     coro,
     timeout: float = DEFAULT_CALLBACK_TIMEOUT,
@@ -34,6 +36,7 @@ async def _with_callback_timeout(
     except asyncio.TimeoutError:
         logger.warning(f"Callback timed out after {timeout}s, using default")
         return default
+
 
 class ContextCompressor:
     """

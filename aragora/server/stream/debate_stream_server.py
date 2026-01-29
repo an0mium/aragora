@@ -63,6 +63,7 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 WS_MESSAGES_PER_SECOND = int(os.getenv("ARAGORA_WS_MSG_RATE", "10"))
 WS_MESSAGE_BURST_SIZE = int(os.getenv("ARAGORA_WS_MSG_BURST", "20"))
 
+
 class WebSocketMessageRateLimiter:
     """Per-connection message rate limiter using token bucket algorithm.
 
@@ -107,6 +108,7 @@ class WebSocketMessageRateLimiter:
             self._tokens -= 1.0
             return True
         return False
+
 
 class DebateStreamServer(ServerBase):
     """
@@ -1291,5 +1293,6 @@ class DebateStreamServer(ServerBase):
                 if close_tasks:
                     await asyncio.gather(*close_tasks, return_exceptions=True)
                 self.clients.clear()
+
 
 __all__ = ["DebateStreamServer"]

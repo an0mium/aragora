@@ -31,6 +31,7 @@ Usage:
     panel.record_vote("claude", JudgeVote.APPROVE, 0.9, "Well-reasoned")
     result = panel.get_result()
 """
+
 from __future__ import annotations
 
 import logging
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
+
 
 class JudgeProtocol(Protocol):
     """Protocol for judge selection configuration."""
@@ -67,6 +69,7 @@ class JudgeProtocol(Protocol):
         """Minimum rounds before judge can terminate."""
         ...
 
+
 @dataclass
 class JudgeScore:
     """Composite score for judge selection."""
@@ -75,6 +78,7 @@ class JudgeScore:
     elo_score: float
     calibration_score: float
     composite_score: float
+
 
 class JudgeScoringMixin:
     """Mixin providing scoring utilities for judge selection."""
@@ -166,6 +170,7 @@ class JudgeScoringMixin:
         scores.sort(key=lambda x: x.composite_score, reverse=True)
         return scores
 
+
 class JudgeSelectionStrategy(ABC):
     """Base class for judge selection strategies."""
 
@@ -188,6 +193,7 @@ class JudgeSelectionStrategy(ABC):
         """
         ...
 
+
 class LastAgentStrategy(JudgeSelectionStrategy):
     """Legacy strategy: use synthesizer or last agent."""
 
@@ -203,6 +209,7 @@ class LastAgentStrategy(JudgeSelectionStrategy):
             return synthesizers[0]
         return agents[-1] if agents else None
 
+
 class RandomStrategy(JudgeSelectionStrategy):
     """Random selection from all agents."""
 
@@ -214,6 +221,7 @@ class RandomStrategy(JudgeSelectionStrategy):
     ) -> "Agent":
         """Select a random agent as judge."""
         return random.choice(list(agents)) if agents else None
+
 
 class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select highest ELO-rated agent as judge."""
@@ -255,6 +263,7 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
 
         return random.choice(list(agents)) if agents else None
 
+
 class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select based on composite score (ELO + calibration)."""
 
@@ -282,6 +291,7 @@ class CalibratedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
                 return judge
 
         return random.choice(list(agents)) if agents else None
+
 
 class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
     """Select judges who historically dissented on debate cruxes.
@@ -424,6 +434,7 @@ class CruxAwareStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
             logger.debug(f"ELO ranking failed: {e}")
             return list(agents)
 
+
 class VotedStrategy(JudgeSelectionStrategy):
     """Agents vote on who should judge."""
 
@@ -486,6 +497,7 @@ class VotedStrategy(JudgeSelectionStrategy):
                 return winner
 
         return random.choice(list(agents)) if agents else None
+
 
 class JudgeSelector(JudgeScoringMixin):
     """
@@ -708,9 +720,11 @@ class JudgeSelector(JudgeScoringMixin):
             circuit_breaker=circuit_breaker,
         )
 
+
 # =============================================================================
 # Multi-Judge Panel System
 # =============================================================================
+
 
 class JudgingStrategy(Enum):
     """Strategy for aggregating multiple judge votes."""
@@ -720,12 +734,14 @@ class JudgingStrategy(Enum):
     UNANIMOUS = "unanimous"  # All judges must agree
     WEIGHTED = "weighted"  # Votes weighted by expertise/calibration
 
+
 class JudgeVote(Enum):
     """A judge's vote on consensus validity."""
 
     APPROVE = "approve"  # Consensus is valid
     REJECT = "reject"  # Consensus should be rejected
     ABSTAIN = "abstain"  # Cannot evaluate
+
 
 @dataclass
 class JudgeVoteRecord:
@@ -738,6 +754,7 @@ class JudgeVoteRecord:
     weight: float = 1.0  # For weighted voting
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     metadata: dict = field(default_factory=dict)
+
 
 @dataclass
 class JudgingResult:
@@ -775,6 +792,7 @@ class JudgingResult:
             "dissenting_judges": self.dissenting_judges,
             "abstaining_judges": self.abstaining_judges,
         }
+
 
 class JudgePanel:
     """
@@ -1289,6 +1307,7 @@ After deliberation, state your updated recommendation: APPROVE or REJECT
 Explain any changes in your reasoning.
 
 Deliberation response:"""
+
 
 def create_judge_panel(
     candidates: list["Agent"],

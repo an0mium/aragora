@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+
 class RegionStatus(Enum):
     """Health status of a region."""
 
@@ -49,6 +50,7 @@ class RegionStatus(Enum):
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
     UNKNOWN = "unknown"
+
 
 @dataclass
 class RegionHealth:
@@ -104,6 +106,7 @@ class RegionHealth:
 
         return max(0.0, score)
 
+
 @dataclass
 class RegionRoutingDecision:
     """Result of a region routing decision."""
@@ -114,6 +117,7 @@ class RegionRoutingDecision:
     health_scores: dict[str, float] = field(default_factory=dict)
     data_residency_compliant: bool = True
     latency_optimized: bool = False
+
 
 class RegionRouter:
     """
@@ -514,17 +518,21 @@ class RegionRouter:
             "recent_decisions": self._routing_history[-10:],
         }
 
+
 # Module-level singleton
 _region_router: RegionRouter | None = None
+
 
 def get_region_router() -> RegionRouter | None:
     """Get the global region router instance."""
     return _region_router
 
+
 def set_region_router(router: RegionRouter) -> None:
     """Set the global region router instance."""
     global _region_router
     _region_router = router
+
 
 def init_region_router(
     regional_event_bus: Optional["RegionalEventBus"] = None,
@@ -537,6 +545,7 @@ def init_region_router(
     )
     set_region_router(router)
     return router
+
 
 __all__ = [
     "RegionStatus",

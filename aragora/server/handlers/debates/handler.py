@@ -72,6 +72,7 @@ from ..utils.rate_limit import rate_limit, user_rate_limit
 
 logger = logging.getLogger(__name__)
 
+
 class DebatesHandler(
     AnalysisOperationsMixin,
     ExportOperationsMixin,
@@ -231,9 +232,7 @@ class DebatesHandler(
                 return True
         return False
 
-    def _check_artifact_access(
-        self, debate_id: str, suffix: str, handler
-    ) -> HandlerResult | None:
+    def _check_artifact_access(self, debate_id: str, suffix: str, handler) -> HandlerResult | None:
         """Check access to artifact endpoints.
 
         Returns None if access allowed, 401 error if auth required but missing.
@@ -454,9 +453,7 @@ class DebatesHandler(
         return debate_id, None
 
     @handle_errors("batch export")
-    def _handle_batch_export(
-        self, path: str, query_params: dict, handler
-    ) -> HandlerResult | None:
+    def _handle_batch_export(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route batch export requests to appropriate methods."""
         from aragora.server.http_utils import run_async
 

@@ -38,6 +38,7 @@ from aragora.storage.backends import (
 
 logger = logging.getLogger(__name__)
 
+
 class OrganizationStore:
     """
     Database-backed storage for organizations and invitations.
@@ -275,9 +276,7 @@ class OrganizationStore:
                 return self._row_to_org(row)
         return None
 
-    def get_organization_by_stripe_customer(
-        self, stripe_customer_id: str
-    ) -> Organization | None:
+    def get_organization_by_stripe_customer(self, stripe_customer_id: str) -> Organization | None:
         """Get organization by Stripe customer ID."""
         if self._backend is not None:
             row = self._backend.fetch_one(
@@ -779,12 +778,14 @@ class OrganizationStore:
             self._local.connection.close()
             del self._local.connection
 
+
 # =============================================================================
 # Singleton Instance
 # =============================================================================
 
 _organization_store: OrganizationStore | None = None
 _store_lock = threading.Lock()
+
 
 def get_organization_store(
     db_path: str = "organizations.db",
@@ -854,6 +855,7 @@ def get_organization_store(
                         "Configure Supabase or PostgreSQL.",
                     )
     return _organization_store
+
 
 def reset_organization_store() -> None:
     """Reset the singleton store (for testing)."""

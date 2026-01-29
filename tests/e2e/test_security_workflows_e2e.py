@@ -34,8 +34,8 @@ class MockUser:
 
     user_id: str
     email: str
-    roles: List[str]
-    permissions: List[str]
+    roles: list[str]
+    permissions: list[str]
     workspace_id: str = "default"
 
 
@@ -53,12 +53,12 @@ class MockAuthService:
     """Mock authentication service for testing."""
 
     def __init__(self):
-        self._users: Dict[str, MockUser] = {}
-        self._tokens: Dict[str, MockToken] = {}
-        self._refresh_tokens: Dict[str, str] = {}
-        self._failed_attempts: Dict[str, int] = {}
-        self._locked_accounts: Dict[str, float] = {}
-        self.audit_log: List[Dict[str, Any]] = []
+        self._users: dict[str, MockUser] = {}
+        self._tokens: dict[str, MockToken] = {}
+        self._refresh_tokens: dict[str, str] = {}
+        self._failed_attempts: dict[str, int] = {}
+        self._locked_accounts: dict[str, float] = {}
+        self.audit_log: list[dict[str, Any]] = []
 
         # Create default test users
         self._setup_test_users()
@@ -209,7 +209,7 @@ class MockAuthService:
         self._audit("logout", {"user_id": token_data.user_id})
         return True
 
-    def _audit(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _audit(self, event_type: str, data: dict[str, Any]) -> None:
         """Record audit event."""
         self.audit_log.append(
             {
@@ -229,12 +229,12 @@ class MockRBACService:
     """Mock RBAC service for testing."""
 
     def __init__(self):
-        self._role_permissions: Dict[str, List[str]] = {
+        self._role_permissions: dict[str, list[str]] = {
             "admin": ["read", "write", "delete", "admin", "manage_users"],
             "user": ["read", "write"],
             "viewer": ["read"],
         }
-        self._resource_policies: Dict[str, Dict[str, List[str]]] = {
+        self._resource_policies: dict[str, dict[str, list[str]]] = {
             "debates": {
                 "read": ["viewer", "user", "admin"],
                 "write": ["user", "admin"],
@@ -243,7 +243,7 @@ class MockRBACService:
             "users": {"read": ["admin"], "write": ["admin"], "delete": ["admin"]},
             "settings": {"read": ["admin"], "write": ["admin"]},
         }
-        self.audit_log: List[Dict[str, Any]] = []
+        self.audit_log: list[dict[str, Any]] = []
 
     async def check_permission(
         self,
@@ -319,7 +319,7 @@ class MockRBACService:
 
         return can_access
 
-    def _audit(self, event_type: str, data: Dict[str, Any]) -> None:
+    def _audit(self, event_type: str, data: dict[str, Any]) -> None:
         """Record audit event."""
         self.audit_log.append(
             {
@@ -340,7 +340,7 @@ class MockEncryptionService:
 
     def __init__(self):
         self._key = secrets.token_bytes(32)
-        self.operations: List[Dict[str, Any]] = []
+        self.operations: list[dict[str, Any]] = []
 
     def encrypt(self, data: bytes, associated_data: bytes = b"") -> bytes:
         """Encrypt data (simple XOR for testing)."""
