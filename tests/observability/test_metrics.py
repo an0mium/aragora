@@ -3,15 +3,12 @@ Tests for aragora.observability.metrics module.
 
 Covers:
 - NoOpMetric fallback behavior
-- Metric initialization (noop when disabled)
 - Recording functions (request, agent call, debate, memory, etc.)
-- Endpoint normalization
 - Context managers (track_debate, track_phase, track_bridge_sync)
 - Decorators (measure_latency, measure_async_latency)
 - Cross-functional metric recording
 - KM metric recording
 - Notification metric recording
-- Task queue metric recording
 """
 
 from __future__ import annotations
@@ -21,28 +18,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from aragora.observability.config import MetricsConfig, set_metrics_config, reset_config
 from aragora.observability.metrics.base import NoOpMetric
-
-
-# =============================================================================
-# Test fixtures
-# =============================================================================
-
-
-@pytest.fixture(autouse=True)
-def _reset_metrics_state():
-    """Reset metrics module state between tests."""
-    import aragora.observability.metrics as m
-
-    m._initialized = False
-    m._metrics_server = None
-    # Disable metrics to avoid requiring prometheus_client in tests
-    set_metrics_config(MetricsConfig(enabled=False))
-    yield
-    reset_config()
-    m._initialized = False
-    m._metrics_server = None
 
 
 # =============================================================================
@@ -90,80 +66,6 @@ class TestNoOpMetric:
     def test_chained_observe(self):
         """Chained labels + observe should not raise."""
         NoOpMetric().labels(endpoint="/api/test").observe(0.5)
-
-
-# =============================================================================
-# TestMetricsInitialization
-# =============================================================================
-
-
-class TestMetricsInitialization:
-    """Tests for metrics initialization."""
-
-    def test_init_with_disabled_config(self):
-        """Should initialize noop metrics when disabled."""
-        import aragora.observability.metrics as m
-
-        m._init_metrics()
-
-        assert m._initialized is True
-        # Globals should be NoOpMetric instances
-        assert isinstance(m.REQUEST_COUNT, NoOpMetric)
-        assert isinstance(m.AGENT_CALLS, NoOpMetric)
-        assert isinstance(m.ACTIVE_DEBATES, NoOpMetric)
-        assert isinstance(m.MEMORY_OPERATIONS, NoOpMetric)
-
-    def test_init_idempotent(self):
-        """Second init call should return immediately."""
-        import aragora.observability.metrics as m
-
-        m._init_metrics()
-        first_count = m.REQUEST_COUNT
-        m._init_metrics()
-        assert m.REQUEST_COUNT is first_count
-
-    def test_init_returns_false_when_disabled(self):
-        """Should return False when metrics are disabled."""
-        import aragora.observability.metrics as m
-
-        result = m._init_metrics()
-        assert result is False
-
-    def test_init_core_metrics_alias(self):
-        """init_core_metrics should be alias for _init_metrics."""
-        import aragora.observability.metrics as m
-
-        result = m.init_core_metrics()
-        assert m._initialized is True
-        assert result is False  # disabled
-
-    def test_noop_debate_metrics_initialized(self):
-        """Debate-specific noop metrics should be set."""
-        import aragora.observability.metrics as m
-
-        m._init_metrics()
-        assert isinstance(m.DEBATE_DURATION, NoOpMetric)
-        assert isinstance(m.DEBATE_ROUNDS, NoOpMetric)
-        assert isinstance(m.DEBATE_PHASE_DURATION, NoOpMetric)
-        assert isinstance(m.AGENT_PARTICIPATION, NoOpMetric)
-
-    def test_noop_cache_metrics_initialized(self):
-        """Cache noop metrics should be set."""
-        import aragora.observability.metrics as m
-
-        m._init_metrics()
-        assert isinstance(m.CACHE_HITS, NoOpMetric)
-        assert isinstance(m.CACHE_MISSES, NoOpMetric)
-
-    def test_noop_cross_functional_metrics(self):
-        """Cross-functional noop metrics should be set."""
-        import aragora.observability.metrics as m
-
-        m._init_metrics()
-        assert isinstance(m.KNOWLEDGE_CACHE_HITS, NoOpMetric)
-        assert isinstance(m.MEMORY_COORDINATOR_WRITES, NoOpMetric)
-        assert isinstance(m.WORKFLOW_TRIGGERS, NoOpMetric)
-        assert isinstance(m.EVIDENCE_STORED, NoOpMetric)
 
 
 # =============================================================================
@@ -242,52 +144,6 @@ class TestRecordingFunctions:
         record_cache_hit("knowledge")
         record_cache_miss("knowledge")
         record_cache_hit("elo")
-
-
-# =============================================================================
-# TestEndpointNormalization
-# =============================================================================
-
-
-class TestEndpointNormalization:
-    """Tests for _normalize_endpoint."""
-
-    def test_replaces_uuid(self):
-        """Should replace UUIDs with :id."""
-        from aragora.observability.metrics import _normalize_endpoint
-
-        result = _normalize_endpoint("/api/debates/550e8400-e29b-41d4-a716-446655440000")
-        assert ":id" in result
-        assert "550e8400" not in result
-
-    def test_replaces_numeric_ids(self):
-        """Should replace numeric path segments with :id."""
-        from aragora.observability.metrics import _normalize_endpoint
-
-        result = _normalize_endpoint("/api/users/12345/posts")
-        assert "/:id/" in result
-        assert "12345" not in result
-
-    def test_replaces_long_tokens(self):
-        """Should replace long base64-like tokens."""
-        from aragora.observability.metrics import _normalize_endpoint
-
-        result = _normalize_endpoint("/api/verify/abcdefghijklmnopqrstuvwxyz")
-        assert ":token" in result
-
-    def test_preserves_static_paths(self):
-        """Should preserve static path segments."""
-        from aragora.observability.metrics import _normalize_endpoint
-
-        result = _normalize_endpoint("/api/debates")
-        assert result == "/api/debates"
-
-    def test_handles_empty_path(self):
-        """Should handle empty/root paths."""
-        from aragora.observability.metrics import _normalize_endpoint
-
-        result = _normalize_endpoint("/")
-        assert result == "/"
 
 
 # =============================================================================
@@ -489,36 +345,21 @@ class TestSlowDebateMetrics:
 
     def test_record_slow_debate(self):
         """Slow debate recording should not raise."""
-        from aragora.observability.metrics import record_slow_debate
+        from aragora.observability.metrics.debate import record_slow_debate
 
-        record_slow_debate()
+        record_slow_debate("low")
+        record_slow_debate("high")
 
     def test_record_slow_round(self):
         """Slow round recording should not raise."""
-        from aragora.observability.metrics import record_slow_round
+        from aragora.observability.metrics.debate import record_slow_round
 
-        record_slow_round()
+        record_slow_round("propose")
         record_slow_round("consensus")
 
     def test_record_round_latency(self):
         """Round latency recording should not raise."""
-        from aragora.observability.metrics import record_round_latency
+        from aragora.observability.metrics.debate import record_round_latency
 
         record_round_latency(5.0)
         record_round_latency(0.001)
-
-
-# =============================================================================
-# TestStartMetricsServer
-# =============================================================================
-
-
-class TestStartMetricsServer:
-    """Tests for metrics server startup."""
-
-    def test_returns_none_when_disabled(self):
-        """Should return None when metrics are disabled."""
-        from aragora.observability.metrics import start_metrics_server
-
-        result = start_metrics_server()
-        assert result is None

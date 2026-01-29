@@ -633,6 +633,53 @@ class Arena:
         """Broadcast health events. Delegates to EventEmitter."""
         self._event_emitter.broadcast_health_event(event)
 
+    def _get_fabric_agents_sync(self, fabric: Any, fabric_config: Any) -> list:
+        """
+        Get agents from fabric pool synchronously.
+
+        This is a sync wrapper for use during __init__. For async contexts,
+        use FabricDebateRunner instead.
+
+        Args:
+            fabric: AgentFabric instance
+            fabric_config: FabricDebateConfig with pool_id
+
+        Returns:
+            List of FabricAgentAdapter instances that implement the Agent protocol
+        """
+        import asyncio
+
+        from aragora.debate.fabric_integration import FabricAgentAdapter
+
+        async def get_agents():
+            pool = await fabric.get_pool(fabric_config.pool_id)
+            if not pool:
+                raise ValueError(f"Pool {fabric_config.pool_id} not found")
+
+            max_agents = getattr(fabric_config, "max_agents", 10)
+            agents = []
+            for agent_id in pool.current_agents[:max_agents]:
+                adapter = FabricAgentAdapter(
+                    fabric=fabric,
+                    agent_id=agent_id,
+                    model=pool.model,
+                )
+                agents.append(adapter)
+            return agents
+
+        # Try to get existing event loop or create new one
+        try:
+            asyncio.get_running_loop()
+            # If we're in an async context, raise to use new_event_loop instead
+            raise RuntimeError("Cannot use sync helper in async context")
+        except RuntimeError:
+            # No running loop, create a new one
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(get_agents())
+            finally:
+                loop.close()
+
     def _init_user_participation(self) -> None:
         """Initialize user participation tracking and event subscription."""
         # Create AudienceManager for thread-safe event handling
