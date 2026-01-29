@@ -1228,7 +1228,7 @@ try:
         with_timeout_sync,
         # Circuit breaker v2
         BaseCircuitBreaker,
-        CircuitBreakerConfig,
+        CircuitBreakerConfig as CircuitBreakerConfigV2,
         CircuitState,
         with_circuit_breaker,
         # Health monitoring
@@ -1268,6 +1268,7 @@ try:
         "with_timeout_sync",
         "BaseCircuitBreaker",
         "CircuitBreakerConfig",
+        "CircuitBreakerConfigV2",
         "CircuitState",
         "with_circuit_breaker",
         "HealthChecker",
