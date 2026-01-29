@@ -68,6 +68,17 @@ from .capabilities import (
     smart_speaker_capabilities,
 )
 
+# HTTP Handlers - import separately to avoid circular imports
+from .handlers import (
+    MoltbotCanvasHandler,
+    MoltbotCapabilitiesHandler,
+    MoltbotGatewayHandler,
+    MoltbotInboxHandler,
+    MoltbotOnboardingHandler,
+    MoltbotVoiceHandler,
+    get_all_handlers,
+)
+
 __all__ = [
     # Models
     "Channel",
@@ -120,4 +131,12 @@ __all__ = [
     "mobile_app_capabilities",
     "smart_display_capabilities",
     "smart_speaker_capabilities",
+    # HTTP Handlers
+    "MoltbotCanvasHandler",
+    "MoltbotCapabilitiesHandler",
+    "MoltbotGatewayHandler",
+    "MoltbotInboxHandler",
+    "MoltbotOnboardingHandler",
+    "MoltbotVoiceHandler",
+    "get_all_handlers",
 ]

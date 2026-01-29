@@ -28,10 +28,8 @@ __all__ = [
     "MoltbotCanvasHandler",
     "MoltbotOnboardingHandler",
     "MoltbotCapabilitiesHandler",
+    "get_all_handlers",
 ]
-
-# Collect all routes for unified registration
-MOLTBOT_ROUTES = []
 
 
 def get_all_handlers():

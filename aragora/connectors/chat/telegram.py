@@ -96,6 +96,7 @@ from .models import (
     ChatUser,
     FileAttachment,
     InteractionType,
+    MessageButton,
     MessageType,
     SendMessageResponse,
     UserInteraction,
@@ -441,27 +442,40 @@ class TelegramConnector(ChatPlatformConnector):
 
         return success
 
-    async def upload_file(  # type: ignore[override]
+    async def upload_file(
         self,
         channel_id: str,
-        file_path: str,
-        filename: Optional[str] = None,
-        comment: Optional[str] = None,
+        content: bytes,
+        filename: str,
+        content_type: str = "application/octet-stream",
+        title: Optional[str] = None,
+        thread_id: Optional[str] = None,
         **kwargs: Any,
     ) -> FileAttachment:
         """Upload a file as a document.
 
         Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
+        Args:
+            channel_id: Target channel
+            content: File content as bytes
+            filename: Name of the file
+            content_type: MIME type
+            title: Optional display title (used as caption)
+            thread_id: Optional thread for the file (reply_to_message_id)
+            **kwargs: Additional options (comment alias for title)
         """
-        actual_filename = filename or file_path.split("/")[-1]
+        actual_filename = filename
+        file_content = content
+        # Support legacy 'comment' kwarg as alias for title
+        comment = kwargs.pop("comment", None) or title
 
-        with open(file_path, "rb") as f:
-            file_content = f.read()
-
-        files = {"document": (actual_filename, file_content)}
+        files = {"document": (actual_filename, file_content, content_type)}
         payload: dict[str, Any] = {"chat_id": channel_id}
         if comment:
             payload["caption"] = comment
+        if thread_id:
+            payload["reply_to_message_id"] = thread_id
 
         success, data, error = await self._telegram_api_request(
             "sendDocument",
@@ -731,21 +745,42 @@ class TelegramConnector(ChatPlatformConnector):
             metadata={"raw_data": query},
         )
 
-    async def send_voice_message(  # type: ignore[override]
+    async def send_voice_message(
         self,
         channel_id: str,
-        audio_data: bytes,
-        duration: Optional[int] = None,
+        audio_content: bytes,
+        filename: str = "voice_response.mp3",
+        content_type: str = "audio/mpeg",
+        reply_to: Optional[str] = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
         """Send a voice message.
 
         Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
+        Args:
+            channel_id: Target channel
+            audio_content: Audio file content as bytes
+            filename: Audio filename (default: voice_response.mp3)
+            content_type: MIME type (audio/mpeg, audio/ogg, etc.)
+            reply_to: Optional message ID to reply to
+            **kwargs: Additional options (duration for Telegram-specific duration)
         """
-        files = {"voice": ("voice.ogg", audio_data, "audio/ogg")}
+        # Telegram prefers .ogg for voice, but we accept what's given
+        # Map common content types to Telegram-friendly format
+        actual_content_type = content_type
+        actual_filename = filename
+        if content_type == "audio/mpeg" and not filename.endswith(".ogg"):
+            # Keep as-is, Telegram accepts various formats
+            pass
+
+        duration = kwargs.pop("duration", None)
+        files = {"voice": (actual_filename, audio_content, actual_content_type)}
         payload: dict[str, Any] = {"chat_id": channel_id}
         if duration:
             payload["duration"] = str(duration)
+        if reply_to:
+            payload["reply_to_message_id"] = reply_to
 
         success, data, error = await self._telegram_api_request(
             "sendVoice",
@@ -917,25 +952,47 @@ class TelegramConnector(ChatPlatformConnector):
     # Required Abstract Method Implementations
     # =========================================================================
 
-    def format_blocks(  # type: ignore[override]
+    def format_blocks(
         self,
         title: Optional[str] = None,
         body: Optional[str] = None,
         fields: Optional[list[tuple[str, str]]] = None,
-        buttons: Optional[list[dict[str, Any]]] = None,
+        actions: Optional[list[MessageButton]] = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Format content as Telegram-compatible blocks.
 
         Telegram uses inline keyboards for interactive elements.
         This method converts generic block structure to Telegram format.
+
+        Args:
+            title: Section title/header (unused in Telegram)
+            body: Main text content (unused in Telegram)
+            fields: List of (label, value) tuples (unused in Telegram)
+            actions: List of interactive buttons
+            **kwargs: Platform-specific options (buttons as dict list for backwards compat)
         """
-        result = []
+        result: list[dict[str, Any]] = []
 
         # Telegram doesn't have rich text blocks like Slack
         # We use inline keyboard buttons for interactivity
+
+        # Support legacy 'buttons' kwarg for backwards compatibility
+        buttons = kwargs.pop("buttons", None)
         if buttons:
             result.extend(buttons)
+
+        # Convert MessageButton objects to dict format
+        if actions:
+            for action in actions:
+                btn_dict = self.format_button(
+                    text=action.text,
+                    action_id=action.action_id,
+                    value=action.value,
+                    style=action.style,
+                    url=action.url,
+                )
+                result.append(btn_dict)
 
         return result
 
@@ -1084,22 +1141,35 @@ class TelegramConnector(ChatPlatformConnector):
             thread_id=reply_to,
         )
 
-    async def respond_to_interaction(  # type: ignore[override]
+    async def respond_to_interaction(
         self,
         interaction: UserInteraction,
         text: str,
         blocks: Optional[list[dict[str, Any]]] = None,
         replace_original: bool = False,
         **kwargs: Any,
-    ) -> bool:
+    ) -> SendMessageResponse:
         """Respond to a user interaction (button click).
 
         If replace_original is True, edits the original message.
         Otherwise, answers the callback query with a notification.
         Includes circuit breaker protection via answer_callback_query and update_message.
+
+        Args:
+            interaction: The interaction event
+            text: Response text
+            blocks: Rich content blocks
+            replace_original: If True, replace the original message
+            **kwargs: Platform-specific options
+
+        Returns:
+            SendMessageResponse with status
         """
         if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+            return SendMessageResponse(
+                success=False,
+                error="httpx is required for Telegram connector",
+            )
 
         # First, acknowledge the callback query
         await self.answer_callback_query(
@@ -1108,16 +1178,19 @@ class TelegramConnector(ChatPlatformConnector):
 
         if replace_original and interaction.message_id:
             # Edit the original message
-            result = await self.update_message(
+            return await self.update_message(
                 channel_id=interaction.channel.id,
                 message_id=interaction.message_id,
                 text=text,
                 blocks=blocks,
             )
-            success: bool = result.success
-            return success
 
-        return True
+        # Return success response for acknowledgment-only case
+        return SendMessageResponse(
+            success=True,
+            message_id=interaction.message_id,
+            channel_id=interaction.channel.id if interaction.channel else None,
+        )
 
     # =========================================================================
     # Rich Media Support

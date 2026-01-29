@@ -468,8 +468,8 @@ class TestRespondToInteraction:
                 text="Button clicked!",
             )
 
-            # Should return True for success
-            assert result is True
+            # Should return SendMessageResponse with success=True
+            assert result.success is True
 
 
 class TestFormatting:
