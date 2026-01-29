@@ -5509,12 +5509,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Similar debates */
+                /** @description Similar debates found */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["SimilarDebatesResponse"];
+                    };
                 };
             };
         };
@@ -5591,7 +5593,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["SettledQuestionsResponse"];
+                    };
                 };
             };
         };
@@ -5657,12 +5661,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Consensus stats */
+                /** @description Consensus statistics */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ConsensusStats"];
+                    };
                 };
             };
         };
@@ -5736,7 +5742,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["DissentingViewsResponse"];
+                    };
                 };
             };
         };
@@ -5808,7 +5816,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ContrarianViewsResponse"];
+                    };
                 };
             };
         };
@@ -5879,7 +5889,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["RiskWarningsResponse"];
+                    };
                 };
             };
         };
@@ -5952,7 +5964,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["DomainConsensusResponse"];
+                    };
                 };
             };
         };
@@ -6239,13 +6253,24 @@ export interface paths {
         /**
          * Retrieve memories
          * @deprecated
-         * @description Retrieve memories from continuum store
+         * @description Retrieve memories from the continuum store.
+         *
+         *     The continuum memory system stores memories across four tiers:
+         *     - **fast**: Short-term memory (1 minute TTL)
+         *     - **medium**: Session memory (1 hour TTL)
+         *     - **slow**: Cross-session memory (1 day TTL)
+         *     - **glacial**: Long-term patterns (1 week TTL)
+         *
+         *     Memories are retrieved by semantic similarity to the query.
          */
         get: {
             parameters: {
-                query?: {
-                    query?: string;
+                query: {
+                    /** @description Semantic search query */
+                    query: string;
+                    /** @description Filter by specific tier (optional) */
                     tier?: "fast" | "medium" | "slow" | "glacial";
+                    /** @description Maximum memories to return */
                     limit?: number;
                 };
                 header?: never;
@@ -6259,7 +6284,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MemoryRetrievalResponse"];
+                    };
                 };
             };
         };
@@ -6280,7 +6307,15 @@ export interface paths {
         };
         /**
          * Retrieve memories
-         * @description Retrieve memories from continuum store
+         * @description Retrieve memories from the continuum store.
+         *
+         *     The continuum memory system stores memories across four tiers:
+         *     - **fast**: Short-term memory (1 minute TTL)
+         *     - **medium**: Session memory (1 hour TTL)
+         *     - **slow**: Cross-session memory (1 day TTL)
+         *     - **glacial**: Long-term patterns (1 week TTL)
+         *
+         *     Memories are retrieved by semantic similarity to the query.
          */
         get: operations["listMemoryContinuumRetrieve"];
         put?: never;
@@ -6303,7 +6338,10 @@ export interface paths {
         /**
          * Consolidate memories
          * @deprecated
-         * @description Trigger memory consolidation across tiers
+         * @description Trigger memory consolidation across tiers.
+         *
+         *     Consolidation promotes frequently-accessed memories to faster tiers
+         *     and demotes stale memories to slower tiers based on access patterns.
          */
         post: {
             parameters: {
@@ -6314,12 +6352,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Consolidation result */
+                /** @description Consolidation completed */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MemoryConsolidationResult"];
+                    };
                 };
             };
         };
@@ -6340,7 +6380,10 @@ export interface paths {
         put?: never;
         /**
          * Consolidate memories
-         * @description Trigger memory consolidation across tiers
+         * @description Trigger memory consolidation across tiers.
+         *
+         *     Consolidation promotes frequently-accessed memories to faster tiers
+         *     and demotes stale memories to slower tiers based on access patterns.
          */
         post: operations["createMemoryContinuumConsolidate"];
         delete?: never;
@@ -6359,9 +6402,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cleanup memories
+         * Cleanup expired memories
          * @deprecated
-         * @description Remove expired memories
+         * @description Remove expired memories from all tiers.
+         *
+         *     Each tier has different TTLs. This operation removes memories
+         *     that have exceeded their tier's TTL threshold.
          */
         post: {
             parameters: {
@@ -6372,12 +6418,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Cleanup result */
+                /** @description Cleanup completed */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MemoryCleanupResult"];
+                    };
                 };
             };
         };
@@ -6397,8 +6445,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cleanup memories
-         * @description Remove expired memories
+         * Cleanup expired memories
+         * @description Remove expired memories from all tiers.
+         *
+         *     Each tier has different TTLs. This operation removes memories
+         *     that have exceeded their tier's TTL threshold.
          */
         post: operations["createMemoryContinuumCleanup"];
         delete?: never;
@@ -6417,7 +6468,9 @@ export interface paths {
         /**
          * Memory tier statistics
          * @deprecated
-         * @description Get statistics for each memory tier (fast, medium, slow, glacial).
+         * @description Get statistics for each memory tier.
+         *
+         *     Returns count, size, and age metrics for fast, medium, slow, and glacial tiers.
          */
         get: {
             parameters: {
@@ -6428,12 +6481,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Tier stats */
+                /** @description Tier statistics */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MemoryTierStatsResponse"];
+                    };
                 };
             };
         };
@@ -6454,7 +6509,9 @@ export interface paths {
         };
         /**
          * Memory tier statistics
-         * @description Get statistics for each memory tier (fast, medium, slow, glacial).
+         * @description Get statistics for each memory tier.
+         *
+         *     Returns count, size, and age metrics for fast, medium, slow, and glacial tiers.
          */
         get: operations["listMemoryTierStats"];
         put?: never;
@@ -6476,6 +6533,8 @@ export interface paths {
          * Archive statistics
          * @deprecated
          * @description Get statistics on archived memories and storage usage.
+         *
+         *     Archives contain memories that have been moved to cold storage for long-term retention.
          */
         get: {
             parameters: {
@@ -6486,12 +6545,14 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Archive stats */
+                /** @description Archive statistics */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["MemoryArchiveStats"];
+                    };
                 };
             };
         };
@@ -6513,6 +6574,8 @@ export interface paths {
         /**
          * Archive statistics
          * @description Get statistics on archived memories and storage usage.
+         *
+         *     Archives contain memories that have been moved to cold storage for long-term retention.
          */
         get: operations["listMemoryArchiveStats"];
         put?: never;
@@ -6534,12 +6597,17 @@ export interface paths {
          * Get debate cruxes
          * @deprecated
          * @description Get the crux points where agents most strongly disagree in a debate.
+         *
+         *     **Cruxes** are propositions where changing an agent's belief would change their
+         *     overall conclusion. Identifying cruxes helps focus further debate on the most
+         *     productive points of disagreement.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description The debate ID */
                     debate_id: string;
                 };
                 cookie?: never;
@@ -6551,7 +6619,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["BeliefCruxesResponse"];
+                    };
                 };
             };
         };
@@ -6573,8 +6643,12 @@ export interface paths {
         /**
          * Get debate cruxes
          * @description Get the crux points where agents most strongly disagree in a debate.
+         *
+         *     **Cruxes** are propositions where changing an agent's belief would change their
+         *     overall conclusion. Identifying cruxes helps focus further debate on the most
+         *     productive points of disagreement.
          */
-        get: operations["getBeliefNetworkCruxe"];
+        get: operations["getBeliefNetworkCruxes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6594,12 +6668,17 @@ export interface paths {
          * Get load-bearing claims
          * @deprecated
          * @description Get claims that are foundational to the debate's argument structure.
+         *
+         *     **Load-bearing claims** are propositions that, if removed or disproven, would
+         *     cause significant parts of the argument structure to collapse. These are the
+         *     critical assumptions underlying the debate's conclusions.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description The debate ID */
                     debate_id: string;
                 };
                 cookie?: never;
@@ -6611,7 +6690,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["LoadBearingClaimsResponse"];
+                    };
                 };
             };
         };
@@ -6633,8 +6714,12 @@ export interface paths {
         /**
          * Get load-bearing claims
          * @description Get claims that are foundational to the debate's argument structure.
+         *
+         *     **Load-bearing claims** are propositions that, if removed or disproven, would
+         *     cause significant parts of the argument structure to collapse. These are the
+         *     critical assumptions underlying the debate's conclusions.
          */
-        get: operations["getBeliefNetworkLoadBearingClaim"];
+        get: operations["getBeliefNetworkLoadBearingClaims"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6654,12 +6739,16 @@ export interface paths {
          * Get debate graph stats
          * @deprecated
          * @description Get graph-based statistics for the belief network of a debate.
+         *
+         *     **Includes:** node count, edge count, clustering coefficient, argument depth,
+         *     most-connected claims, and structural metrics.
          */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
+                    /** @description The debate ID */
                     debate_id: string;
                 };
                 cookie?: never;
@@ -6671,7 +6760,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["BeliefGraphStats"];
+                    };
                 };
             };
         };
@@ -6693,8 +6784,11 @@ export interface paths {
         /**
          * Get debate graph stats
          * @description Get graph-based statistics for the belief network of a debate.
+         *
+         *     **Includes:** node count, edge count, clustering coefficient, argument depth,
+         *     most-connected claims, and structural metrics.
          */
-        get: operations["getDebateGraphStat"];
+        get: operations["getDebateGraphStats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -17035,6 +17129,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get integration status
+         * @description Get aggregated integration status for all providers.
+         */
+        get: operations["getIntegrationsStatusV1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/{type}": {
         parameters: {
             query?: never;
@@ -17081,6 +17195,86 @@ export interface paths {
          * @description Test a specific integration configuration.
          */
         post: operations["testIntegrationV1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/wizard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get wizard configuration
+         * @description Get the complete OAuth wizard configuration including all providers, status, and setup guidance.
+         */
+        get: operations["getWizardConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/wizard/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List available providers
+         * @description List all available integration providers with optional filtering.
+         */
+        get: operations["listWizardProviders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/wizard/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all integration statuses
+         * @description Get detailed status of all integrations including configuration and connection status.
+         */
+        get: operations["getWizardStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/wizard/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate provider configuration
+         * @description Validate configuration for a provider before connecting.
+         */
+        post: operations["validateWizardConfig"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17165,6 +17359,26 @@ export interface paths {
          * @description Test the connectivity and health of a specific integration.
          */
         post: operations["testIntegration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/integrations/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get integration statistics
+         * @description Get aggregate statistics about all integrations.
+         */
+        get: operations["getIntegrationStats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -21296,7 +21510,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/graph-debates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/debates/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matrix-debates": {
         parameters: {
             query?: never;
             header?: never;
@@ -34224,6 +34542,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/team-selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/evaluate": {
         parameters: {
             query?: never;
@@ -37202,6 +37554,1071 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/verify-email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/resend-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/setup-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/setup-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/check-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/check-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/accept-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/plans": {
         parameters: {
             query?: never;
@@ -38188,6 +39605,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/oauth/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/oauth/microsoft": {
         parameters: {
             query?: never;
@@ -38374,6 +39893,117 @@ export interface paths {
         trace?: never;
     };
     "/api/auth/oauth/oidc/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oauth/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Autogenerated placeholder (spec pending)
+         * @deprecated
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oauth/callback": {
         parameters: {
             query?: never;
             header?: never;
@@ -39279,6 +40909,846 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/available": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/{param}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Autogenerated placeholder (spec pending) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/integrations/zapier/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/zapier/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/make/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/make/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/make/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/n8n/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/n8n/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/n8n/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -43880,6 +46350,182 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workflows/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/workflows/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/workflow/pattern-templates": {
@@ -50538,6 +53184,145 @@ export interface components {
             confidence?: number;
             participating_agents?: string[];
         };
+        /** @description A debate similar to the query topic */
+        SimilarDebate: {
+            debate_id?: string;
+            topic?: string;
+            /** @description 0-1 similarity */
+            similarity_score?: number;
+            verdict?: string;
+            /** Format: date-time */
+            created_at?: string;
+            agents?: string[];
+        };
+        SimilarDebatesResponse: {
+            debates?: components["schemas"]["SimilarDebate"][];
+            query?: string;
+            total?: number;
+        };
+        /** @description A question with strong consensus */
+        SettledQuestion: {
+            question?: string;
+            answer?: string;
+            confidence?: number;
+            debate_count?: number;
+            /** Format: date-time */
+            last_debated?: string;
+            supporting_debates?: string[];
+        };
+        SettledQuestionsResponse: {
+            questions?: components["schemas"]["SettledQuestion"][];
+            total?: number;
+            threshold?: number;
+        };
+        /** @description Aggregate consensus statistics */
+        ConsensusStats: {
+            total_debates?: number;
+            consensus_rate?: number;
+            avg_time_to_consensus_ms?: number;
+            avg_rounds_to_consensus?: number;
+            by_domain?: {
+                [key: string]: {
+                    count?: number;
+                    consensus_rate?: number;
+                };
+            };
+        };
+        /** @description A significant dissenting position */
+        DissentingView: {
+            debate_id?: string;
+            agent?: string;
+            position?: string;
+            reasoning?: string;
+            strength_score?: number;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        DissentingViewsResponse: {
+            dissents?: components["schemas"]["DissentingView"][];
+            total?: number;
+        };
+        /** @description A view opposing established consensus */
+        ContrarianView: {
+            topic?: string;
+            consensus_position?: string;
+            contrarian_position?: string;
+            agent?: string;
+            argument_strength?: number;
+        };
+        ContrarianViewsResponse: {
+            views?: components["schemas"]["ContrarianView"][];
+            total?: number;
+        };
+        /** @description A consensus risk warning */
+        RiskWarning: {
+            /** @enum {string} */
+            type?: "low_confidence" | "shifting" | "contradictory" | "bias";
+            topic?: string;
+            description?: string;
+            /** @enum {string} */
+            severity?: "low" | "medium" | "high";
+            debate_ids?: string[];
+        };
+        RiskWarningsResponse: {
+            warnings?: components["schemas"]["RiskWarning"][];
+            total?: number;
+        };
+        /** @description Consensus data for a specific domain */
+        DomainConsensusResponse: {
+            domain?: string;
+            total_debates?: number;
+            consensus_rate?: number;
+            settled_questions?: components["schemas"]["SettledQuestion"][];
+            top_agents?: {
+                agent?: string;
+                contribution_count?: number;
+            }[];
+        };
+        /** @description A crux point of disagreement between agents */
+        BeliefCrux: {
+            id?: string;
+            /** @description The crux proposition */
+            proposition?: string;
+            /** @description Importance score 0-1 */
+            importance?: number;
+            agents_for?: string[];
+            agents_against?: string[];
+            /** @description How resolving this crux would affect the debate */
+            resolution_impact?: string;
+        };
+        BeliefCruxesResponse: {
+            debate_id?: string;
+            cruxes?: components["schemas"]["BeliefCrux"][];
+            total?: number;
+        };
+        /** @description A claim foundational to the argument structure */
+        LoadBearingClaim: {
+            id?: string;
+            claim?: string;
+            agent?: string;
+            /** @description Number of arguments that depend on this claim */
+            dependents_count?: number;
+            confidence?: number;
+            evidence?: string[];
+        };
+        LoadBearingClaimsResponse: {
+            debate_id?: string;
+            claims?: components["schemas"]["LoadBearingClaim"][];
+            total?: number;
+        };
+        /** @description Graph-based statistics for a belief network */
+        BeliefGraphStats: {
+            debate_id?: string;
+            node_count?: number;
+            edge_count?: number;
+            max_depth?: number;
+            clustering_coefficient?: number;
+            most_connected_claims?: {
+                claim?: string;
+                connections?: number;
+            }[];
+        };
         Calibration: {
             agent?: string;
             /** @description Calibration score (0-1) */
@@ -51772,6 +54557,73 @@ export interface components {
                 glacial?: number;
             };
             cache_hit_rate?: number;
+        };
+        /** @description A single memory entry from the continuum store */
+        MemoryEntry: {
+            /** @description Unique memory ID */
+            id: string;
+            /** @description Memory content */
+            content: string;
+            /**
+             * @description Memory tier
+             * @enum {string}
+             */
+            tier: "fast" | "medium" | "slow" | "glacial";
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            expires_at?: string;
+            /** @description Relevance to query 0-1 */
+            relevance_score?: number;
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Response from memory retrieval */
+        MemoryRetrievalResponse: {
+            memories?: components["schemas"]["MemoryEntry"][];
+            total?: number;
+            tier?: string;
+            query?: string;
+        };
+        /** @description Statistics for a single memory tier */
+        MemoryTierStats: {
+            /** @enum {string} */
+            tier?: "fast" | "medium" | "slow" | "glacial";
+            count?: number;
+            size_bytes?: number;
+            /** Format: date-time */
+            oldest_entry?: string;
+            /** Format: date-time */
+            newest_entry?: string;
+            avg_age_seconds?: number;
+        };
+        /** @description Statistics for all memory tiers */
+        MemoryTierStatsResponse: {
+            tiers?: components["schemas"]["MemoryTierStats"][];
+            total_memories?: number;
+            total_size_bytes?: number;
+        };
+        /** @description Archive statistics */
+        MemoryArchiveStats: {
+            archived_count?: number;
+            archive_size_bytes?: number;
+            /** Format: date-time */
+            oldest_archive?: string;
+            compression_ratio?: number;
+        };
+        /** @description Result of memory consolidation */
+        MemoryConsolidationResult: {
+            memories_processed?: number;
+            memories_promoted?: number;
+            memories_demoted?: number;
+            duration_ms?: number;
+        };
+        /** @description Result of memory cleanup */
+        MemoryCleanupResult: {
+            memories_removed?: number;
+            bytes_freed?: number;
+            duration_ms?: number;
         };
         /** @description A knowledge node in the mound */
         KnowledgeNode: {
@@ -54179,12 +57031,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Similar debates */
+            /** @description Similar debates found */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SimilarDebatesResponse"];
+                };
             };
         };
     };
@@ -54207,7 +57061,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SettledQuestionsResponse"];
+                };
             };
         };
     };
@@ -54220,12 +57076,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Consensus stats */
+            /** @description Consensus statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ConsensusStats"];
+                };
             };
         };
     };
@@ -54246,7 +57104,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DissentingViewsResponse"];
+                };
             };
         };
     };
@@ -54264,7 +57124,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ContrarianViewsResponse"];
+                };
             };
         };
     };
@@ -54282,7 +57144,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RiskWarningsResponse"];
+                };
             };
         };
     };
@@ -54303,7 +57167,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DomainConsensusResponse"];
+                };
             };
         };
     };
@@ -54388,9 +57254,12 @@ export interface operations {
     };
     listMemoryContinuumRetrieve: {
         parameters: {
-            query?: {
-                query?: string;
+            query: {
+                /** @description Semantic search query */
+                query: string;
+                /** @description Filter by specific tier (optional) */
                 tier?: "fast" | "medium" | "slow" | "glacial";
+                /** @description Maximum memories to return */
                 limit?: number;
             };
             header?: never;
@@ -54404,7 +57273,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryRetrievalResponse"];
+                };
             };
         };
     };
@@ -54417,12 +57288,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Consolidation result */
+            /** @description Consolidation completed */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryConsolidationResult"];
+                };
             };
         };
     };
@@ -54435,12 +57308,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Cleanup result */
+            /** @description Cleanup completed */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryCleanupResult"];
+                };
             };
         };
     };
@@ -54453,12 +57328,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Tier stats */
+            /** @description Tier statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryTierStatsResponse"];
+                };
             };
         };
     };
@@ -54471,20 +57348,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Archive stats */
+            /** @description Archive statistics */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["MemoryArchiveStats"];
+                };
             };
         };
     };
-    getBeliefNetworkCruxe: {
+    getBeliefNetworkCruxes: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description The debate ID */
                 debate_id: string;
             };
             cookie?: never;
@@ -54496,15 +57376,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BeliefCruxesResponse"];
+                };
             };
         };
     };
-    getBeliefNetworkLoadBearingClaim: {
+    getBeliefNetworkLoadBearingClaims: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description The debate ID */
                 debate_id: string;
             };
             cookie?: never;
@@ -54516,15 +57399,18 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LoadBearingClaimsResponse"];
+                };
             };
         };
     };
-    getDebateGraphStat: {
+    getDebateGraphStats: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description The debate ID */
                 debate_id: string;
             };
             cookie?: never;
@@ -54536,7 +57422,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["BeliefGraphStats"];
+                };
             };
         };
     };
@@ -63807,6 +66695,48 @@ export interface operations {
             };
         };
     };
+    getIntegrationsStatusV1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        integrations?: Record<string, never>[];
+                        /** Format: date-time */
+                        checked_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getIntegrationV1: {
         parameters: {
             query?: never;
@@ -64025,6 +66955,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWizardConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Wizard configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        wizard?: Record<string, never>;
+                        /** Format: date-time */
+                        generated_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listWizardProviders: {
+        parameters: {
+            query?: {
+                /** @description Filter by category */
+                category?: "communication" | "development";
+                /** @description Filter by configuration status */
+                configured?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        providers?: Record<string, never>[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWizardStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration statuses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        statuses?: Record<string, never>[];
+                        summary?: Record<string, never>;
+                        /** Format: date-time */
+                        checked_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    validateWizardConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    provider: string;
+                    config?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Validation results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        provider?: string;
+                        valid?: boolean;
+                        checks?: Record<string, never>[];
+                        recommendations?: string[];
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Unauthorized - Authentication required or token invalid */
@@ -64381,6 +67501,58 @@ export interface operations {
             };
             /** @description Not found - The requested resource does not exist */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getIntegrationStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration statistics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stats?: {
+                            slack?: {
+                                total_workspaces?: number;
+                                active_workspaces?: number;
+                            };
+                            teams?: {
+                                total_workspaces?: number;
+                                active_workspaces?: number;
+                            };
+                            total_integrations?: number;
+                        };
+                        /** Format: date-time */
+                        generated_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
