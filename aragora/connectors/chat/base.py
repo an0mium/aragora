@@ -244,11 +244,14 @@ class ChatPlatformConnector(ABC):
         headers: Optional[dict[str, str]] = None,
         json: Optional[dict[str, Any]] = None,
         data: Optional[Any] = None,
+        content: Optional[bytes] = None,
         files: Optional[dict[str, Any]] = None,
         max_retries: int = 3,
         base_delay: float = 1.0,
+        timeout: Optional[float] = None,
+        return_raw: bool = False,
         operation: str = "http_request",
-    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+    ) -> tuple[bool, Optional[dict[str, Any] | bytes], Optional[str]]:
         """
         Make an HTTP request with retry, timeout, and circuit breaker support.
 
@@ -260,14 +263,17 @@ class ChatPlatformConnector(ABC):
             url: Request URL
             headers: Optional request headers
             json: Optional JSON body
-            data: Optional form data
+            data: Optional form data (dict for form-encoded, or bytes)
+            content: Optional raw bytes body (for file uploads)
             files: Optional file uploads
             max_retries: Maximum retry attempts (default 3)
             base_delay: Initial retry delay in seconds (default 1.0)
+            timeout: Custom timeout in seconds (defaults to self._request_timeout)
+            return_raw: If True, return raw bytes instead of JSON
             operation: Operation name for logging
 
         Returns:
-            Tuple of (success: bool, response_json: Optional[dict], error: Optional[str])
+            Tuple of (success: bool, response_data: Optional[dict|bytes], error: Optional[str])
         """
         import asyncio
         import random
@@ -284,16 +290,18 @@ class ChatPlatformConnector(ABC):
             return False, None, "httpx not available"
 
         last_error: Optional[str] = None
+        request_timeout = timeout or self._request_timeout
 
         for attempt in range(max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self._request_timeout) as client:
+                async with httpx.AsyncClient(timeout=request_timeout) as client:
                     response = await client.request(
                         method=method,
                         url=url,
                         headers=headers,
                         json=json,
                         data=data,
+                        content=content,
                         files=files,
                     )
 
@@ -330,6 +338,8 @@ class ChatPlatformConnector(ABC):
 
                     # Success
                     self._record_success()
+                    if return_raw:
+                        return True, response.content, None
                     try:
                         return True, response.json(), None
                     except Exception:

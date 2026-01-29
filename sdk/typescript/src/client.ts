@@ -3383,6 +3383,442 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // Control Plane - Deliberations
+  // ===========================================================================
+
+  /**
+   * Create a new deliberation.
+   */
+  async createDeliberation(body: {
+    topic: string;
+    description?: string;
+    participants?: string[];
+    deadline?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ deliberation_id: string; created: boolean }> {
+    return this.request<{ deliberation_id: string; created: boolean }>(
+      'POST',
+      '/api/control-plane/deliberations',
+      { body }
+    );
+  }
+
+  /**
+   * Get a deliberation by ID.
+   */
+  async getDeliberation(deliberationId: string): Promise<{
+    deliberation_id: string;
+    topic: string;
+    description?: string;
+    status: 'open' | 'voting' | 'closed';
+    participants: string[];
+    votes: Array<{ participant: string; vote: string; timestamp: string }>;
+    outcome?: string;
+    created_at: string;
+    closed_at?: string;
+  }> {
+    return this.request<{
+      deliberation_id: string;
+      topic: string;
+      description?: string;
+      status: 'open' | 'voting' | 'closed';
+      participants: string[];
+      votes: Array<{ participant: string; vote: string; timestamp: string }>;
+      outcome?: string;
+      created_at: string;
+      closed_at?: string;
+    }>('GET', `/api/control-plane/deliberations/${encodeURIComponent(deliberationId)}`);
+  }
+
+  /**
+   * List deliberations.
+   */
+  async listDeliberations(params?: {
+    status?: string;
+    participant?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    deliberations: Array<{
+      deliberation_id: string;
+      topic: string;
+      status: string;
+      participants_count: number;
+      created_at: string;
+    }>;
+  }> {
+    return this.request<{
+      deliberations: Array<{
+        deliberation_id: string;
+        topic: string;
+        status: string;
+        participants_count: number;
+        created_at: string;
+      }>;
+    }>('GET', '/api/control-plane/deliberations', { params });
+  }
+
+  /**
+   * Vote on a deliberation.
+   */
+  async voteOnDeliberation(
+    deliberationId: string,
+    body: {
+      participant: string;
+      vote: string;
+      rationale?: string;
+    }
+  ): Promise<{ voted: boolean }> {
+    return this.request<{ voted: boolean }>(
+      'POST',
+      `/api/control-plane/deliberations/${encodeURIComponent(deliberationId)}/vote`,
+      { body }
+    );
+  }
+
+  /**
+   * Close a deliberation.
+   */
+  async closeDeliberation(
+    deliberationId: string,
+    body?: { outcome?: string }
+  ): Promise<{ closed: boolean; outcome?: string }> {
+    return this.request<{ closed: boolean; outcome?: string }>(
+      'POST',
+      `/api/control-plane/deliberations/${encodeURIComponent(deliberationId)}/close`,
+      { body }
+    );
+  }
+
+  /**
+   * Get deliberation transcript.
+   */
+  async getDeliberationTranscript(deliberationId: string): Promise<{
+    deliberation_id: string;
+    topic: string;
+    transcript: Array<{
+      type: 'message' | 'vote' | 'decision';
+      participant?: string;
+      content: string;
+      timestamp: string;
+    }>;
+  }> {
+    return this.request<{
+      deliberation_id: string;
+      topic: string;
+      transcript: Array<{
+        type: 'message' | 'vote' | 'decision';
+        participant?: string;
+        content: string;
+        timestamp: string;
+      }>;
+    }>('GET', `/api/control-plane/deliberations/${encodeURIComponent(deliberationId)}/transcript`);
+  }
+
+  // ===========================================================================
+  // Control Plane - Audit Logs
+  // ===========================================================================
+
+  /**
+   * List audit logs.
+   */
+  async listAuditLogs(params?: {
+    action?: string;
+    actor?: string;
+    resource_type?: string;
+    resource_id?: string;
+    start_time?: string;
+    end_time?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    logs: Array<{
+      log_id: string;
+      action: string;
+      actor: string;
+      resource_type?: string;
+      resource_id?: string;
+      details?: Record<string, unknown>;
+      timestamp: string;
+    }>;
+  }> {
+    return this.request<{
+      logs: Array<{
+        log_id: string;
+        action: string;
+        actor: string;
+        resource_type?: string;
+        resource_id?: string;
+        details?: Record<string, unknown>;
+        timestamp: string;
+      }>;
+    }>('GET', '/api/control-plane/audit-logs', { params });
+  }
+
+  /**
+   * Get a specific audit log.
+   */
+  async getAuditLog(logId: string): Promise<{
+    log_id: string;
+    action: string;
+    actor: string;
+    resource_type?: string;
+    resource_id?: string;
+    details?: Record<string, unknown>;
+    ip_address?: string;
+    user_agent?: string;
+    timestamp: string;
+  }> {
+    return this.request<{
+      log_id: string;
+      action: string;
+      actor: string;
+      resource_type?: string;
+      resource_id?: string;
+      details?: Record<string, unknown>;
+      ip_address?: string;
+      user_agent?: string;
+      timestamp: string;
+    }>('GET', `/api/control-plane/audit-logs/${encodeURIComponent(logId)}`);
+  }
+
+  // ===========================================================================
+  // Control Plane - Policy Violations
+  // ===========================================================================
+
+  /**
+   * List policy violations.
+   */
+  async listPolicyViolations(params?: {
+    policy_id?: string;
+    severity?: string;
+    acknowledged?: boolean;
+    start_time?: string;
+    end_time?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    violations: Array<{
+      violation_id: string;
+      policy_id: string;
+      policy_name: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      actor?: string;
+      resource_type?: string;
+      resource_id?: string;
+      acknowledged: boolean;
+      timestamp: string;
+    }>;
+  }> {
+    return this.request<{
+      violations: Array<{
+        violation_id: string;
+        policy_id: string;
+        policy_name: string;
+        severity: 'low' | 'medium' | 'high' | 'critical';
+        actor?: string;
+        resource_type?: string;
+        resource_id?: string;
+        acknowledged: boolean;
+        timestamp: string;
+      }>;
+    }>('GET', '/api/control-plane/violations', { params });
+  }
+
+  /**
+   * Acknowledge a policy violation.
+   */
+  async acknowledgePolicyViolation(
+    violationId: string,
+    body?: { notes?: string }
+  ): Promise<{ acknowledged: boolean }> {
+    return this.request<{ acknowledged: boolean }>(
+      'POST',
+      `/api/control-plane/violations/${encodeURIComponent(violationId)}/acknowledge`,
+      { body }
+    );
+  }
+
+  /**
+   * Escalate a policy violation.
+   */
+  async escalatePolicyViolation(
+    violationId: string,
+    body: {
+      escalate_to: string;
+      reason?: string;
+    }
+  ): Promise<{ escalated: boolean; escalation_id?: string }> {
+    return this.request<{ escalated: boolean; escalation_id?: string }>(
+      'POST',
+      `/api/control-plane/violations/${encodeURIComponent(violationId)}/escalate`,
+      { body }
+    );
+  }
+
+  // ===========================================================================
+  // Control Plane - Metrics
+  // ===========================================================================
+
+  /**
+   * Get metrics for a specific agent.
+   */
+  async getAgentMetrics(agentId: string, params?: {
+    start_time?: string;
+    end_time?: string;
+    resolution?: 'minute' | 'hour' | 'day';
+  }): Promise<{
+    agent_id: string;
+    metrics: {
+      tasks_completed: number;
+      tasks_failed: number;
+      avg_task_duration_ms: number;
+      uptime_percent: number;
+      error_rate: number;
+    };
+    timeseries?: Array<{
+      timestamp: string;
+      tasks_completed: number;
+      tasks_failed: number;
+    }>;
+  }> {
+    return this.request<{
+      agent_id: string;
+      metrics: {
+        tasks_completed: number;
+        tasks_failed: number;
+        avg_task_duration_ms: number;
+        uptime_percent: number;
+        error_rate: number;
+      };
+      timeseries?: Array<{
+        timestamp: string;
+        tasks_completed: number;
+        tasks_failed: number;
+      }>;
+    }>('GET', `/api/control-plane/agents/${encodeURIComponent(agentId)}/metrics`, { params });
+  }
+
+  /**
+   * Get task execution metrics.
+   */
+  async getTaskMetrics(params?: {
+    task_type?: string;
+    start_time?: string;
+    end_time?: string;
+    resolution?: 'minute' | 'hour' | 'day';
+  }): Promise<{
+    metrics: {
+      total_submitted: number;
+      total_completed: number;
+      total_failed: number;
+      avg_wait_time_ms: number;
+      avg_execution_time_ms: number;
+    };
+    by_type?: Record<string, {
+      submitted: number;
+      completed: number;
+      failed: number;
+    }>;
+  }> {
+    return this.request<{
+      metrics: {
+        total_submitted: number;
+        total_completed: number;
+        total_failed: number;
+        avg_wait_time_ms: number;
+        avg_execution_time_ms: number;
+      };
+      by_type?: Record<string, {
+        submitted: number;
+        completed: number;
+        failed: number;
+      }>;
+    }>('GET', '/api/control-plane/metrics/tasks', { params });
+  }
+
+  /**
+   * Get control plane system metrics.
+   */
+  async getControlPlaneSystemMetrics(): Promise<{
+    agents: {
+      total: number;
+      active: number;
+      idle: number;
+      offline: number;
+    };
+    tasks: {
+      pending: number;
+      running: number;
+      completed_24h: number;
+      failed_24h: number;
+    };
+    policies: {
+      total: number;
+      enabled: number;
+      violations_24h: number;
+    };
+    deliberations: {
+      open: number;
+      completed_24h: number;
+    };
+  }> {
+    return this.request<{
+      agents: {
+        total: number;
+        active: number;
+        idle: number;
+        offline: number;
+      };
+      tasks: {
+        pending: number;
+        running: number;
+        completed_24h: number;
+        failed_24h: number;
+      };
+      policies: {
+        total: number;
+        enabled: number;
+        violations_24h: number;
+      };
+      deliberations: {
+        open: number;
+        completed_24h: number;
+      };
+    }>('GET', '/api/control-plane/metrics/system');
+  }
+
+  /**
+   * Wait for a task to complete.
+   */
+  async waitForTask(
+    taskId: string,
+    options?: { pollIntervalMs?: number; timeoutMs?: number }
+  ): Promise<{
+    task_id: string;
+    status: string;
+    assigned_agent?: string;
+    result?: unknown;
+    error?: string;
+    submitted_at: string;
+    completed_at?: string;
+  }> {
+    const pollInterval = options?.pollIntervalMs ?? 1000;
+    const timeout = options?.timeoutMs ?? 60000;
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeout) {
+      const status = await this.getTaskStatus(taskId);
+      if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
+        return status;
+      }
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Task ${taskId} did not complete within ${timeout}ms`);
+  }
+
+  // ===========================================================================
   // Relationships
   // ===========================================================================
 

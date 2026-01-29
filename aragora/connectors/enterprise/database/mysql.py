@@ -115,7 +115,7 @@ class MySQLConnector(EnterpriseConnector):
 
         self._pool = None
         self._binlog_stream = None
-        self._cdc_task = None
+        self._cdc_task: Optional[asyncio.Task[None]] = None
 
         # CDC support
         self._cdc_manager: Optional[CDCStreamManager] = None
@@ -421,7 +421,7 @@ class MySQLConnector(EnterpriseConnector):
 
             logger.info(f"[MySQL CDC] Started binlog stream for {self.database}")
 
-            self._cdc_task = asyncio.create_task(self._process_binlog_events())  # type: ignore[assignment]
+            self._cdc_task = asyncio.create_task(self._process_binlog_events())
 
         except ImportError:
             logger.error("mysql-replication not installed. Run: pip install mysql-replication")

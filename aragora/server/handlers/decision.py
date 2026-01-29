@@ -134,12 +134,14 @@ class DecisionHandler(BaseHandler):
 
         return None
 
-    @require_permission("decisions:create")
     async def handle_post(
         self, path: str, query_params: dict, handler=None
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/decisions":
+            _, perm_error = self.require_permission_or_error(handler, "decisions:create")
+            if perm_error:
+                return perm_error
             return await self._create_decision(handler)
 
         # Handle /api/v1/decisions/:id/cancel
@@ -147,6 +149,9 @@ class DecisionHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 6:  # ['', 'api', 'v1', 'decisions', '<id>', 'cancel']
                 request_id = parts[4]
+                _, perm_error = self.require_permission_or_error(handler, "decisions:update")
+                if perm_error:
+                    return perm_error
                 return await self._cancel_decision(request_id, handler)
 
         # Handle /api/v1/decisions/:id/retry
@@ -154,6 +159,9 @@ class DecisionHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 6:  # ['', 'api', 'v1', 'decisions', '<id>', 'retry']
                 request_id = parts[4]
+                _, perm_error = self.require_permission_or_error(handler, "decisions:update")
+                if perm_error:
+                    return perm_error
                 return await self._retry_decision(request_id, handler)
 
         return None

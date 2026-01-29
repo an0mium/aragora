@@ -824,64 +824,20 @@ class TeamsConnector(ChatPlatformConnector):
                         metadata={"error": error or "Failed to create upload session"},
                     )
 
-                # Upload content to the session URL with retry logic
+                # Upload content to the session URL using _http_request for retry/circuit breaker
                 upload_url = session_data.get("uploadUrl")
                 if upload_url:
-                    import asyncio
-                    import random
-
-                    max_retries = 3
-                    last_error: Optional[str] = None
-
-                    for attempt in range(max_retries):
-                        try:
-                            async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
-                                response = await client.put(
-                                    upload_url,
-                                    content=content,
-                                    headers={
-                                        "Content-Length": str(file_size),
-                                        "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
-                                    },
-                                )
-
-                                # Check for retryable status codes
-                                if response.status_code in (429, 500, 502, 503, 504):
-                                    last_error = f"HTTP {response.status_code}"
-                                    if attempt < max_retries - 1:
-                                        delay = min(1.0 * (2**attempt), 30.0)
-                                        jitter = random.uniform(0, delay * 0.1)
-                                        logger.warning(
-                                            f"Large file upload got {response.status_code} "
-                                            f"(attempt {attempt + 1}/{max_retries}). "
-                                            f"Retrying in {delay + jitter:.1f}s"
-                                        )
-                                        await asyncio.sleep(delay + jitter)
-                                        continue
-
-                                response.raise_for_status()
-                                upload_data = response.json()
-                                success = True
-                                break
-
-                        except (httpx.TimeoutException, httpx.ConnectError) as e:
-                            last_error = str(e)
-                            if attempt < max_retries - 1:
-                                delay = min(1.0 * (2**attempt), 30.0)
-                                logger.warning(
-                                    f"Large file upload failed (attempt {attempt + 1}/{max_retries}): {e}. "
-                                    f"Retrying in {delay:.1f}s"
-                                )
-                                await asyncio.sleep(delay)
-                            else:
-                                logger.error(
-                                    f"Large file upload failed after {max_retries} attempts: {e}"
-                                )
-
-                        except Exception as e:
-                            last_error = str(e)
-                            logger.error(f"Large file upload failed: {e}")
-                            break
+                    success, upload_data, error = await self._http_request(
+                        method="PUT",
+                        url=upload_url,
+                        headers={
+                            "Content-Length": str(file_size),
+                            "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
+                        },
+                        content=content,
+                        timeout=self._upload_timeout,
+                        operation="large_file_upload",
+                    )
 
                     if not success:
                         return FileAttachment(
@@ -890,7 +846,7 @@ class TeamsConnector(ChatPlatformConnector):
                             content_type=content_type,
                             size=file_size,
                             content=content,
-                            metadata={"error": last_error or "Upload failed"},
+                            metadata={"error": error or "Upload failed"},
                         )
 
             if success and upload_data:
@@ -1012,63 +968,25 @@ class TeamsConnector(ChatPlatformConnector):
             mime_type = meta_data.get("file", {}).get("mimeType", "application/octet-stream")
             download_url = meta_data.get("@microsoft.graph.downloadUrl")
 
-            # Download the content with retry logic
+            # Download the content using _http_request for retry/circuit breaker
             if download_url:
-                import asyncio
-                import random
+                success, content_data, error = await self._http_request(
+                    method="GET",
+                    url=download_url,
+                    timeout=self._upload_timeout,
+                    return_raw=True,
+                    operation="file_download",
+                )
 
-                max_retries = 3
-                last_error: Optional[str] = None
-                content: Optional[bytes] = None
-
-                for attempt in range(max_retries):
-                    try:
-                        async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
-                            response = await client.get(download_url)
-
-                            # Check for retryable status codes
-                            if response.status_code in (429, 500, 502, 503, 504):
-                                last_error = f"HTTP {response.status_code}"
-                                if attempt < max_retries - 1:
-                                    delay = min(1.0 * (2**attempt), 30.0)
-                                    jitter = random.uniform(0, delay * 0.1)
-                                    logger.warning(
-                                        f"File download got {response.status_code} "
-                                        f"(attempt {attempt + 1}/{max_retries}). "
-                                        f"Retrying in {delay + jitter:.1f}s"
-                                    )
-                                    await asyncio.sleep(delay + jitter)
-                                    continue
-
-                            response.raise_for_status()
-                            content = response.content
-                            break
-
-                    except (httpx.TimeoutException, httpx.ConnectError) as e:
-                        last_error = str(e)
-                        if attempt < max_retries - 1:
-                            delay = min(1.0 * (2**attempt), 30.0)
-                            logger.warning(
-                                f"File download failed (attempt {attempt + 1}/{max_retries}): {e}. "
-                                f"Retrying in {delay:.1f}s"
-                            )
-                            await asyncio.sleep(delay)
-                        else:
-                            logger.error(f"File download failed after {max_retries} attempts: {e}")
-
-                    except Exception as e:
-                        last_error = str(e)
-                        logger.error(f"File content download failed: {e}")
-                        break
-
-                if content is not None:
-                    logger.info(f"Teams file downloaded: {filename} ({len(content)} bytes)")
+                if success and content_data:
+                    file_content = content_data if isinstance(content_data, bytes) else b""
+                    logger.info(f"Teams file downloaded: {filename} ({len(file_content)} bytes)")
                     return FileAttachment(
                         id=file_id,
                         filename=filename,
                         content_type=mime_type,
-                        size=len(content),
-                        content=content,
+                        size=len(file_content),
+                        content=file_content,
                         url=meta_data.get("webUrl"),
                         metadata={
                             "drive_id": drive_id,
@@ -1081,7 +999,7 @@ class TeamsConnector(ChatPlatformConnector):
                         filename=filename,
                         content_type=mime_type,
                         size=file_size,
-                        metadata={"error": last_error or "Download failed"},
+                        metadata={"error": error or "Download failed"},
                     )
             else:
                 logger.error("No download URL in file metadata")

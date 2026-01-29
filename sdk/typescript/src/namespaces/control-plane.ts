@@ -388,7 +388,7 @@ interface ControlPlaneClientInterface {
     }>;
   }>;
 
-  getSystemMetrics(): Promise<{
+  getControlPlaneSystemMetrics(): Promise<{
     agents: {
       total: number;
       active: number;
@@ -1125,6 +1125,6 @@ class MetricsSubAPI {
       completed_24h: number;
     };
   }> {
-    return this.client.getSystemMetrics();
+    return this.client.getControlPlaneSystemMetrics();
   }
 }

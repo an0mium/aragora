@@ -37,7 +37,6 @@ from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
-    require_permission,
     success_response,
 )
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
@@ -383,7 +382,6 @@ def _get_store():
 # =============================================================================
 
 
-@require_permission("inbox:create")
 async def handle_create_shared_inbox(
     workspace_id: str,
     name: str,
@@ -467,7 +465,6 @@ async def handle_create_shared_inbox(
         }
 
 
-@require_permission("inbox:read")
 async def handle_list_shared_inboxes(
     workspace_id: str,
     user_id: Optional[str] = None,
@@ -523,7 +520,6 @@ async def handle_list_shared_inboxes(
         }
 
 
-@require_permission("inbox:read")
 async def handle_get_shared_inbox(
     inbox_id: str,
 ) -> Dict[str, Any]:
@@ -570,7 +566,6 @@ async def handle_get_shared_inbox(
         }
 
 
-@require_permission("inbox:read")
 async def handle_get_inbox_messages(
     inbox_id: str,
     status: Optional[str] = None,
@@ -674,7 +669,6 @@ async def handle_get_inbox_messages(
         }
 
 
-@require_permission("inbox:assign")
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,
@@ -753,7 +747,6 @@ async def handle_assign_message(
         }
 
 
-@require_permission("inbox:write")
 async def handle_update_message_status(
     inbox_id: str,
     message_id: str,
@@ -832,7 +825,6 @@ async def handle_update_message_status(
         }
 
 
-@require_permission("inbox:write")
 async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,
@@ -885,7 +877,6 @@ async def handle_add_message_tag(
         }
 
 
-@require_permission("inbox:write")
 async def handle_add_message_to_inbox(
     inbox_id: str,
     email_id: str,
@@ -972,7 +963,6 @@ async def handle_add_message_to_inbox(
 # =============================================================================
 
 
-@require_permission("inbox:rules:manage")
 async def handle_create_routing_rule(
     workspace_id: str,
     name: str,
@@ -1087,7 +1077,6 @@ async def handle_create_routing_rule(
         }
 
 
-@require_permission("inbox:read")
 async def handle_list_routing_rules(
     workspace_id: str,
     enabled_only: bool = False,
@@ -1183,7 +1172,6 @@ async def handle_list_routing_rules(
         }
 
 
-@require_permission("inbox:rules:manage")
 async def handle_update_routing_rule(
     rule_id: str,
     updates: Dict[str, Any],
@@ -1278,7 +1266,6 @@ async def handle_update_routing_rule(
         }
 
 
-@require_permission("admin:system")
 async def handle_delete_routing_rule(
     rule_id: str,
 ) -> Dict[str, Any]:
@@ -1333,7 +1320,6 @@ async def handle_delete_routing_rule(
         }
 
 
-@require_permission("inbox:rules:manage")
 async def handle_test_routing_rule(
     rule_id: str,
     workspace_id: str,

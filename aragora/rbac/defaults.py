@@ -525,6 +525,12 @@ PERM_DECISION_CREATE = _permission(
 PERM_DECISION_READ = _permission(
     ResourceType.DECISION, Action.READ, "View Decisions", "View decision results and status"
 )
+PERM_DECISION_UPDATE = _permission(
+    ResourceType.DECISION,
+    Action.UPDATE,
+    "Update Decisions",
+    "Cancel or retry decision requests",
+)
 
 # Policy permissions (governance)
 PERM_POLICY_READ = _permission(
@@ -1570,6 +1576,7 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Decisions
         PERM_DECISION_CREATE,
         PERM_DECISION_READ,
+        PERM_DECISION_UPDATE,
         # Policies (governance)
         PERM_POLICY_READ,
         PERM_POLICY_CREATE,
@@ -1937,6 +1944,7 @@ ROLE_ADMIN = Role(
         # Decisions (all)
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
         # Workspaces (all)
         PERM_WORKSPACE_CREATE.key,
         PERM_WORKSPACE_READ.key,
@@ -2040,6 +2048,7 @@ ROLE_DEBATE_CREATOR = Role(
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        PERM_DECISION_UPDATE.key,
         # Verticals
         PERM_VERTICALS_READ.key,
         # Canvas (create and manage)
