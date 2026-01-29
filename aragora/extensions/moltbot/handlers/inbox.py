@@ -25,6 +25,8 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.params import get_clamped_int_param
+
 
 if TYPE_CHECKING:
     from aragora.extensions.moltbot import InboxManager
@@ -307,8 +309,8 @@ class MoltbotInboxHandler(BaseHandler):
         user_id = query_params.get("user_id")
         thread_id = query_params.get("thread_id")
         direction = query_params.get("direction")
-        limit = int(query_params.get("limit", 100))
-        offset = int(query_params.get("offset", 0))
+        limit = get_clamped_int_param(query_params, "limit", 100, 1, 1000)
+        offset = get_clamped_int_param(query_params, "offset", 0, 0, 100000)
 
         messages = await inbox.list_messages(
             channel_id=channel_id,

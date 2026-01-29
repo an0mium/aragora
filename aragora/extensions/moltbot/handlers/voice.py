@@ -27,6 +27,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
+
 if TYPE_CHECKING:
     from aragora.extensions.moltbot import VoiceProcessor
 

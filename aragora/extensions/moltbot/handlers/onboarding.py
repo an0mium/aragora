@@ -27,6 +27,8 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
+from .types import serialize_datetime, serialize_enum
+
 if TYPE_CHECKING:
     from aragora.extensions.moltbot.onboarding import OnboardingOrchestrator
 
@@ -154,17 +156,15 @@ class MoltbotOnboardingHandler(BaseHandler):
             "description": flow.description,
             "is_active": flow.is_active,
             "step_count": len(flow.steps) if hasattr(flow, "steps") else 0,
-            "created_at": flow.created_at.isoformat() if flow.created_at else None,
-            "updated_at": flow.updated_at.isoformat() if flow.updated_at else None,
+            "created_at": serialize_datetime(flow.created_at),
+            "updated_at": serialize_datetime(flow.updated_at),
         }
 
     def _serialize_step(self, step: Any) -> dict[str, Any]:
         """Serialize step to JSON-safe dict."""
         return {
             "id": step.id,
-            "type": step.step_type.value
-            if hasattr(step.step_type, "value")
-            else str(step.step_type),
+            "type": serialize_enum(step.step_type),
             "title": step.title,
             "content": step.content,
             "order": step.order,
@@ -180,15 +180,13 @@ class MoltbotOnboardingHandler(BaseHandler):
             "flow_id": session.flow_id,
             "user_id": session.user_id,
             "device_id": session.device_id,
-            "status": session.status.value
-            if hasattr(session.status, "value")
-            else str(session.status),
+            "status": serialize_enum(session.status),
             "current_step_index": session.current_step_index,
             "completed_steps": session.completed_steps,
             "skipped_steps": session.skipped_steps,
             "responses": session.responses,
-            "started_at": session.started_at.isoformat() if session.started_at else None,
-            "completed_at": session.completed_at.isoformat() if session.completed_at else None,
+            "started_at": serialize_datetime(session.started_at),
+            "completed_at": serialize_datetime(session.completed_at),
         }
 
     async def _handle_list_flows(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:

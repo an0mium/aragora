@@ -14,14 +14,16 @@ All handlers follow Aragora's BaseHandler pattern with RBAC integration.
 
 from __future__ import annotations
 
+from .canvas import MoltbotCanvasHandler
+from .capabilities import MoltbotCapabilitiesHandler
 from .gateway import MoltbotGatewayHandler
 from .inbox import MoltbotInboxHandler
-from .voice import MoltbotVoiceHandler
-from .canvas import MoltbotCanvasHandler
 from .onboarding import MoltbotOnboardingHandler
-from .capabilities import MoltbotCapabilitiesHandler
+from .types import serialize_datetime, serialize_enum
+from .voice import MoltbotVoiceHandler
 
 __all__ = [
+    # Handlers
     "MoltbotGatewayHandler",
     "MoltbotInboxHandler",
     "MoltbotVoiceHandler",
@@ -29,6 +31,9 @@ __all__ = [
     "MoltbotOnboardingHandler",
     "MoltbotCapabilitiesHandler",
     "get_all_handlers",
+    # Helpers
+    "serialize_datetime",
+    "serialize_enum",
 ]
 
 

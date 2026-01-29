@@ -26,6 +26,8 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
+from .types import serialize_datetime, serialize_enum
+
 if TYPE_CHECKING:
     from aragora.extensions.moltbot.canvas import Canvas, CanvasElement, CanvasManager
 
@@ -156,8 +158,8 @@ class MoltbotCanvasHandler(BaseHandler):
             "width": canvas.config.width,
             "height": canvas.config.height,
             "background": canvas.config.background,
-            "created_at": canvas.created_at.isoformat() if canvas.created_at else None,
-            "updated_at": canvas.updated_at.isoformat() if canvas.updated_at else None,
+            "created_at": serialize_datetime(canvas.created_at),
+            "updated_at": serialize_datetime(canvas.updated_at),
             "element_count": len(canvas.elements),
             "layer_count": len(canvas.layers),
         }
@@ -166,9 +168,7 @@ class MoltbotCanvasHandler(BaseHandler):
         """Serialize element to JSON-safe dict."""
         return {
             "id": element.id,
-            "type": element.element_type.value
-            if hasattr(element.element_type, "value")
-            else str(element.element_type),
+            "type": serialize_enum(element.element_type),
             "x": element.x,
             "y": element.y,
             "width": element.width,

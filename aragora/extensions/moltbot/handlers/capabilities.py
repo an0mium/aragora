@@ -22,6 +22,8 @@ from aragora.server.handlers.base import (
     json_response,
 )
 
+from .types import serialize_enum
+
 if TYPE_CHECKING:
     from aragora.extensions.moltbot.capabilities import CapabilityMatcher
 
@@ -100,10 +102,8 @@ class MoltbotCapabilitiesHandler(BaseHandler):
     def _serialize_capability(self, cap: Any) -> dict[str, Any]:
         """Serialize capability to JSON-safe dict."""
         return {
-            "name": cap.name if hasattr(cap, "name") else str(cap),
-            "category": cap.category.value
-            if hasattr(cap, "category") and hasattr(cap.category, "value")
-            else str(getattr(cap, "category", "unknown")),
+            "name": getattr(cap, "name", str(cap)),
+            "category": serialize_enum(getattr(cap, "category", None), "unknown"),
             "description": getattr(cap, "description", ""),
             "version": getattr(cap, "version", "1.0"),
             "is_required": getattr(cap, "is_required", False),
@@ -292,5 +292,5 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             "compute": "Processing and computation power",
             "actuator": "Physical actuators and motors",
         }
-        cat_value = category.value if hasattr(category, "value") else str(category)
+        cat_value = serialize_enum(category)
         return descriptions.get(cat_value.lower(), "Unknown category")
