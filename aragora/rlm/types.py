@@ -176,7 +176,6 @@ class RLMContext:
     source_root: Optional[str] = None  # Root directory for repo context
     source_manifest: Optional[str] = None  # Manifest file listing repo contents
     metadata: dict[str, Any] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_at_level(self, level: AbstractionLevel) -> str:
         """Get concatenated content at a specific abstraction level."""

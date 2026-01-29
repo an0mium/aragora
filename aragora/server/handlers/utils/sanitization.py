@@ -137,7 +137,7 @@ def sanitize_response(
         fields_to_remove = fields_to_remove | additional_fields
 
     # Create sanitized copy
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         key_lower = key.lower()
 
@@ -183,7 +183,10 @@ def sanitize_user_response(user_data: dict[str, Any]) -> dict[str, Any]:
         "email_verification_token",
         "session_token",
     }
-    return sanitize_response(user_data, additional_fields=user_fields)
+    result = sanitize_response(user_data, additional_fields=user_fields)
+    # Type narrowing: input is dict, so output is dict
+    assert isinstance(result, dict)
+    return result
 
 
 def sanitize_integration_response(integration_data: dict[str, Any]) -> dict[str, Any]:
@@ -207,7 +210,10 @@ def sanitize_integration_response(integration_data: dict[str, Any]) -> dict[str,
         "app_secret",
         "verification_token",
     }
-    return sanitize_response(integration_data, additional_fields=integration_fields)
+    result = sanitize_response(integration_data, additional_fields=integration_fields)
+    # Type narrowing: input is dict, so output is dict
+    assert isinstance(result, dict)
+    return result
 
 
 def sanitize_payment_response(payment_data: dict[str, Any]) -> dict[str, Any]:
@@ -234,9 +240,11 @@ def sanitize_payment_response(payment_data: dict[str, Any]) -> dict[str, Any]:
     }
 
     result = sanitize_response(payment_data, additional_fields=payment_fields)
+    # Type narrowing: input is dict, so output is dict
+    assert isinstance(result, dict)
 
     # Mask last 4 digits if present
-    if isinstance(result, dict) and "card_last_four" not in result:
+    if "card_last_four" not in result:
         if "masked_card" in payment_data:
             result["card_last_four"] = payment_data["masked_card"]
 

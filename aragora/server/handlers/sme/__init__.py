@@ -10,4 +10,14 @@ API handlers for SME-tier features including:
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .slack_workspace import SlackWorkspaceHandler
+from .teams_workspace import TeamsWorkspaceHandler
+from .budget_controls import BudgetControlsHandler
+from .receipt_delivery import ReceiptDeliveryHandler
+
+__all__ = [
+    "SlackWorkspaceHandler",
+    "TeamsWorkspaceHandler",
+    "BudgetControlsHandler",
+    "ReceiptDeliveryHandler",
+]

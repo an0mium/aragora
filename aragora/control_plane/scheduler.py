@@ -48,9 +48,9 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager = None  # type: ignore[assignment]  # Optional module fallback
-    PolicyViolationError = None  # type: ignore[assignment]  # Optional module fallback
-    EnforcementLevel = None  # type: ignore[assignment]  # Optional module fallback
+    ControlPlanePolicyManager = None  # type: ignore[misc]  # Optional module fallback
+    PolicyViolationError = None  # type: ignore[misc]  # Optional module fallback
+    EnforcementLevel = None  # type: ignore[misc]  # Optional module fallback
 
 # Cost enforcement imports (optional - graceful fallback if not available)
 try:
@@ -64,10 +64,10 @@ try:
     HAS_COST_ENFORCEMENT = True
 except ImportError:
     HAS_COST_ENFORCEMENT = False
-    CostEnforcer = None  # type: ignore[assignment]  # Optional module fallback
-    CostLimitExceededError = None  # type: ignore[assignment]  # Optional module fallback
-    CostEnforcementMode = None  # type: ignore[assignment]  # Optional module fallback
-    ThrottleLevel = None  # type: ignore[assignment]  # Optional module fallback
+    CostEnforcer = None  # type: ignore[misc]  # Optional module fallback
+    CostLimitExceededError = None  # type: ignore[misc]  # Optional module fallback
+    CostEnforcementMode = None  # type: ignore[misc]  # Optional module fallback
+    ThrottleLevel = None  # type: ignore[misc]  # Optional module fallback
 
 logger = get_logger(__name__)
 

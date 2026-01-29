@@ -84,9 +84,9 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound = None  # type: ignore[assignment]  # Optional module fallback
-    MoundConfig = None  # type: ignore[assignment]  # Optional module fallback
-    MoundBackend = None  # type: ignore[assignment]  # Optional module fallback
+    KnowledgeMound = None  # type: ignore[misc]  # Optional module fallback
+    MoundConfig = None  # type: ignore[misc]  # Optional module fallback
+    MoundBackend = None  # type: ignore[misc]  # Optional module fallback
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser = None  # type: ignore[assignment]  # Optional module fallback
+    UnstructuredParser = None  # type: ignore[misc]  # Optional module fallback
 
 
 @dataclass

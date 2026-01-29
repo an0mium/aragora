@@ -43,10 +43,10 @@ try:
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager = None  # type: ignore[assignment]  # Optional module fallback
-    PolicyViolation = None  # type: ignore[assignment]  # Optional module fallback
-    PolicyViolationError = None  # type: ignore[assignment]  # Optional module fallback
-    EnforcementLevel = None  # type: ignore[assignment]  # Optional module fallback
+    ControlPlanePolicyManager = None  # type: ignore[misc]  # Optional module fallback
+    PolicyViolation = None  # type: ignore[misc]  # Optional module fallback
+    PolicyViolationError = None  # type: ignore[misc]  # Optional module fallback
+    EnforcementLevel = None  # type: ignore[misc]  # Optional module fallback
 
 # Optional KM integration
 try:
@@ -58,8 +58,8 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     HAS_KM_ADAPTER = False
-    ControlPlaneAdapter = None  # type: ignore[assignment]  # Optional module fallback
-    TaskOutcome = None  # type: ignore[assignment]  # Optional module fallback
+    ControlPlaneAdapter = None  # type: ignore[misc]  # Optional module fallback
+    TaskOutcome = None  # type: ignore[misc]  # Optional module fallback
 
 # Optional Arena Bridge
 try:
@@ -78,9 +78,9 @@ try:
     HAS_ARENA_BRIDGE = True
 except ImportError:
     HAS_ARENA_BRIDGE = False
-    ArenaControlPlaneBridge = None  # type: ignore[assignment]  # Optional module fallback
-    DeliberationTask = None  # type: ignore[assignment]  # Optional module fallback
-    DeliberationOutcome = None  # type: ignore[assignment]  # Optional module fallback
+    ArenaControlPlaneBridge = None  # type: ignore[misc]  # Optional module fallback
+    DeliberationTask = None  # type: ignore[misc]  # Optional module fallback
+    DeliberationOutcome = None  # type: ignore[misc]  # Optional module fallback
     DELIBERATION_TASK_TYPE = "deliberation"
 
 # Optional Redis HA support
@@ -90,9 +90,9 @@ try:
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
-    RedisHASettings = None  # type: ignore[assignment]  # Optional module fallback
-    RedisMode = None  # type: ignore[assignment]  # Optional module fallback
-    get_redis_ha_config = None  # type: ignore[assignment]  # Optional module fallback
+    RedisHASettings = None  # type: ignore[misc]  # Optional module fallback
+    RedisMode = None  # type: ignore[misc]  # Optional module fallback
+    get_redis_ha_config = None  # type: ignore[misc]  # Optional module fallback
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 try:
@@ -108,12 +108,12 @@ try:
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
-    ThreeTierWatchdog = None  # type: ignore[assignment]  # Optional module fallback
-    WatchdogConfig = None  # type: ignore[assignment]  # Optional module fallback
-    WatchdogTier = None  # type: ignore[assignment]  # Optional module fallback
-    WatchdogIssue = None  # type: ignore[assignment]  # Optional module fallback
-    IssueSeverity = None  # type: ignore[assignment]  # Optional module fallback
-    get_watchdog = None  # type: ignore[assignment]  # Optional module fallback
+    ThreeTierWatchdog = None  # type: ignore[misc]  # Optional module fallback
+    WatchdogConfig = None  # type: ignore[misc]  # Optional module fallback
+    WatchdogTier = None  # type: ignore[misc]  # Optional module fallback
+    WatchdogIssue = None  # type: ignore[misc]  # Optional module fallback
+    IssueSeverity = None  # type: ignore[misc]  # Optional module fallback
+    get_watchdog = None  # type: ignore[misc]  # Optional module fallback
 
 logger = get_logger(__name__)
 
