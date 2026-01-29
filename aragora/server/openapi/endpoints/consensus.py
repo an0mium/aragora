@@ -31,7 +31,8 @@ CONSENSUS_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 50},
                 },
             ],
-            "responses": {"200": _ok_response("Similar debates")},
+            "responses": {"200": _ok_response("Similar debates found", "SimilarDebatesResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/settled": {
@@ -61,7 +62,8 @@ CONSENSUS_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 },
             ],
-            "responses": {"200": _ok_response("Settled questions")},
+            "responses": {"200": _ok_response("Settled questions", "SettledQuestionsResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/stats": {
@@ -76,7 +78,8 @@ CONSENSUS_ENDPOINTS = {
 - Distribution by domain
 - Trend over time""",
             "operationId": "getConsensusStats",
-            "responses": {"200": _ok_response("Consensus stats")},
+            "responses": {"200": _ok_response("Consensus statistics", "ConsensusStats")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/dissents": {
@@ -100,7 +103,8 @@ CONSENSUS_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
                 }
             ],
-            "responses": {"200": _ok_response("Dissenting views")},
+            "responses": {"200": _ok_response("Dissenting views", "DissentingViewsResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/contrarian-views": {
@@ -116,7 +120,8 @@ These views are preserved to:
 - Enable future reconsideration
 - Document minority reasoning""",
             "operationId": "getContrarianViews",
-            "responses": {"200": _ok_response("Contrarian views")},
+            "responses": {"200": _ok_response("Contrarian views", "ContrarianViewsResponse")},
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/consensus/risk-warnings": {

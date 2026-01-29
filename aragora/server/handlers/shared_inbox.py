@@ -570,6 +570,7 @@ async def handle_get_shared_inbox(
         }
 
 
+@require_permission("inbox:read")
 async def handle_get_inbox_messages(
     inbox_id: str,
     status: Optional[str] = None,
@@ -673,6 +674,7 @@ async def handle_get_inbox_messages(
         }
 
 
+@require_permission("inbox:assign")
 async def handle_assign_message(
     inbox_id: str,
     message_id: str,
@@ -751,6 +753,7 @@ async def handle_assign_message(
         }
 
 
+@require_permission("inbox:write")
 async def handle_update_message_status(
     inbox_id: str,
     message_id: str,
@@ -829,6 +832,7 @@ async def handle_update_message_status(
         }
 
 
+@require_permission("inbox:write")
 async def handle_add_message_tag(
     inbox_id: str,
     message_id: str,

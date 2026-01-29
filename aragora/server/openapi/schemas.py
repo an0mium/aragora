@@ -342,6 +342,162 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "participating_agents": {"type": "array", "items": {"type": "string"}},
         },
     },
+    "SimilarDebate": {
+        "type": "object",
+        "description": "A debate similar to the query topic",
+        "properties": {
+            "debate_id": {"type": "string"},
+            "topic": {"type": "string"},
+            "similarity_score": {"type": "number", "description": "0-1 similarity"},
+            "verdict": {"type": "string"},
+            "created_at": {"type": "string", "format": "date-time"},
+            "agents": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "SimilarDebatesResponse": {
+        "type": "object",
+        "properties": {
+            "debates": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/SimilarDebate"},
+            },
+            "query": {"type": "string"},
+            "total": {"type": "integer"},
+        },
+    },
+    "SettledQuestion": {
+        "type": "object",
+        "description": "A question with strong consensus",
+        "properties": {
+            "question": {"type": "string"},
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+            "debate_count": {"type": "integer"},
+            "last_debated": {"type": "string", "format": "date-time"},
+            "supporting_debates": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "SettledQuestionsResponse": {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/SettledQuestion"},
+            },
+            "total": {"type": "integer"},
+            "threshold": {"type": "number"},
+        },
+    },
+    "ConsensusStats": {
+        "type": "object",
+        "description": "Aggregate consensus statistics",
+        "properties": {
+            "total_debates": {"type": "integer"},
+            "consensus_rate": {"type": "number"},
+            "avg_time_to_consensus_ms": {"type": "integer"},
+            "avg_rounds_to_consensus": {"type": "number"},
+            "by_domain": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                        "count": {"type": "integer"},
+                        "consensus_rate": {"type": "number"},
+                    },
+                },
+            },
+        },
+    },
+    "DissentingView": {
+        "type": "object",
+        "description": "A significant dissenting position",
+        "properties": {
+            "debate_id": {"type": "string"},
+            "agent": {"type": "string"},
+            "position": {"type": "string"},
+            "reasoning": {"type": "string"},
+            "strength_score": {"type": "number"},
+            "created_at": {"type": "string", "format": "date-time"},
+        },
+    },
+    "DissentingViewsResponse": {
+        "type": "object",
+        "properties": {
+            "dissents": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/DissentingView"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "ContrarianView": {
+        "type": "object",
+        "description": "A view opposing established consensus",
+        "properties": {
+            "topic": {"type": "string"},
+            "consensus_position": {"type": "string"},
+            "contrarian_position": {"type": "string"},
+            "agent": {"type": "string"},
+            "argument_strength": {"type": "number"},
+        },
+    },
+    "ContrarianViewsResponse": {
+        "type": "object",
+        "properties": {
+            "views": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/ContrarianView"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "RiskWarning": {
+        "type": "object",
+        "description": "A consensus risk warning",
+        "properties": {
+            "type": {
+                "type": "string",
+                "enum": ["low_confidence", "shifting", "contradictory", "bias"],
+            },
+            "topic": {"type": "string"},
+            "description": {"type": "string"},
+            "severity": {"type": "string", "enum": ["low", "medium", "high"]},
+            "debate_ids": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+    "RiskWarningsResponse": {
+        "type": "object",
+        "properties": {
+            "warnings": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/RiskWarning"},
+            },
+            "total": {"type": "integer"},
+        },
+    },
+    "DomainConsensusResponse": {
+        "type": "object",
+        "description": "Consensus data for a specific domain",
+        "properties": {
+            "domain": {"type": "string"},
+            "total_debates": {"type": "integer"},
+            "consensus_rate": {"type": "number"},
+            "settled_questions": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/SettledQuestion"},
+            },
+            "top_agents": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "agent": {"type": "string"},
+                        "contribution_count": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    },
     "Calibration": {
         "type": "object",
         "properties": {
