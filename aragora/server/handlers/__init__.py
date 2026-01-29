@@ -626,6 +626,14 @@ def get_all_handler_stability() -> dict[str, str]:
     return {name: stability.value for name, stability in HANDLER_STABILITY.items()}
 
 
+# Populate the registry for modules that need to avoid circular imports
+# (e.g., features.py needs to enumerate handlers)
+from aragora.server.handlers import _registry
+
+_registry.ALL_HANDLERS[:] = ALL_HANDLERS
+_registry.HANDLER_STABILITY.update(HANDLER_STABILITY)
+
+
 __all__ = [
     # Base utilities
     "HandlerResult",

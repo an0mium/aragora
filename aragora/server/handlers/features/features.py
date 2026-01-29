@@ -923,7 +923,7 @@ class FeaturesHandler(BaseHandler):
         Simpler version of /api/features/discover for quick lookups.
         Returns just the paths grouped by handler.
         """
-        from aragora.server.handlers import ALL_HANDLERS
+        from aragora.server.handlers._registry import ALL_HANDLERS
 
         endpoints_by_handler: dict[str, list[str]] = {}
         all_endpoints: list[str] = []

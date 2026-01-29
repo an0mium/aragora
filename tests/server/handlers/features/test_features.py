@@ -202,12 +202,12 @@ class TestFeatureUnavailableResponse:
     def test_response_known_feature(self):
         """Test response for known feature."""
         response = feature_unavailable_response("pulse", "Pulse not available")
-        assert response.status == 503
+        assert response.status_code == 503
 
     def test_response_unknown_feature(self):
         """Test response for unknown feature."""
         response = feature_unavailable_response("unknown")
-        assert response.status == 503
+        assert response.status_code == 503
 
 
 class TestFeaturesHandler:
@@ -247,7 +247,7 @@ class TestFeaturesEndpoints:
     def test_get_features_summary(self, handler):
         """Test getting features summary."""
         result = handler._get_features_summary()
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -259,7 +259,7 @@ class TestFeaturesEndpoints:
     def test_get_available(self, handler):
         """Test getting available features list."""
         result = handler._get_available()
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -270,7 +270,7 @@ class TestFeaturesEndpoints:
     def test_get_all_features(self, handler):
         """Test getting all features."""
         result = handler._get_all_features()
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -282,7 +282,7 @@ class TestFeaturesEndpoints:
     def test_get_feature_status_known(self, handler):
         """Test getting status of known feature."""
         result = handler._get_feature_status("pulse")
-        assert result.status == 200
+        assert result.status_code == 200
 
         import json
 
@@ -293,7 +293,7 @@ class TestFeaturesEndpoints:
     def test_get_feature_status_unknown(self, handler):
         """Test getting status of unknown feature."""
         result = handler._get_feature_status("unknown_feature")
-        assert result.status == 404
+        assert result.status_code == 404
 
 
 class TestFeaturesRateLimiting:
@@ -302,7 +302,7 @@ class TestFeaturesRateLimiting:
     def test_rate_limiter_exists(self):
         """Test that rate limiter is configured."""
         assert _features_limiter is not None
-        assert _features_limiter.requests_per_minute == 100
+        assert _features_limiter.rpm == 100
 
     def test_rate_limit_exceeded(self, handler):
         """Test rate limit enforcement."""
@@ -318,4 +318,4 @@ class TestFeaturesRateLimiting:
             return_value="127.0.0.1",
         ):
             result = handler.handle("/api/features", {}, mock_handler)
-            assert result.status == 429
+            assert result.status_code == 429
