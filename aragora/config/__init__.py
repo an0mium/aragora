@@ -210,6 +210,14 @@ from .validator import (
     validate_production,
 )
 
+
+def _default_agent_list_from_csv(value: str) -> list[str]:
+    return [agent.strip() for agent in value.split(",") if agent.strip()]
+
+
+# Derived defaults (keep in sync with DEFAULT_AGENTS string)
+DEFAULT_AGENT_LIST = _default_agent_list_from_csv(DEFAULT_AGENTS)
+
 __all__ = [
     # Main settings
     "Settings",
@@ -255,6 +263,8 @@ __all__ = [
     "get_missing_required_keys",
     "print_config_status",
     "ValidatorConfigurationError",
+    # Derived defaults
+    "DEFAULT_AGENT_LIST",
     # Constants
     "ALLOWED_AGENT_TYPES",
 ]
