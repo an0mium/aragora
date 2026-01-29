@@ -383,6 +383,7 @@ def _get_store():
 # =============================================================================
 
 
+@require_permission("inbox:create")
 async def handle_create_shared_inbox(
     workspace_id: str,
     name: str,
@@ -466,6 +467,7 @@ async def handle_create_shared_inbox(
         }
 
 
+@require_permission("inbox:read")
 async def handle_list_shared_inboxes(
     workspace_id: str,
     user_id: Optional[str] = None,
@@ -521,6 +523,7 @@ async def handle_list_shared_inboxes(
         }
 
 
+@require_permission("inbox:read")
 async def handle_get_shared_inbox(
     inbox_id: str,
 ) -> Dict[str, Any]:

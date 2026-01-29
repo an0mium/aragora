@@ -121,12 +121,22 @@ export default function AdminOverviewPage() {
         }
       }
 
-      // Fetch recent activity (mock for now - would come from audit logs)
+      // Fetch recent activity from dashboard endpoint
       try {
-        const activityRes = await fetch(`${backendConfig.api}/api/admin/activity?limit=10`);
+        const activityRes = await fetch(`${backendConfig.api}/api/v1/dashboard/activity?limit=10`);
         if (activityRes.ok) {
           const activityData = await activityRes.json();
-          setRecentActivity(activityData.activities || []);
+          // Transform backend activity format to frontend format
+          const activities = (activityData.activities || activityData.data?.activities || []).map((a: { id: string; type: string; title?: string; description?: string; timestamp: string }) => ({
+            id: a.id,
+            type: a.type === 'email_received' ? 'user_signup' :
+                  a.type === 'action_completed' ? 'debate_completed' :
+                  a.type === 'meeting_scheduled' ? 'org_created' :
+                  a.type as 'user_signup' | 'debate_completed' | 'org_created' | 'payment_received' | 'api_error',
+            description: a.title || a.description || '',
+            timestamp: a.timestamp,
+          }));
+          setRecentActivity(activities);
         }
       } catch {
         // Activity endpoint may not exist, use mock data
@@ -138,28 +148,37 @@ export default function AdminOverviewPage() {
         ]);
       }
 
-      // Generate chart data (would come from analytics API)
+      // Fetch chart data from analytics endpoints
       try {
-        const analyticsRes = await fetch(`${backendConfig.api}/api/v1/analytics/usage?period=30d`);
-        if (analyticsRes.ok) {
-          const analyticsData = await analyticsRes.json();
-          if (analyticsData.daily_debates) {
-            setDebateChartData(analyticsData.daily_debates.map((d: { date: string; count: number }) => ({
-              label: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              value: d.count,
-              date: d.date,
+        // Fetch debate trends
+        const debatesRes = await fetch(`${backendConfig.api}/api/analytics/debates/trends?time_range=30d`);
+        if (debatesRes.ok) {
+          const debatesData = await debatesRes.json();
+          const dataPoints = debatesData.data_points || debatesData.data?.data_points || [];
+          if (dataPoints.length > 0) {
+            setDebateChartData(dataPoints.map((d: { period: string; total: number }) => ({
+              label: new Date(d.period).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              value: d.total,
+              date: d.period,
             })));
           }
-          if (analyticsData.daily_api_calls) {
-            setApiCallsChartData(analyticsData.daily_api_calls.map((d: { date: string; count: number }) => ({
-              label: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-              value: d.count,
-              date: d.date,
+        }
+
+        // Fetch usage/token data for API calls chart
+        const usageRes = await fetch(`${backendConfig.api}/api/analytics/usage/tokens?time_range=30d`);
+        if (usageRes.ok) {
+          const usageData = await usageRes.json();
+          const usagePoints = usageData.data_points || usageData.data?.data_points || [];
+          if (usagePoints.length > 0) {
+            setApiCallsChartData(usagePoints.map((d: { period: string; tokens: number; requests?: number }) => ({
+              label: new Date(d.period).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              value: d.requests || d.tokens || 0,
+              date: d.period,
             })));
           }
         }
       } catch {
-        // Generate mock chart data
+        // Generate mock chart data if endpoints fail
         const mockDates = Array.from({ length: 30 }, (_, i) => {
           const date = new Date();
           date.setDate(date.getDate() - (29 - i));
