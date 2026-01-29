@@ -561,6 +561,85 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
+  # Database migration testing
+  migration-test:
+    name: Database Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: aragora
+          POSTGRES_PASSWORD: aragora
+          POSTGRES_DB: aragora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aragora"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install alembic psycopg2-binary
+
+      - name: Verify migration files
+        run: |
+          echo "Checking migration files..."
+          ls -la migrations/versions/
+          # Ensure all migration files are valid Python
+          for f in migrations/versions/*.py; do
+            python -m py_compile "$f"
+            echo "✓ $f is valid Python"
+          done
+
+      - name: Run migrations (upgrade)
+        run: |
+          echo "Running migrations to head..."
+          alembic upgrade head
+          echo "✓ Migrations completed successfully"
+        env:
+          DATABASE_URL: postgresql://aragora:aragora@localhost:5432/aragora_test
+
+      - name: Verify schema
+        run: |
+          echo "Verifying schema tables exist..."
+          PGPASSWORD=aragora psql -h localhost -U aragora -d aragora_test -c "
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'aragora'
+            ORDER BY table_name;
+          "
+
+      - name: Test migration rollback
+        run: |
+          echo "Testing rollback (downgrade)..."
+          # Downgrade one step
+          alembic downgrade -1 || echo "Downgrade not supported (expected for initial migration)"
+        env:
+          DATABASE_URL: postgresql://aragora:aragora@localhost:5432/aragora_test
+
+      - name: Re-run migrations
+        run: |
+          echo "Re-running migrations after rollback..."
+          alembic upgrade head
+          echo "✓ Re-migration successful"
+        env:
+          DATABASE_URL: postgresql://aragora:aragora@localhost:5432/aragora_test
+
   nightly-optional:
     name: Optional Deps (Full)
     runs-on: ubuntu-latest

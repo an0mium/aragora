@@ -16,7 +16,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
-      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-dev-token}
+      - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:?ARAGORA_API_TOKEN must be set}
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
       - ARAGORA_ENV=${ARAGORA_ENV:-development}
       - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}

@@ -50,9 +50,9 @@ ENV PYTHONUNBUFFERED=1 \
     ARAGORA_API_PORT=8080 \
     ARAGORA_WS_PORT=8765
 
-# Health check
+# Health check (use standard K8s liveness probe endpoint)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${ARAGORA_API_PORT}/api/health || exit 1
+    CMD curl -f http://localhost:${ARAGORA_API_PORT}/healthz || exit 1
 
 # Expose ports
 EXPOSE 8080 8765
