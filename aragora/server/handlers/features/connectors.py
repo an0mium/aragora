@@ -28,8 +28,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from aragora.server.handlers.secure import SecureHandler
-from aragora.server.handlers.utils.decorators import has_permission
+from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.handlers.utils.responses import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -178,18 +178,19 @@ class ConnectorsHandler(SecureHandler):
         "/api/v1/connectors/types",
     ]
 
-    def _check_permission(self, request: Any, permission: str) -> Optional[Dict[str, Any]]:
-        """Check if user has the required permission.
+    async def _check_permission(self, request: Any, permission: str) -> Optional[Dict[str, Any]]:
+        """Check if user has the required permission using RBAC system.
 
-        Returns error response if permission denied, None if allowed.
+        Returns error response if permission denied or auth fails, None if allowed.
         """
-        # Get user from request (if authenticated)
-        user = self.get_current_user(request)
-        if user:
-            user_role = user.role if hasattr(user, "role") else None
-            if not has_permission(user_role, permission):
-                return self._error_response(403, f"Permission denied: {permission} required")
-        return None
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
@@ -221,50 +222,50 @@ class ConnectorsHandler(SecureHandler):
 
         # Route to appropriate handler with permission checks
         if path.endswith("/connectors") and method == "GET":
-            if err := self._check_permission(request, "connectors:read"):
+            if err := await self._check_permission(request, "connectors:read"):
                 return err
             return await self._list_connectors(request)
         elif path.endswith("/connectors") and method == "POST":
-            if err := self._check_permission(request, "connectors:create"):
+            if err := await self._check_permission(request, "connectors:create"):
                 return err
             return await self._create_connector(request)
         elif path.endswith("/types"):
             # Connector types metadata is public
             return await self._list_types(request)
         elif path.endswith("/sync-history"):
-            if err := self._check_permission(request, "connectors:read"):
+            if err := await self._check_permission(request, "connectors:read"):
                 return err
             return await self._get_sync_history(request)
         elif path.endswith("/stats"):
-            if err := self._check_permission(request, "connectors:read"):
+            if err := await self._check_permission(request, "connectors:read"):
                 return err
             return await self._get_stats(request)
         elif path.endswith("/health"):
-            if err := self._check_permission(request, "connectors:read"):
+            if err := await self._check_permission(request, "connectors:read"):
                 return err
             return await self._get_health(request)
         elif path.endswith("/test") and method == "POST":
-            if err := self._check_permission(request, "connectors:configure"):
+            if err := await self._check_permission(request, "connectors:configure"):
                 return err
             return await self._test_connection(request)
         elif sync_id and path.endswith("/cancel"):
-            if err := self._check_permission(request, "connectors:configure"):
+            if err := await self._check_permission(request, "connectors:configure"):
                 return err
             return await self._cancel_sync(request, sync_id)
         elif connector_id and path.endswith("/sync") and method == "POST":
-            if err := self._check_permission(request, "connectors:configure"):
+            if err := await self._check_permission(request, "connectors:configure"):
                 return err
             return await self._start_sync(request, connector_id)
         elif connector_id and method == "GET":
-            if err := self._check_permission(request, "connectors:read"):
+            if err := await self._check_permission(request, "connectors:read"):
                 return err
             return await self._get_connector(request, connector_id)
         elif connector_id and method == "PUT":
-            if err := self._check_permission(request, "connectors:configure"):
+            if err := await self._check_permission(request, "connectors:configure"):
                 return err
             return await self._update_connector(request, connector_id)
         elif connector_id and method == "DELETE":
-            if err := self._check_permission(request, "connectors:delete"):
+            if err := await self._check_permission(request, "connectors:delete"):
                 return err
             return await self._delete_connector(request, connector_id)
 
