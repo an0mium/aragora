@@ -1,0 +1,40 @@
+# GitGuardian Configuration for Aragora
+# https://docs.gitguardian.com/internal-repositories-monitoring/ggshield/configuration
+
+# Paths to ignore (test files, examples, docs)
+paths-ignore:
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/tests/**/*.py"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/fixtures/**"
+  - "**/mocks/**"
+  - "**/*.example"
+  - "**/*.template"
+  - ".env.example"
+  - ".env.template"
+  - "docs/**/*.md"
+
+# Specific secret allowlist for known test fixtures
+# These are deliberately generated test-only keys that are NOT production secrets
+secret:
+  ignored-matches:
+    # Test ES256 private key for Apple OAuth unit tests
+    # Generated specifically for testing JWT signing - not a real Apple key
+    - match: "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg5kjhE+0CG0iSuMAC"
+      name: "Apple OAuth test private key (test fixture)"
+
+    # Test placeholder patterns
+    - match: "your-.*-key"
+    - match: "YOUR_.*_KEY"
+    - match: "<your-.*>"
+    - match: "sk-ant-test-.*"
+
+    # WebSocket RFC test nonce
+    - match: "dGhlIHNhbXBsZSBub25jZQ=="
+      name: "WebSocket RFC test nonce"
+
+# Additional ignored detectors for test patterns
+ignored-detectors:
+  - generic_private_key

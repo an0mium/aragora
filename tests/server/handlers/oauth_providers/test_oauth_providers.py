@@ -52,7 +52,16 @@ def base_config() -> OAuthProviderConfig:
 @pytest.fixture
 def apple_config() -> OAuthProviderConfig:
     """Create Apple OAuth provider configuration with test keys."""
-    # Valid ES256 private key for testing (P-256 curve)
+    # ==========================================================================
+    # SECURITY NOTICE: TEST-ONLY PRIVATE KEY
+    # ==========================================================================
+    # This is a deliberately generated test key for unit testing Apple OAuth
+    # JWT signing functionality. It is NOT a real Apple Developer key and has
+    # no access to any production systems.
+    #
+    # Generated via: openssl ecparam -name prime256v1 -genkey -noout
+    # This key is committed intentionally for reproducible tests.
+    # ==========================================================================
     test_private_key = """-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg5kjhE+0CG0iSuMAC
 rpDuM/ER5LtkvGtyxDg31WjQ762hRANCAARISNqgPPI84MqzPNFjTjGrnoV3JcYJ
