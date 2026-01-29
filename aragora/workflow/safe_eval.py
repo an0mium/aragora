@@ -343,8 +343,8 @@ class _SafeEvaluator(ast.NodeVisitor):
     def _eval_comprehension(self, node: ast.AST, container_type: type) -> Any:
         """Helper to evaluate list/set comprehensions."""
         result = []
-        elt = node.elt  # type: ignore
-        generators = node.generators  # type: ignore
+        elt = node.elt  # type: ignore[attr-defined]  # AST node subtype has elt
+        generators = node.generators  # type: ignore[attr-defined]  # AST node subtype has generators
 
         for gen in generators:
             iter_val = self.visit(gen.iter)
