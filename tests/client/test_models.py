@@ -460,11 +460,13 @@ class TestDebateCreateRequest:
         assert request.consensus == ConsensusType.UNANIMOUS
 
     def test_rounds_bounds(self):
-        """Test rounds must be between 1 and 10."""
+        """Test rounds must be between 1 and MAX_ROUNDS."""
+        from aragora.config import MAX_ROUNDS
+
         with pytest.raises(ValueError):
             DebateCreateRequest(task="Test", rounds=0)
         with pytest.raises(ValueError):
-            DebateCreateRequest(task="Test", rounds=11)
+            DebateCreateRequest(task="Test", rounds=MAX_ROUNDS + 1)
 
 
 class TestAgentProfile:
