@@ -640,7 +640,7 @@ class TestListWorkspaces:
         ):
             with patch.object(oauth_handler, "check_permission"):
                 with patch(
-                    "aragora.server.handlers.oauth_wizard.get_slack_workspace_store"
+                    "aragora.storage.slack_workspace_store.get_slack_workspace_store"
                 ) as mock_store:
                     mock_store.return_value.list_active.return_value = mock_workspaces
 
@@ -674,7 +674,7 @@ class TestListWorkspaces:
         ):
             with patch.object(oauth_handler, "check_permission"):
                 with patch(
-                    "aragora.server.handlers.oauth_wizard.get_teams_tenant_store"
+                    "aragora.storage.teams_tenant_store.get_teams_tenant_store"
                 ) as mock_store:
                     mock_store.return_value.list_active.return_value = mock_tenants
 
@@ -751,7 +751,7 @@ class TestDisconnectProvider:
                     oauth_handler, "read_json_body", return_value={"workspace_id": "W123"}
                 ):
                     with patch(
-                        "aragora.server.handlers.oauth_wizard.get_slack_workspace_store"
+                        "aragora.storage.slack_workspace_store.get_slack_workspace_store"
                     ) as mock_store:
                         result = await oauth_handler.handle(
                             "/api/v2/integrations/wizard/slack/disconnect",
@@ -777,7 +777,7 @@ class TestDisconnectProvider:
                     oauth_handler, "read_json_body", return_value={"tenant_id": "T123"}
                 ):
                     with patch(
-                        "aragora.server.handlers.oauth_wizard.get_teams_tenant_store"
+                        "aragora.storage.teams_tenant_store.get_teams_tenant_store"
                     ) as mock_store:
                         result = await oauth_handler.handle(
                             "/api/v2/integrations/wizard/teams/disconnect",
@@ -884,7 +884,7 @@ class TestConnectionChecks:
     @pytest.mark.asyncio
     async def test_check_slack_connection_no_workspaces(self, oauth_handler):
         """Check Slack connection with no workspaces."""
-        with patch("aragora.server.handlers.oauth_wizard.get_slack_workspace_store") as mock_store:
+        with patch("aragora.storage.slack_workspace_store.get_slack_workspace_store") as mock_store:
             mock_store.return_value.list_active.return_value = []
 
             result = await oauth_handler._check_slack_connection()
@@ -894,7 +894,7 @@ class TestConnectionChecks:
     @pytest.mark.asyncio
     async def test_check_slack_connection_with_workspaces(self, oauth_handler):
         """Check Slack connection with active workspaces."""
-        with patch("aragora.server.handlers.oauth_wizard.get_slack_workspace_store") as mock_store:
+        with patch("aragora.storage.slack_workspace_store.get_slack_workspace_store") as mock_store:
             mock_store.return_value.list_active.side_effect = [
                 [{"workspace_id": "W123"}],  # First call (limit=1)
                 [{"workspace_id": "W123"}, {"workspace_id": "W456"}],  # Second call (limit=100)
