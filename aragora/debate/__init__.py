@@ -203,6 +203,19 @@ _EXPORT_MAP = {
     "DebateOptions": ("aragora.debate.service", "DebateOptions"),
     "get_debate_service": ("aragora.debate.service", "get_debate_service"),
     "reset_debate_service": ("aragora.debate.service", "reset_debate_service"),
+    # Decision Service (Async-first, background execution)
+    "DecisionService": ("aragora.debate.decision_service", "DecisionService"),
+    "AsyncDecisionService": ("aragora.debate.decision_service", "AsyncDecisionService"),
+    "DebateRequest": ("aragora.debate.decision_service", "DebateRequest"),
+    "DebateState": ("aragora.debate.decision_service", "DebateState"),
+    "DebateEvent": ("aragora.debate.decision_service", "DebateEvent"),
+    "DebateStatus": ("aragora.debate.decision_service", "DebateStatus"),
+    "EventType": ("aragora.debate.decision_service", "EventType"),
+    "StateStore": ("aragora.debate.decision_service", "StateStore"),
+    "InMemoryStateStore": ("aragora.debate.decision_service", "InMemoryStateStore"),
+    "EventBus": ("aragora.debate.decision_service", "EventBus"),
+    "get_decision_service": ("aragora.debate.decision_service", "get_decision_service"),
+    "reset_decision_service": ("aragora.debate.decision_service", "reset_decision_service"),
 }
 
 
@@ -418,4 +431,16 @@ __all__ = [
     "DebateOptions",
     "get_debate_service",
     "reset_debate_service",
+    # Decision Service (Async-first, background execution)
+    "DecisionService",
+    "AsyncDecisionService",
+    "DebateRequest",
+    "DebateState",
+    "DebateEvent",
+    "DebateStatus",
+    "EventType",
+    "StateStore",
+    "InMemoryStateStore",
+    "get_decision_service",
+    "reset_decision_service",
 ]

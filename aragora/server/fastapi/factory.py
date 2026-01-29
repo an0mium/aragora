@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 
 from .middleware.tracing import TracingMiddleware
 from .middleware.error_handling import setup_exception_handlers
-from .routes import health, debates
+from .routes import health, debates, decisions
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +157,7 @@ def create_app(
     # Register routes
     app.include_router(health.router)
     app.include_router(debates.router)
+    app.include_router(decisions.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)
