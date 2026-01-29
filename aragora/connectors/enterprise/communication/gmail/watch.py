@@ -29,7 +29,7 @@ class GmailBaseMethods(Protocol):
     """Protocol defining expected methods from base classes for type checking."""
 
     user_id: str
-    exclude_labels: set
+    exclude_labels: set[str]
     _gmail_state: Optional[GmailSyncState]
     _watch_task: Optional["asyncio.Task[None]"]
     _watch_running: bool
@@ -44,6 +44,10 @@ class GmailBaseMethods(Protocol):
     def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
+    async def get_history(
+        self, start_history_id: str, page_token: Optional[str] = None
+    ) -> tuple[List[Dict[str, Any]], Optional[str], Optional[str]]: ...
+    async def get_message(self, message_id: str) -> EmailMessage: ...
 
 
 class GmailWatchMixin(GmailBaseMethods):
@@ -328,7 +332,7 @@ class GmailWatchMixin(GmailBaseMethods):
             return
 
         self._watch_running = True
-        self._watch_task = asyncio.create_task(
+        self._watch_task = asyncio.create_task(  # type: ignore[assignment]
             self._watch_renewal_loop(topic_name, renewal_hours, project_id)
         )
         logger.info(f"[Gmail] Watch renewal started (every {renewal_hours} hours)")

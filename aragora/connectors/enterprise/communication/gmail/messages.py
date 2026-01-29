@@ -16,6 +16,7 @@ from email.utils import parseaddr
 from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
+from aragora.reasoning.provenance import SourceType
 
 from ..models import (
     EmailAttachment,
@@ -34,10 +35,12 @@ class GmailBaseMethods(Protocol):
 
     user_id: str
     include_spam_trash: bool
-    exclude_labels: set
+    exclude_labels: set[str]
     labels: Optional[List[str]]
     max_results: int
 
+    @property
+    def source_type(self) -> SourceType: ...
     async def _get_access_token(self) -> str: ...
     async def _api_request(
         self, endpoint: str, method: str = "GET", **kwargs: Any
@@ -48,6 +51,7 @@ class GmailBaseMethods(Protocol):
     def get_circuit_breaker_status(self) -> Dict[str, Any]: ...
     def record_success(self) -> None: ...
     def record_failure(self) -> None: ...
+    async def get_user_info(self) -> Dict[str, Any]: ...
 
 
 class GmailMessagesMixin(GmailBaseMethods):
