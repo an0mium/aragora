@@ -7,6 +7,8 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 from .models import CommandContext, CommandResult, CommandDefinition, CommandPermission
 
 logger = logging.getLogger(__name__)
@@ -64,8 +66,8 @@ class DebateCommandHandler(BaseCommandHandler):
 
             # Create debate
             env = Environment(task=topic)
-            protocol = DebateProtocol(rounds=3, consensus="majority")
-            agents = get_default_agents()[:3]  # Use 3 agents
+            protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
+            agents = get_default_agents()
 
             # Register origin for result routing
             from aragora.server.debate_origin import register_debate_origin

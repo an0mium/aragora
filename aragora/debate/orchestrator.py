@@ -47,8 +47,7 @@ from aragora.debate.sanitization import OutputSanitizer
 from aragora.debate.state_cache import DebateStateCache
 from aragora.debate.termination_checker import TerminationChecker
 from aragora.exceptions import EarlyStopError
-from aragora.observability.logging import correlation_context
-from aragora.observability.logging import get_logger as get_structured_logger
+from aragora.logging_config import LogContext, get_logger as get_structured_logger
 from aragora.observability.n1_detector import n1_detection_scope
 from aragora.observability.tracing import add_span_attributes, get_tracer
 from aragora.debate.performance_monitor import get_debate_monitor
@@ -865,7 +864,7 @@ class Arena:
                 self.molecule_orchestrator = get_molecule_orchestrator(self.protocol)
             except ImportError:
                 logger.debug("[molecules] Molecule orchestrator not available")
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning(f"[molecules] Failed to initialize orchestrator: {e}")
 
         if self.checkpoint_manager or self.molecule_orchestrator:
@@ -878,7 +877,7 @@ class Arena:
                 )
             except ImportError:
                 logger.debug("[checkpoint_bridge] Checkpoint bridge not available")
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning(f"[checkpoint_bridge] Initialization failed: {e}")
 
     def _init_grounded_operations(self) -> None:
@@ -966,7 +965,7 @@ class Arena:
             }
             logger.info(f"[hierarchy] Roles assigned for debate {ctx.debate_id}: {role_summary}")
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning(f"[hierarchy] Role assignment failed: {e}")
             ctx.hierarchy_assignments = {}
 
@@ -1095,7 +1094,7 @@ class Arena:
             logger.debug("[arena] Cross-subscriber bridge connected")
         except ImportError:
             logger.debug("[arena] Cross-subscriber bridge not available")
-        except Exception as e:
+        except (AttributeError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(f"[arena] Failed to initialize cross-subscriber bridge: {e}")
 
     async def _init_km_context(self, debate_id: str, domain: str) -> None:
@@ -1195,7 +1194,7 @@ class Arena:
         except ImportError:
             logger.debug("[arena] BeliefNetwork not available")
             return None
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, KeyError) as e:
             logger.debug(f"[arena] Failed to setup belief network: {e}")
             return None
 
@@ -1683,7 +1682,7 @@ class Arena:
         except ImportError:
             # Budget manager not available - allow continuation
             return True, ""
-        except Exception as e:
+        except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
             # On any error, allow continuation (fail open for availability)
             logger.debug(f"Budget check error (continuing): {e}")
             return True, ""
@@ -1823,7 +1822,7 @@ class Arena:
         except ImportError:
             logger.debug("Bead tracking unavailable: aragora.nomic.beads not found")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to create debate bead: {e}")
             return None
 
@@ -1884,7 +1883,7 @@ class Arena:
         except ImportError:
             logger.debug("Bead tracking unavailable")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to create pending debate bead: {e}")
             return None
 
@@ -1954,7 +1953,7 @@ class Arena:
 
         except ImportError:
             pass
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"Failed to update debate bead: {e}")
 
     async def _init_hook_tracking(self, debate_id: str, bead_id: str) -> dict[str, str]:
@@ -2001,7 +2000,7 @@ class Arena:
                     )
                     hook_entries[agent_id] = entry.id
                     logger.debug(f"Pushed debate {debate_id[:8]} to hook for {agent_id}")
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
                     logger.warning(f"Failed to push hook for {agent_id}: {e}")
 
             if hook_entries:
@@ -2014,7 +2013,7 @@ class Arena:
         except ImportError:
             logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not found")
             return {}
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to initialize hook tracking: {e}")
             return {}
 
@@ -2046,12 +2045,12 @@ class Arena:
                     else:
                         await hook_queue.fail(bead_id, error_msg or "Debate failed")
                         logger.debug(f"Failed hook {entry_id[:8]} for {agent_id}")
-                except Exception as e:
+                except (OSError, ConnectionError, ValueError, TypeError, asyncio.TimeoutError) as e:
                     logger.warning(f"Failed to complete hook for {agent_id}: {e}")
 
         except ImportError:
             pass
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError) as e:
             logger.warning(f"Failed to complete hook tracking: {e}")
 
     @classmethod
@@ -2135,7 +2134,7 @@ class Arena:
         except ImportError as e:
             logger.debug(f"GUPP recovery unavailable: {e}")
             return []
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError) as e:
             logger.warning(f"GUPP recovery failed: {e}")
             return []
 
@@ -2238,7 +2237,7 @@ class Arena:
                 ctx.channel_integration = self._channel_integration
             else:
                 self._channel_integration = None
-        except Exception as e:
+        except (ImportError, ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
             logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
             self._channel_integration = None
 
@@ -2248,7 +2247,7 @@ class Arena:
             return
         try:
             await self._channel_integration.teardown()
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
         finally:
             self._channel_integration = None
@@ -2374,7 +2373,7 @@ class Arena:
         await self._setup_agent_channels(ctx, debate_id)
 
         # Structured logging for debate lifecycle (JSON in production)
-        with correlation_context(correlation_id):
+        with LogContext(trace_id=correlation_id):
             logger.info(
                 "debate_start",
                 debate_id=debate_id,
@@ -2403,7 +2402,7 @@ class Arena:
                 gupp_bead_id = await self._create_pending_debate_bead(debate_id, self.env.task)
                 if gupp_bead_id:
                     gupp_hook_entries = await self._init_hook_tracking(debate_id, gupp_bead_id)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.debug(f"GUPP initialization failed (non-critical): {e}")
 
         # Initialize result early for timeout recovery
@@ -2545,7 +2544,7 @@ class Arena:
         if ctx.result:
             try:
                 await self._ingest_debate_outcome(ctx.result)
-            except Exception as e:
+            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
                 logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
 
         # Complete GUPP hook tracking for crash recovery
@@ -2562,7 +2561,7 @@ class Arena:
                 )
                 if success:
                     ctx.result.bead_id = gupp_bead_id
-            except Exception as e:
+            except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
                 logger.debug(f"GUPP completion failed (non-critical): {e}")
         # Create a Bead to track this debate decision with git-backed audit trail
         # This enables durable work tracking and audit history via the Gastown pattern
@@ -2572,7 +2571,7 @@ class Arena:
                 bead_id = await self._create_debate_bead(ctx.result)
                 if bead_id:
                     ctx.result.bead_id = bead_id
-            except Exception as e:
+            except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Bead creation failed (non-critical): {e}")
 
         # Queue for Supabase background sync (non-blocking)

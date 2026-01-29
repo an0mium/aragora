@@ -40,6 +40,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -442,7 +443,7 @@ async def handle_create_shared_inbox(
                     settings=settings or {},
                     created_by=created_by,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist inbox to store: {e}")
 
         # Always keep in-memory cache for fast reads
@@ -494,7 +495,7 @@ async def handle_list_shared_inboxes(
                         "inboxes": stored_inboxes,
                         "total": len(stored_inboxes),
                     }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load from store, using cache: {e}")
 
         # Fallback to in-memory
@@ -539,7 +540,7 @@ async def handle_get_shared_inbox(
                         "success": True,
                         "inbox": inbox_data,
                     }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load from store: {e}")
 
         # Fallback to in-memory
@@ -616,7 +617,7 @@ async def handle_get_inbox_messages(
                                         m for m in all_messages if tag in m.get("tags", [])
                                     ]
                                 total_count = len(all_messages)
-                        except Exception as e:
+                        except (OSError, RuntimeError, ValueError, KeyError) as e:
                             # Fall back to page count + offset
                             logger.debug(f"Error counting messages, using fallback: {e}")
                             total_count = offset + len(messages_data)
@@ -628,7 +629,7 @@ async def handle_get_inbox_messages(
                         "limit": limit,
                         "offset": offset,
                     }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load messages from store: {e}")
 
         # Fallback to in-memory
@@ -714,7 +715,7 @@ async def handle_assign_message(
                 if new_status:
                     updates["status"] = new_status
                 store.update_message(message_id, updates)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist assignment to store: {e}")
 
         logger.info(f"[SharedInbox] Assigned message {message_id} to {assigned_to}")
@@ -791,7 +792,7 @@ async def handle_update_message_status(
                     updates["resolved_at"] = now.isoformat()
                     updates["resolved_by"] = updated_by
                 store.update_message(message_id, updates)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist status to store: {e}")
 
         logger.info(f"[SharedInbox] Updated message {message_id} status to {status}")
@@ -935,7 +936,7 @@ async def handle_add_message_to_inbox(
                     thread_id=thread_id,
                     priority=priority,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist message to store: {e}")
 
         # Keep in-memory cache
@@ -1021,7 +1022,7 @@ async def handle_create_routing_rule(
             try:
                 rules_store.create_rule(rule_data)
                 logger.info(f"[SharedInbox] Created routing rule {rule_id}: {name} (persistent)")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist rule to RulesStore: {e}")
                 # Fall through to in-memory storage
 
@@ -1040,7 +1041,7 @@ async def handle_create_routing_rule(
                     description=description,
                     inbox_id=inbox_id,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to persist rule to email store: {e}")
 
         # Build in-memory RoutingRule object for cache
@@ -1113,7 +1114,7 @@ async def handle_list_routing_rules(
                     "limit": limit,
                     "offset": offset,
                 }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load rules from RulesStore: {e}")
 
         # Try email store as fallback
@@ -1135,7 +1136,7 @@ async def handle_list_routing_rules(
                         "limit": limit,
                         "offset": offset,
                     }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load rules from email store: {e}")
 
         # Fallback to in-memory
@@ -1195,7 +1196,7 @@ async def handle_update_routing_rule(
                 updated_rule_data = rules_store.update_rule(rule_id, updates)
                 if updated_rule_data:
                     logger.info(f"[SharedInbox] Updated routing rule {rule_id} in RulesStore")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to update rule in RulesStore: {e}")
 
         # Also update in email store for backward compatibility
@@ -1203,7 +1204,7 @@ async def handle_update_routing_rule(
         if email_store:
             try:
                 email_store.update_routing_rule(rule_id, **updates)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to update rule in email store: {e}")
 
         # Update in-memory cache
@@ -1244,7 +1245,7 @@ async def handle_update_routing_rule(
                         "success": True,
                         "rule": rule_data,
                     }
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.debug(f"Failed to get rule {rule_id} from store: {e}")
 
         # Return from in-memory cache if available
@@ -1284,7 +1285,7 @@ async def handle_delete_routing_rule(
                 deleted = rules_store.delete_rule(rule_id)
                 if deleted:
                     logger.info(f"[SharedInbox] Deleted routing rule {rule_id} from RulesStore")
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to delete rule from RulesStore: {e}")
 
         # Also delete from email store for backward compatibility
@@ -1292,7 +1293,7 @@ async def handle_delete_routing_rule(
         if email_store:
             try:
                 email_store.delete_routing_rule(rule_id)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to delete rule from email store: {e}")
 
         # Delete from in-memory cache
@@ -1343,7 +1344,7 @@ async def handle_test_routing_rule(
                 rule_data = rules_store.get_rule(rule_id)
                 if rule_data:
                     rule = RoutingRule.from_dict(rule_data)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.warning(f"[SharedInbox] Failed to load rule from RulesStore: {e}")
 
         # Try email store as fallback
@@ -1354,7 +1355,7 @@ async def handle_test_routing_rule(
                     rule_data = email_store.get_routing_rule(rule_id)
                     if rule_data:
                         rule = RoutingRule.from_dict(rule_data)
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError, KeyError) as e:
                     logger.warning(f"[SharedInbox] Failed to load rule from email store: {e}")
 
         # Fallback to in-memory
@@ -1471,7 +1472,7 @@ async def get_matching_rules_for_email(
                 workspace_id=workspace_id,
             )
             return matching_rules
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             logger.warning(f"[SharedInbox] Failed to get matching rules from RulesStore: {e}")
 
     # Fallback to in-memory evaluation
@@ -1576,7 +1577,7 @@ async def apply_routing_rules_to_message(
         if rules_store:
             try:
                 rules_store.increment_rule_stats(rule["id"], matched=0, applied=1)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.debug(f"Failed to increment rule stats for {rule['id']}: {e}")
 
     return {
@@ -1628,6 +1629,7 @@ class SharedInboxHandler(BaseHandler):
         """Route shared inbox endpoint requests."""
         return None
 
+    @require_permission("inbox:create")
     async def handle_post_shared_inbox(self, data: Dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/shared"""
         workspace_id = data.get("workspace_id")
@@ -1653,6 +1655,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:read")
     async def handle_get_shared_inboxes(self, params: Dict[str, Any]) -> HandlerResult:
         """GET /api/v1/inbox/shared"""
         workspace_id = params.get("workspace_id")
@@ -1669,6 +1672,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:read")
     async def handle_get_shared_inbox(self, params: Dict[str, Any], inbox_id: str) -> HandlerResult:
         """GET /api/v1/inbox/shared/:id"""
         result = await handle_get_shared_inbox(inbox_id)
@@ -1678,6 +1682,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("inbox:read")
     async def handle_get_inbox_messages(
         self, params: Dict[str, Any], inbox_id: str
     ) -> HandlerResult:
@@ -1696,6 +1701,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:manage")
     async def handle_post_assign_message(
         self, data: Dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
@@ -1716,6 +1722,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:manage")
     async def handle_post_update_status(
         self, data: Dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
@@ -1736,6 +1743,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:manage")
     async def handle_post_add_tag(
         self, data: Dict[str, Any], inbox_id: str, message_id: str
     ) -> HandlerResult:
@@ -1755,6 +1763,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:admin")
     async def handle_post_routing_rule(self, data: Dict[str, Any]) -> HandlerResult:
         """POST /api/v1/inbox/routing/rules"""
         workspace_id = data.get("workspace_id")
@@ -1783,6 +1792,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:read")
     async def handle_get_routing_rules(self, params: Dict[str, Any]) -> HandlerResult:
         """GET /api/v1/inbox/routing/rules"""
         workspace_id = params.get("workspace_id")
@@ -1802,6 +1812,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:admin")
     async def handle_patch_routing_rule(self, data: Dict[str, Any], rule_id: str) -> HandlerResult:
         """PATCH /api/v1/inbox/routing/rules/:id"""
         result = await handle_update_routing_rule(rule_id, data)
@@ -1811,6 +1822,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:admin")
     async def handle_delete_routing_rule(self, rule_id: str) -> HandlerResult:
         """DELETE /api/v1/inbox/routing/rules/:id"""
         result = await handle_delete_routing_rule(rule_id)
@@ -1820,6 +1832,7 @@ class SharedInboxHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("inbox:admin")
     async def handle_post_test_routing_rule(
         self, data: Dict[str, Any], rule_id: str
     ) -> HandlerResult:

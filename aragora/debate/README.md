@@ -10,7 +10,7 @@ from aragora import Environment
 
 # Simple usage
 env = Environment(task="Design a rate limiter")
-protocol = DebateProtocol(rounds=3, consensus="majority")
+protocol = DebateProtocol(rounds=9, consensus="hybrid")
 arena = Arena(env, agents, protocol)
 result = await arena.run()
 

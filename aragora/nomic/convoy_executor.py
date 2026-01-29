@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from aragora.implement.executor import HybridExecutor
 from aragora.implement.types import ImplementTask, TaskResult
+from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
 from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadType
 from aragora.nomic.convoy_coordinator import AssignmentStatus, ConvoyCoordinator
 from aragora.nomic.convoys import ConvoyManager, ConvoyPriority
@@ -56,16 +57,37 @@ class GastownConvoyExecutor:
 
         self.bead_store = BeadStore(bead_dir=self.bead_dir, git_enabled=True, auto_commit=False)
         self.convoy_manager = ConvoyManager(bead_store=self.bead_store, convoy_dir=self.convoy_dir)
-        self.coordinator = ConvoyCoordinator(convoy_manager=self.convoy_manager)
+        self.hierarchy = AgentHierarchy(self.repo_path / ".nomic" / "agents")
+        self.coordinator = ConvoyCoordinator(
+            convoy_manager=self.convoy_manager,
+            hierarchy=self.hierarchy,
+            bead_store=self.bead_store,
+        )
         self._executor = HybridExecutor(self.repo_path)
         self._hook_queues: Dict[str, HookQueue] = {}
         self._initialized = False
+
+    async def _register_agents(self) -> None:
+        for agent in self.implementers:
+            try:
+                await self.hierarchy.register_agent(agent.name, AgentRole.CREW)
+            except Exception:
+                continue
+        for agent in self.reviewers:
+            if any(a.name == agent.name for a in self.implementers):
+                continue
+            try:
+                await self.hierarchy.register_agent(agent.name, AgentRole.WITNESS)
+            except Exception:
+                continue
 
     async def _ensure_initialized(self) -> None:
         if self._initialized:
             return
         await self.bead_store.initialize()
         await self.convoy_manager.initialize()
+        await self.hierarchy.initialize()
+        await self._register_agents()
         await self.coordinator.initialize()
         for agent in self.implementers:
             queue = HookQueue(

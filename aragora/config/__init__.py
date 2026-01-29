@@ -10,7 +10,6 @@ New code should use the Pydantic settings:
     timeout = settings.database.timeout_seconds
 
 Legacy constants are still available for backward compatibility:
-    from aragora.config import DEFAULT_RATE_LIMIT
 
 See settings.py for the full validated configuration schema.
 """

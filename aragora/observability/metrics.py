@@ -21,11 +21,15 @@ Environment Variables:
     METRICS_PORT: Port for /metrics endpoint (default: 9090)
 
 See docs/OBSERVABILITY.md for configuration guide.
+
+This module serves as the facade for the metrics subsystem. Most functionality
+is delegated to specialized submodules in aragora/observability/metrics/.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import time
 from contextlib import contextmanager
 from functools import wraps
@@ -38,11 +42,15 @@ logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+# =============================================================================
+# Core Metrics Infrastructure
+# =============================================================================
+
 # Prometheus metrics - initialized lazily
 _initialized = False
 _metrics_server = None
 
-# Metric instances (will be set during initialization)
+# Core metric instances (will be set during initialization)
 REQUEST_COUNT: Any = None
 REQUEST_LATENCY: Any = None
 AGENT_CALLS: Any = None
@@ -121,26 +129,6 @@ NOTIFICATION_LATENCY: Any = None
 NOTIFICATION_ERRORS_TOTAL: Any = None
 NOTIFICATION_QUEUE_SIZE: Any = None
 
-# Persistent Task Queue metrics
-TASK_QUEUE_OPERATIONS_TOTAL: Any = None
-TASK_QUEUE_OPERATION_LATENCY: Any = None
-TASK_QUEUE_SIZE: Any = None
-TASK_QUEUE_RECOVERED_TOTAL: Any = None
-TASK_QUEUE_CLEANUP_TOTAL: Any = None
-
-# Governance Store metrics
-GOVERNANCE_DECISIONS_TOTAL: Any = None
-GOVERNANCE_VERIFICATIONS_TOTAL: Any = None
-GOVERNANCE_APPROVALS_TOTAL: Any = None
-GOVERNANCE_STORE_LATENCY: Any = None
-GOVERNANCE_ARTIFACTS_ACTIVE: Any = None
-
-# User ID Mapping metrics
-USER_MAPPING_OPERATIONS_TOTAL: Any = None
-USER_MAPPING_CACHE_HITS_TOTAL: Any = None
-USER_MAPPING_CACHE_MISSES_TOTAL: Any = None
-USER_MAPPINGS_ACTIVE: Any = None
-
 # Marketplace metrics
 MARKETPLACE_TEMPLATES_TOTAL: Any = None
 MARKETPLACE_DOWNLOADS_TOTAL: Any = None
@@ -174,8 +162,99 @@ RBAC_CHECK_LATENCY: Any = None
 MIGRATION_RECORDS_TOTAL: Any = None
 MIGRATION_ERRORS_TOTAL: Any = None
 
+# Gauntlet metrics
+GAUNTLET_EXPORTS_TOTAL: Any = None
+GAUNTLET_EXPORT_LATENCY: Any = None
+GAUNTLET_EXPORT_SIZE: Any = None
 
+# Workflow Template metrics
+WORKFLOW_TEMPLATES_CREATED: Any = None
+WORKFLOW_TEMPLATE_EXECUTIONS: Any = None
+WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
+
+# =============================================================================
+# Import metrics from submodules (delegating to avoid duplication)
+# =============================================================================
+
+# Task Queue metrics - delegated to submodule
+from aragora.observability.metrics.task_queue import (  # noqa: E402
+    TASK_QUEUE_OPERATIONS_TOTAL,
+    TASK_QUEUE_OPERATION_LATENCY,
+    TASK_QUEUE_SIZE,
+    TASK_QUEUE_RECOVERED_TOTAL,
+    TASK_QUEUE_CLEANUP_TOTAL,
+    init_task_queue_metrics,
+    record_task_queue_operation,
+    set_task_queue_size,
+    record_task_queue_recovery,
+    record_task_queue_cleanup,
+    track_task_queue_operation,
+)
+
+# Governance Store metrics - delegated to submodule
+from aragora.observability.metrics.governance import (  # noqa: E402
+    GOVERNANCE_DECISIONS_TOTAL,
+    GOVERNANCE_VERIFICATIONS_TOTAL,
+    GOVERNANCE_APPROVALS_TOTAL,
+    GOVERNANCE_STORE_LATENCY,
+    GOVERNANCE_ARTIFACTS_ACTIVE,
+    init_governance_metrics,
+    record_governance_decision,
+    record_governance_verification,
+    record_governance_approval,
+    record_governance_store_latency,
+    set_governance_artifacts_active,
+    track_governance_store_operation,
+)
+
+# User ID Mapping metrics - delegated to submodule
+from aragora.observability.metrics.user_mapping import (  # noqa: E402
+    USER_MAPPING_OPERATIONS_TOTAL,
+    USER_MAPPING_CACHE_HITS_TOTAL,
+    USER_MAPPING_CACHE_MISSES_TOTAL,
+    USER_MAPPINGS_ACTIVE,
+    init_user_mapping_metrics,
+    record_user_mapping_operation,
+    record_user_mapping_cache_hit,
+    record_user_mapping_cache_miss,
+    set_user_mappings_active,
+)
+
+# Checkpoint Store metrics - delegated to submodule
+from aragora.observability.metrics.checkpoint import (  # noqa: E402
+    CHECKPOINT_OPERATIONS,
+    CHECKPOINT_OPERATION_LATENCY,
+    CHECKPOINT_SIZE,
+    CHECKPOINT_RESTORE_RESULTS,
+    init_checkpoint_metrics,
+    record_checkpoint_operation,
+    record_checkpoint_restore_result,
+    track_checkpoint_operation,
+)
+
+# Consensus Ingestion metrics - delegated to submodule
+from aragora.observability.metrics.consensus import (  # noqa: E402
+    CONSENSUS_INGESTION_TOTAL,
+    CONSENSUS_INGESTION_LATENCY,
+    CONSENSUS_INGESTION_CLAIMS,
+    CONSENSUS_DISSENT_INGESTED,
+    CONSENSUS_EVOLUTION_TRACKED,
+    CONSENSUS_EVIDENCE_LINKED,
+    CONSENSUS_AGREEMENT_RATIO,
+    init_consensus_metrics,
+    init_enhanced_consensus_metrics,
+    record_consensus_ingestion,
+    record_consensus_dissent,
+    record_consensus_evolution,
+    record_consensus_evidence_linked,
+    record_consensus_agreement_ratio,
+)
+
+
+# =============================================================================
 # Explicit exports for wildcard import
+# =============================================================================
+
 __all__ = [
     # Metric instances (globals)
     "REQUEST_COUNT",
@@ -248,23 +327,36 @@ __all__ = [
     "NOTIFICATION_LATENCY",
     "NOTIFICATION_ERRORS_TOTAL",
     "NOTIFICATION_QUEUE_SIZE",
-    # Task Queue
+    # Task Queue (from submodule)
     "TASK_QUEUE_OPERATIONS_TOTAL",
     "TASK_QUEUE_OPERATION_LATENCY",
     "TASK_QUEUE_SIZE",
     "TASK_QUEUE_RECOVERED_TOTAL",
     "TASK_QUEUE_CLEANUP_TOTAL",
-    # Governance
+    # Governance (from submodule)
     "GOVERNANCE_DECISIONS_TOTAL",
     "GOVERNANCE_VERIFICATIONS_TOTAL",
     "GOVERNANCE_APPROVALS_TOTAL",
     "GOVERNANCE_STORE_LATENCY",
     "GOVERNANCE_ARTIFACTS_ACTIVE",
-    # User mapping
+    # User mapping (from submodule)
     "USER_MAPPING_OPERATIONS_TOTAL",
     "USER_MAPPING_CACHE_HITS_TOTAL",
     "USER_MAPPING_CACHE_MISSES_TOTAL",
     "USER_MAPPINGS_ACTIVE",
+    # Checkpoint (from submodule)
+    "CHECKPOINT_OPERATIONS",
+    "CHECKPOINT_OPERATION_LATENCY",
+    "CHECKPOINT_SIZE",
+    "CHECKPOINT_RESTORE_RESULTS",
+    # Consensus (from submodule)
+    "CONSENSUS_INGESTION_TOTAL",
+    "CONSENSUS_INGESTION_LATENCY",
+    "CONSENSUS_INGESTION_CLAIMS",
+    "CONSENSUS_DISSENT_INGESTED",
+    "CONSENSUS_EVOLUTION_TRACKED",
+    "CONSENSUS_EVIDENCE_LINKED",
+    "CONSENSUS_AGREEMENT_RATIO",
     # Marketplace
     "MARKETPLACE_TEMPLATES_TOTAL",
     "MARKETPLACE_DOWNLOADS_TOTAL",
@@ -294,6 +386,14 @@ __all__ = [
     "RBAC_CHECK_LATENCY",
     "MIGRATION_RECORDS_TOTAL",
     "MIGRATION_ERRORS_TOTAL",
+    # Gauntlet
+    "GAUNTLET_EXPORTS_TOTAL",
+    "GAUNTLET_EXPORT_LATENCY",
+    "GAUNTLET_EXPORT_SIZE",
+    # Workflow Template
+    "WORKFLOW_TEMPLATES_CREATED",
+    "WORKFLOW_TEMPLATE_EXECUTIONS",
+    "WORKFLOW_TEMPLATE_EXECUTION_LATENCY",
     # Initialization
     "start_metrics_server",
     # Recording functions
@@ -367,24 +467,35 @@ __all__ = [
     "record_notification_error",
     "set_notification_queue_size",
     "track_notification_delivery",
-    # Task Queue recording
+    # Task Queue recording (from submodule)
     "record_task_queue_operation",
     "set_task_queue_size",
     "record_task_queue_recovery",
     "record_task_queue_cleanup",
     "track_task_queue_operation",
-    # Governance recording
+    # Governance recording (from submodule)
     "record_governance_decision",
     "record_governance_verification",
     "record_governance_approval",
     "record_governance_store_latency",
     "set_governance_artifacts_active",
     "track_governance_store_operation",
-    # User mapping recording
+    # User mapping recording (from submodule)
     "record_user_mapping_operation",
     "record_user_mapping_cache_hit",
     "record_user_mapping_cache_miss",
     "set_user_mappings_active",
+    # Checkpoint recording (from submodule)
+    "record_checkpoint_operation",
+    "record_checkpoint_restore_result",
+    "track_checkpoint_operation",
+    # Consensus recording (from submodule)
+    "record_consensus_ingestion",
+    "record_consensus_dissent",
+    "record_consensus_evolution",
+    "record_consensus_evidence_linked",
+    "record_consensus_agreement_ratio",
+    "record_km_inbound_event",
     # Gauntlet
     "record_gauntlet_export",
     "track_gauntlet_export",
@@ -392,17 +503,6 @@ __all__ = [
     "record_workflow_template_created",
     "record_workflow_template_execution",
     "track_workflow_template_execution",
-    # Checkpoint
-    "record_checkpoint_operation",
-    "record_checkpoint_restore_result",
-    "track_checkpoint_operation",
-    # Consensus
-    "record_consensus_ingestion",
-    "record_consensus_dissent",
-    "record_consensus_evolution",
-    "record_consensus_evidence_linked",
-    "record_consensus_agreement_ratio",
-    "record_km_inbound_event",
     # Marketplace
     "set_marketplace_templates_count",
     "record_marketplace_download",
@@ -432,6 +532,11 @@ __all__ = [
     "record_migration_record",
     "record_migration_error",
 ]
+
+
+# =============================================================================
+# Core Initialization
+# =============================================================================
 
 
 def _init_metrics() -> bool:
@@ -504,650 +609,55 @@ def _init_metrics() -> bool:
             "Number of active WebSocket connections",
         )
 
-        # Debate-specific metrics
-        global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION, AGENT_PARTICIPATION
+        # Initialize debate-specific metrics
+        _init_debate_metrics_internal()
 
-        DEBATE_DURATION = Histogram(
-            "aragora_debate_duration_seconds",
-            "Debate duration in seconds",
-            ["outcome"],  # consensus, no_consensus, error
-            buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1200],
-        )
+        # Initialize cache metrics
+        _init_cache_metrics_internal()
 
-        DEBATE_ROUNDS = Histogram(
-            "aragora_debate_rounds_total",
-            "Number of rounds per debate",
-            ["outcome"],
-            buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        )
+        # Initialize cross-functional metrics
+        _init_cross_functional_metrics_internal()
 
-        DEBATE_PHASE_DURATION = Histogram(
-            "aragora_debate_phase_duration_seconds",
-            "Duration of each debate phase",
-            ["phase"],  # propose, critique, vote, consensus
-            buckets=[0.5, 1, 2, 5, 10, 30, 60],
-        )
+        # Initialize Phase 9 metrics
+        _init_phase9_metrics_internal()
 
-        AGENT_PARTICIPATION = Counter(
-            "aragora_agent_participation_total",
-            "Agent participation in debates",
-            ["agent", "phase"],
-        )
+        # Initialize slow debate metrics
+        _init_slow_debate_metrics_internal()
 
-        # Cache metrics
-        global CACHE_HITS, CACHE_MISSES
+        # Initialize feature metrics
+        _init_feature_metrics_internal()
 
-        CACHE_HITS = Counter(
-            "aragora_cache_hits_total",
-            "Cache hit count",
-            ["cache_name"],
-        )
+        # Initialize KM metrics
+        _init_km_metrics_internal()
 
-        CACHE_MISSES = Counter(
-            "aragora_cache_misses_total",
-            "Cache miss count",
-            ["cache_name"],
-        )
+        # Initialize notification metrics
+        _init_notification_metrics_internal()
 
-        # Cross-functional feature metrics
-        global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
-        global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
-        global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
+        # Initialize marketplace metrics
+        _init_marketplace_metrics_internal()
 
-        KNOWLEDGE_CACHE_HITS = Counter(
-            "aragora_knowledge_cache_hits_total",
-            "Knowledge query cache hits",
-        )
+        # Initialize batch explainability metrics
+        _init_batch_explainability_metrics_internal()
 
-        KNOWLEDGE_CACHE_MISSES = Counter(
-            "aragora_knowledge_cache_misses_total",
-            "Knowledge query cache misses",
-        )
+        # Initialize webhook metrics
+        _init_webhook_metrics_internal()
 
-        MEMORY_COORDINATOR_WRITES = Counter(
-            "aragora_memory_coordinator_writes_total",
-            "Atomic memory coordinator writes",
-            ["status"],  # success, failed, rolled_back
-        )
+        # Initialize security metrics
+        _init_security_metrics_internal()
 
-        SELECTION_FEEDBACK_ADJUSTMENTS = Counter(
-            "aragora_selection_feedback_adjustments_total",
-            "Agent selection weight adjustments",
-            ["agent", "direction"],  # up, down
-        )
+        # Initialize gauntlet metrics
+        _init_gauntlet_metrics_internal()
 
-        WORKFLOW_TRIGGERS = Counter(
-            "aragora_workflow_triggers_total",
-            "Post-debate workflow triggers",
-            ["status"],  # triggered, skipped, completed, failed
-        )
+        # Initialize workflow template metrics
+        _init_workflow_metrics_internal()
 
-        EVIDENCE_STORED = Counter(
-            "aragora_evidence_stored_total",
-            "Evidence items stored in knowledge mound",
-        )
-
-        CULTURE_PATTERNS = Counter(
-            "aragora_culture_patterns_total",
-            "Culture patterns extracted from debates",
-        )
-
-        # Phase 9 Cross-Pollination metrics
-        global RLM_CACHE_HITS, RLM_CACHE_MISSES
-        global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
-        global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
-
-        RLM_CACHE_HITS = Counter(
-            "aragora_rlm_cache_hits_total",
-            "RLM compression cache hits",
-        )
-
-        RLM_CACHE_MISSES = Counter(
-            "aragora_rlm_cache_misses_total",
-            "RLM compression cache misses",
-        )
-
-        CALIBRATION_ADJUSTMENTS = Counter(
-            "aragora_calibration_adjustments_total",
-            "Proposal confidence calibrations applied",
-            ["agent"],
-        )
-
-        LEARNING_BONUSES = Counter(
-            "aragora_learning_bonuses_total",
-            "Learning efficiency ELO bonuses applied",
-            ["agent", "category"],  # rapid, steady, slow
-        )
-
-        VOTING_ACCURACY_UPDATES = Counter(
-            "aragora_voting_accuracy_updates_total",
-            "Voting accuracy records updated",
-            ["result"],  # correct, incorrect
-        )
-
-        ADAPTIVE_ROUND_CHANGES = Counter(
-            "aragora_adaptive_round_changes_total",
-            "Debate round count adjustments from memory strategy",
-            ["direction"],  # increased, decreased, unchanged
-        )
-
-        # Phase 9 Bridge metrics
-        global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
-        global PERFORMANCE_ROUTING_DECISIONS, PERFORMANCE_ROUTING_LATENCY
-        global OUTCOME_COMPLEXITY_ADJUSTMENTS, ANALYTICS_SELECTION_RECOMMENDATIONS
-        global NOVELTY_SCORE_CALCULATIONS, NOVELTY_PENALTIES
-        global ECHO_CHAMBER_DETECTIONS, RELATIONSHIP_BIAS_ADJUSTMENTS
-        global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
-        global BUDGET_FILTERING_EVENTS
-
-        BRIDGE_SYNCS = Counter(
-            "aragora_bridge_syncs_total",
-            "Cross-pollination bridge sync operations",
-            ["bridge", "status"],  # bridge name, success/error
-        )
-
-        BRIDGE_SYNC_LATENCY = Histogram(
-            "aragora_bridge_sync_latency_seconds",
-            "Bridge sync operation latency",
-            ["bridge"],
-            buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
-        )
-
-        BRIDGE_ERRORS = Counter(
-            "aragora_bridge_errors_total",
-            "Cross-pollination bridge errors",
-            ["bridge", "error_type"],
-        )
-
-        PERFORMANCE_ROUTING_DECISIONS = Counter(
-            "aragora_performance_routing_decisions_total",
-            "Performance-based routing decisions",
-            ["task_type", "selected_agent"],  # speed/precision/balanced
-        )
-
-        PERFORMANCE_ROUTING_LATENCY = Histogram(
-            "aragora_performance_routing_latency_seconds",
-            "Time to compute routing decision",
-            buckets=[0.001, 0.005, 0.01, 0.05, 0.1],
-        )
-
-        OUTCOME_COMPLEXITY_ADJUSTMENTS = Counter(
-            "aragora_outcome_complexity_adjustments_total",
-            "Complexity budget adjustments from outcome patterns",
-            ["direction"],  # increased, decreased
-        )
-
-        ANALYTICS_SELECTION_RECOMMENDATIONS = Counter(
-            "aragora_analytics_selection_recommendations_total",
-            "Analytics-driven team selection recommendations",
-            ["recommendation_type"],  # boost, penalty, neutral
-        )
-
-        NOVELTY_SCORE_CALCULATIONS = Counter(
-            "aragora_novelty_score_calculations_total",
-            "Novelty score calculations performed",
-            ["agent"],
-        )
-
-        NOVELTY_PENALTIES = Counter(
-            "aragora_novelty_penalties_total",
-            "Selection penalties for low novelty",
-            ["agent"],
-        )
-
-        ECHO_CHAMBER_DETECTIONS = Counter(
-            "aragora_echo_chamber_detections_total",
-            "Echo chamber risk detections in team composition",
-            ["risk_level"],  # low, medium, high
-        )
-
-        RELATIONSHIP_BIAS_ADJUSTMENTS = Counter(
-            "aragora_relationship_bias_adjustments_total",
-            "Voting weight adjustments for alliance bias",
-            ["agent", "direction"],  # up, down
-        )
-
-        RLM_SELECTION_RECOMMENDATIONS = Counter(
-            "aragora_rlm_selection_recommendations_total",
-            "RLM-efficient agent selection recommendations",
-            ["agent"],
-        )
-
-        CALIBRATION_COST_CALCULATIONS = Counter(
-            "aragora_calibration_cost_calculations_total",
-            "Cost efficiency calculations with calibration",
-            ["agent", "efficiency"],  # efficient, moderate, inefficient
-        )
-
-        BUDGET_FILTERING_EVENTS = Counter(
-            "aragora_budget_filtering_events_total",
-            "Agent filtering events due to budget constraints",
-            ["outcome"],  # included, excluded
-        )
-
-        # Slow debate detection metrics
-        global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
-
-        SLOW_DEBATES_TOTAL = Counter(
-            "aragora_slow_debates_total",
-            "Number of debates flagged as slow (>30s per round)",
-        )
-
-        SLOW_ROUNDS_TOTAL = Counter(
-            "aragora_slow_rounds_total",
-            "Number of individual rounds flagged as slow",
-            ["debate_outcome"],  # consensus, no_consensus, error
-        )
-
-        DEBATE_ROUND_LATENCY = Histogram(
-            "aragora_debate_round_latency_seconds",
-            "Latency per debate round",
-            buckets=[1, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300],
-        )
-
-        # New feature metrics (TTS, convergence, vote bonuses)
-        global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
-        global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
-        global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
-
-        TTS_SYNTHESIS_TOTAL = Counter(
-            "aragora_tts_synthesis_total",
-            "Total TTS synthesis operations",
-            ["voice", "platform"],  # voice type, chat platform
-        )
-
-        TTS_SYNTHESIS_LATENCY = Histogram(
-            "aragora_tts_synthesis_latency_seconds",
-            "TTS synthesis latency in seconds",
-            buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
-        )
-
-        CONVERGENCE_CHECKS_TOTAL = Counter(
-            "aragora_convergence_checks_total",
-            "Total convergence check events",
-            ["status", "blocked"],  # converged/diverged, trickster_blocked
-        )
-
-        EVIDENCE_CITATION_BONUSES = Counter(
-            "aragora_evidence_citation_bonuses_total",
-            "Evidence citation vote bonuses applied",
-            ["agent"],
-        )
-
-        PROCESS_EVALUATION_BONUSES = Counter(
-            "aragora_process_evaluation_bonuses_total",
-            "Process evaluation vote bonuses applied",
-            ["agent"],
-        )
-
-        RLM_READY_QUORUM_EVENTS = Counter(
-            "aragora_rlm_ready_quorum_total",
-            "RLM ready signal quorum events",
-        )
-
-        # Knowledge Mound metrics
-        global KM_OPERATIONS_TOTAL, KM_OPERATION_LATENCY
-        global KM_CACHE_HITS_TOTAL, KM_CACHE_MISSES_TOTAL
-        global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
-        global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
-        global KM_ACTIVE_ADAPTERS
-
-        KM_OPERATIONS_TOTAL = Counter(
-            "aragora_km_operations_total",
-            "Total Knowledge Mound operations",
-            ["operation", "status"],  # query/store/get/delete/sync, success/error
-        )
-
-        KM_OPERATION_LATENCY = Histogram(
-            "aragora_km_operation_latency_seconds",
-            "Knowledge Mound operation latency",
-            ["operation"],
-            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
-
-        KM_CACHE_HITS_TOTAL = Counter(
-            "aragora_km_cache_hits_total",
-            "Knowledge Mound cache hits",
-            ["adapter"],  # source adapter or "global"
-        )
-
-        KM_CACHE_MISSES_TOTAL = Counter(
-            "aragora_km_cache_misses_total",
-            "Knowledge Mound cache misses",
-            ["adapter"],
-        )
-
-        KM_HEALTH_STATUS = Gauge(
-            "aragora_km_health_status",
-            "Knowledge Mound health status (0=unknown, 1=unhealthy, 2=degraded, 3=healthy)",
-        )
-
-        KM_ADAPTER_SYNCS_TOTAL = Counter(
-            "aragora_km_adapter_syncs_total",
-            "Knowledge Mound adapter sync operations",
-            ["adapter", "direction", "status"],  # adapter name, forward/reverse, success/error
-        )
-
-        KM_FEDERATED_QUERIES_TOTAL = Counter(
-            "aragora_km_federated_queries_total",
-            "Knowledge Mound federated query operations",
-            ["adapters_queried", "status"],  # count of adapters, success/error
-        )
-
-        KM_EVENTS_EMITTED_TOTAL = Counter(
-            "aragora_km_events_emitted_total",
-            "Knowledge Mound WebSocket events emitted",
-            ["event_type"],  # km_batch, knowledge_indexed, etc.
-        )
-
-        KM_ACTIVE_ADAPTERS = Gauge(
-            "aragora_km_active_adapters",
-            "Number of active Knowledge Mound adapters",
-        )
-
-        # Notification delivery metrics
-        global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
-        global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
-
-        NOTIFICATION_SENT_TOTAL = Counter(
-            "aragora_notification_sent_total",
-            "Total notifications sent",
-            [
-                "channel",
-                "severity",
-                "priority",
-                "status",
-            ],  # slack/email/webhook, severity, priority, success/failed
-        )
-
-        NOTIFICATION_LATENCY = Histogram(
-            "aragora_notification_latency_seconds",
-            "Notification delivery latency in seconds",
-            ["channel"],
-            buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
-        )
-
-        NOTIFICATION_ERRORS_TOTAL = Counter(
-            "aragora_notification_errors_total",
-            "Total notification delivery errors",
-            ["channel", "error_type"],  # channel, error category
-        )
-
-        NOTIFICATION_QUEUE_SIZE = Gauge(
-            "aragora_notification_queue_size",
-            "Current notification queue size",
-            ["channel"],
-        )
-
-        # Persistent Task Queue metrics
-        global TASK_QUEUE_OPERATIONS_TOTAL, TASK_QUEUE_OPERATION_LATENCY
-        global TASK_QUEUE_SIZE, TASK_QUEUE_RECOVERED_TOTAL, TASK_QUEUE_CLEANUP_TOTAL
-
-        TASK_QUEUE_OPERATIONS_TOTAL = Counter(
-            "aragora_task_queue_operations_total",
-            "Total task queue operations",
-            ["operation", "status"],  # enqueue/dequeue/complete/fail/cancel, success/error
-        )
-
-        TASK_QUEUE_OPERATION_LATENCY = Histogram(
-            "aragora_task_queue_operation_latency_seconds",
-            "Task queue operation latency in seconds",
-            ["operation"],
-            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
-        )
-
-        TASK_QUEUE_SIZE = Gauge(
-            "aragora_task_queue_size",
-            "Current number of tasks in the queue",
-            ["status"],  # pending/ready/running
-        )
-
-        TASK_QUEUE_RECOVERED_TOTAL = Counter(
-            "aragora_task_queue_recovered_total",
-            "Total tasks recovered on startup",
-            ["original_status"],  # pending/ready/running
-        )
-
-        TASK_QUEUE_CLEANUP_TOTAL = Counter(
-            "aragora_task_queue_cleanup_total",
-            "Total completed tasks cleaned up",
-        )
-
-        # Governance Store metrics
-        global GOVERNANCE_DECISIONS_TOTAL, GOVERNANCE_VERIFICATIONS_TOTAL
-        global GOVERNANCE_APPROVALS_TOTAL, GOVERNANCE_STORE_LATENCY
-        global GOVERNANCE_ARTIFACTS_ACTIVE
-
-        GOVERNANCE_DECISIONS_TOTAL = Counter(
-            "aragora_governance_decisions_total",
-            "Total governance decisions stored",
-            ["decision_type", "outcome"],  # manual/auto, approved/rejected
-        )
-
-        GOVERNANCE_VERIFICATIONS_TOTAL = Counter(
-            "aragora_governance_verifications_total",
-            "Total verifications stored",
-            ["verification_type", "result"],  # formal/runtime, valid/invalid
-        )
-
-        GOVERNANCE_APPROVALS_TOTAL = Counter(
-            "aragora_governance_approvals_total",
-            "Total approvals stored",
-            ["approval_type", "status"],  # nomic/deploy/change, granted/revoked
-        )
-
-        GOVERNANCE_STORE_LATENCY = Histogram(
-            "aragora_governance_store_latency_seconds",
-            "Governance store operation latency in seconds",
-            ["operation"],  # save/get/list/delete
-            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
-        )
-
-        GOVERNANCE_ARTIFACTS_ACTIVE = Gauge(
-            "aragora_governance_artifacts_active",
-            "Current number of active governance artifacts",
-            ["artifact_type"],  # decision/verification/approval
-        )
-
-        # User ID Mapping metrics
-        global USER_MAPPING_OPERATIONS_TOTAL, USER_MAPPING_CACHE_HITS_TOTAL
-        global USER_MAPPING_CACHE_MISSES_TOTAL, USER_MAPPINGS_ACTIVE
-
-        USER_MAPPING_OPERATIONS_TOTAL = Counter(
-            "aragora_user_mapping_operations_total",
-            "Total user ID mapping operations",
-            [
-                "operation",
-                "platform",
-                "status",
-            ],  # save/get/delete, slack/discord/teams, success/not_found
-        )
-
-        USER_MAPPING_CACHE_HITS_TOTAL = Counter(
-            "aragora_user_mapping_cache_hits_total",
-            "User ID mapping cache hits",
-            ["platform"],
-        )
-
-        USER_MAPPING_CACHE_MISSES_TOTAL = Counter(
-            "aragora_user_mapping_cache_misses_total",
-            "User ID mapping cache misses",
-            ["platform"],
-        )
-
-        USER_MAPPINGS_ACTIVE = Gauge(
-            "aragora_user_mappings_active",
-            "Number of active user ID mappings",
-            ["platform"],
-        )
-
-        # Marketplace metrics
-        global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
-        global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
-        global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
-
-        MARKETPLACE_TEMPLATES_TOTAL = Gauge(
-            "aragora_marketplace_templates_total",
-            "Total number of templates in the marketplace",
-            ["category", "visibility"],
-        )
-
-        MARKETPLACE_DOWNLOADS_TOTAL = Counter(
-            "aragora_marketplace_downloads_total",
-            "Total template downloads",
-            ["template_id", "category"],
-        )
-
-        MARKETPLACE_RATINGS_TOTAL = Counter(
-            "aragora_marketplace_ratings_total",
-            "Total template ratings submitted",
-            ["template_id"],
-        )
-
-        MARKETPLACE_RATINGS_DISTRIBUTION = Histogram(
-            "aragora_marketplace_ratings_distribution",
-            "Distribution of template ratings",
-            ["category"],
-            buckets=[1, 2, 3, 4, 5],
-        )
-
-        MARKETPLACE_REVIEWS_TOTAL = Counter(
-            "aragora_marketplace_reviews_total",
-            "Total template reviews submitted",
-            ["template_id", "status"],
-        )
-
-        MARKETPLACE_OPERATION_LATENCY = Histogram(
-            "aragora_marketplace_operation_latency_seconds",
-            "Marketplace operation latency in seconds",
-            ["operation"],
-            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
-
-        # Batch Explainability metrics
-        global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
-        global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
-        global BATCH_EXPLAINABILITY_ERRORS_TOTAL
-
-        BATCH_EXPLAINABILITY_JOBS_ACTIVE = Gauge(
-            "aragora_explainability_batch_jobs_active",
-            "Number of active batch explainability jobs",
-        )
-
-        BATCH_EXPLAINABILITY_JOBS_TOTAL = Counter(
-            "aragora_explainability_batch_jobs_total",
-            "Total batch explainability jobs",
-            ["status"],
-        )
-
-        BATCH_EXPLAINABILITY_DEBATES_PROCESSED = Counter(
-            "aragora_explainability_batch_debates_processed_total",
-            "Total debates processed in batch jobs",
-            ["status"],
-        )
-
-        BATCH_EXPLAINABILITY_PROCESSING_LATENCY = Histogram(
-            "aragora_explainability_batch_processing_latency_seconds",
-            "Batch explainability processing latency per debate",
-            buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
-        )
-
-        BATCH_EXPLAINABILITY_ERRORS_TOTAL = Counter(
-            "aragora_explainability_batch_errors_total",
-            "Total errors in batch explainability processing",
-            ["error_type"],
-        )
-
-        # Webhook Delivery metrics
-        global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
-        global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
-        global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
-
-        WEBHOOK_DELIVERIES_TOTAL = Counter(
-            "aragora_webhook_deliveries_total",
-            "Total webhook delivery attempts",
-            ["endpoint", "status"],
-        )
-
-        WEBHOOK_DELIVERY_LATENCY = Histogram(
-            "aragora_webhook_delivery_latency_seconds",
-            "Webhook delivery latency in seconds",
-            ["endpoint"],
-            buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
-        )
-
-        WEBHOOK_FAILURES_BY_ENDPOINT = Counter(
-            "aragora_webhook_failures_by_endpoint_total",
-            "Webhook failures by endpoint and error type",
-            ["endpoint", "error_type"],
-        )
-
-        WEBHOOK_RETRIES_TOTAL = Counter(
-            "aragora_webhook_retries_total",
-            "Total webhook delivery retries",
-            ["endpoint", "attempt"],
-        )
-
-        WEBHOOK_CIRCUIT_BREAKER_STATES = Gauge(
-            "aragora_webhook_circuit_breaker_state",
-            "Circuit breaker state per endpoint (0=closed, 1=half-open, 2=open)",
-            ["endpoint"],
-        )
-
-        WEBHOOK_QUEUE_SIZE = Gauge(
-            "aragora_webhook_queue_size",
-            "Current size of the webhook delivery queue",
-        )
-
-        # Security & Governance Hardening metrics
-        global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
-        global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
-        global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
-
-        ENCRYPTION_OPERATIONS_TOTAL = Counter(
-            "aragora_encryption_operations_total",
-            "Total encryption/decryption operations",
-            [
-                "operation",
-                "store",
-            ],  # operation: encrypt/decrypt, store: sync_store/integration_store/gmail_token
-        )
-        ENCRYPTION_OPERATION_LATENCY = Histogram(
-            "aragora_encryption_operation_latency_seconds",
-            "Time spent on encryption/decryption operations",
-            ["operation"],
-            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
-        )
-        ENCRYPTION_ERRORS_TOTAL = Counter(
-            "aragora_encryption_errors_total",
-            "Total encryption/decryption errors",
-            ["operation", "error_type"],
-        )
-        RBAC_PERMISSION_CHECKS_TOTAL = Counter(
-            "aragora_rbac_permission_checks_total",
-            "Total RBAC permission checks",
-            ["permission", "result"],  # result: allowed/denied
-        )
-        RBAC_PERMISSION_DENIED_TOTAL = Counter(
-            "aragora_rbac_permission_denied_total",
-            "Total RBAC permission denials",
-            ["permission", "handler"],
-        )
-        RBAC_CHECK_LATENCY = Histogram(
-            "aragora_rbac_check_latency_seconds",
-            "Time spent on RBAC permission checks",
-            buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05],
-        )
-        MIGRATION_RECORDS_TOTAL = Counter(
-            "aragora_migration_records_total",
-            "Total records processed during data migration",
-            ["store", "status"],  # status: migrated/skipped/failed
-        )
-        MIGRATION_ERRORS_TOTAL = Counter(
-            "aragora_migration_errors_total",
-            "Total errors during data migration",
-            ["store", "error_type"],
-        )
+        # Initialize submodule metrics
+        init_task_queue_metrics()
+        init_governance_metrics()
+        init_user_mapping_metrics()
+        init_checkpoint_metrics()
+        init_consensus_metrics()
+        init_enhanced_consensus_metrics()
 
         _initialized = True
         logger.info("Prometheus metrics initialized")
@@ -1166,6 +676,634 @@ def _init_metrics() -> bool:
         _init_noop_metrics()
         _initialized = True
         return False
+
+
+def _init_debate_metrics_internal() -> None:
+    """Initialize debate-specific metrics (internal helper)."""
+    global DEBATE_DURATION, DEBATE_ROUNDS, DEBATE_PHASE_DURATION, AGENT_PARTICIPATION
+    from prometheus_client import Counter, Histogram
+
+    DEBATE_DURATION = Histogram(
+        "aragora_debate_duration_seconds",
+        "Debate duration in seconds",
+        ["outcome"],
+        buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1200],
+    )
+
+    DEBATE_ROUNDS = Histogram(
+        "aragora_debate_rounds_total",
+        "Number of rounds per debate",
+        ["outcome"],
+        buckets=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    )
+
+    DEBATE_PHASE_DURATION = Histogram(
+        "aragora_debate_phase_duration_seconds",
+        "Duration of each debate phase",
+        ["phase"],
+        buckets=[0.5, 1, 2, 5, 10, 30, 60],
+    )
+
+    AGENT_PARTICIPATION = Counter(
+        "aragora_agent_participation_total",
+        "Agent participation in debates",
+        ["agent", "phase"],
+    )
+
+
+def _init_cache_metrics_internal() -> None:
+    """Initialize cache metrics (internal helper)."""
+    global CACHE_HITS, CACHE_MISSES
+    from prometheus_client import Counter
+
+    CACHE_HITS = Counter(
+        "aragora_cache_hits_total",
+        "Cache hit count",
+        ["cache_name"],
+    )
+
+    CACHE_MISSES = Counter(
+        "aragora_cache_misses_total",
+        "Cache miss count",
+        ["cache_name"],
+    )
+
+
+def _init_cross_functional_metrics_internal() -> None:
+    """Initialize cross-functional feature metrics (internal helper)."""
+    global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
+    global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
+    global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
+    from prometheus_client import Counter
+
+    KNOWLEDGE_CACHE_HITS = Counter(
+        "aragora_knowledge_cache_hits_total",
+        "Knowledge query cache hits",
+    )
+
+    KNOWLEDGE_CACHE_MISSES = Counter(
+        "aragora_knowledge_cache_misses_total",
+        "Knowledge query cache misses",
+    )
+
+    MEMORY_COORDINATOR_WRITES = Counter(
+        "aragora_memory_coordinator_writes_total",
+        "Atomic memory coordinator writes",
+        ["status"],
+    )
+
+    SELECTION_FEEDBACK_ADJUSTMENTS = Counter(
+        "aragora_selection_feedback_adjustments_total",
+        "Agent selection weight adjustments",
+        ["agent", "direction"],
+    )
+
+    WORKFLOW_TRIGGERS = Counter(
+        "aragora_workflow_triggers_total",
+        "Post-debate workflow triggers",
+        ["status"],
+    )
+
+    EVIDENCE_STORED = Counter(
+        "aragora_evidence_stored_total",
+        "Evidence items stored in knowledge mound",
+    )
+
+    CULTURE_PATTERNS = Counter(
+        "aragora_culture_patterns_total",
+        "Culture patterns extracted from debates",
+    )
+
+
+def _init_phase9_metrics_internal() -> None:
+    """Initialize Phase 9 Cross-Pollination metrics (internal helper)."""
+    global RLM_CACHE_HITS, RLM_CACHE_MISSES
+    global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
+    global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
+    global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
+    global PERFORMANCE_ROUTING_DECISIONS, PERFORMANCE_ROUTING_LATENCY
+    global OUTCOME_COMPLEXITY_ADJUSTMENTS, ANALYTICS_SELECTION_RECOMMENDATIONS
+    global NOVELTY_SCORE_CALCULATIONS, NOVELTY_PENALTIES
+    global ECHO_CHAMBER_DETECTIONS, RELATIONSHIP_BIAS_ADJUSTMENTS
+    global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
+    global BUDGET_FILTERING_EVENTS
+    from prometheus_client import Counter, Histogram
+
+    RLM_CACHE_HITS = Counter(
+        "aragora_rlm_cache_hits_total",
+        "RLM compression cache hits",
+    )
+
+    RLM_CACHE_MISSES = Counter(
+        "aragora_rlm_cache_misses_total",
+        "RLM compression cache misses",
+    )
+
+    CALIBRATION_ADJUSTMENTS = Counter(
+        "aragora_calibration_adjustments_total",
+        "Proposal confidence calibrations applied",
+        ["agent"],
+    )
+
+    LEARNING_BONUSES = Counter(
+        "aragora_learning_bonuses_total",
+        "Learning efficiency ELO bonuses applied",
+        ["agent", "category"],
+    )
+
+    VOTING_ACCURACY_UPDATES = Counter(
+        "aragora_voting_accuracy_updates_total",
+        "Voting accuracy records updated",
+        ["result"],
+    )
+
+    ADAPTIVE_ROUND_CHANGES = Counter(
+        "aragora_adaptive_round_changes_total",
+        "Debate round count adjustments from memory strategy",
+        ["direction"],
+    )
+
+    BRIDGE_SYNCS = Counter(
+        "aragora_bridge_syncs_total",
+        "Cross-pollination bridge sync operations",
+        ["bridge", "status"],
+    )
+
+    BRIDGE_SYNC_LATENCY = Histogram(
+        "aragora_bridge_sync_latency_seconds",
+        "Bridge sync operation latency",
+        ["bridge"],
+        buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0],
+    )
+
+    BRIDGE_ERRORS = Counter(
+        "aragora_bridge_errors_total",
+        "Cross-pollination bridge errors",
+        ["bridge", "error_type"],
+    )
+
+    PERFORMANCE_ROUTING_DECISIONS = Counter(
+        "aragora_performance_routing_decisions_total",
+        "Performance-based routing decisions",
+        ["task_type", "selected_agent"],
+    )
+
+    PERFORMANCE_ROUTING_LATENCY = Histogram(
+        "aragora_performance_routing_latency_seconds",
+        "Time to compute routing decision",
+        buckets=[0.001, 0.005, 0.01, 0.05, 0.1],
+    )
+
+    OUTCOME_COMPLEXITY_ADJUSTMENTS = Counter(
+        "aragora_outcome_complexity_adjustments_total",
+        "Complexity budget adjustments from outcome patterns",
+        ["direction"],
+    )
+
+    ANALYTICS_SELECTION_RECOMMENDATIONS = Counter(
+        "aragora_analytics_selection_recommendations_total",
+        "Analytics-driven team selection recommendations",
+        ["recommendation_type"],
+    )
+
+    NOVELTY_SCORE_CALCULATIONS = Counter(
+        "aragora_novelty_score_calculations_total",
+        "Novelty score calculations performed",
+        ["agent"],
+    )
+
+    NOVELTY_PENALTIES = Counter(
+        "aragora_novelty_penalties_total",
+        "Selection penalties for low novelty",
+        ["agent"],
+    )
+
+    ECHO_CHAMBER_DETECTIONS = Counter(
+        "aragora_echo_chamber_detections_total",
+        "Echo chamber risk detections in team composition",
+        ["risk_level"],
+    )
+
+    RELATIONSHIP_BIAS_ADJUSTMENTS = Counter(
+        "aragora_relationship_bias_adjustments_total",
+        "Voting weight adjustments for alliance bias",
+        ["agent", "direction"],
+    )
+
+    RLM_SELECTION_RECOMMENDATIONS = Counter(
+        "aragora_rlm_selection_recommendations_total",
+        "RLM-efficient agent selection recommendations",
+        ["agent"],
+    )
+
+    CALIBRATION_COST_CALCULATIONS = Counter(
+        "aragora_calibration_cost_calculations_total",
+        "Cost efficiency calculations with calibration",
+        ["agent", "efficiency"],
+    )
+
+    BUDGET_FILTERING_EVENTS = Counter(
+        "aragora_budget_filtering_events_total",
+        "Agent filtering events due to budget constraints",
+        ["outcome"],
+    )
+
+
+def _init_slow_debate_metrics_internal() -> None:
+    """Initialize slow debate detection metrics (internal helper)."""
+    global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
+    from prometheus_client import Counter, Histogram
+
+    SLOW_DEBATES_TOTAL = Counter(
+        "aragora_slow_debates_total",
+        "Number of debates flagged as slow (>30s per round)",
+    )
+
+    SLOW_ROUNDS_TOTAL = Counter(
+        "aragora_slow_rounds_total",
+        "Number of individual rounds flagged as slow",
+        ["debate_outcome"],
+    )
+
+    DEBATE_ROUND_LATENCY = Histogram(
+        "aragora_debate_round_latency_seconds",
+        "Latency per debate round",
+        buckets=[1, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300],
+    )
+
+
+def _init_feature_metrics_internal() -> None:
+    """Initialize new feature metrics (TTS, convergence, vote bonuses) (internal helper)."""
+    global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
+    global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
+    global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
+    from prometheus_client import Counter, Histogram
+
+    TTS_SYNTHESIS_TOTAL = Counter(
+        "aragora_tts_synthesis_total",
+        "Total TTS synthesis operations",
+        ["voice", "platform"],
+    )
+
+    TTS_SYNTHESIS_LATENCY = Histogram(
+        "aragora_tts_synthesis_latency_seconds",
+        "TTS synthesis latency in seconds",
+        buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
+    )
+
+    CONVERGENCE_CHECKS_TOTAL = Counter(
+        "aragora_convergence_checks_total",
+        "Total convergence check events",
+        ["status", "blocked"],
+    )
+
+    EVIDENCE_CITATION_BONUSES = Counter(
+        "aragora_evidence_citation_bonuses_total",
+        "Evidence citation vote bonuses applied",
+        ["agent"],
+    )
+
+    PROCESS_EVALUATION_BONUSES = Counter(
+        "aragora_process_evaluation_bonuses_total",
+        "Process evaluation vote bonuses applied",
+        ["agent"],
+    )
+
+    RLM_READY_QUORUM_EVENTS = Counter(
+        "aragora_rlm_ready_quorum_total",
+        "RLM ready signal quorum events",
+    )
+
+
+def _init_km_metrics_internal() -> None:
+    """Initialize Knowledge Mound metrics (internal helper)."""
+    global KM_OPERATIONS_TOTAL, KM_OPERATION_LATENCY
+    global KM_CACHE_HITS_TOTAL, KM_CACHE_MISSES_TOTAL
+    global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
+    global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
+    global KM_ACTIVE_ADAPTERS
+    from prometheus_client import Counter, Gauge, Histogram
+
+    KM_OPERATIONS_TOTAL = Counter(
+        "aragora_km_operations_total",
+        "Total Knowledge Mound operations",
+        ["operation", "status"],
+    )
+
+    KM_OPERATION_LATENCY = Histogram(
+        "aragora_km_operation_latency_seconds",
+        "Knowledge Mound operation latency",
+        ["operation"],
+        buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+    )
+
+    KM_CACHE_HITS_TOTAL = Counter(
+        "aragora_km_cache_hits_total",
+        "Knowledge Mound cache hits",
+        ["adapter"],
+    )
+
+    KM_CACHE_MISSES_TOTAL = Counter(
+        "aragora_km_cache_misses_total",
+        "Knowledge Mound cache misses",
+        ["adapter"],
+    )
+
+    KM_HEALTH_STATUS = Gauge(
+        "aragora_km_health_status",
+        "Knowledge Mound health status (0=unknown, 1=unhealthy, 2=degraded, 3=healthy)",
+    )
+
+    KM_ADAPTER_SYNCS_TOTAL = Counter(
+        "aragora_km_adapter_syncs_total",
+        "Knowledge Mound adapter sync operations",
+        ["adapter", "direction", "status"],
+    )
+
+    KM_FEDERATED_QUERIES_TOTAL = Counter(
+        "aragora_km_federated_queries_total",
+        "Knowledge Mound federated query operations",
+        ["adapters_queried", "status"],
+    )
+
+    KM_EVENTS_EMITTED_TOTAL = Counter(
+        "aragora_km_events_emitted_total",
+        "Knowledge Mound WebSocket events emitted",
+        ["event_type"],
+    )
+
+    KM_ACTIVE_ADAPTERS = Gauge(
+        "aragora_km_active_adapters",
+        "Number of active Knowledge Mound adapters",
+    )
+
+
+def _init_notification_metrics_internal() -> None:
+    """Initialize notification delivery metrics (internal helper)."""
+    global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
+    global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
+    from prometheus_client import Counter, Gauge, Histogram
+
+    NOTIFICATION_SENT_TOTAL = Counter(
+        "aragora_notification_sent_total",
+        "Total notifications sent",
+        ["channel", "severity", "priority", "status"],
+    )
+
+    NOTIFICATION_LATENCY = Histogram(
+        "aragora_notification_latency_seconds",
+        "Notification delivery latency in seconds",
+        ["channel"],
+        buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+    )
+
+    NOTIFICATION_ERRORS_TOTAL = Counter(
+        "aragora_notification_errors_total",
+        "Total notification delivery errors",
+        ["channel", "error_type"],
+    )
+
+    NOTIFICATION_QUEUE_SIZE = Gauge(
+        "aragora_notification_queue_size",
+        "Current notification queue size",
+        ["channel"],
+    )
+
+
+def _init_marketplace_metrics_internal() -> None:
+    """Initialize marketplace metrics (internal helper)."""
+    global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
+    global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
+    global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
+    from prometheus_client import Counter, Gauge, Histogram
+
+    MARKETPLACE_TEMPLATES_TOTAL = Gauge(
+        "aragora_marketplace_templates_total",
+        "Total number of templates in the marketplace",
+        ["category", "visibility"],
+    )
+
+    MARKETPLACE_DOWNLOADS_TOTAL = Counter(
+        "aragora_marketplace_downloads_total",
+        "Total template downloads",
+        ["template_id", "category"],
+    )
+
+    MARKETPLACE_RATINGS_TOTAL = Counter(
+        "aragora_marketplace_ratings_total",
+        "Total template ratings submitted",
+        ["template_id"],
+    )
+
+    MARKETPLACE_RATINGS_DISTRIBUTION = Histogram(
+        "aragora_marketplace_ratings_distribution",
+        "Distribution of template ratings",
+        ["category"],
+        buckets=[1, 2, 3, 4, 5],
+    )
+
+    MARKETPLACE_REVIEWS_TOTAL = Counter(
+        "aragora_marketplace_reviews_total",
+        "Total template reviews submitted",
+        ["template_id", "status"],
+    )
+
+    MARKETPLACE_OPERATION_LATENCY = Histogram(
+        "aragora_marketplace_operation_latency_seconds",
+        "Marketplace operation latency in seconds",
+        ["operation"],
+        buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+    )
+
+
+def _init_batch_explainability_metrics_internal() -> None:
+    """Initialize batch explainability metrics (internal helper)."""
+    global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
+    global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
+    global BATCH_EXPLAINABILITY_ERRORS_TOTAL
+    from prometheus_client import Counter, Gauge, Histogram
+
+    BATCH_EXPLAINABILITY_JOBS_ACTIVE = Gauge(
+        "aragora_explainability_batch_jobs_active",
+        "Number of active batch explainability jobs",
+    )
+
+    BATCH_EXPLAINABILITY_JOBS_TOTAL = Counter(
+        "aragora_explainability_batch_jobs_total",
+        "Total batch explainability jobs",
+        ["status"],
+    )
+
+    BATCH_EXPLAINABILITY_DEBATES_PROCESSED = Counter(
+        "aragora_explainability_batch_debates_processed_total",
+        "Total debates processed in batch jobs",
+        ["status"],
+    )
+
+    BATCH_EXPLAINABILITY_PROCESSING_LATENCY = Histogram(
+        "aragora_explainability_batch_processing_latency_seconds",
+        "Batch explainability processing latency per debate",
+        buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
+    )
+
+    BATCH_EXPLAINABILITY_ERRORS_TOTAL = Counter(
+        "aragora_explainability_batch_errors_total",
+        "Total errors in batch explainability processing",
+        ["error_type"],
+    )
+
+
+def _init_webhook_metrics_internal() -> None:
+    """Initialize webhook delivery metrics (internal helper)."""
+    global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
+    global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
+    global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
+    from prometheus_client import Counter, Gauge, Histogram
+
+    WEBHOOK_DELIVERIES_TOTAL = Counter(
+        "aragora_webhook_deliveries_total",
+        "Total webhook delivery attempts",
+        ["endpoint", "status"],
+    )
+
+    WEBHOOK_DELIVERY_LATENCY = Histogram(
+        "aragora_webhook_delivery_latency_seconds",
+        "Webhook delivery latency in seconds",
+        ["endpoint"],
+        buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
+    )
+
+    WEBHOOK_FAILURES_BY_ENDPOINT = Counter(
+        "aragora_webhook_failures_by_endpoint_total",
+        "Webhook failures by endpoint and error type",
+        ["endpoint", "error_type"],
+    )
+
+    WEBHOOK_RETRIES_TOTAL = Counter(
+        "aragora_webhook_retries_total",
+        "Total webhook delivery retries",
+        ["endpoint", "attempt"],
+    )
+
+    WEBHOOK_CIRCUIT_BREAKER_STATES = Gauge(
+        "aragora_webhook_circuit_breaker_state",
+        "Circuit breaker state per endpoint (0=closed, 1=half-open, 2=open)",
+        ["endpoint"],
+    )
+
+    WEBHOOK_QUEUE_SIZE = Gauge(
+        "aragora_webhook_queue_size",
+        "Current size of the webhook delivery queue",
+    )
+
+
+def _init_security_metrics_internal() -> None:
+    """Initialize security & governance hardening metrics (internal helper)."""
+    global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
+    global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
+    global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
+    from prometheus_client import Counter, Histogram
+
+    ENCRYPTION_OPERATIONS_TOTAL = Counter(
+        "aragora_encryption_operations_total",
+        "Total encryption/decryption operations",
+        ["operation", "store"],
+    )
+
+    ENCRYPTION_OPERATION_LATENCY = Histogram(
+        "aragora_encryption_operation_latency_seconds",
+        "Time spent on encryption/decryption operations",
+        ["operation"],
+        buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5],
+    )
+
+    ENCRYPTION_ERRORS_TOTAL = Counter(
+        "aragora_encryption_errors_total",
+        "Total encryption/decryption errors",
+        ["operation", "error_type"],
+    )
+
+    RBAC_PERMISSION_CHECKS_TOTAL = Counter(
+        "aragora_rbac_permission_checks_total",
+        "Total RBAC permission checks",
+        ["permission", "result"],
+    )
+
+    RBAC_PERMISSION_DENIED_TOTAL = Counter(
+        "aragora_rbac_permission_denied_total",
+        "Total RBAC permission denials",
+        ["permission", "handler"],
+    )
+
+    RBAC_CHECK_LATENCY = Histogram(
+        "aragora_rbac_check_latency_seconds",
+        "Time spent on RBAC permission checks",
+        buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05],
+    )
+
+    MIGRATION_RECORDS_TOTAL = Counter(
+        "aragora_migration_records_total",
+        "Total records processed during data migration",
+        ["store", "status"],
+    )
+
+    MIGRATION_ERRORS_TOTAL = Counter(
+        "aragora_migration_errors_total",
+        "Total errors during data migration",
+        ["store", "error_type"],
+    )
+
+
+def _init_gauntlet_metrics_internal() -> None:
+    """Initialize Gauntlet export metrics (internal helper)."""
+    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
+    from prometheus_client import Counter, Histogram
+
+    GAUNTLET_EXPORTS_TOTAL = Counter(
+        "aragora_gauntlet_exports_total",
+        "Total Gauntlet export operations",
+        ["format", "type", "status"],
+    )
+
+    GAUNTLET_EXPORT_LATENCY = Histogram(
+        "aragora_gauntlet_export_latency_seconds",
+        "Gauntlet export operation latency",
+        ["format", "type"],
+        buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+    )
+
+    GAUNTLET_EXPORT_SIZE = Histogram(
+        "aragora_gauntlet_export_size_bytes",
+        "Gauntlet export output size in bytes",
+        ["format", "type"],
+        buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
+    )
+
+
+def _init_workflow_metrics_internal() -> None:
+    """Initialize workflow template metrics (internal helper)."""
+    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
+    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
+    from prometheus_client import Counter, Histogram
+
+    WORKFLOW_TEMPLATES_CREATED = Counter(
+        "aragora_workflow_templates_created_total",
+        "Total workflow templates created",
+        ["pattern", "template_id"],
+    )
+
+    WORKFLOW_TEMPLATE_EXECUTIONS = Counter(
+        "aragora_workflow_template_executions_total",
+        "Total workflow template executions",
+        ["pattern", "status"],
+    )
+
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = Histogram(
+        "aragora_workflow_template_execution_latency_seconds",
+        "Workflow template execution latency",
+        ["pattern"],
+        buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0],
+    )
 
 
 def _init_noop_metrics() -> None:
@@ -1195,18 +1333,26 @@ def _init_noop_metrics() -> None:
     global KM_HEALTH_STATUS, KM_ADAPTER_SYNCS_TOTAL
     global KM_FEDERATED_QUERIES_TOTAL, KM_EVENTS_EMITTED_TOTAL
     global KM_ACTIVE_ADAPTERS
-    # Persistent stores metrics
-    global TASK_QUEUE_OPERATIONS_TOTAL, TASK_QUEUE_OPERATION_LATENCY
-    global TASK_QUEUE_SIZE, TASK_QUEUE_RECOVERED_TOTAL, TASK_QUEUE_CLEANUP_TOTAL
-    global GOVERNANCE_DECISIONS_TOTAL, GOVERNANCE_VERIFICATIONS_TOTAL
-    global GOVERNANCE_APPROVALS_TOTAL, GOVERNANCE_STORE_LATENCY
-    global GOVERNANCE_ARTIFACTS_ACTIVE
-    global USER_MAPPING_OPERATIONS_TOTAL, USER_MAPPING_CACHE_HITS_TOTAL
-    global USER_MAPPING_CACHE_MISSES_TOTAL, USER_MAPPINGS_ACTIVE
-    # Slow debate detection
+    global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
+    global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
     global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
+    global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
+    global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
+    global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
+    global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
+    global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
+    global BATCH_EXPLAINABILITY_ERRORS_TOTAL
+    global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
+    global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
+    global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
+    global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
+    global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
+    global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
+    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
+    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
+    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
 
-    # Use imported NoOpMetric from base module
+    # Core metrics
     REQUEST_COUNT = NoOpMetric()
     REQUEST_LATENCY = NoOpMetric()
     AGENT_CALLS = NoOpMetric()
@@ -1268,66 +1414,31 @@ def _init_noop_metrics() -> None:
     KM_EVENTS_EMITTED_TOTAL = NoOpMetric()
     KM_ACTIVE_ADAPTERS = NoOpMetric()
     # Notifications
-    global NOTIFICATION_SENT_TOTAL, NOTIFICATION_LATENCY
-    global NOTIFICATION_ERRORS_TOTAL, NOTIFICATION_QUEUE_SIZE
     NOTIFICATION_SENT_TOTAL = NoOpMetric()
     NOTIFICATION_LATENCY = NoOpMetric()
     NOTIFICATION_ERRORS_TOTAL = NoOpMetric()
     NOTIFICATION_QUEUE_SIZE = NoOpMetric()
-    # Persistent Task Queue
-    TASK_QUEUE_OPERATIONS_TOTAL = NoOpMetric()
-    TASK_QUEUE_OPERATION_LATENCY = NoOpMetric()
-    TASK_QUEUE_SIZE = NoOpMetric()
-    TASK_QUEUE_RECOVERED_TOTAL = NoOpMetric()
-    TASK_QUEUE_CLEANUP_TOTAL = NoOpMetric()
-    # Governance Store
-    GOVERNANCE_DECISIONS_TOTAL = NoOpMetric()
-    GOVERNANCE_VERIFICATIONS_TOTAL = NoOpMetric()
-    GOVERNANCE_APPROVALS_TOTAL = NoOpMetric()
-    GOVERNANCE_STORE_LATENCY = NoOpMetric()
-    GOVERNANCE_ARTIFACTS_ACTIVE = NoOpMetric()
-    # User ID Mapping
-    USER_MAPPING_OPERATIONS_TOTAL = NoOpMetric()
-    USER_MAPPING_CACHE_HITS_TOTAL = NoOpMetric()
-    USER_MAPPING_CACHE_MISSES_TOTAL = NoOpMetric()
-    USER_MAPPINGS_ACTIVE = NoOpMetric()
-
     # Marketplace
-    global MARKETPLACE_TEMPLATES_TOTAL, MARKETPLACE_DOWNLOADS_TOTAL
-    global MARKETPLACE_RATINGS_TOTAL, MARKETPLACE_RATINGS_DISTRIBUTION
-    global MARKETPLACE_REVIEWS_TOTAL, MARKETPLACE_OPERATION_LATENCY
     MARKETPLACE_TEMPLATES_TOTAL = NoOpMetric()
     MARKETPLACE_DOWNLOADS_TOTAL = NoOpMetric()
     MARKETPLACE_RATINGS_TOTAL = NoOpMetric()
     MARKETPLACE_RATINGS_DISTRIBUTION = NoOpMetric()
     MARKETPLACE_REVIEWS_TOTAL = NoOpMetric()
     MARKETPLACE_OPERATION_LATENCY = NoOpMetric()
-
     # Batch Explainability
-    global BATCH_EXPLAINABILITY_JOBS_ACTIVE, BATCH_EXPLAINABILITY_JOBS_TOTAL
-    global BATCH_EXPLAINABILITY_DEBATES_PROCESSED, BATCH_EXPLAINABILITY_PROCESSING_LATENCY
-    global BATCH_EXPLAINABILITY_ERRORS_TOTAL
     BATCH_EXPLAINABILITY_JOBS_ACTIVE = NoOpMetric()
     BATCH_EXPLAINABILITY_JOBS_TOTAL = NoOpMetric()
     BATCH_EXPLAINABILITY_DEBATES_PROCESSED = NoOpMetric()
     BATCH_EXPLAINABILITY_PROCESSING_LATENCY = NoOpMetric()
     BATCH_EXPLAINABILITY_ERRORS_TOTAL = NoOpMetric()
-
     # Webhook Delivery
-    global WEBHOOK_DELIVERIES_TOTAL, WEBHOOK_DELIVERY_LATENCY
-    global WEBHOOK_FAILURES_BY_ENDPOINT, WEBHOOK_RETRIES_TOTAL
-    global WEBHOOK_CIRCUIT_BREAKER_STATES, WEBHOOK_QUEUE_SIZE
     WEBHOOK_DELIVERIES_TOTAL = NoOpMetric()
     WEBHOOK_DELIVERY_LATENCY = NoOpMetric()
     WEBHOOK_FAILURES_BY_ENDPOINT = NoOpMetric()
     WEBHOOK_RETRIES_TOTAL = NoOpMetric()
     WEBHOOK_CIRCUIT_BREAKER_STATES = NoOpMetric()
     WEBHOOK_QUEUE_SIZE = NoOpMetric()
-
     # Security & Governance Hardening
-    global ENCRYPTION_OPERATIONS_TOTAL, ENCRYPTION_OPERATION_LATENCY, ENCRYPTION_ERRORS_TOTAL
-    global RBAC_PERMISSION_CHECKS_TOTAL, RBAC_PERMISSION_DENIED_TOTAL, RBAC_CHECK_LATENCY
-    global MIGRATION_RECORDS_TOTAL, MIGRATION_ERRORS_TOTAL
     ENCRYPTION_OPERATIONS_TOTAL = NoOpMetric()
     ENCRYPTION_OPERATION_LATENCY = NoOpMetric()
     ENCRYPTION_ERRORS_TOTAL = NoOpMetric()
@@ -1336,6 +1447,14 @@ def _init_noop_metrics() -> None:
     RBAC_CHECK_LATENCY = NoOpMetric()
     MIGRATION_RECORDS_TOTAL = NoOpMetric()
     MIGRATION_ERRORS_TOTAL = NoOpMetric()
+    # Gauntlet
+    GAUNTLET_EXPORTS_TOTAL = NoOpMetric()
+    GAUNTLET_EXPORT_LATENCY = NoOpMetric()
+    GAUNTLET_EXPORT_SIZE = NoOpMetric()
+    # Workflow Template
+    WORKFLOW_TEMPLATES_CREATED = NoOpMetric()
+    WORKFLOW_TEMPLATE_EXECUTIONS = NoOpMetric()
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = NoOpMetric()
 
 
 def init_core_metrics() -> bool:
@@ -1378,152 +1497,6 @@ def start_metrics_server() -> Optional[Any]:
         return None
 
 
-def record_request(
-    method: str,
-    endpoint: str,
-    status: int,
-    latency: float,
-) -> None:
-    """Record an HTTP request metric.
-
-    Args:
-        method: HTTP method (GET, POST, etc.)
-        endpoint: Request endpoint path
-        status: HTTP status code
-        latency: Request latency in seconds
-    """
-    _init_metrics()
-
-    # Normalize endpoint for cardinality control
-    normalized_endpoint = _normalize_endpoint(endpoint)
-
-    REQUEST_COUNT.labels(method=method, endpoint=normalized_endpoint, status=str(status)).inc()
-    REQUEST_LATENCY.labels(endpoint=normalized_endpoint).observe(latency)
-
-
-def record_agent_call(
-    agent: str,
-    success: bool,
-    latency: float,
-) -> None:
-    """Record an agent API call metric.
-
-    Args:
-        agent: Agent name
-        success: Whether the call succeeded
-        latency: Call latency in seconds
-    """
-    _init_metrics()
-
-    status = "success" if success else "error"
-    AGENT_CALLS.labels(agent=agent, status=status).inc()
-    AGENT_LATENCY.labels(agent=agent).observe(latency)
-
-
-@contextmanager
-def track_debate() -> Generator[None, None, None]:
-    """Context manager to track active debates.
-
-    Example:
-        with track_debate():
-            # Debate is running
-            await arena.run()
-    """
-    _init_metrics()
-
-    ACTIVE_DEBATES.inc()
-    try:
-        yield
-    finally:
-        ACTIVE_DEBATES.dec()
-
-
-def set_consensus_rate(rate: float) -> None:
-    """Set the consensus rate metric.
-
-    Args:
-        rate: Consensus rate between 0 and 1
-    """
-    _init_metrics()
-    CONSENSUS_RATE.set(rate)
-
-
-def record_memory_operation(operation: str, tier: str) -> None:
-    """Record a memory operation.
-
-    Args:
-        operation: Operation type (store, query, promote, demote)
-        tier: Memory tier (fast, medium, slow, glacial)
-    """
-    _init_metrics()
-    MEMORY_OPERATIONS.labels(operation=operation, tier=tier).inc()
-
-
-def track_websocket_connection(connected: bool) -> None:
-    """Track WebSocket connection state.
-
-    Args:
-        connected: True if connected, False if disconnected
-    """
-    _init_metrics()
-    if connected:
-        WEBSOCKET_CONNECTIONS.inc()
-    else:
-        WEBSOCKET_CONNECTIONS.dec()
-
-
-def measure_latency(metric_name: str = "request") -> Callable[[F], F]:
-    """Decorator to measure function latency.
-
-    Args:
-        metric_name: Name for the latency metric
-
-    Returns:
-        Decorated function with latency measurement
-    """
-
-    def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            _init_metrics()
-            start = time.perf_counter()
-            try:
-                return func(*args, **kwargs)
-            finally:
-                latency = time.perf_counter() - start
-                REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-def measure_async_latency(metric_name: str = "request") -> Callable[[F], F]:
-    """Decorator to measure async function latency.
-
-    Args:
-        metric_name: Name for the latency metric
-
-    Returns:
-        Decorated async function with latency measurement
-    """
-
-    def decorator(func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            _init_metrics()
-            start = time.perf_counter()
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                latency = time.perf_counter() - start
-                REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
 def _normalize_endpoint(endpoint: str) -> str:
     """Normalize endpoint path to control cardinality.
 
@@ -1535,8 +1508,6 @@ def _normalize_endpoint(endpoint: str) -> str:
     Returns:
         Normalized endpoint path
     """
-    import re
-
     # Replace UUIDs
     endpoint = re.sub(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -1555,6 +1526,106 @@ def _normalize_endpoint(endpoint: str) -> str:
 
 
 # =============================================================================
+# Core Recording Functions
+# =============================================================================
+
+
+def record_request(
+    method: str,
+    endpoint: str,
+    status: int,
+    latency: float,
+) -> None:
+    """Record an HTTP request metric."""
+    _init_metrics()
+    normalized_endpoint = _normalize_endpoint(endpoint)
+    REQUEST_COUNT.labels(method=method, endpoint=normalized_endpoint, status=str(status)).inc()
+    REQUEST_LATENCY.labels(endpoint=normalized_endpoint).observe(latency)
+
+
+def record_agent_call(
+    agent: str,
+    success: bool,
+    latency: float,
+) -> None:
+    """Record an agent API call metric."""
+    _init_metrics()
+    status = "success" if success else "error"
+    AGENT_CALLS.labels(agent=agent, status=status).inc()
+    AGENT_LATENCY.labels(agent=agent).observe(latency)
+
+
+@contextmanager
+def track_debate() -> Generator[None, None, None]:
+    """Context manager to track active debates."""
+    _init_metrics()
+    ACTIVE_DEBATES.inc()
+    try:
+        yield
+    finally:
+        ACTIVE_DEBATES.dec()
+
+
+def set_consensus_rate(rate: float) -> None:
+    """Set the consensus rate metric."""
+    _init_metrics()
+    CONSENSUS_RATE.set(rate)
+
+
+def record_memory_operation(operation: str, tier: str) -> None:
+    """Record a memory operation."""
+    _init_metrics()
+    MEMORY_OPERATIONS.labels(operation=operation, tier=tier).inc()
+
+
+def track_websocket_connection(connected: bool) -> None:
+    """Track WebSocket connection state."""
+    _init_metrics()
+    if connected:
+        WEBSOCKET_CONNECTIONS.inc()
+    else:
+        WEBSOCKET_CONNECTIONS.dec()
+
+
+def measure_latency(metric_name: str = "request") -> Callable[[F], F]:
+    """Decorator to measure function latency."""
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _init_metrics()
+            start = time.perf_counter()
+            try:
+                return func(*args, **kwargs)
+            finally:
+                latency = time.perf_counter() - start
+                REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
+
+        return cast(F, wrapper)
+
+    return decorator
+
+
+def measure_async_latency(metric_name: str = "request") -> Callable[[F], F]:
+    """Decorator to measure async function latency."""
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _init_metrics()
+            start = time.perf_counter()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                latency = time.perf_counter() - start
+                REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
+
+        return cast(F, wrapper)
+
+    return decorator
+
+
+# =============================================================================
 # Debate-Specific Metrics
 # =============================================================================
 
@@ -1564,52 +1635,27 @@ def record_debate_completion(
     rounds: int,
     outcome: str,
 ) -> None:
-    """Record metrics when a debate completes.
-
-    Args:
-        duration_seconds: Total debate duration in seconds
-        rounds: Number of rounds completed
-        outcome: Debate outcome ("consensus", "no_consensus", "error")
-    """
+    """Record metrics when a debate completes."""
     _init_metrics()
     DEBATE_DURATION.labels(outcome=outcome).observe(duration_seconds)
     DEBATE_ROUNDS.labels(outcome=outcome).observe(rounds)
 
 
 def record_phase_duration(phase: str, duration_seconds: float) -> None:
-    """Record the duration of a debate phase.
-
-    Args:
-        phase: Phase name ("propose", "critique", "vote", "consensus")
-        duration_seconds: Phase duration in seconds
-    """
+    """Record the duration of a debate phase."""
     _init_metrics()
     DEBATE_PHASE_DURATION.labels(phase=phase).observe(duration_seconds)
 
 
 def record_agent_participation(agent: str, phase: str) -> None:
-    """Record agent participation in a debate phase.
-
-    Args:
-        agent: Agent name
-        phase: Phase name
-    """
+    """Record agent participation in a debate phase."""
     _init_metrics()
     AGENT_PARTICIPATION.labels(agent=agent, phase=phase).inc()
 
 
 @contextmanager
 def track_phase(phase: str) -> Generator[None, None, None]:
-    """Context manager to track phase duration.
-
-    Args:
-        phase: Phase name
-
-    Example:
-        with track_phase("propose"):
-            # Phase is running
-            await run_propose_phase()
-    """
+    """Context manager to track phase duration."""
     _init_metrics()
     start = time.perf_counter()
     try:
@@ -1625,26 +1671,20 @@ def track_phase(phase: str) -> Generator[None, None, None]:
 
 
 def record_cache_hit(cache_name: str) -> None:
-    """Record a cache hit.
-
-    Args:
-        cache_name: Name of the cache
-    """
+    """Record a cache hit."""
     _init_metrics()
     CACHE_HITS.labels(cache_name=cache_name).inc()
 
 
 def record_cache_miss(cache_name: str) -> None:
-    """Record a cache miss.
-
-    Args:
-        cache_name: Name of the cache
-    """
+    """Record a cache miss."""
     _init_metrics()
     CACHE_MISSES.labels(cache_name=cache_name).inc()
 
 
-# Cross-functional feature metrics helpers
+# =============================================================================
+# Cross-Functional Feature Metrics
+# =============================================================================
 
 
 def record_knowledge_cache_hit() -> None:
@@ -1660,57 +1700,38 @@ def record_knowledge_cache_miss() -> None:
 
 
 def record_memory_coordinator_write(status: str) -> None:
-    """Record a memory coordinator write operation.
-
-    Args:
-        status: Write status (success, failed, rolled_back)
-    """
+    """Record a memory coordinator write operation."""
     _init_metrics()
     MEMORY_COORDINATOR_WRITES.labels(status=status).inc()
 
 
 def record_selection_feedback_adjustment(agent: str, direction: str) -> None:
-    """Record an agent selection weight adjustment.
-
-    Args:
-        agent: Agent name
-        direction: Adjustment direction (up, down)
-    """
+    """Record an agent selection weight adjustment."""
     _init_metrics()
     SELECTION_FEEDBACK_ADJUSTMENTS.labels(agent=agent, direction=direction).inc()
 
 
 def record_workflow_trigger(status: str) -> None:
-    """Record a post-debate workflow trigger.
-
-    Args:
-        status: Trigger status (triggered, skipped, completed, failed)
-    """
+    """Record a post-debate workflow trigger."""
     _init_metrics()
     WORKFLOW_TRIGGERS.labels(status=status).inc()
 
 
 def record_evidence_stored(count: int = 1) -> None:
-    """Record evidence items stored in knowledge mound.
-
-    Args:
-        count: Number of evidence items stored
-    """
+    """Record evidence items stored in knowledge mound."""
     _init_metrics()
     EVIDENCE_STORED.inc(count)
 
 
 def record_culture_patterns(count: int = 1) -> None:
-    """Record culture patterns extracted from debates.
-
-    Args:
-        count: Number of patterns extracted
-    """
+    """Record culture patterns extracted from debates."""
     _init_metrics()
     CULTURE_PATTERNS.inc(count)
 
 
-# Phase 9 Cross-Pollination metrics helpers
+# =============================================================================
+# Phase 9 Cross-Pollination Metrics
+# =============================================================================
 
 
 def record_rlm_cache_hit() -> None:
@@ -1726,42 +1747,25 @@ def record_rlm_cache_miss() -> None:
 
 
 def record_calibration_adjustment(agent: str) -> None:
-    """Record a proposal confidence calibration adjustment.
-
-    Args:
-        agent: Agent name whose confidence was calibrated
-    """
+    """Record a proposal confidence calibration adjustment."""
     _init_metrics()
     CALIBRATION_ADJUSTMENTS.labels(agent=agent).inc()
 
 
 def record_learning_bonus(agent: str, category: str) -> None:
-    """Record a learning efficiency ELO bonus.
-
-    Args:
-        agent: Agent name
-        category: Learning category (rapid, steady, slow)
-    """
+    """Record a learning efficiency ELO bonus."""
     _init_metrics()
     LEARNING_BONUSES.labels(agent=agent, category=category).inc()
 
 
 def record_voting_accuracy_update(result: str) -> None:
-    """Record a voting accuracy update.
-
-    Args:
-        result: Vote result (correct, incorrect)
-    """
+    """Record a voting accuracy update."""
     _init_metrics()
     VOTING_ACCURACY_UPDATES.labels(result=result).inc()
 
 
 def record_adaptive_round_change(direction: str) -> None:
-    """Record a debate round count adjustment.
-
-    Args:
-        direction: Change direction (increased, decreased, unchanged)
-    """
+    """Record a debate round count adjustment."""
     _init_metrics()
     ADAPTIVE_ROUND_CHANGES.labels(direction=direction).inc()
 
@@ -1772,165 +1776,93 @@ def record_adaptive_round_change(direction: str) -> None:
 
 
 def record_bridge_sync(bridge: str, success: bool) -> None:
-    """Record a bridge sync operation.
-
-    Args:
-        bridge: Bridge name (performance_router, relationship_bias, etc.)
-        success: Whether the sync succeeded
-    """
+    """Record a bridge sync operation."""
     _init_metrics()
     status = "success" if success else "error"
     BRIDGE_SYNCS.labels(bridge=bridge, status=status).inc()
 
 
 def record_bridge_sync_latency(bridge: str, latency_seconds: float) -> None:
-    """Record bridge sync operation latency.
-
-    Args:
-        bridge: Bridge name
-        latency_seconds: Time taken for sync operation
-    """
+    """Record bridge sync operation latency."""
     _init_metrics()
     BRIDGE_SYNC_LATENCY.labels(bridge=bridge).observe(latency_seconds)
 
 
 def record_bridge_error(bridge: str, error_type: str) -> None:
-    """Record a bridge error.
-
-    Args:
-        bridge: Bridge name
-        error_type: Type of error (e.g., "initialization", "sync", "compute")
-    """
+    """Record a bridge error."""
     _init_metrics()
     BRIDGE_ERRORS.labels(bridge=bridge, error_type=error_type).inc()
 
 
 def record_performance_routing_decision(task_type: str, selected_agent: str) -> None:
-    """Record a performance-based routing decision.
-
-    Args:
-        task_type: Task type (speed, precision, balanced)
-        selected_agent: Agent selected for the task
-    """
+    """Record a performance-based routing decision."""
     _init_metrics()
     PERFORMANCE_ROUTING_DECISIONS.labels(task_type=task_type, selected_agent=selected_agent).inc()
 
 
 def record_performance_routing_latency(latency_seconds: float) -> None:
-    """Record time to compute routing decision.
-
-    Args:
-        latency_seconds: Time taken to compute routing
-    """
+    """Record time to compute routing decision."""
     _init_metrics()
     PERFORMANCE_ROUTING_LATENCY.observe(latency_seconds)
 
 
 def record_outcome_complexity_adjustment(direction: str) -> None:
-    """Record a complexity budget adjustment.
-
-    Args:
-        direction: Adjustment direction (increased, decreased)
-    """
+    """Record a complexity budget adjustment."""
     _init_metrics()
     OUTCOME_COMPLEXITY_ADJUSTMENTS.labels(direction=direction).inc()
 
 
 def record_analytics_selection_recommendation(recommendation_type: str) -> None:
-    """Record an analytics-driven selection recommendation.
-
-    Args:
-        recommendation_type: Type of recommendation (boost, penalty, neutral)
-    """
+    """Record an analytics-driven selection recommendation."""
     _init_metrics()
     ANALYTICS_SELECTION_RECOMMENDATIONS.labels(recommendation_type=recommendation_type).inc()
 
 
 def record_novelty_score_calculation(agent: str) -> None:
-    """Record a novelty score calculation.
-
-    Args:
-        agent: Agent name
-    """
+    """Record a novelty score calculation."""
     _init_metrics()
     NOVELTY_SCORE_CALCULATIONS.labels(agent=agent).inc()
 
 
 def record_novelty_penalty(agent: str) -> None:
-    """Record a selection penalty for low novelty.
-
-    Args:
-        agent: Agent name
-    """
+    """Record a selection penalty for low novelty."""
     _init_metrics()
     NOVELTY_PENALTIES.labels(agent=agent).inc()
 
 
 def record_echo_chamber_detection(risk_level: str) -> None:
-    """Record an echo chamber risk detection.
-
-    Args:
-        risk_level: Risk level (low, medium, high)
-    """
+    """Record an echo chamber risk detection."""
     _init_metrics()
     ECHO_CHAMBER_DETECTIONS.labels(risk_level=risk_level).inc()
 
 
 def record_relationship_bias_adjustment(agent: str, direction: str) -> None:
-    """Record a voting weight adjustment for alliance bias.
-
-    Args:
-        agent: Agent name
-        direction: Adjustment direction (up, down)
-    """
+    """Record a voting weight adjustment for alliance bias."""
     _init_metrics()
     RELATIONSHIP_BIAS_ADJUSTMENTS.labels(agent=agent, direction=direction).inc()
 
 
 def record_rlm_selection_recommendation(agent: str) -> None:
-    """Record an RLM-efficient agent selection recommendation.
-
-    Args:
-        agent: Agent name recommended for RLM efficiency
-    """
+    """Record an RLM-efficient agent selection recommendation."""
     _init_metrics()
     RLM_SELECTION_RECOMMENDATIONS.labels(agent=agent).inc()
 
 
 def record_calibration_cost_calculation(agent: str, efficiency: str) -> None:
-    """Record a cost efficiency calculation.
-
-    Args:
-        agent: Agent name
-        efficiency: Efficiency category (efficient, moderate, inefficient)
-    """
+    """Record a cost efficiency calculation."""
     _init_metrics()
     CALIBRATION_COST_CALCULATIONS.labels(agent=agent, efficiency=efficiency).inc()
 
 
 def record_budget_filtering_event(outcome: str) -> None:
-    """Record an agent filtering event due to budget constraints.
-
-    Args:
-        outcome: Filtering outcome (included, excluded)
-    """
+    """Record an agent filtering event due to budget constraints."""
     _init_metrics()
     BUDGET_FILTERING_EVENTS.labels(outcome=outcome).inc()
 
 
 @contextmanager
 def track_bridge_sync(bridge: str) -> Generator[None, None, None]:
-    """Context manager to track bridge sync operations.
-
-    Automatically records sync success/failure and latency.
-
-    Args:
-        bridge: Bridge name
-
-    Example:
-        with track_bridge_sync("performance_router"):
-            bridge.sync_to_router()
-    """
+    """Context manager to track bridge sync operations."""
     _init_metrics()
     start = time.perf_counter()
     success = True
@@ -1958,21 +1890,13 @@ def record_slow_debate() -> None:
 
 
 def record_slow_round(debate_outcome: str = "in_progress") -> None:
-    """Record a round flagged as slow.
-
-    Args:
-        debate_outcome: Current debate outcome (consensus, no_consensus, error, in_progress)
-    """
+    """Record a round flagged as slow."""
     _init_metrics()
     SLOW_ROUNDS_TOTAL.labels(debate_outcome=debate_outcome).inc()
 
 
 def record_round_latency(latency_seconds: float) -> None:
-    """Record latency for a debate round.
-
-    Args:
-        latency_seconds: Round duration in seconds
-    """
+    """Record latency for a debate round."""
     _init_metrics()
     DEBATE_ROUND_LATENCY.observe(latency_seconds)
 
@@ -1983,53 +1907,31 @@ def record_round_latency(latency_seconds: float) -> None:
 
 
 def record_tts_synthesis(voice: str, platform: str = "unknown") -> None:
-    """Record a TTS synthesis operation.
-
-    Args:
-        voice: Voice type used (e.g., narrator, moderator, analyst)
-        platform: Chat platform (telegram, whatsapp, web)
-    """
+    """Record a TTS synthesis operation."""
     _init_metrics()
     TTS_SYNTHESIS_TOTAL.labels(voice=voice, platform=platform).inc()
 
 
 def record_tts_latency(latency_seconds: float) -> None:
-    """Record TTS synthesis latency.
-
-    Args:
-        latency_seconds: Synthesis duration in seconds
-    """
+    """Record TTS synthesis latency."""
     _init_metrics()
     TTS_SYNTHESIS_LATENCY.observe(latency_seconds)
 
 
 def record_convergence_check(status: str, blocked: bool = False) -> None:
-    """Record a convergence check event.
-
-    Args:
-        status: Convergence status (converged, diverged, partial)
-        blocked: Whether convergence was blocked by trickster
-    """
+    """Record a convergence check event."""
     _init_metrics()
     CONVERGENCE_CHECKS_TOTAL.labels(status=status, blocked=str(blocked)).inc()
 
 
 def record_evidence_citation_bonus(agent: str) -> None:
-    """Record an evidence citation vote bonus.
-
-    Args:
-        agent: Agent name that received the bonus
-    """
+    """Record an evidence citation vote bonus."""
     _init_metrics()
     EVIDENCE_CITATION_BONUSES.labels(agent=agent).inc()
 
 
 def record_process_evaluation_bonus(agent: str) -> None:
-    """Record a process evaluation vote bonus.
-
-    Args:
-        agent: Agent name that received the bonus
-    """
+    """Record a process evaluation vote bonus."""
     _init_metrics()
     PROCESS_EVALUATION_BONUSES.labels(agent=agent).inc()
 
@@ -2046,13 +1948,7 @@ def record_rlm_ready_quorum() -> None:
 
 
 def record_km_operation(operation: str, success: bool, latency_seconds: float) -> None:
-    """Record a Knowledge Mound operation.
-
-    Args:
-        operation: Operation type (query, store, get, delete, sync)
-        success: Whether the operation succeeded
-        latency_seconds: Operation latency in seconds
-    """
+    """Record a Knowledge Mound operation."""
     _init_metrics()
     status = "success" if success else "error"
     KM_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
@@ -2060,12 +1956,7 @@ def record_km_operation(operation: str, success: bool, latency_seconds: float) -
 
 
 def record_km_cache_access(hit: bool, adapter: str = "global") -> None:
-    """Record a Knowledge Mound cache access.
-
-    Args:
-        hit: Whether it was a cache hit
-        adapter: Adapter name or "global" for general cache
-    """
+    """Record a Knowledge Mound cache access."""
     _init_metrics()
     if hit:
         KM_CACHE_HITS_TOTAL.labels(adapter=adapter).inc()
@@ -2074,67 +1965,39 @@ def record_km_cache_access(hit: bool, adapter: str = "global") -> None:
 
 
 def set_km_health_status(status: int) -> None:
-    """Set the Knowledge Mound health status.
-
-    Args:
-        status: Health status (0=unknown, 1=unhealthy, 2=degraded, 3=healthy)
-    """
+    """Set the Knowledge Mound health status."""
     _init_metrics()
     KM_HEALTH_STATUS.set(status)
 
 
 def record_km_adapter_sync(adapter: str, direction: str, success: bool) -> None:
-    """Record a Knowledge Mound adapter sync operation.
-
-    Args:
-        adapter: Adapter name (continuum, consensus, elo, etc.)
-        direction: Sync direction (forward, reverse)
-        success: Whether the sync succeeded
-    """
+    """Record a Knowledge Mound adapter sync operation."""
     _init_metrics()
     status = "success" if success else "error"
     KM_ADAPTER_SYNCS_TOTAL.labels(adapter=adapter, direction=direction, status=status).inc()
 
 
 def record_km_federated_query(adapters_queried: int, success: bool) -> None:
-    """Record a federated query operation.
-
-    Args:
-        adapters_queried: Number of adapters queried
-        success: Whether the query succeeded
-    """
+    """Record a federated query operation."""
     _init_metrics()
     status = "success" if success else "error"
     KM_FEDERATED_QUERIES_TOTAL.labels(adapters_queried=str(adapters_queried), status=status).inc()
 
 
 def record_km_event_emitted(event_type: str) -> None:
-    """Record a Knowledge Mound WebSocket event emission.
-
-    Args:
-        event_type: Event type (km_batch, knowledge_indexed, etc.)
-    """
+    """Record a Knowledge Mound WebSocket event emission."""
     _init_metrics()
     KM_EVENTS_EMITTED_TOTAL.labels(event_type=event_type).inc()
 
 
 def set_km_active_adapters(count: int) -> None:
-    """Set the number of active Knowledge Mound adapters.
-
-    Args:
-        count: Number of active adapters
-    """
+    """Set the number of active Knowledge Mound adapters."""
     _init_metrics()
     KM_ACTIVE_ADAPTERS.set(count)
 
 
 def sync_km_metrics_to_prometheus() -> None:
-    """Sync KMMetrics to Prometheus metrics.
-
-    Reads the current state from the global KMMetrics instance and
-    updates Prometheus metrics accordingly. Call this periodically
-    (e.g., every 30 seconds) to keep Prometheus in sync.
-    """
+    """Sync KMMetrics to Prometheus metrics."""
     _init_metrics()
 
     try:
@@ -2143,7 +2006,6 @@ def sync_km_metrics_to_prometheus() -> None:
         km_metrics = get_metrics()
         health = km_metrics.get_health()
 
-        # Map health status to numeric value
         status_map = {
             HealthStatus.UNKNOWN: 0,
             HealthStatus.UNHEALTHY: 1,
@@ -2152,20 +2014,23 @@ def sync_km_metrics_to_prometheus() -> None:
         }
         set_km_health_status(status_map.get(health.status, 0))
 
-        # Sync operation stats
-        stats = km_metrics.get_stats()
-        for op_name, op_stats in stats.items():
-            # The stats are already aggregated, so we just ensure they're recorded
-            # Note: Prometheus counters are cumulative, so we'd need to track deltas
-            # For simplicity, health status and gauges are the main sync targets
-            pass
-
     except ImportError:
         logger.debug("KMMetrics not available for Prometheus sync")
     except (KeyError, AttributeError) as e:
         logger.debug(f"KM metrics data extraction failed: {e}")
     except Exception as e:
         logger.warning(f"Unexpected error syncing KM metrics to Prometheus: {e}")
+
+
+def record_km_inbound_event(
+    event_type: str,
+    source: str,
+    success: bool = True,
+) -> None:
+    """Record an inbound event to Knowledge Mound."""
+    _init_metrics()
+    record_km_operation("ingest", success, 0.0)
+    record_km_event_emitted(f"inbound_{event_type}")
 
 
 # =============================================================================
@@ -2180,15 +2045,7 @@ def record_notification_sent(
     success: bool,
     latency_seconds: float,
 ) -> None:
-    """Record a notification delivery attempt.
-
-    Args:
-        channel: Notification channel (slack, email, webhook, in_app)
-        severity: Notification severity (info, warning, error, critical)
-        priority: Notification priority (low, normal, high, urgent)
-        success: Whether the delivery succeeded
-        latency_seconds: Delivery latency in seconds
-    """
+    """Record a notification delivery attempt."""
     _init_metrics()
     status = "success" if success else "failed"
     NOTIFICATION_SENT_TOTAL.labels(
@@ -2198,23 +2055,13 @@ def record_notification_sent(
 
 
 def record_notification_error(channel: str, error_type: str) -> None:
-    """Record a notification delivery error.
-
-    Args:
-        channel: Notification channel (slack, email, webhook)
-        error_type: Error category (timeout, auth_failed, rate_limited, connection_error, etc.)
-    """
+    """Record a notification delivery error."""
     _init_metrics()
     NOTIFICATION_ERRORS_TOTAL.labels(channel=channel, error_type=error_type).inc()
 
 
 def set_notification_queue_size(channel: str, size: int) -> None:
-    """Set the current notification queue size.
-
-    Args:
-        channel: Notification channel
-        size: Current queue size
-    """
+    """Set the current notification queue size."""
     _init_metrics()
     NOTIFICATION_QUEUE_SIZE.labels(channel=channel).set(size)
 
@@ -2225,19 +2072,7 @@ def track_notification_delivery(
     severity: str = "info",
     priority: str = "normal",
 ) -> Generator[None, None, None]:
-    """Context manager to track notification delivery.
-
-    Automatically records latency and success/failure.
-
-    Args:
-        channel: Notification channel
-        severity: Notification severity
-        priority: Notification priority
-
-    Example:
-        with track_notification_delivery("slack", "warning", "high"):
-            await send_slack_message(...)
-    """
+    """Context manager to track notification delivery."""
     _init_metrics()
     start = time.perf_counter()
     success = True
@@ -2252,279 +2087,8 @@ def track_notification_delivery(
 
 
 # =============================================================================
-# Persistent Task Queue Metrics
-# =============================================================================
-
-
-def record_task_queue_operation(
-    operation: str,
-    success: bool,
-    latency_seconds: float,
-) -> None:
-    """Record a task queue operation.
-
-    Args:
-        operation: Operation type (enqueue, dequeue, complete, fail, cancel)
-        success: Whether the operation succeeded
-        latency_seconds: Operation latency in seconds
-    """
-    _init_metrics()
-    status = "success" if success else "error"
-    TASK_QUEUE_OPERATIONS_TOTAL.labels(operation=operation, status=status).inc()
-    TASK_QUEUE_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
-
-
-def set_task_queue_size(pending: int, ready: int, running: int) -> None:
-    """Set the current task queue sizes by status.
-
-    Args:
-        pending: Number of pending tasks
-        ready: Number of ready tasks
-        running: Number of running tasks
-    """
-    _init_metrics()
-    TASK_QUEUE_SIZE.labels(status="pending").set(pending)
-    TASK_QUEUE_SIZE.labels(status="ready").set(ready)
-    TASK_QUEUE_SIZE.labels(status="running").set(running)
-
-
-def record_task_queue_recovery(original_status: str, count: int = 1) -> None:
-    """Record recovered tasks on startup.
-
-    Args:
-        original_status: Original status of recovered task (pending, ready, running)
-        count: Number of tasks recovered
-    """
-    _init_metrics()
-    TASK_QUEUE_RECOVERED_TOTAL.labels(original_status=original_status).inc(count)
-
-
-def record_task_queue_cleanup(count: int) -> None:
-    """Record completed tasks cleaned up.
-
-    Args:
-        count: Number of tasks cleaned up
-    """
-    _init_metrics()
-    TASK_QUEUE_CLEANUP_TOTAL.inc(count)
-
-
-@contextmanager
-def track_task_queue_operation(operation: str) -> Generator[None, None, None]:
-    """Context manager to track task queue operations.
-
-    Automatically records latency and success/failure.
-
-    Args:
-        operation: Operation type (enqueue, dequeue, complete, fail)
-
-    Example:
-        with track_task_queue_operation("enqueue"):
-            await queue.enqueue(task)
-    """
-    _init_metrics()
-    start = time.perf_counter()
-    success = True
-    try:
-        yield
-    except Exception:
-        success = False
-        raise
-    finally:
-        latency = time.perf_counter() - start
-        record_task_queue_operation(operation, success, latency)
-
-
-# =============================================================================
-# Governance Store Metrics
-# =============================================================================
-
-
-def record_governance_decision(decision_type: str, outcome: str) -> None:
-    """Record a governance decision stored.
-
-    Args:
-        decision_type: Type of decision (manual, auto)
-        outcome: Decision outcome (approved, rejected)
-    """
-    _init_metrics()
-    GOVERNANCE_DECISIONS_TOTAL.labels(decision_type=decision_type, outcome=outcome).inc()
-
-
-def record_governance_verification(verification_type: str, result: str) -> None:
-    """Record a verification stored.
-
-    Args:
-        verification_type: Type of verification (formal, runtime)
-        result: Verification result (valid, invalid)
-    """
-    _init_metrics()
-    GOVERNANCE_VERIFICATIONS_TOTAL.labels(verification_type=verification_type, result=result).inc()
-
-
-def record_governance_approval(approval_type: str, status: str) -> None:
-    """Record an approval stored.
-
-    Args:
-        approval_type: Type of approval (nomic, deploy, change)
-        status: Approval status (granted, revoked)
-    """
-    _init_metrics()
-    GOVERNANCE_APPROVALS_TOTAL.labels(approval_type=approval_type, status=status).inc()
-
-
-def record_governance_store_latency(operation: str, latency_seconds: float) -> None:
-    """Record governance store operation latency.
-
-    Args:
-        operation: Operation type (save, get, list, delete)
-        latency_seconds: Operation latency in seconds
-    """
-    _init_metrics()
-    GOVERNANCE_STORE_LATENCY.labels(operation=operation).observe(latency_seconds)
-
-
-def set_governance_artifacts_active(decisions: int, verifications: int, approvals: int) -> None:
-    """Set the current number of active governance artifacts.
-
-    Args:
-        decisions: Number of active decisions
-        verifications: Number of active verifications
-        approvals: Number of active approvals
-    """
-    _init_metrics()
-    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="decision").set(decisions)
-    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="verification").set(verifications)
-    GOVERNANCE_ARTIFACTS_ACTIVE.labels(artifact_type="approval").set(approvals)
-
-
-@contextmanager
-def track_governance_store_operation(operation: str) -> Generator[None, None, None]:
-    """Context manager to track governance store operations.
-
-    Automatically records latency.
-
-    Args:
-        operation: Operation type (save, get, list, delete)
-
-    Example:
-        with track_governance_store_operation("save"):
-            await store.save_verification(...)
-    """
-    _init_metrics()
-    start = time.perf_counter()
-    try:
-        yield
-    finally:
-        latency = time.perf_counter() - start
-        record_governance_store_latency(operation, latency)
-
-
-# =============================================================================
-# User ID Mapping Metrics
-# =============================================================================
-
-
-def record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
-    """Record a user ID mapping operation.
-
-    Args:
-        operation: Operation type (save, get, delete)
-        platform: Platform name (slack, discord, teams)
-        found: Whether the mapping was found (for get operations)
-    """
-    _init_metrics()
-    status = "success" if found else "not_found"
-    USER_MAPPING_OPERATIONS_TOTAL.labels(
-        operation=operation, platform=platform, status=status
-    ).inc()
-
-
-def record_user_mapping_cache_hit(platform: str) -> None:
-    """Record a user ID mapping cache hit.
-
-    Args:
-        platform: Platform name (slack, discord, teams)
-    """
-    _init_metrics()
-    USER_MAPPING_CACHE_HITS_TOTAL.labels(platform=platform).inc()
-
-
-def record_user_mapping_cache_miss(platform: str) -> None:
-    """Record a user ID mapping cache miss.
-
-    Args:
-        platform: Platform name (slack, discord, teams)
-    """
-    _init_metrics()
-    USER_MAPPING_CACHE_MISSES_TOTAL.labels(platform=platform).inc()
-
-
-def set_user_mappings_active(platform: str, count: int) -> None:
-    """Set the number of active user ID mappings for a platform.
-
-    Args:
-        platform: Platform name (slack, discord, teams)
-        count: Number of active mappings
-    """
-    _init_metrics()
-    USER_MAPPINGS_ACTIVE.labels(platform=platform).set(count)
-
-
-# =============================================================================
 # Gauntlet Export Metrics
 # =============================================================================
-
-# Metric instances (will be set during initialization)
-GAUNTLET_EXPORTS_TOTAL: Any = None
-GAUNTLET_EXPORT_LATENCY: Any = None
-GAUNTLET_EXPORT_SIZE: Any = None
-
-
-def _init_gauntlet_metrics() -> None:
-    """Initialize Gauntlet export metrics."""
-    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
-
-    config = get_metrics_config()
-    if not config.enabled:
-        _init_gauntlet_noop_metrics()
-        return
-
-    try:
-        from prometheus_client import Counter, Histogram
-
-        GAUNTLET_EXPORTS_TOTAL = Counter(
-            "aragora_gauntlet_exports_total",
-            "Total Gauntlet export operations",
-            ["format", "type", "status"],
-        )
-
-        GAUNTLET_EXPORT_LATENCY = Histogram(
-            "aragora_gauntlet_export_latency_seconds",
-            "Gauntlet export operation latency",
-            ["format", "type"],
-            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
-
-        GAUNTLET_EXPORT_SIZE = Histogram(
-            "aragora_gauntlet_export_size_bytes",
-            "Gauntlet export output size in bytes",
-            ["format", "type"],
-            buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
-        )
-
-    except ImportError:
-        _init_gauntlet_noop_metrics()
-
-
-def _init_gauntlet_noop_metrics() -> None:
-    """Initialize no-op Gauntlet metrics."""
-    global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
-
-    # Use imported NoOpMetric from base module
-    GAUNTLET_EXPORTS_TOTAL = NoOpMetric()
-    GAUNTLET_EXPORT_LATENCY = NoOpMetric()
-    GAUNTLET_EXPORT_SIZE = NoOpMetric()
 
 
 def record_gauntlet_export(
@@ -2534,19 +2098,8 @@ def record_gauntlet_export(
     latency_seconds: float,
     size_bytes: int = 0,
 ) -> None:
-    """Record a Gauntlet export operation.
-
-    Args:
-        format: Export format (json, csv, html, markdown, sarif)
-        export_type: Type of export (receipt, heatmap, bundle)
-        success: Whether the export succeeded
-        latency_seconds: Operation latency in seconds
-        size_bytes: Size of exported content in bytes
-    """
+    """Record a Gauntlet export operation."""
     _init_metrics()
-    if GAUNTLET_EXPORTS_TOTAL is None:
-        _init_gauntlet_metrics()
-
     status = "success" if success else "error"
     GAUNTLET_EXPORTS_TOTAL.labels(format=format, type=export_type, status=status).inc()
     GAUNTLET_EXPORT_LATENCY.labels(format=format, type=export_type).observe(latency_seconds)
@@ -2559,21 +2112,8 @@ def track_gauntlet_export(
     format: str,
     export_type: str,
 ) -> Generator[dict, None, None]:
-    """Context manager to track Gauntlet export operations.
-
-    Args:
-        format: Export format (json, csv, html, markdown, sarif)
-        export_type: Type of export (receipt, heatmap, bundle)
-
-    Example:
-        with track_gauntlet_export("json", "receipt") as ctx:
-            result = export_receipt(receipt, format=ReceiptExportFormat.JSON)
-            ctx["size_bytes"] = len(result)
-    """
+    """Context manager to track Gauntlet export operations."""
     _init_metrics()
-    if GAUNTLET_EXPORTS_TOTAL is None:
-        _init_gauntlet_metrics()
-
     start = time.perf_counter()
     ctx: dict[str, Any] = {"size_bytes": 0}
     success = True
@@ -2591,69 +2131,10 @@ def track_gauntlet_export(
 # Workflow Template Metrics
 # =============================================================================
 
-WORKFLOW_TEMPLATES_CREATED: Any = None
-WORKFLOW_TEMPLATE_EXECUTIONS: Any = None
-WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
-
-
-def _init_workflow_metrics() -> None:
-    """Initialize workflow template metrics."""
-    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
-    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
-
-    config = get_metrics_config()
-    if not config.enabled:
-        _init_workflow_noop_metrics()
-        return
-
-    try:
-        from prometheus_client import Counter, Histogram
-
-        WORKFLOW_TEMPLATES_CREATED = Counter(
-            "aragora_workflow_templates_created_total",
-            "Total workflow templates created",
-            ["pattern", "template_id"],
-        )
-
-        WORKFLOW_TEMPLATE_EXECUTIONS = Counter(
-            "aragora_workflow_template_executions_total",
-            "Total workflow template executions",
-            ["pattern", "status"],
-        )
-
-        WORKFLOW_TEMPLATE_EXECUTION_LATENCY = Histogram(
-            "aragora_workflow_template_execution_latency_seconds",
-            "Workflow template execution latency",
-            ["pattern"],
-            buckets=[1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0],
-        )
-
-    except ImportError:
-        _init_workflow_noop_metrics()
-
-
-def _init_workflow_noop_metrics() -> None:
-    """Initialize no-op workflow metrics."""
-    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
-    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
-
-    # Use imported NoOpMetric from base module
-    WORKFLOW_TEMPLATES_CREATED = NoOpMetric()
-    WORKFLOW_TEMPLATE_EXECUTIONS = NoOpMetric()
-    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = NoOpMetric()
-
 
 def record_workflow_template_created(pattern: str, template_id: str) -> None:
-    """Record a workflow template creation.
-
-    Args:
-        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
-        template_id: Template identifier
-    """
+    """Record a workflow template creation."""
     _init_metrics()
-    if WORKFLOW_TEMPLATES_CREATED is None:
-        _init_workflow_metrics()
-
     WORKFLOW_TEMPLATES_CREATED.labels(pattern=pattern, template_id=template_id).inc()
 
 
@@ -2662,17 +2143,8 @@ def record_workflow_template_execution(
     success: bool,
     latency_seconds: float,
 ) -> None:
-    """Record a workflow template execution.
-
-    Args:
-        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
-        success: Whether the execution succeeded
-        latency_seconds: Execution latency in seconds
-    """
+    """Record a workflow template execution."""
     _init_metrics()
-    if WORKFLOW_TEMPLATE_EXECUTIONS is None:
-        _init_workflow_metrics()
-
     status = "success" if success else "error"
     WORKFLOW_TEMPLATE_EXECUTIONS.labels(pattern=pattern, status=status).inc()
     WORKFLOW_TEMPLATE_EXECUTION_LATENCY.labels(pattern=pattern).observe(latency_seconds)
@@ -2680,19 +2152,8 @@ def record_workflow_template_execution(
 
 @contextmanager
 def track_workflow_template_execution(pattern: str) -> Generator[None, None, None]:
-    """Context manager to track workflow template execution.
-
-    Args:
-        pattern: Workflow pattern (hive_mind, map_reduce, review_cycle)
-
-    Example:
-        with track_workflow_template_execution("hive_mind"):
-            await workflow.execute()
-    """
+    """Context manager to track workflow template execution."""
     _init_metrics()
-    if WORKFLOW_TEMPLATE_EXECUTIONS is None:
-        _init_workflow_metrics()
-
     start = time.perf_counter()
     success = True
     try:
@@ -2706,389 +2167,6 @@ def track_workflow_template_execution(pattern: str) -> Generator[None, None, Non
 
 
 # =============================================================================
-# Checkpoint Store Metrics
-# =============================================================================
-
-CHECKPOINT_OPERATIONS: Any = None
-CHECKPOINT_OPERATION_LATENCY: Any = None
-CHECKPOINT_SIZE: Any = None
-CHECKPOINT_RESTORE_RESULTS: Any = None
-
-
-def _init_checkpoint_metrics() -> None:
-    """Initialize checkpoint store metrics."""
-    global CHECKPOINT_OPERATIONS, CHECKPOINT_OPERATION_LATENCY
-    global CHECKPOINT_SIZE, CHECKPOINT_RESTORE_RESULTS
-
-    config = get_metrics_config()
-    if not config.enabled:
-        _init_checkpoint_noop_metrics()
-        return
-
-    try:
-        from prometheus_client import Counter, Histogram
-
-        CHECKPOINT_OPERATIONS = Counter(
-            "aragora_checkpoint_operations_total",
-            "Total checkpoint operations",
-            ["operation", "status"],
-        )
-
-        CHECKPOINT_OPERATION_LATENCY = Histogram(
-            "aragora_checkpoint_operation_latency_seconds",
-            "Checkpoint operation latency",
-            ["operation"],
-            buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
-        )
-
-        CHECKPOINT_SIZE = Histogram(
-            "aragora_checkpoint_size_bytes",
-            "Checkpoint file size in bytes",
-            buckets=[1000, 10000, 100000, 1000000, 10000000, 100000000],
-        )
-
-        CHECKPOINT_RESTORE_RESULTS = Counter(
-            "aragora_checkpoint_restore_results_total",
-            "Checkpoint restore results",
-            ["result"],
-        )
-
-    except ImportError:
-        _init_checkpoint_noop_metrics()
-
-
-def _init_checkpoint_noop_metrics() -> None:
-    """Initialize no-op checkpoint metrics."""
-    global CHECKPOINT_OPERATIONS, CHECKPOINT_OPERATION_LATENCY
-    global CHECKPOINT_SIZE, CHECKPOINT_RESTORE_RESULTS
-
-    # Use imported NoOpMetric from base module
-    CHECKPOINT_OPERATIONS = NoOpMetric()
-    CHECKPOINT_OPERATION_LATENCY = NoOpMetric()
-    CHECKPOINT_SIZE = NoOpMetric()
-    CHECKPOINT_RESTORE_RESULTS = NoOpMetric()
-
-
-def record_checkpoint_operation(
-    operation: str,
-    success: bool,
-    latency_seconds: float,
-    size_bytes: int = 0,
-) -> None:
-    """Record a checkpoint operation.
-
-    Args:
-        operation: Operation type (create, restore, delete, list, compare)
-        success: Whether the operation succeeded
-        latency_seconds: Operation latency in seconds
-        size_bytes: Checkpoint size in bytes (for create operations)
-    """
-    _init_metrics()
-    if CHECKPOINT_OPERATIONS is None:
-        _init_checkpoint_metrics()
-
-    status = "success" if success else "error"
-    CHECKPOINT_OPERATIONS.labels(operation=operation, status=status).inc()
-    CHECKPOINT_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
-    if size_bytes > 0:
-        CHECKPOINT_SIZE.observe(size_bytes)
-
-
-def record_checkpoint_restore_result(
-    nodes_restored: int,
-    nodes_skipped: int,
-    errors: int,
-) -> None:
-    """Record checkpoint restore results.
-
-    Args:
-        nodes_restored: Number of nodes successfully restored
-        nodes_skipped: Number of nodes skipped (duplicates)
-        errors: Number of errors during restore
-    """
-    _init_metrics()
-    if CHECKPOINT_RESTORE_RESULTS is None:
-        _init_checkpoint_metrics()
-
-    if nodes_restored > 0:
-        CHECKPOINT_RESTORE_RESULTS.labels(result="nodes_restored").inc(nodes_restored)
-    if nodes_skipped > 0:
-        CHECKPOINT_RESTORE_RESULTS.labels(result="nodes_skipped").inc(nodes_skipped)
-    if errors > 0:
-        CHECKPOINT_RESTORE_RESULTS.labels(result="errors").inc(errors)
-
-
-@contextmanager
-def track_checkpoint_operation(operation: str) -> Generator[dict, None, None]:
-    """Context manager to track checkpoint operations.
-
-    Args:
-        operation: Operation type (create, restore, delete, list, compare)
-
-    Example:
-        with track_checkpoint_operation("create") as ctx:
-            checkpoint = store.create_checkpoint("my_checkpoint")
-            ctx["size_bytes"] = checkpoint.size_bytes
-    """
-    _init_metrics()
-    if CHECKPOINT_OPERATIONS is None:
-        _init_checkpoint_metrics()
-
-    start = time.perf_counter()
-    ctx: dict[str, Any] = {"size_bytes": 0}
-    success = True
-    try:
-        yield ctx
-    except Exception:
-        success = False
-        raise
-    finally:
-        latency = time.perf_counter() - start
-        record_checkpoint_operation(operation, success, latency, ctx.get("size_bytes", 0))
-
-
-# =============================================================================
-# Consensus Ingestion Metrics
-# =============================================================================
-
-CONSENSUS_INGESTION_TOTAL: Any = None
-CONSENSUS_INGESTION_LATENCY: Any = None
-CONSENSUS_INGESTION_CLAIMS: Any = None
-
-
-def _init_consensus_ingestion_metrics() -> None:
-    """Initialize consensus ingestion metrics."""
-    global CONSENSUS_INGESTION_TOTAL, CONSENSUS_INGESTION_LATENCY
-    global CONSENSUS_INGESTION_CLAIMS
-
-    config = get_metrics_config()
-    if not config.enabled:
-        _init_consensus_ingestion_noop_metrics()
-        return
-
-    try:
-        from prometheus_client import Counter, Histogram
-
-        CONSENSUS_INGESTION_TOTAL = Counter(
-            "aragora_consensus_ingestion_total",
-            "Total consensus ingestion events",
-            ["strength", "tier", "status"],
-        )
-
-        CONSENSUS_INGESTION_LATENCY = Histogram(
-            "aragora_consensus_ingestion_latency_seconds",
-            "Consensus ingestion latency",
-            ["strength"],
-            buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-        )
-
-        CONSENSUS_INGESTION_CLAIMS = Counter(
-            "aragora_consensus_ingestion_claims_total",
-            "Total key claims ingested from consensus",
-            ["tier"],
-        )
-
-    except ImportError:
-        _init_consensus_ingestion_noop_metrics()
-
-
-def _init_consensus_ingestion_noop_metrics() -> None:
-    """Initialize no-op consensus ingestion metrics."""
-    global CONSENSUS_INGESTION_TOTAL, CONSENSUS_INGESTION_LATENCY
-    global CONSENSUS_INGESTION_CLAIMS
-
-    # Use imported NoOpMetric from base module
-    CONSENSUS_INGESTION_TOTAL = NoOpMetric()
-    CONSENSUS_INGESTION_LATENCY = NoOpMetric()
-    CONSENSUS_INGESTION_CLAIMS = NoOpMetric()
-
-
-def record_consensus_ingestion(
-    strength: str,
-    tier: str,
-    success: bool,
-    latency_seconds: float,
-    claims_count: int = 0,
-) -> None:
-    """Record a consensus ingestion event.
-
-    Args:
-        strength: Consensus strength (unanimous, strong, moderate, weak, split, contested)
-        tier: KM tier used (glacial, slow, medium, fast)
-        success: Whether the ingestion succeeded
-        latency_seconds: Ingestion latency in seconds
-        claims_count: Number of key claims ingested
-    """
-    _init_metrics()
-    if CONSENSUS_INGESTION_TOTAL is None:
-        _init_consensus_ingestion_metrics()
-
-    status = "success" if success else "error"
-    CONSENSUS_INGESTION_TOTAL.labels(strength=strength, tier=tier, status=status).inc()
-    CONSENSUS_INGESTION_LATENCY.labels(strength=strength).observe(latency_seconds)
-    if claims_count > 0:
-        CONSENSUS_INGESTION_CLAIMS.labels(tier=tier).inc(claims_count)
-
-
-# =============================================================================
-# Enhanced Consensus Ingestion Metrics (Dissent, Evolution, Linking)
-# =============================================================================
-
-CONSENSUS_DISSENT_INGESTED: Any = None
-CONSENSUS_EVOLUTION_TRACKED: Any = None
-CONSENSUS_EVIDENCE_LINKED: Any = None
-CONSENSUS_AGREEMENT_RATIO: Any = None
-
-
-def _init_enhanced_consensus_metrics() -> None:
-    """Initialize enhanced consensus ingestion metrics for dissent, evolution, and linking."""
-    global CONSENSUS_DISSENT_INGESTED, CONSENSUS_EVOLUTION_TRACKED
-    global CONSENSUS_EVIDENCE_LINKED, CONSENSUS_AGREEMENT_RATIO
-
-    config = get_metrics_config()
-    if not config.enabled:
-        _init_enhanced_consensus_noop_metrics()
-        return
-
-    try:
-        from prometheus_client import Counter, Histogram
-
-        CONSENSUS_DISSENT_INGESTED = Counter(
-            "aragora_consensus_dissent_ingested_total",
-            "Total dissenting views ingested from consensus debates",
-            ["dissent_type", "acknowledged"],
-        )
-
-        CONSENSUS_EVOLUTION_TRACKED = Counter(
-            "aragora_consensus_evolution_tracked_total",
-            "Total consensus evolution events (supersedes relationships)",
-            ["evolution_type"],  # new_supersedes, found_similar, no_evolution
-        )
-
-        CONSENSUS_EVIDENCE_LINKED = Counter(
-            "aragora_consensus_evidence_linked_total",
-            "Total evidence items linked to consensus nodes",
-            ["tier"],
-        )
-
-        CONSENSUS_AGREEMENT_RATIO = Histogram(
-            "aragora_consensus_agreement_ratio",
-            "Distribution of agreement ratios in ingested consensus",
-            ["strength"],
-            buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-        )
-
-    except ImportError:
-        _init_enhanced_consensus_noop_metrics()
-
-
-def _init_enhanced_consensus_noop_metrics() -> None:
-    """Initialize no-op enhanced consensus metrics."""
-    global CONSENSUS_DISSENT_INGESTED, CONSENSUS_EVOLUTION_TRACKED
-    global CONSENSUS_EVIDENCE_LINKED, CONSENSUS_AGREEMENT_RATIO
-
-    # Use imported NoOpMetric from base module
-    CONSENSUS_DISSENT_INGESTED = NoOpMetric()
-    CONSENSUS_EVOLUTION_TRACKED = NoOpMetric()
-    CONSENSUS_EVIDENCE_LINKED = NoOpMetric()
-    CONSENSUS_AGREEMENT_RATIO = NoOpMetric()
-
-
-def record_consensus_dissent(
-    dissent_type: str,
-    acknowledged: bool = False,
-    count: int = 1,
-) -> None:
-    """Record ingestion of dissenting views from consensus.
-
-    Args:
-        dissent_type: Type of dissent (risk_warning, fundamental_disagreement, etc.)
-        acknowledged: Whether the dissent was acknowledged by majority
-        count: Number of dissents ingested (default: 1)
-    """
-    _init_metrics()
-    if CONSENSUS_DISSENT_INGESTED is None:
-        _init_enhanced_consensus_metrics()
-
-    CONSENSUS_DISSENT_INGESTED.labels(
-        dissent_type=dissent_type,
-        acknowledged="true" if acknowledged else "false",
-    ).inc(count)
-
-
-def record_consensus_evolution(
-    evolution_type: str,
-) -> None:
-    """Record consensus evolution tracking event.
-
-    Args:
-        evolution_type: Type of evolution:
-            - new_supersedes: New consensus supersedes an existing one
-            - found_similar: Found similar prior consensus (potential supersedes)
-            - no_evolution: No evolution relationship detected
-    """
-    _init_metrics()
-    if CONSENSUS_EVOLUTION_TRACKED is None:
-        _init_enhanced_consensus_metrics()
-
-    CONSENSUS_EVOLUTION_TRACKED.labels(evolution_type=evolution_type).inc()
-
-
-def record_consensus_evidence_linked(
-    tier: str,
-    count: int = 1,
-) -> None:
-    """Record evidence items linked to consensus.
-
-    Args:
-        tier: KM tier for the evidence
-        count: Number of evidence items linked
-    """
-    _init_metrics()
-    if CONSENSUS_EVIDENCE_LINKED is None:
-        _init_enhanced_consensus_metrics()
-
-    CONSENSUS_EVIDENCE_LINKED.labels(tier=tier).inc(count)
-
-
-def record_consensus_agreement_ratio(
-    strength: str,
-    agreement_ratio: float,
-) -> None:
-    """Record the agreement ratio for a consensus.
-
-    Args:
-        strength: Consensus strength
-        agreement_ratio: Ratio of agreeing agents to total participants (0.0-1.0)
-    """
-    _init_metrics()
-    if CONSENSUS_AGREEMENT_RATIO is None:
-        _init_enhanced_consensus_metrics()
-
-    CONSENSUS_AGREEMENT_RATIO.labels(strength=strength).observe(agreement_ratio)
-
-
-def record_km_inbound_event(
-    event_type: str,
-    source: str,
-    success: bool = True,
-) -> None:
-    """Record an inbound event to Knowledge Mound.
-
-    This is a general-purpose metric for tracking all events flowing into KM.
-
-    Args:
-        event_type: Type of event (consensus, belief, elo, insight, etc.)
-        source: Source of the event (debate_orchestrator, belief_network, etc.)
-        success: Whether the event was processed successfully
-    """
-    _init_metrics()
-    # Uses existing KM metrics
-    record_km_operation("ingest", success, 0.0)
-    record_km_event_emitted(f"inbound_{event_type}")
-
-
-# =============================================================================
 # Marketplace Metrics
 # =============================================================================
 
@@ -3098,13 +2176,7 @@ def set_marketplace_templates_count(
     visibility: str,
     count: int,
 ) -> None:
-    """Set the total number of templates in marketplace.
-
-    Args:
-        category: Template category (workflow, debate, analysis)
-        visibility: Visibility level (public, private, team)
-        count: Number of templates
-    """
+    """Set the total number of templates in marketplace."""
     _init_metrics()
     MARKETPLACE_TEMPLATES_TOTAL.labels(category=category, visibility=visibility).set(count)
 
@@ -3113,12 +2185,7 @@ def record_marketplace_download(
     template_id: str,
     category: str,
 ) -> None:
-    """Record a template download.
-
-    Args:
-        template_id: ID of the downloaded template
-        category: Template category
-    """
+    """Record a template download."""
     _init_metrics()
     MARKETPLACE_DOWNLOADS_TOTAL.labels(template_id=template_id, category=category).inc()
 
@@ -3128,13 +2195,7 @@ def record_marketplace_rating(
     category: str,
     rating: int,
 ) -> None:
-    """Record a template rating.
-
-    Args:
-        template_id: ID of the rated template
-        category: Template category
-        rating: Rating value (1-5)
-    """
+    """Record a template rating."""
     _init_metrics()
     MARKETPLACE_RATINGS_TOTAL.labels(template_id=template_id).inc()
     MARKETPLACE_RATINGS_DISTRIBUTION.labels(category=category).observe(rating)
@@ -3144,12 +2205,7 @@ def record_marketplace_review(
     template_id: str,
     status: str,
 ) -> None:
-    """Record a template review.
-
-    Args:
-        template_id: ID of the reviewed template
-        status: Review status (submitted, approved, rejected)
-    """
+    """Record a template review."""
     _init_metrics()
     MARKETPLACE_REVIEWS_TOTAL.labels(template_id=template_id, status=status).inc()
 
@@ -3158,27 +2214,14 @@ def record_marketplace_operation_latency(
     operation: str,
     latency_seconds: float,
 ) -> None:
-    """Record marketplace operation latency.
-
-    Args:
-        operation: Operation type (list, search, publish, download, rate)
-        latency_seconds: Operation latency in seconds
-    """
+    """Record marketplace operation latency."""
     _init_metrics()
     MARKETPLACE_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
 
 
 @contextmanager
 def track_marketplace_operation(operation: str) -> Generator[None, None, None]:
-    """Context manager to track marketplace operations.
-
-    Args:
-        operation: Operation type (list, search, publish, download, rate)
-
-    Example:
-        with track_marketplace_operation("search"):
-            results = await search_templates(query)
-    """
+    """Context manager to track marketplace operations."""
     _init_metrics()
     start = time.perf_counter()
     try:
@@ -3194,21 +2237,13 @@ def track_marketplace_operation(operation: str) -> Generator[None, None, None]:
 
 
 def set_batch_explainability_jobs_active(count: int) -> None:
-    """Set the number of active batch explainability jobs.
-
-    Args:
-        count: Number of active jobs
-    """
+    """Set the number of active batch explainability jobs."""
     _init_metrics()
     BATCH_EXPLAINABILITY_JOBS_ACTIVE.set(count)
 
 
 def record_batch_explainability_job(status: str) -> None:
-    """Record a batch explainability job.
-
-    Args:
-        status: Job status (started, completed, failed, cancelled)
-    """
+    """Record a batch explainability job."""
     _init_metrics()
     BATCH_EXPLAINABILITY_JOBS_TOTAL.labels(status=status).inc()
 
@@ -3217,35 +2252,21 @@ def record_batch_explainability_debate(
     status: str,
     latency_seconds: float,
 ) -> None:
-    """Record a debate processed in a batch job.
-
-    Args:
-        status: Processing status (success, error)
-        latency_seconds: Processing latency in seconds
-    """
+    """Record a debate processed in a batch job."""
     _init_metrics()
     BATCH_EXPLAINABILITY_DEBATES_PROCESSED.labels(status=status).inc()
     BATCH_EXPLAINABILITY_PROCESSING_LATENCY.observe(latency_seconds)
 
 
 def record_batch_explainability_error(error_type: str) -> None:
-    """Record a batch explainability error.
-
-    Args:
-        error_type: Type of error (timeout, invalid_debate, generation_failed)
-    """
+    """Record a batch explainability error."""
     _init_metrics()
     BATCH_EXPLAINABILITY_ERRORS_TOTAL.labels(error_type=error_type).inc()
 
 
 @contextmanager
 def track_batch_explainability_debate() -> Generator[None, None, None]:
-    """Context manager to track debate processing in batch jobs.
-
-    Example:
-        with track_batch_explainability_debate():
-            explanation = await generate_explanation(debate_id)
-    """
+    """Context manager to track debate processing in batch jobs."""
     _init_metrics()
     start = time.perf_counter()
     success = True
@@ -3270,13 +2291,7 @@ def record_webhook_delivery(
     success: bool,
     latency_seconds: float,
 ) -> None:
-    """Record a webhook delivery attempt.
-
-    Args:
-        endpoint: Webhook endpoint URL (normalized)
-        success: Whether delivery succeeded
-        latency_seconds: Delivery latency in seconds
-    """
+    """Record a webhook delivery attempt."""
     _init_metrics()
     status = "success" if success else "failed"
     WEBHOOK_DELIVERIES_TOTAL.labels(endpoint=endpoint, status=status).inc()
@@ -3287,12 +2302,7 @@ def record_webhook_failure(
     endpoint: str,
     error_type: str,
 ) -> None:
-    """Record a webhook delivery failure.
-
-    Args:
-        endpoint: Webhook endpoint URL (normalized)
-        error_type: Type of error (timeout, connection_error, http_4xx, http_5xx, circuit_open)
-    """
+    """Record a webhook delivery failure."""
     _init_metrics()
     WEBHOOK_FAILURES_BY_ENDPOINT.labels(endpoint=endpoint, error_type=error_type).inc()
 
@@ -3301,12 +2311,7 @@ def record_webhook_retry(
     endpoint: str,
     attempt: int,
 ) -> None:
-    """Record a webhook delivery retry.
-
-    Args:
-        endpoint: Webhook endpoint URL (normalized)
-        attempt: Retry attempt number (2, 3, 4, etc.)
-    """
+    """Record a webhook delivery retry."""
     _init_metrics()
     WEBHOOK_RETRIES_TOTAL.labels(endpoint=endpoint, attempt=str(attempt)).inc()
 
@@ -3315,38 +2320,21 @@ def set_webhook_circuit_breaker_state(
     endpoint: str,
     state: str,
 ) -> None:
-    """Set the circuit breaker state for a webhook endpoint.
-
-    Args:
-        endpoint: Webhook endpoint URL (normalized)
-        state: Circuit breaker state (closed, half_open, open)
-    """
+    """Set the circuit breaker state for a webhook endpoint."""
     _init_metrics()
     state_map = {"closed": 0, "half_open": 1, "open": 2}
     WEBHOOK_CIRCUIT_BREAKER_STATES.labels(endpoint=endpoint).set(state_map.get(state, 0))
 
 
 def set_webhook_queue_size(size: int) -> None:
-    """Set the current webhook delivery queue size.
-
-    Args:
-        size: Current queue size
-    """
+    """Set the current webhook delivery queue size."""
     _init_metrics()
     WEBHOOK_QUEUE_SIZE.set(size)
 
 
 @contextmanager
 def track_webhook_delivery(endpoint: str) -> Generator[None, None, None]:
-    """Context manager to track webhook delivery.
-
-    Args:
-        endpoint: Webhook endpoint URL (normalized)
-
-    Example:
-        with track_webhook_delivery("https://example.com/webhook"):
-            response = await deliver_webhook(payload)
-    """
+    """Context manager to track webhook delivery."""
     _init_metrics()
     start = time.perf_counter()
     success = True
@@ -3370,13 +2358,7 @@ def record_encryption_operation(
     store: str,
     latency_seconds: float,
 ) -> None:
-    """Record an encryption or decryption operation.
-
-    Args:
-        operation: Operation type ("encrypt" or "decrypt")
-        store: Store name ("sync_store", "integration_store", "gmail_token")
-        latency_seconds: Operation latency in seconds
-    """
+    """Record an encryption or decryption operation."""
     _init_metrics()
     ENCRYPTION_OPERATIONS_TOTAL.labels(operation=operation, store=store).inc()
     ENCRYPTION_OPERATION_LATENCY.labels(operation=operation).observe(latency_seconds)
@@ -3386,28 +2368,14 @@ def record_encryption_error(
     operation: str,
     error_type: str,
 ) -> None:
-    """Record an encryption or decryption error.
-
-    Args:
-        operation: Operation type ("encrypt" or "decrypt")
-        error_type: Type of error (e.g., "key_not_found", "decryption_failed")
-    """
+    """Record an encryption or decryption error."""
     _init_metrics()
     ENCRYPTION_ERRORS_TOTAL.labels(operation=operation, error_type=error_type).inc()
 
 
 @contextmanager
 def track_encryption_operation(operation: str, store: str) -> Generator[None, None, None]:
-    """Context manager to track encryption/decryption operations.
-
-    Args:
-        operation: Operation type ("encrypt" or "decrypt")
-        store: Store name ("sync_store", "integration_store", "gmail_token")
-
-    Example:
-        with track_encryption_operation("encrypt", "sync_store"):
-            encrypted = service.encrypt_fields(data, fields)
-    """
+    """Context manager to track encryption/decryption operations."""
     _init_metrics()
     start = time.perf_counter()
     try:
@@ -3425,13 +2393,7 @@ def record_rbac_check(
     allowed: bool,
     handler: str = "",
 ) -> None:
-    """Record an RBAC permission check.
-
-    Args:
-        permission: Permission checked (e.g., "workflows.read", "workflows.delete")
-        allowed: Whether permission was allowed
-        handler: Handler name for denied requests (optional)
-    """
+    """Record an RBAC permission check."""
     _init_metrics()
     result = "allowed" if allowed else "denied"
     RBAC_PERMISSION_CHECKS_TOTAL.labels(permission=permission, result=result).inc()
@@ -3441,16 +2403,7 @@ def record_rbac_check(
 
 @contextmanager
 def track_rbac_check(permission: str, handler: str = "") -> Generator[None, None, None]:
-    """Context manager to track RBAC permission checks.
-
-    Args:
-        permission: Permission being checked
-        handler: Handler name for context
-
-    Example:
-        with track_rbac_check("workflows.delete", "WorkflowHandler"):
-            decision = check_permission(context, permission)
-    """
+    """Context manager to track RBAC permission checks."""
     _init_metrics()
     start = time.perf_counter()
     try:
@@ -3464,12 +2417,7 @@ def record_migration_record(
     store: str,
     status: str,
 ) -> None:
-    """Record a record processed during migration.
-
-    Args:
-        store: Store name ("sync_store", "integration_store", "gmail_token")
-        status: Status ("migrated", "skipped", "failed")
-    """
+    """Record a record processed during migration."""
     _init_metrics()
     MIGRATION_RECORDS_TOTAL.labels(store=store, status=status).inc()
 
@@ -3478,11 +2426,6 @@ def record_migration_error(
     store: str,
     error_type: str,
 ) -> None:
-    """Record a migration error.
-
-    Args:
-        store: Store name ("sync_store", "integration_store", "gmail_token")
-        error_type: Type of error
-    """
+    """Record a migration error."""
     _init_metrics()
     MIGRATION_ERRORS_TOTAL.labels(store=store, error_type=error_type).inc()

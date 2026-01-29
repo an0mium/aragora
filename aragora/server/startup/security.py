@@ -1,0 +1,578 @@
+"""
+Server startup security initialization.
+
+This module handles deployment validation, GraphQL routes, RBAC distributed cache,
+approval gate recovery, access review scheduler, key rotation scheduler,
+and decision router initialization.
+"""
+
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def _get_degraded_status() -> dict[str, Any]:
+    """Return a minimal status dict for degraded mode startup.
+
+    This allows the server to start in degraded mode where it can
+    respond to health checks but returns 503 for other endpoints.
+    """
+    return {
+        "degraded": True,
+        "backend_connectivity": {"valid": False, "errors": ["Server in degraded mode"]},
+        "error_monitoring": False,
+        "opentelemetry": False,
+        "otlp_exporter": False,
+        "prometheus": False,
+        "circuit_breakers": 0,
+        "background_tasks": False,
+        "pulse_scheduler": False,
+        "state_cleanup": False,
+        "watchdog_task": None,
+        "control_plane_coordinator": None,
+        "km_adapters": False,
+        "workflow_checkpoint_persistence": False,
+        "shared_control_plane_state": False,
+        "tts_integration": False,
+        "persistent_task_queue": 0,
+        "webhook_dispatcher": False,
+        "slo_webhooks": False,
+        "gauntlet_runs_recovered": 0,
+        "durable_jobs_recovered": 0,
+        "gauntlet_worker": False,
+        "redis_state_backend": False,
+        "key_rotation_scheduler": False,
+        "access_review_scheduler": False,
+        "rbac_distributed_cache": False,
+        "notification_worker": False,
+        "graphql": False,
+        "backup_scheduler": False,
+    }
+
+
+async def init_deployment_validation() -> dict:
+    """Run comprehensive deployment validation and log results.
+
+    This validates all production requirements including:
+    - JWT secret strength and uniqueness
+    - AI provider API key configuration
+    - Database connectivity (Supabase/PostgreSQL)
+    - Redis configuration for distributed state
+    - CORS and security settings
+    - Rate limiting configuration
+    - TLS/HTTPS settings
+    - Encryption key configuration
+
+    Returns:
+        Dictionary with validation results summary
+    """
+    try:
+        from aragora.ops.deployment_validator import validate_deployment, Severity
+
+        result = await validate_deployment()
+
+        # Log validation results
+        critical_count = sum(1 for i in result.issues if i.severity == Severity.CRITICAL)
+        warning_count = sum(1 for i in result.issues if i.severity == Severity.WARNING)
+        info_count = sum(1 for i in result.issues if i.severity == Severity.INFO)
+
+        if result.ready:
+            if warning_count > 0:
+                logger.info(
+                    f"[DEPLOYMENT VALIDATION] Passed with {warning_count} warning(s), "
+                    f"{info_count} info message(s). Duration: {result.validation_duration_ms:.1f}ms"
+                )
+            else:
+                logger.info(
+                    f"[DEPLOYMENT VALIDATION] All checks passed. "
+                    f"Duration: {result.validation_duration_ms:.1f}ms"
+                )
+        else:
+            logger.warning(
+                f"[DEPLOYMENT VALIDATION] {critical_count} critical issue(s), "
+                f"{warning_count} warning(s). Server may not function correctly."
+            )
+
+        # Log critical issues
+        for issue in result.issues:
+            if issue.severity == Severity.CRITICAL:
+                logger.error(
+                    f"[DEPLOYMENT VALIDATION] CRITICAL - {issue.component}: {issue.message}"
+                )
+                if issue.suggestion:
+                    logger.error(f"  Suggestion: {issue.suggestion}")
+            elif issue.severity == Severity.WARNING:
+                logger.warning(
+                    f"[DEPLOYMENT VALIDATION] WARNING - {issue.component}: {issue.message}"
+                )
+
+        return {
+            "ready": result.ready,
+            "live": result.live,
+            "critical_issues": critical_count,
+            "warnings": warning_count,
+            "info_messages": info_count,
+            "validation_duration_ms": result.validation_duration_ms,
+            "components_checked": len(result.components),
+        }
+
+    except ImportError as e:
+        logger.debug(f"Deployment validator not available: {e}")
+        return {"available": False, "error": str(e)}
+    except Exception as e:
+        logger.warning(f"Deployment validation failed: {e}")
+        return {"available": True, "error": str(e)}
+
+
+def init_graphql_routes(app: Any) -> bool:
+    """Initialize GraphQL routes and mount endpoints.
+
+    Mounts the GraphQL API endpoint at /graphql and the GraphiQL playground
+    at /graphiql (when enabled). The routes are only mounted if GraphQL is
+    enabled via ARAGORA_GRAPHQL_ENABLED environment variable.
+
+    Args:
+        app: The application or handler registry to mount routes on.
+              For UnifiedServer, this is typically the handler registry.
+
+    Environment Variables:
+        ARAGORA_GRAPHQL_ENABLED: Enable GraphQL API (default: true)
+        ARAGORA_GRAPHQL_INTROSPECTION: Allow schema introspection (default: true in dev, false in prod)
+        ARAGORA_GRAPHIQL_ENABLED: Enable GraphiQL playground (default: same as dev mode)
+
+    Returns:
+        True if GraphQL routes were mounted, False otherwise
+    """
+    import os
+
+    # Check if GraphQL is enabled
+    graphql_enabled = os.environ.get("ARAGORA_GRAPHQL_ENABLED", "true").lower() in (
+        "true",
+        "1",
+        "yes",
+        "on",
+    )
+
+    if not graphql_enabled:
+        logger.info("GraphQL API disabled (ARAGORA_GRAPHQL_ENABLED=false)")
+        return False
+
+    try:
+        from aragora.server.graphql import GraphQLHandler, GraphQLSchemaHandler  # noqa: F401
+
+        # Determine environment for defaults
+        env = os.environ.get("ARAGORA_ENV", "development")
+        is_production = env == "production"
+
+        # Check introspection and GraphiQL settings
+        introspection_default = "false" if is_production else "true"
+        introspection_enabled = os.environ.get(
+            "ARAGORA_GRAPHQL_INTROSPECTION", introspection_default
+        ).lower() in ("true", "1", "yes", "on")
+
+        graphiql_default = "false" if is_production else "true"
+        graphiql_enabled = os.environ.get("ARAGORA_GRAPHIQL_ENABLED", graphiql_default).lower() in (
+            "true",
+            "1",
+            "yes",
+            "on",
+        )
+
+        # Log configuration
+        logger.info(
+            f"GraphQL API enabled (introspection={introspection_enabled}, "
+            f"graphiql={graphiql_enabled})"
+        )
+
+        # The handlers are auto-registered via the handler registry pattern
+        # when they define ROUTES class attribute. We just need to ensure
+        # they can be imported and the module is loaded.
+
+        # Log mounted endpoints
+        logger.info("  POST /graphql - GraphQL query endpoint")
+        logger.info("  POST /api/graphql - GraphQL query endpoint (alternate)")
+        logger.info("  POST /api/v1/graphql - GraphQL query endpoint (versioned)")
+
+        if introspection_enabled:
+            logger.info("  GET /graphql/schema - Schema introspection endpoint")
+
+        if graphiql_enabled:
+            logger.info("  GET /graphql - GraphiQL playground")
+
+        return True
+
+    except ImportError as e:
+        logger.warning(f"GraphQL module not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to initialize GraphQL routes: {e}")
+        return False
+
+
+async def init_rbac_distributed_cache() -> bool:
+    """Initialize Redis-backed RBAC cache for distributed deployments.
+
+    Enables cross-instance RBAC decision caching for horizontal scaling.
+    Only initializes if Redis is available.
+
+    Environment Variables:
+        REDIS_URL: Redis connection URL
+        RBAC_CACHE_ENABLED: Set to "false" to disable (default: true)
+        RBAC_CACHE_DECISION_TTL: Cache TTL for decisions (default: 300s)
+        RBAC_CACHE_L1_ENABLED: Enable local L1 cache (default: true)
+
+    Returns:
+        True if distributed cache was initialized, False otherwise
+    """
+    import os
+
+    # Check if RBAC cache is enabled
+    if os.environ.get("RBAC_CACHE_ENABLED", "true").lower() == "false":
+        logger.debug("RBAC distributed cache disabled (RBAC_CACHE_ENABLED=false)")
+        return False
+
+    # Check if Redis URL is configured
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        logger.debug("RBAC distributed cache not initialized (no REDIS_URL)")
+        return False
+
+    try:
+        from aragora.rbac.cache import (
+            RBACCacheConfig,
+            RBACDistributedCache,  # noqa: F401
+            get_rbac_cache,
+        )
+        from aragora.rbac.checker import (
+            PermissionChecker,
+            get_permission_checker,
+            set_permission_checker,
+        )
+
+        # Create cache config from environment
+        config = RBACCacheConfig.from_env()
+
+        # Initialize distributed cache
+        cache = get_rbac_cache(config)
+        cache.start()
+
+        # Check if Redis is actually available
+        if not cache.is_distributed:
+            logger.debug("RBAC cache Redis not available, using local-only")
+            return False
+
+        # Create new permission checker with distributed cache backend
+        current_checker = get_permission_checker()
+        new_checker = PermissionChecker(
+            auditor=current_checker._auditor if hasattr(current_checker, "_auditor") else None,
+            cache_ttl=config.decision_ttl_seconds,
+            enable_cache=True,
+            cache_backend=cache,
+        )
+        set_permission_checker(new_checker)
+
+        logger.info(
+            f"RBAC distributed cache initialized "
+            f"(decision_ttl={config.decision_ttl_seconds}s, "
+            f"l1={'enabled' if config.l1_enabled else 'disabled'})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"RBAC distributed cache not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
+
+    return False
+
+
+async def init_approval_gate_recovery() -> int:
+    """Recover pending approval requests from the governance store.
+
+    Restores any pending approval requests that were active when the server
+    last stopped. Approvals that have expired since then are automatically
+    marked as expired.
+
+    Returns:
+        Number of pending approvals recovered
+    """
+    try:
+        from aragora.server.middleware.approval_gate import recover_pending_approvals
+
+        recovered = await recover_pending_approvals()
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} pending approval requests")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Approval gate recovery not available: {e}")
+        return 0
+    except Exception as e:
+        logger.warning(f"Failed to recover pending approvals: {e}")
+        return 0
+
+
+async def init_access_review_scheduler() -> bool:
+    """Initialize the access review scheduler for SOC 2 compliance.
+
+    Starts the scheduler that runs periodic access reviews:
+    - Monthly user access reviews
+    - Weekly stale credential detection (90+ days unused)
+    - Role certification workflows
+    - Manager sign-off requirements
+
+    SOC 2 Compliance: CC6.1, CC6.2 (Access Control)
+
+    Environment Variables:
+        ARAGORA_ACCESS_REVIEW_ENABLED: Set to "true" to enable (default: true in production)
+        ARAGORA_ACCESS_REVIEW_STORAGE: Path for SQLite storage (default: data/access_reviews.db)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+
+    enabled = os.environ.get("ARAGORA_ACCESS_REVIEW_ENABLED", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    is_production = os.environ.get("ARAGORA_ENV", "development") == "production"
+
+    # Enable by default in production
+    if not enabled and is_production:
+        enabled = True
+
+    if not enabled:
+        logger.debug(
+            "Access review scheduler disabled (set ARAGORA_ACCESS_REVIEW_ENABLED=true to enable)"
+        )
+        return False
+
+    try:
+        from aragora.scheduler.access_review_scheduler import (
+            AccessReviewConfig,
+            get_access_review_scheduler,
+        )
+
+        # Configure storage path
+        storage_path = os.environ.get("ARAGORA_ACCESS_REVIEW_STORAGE")
+        if not storage_path:
+            from aragora.persistence.db_config import get_nomic_dir
+
+            data_dir = get_nomic_dir()
+            data_dir.mkdir(parents=True, exist_ok=True)
+            storage_path = str(data_dir / "access_reviews.db")
+
+        config = AccessReviewConfig(storage_path=storage_path)
+
+        # Get or create the global scheduler
+        scheduler = get_access_review_scheduler(config)
+
+        # Start the scheduler
+        await scheduler.start()
+
+        logger.info(
+            f"Access review scheduler started "
+            f"(storage={storage_path}, monthly_review_day={config.monthly_review_day})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Access review scheduler not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to start access review scheduler: {e}")
+        return False
+
+
+async def init_key_rotation_scheduler() -> bool:
+    """Initialize the key rotation scheduler for automated key management.
+
+    Starts the scheduler that automatically rotates encryption keys based on
+    configured intervals and handles re-encryption of data if enabled.
+
+    Environment Variables:
+        ARAGORA_KEY_ROTATION_ENABLED: Set to "true" to enable (default: false in dev, true in prod)
+        ARAGORA_KEY_ROTATION_INTERVAL_DAYS: Days between rotations (default: 90)
+        ARAGORA_KEY_ROTATION_OVERLAP_DAYS: Days to keep old keys valid (default: 7)
+        ARAGORA_KEY_ROTATION_RE_ENCRYPT: Re-encrypt data after rotation (default: false)
+        ARAGORA_KEY_ROTATION_ALERT_DAYS: Days before rotation to alert (default: 7)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+
+    # In production, enabled by default; in development, disabled by default
+    env = os.environ.get("ARAGORA_ENV", "development")
+    default_enabled = "true" if env == "production" else "false"
+    enabled = os.environ.get("ARAGORA_KEY_ROTATION_ENABLED", default_enabled).lower() == "true"
+
+    if not enabled:
+        logger.debug(
+            "Key rotation scheduler disabled (set ARAGORA_KEY_ROTATION_ENABLED=true to enable)"
+        )
+        return False
+
+    # Check if encryption key is configured
+    if not os.environ.get("ARAGORA_ENCRYPTION_KEY"):
+        logger.debug("Key rotation scheduler not started (no ARAGORA_ENCRYPTION_KEY configured)")
+        return False
+
+    try:
+        from aragora.operations.key_rotation import (
+            get_key_rotation_scheduler,
+            KeyRotationConfig,
+        )
+        from aragora.observability.metrics.security import set_active_keys
+
+        # Create scheduler with config from environment
+        config = KeyRotationConfig.from_env()
+        scheduler = get_key_rotation_scheduler()
+        scheduler.config = config
+
+        # Set up alert callback to integrate with notification systems
+        def alert_callback(severity: str, message: str, details: dict) -> None:
+            """Forward key rotation alerts to notification systems."""
+            try:
+                from aragora.integrations.webhooks import get_webhook_dispatcher
+
+                dispatcher = get_webhook_dispatcher()
+                if dispatcher:
+                    dispatcher.enqueue(
+                        {
+                            "type": "security.key_rotation",
+                            "severity": severity,
+                            "message": message,
+                            **details,
+                        }
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to dispatch key rotation alert: {e}")
+
+        scheduler.alert_callback = alert_callback
+
+        # Start the scheduler
+        await scheduler.start()
+
+        # Set initial key metrics
+        try:
+            from aragora.security.encryption import get_encryption_service
+
+            service = get_encryption_service()
+            active_key_id = service.get_active_key_id()
+            if active_key_id:
+                set_active_keys(master=1)
+        except Exception:
+            pass
+
+        # Get initial status for logging
+        status = await scheduler.get_status()
+        next_rotation = status.get("next_rotation", "unknown")
+
+        logger.info(
+            f"Key rotation scheduler started "
+            f"(interval={config.rotation_interval_days}d, "
+            f"overlap={config.key_overlap_days}d, "
+            f"re_encrypt={config.re_encrypt_on_rotation})"
+        )
+
+        if next_rotation and next_rotation != "unknown":
+            logger.info(f"Next key rotation scheduled: {next_rotation}")
+
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Key rotation scheduler not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start key rotation scheduler: {e}")
+
+    return False
+
+
+async def init_decision_router() -> bool:
+    """Initialize the DecisionRouter with platform response handlers.
+
+    Registers response handlers for all supported platforms so the router
+    can deliver debate results back to the originating channel.
+
+    Returns:
+        True if initialization succeeded
+    """
+    try:
+        from aragora.core.decision import get_decision_router
+        from aragora.server.debate_origin import route_debate_result
+
+        router = get_decision_router()
+
+        # Register platform response handlers
+        # These handlers use route_debate_result to deliver results
+        # back to the originating channel
+
+        async def telegram_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "telegram":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def slack_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "slack":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def discord_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "discord":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def whatsapp_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "whatsapp":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def teams_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "teams":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def email_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform == "email":
+                await route_debate_result(result.request_id, result.to_dict())
+
+        async def google_chat_handler(result, channel):
+            from aragora.server.debate_origin import get_debate_origin
+
+            origin = get_debate_origin(result.request_id)
+            if origin and origin.platform in ("google_chat", "gchat"):
+                await route_debate_result(result.request_id, result.to_dict())
+
+        # Register all handlers
+        router.register_response_handler("telegram", telegram_handler)
+        router.register_response_handler("slack", slack_handler)
+        router.register_response_handler("discord", discord_handler)
+        router.register_response_handler("whatsapp", whatsapp_handler)
+        router.register_response_handler("teams", teams_handler)
+        router.register_response_handler("email", email_handler)
+        router.register_response_handler("google_chat", google_chat_handler)
+        router.register_response_handler("gchat", google_chat_handler)
+
+        logger.info("DecisionRouter initialized with 8 platform response handlers")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Failed to initialize DecisionRouter: {e}")
+        return False

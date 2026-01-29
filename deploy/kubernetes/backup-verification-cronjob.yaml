@@ -1,0 +1,175 @@
+---
+# Aragora Backup Verification CronJob
+# Runs weekly comprehensive verification of all backups
+#
+# This job:
+#   - Verifies backup integrity (checksums, schema, data)
+#   - Tests restore capability (dry-run)
+#   - Reports verification status via metrics
+#   - Alerts on verification failures
+#
+# Prerequisites:
+#   1. PersistentVolumeClaim 'aragora-backups' exists (created by backup-cronjob.yaml)
+#   2. Prometheus/alerting configured for backup alerts
+#
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: aragora-backup-verify
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: backup-verification
+spec:
+  # Run weekly on Sundays at 4:00 AM UTC (after daily backup at 2 AM)
+  schedule: "0 4 * * 0"
+  # Keep history
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 2
+  # Don't run if previous verification is still running
+  concurrencyPolicy: Forbid
+  # Start deadline - if job can't start within 2 hours, skip it
+  startingDeadlineSeconds: 7200
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aragora
+        app.kubernetes.io/component: backup-verification
+    spec:
+      # Retry up to 1 time on failure
+      backoffLimit: 1
+      # Cleanup completed pods after 24 hours (for debugging)
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: aragora
+            app.kubernetes.io/component: backup-verification
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "8080"
+            prometheus.io/path: "/metrics"
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: verify
+              image: aragora/aragora:latest
+              imagePullPolicy: Always
+              command:
+                - python
+                - -m
+                - aragora.backup.verify_all
+              args:
+                - --backup-dir
+                - /backups
+                - --comprehensive
+                - --report-metrics
+                - --dry-run-restore
+              env:
+                - name: ARAGORA_LOG_FORMAT
+                  value: json
+                - name: ARAGORA_LOG_LEVEL
+                  value: INFO
+                # Push gateway for metrics (if available)
+                - name: PROMETHEUS_PUSHGATEWAY_URL
+                  value: ""
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: aragora-backups
+            - name: tmp
+              emptyDir: {}
+---
+# Manual verification job template
+# Use: kubectl create job --from=cronjob/aragora-backup-verify aragora-backup-verify-manual
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aragora-backup-verify-manual
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: backup-verification
+    app.kubernetes.io/manual: "true"
+spec:
+  # Don't automatically retry manual jobs
+  backoffLimit: 0
+  # Keep for 1 week for review
+  ttlSecondsAfterFinished: 604800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aragora
+        app.kubernetes.io/component: backup-verification
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: verify
+          image: aragora/aragora:latest
+          imagePullPolicy: Always
+          command:
+            - python
+            - -m
+            - aragora.backup.verify_all
+          args:
+            - --backup-dir
+            - /backups
+            - --comprehensive
+            - --verbose
+            - --dry-run-restore
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: aragora-backups
+        - name: tmp
+          emptyDir: {}

@@ -227,6 +227,7 @@ class TestFileOperations:
     @pytest.mark.asyncio
     async def test_download_file_success(self, connector, mock_httpx_response):
         """Test successful file download returns FileAttachment."""
+        # Step 1: _whatsapp_api_request uses client.get() for media info
         mock_media_info_response = mock_httpx_response(
             {
                 "url": "https://cdn.whatsapp.com/media/file123",
@@ -234,20 +235,22 @@ class TestFileOperations:
                 "file_size": 17,
             }
         )
+
+        # Step 2: _http_request uses client.request() for binary download
         mock_download_response = MagicMock()
         mock_download_response.content = b"file content here"
-        mock_download_response.json.return_value = {"url": "https://cdn.whatsapp.com/media/file123"}
+        mock_download_response.status_code = 200
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.get = AsyncMock(
-                side_effect=[mock_media_info_response, mock_download_response]
-            )
+            # First call (get media info) uses .get()
+            mock_instance.get = AsyncMock(return_value=mock_media_info_response)
+            # Second call (download content) uses .request() from base _http_request
+            mock_instance.request = AsyncMock(return_value=mock_download_response)
 
             result = await connector.download_file(file_id="media_123")
 
             # Should return FileAttachment with content populated
-
             assert isinstance(result, FileAttachment)
             assert result.content == b"file content here"
             assert result.id == "media_123"
@@ -860,8 +863,9 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.whatsapp.HTTPX_AVAILABLE", False):
             connector = WhatsAppConnector(access_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
-                await connector.send_message("+123", "test")
+            result = await connector.send_message("+123", "test")
+            assert result.success is False
+            assert "httpx not available" in result.error
 
     @pytest.mark.asyncio
     async def test_download_file_without_httpx(self):
@@ -869,7 +873,7 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.whatsapp.HTTPX_AVAILABLE", False):
             connector = WhatsAppConnector(access_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
+            with pytest.raises(RuntimeError, match="httpx not available"):
                 await connector.download_file("media_123")
 
     @pytest.mark.asyncio
@@ -878,8 +882,9 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.whatsapp.HTTPX_AVAILABLE", False):
             connector = WhatsAppConnector(access_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
-                await connector.send_voice_message("+123", b"audio")
+            result = await connector.send_voice_message("+123", b"audio")
+            assert result.success is False
+            assert "httpx not available" in result.error
 
     @pytest.mark.asyncio
     async def test_send_template_without_httpx(self):
@@ -887,8 +892,9 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.whatsapp.HTTPX_AVAILABLE", False):
             connector = WhatsAppConnector(access_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
-                await connector.send_template("+123", "template_name")
+            result = await connector.send_template("+123", "template_name")
+            assert result.success is False
+            assert "httpx not available" in result.error
 
 
 class TestSignatureVerification:

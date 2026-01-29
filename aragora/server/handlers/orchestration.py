@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from aragora.config import MAX_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -130,7 +131,7 @@ class OrchestrationRequest:
     output_format: OutputFormat = OutputFormat.STANDARD
     require_consensus: bool = True
     priority: str = "normal"
-    max_rounds: int = 5
+    max_rounds: int = MAX_ROUNDS
     timeout_seconds: float = 300.0
     template: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -203,7 +204,7 @@ class OrchestrationRequest:
             output_format=output_format,
             require_consensus=data.get("require_consensus", True),
             priority=data.get("priority", "normal"),
-            max_rounds=data.get("max_rounds", 5),
+            max_rounds=data.get("max_rounds", MAX_ROUNDS),
             timeout_seconds=data.get("timeout_seconds", 300.0),
             template=data.get("template"),
             metadata=data.get("metadata", {}),
@@ -274,7 +275,7 @@ except ImportError:
         default_knowledge_sources: List[str] = field(default_factory=list)
         output_format: OutputFormat = OutputFormat.STANDARD
         consensus_threshold: float = 0.7
-        max_rounds: int = 5
+        max_rounds: int = MAX_ROUNDS
         personas: List[str] = field(default_factory=list)
 
         def to_dict(self) -> Dict[str, Any]:

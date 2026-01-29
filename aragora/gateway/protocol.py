@@ -106,3 +106,45 @@ class GatewayProtocolAdapter:
         if status:
             sessions = [s for s in sessions if s.status == status]
         return sessions
+
+    async def get_config_for_session(self, session_id: str) -> Optional[GatewayConfig]:
+        """Return gateway config scoped to a session.
+
+        Validates the session exists and is not ended before returning
+        the active gateway configuration.
+        """
+        session = self._sessions.get(session_id)
+        if not session or session.status == "ended":
+            return None
+        return self.get_config()
+
+    async def resume_session(self, session_id: str, device_id: str) -> Optional[GatewaySession]:
+        """Resume a paused session from the same device.
+
+        Restores the session to ``active`` status and refreshes
+        ``last_seen``.  Returns ``None`` if the session does not exist,
+        is not paused, or the device_id does not match.
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            return None
+        if session.status != "paused":
+            return None
+        if session.device_id != device_id:
+            return None
+        session.status = "active"
+        session.last_seen = time.time()
+        return session
+
+    async def bind_device_to_session(self, session_id: str, device_id: str) -> bool:
+        """Bind a device to an existing active session.
+
+        Allows device migration (e.g. reconnecting from a new browser tab).
+        The session must be active.  Returns ``True`` on success.
+        """
+        session = self._sessions.get(session_id)
+        if not session or session.status != "active":
+            return False
+        session.device_id = device_id
+        session.last_seen = time.time()
+        return True

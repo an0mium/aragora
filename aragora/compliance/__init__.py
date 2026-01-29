@@ -36,8 +36,23 @@ from aragora.compliance.framework import (
     COMPLIANCE_FRAMEWORKS,
     check_compliance,
 )
+from aragora.compliance.monitor import (
+    ComplianceHealth,
+    ViolationTrend,
+    FrameworkStatus,
+    ComplianceStatus,
+    DriftEvent,
+    ComplianceMonitorConfig,
+    ComplianceMonitor,
+    get_compliance_monitor,
+    init_compliance_monitoring,
+    start_compliance_monitoring,
+    stop_compliance_monitoring,
+    get_compliance_status,
+)
 
 __all__ = [
+    # Framework
     "ComplianceSeverity",
     "ComplianceIssue",
     "ComplianceCheckResult",
@@ -46,4 +61,17 @@ __all__ = [
     "ComplianceFrameworkManager",
     "COMPLIANCE_FRAMEWORKS",
     "check_compliance",
+    # Continuous Monitoring
+    "ComplianceHealth",
+    "ViolationTrend",
+    "FrameworkStatus",
+    "ComplianceStatus",
+    "DriftEvent",
+    "ComplianceMonitorConfig",
+    "ComplianceMonitor",
+    "get_compliance_monitor",
+    "init_compliance_monitoring",
+    "start_compliance_monitoring",
+    "stop_compliance_monitoring",
+    "get_compliance_status",
 ]

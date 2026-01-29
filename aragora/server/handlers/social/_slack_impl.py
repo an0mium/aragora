@@ -25,6 +25,8 @@ import time
 from typing import Any, Coroutine, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
+from aragora.config import DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 # Lazy import for audit logger (avoid circular imports)
@@ -120,7 +122,7 @@ def _validate_slack_url(url: str) -> bool:
         if parsed.netloc not in SLACK_ALLOWED_DOMAINS:
             return False
         return True
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         logger.debug(f"URL validation failed for slack: {e}")
         return False
 
@@ -192,7 +194,7 @@ def resolve_workspace(team_id: str):
     if store:
         try:
             return store.get(team_id)
-        except Exception as e:
+        except (KeyError, OSError, RuntimeError) as e:
             logger.debug(f"Failed to get workspace {team_id}: {e}")
 
     return None
@@ -346,7 +348,7 @@ class SlackHandler(SecureHandler):
                 data = json.loads(body)
                 # Team ID in event or root
                 return data.get("team_id") or data.get("event", {}).get("team")
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
             logger.debug(f"Failed to extract team_id: {e}")
         return None
 
@@ -849,7 +851,14 @@ class SlackHandler(SecureHandler):
                         },
                     )
 
-        except Exception as e:
+        except (
+            OSError,
+            asyncio.TimeoutError,
+            aiohttp.ClientError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Async question answering failed: {e}", exc_info=True)
             await self._post_to_response_url(
                 response_url,
@@ -1341,7 +1350,14 @@ class SlackHandler(SecureHandler):
                         },
                     )
 
-        except Exception as e:
+        except (
+            OSError,
+            asyncio.TimeoutError,
+            aiohttp.ClientError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+        ) as e:
             logger.error(f"Async gauntlet failed: {e}", exc_info=True)
             await self._post_to_response_url(
                 response_url,
@@ -1471,7 +1487,7 @@ class SlackHandler(SecureHandler):
 
             # Determine agents and protocol early for thread header
             agent_names = ["anthropic-api", "openai-api"]
-            expected_rounds = 3
+            expected_rounds = DEFAULT_ROUNDS
 
             # Post initial "starting" message to create thread with rich metadata
             starting_blocks = self._build_starting_blocks(
@@ -1499,7 +1515,7 @@ class SlackHandler(SecureHandler):
                         origin = get_debate_origin(debate_id)
                         if origin:
                             origin.thread_id = thread_ts
-                    except Exception:
+                    except (ImportError, AttributeError):
                         pass
                 else:
                     # Fall back to response_url if Web API failed
@@ -1663,7 +1679,7 @@ class SlackHandler(SecureHandler):
                 from aragora.server.debate_origin import mark_result_sent
 
                 mark_result_sent(debate_id)
-            except Exception:
+            except (ImportError, AttributeError):
                 pass
 
         except Exception as e:
@@ -2150,7 +2166,7 @@ class SlackHandler(SecureHandler):
                         source="slack",
                     )
                     logger.info(f"Vote recorded: {debate_id} -> {vote_option}")
-            except Exception as e:
+            except (ImportError, KeyError, OSError, RuntimeError) as e:
                 logger.warning(f"Failed to record vote in storage: {e}")
 
             # Try to record in vote aggregator if available
@@ -2196,7 +2212,7 @@ class SlackHandler(SecureHandler):
             db = get_debates_db()
             if db:
                 debate_data = db.get(debate_id)
-        except Exception as e:
+        except (ImportError, KeyError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to fetch debate details: {e}")
 
         if not debate_data:
@@ -2569,7 +2585,7 @@ class SlackHandler(SecureHandler):
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])
             protocol = DebateProtocol(
-                rounds=3,
+                rounds=DEFAULT_ROUNDS,
                 consensus="majority",
                 convergence_detection=False,
                 early_stopping=False,

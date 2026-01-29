@@ -81,6 +81,9 @@ from aragora.persistence.db_config import DatabaseType, get_db_path
 # MODULAR PACKAGE IMPORTS (scripts/nomic/)
 # These modules are extracted versions of the code below, available for reuse
 # =============================================================================
+_NOMIC_PACKAGE_IMPORT_ERROR: Optional[Exception] = None
+_NOMIC_PHASES_IMPORT_ERROR: Optional[Exception] = None
+
 try:
     from scripts.nomic import (
         PhaseError as _PhaseError,
@@ -116,6 +119,12 @@ try:
         format_learning_summary as _format_learning_summary,
     )
 
+    _NOMIC_PACKAGE_AVAILABLE = True
+except ImportError as exc:
+    _NOMIC_PACKAGE_AVAILABLE = False
+    _NOMIC_PACKAGE_IMPORT_ERROR = exc
+
+try:
     # Import extracted phase classes from aragora.nomic package
     from aragora.nomic.phases import (
         ContextPhase,
@@ -135,10 +144,9 @@ try:
     )
 
     _NOMIC_PHASES_AVAILABLE = True
-    _NOMIC_PACKAGE_AVAILABLE = True
-except ImportError:
+except ImportError as exc:
     _NOMIC_PHASES_AVAILABLE = False
-    _NOMIC_PACKAGE_AVAILABLE = False
+    _NOMIC_PHASES_IMPORT_ERROR = exc
 
 # Import IssueGenerator for structured topic generation
 try:
@@ -460,7 +468,8 @@ PROTECTED_FILES = [
     "scripts/run_nomic_with_stream.py",  # Streaming wrapper - protects --auto flag
     # Core aragora modules
     "aragora/__init__.py",  # Core package initialization
-    "aragora/core.py",  # Core types and abstractions
+    "aragora/core/__init__.py",  # Core package surface
+    "aragora/core_types.py",  # Core types and abstractions
     "aragora/debate/orchestrator.py",  # Debate infrastructure
     "aragora/agents/__init__.py",  # Agent system
     "aragora/implement/__init__.py",  # Implementation system
@@ -2092,9 +2101,13 @@ class NomicLoop:
 
         # Initialize extracted phase classes (required since Phase 10C consolidation)
         if not _NOMIC_PHASES_AVAILABLE:
+            detail = (
+                f" Import error: {_NOMIC_PHASES_IMPORT_ERROR}" if _NOMIC_PHASES_IMPORT_ERROR else ""
+            )
             raise RuntimeError(
                 "Extracted phase classes not available. "
                 "Ensure aragora.nomic.phases module is installed."
+                f"{detail}"
             )
         print("[phases] Using extracted modular phase classes")
         self._setup_phase_metrics()
@@ -3285,6 +3298,29 @@ The most valuable proposals combine deep analysis with actionable implementation
         executor = getattr(self, "implement_executor", None)
         if executor is None:
             try:
+                from aragora.nomic.convoy_executor import GastownConvoyExecutor
+                from aragora.nomic.debate_profile import NomicDebateProfile
+
+                profile = NomicDebateProfile.from_env()
+                implementers = [
+                    self._create_agent_for_implement(name) for name in profile.agent_names
+                ]
+                implementers = [a for a in implementers if a is not None]
+                executor = GastownConvoyExecutor(
+                    repo_path=self.aragora_path,
+                    implementers=implementers,
+                    reviewers=implementers,
+                    log_fn=self._log,
+                    stream_emit_fn=self._stream_emit,
+                )
+                self._log(
+                    f"  [implement] GastownConvoyExecutor created with {len(implementers)} agents"
+                )
+            except ImportError:
+                pass
+
+        if executor is None:
+            try:
                 from aragora.nomic.implement_executor import ConvoyImplementExecutor
                 from aragora.nomic.debate_profile import NomicDebateProfile
 
@@ -3492,8 +3528,11 @@ The most valuable proposals combine deep analysis with actionable implementation
             require_true = os.environ.get("NOMIC_RLM_REQUIRE_TRUE", "1") == "1"
             max_bytes = int(
                 os.environ.get(
-                    "NOMIC_MAX_CONTEXT_BYTES",
-                    str(RLMConfig().max_content_bytes_nomic),
+                    "ARAGORA_NOMIC_MAX_CONTEXT_BYTES",
+                    os.environ.get(
+                        "NOMIC_MAX_CONTEXT_BYTES",
+                        str(RLMConfig().max_content_bytes_nomic),
+                    ),
                 )
             )
             max_files = int(os.environ.get("NOMIC_RLM_MAX_FILES", "25000"))
@@ -5338,7 +5377,7 @@ DO NOT try to merge incompatible approaches. Pick a clear winner.
     def _select_debate_team(self, task: str) -> list:
         """Select optimal agent team for the task (P14: AgentSelector + P10: ProbeFilter)."""
         agent_pool = getattr(self, "agent_pool", {})
-        preferred_names = AgentSettings().default_agent_list()
+        preferred_names = AgentSettings().default_agent_list
         ordered_agents = [
             agent_pool.get(name) for name in preferred_names if agent_pool.get(name) is not None
         ]
@@ -7989,8 +8028,13 @@ Start directly with "## 1. FILE CHANGES" or similar."""
         context_phase = self._create_context_phase()
         result = await context_phase.execute()
 
-        # Optionally enrich with TRUE RLM (REPL-based) codebase summary
-        rlm_context = await self._build_rlm_codebase_context()
+        # Optionally enrich with TRUE RLM (REPL-based) codebase summary.
+        # Default behavior: rely on NomicContextBuilder augmentation; only run extra
+        # full-corpus summary if explicitly requested.
+        rlm_context = None
+        extra_rlm = os.environ.get("NOMIC_RLM_EXTRA_SUMMARY", "0") == "1"
+        if extra_rlm or not getattr(self, "_context_builder", None):
+            rlm_context = await self._build_rlm_codebase_context()
         codebase_context = result["codebase_summary"]
         if rlm_context and rlm_context.get("summary"):
             codebase_context = (
@@ -8369,6 +8413,37 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
         finally:
             # CRITICAL: Always finalize the cycle, even on early returns or exceptions
             self._finalize_cycle(self._current_cycle_result)
+
+    async def run_cycle(self) -> dict:
+        """Run a single nomic cycle with a hard timeout guard."""
+        self.cycle_count += 1
+        start_time = time.time()
+        cycle_timeout = self.max_cycle_seconds
+
+        try:
+            result = await asyncio.wait_for(self._run_cycle_impl(), timeout=cycle_timeout)
+        except asyncio.TimeoutError:
+            self._log(f"[CYCLE TIMEOUT] Cycle exceeded {cycle_timeout}s budget")
+            result = {
+                "cycle": self.cycle_count,
+                "outcome": "cycle_timeout",
+                "error": f"Cycle exceeded {cycle_timeout}s budget",
+            }
+            if self._cycle_backup_path and not self.disable_rollback:
+                self._log("  [rollback] Restoring backup after cycle timeout")
+                if self._restore_backup(self._cycle_backup_path):
+                    result["rolled_back"] = True
+        except Exception as e:
+            self._log(f"[CYCLE CRASH] Cycle failed: {e}")
+            result = {
+                "cycle": self.cycle_count,
+                "outcome": "cycle_crashed",
+                "error": str(e),
+            }
+
+        result["duration_seconds"] = round(time.time() - start_time, 1)
+        self.history.append(result)
+        return result
 
     async def _run_cycle_impl_inner(self, cycle_start: datetime, cycle_deadline: datetime) -> dict:
         """Inner implementation of cycle logic."""

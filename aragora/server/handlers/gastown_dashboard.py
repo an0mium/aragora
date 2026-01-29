@@ -149,13 +149,16 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get convoy stats
         try:
-            from aragora.nomic.convoys import ConvoyManager, ConvoyStatus
+            from aragora.extensions.gastown.convoy import (
+                NomicConvoyManager as ConvoyManager,
+                NomicConvoyStatus as ConvoyStatus,
+            )
 
             manager = ConvoyManager()
             convoys = await manager.list_convoys()
             overview["convoys"]["total"] = len(convoys)
             for c in convoys:
-                if c.status == ConvoyStatus.IN_PROGRESS:
+                if c.status == ConvoyStatus.ACTIVE:
                     overview["convoys"]["active"] += 1
                 elif c.status == ConvoyStatus.COMPLETED:
                     overview["convoys"]["completed"] += 1
@@ -168,11 +171,11 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get bead stats
         try:
-            from aragora.nomic.beads import BeadManager, BeadStatus
+            from aragora.extensions.gastown.beads import BeadManager, BeadStatus
 
             manager = BeadManager()
             for status in BeadStatus:
-                beads = await manager.list_beads(status=status, limit=1000)
+                beads = await manager.list_beads(status=status)
                 count = len(beads)
                 overview["beads"][status.value] = count
                 overview["beads"]["total"] += count
@@ -183,7 +186,7 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Get agent stats
         try:
-            from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
+            from aragora.extensions.gastown.agent_roles import AgentHierarchy, AgentRole
 
             hierarchy = AgentHierarchy()
             for role in AgentRole:
@@ -237,7 +240,10 @@ class GasTownDashboardHandler(SecureHandler):
         status_filter = query_params.get("status")
 
         try:
-            from aragora.nomic.convoys import ConvoyManager, ConvoyStatus
+            from aragora.extensions.gastown.convoy import (
+                NomicConvoyManager as ConvoyManager,
+                NomicConvoyStatus as ConvoyStatus,
+            )
 
             manager = ConvoyManager()
 
@@ -297,7 +303,7 @@ class GasTownDashboardHandler(SecureHandler):
         - Completion rate per agent
         """
         try:
-            from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
+            from aragora.extensions.gastown.agent_roles import AgentHierarchy, AgentRole
 
             hierarchy = AgentHierarchy()
 
@@ -351,7 +357,10 @@ class GasTownDashboardHandler(SecureHandler):
         - Average completion time
         """
         try:
-            from aragora.nomic.beads import BeadManager, BeadStatus
+            from aragora.extensions.gastown.beads import (
+                NomicBeadManager as BeadManager,
+                NomicBeadStatus as BeadStatus,
+            )
 
             manager = BeadManager()
 
@@ -378,7 +387,7 @@ class GasTownDashboardHandler(SecureHandler):
 
             # Get priority distribution
             try:
-                from aragora.nomic.beads import BeadPriority
+                from aragora.extensions.gastown.beads import BeadPriority
 
                 for priority in BeadPriority:
                     beads = await manager.list_beads(priority=priority, limit=1000)
@@ -423,7 +432,7 @@ class GasTownDashboardHandler(SecureHandler):
 
         # Try to get metrics from Prometheus or internal counters
         try:
-            from aragora.nomic.metrics import (
+            from aragora.extensions.gastown.metrics import (
                 get_beads_completed_count,
                 get_convoy_completion_rate,
                 get_gupp_recovery_count,
@@ -437,7 +446,10 @@ class GasTownDashboardHandler(SecureHandler):
         except ImportError:
             # Fallback: estimate from current data
             try:
-                from aragora.nomic.convoys import ConvoyManager, ConvoyStatus
+                from aragora.extensions.gastown.convoy import (
+                    NomicConvoyManager as ConvoyManager,
+                    NomicConvoyStatus as ConvoyStatus,
+                )
 
                 manager = ConvoyManager()
                 convoys = await manager.list_convoys()

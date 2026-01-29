@@ -1,5 +1,9 @@
 # Python SDK Quickstart
 
+> **Note:** For the comprehensive Python SDK guide with sync/async examples, advanced features, and framework integration, see **[Python Quickstart Guide](guides/python-quickstart.md)**.
+>
+> This page provides a minimal 5-minute quickstart using the lightweight `aragora-client` package.
+
 Get started with Aragora in under 5 minutes.
 
 ## Installation

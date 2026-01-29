@@ -167,7 +167,9 @@ class TestRegisterDebateOrigin:
     def test_handles_sqlite_error(self):
         """register_debate_origin handles SQLite errors gracefully."""
         mock_store = MagicMock()
-        mock_store.save.side_effect = Exception("DB error")
+        import sqlite3
+
+        mock_store.save.side_effect = sqlite3.OperationalError("DB error")
 
         with patch("aragora.server.debate_origin._get_sqlite_store", return_value=mock_store):
             # Should not raise

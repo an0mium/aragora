@@ -57,6 +57,12 @@ __all__ = [
     "get_violation_state",
     "SLOWebhookConfig",
     "SEVERITY_ORDER",
+    # Callback registration for external alert bridges
+    "register_violation_callback",
+    "register_recovery_callback",
+    "unregister_violation_callback",
+    "unregister_recovery_callback",
+    "clear_all_callbacks",
 ]
 
 # Webhook notification callback (set by init_slo_webhooks)
@@ -86,6 +92,11 @@ _last_notification: Dict[str, float] = {}
 
 # Track violation state for recovery detection
 _violation_state: Dict[str, Dict[str, Any]] = {}  # operation -> {in_violation, last_severity, ...}
+
+# External callback lists for alert bridges (e.g., PagerDuty, Slack)
+# These are async-compatible callbacks that receive violation/recovery data
+_violation_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
+_recovery_callbacks: List[Callable[[Dict[str, Any]], Any]] = []
 
 # Prometheus metrics - initialized lazily
 _initialized = False
@@ -463,7 +474,7 @@ def notify_slo_violation(
     context: Optional[Dict[str, Any]] = None,
     cooldown_seconds: float = 60.0,
 ) -> bool:
-    """Send SLO violation notification via webhook.
+    """Send SLO violation notification via webhook and registered callbacks.
 
     Args:
         operation: Operation name that violated SLO
@@ -475,11 +486,8 @@ def notify_slo_violation(
         cooldown_seconds: Minimum time between notifications for same operation
 
     Returns:
-        True if notification was sent successfully
+        True if notification was sent successfully (webhook or any callback)
     """
-    if _webhook_callback is None:
-        return False
-
     # Check cooldown
     now = time.time()
     last_time = _last_notification.get(operation, 0)
@@ -499,16 +507,27 @@ def notify_slo_violation(
         "margin_percent": margin_percent,
         "severity": severity,
         "context": context or {},
+        "timestamp": datetime.now().isoformat(),
     }
 
-    try:
-        result = _webhook_callback(violation_data)
-        if result:
-            _last_notification[operation] = now
-        return result
-    except Exception as e:
-        logger.debug(f"Failed to send SLO violation webhook: {e}")
-        return False
+    result = False
+
+    # Send to webhook dispatcher
+    if _webhook_callback is not None:
+        try:
+            result = _webhook_callback(violation_data)
+        except Exception as e:
+            logger.debug(f"Failed to send SLO violation webhook: {e}")
+
+    # Invoke registered external callbacks (e.g., SLO Alert Bridge)
+    if _violation_callbacks:
+        _invoke_callbacks(_violation_callbacks, violation_data)
+        result = True  # Consider success if we have callbacks
+
+    if result:
+        _last_notification[operation] = now
+
+    return result
 
 
 def get_slo_webhook_status() -> Dict[str, Any]:
@@ -535,7 +554,7 @@ def notify_slo_recovery(
     violation_duration_seconds: float,
     context: Optional[Dict[str, Any]] = None,
 ) -> bool:
-    """Send SLO recovery notification via webhook.
+    """Send SLO recovery notification via webhook and registered callbacks.
 
     Called when an operation returns to SLO compliance after being in violation.
 
@@ -548,12 +567,9 @@ def notify_slo_recovery(
         context: Optional additional context
 
     Returns:
-        True if notification was sent successfully
+        True if notification was sent successfully (webhook or any callback)
     """
-    if _webhook_callback is None:
-        return False
-
-    {
+    recovery_data = {
         "operation": operation,
         "percentile": percentile,
         "latency_ms": latency_ms,
@@ -561,34 +577,32 @@ def notify_slo_recovery(
         "margin_ms": threshold_ms - latency_ms,  # How much under threshold
         "violation_duration_seconds": violation_duration_seconds,
         "context": context or {},
+        "timestamp": datetime.now().isoformat(),
     }
 
+    result = False
+
+    # Send to webhook dispatcher
     try:
-        # Import here to avoid circular imports
         from aragora.integrations.webhooks import get_dispatcher
-        from datetime import datetime
 
         dispatcher = get_dispatcher()
-        if not dispatcher:
-            return False
-
-        event = {
-            "type": "slo_recovery",
-            "timestamp": datetime.now().isoformat(),
-            "operation": operation,
-            "percentile": percentile,
-            "latency_ms": latency_ms,
-            "threshold_ms": threshold_ms,
-            "margin_ms": threshold_ms - latency_ms,
-            "violation_duration_seconds": violation_duration_seconds,
-            "context": context or {},
-        }
-
-        return dispatcher.enqueue(event)
+        if dispatcher:
+            event = {
+                "type": "slo_recovery",
+                **recovery_data,
+            }
+            result = dispatcher.enqueue(event)
 
     except Exception as e:
         logger.debug(f"Failed to send SLO recovery webhook: {e}")
-        return False
+
+    # Invoke registered external callbacks (e.g., SLO Alert Bridge)
+    if _recovery_callbacks:
+        _invoke_callbacks(_recovery_callbacks, recovery_data)
+        result = True  # Consider success if we have callbacks
+
+    return result
 
 
 def check_and_record_slo_with_recovery(
@@ -705,3 +719,135 @@ def get_violation_state(operation: Optional[str] = None) -> Dict[str, Any]:
     if operation:
         return _violation_state.get(operation, {"in_violation": False})
     return dict(_violation_state)
+
+
+# --- External Callback Registration ---
+# Allows external modules (like SLO Alert Bridge) to receive violation/recovery events
+
+
+def register_violation_callback(
+    callback: Callable[[Dict[str, Any]], Any],
+) -> None:
+    """Register a callback to be invoked on SLO violations.
+
+    Callbacks receive a dict with violation details:
+    - operation: str - Operation name
+    - percentile: str - SLO percentile violated (p50, p90, p99)
+    - latency_ms: float - Actual latency
+    - threshold_ms: float - SLO threshold
+    - severity: str - minor, moderate, major, critical
+    - margin_ms: float - How much over threshold
+    - margin_percent: float - Percentage over threshold
+    - context: dict - Additional context
+    - timestamp: str - ISO timestamp
+
+    Callbacks can be sync or async. Async callbacks will be scheduled
+    on the current event loop if available.
+
+    Args:
+        callback: Function to call on violations
+    """
+    if callback not in _violation_callbacks:
+        _violation_callbacks.append(callback)
+        logger.debug(f"Registered SLO violation callback: {callback.__name__}")
+
+
+def register_recovery_callback(
+    callback: Callable[[Dict[str, Any]], Any],
+) -> None:
+    """Register a callback to be invoked on SLO recoveries.
+
+    Callbacks receive a dict with recovery details:
+    - operation: str - Operation name
+    - percentile: str - SLO percentile that was violated
+    - latency_ms: float - Current latency (within SLO)
+    - threshold_ms: float - SLO threshold
+    - margin_ms: float - How much under threshold
+    - violation_duration_seconds: float - How long violation lasted
+    - context: dict - Additional context
+    - timestamp: str - ISO timestamp
+
+    Args:
+        callback: Function to call on recoveries
+    """
+    if callback not in _recovery_callbacks:
+        _recovery_callbacks.append(callback)
+        logger.debug(f"Registered SLO recovery callback: {callback.__name__}")
+
+
+def unregister_violation_callback(
+    callback: Callable[[Dict[str, Any]], Any],
+) -> bool:
+    """Unregister a previously registered violation callback.
+
+    Args:
+        callback: The callback to remove
+
+    Returns:
+        True if callback was found and removed
+    """
+    try:
+        _violation_callbacks.remove(callback)
+        logger.debug(f"Unregistered SLO violation callback: {callback.__name__}")
+        return True
+    except ValueError:
+        return False
+
+
+def unregister_recovery_callback(
+    callback: Callable[[Dict[str, Any]], Any],
+) -> bool:
+    """Unregister a previously registered recovery callback.
+
+    Args:
+        callback: The callback to remove
+
+    Returns:
+        True if callback was found and removed
+    """
+    try:
+        _recovery_callbacks.remove(callback)
+        logger.debug(f"Unregistered SLO recovery callback: {callback.__name__}")
+        return True
+    except ValueError:
+        return False
+
+
+def clear_all_callbacks() -> None:
+    """Clear all registered callbacks. Primarily for testing."""
+    _violation_callbacks.clear()
+    _recovery_callbacks.clear()
+    logger.debug("Cleared all SLO callbacks")
+
+
+def _invoke_callbacks(
+    callbacks: List[Callable[[Dict[str, Any]], Any]],
+    data: Dict[str, Any],
+) -> None:
+    """Invoke all registered callbacks with the given data.
+
+    Handles both sync and async callbacks. Async callbacks are scheduled
+    on the event loop if available, otherwise run synchronously.
+
+    Args:
+        callbacks: List of callbacks to invoke
+        data: Data to pass to callbacks
+    """
+    import asyncio
+    import inspect
+
+    for callback in callbacks:
+        try:
+            if inspect.iscoroutinefunction(callback):
+                # Async callback - try to schedule on event loop
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(callback(data))
+                except RuntimeError:
+                    # No running loop - run in new loop
+                    asyncio.run(callback(data))
+            else:
+                # Sync callback
+                callback(data)
+        except Exception as e:
+            logger.warning(f"SLO callback {callback.__name__} failed: {e}")

@@ -299,9 +299,11 @@ class TestDecisionConfig:
         """Default values are sensible."""
         config = DecisionConfig()
         assert config.timeout_seconds == 300
-        assert config.max_agents == 3
-        assert config.rounds == 3
-        assert config.consensus == "majority"
+        from aragora.config.settings import get_settings
+
+        assert config.max_agents == get_settings().debate.max_agents_per_debate
+        assert config.rounds == get_settings().debate.default_rounds
+        assert config.consensus == get_settings().debate.default_consensus
         assert config.enable_calibration is True
         assert config.early_stopping is True
 
@@ -751,10 +753,19 @@ class TestDecisionRouter:
 
         # Even without engines, it should handle gracefully
         # and record metrics if available
-        try:
-            await router.route(request)
-        except Exception:
-            pass  # Expected without engine configured
+        mock_result = DecisionResult(
+            request_id=request.request_id,
+            decision_type=DecisionType.DEBATE,
+            answer="Mock answer",
+            confidence=0.8,
+            consensus_reached=True,
+        )
+
+        with patch.object(router, "_route_to_debate", AsyncMock(return_value=mock_result)):
+            try:
+                await router.route(request)
+            except Exception:
+                pass  # Metrics may be unavailable in test environment
 
 
 class TestDecisionIntegration:

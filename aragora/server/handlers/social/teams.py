@@ -25,6 +25,8 @@ import os
 import re
 from typing import Any, Coroutine, Dict, List, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -451,7 +453,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
             # Create environment and protocol
             env = Environment(task=topic)
-            protocol = DebateProtocol(rounds=3, consensus="majority")
+            protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
 
             # Get available agents
             from aragora.agents import get_agents_by_names

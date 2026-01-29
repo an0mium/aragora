@@ -1,0 +1,357 @@
+"""
+Server startup worker initialization.
+
+This module handles SLO webhooks, webhook dispatcher, gauntlet recovery,
+durable job queue, gauntlet worker, notification worker,
+workflow checkpoint persistence, and backup scheduler initialization.
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def init_slo_webhooks() -> bool:
+    """Initialize SLO violation webhook notifications.
+
+    Connects SLO metric violations to the webhook dispatcher so that
+    external alerting systems can be notified of performance degradation.
+
+    Returns:
+        True if SLO webhooks were initialized, False otherwise
+    """
+    try:
+        from aragora.observability.metrics.slo import init_slo_webhooks as _init_slo_webhooks
+
+        if _init_slo_webhooks():
+            logger.info("SLO webhook notifications enabled")
+            return True
+        else:
+            logger.debug("SLO webhooks not initialized (dispatcher not available)")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"SLO webhooks not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize SLO webhooks: {e}")
+
+    return False
+
+
+def init_webhook_dispatcher() -> bool:
+    """Initialize the webhook dispatcher for outbound notifications.
+
+    Loads webhook configurations from environment and starts the dispatcher.
+
+    Returns:
+        True if dispatcher was started, False otherwise
+    """
+    try:
+        from aragora.integrations.webhooks import init_dispatcher
+
+        dispatcher = init_dispatcher()
+        if dispatcher:
+            logger.info(f"Webhook dispatcher started with {len(dispatcher.configs)} endpoint(s)")
+            return True
+        else:
+            logger.debug("No webhook configurations found, dispatcher not started")
+            return False
+
+    except ImportError as e:
+        logger.debug(f"Webhook dispatcher not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize webhook dispatcher: {e}")
+
+    return False
+
+
+def init_gauntlet_run_recovery() -> int:
+    """Recover stale gauntlet runs after server restart.
+
+    Finds gauntlet runs that were pending/running when the server stopped
+    and marks them as interrupted. Users can then view the status and
+    optionally restart them.
+
+    Returns:
+        Number of stale runs recovered/marked as interrupted
+    """
+    try:
+        from aragora.server.handlers.gauntlet import recover_stale_gauntlet_runs
+
+        recovered = recover_stale_gauntlet_runs(max_age_seconds=7200)
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} stale gauntlet runs from previous session")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Gauntlet run recovery not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to recover stale gauntlet runs: {e}")
+
+    return 0
+
+
+async def init_durable_job_queue_recovery() -> int:
+    """Recover interrupted jobs from the durable job queue.
+
+    This is enabled by default. Set ARAGORA_DURABLE_GAUNTLET=0 to disable.
+
+    Returns:
+        Number of jobs recovered and re-enqueued
+    """
+    import os
+
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() in ("0", "false", "no"):
+        logger.debug("Durable job queue recovery skipped (ARAGORA_DURABLE_GAUNTLET disabled)")
+        return 0
+
+    try:
+        from aragora.queue.workers.gauntlet_worker import recover_interrupted_gauntlets
+
+        recovered = await recover_interrupted_gauntlets()
+        if recovered > 0:
+            logger.info(f"Recovered {recovered} interrupted gauntlet jobs to durable queue")
+        return recovered
+
+    except ImportError as e:
+        logger.debug(f"Durable job queue recovery not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to recover durable job queue: {e}")
+
+    return 0
+
+
+async def init_gauntlet_worker() -> bool:
+    """Initialize and start the gauntlet job queue worker.
+
+    Enabled by default. Set ARAGORA_DURABLE_GAUNTLET=0 to disable.
+
+    Environment Variables:
+        ARAGORA_DURABLE_GAUNTLET: "0" to disable (enabled by default)
+        ARAGORA_GAUNTLET_WORKERS: Number of concurrent jobs (default: 3)
+
+    Returns:
+        True if worker was started, False otherwise
+    """
+    import os
+
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_DURABLE_GAUNTLET", "1").lower() in ("0", "false", "no"):
+        logger.debug("Gauntlet worker not started (ARAGORA_DURABLE_GAUNTLET disabled)")
+        return False
+
+    try:
+        from aragora.queue.workers.gauntlet_worker import GauntletWorker
+
+        max_concurrent = int(os.environ.get("ARAGORA_GAUNTLET_WORKERS", "3"))
+        worker = GauntletWorker(max_concurrent=max_concurrent)
+
+        # Start worker in background
+        import asyncio
+
+        asyncio.create_task(worker.start())
+        logger.info(f"Gauntlet worker started (max_concurrent={max_concurrent})")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Gauntlet worker not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start gauntlet worker: {e}")
+
+    return False
+
+
+async def init_notification_worker() -> bool:
+    """Initialize the notification dispatcher worker for queue processing.
+
+    Starts the background worker that processes queued notifications with
+    retry logic, circuit breakers, and dead letter queue support.
+
+    Requires Redis for queue persistence. If Redis is not available, the
+    worker will not start but notifications can still be sent synchronously.
+
+    Environment Variables:
+        REDIS_URL: Redis connection URL for queue persistence
+        ARAGORA_NOTIFICATION_WORKER: Set to "0" to disable (enabled by default)
+
+    Returns:
+        True if worker was started, False otherwise
+    """
+    import os
+
+    # Enabled by default - set to "0" to disable
+    if os.environ.get("ARAGORA_NOTIFICATION_WORKER", "1").lower() in ("0", "false", "no"):
+        logger.debug("Notification worker not started (ARAGORA_NOTIFICATION_WORKER disabled)")
+        return False
+
+    # Check if Redis is available
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        logger.debug("Notification worker not started (no REDIS_URL configured)")
+        return False
+
+    try:
+        import redis.asyncio as aioredis
+
+        from aragora.control_plane.notifications import (
+            create_notification_dispatcher,
+            NotificationDispatcherConfig,
+            set_default_notification_dispatcher,
+        )
+        from aragora.control_plane.channels import NotificationManager
+
+        # Connect to Redis
+        redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+
+        # Test connection
+        await redis_client.ping()
+
+        # Create manager with Redis persistence and load persisted channel configs
+        manager = NotificationManager(redis_client=redis_client)
+        channel_count = await manager.load_channels()
+
+        config = NotificationDispatcherConfig(
+            queue_enabled=True,
+            max_concurrent_deliveries=int(os.environ.get("ARAGORA_NOTIFICATION_CONCURRENCY", "20")),
+        )
+        dispatcher = create_notification_dispatcher(
+            manager=manager,
+            redis=redis_client,
+            config=config,
+        )
+
+        # Start the worker
+        await dispatcher.start_worker()
+        set_default_notification_dispatcher(dispatcher)
+
+        # Wire dispatcher to task events
+        from aragora.control_plane.task_events import set_task_event_dispatcher
+
+        set_task_event_dispatcher(dispatcher)
+        logger.info("task_event_dispatcher_wired")
+
+        logger.info(
+            f"Notification worker started "
+            f"(concurrency={config.max_concurrent_deliveries}, channels_loaded={channel_count})"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Notification worker dependencies not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start notification worker: {e}")
+
+    return False
+
+
+def init_workflow_checkpoint_persistence() -> bool:
+    """Wire Knowledge Mound to workflow checkpoint persistence.
+
+    This enables workflow checkpoints to be stored in KnowledgeMound rather
+    than local files, providing durable persistence that survives server restarts
+    and enables cross-instance checkpoint access.
+
+    Returns:
+        True if checkpoint persistence was wired to KnowledgeMound, False if
+        falling back to file-based storage.
+    """
+    try:
+        from aragora.knowledge.mound import get_knowledge_mound
+        from aragora.workflow.checkpoint_store import set_default_knowledge_mound
+
+        # Get the singleton Knowledge Mound instance
+        mound = get_knowledge_mound()
+
+        # Wire it to the checkpoint store
+        set_default_knowledge_mound(mound)
+
+        logger.info("Workflow checkpoint persistence wired to KnowledgeMound")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"KnowledgeMound not available for checkpoints: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to wire checkpoint persistence: {e}")
+
+    return False
+
+
+async def init_backup_scheduler() -> bool:
+    """Initialize the backup scheduler for automated backups and DR drills.
+
+    Starts the backup scheduler that runs scheduled backups at configured
+    intervals and performs disaster recovery verification drills.
+
+    Environment Variables:
+        BACKUP_ENABLED: Set to "true" to enable backup scheduling (default: false)
+        BACKUP_DIR: Directory for backup storage (default: ~/.aragora/backups)
+        BACKUP_DAILY_TIME: Time for daily backups in HH:MM format (default: 02:00)
+        BACKUP_DR_DRILL_ENABLED: Enable DR drills (default: true)
+        BACKUP_DR_DRILL_INTERVAL_DAYS: Days between DR drills (default: 30)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+    from datetime import time as dt_time
+
+    # Check if backup scheduling is enabled
+    if os.environ.get("BACKUP_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        logger.debug("Backup scheduler disabled (set BACKUP_ENABLED=true to enable)")
+        return False
+
+    try:
+        from aragora.backup.manager import get_backup_manager
+        from aragora.backup.scheduler import (
+            BackupSchedule,
+            start_backup_scheduler,
+        )
+
+        # Parse configuration from environment
+        backup_dir = os.environ.get("BACKUP_DIR")
+
+        # Parse daily backup time (HH:MM format)
+        daily_time_str = os.environ.get("BACKUP_DAILY_TIME", "02:00")
+        try:
+            hour, minute = map(int, daily_time_str.split(":"))
+            daily_time = dt_time(hour, minute)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid BACKUP_DAILY_TIME '{daily_time_str}', using 02:00")
+            daily_time = dt_time(2, 0)
+
+        # Parse DR drill settings
+        dr_drills_enabled = os.environ.get("BACKUP_DR_DRILL_ENABLED", "true").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        dr_drill_interval = int(os.environ.get("BACKUP_DR_DRILL_INTERVAL_DAYS", "30"))
+
+        # Get or create the backup manager
+        manager = get_backup_manager(backup_dir)
+
+        # Create schedule configuration
+        schedule = BackupSchedule(
+            daily=daily_time,
+            enable_dr_drills=dr_drills_enabled,
+            dr_drill_interval_days=dr_drill_interval,
+        )
+
+        # Start the scheduler
+        await start_backup_scheduler(manager, schedule)
+
+        logger.info(
+            f"Backup scheduler started "
+            f"(daily={daily_time_str}, "
+            f"dr_drills={'enabled' if dr_drills_enabled else 'disabled'}, "
+            f"dr_interval={dr_drill_interval}d)"
+        )
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Backup scheduler not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start backup scheduler: {e}")
+
+    return False

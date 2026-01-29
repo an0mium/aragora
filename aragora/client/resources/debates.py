@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, List
 
-from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from ..models import (
     ConsensusType,
     Debate,
@@ -20,6 +19,8 @@ from ..models import (
     SearchResponse,
     VerificationReport,
 )
+
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
 if TYPE_CHECKING:
     from ..client import AragoraClient

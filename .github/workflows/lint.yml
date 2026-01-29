@@ -258,6 +258,17 @@ jobs:
             echo "Staging values validation passed!"
           fi
 
+      - name: Validate values schema
+        run: |
+          # Install schema validator
+          pip install check-jsonschema
+
+          # Validate values.yaml against schema
+          if [ -f deploy/helm/aragora/values.schema.json ]; then
+            check-jsonschema --schemafile deploy/helm/aragora/values.schema.json deploy/helm/aragora/values.yaml
+            echo "Values schema validation passed!"
+          fi
+
   docs-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10

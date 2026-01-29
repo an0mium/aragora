@@ -118,8 +118,8 @@ Features:
 | `ARAGORA_DB_BACKEND` | Database backend | `sqlite` |
 | `ARAGORA_API_TOKEN` | API authentication token | None |
 | `ARAGORA_ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:3000` |
-| `ARAGORA_DEFAULT_ROUNDS` | Default debate rounds | `3` |
-| `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | `900` |
+| `ARAGORA_DEFAULT_ROUNDS` | Default debate rounds | `9` |
+| `ARAGORA_DEBATE_TIMEOUT` | Debate timeout (seconds) | `600` |
 
 ### Database Configuration
 

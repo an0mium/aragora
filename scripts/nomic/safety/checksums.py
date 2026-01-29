@@ -16,7 +16,8 @@ PROTECTED_FILES = [
     "scripts/run_nomic_with_stream.py",  # Streaming wrapper - protects --auto flag
     # Core aragora modules
     "aragora/__init__.py",  # Core package initialization
-    "aragora/core.py",  # Core types and abstractions
+    "aragora/core/__init__.py",  # Core package surface
+    "aragora/core_types.py",  # Core types and abstractions
     "aragora/debate/orchestrator.py",  # Debate infrastructure
     "aragora/agents/__init__.py",  # Agent system
     "aragora/implement/__init__.py",  # Implementation system

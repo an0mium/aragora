@@ -13,7 +13,14 @@ from typing import Any, Literal
 
 
 class ConvoyStatus(Enum):
-    """Convoy lifecycle status."""
+    """Convoy lifecycle status.
+
+    Gastown uses a richer lifecycle than workspace (which has
+    CREATED/ASSIGNING/EXECUTING/MERGING/DONE/FAILED/CANCELLED).
+    Both delegate to ``aragora.nomic.convoys`` as the canonical backend.
+    Use ``to_workspace_status()`` / ``from_workspace_status()`` for
+    cross-layer interoperability.
+    """
 
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
@@ -21,6 +28,34 @@ class ConvoyStatus(Enum):
     REVIEW = "review"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+    def to_workspace_status(self) -> str:
+        """Map gastown status to workspace ConvoyStatus value.
+
+        Returns the *value* string so callers can construct the workspace
+        enum without importing it directly, avoiding circular imports.
+        """
+        return {
+            ConvoyStatus.PENDING: "created",
+            ConvoyStatus.IN_PROGRESS: "executing",
+            ConvoyStatus.BLOCKED: "failed",
+            ConvoyStatus.REVIEW: "merging",
+            ConvoyStatus.COMPLETED: "done",
+            ConvoyStatus.CANCELLED: "cancelled",
+        }[self]
+
+    @classmethod
+    def from_workspace_status(cls, value: str) -> "ConvoyStatus":
+        """Map a workspace ConvoyStatus value string to gastown status."""
+        return {
+            "created": cls.PENDING,
+            "assigning": cls.PENDING,
+            "executing": cls.IN_PROGRESS,
+            "merging": cls.REVIEW,
+            "done": cls.COMPLETED,
+            "failed": cls.BLOCKED,
+            "cancelled": cls.CANCELLED,
+        }.get(value, cls.PENDING)
 
 
 class HookType(Enum):

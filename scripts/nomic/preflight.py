@@ -322,7 +322,8 @@ def run_preflight_checks(
         protected_files = [
             "CLAUDE.md",
             "aragora/__init__.py",
-            "aragora/core.py",
+            "aragora/core/__init__.py",
+            "aragora/core_types.py",
             "scripts/nomic_loop.py",
         ]
 

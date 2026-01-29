@@ -223,7 +223,7 @@ curl -X POST https://api.your-domain.com/api/debates \
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ARAGORA_MAX_CONCURRENT_DEBATES` | `5` | Max parallel debates |
-| `ARAGORA_DEBATE_TIMEOUT` | `900` | Debate timeout (seconds) |
+| `ARAGORA_DEBATE_TIMEOUT` | `600` | Debate timeout (seconds) |
 | `ARAGORA_AGENT_TIMEOUT` | `240` | Per-agent timeout (seconds) |
 | `ARAGORA_DB_POOL_SIZE` | `10` | Database connection pool |
 

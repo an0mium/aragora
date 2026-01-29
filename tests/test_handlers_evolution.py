@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch
 
 from aragora.server.handlers.evolution import EvolutionHandler, _evolution_limiter
+import aragora.server.handlers.evolution.handler as handler_mod
 from aragora.server.handlers.base import clear_cache
 
 
@@ -120,10 +121,8 @@ class TestEvolutionHistory:
     """Tests for GET /api/evolution/{agent}/history endpoint."""
 
     def test_evolution_module_unavailable(self, evolution_handler):
-        import aragora.server.handlers.evolution as mod
-
-        original = mod.EVOLUTION_AVAILABLE
-        mod.EVOLUTION_AVAILABLE = False
+        original = handler_mod.EVOLUTION_AVAILABLE
+        handler_mod.EVOLUTION_AVAILABLE = False
         try:
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
             assert result is not None
@@ -131,12 +130,10 @@ class TestEvolutionHistory:
             data = json.loads(result.body)
             assert "not available" in data["error"].lower()
         finally:
-            mod.EVOLUTION_AVAILABLE = original
+            handler_mod.EVOLUTION_AVAILABLE = original
 
     def test_evolution_no_nomic_dir(self, handler_no_nomic_dir):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
         result = handler_no_nomic_dir.handle("/api/evolution/claude/history", {}, None)
@@ -146,12 +143,10 @@ class TestEvolutionHistory:
         assert "nomic" in data["error"].lower() or "not configured" in data["error"].lower()
 
     def test_evolution_history_success(self, evolution_handler, mock_prompt_evolver):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -163,12 +158,10 @@ class TestEvolutionHistory:
             assert len(data["history"]) == 3
 
     def test_evolution_history_with_limit(self, evolution_handler, mock_prompt_evolver):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "5"}, None)
 
             assert result is not None
@@ -177,12 +170,10 @@ class TestEvolutionHistory:
             mock_prompt_evolver.get_evolution_history.assert_called_with("claude", limit=5)
 
     def test_evolution_history_limit_clamped(self, evolution_handler, mock_prompt_evolver):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Request 0, should be clamped to 1
             result = evolution_handler.handle("/api/evolution/claude/history", {"limit": "0"}, None)
 
@@ -230,15 +221,13 @@ class TestEvolutionErrorHandling:
         assert result is None
 
     def test_evolution_history_exception(self, evolution_handler):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
         mock_evolver = Mock()
         mock_evolver.get_evolution_history.side_effect = Exception("Database error")
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -270,14 +259,12 @@ class TestEvolutionEdgeCases:
         assert result is not None
 
     def test_evolution_history_empty(self, evolution_handler, mock_prompt_evolver):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
         mock_prompt_evolver.get_evolution_history.return_value = []
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             result = evolution_handler.handle("/api/evolution/claude/history", {}, None)
 
             assert result is not None
@@ -287,12 +274,10 @@ class TestEvolutionEdgeCases:
             assert data["count"] == 0
 
     def test_invalid_limit_param(self, evolution_handler, mock_prompt_evolver):
-        import aragora.server.handlers.evolution as mod
-
-        if not mod.EVOLUTION_AVAILABLE:
+        if not handler_mod.EVOLUTION_AVAILABLE:
             pytest.skip("Evolution module not available")
 
-        with patch.object(mod, "PromptEvolver", return_value=mock_prompt_evolver):
+        with patch.object(handler_mod, "PromptEvolver", return_value=mock_prompt_evolver):
             # Invalid param should use default
             result = evolution_handler.handle(
                 "/api/evolution/claude/history", {"limit": "invalid"}, None

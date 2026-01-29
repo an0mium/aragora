@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Set
 
+from aragora.config import DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ class DebateState:
     start_time: float
     status: str = "running"
     current_round: int = 0
-    total_rounds: int = 3
+    total_rounds: int = DEFAULT_ROUNDS
     messages: list = field(default_factory=list)
     subscribers: Set[Any] = field(default_factory=set)
     metadata: dict = field(default_factory=dict)
@@ -111,7 +113,7 @@ class StateManager:
         debate_id: str,
         task: str,
         agents: list[str],
-        total_rounds: int = 3,
+        total_rounds: int = DEFAULT_ROUNDS,
         metadata: Optional[dict] = None,
     ) -> DebateState:
         """

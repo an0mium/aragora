@@ -349,7 +349,7 @@ def record_spend(
 
 
 def estimate_debate_cost(
-    rounds: int = 3,
+    rounds: int | None = None,
     agents: int = 2,
     avg_tokens_per_round: int = 2000,
     cost_per_1k_tokens: float = 0.003,
@@ -365,6 +365,11 @@ def estimate_debate_cost(
     Returns:
         Estimated cost in USD
     """
+    if rounds is None:
+        from aragora.config.settings import DebateSettings
+
+        rounds = DebateSettings().default_rounds
+
     total_tokens = rounds * agents * avg_tokens_per_round * 2  # Input + output
     return (total_tokens / 1000) * cost_per_1k_tokens
 
@@ -395,7 +400,7 @@ def estimate_gauntlet_cost(
 def DEBATE_COST_ESTIMATOR(*args: Any, **kwargs: Any) -> float:
     """Estimate cost for debate operations."""
     return estimate_debate_cost(
-        rounds=kwargs.get("rounds", 3),
+        rounds=kwargs.get("rounds"),
         agents=len(kwargs.get("agents", [])) or 2,
     )
 

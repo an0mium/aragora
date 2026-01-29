@@ -31,6 +31,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 from aragora.fabric.models import (
     Policy,
     PolicyContext,
@@ -385,7 +387,10 @@ class FabricDebateRunner:
             agents.append(adapter)
 
         # 6. Create and run Arena
-        arena_protocol = protocol or DebateProtocol(rounds=3, consensus="majority")
+        arena_protocol = protocol or DebateProtocol(
+            rounds=DEFAULT_ROUNDS,
+            consensus=DEFAULT_CONSENSUS,
+        )
 
         try:
             arena = Arena(

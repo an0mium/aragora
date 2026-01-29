@@ -241,7 +241,7 @@ class DebateAnalytics:
         # Record a completed debate
         await analytics.record_debate(
             debate_id="debate123",
-            rounds=3,
+            rounds=9,
             consensus_reached=True,
             duration_seconds=120.5,
             agents=["claude", "gpt-4"],

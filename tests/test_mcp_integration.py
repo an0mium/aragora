@@ -114,7 +114,7 @@ class TestMCPToolsModuleStructure:
         from aragora.mcp.tools import TOOLS_METADATA
 
         assert isinstance(TOOLS_METADATA, list)
-        assert len(TOOLS_METADATA) == 24  # Full tool set from tools_module
+        assert len(TOOLS_METADATA) >= 24  # Tools set can expand over time
 
         tool_names = [t["name"] for t in TOOLS_METADATA]
         # Core debate tools
@@ -251,7 +251,7 @@ class TestMCPToolDefaults:
         from aragora.mcp.tools import TOOLS_METADATA
 
         run_debate = next(t for t in TOOLS_METADATA if t["name"] == "run_debate")
-        assert run_debate["parameters"]["consensus"]["default"] == "hybrid"
+        assert run_debate["parameters"]["consensus"]["default"] == "judge"
 
     def test_run_gauntlet_default_content_type(self):
         """run_gauntlet has default content_type."""

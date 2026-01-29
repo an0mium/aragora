@@ -158,6 +158,156 @@ class TelegramConnector(ChatPlatformConnector):
     def platform_display_name(self) -> str:
         return "Telegram"
 
+    async def _telegram_api_request(
+        self,
+        endpoint: str,
+        payload: Optional[dict[str, Any]] = None,
+        operation: str = "api_call",
+        *,
+        method: str = "POST",
+        files: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        max_retries: int = 3,
+    ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+        """
+        Make a Telegram API request with circuit breaker, retry, and timeout.
+
+        Centralizes the resilience pattern for all Telegram API calls.
+
+        Args:
+            endpoint: API endpoint (e.g., "sendMessage", "getMe")
+            payload: JSON payload to send
+            operation: Operation name for logging
+            method: HTTP method - "GET" or "POST" (default: "POST")
+            files: File data for multipart uploads
+            timeout: Optional timeout override
+            max_retries: Maximum retry attempts
+
+        Returns:
+            Tuple of (success, response_data, error_message)
+        """
+        import asyncio
+        import random
+
+        if not HTTPX_AVAILABLE:
+            return False, None, "httpx not available"
+
+        # Check circuit breaker
+        can_proceed, cb_error = self._check_circuit_breaker()
+        if not can_proceed:
+            return False, None, cb_error
+
+        last_error: Optional[str] = None
+        url = f"{self._api_base}/{endpoint}"
+        request_timeout = timeout if timeout is not None else self._request_timeout
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=request_timeout) as client:
+                    if files:
+                        # Multipart form data for file uploads
+                        response = await client.post(
+                            url,
+                            data=payload,
+                            files=files,
+                            headers=build_trace_headers(),
+                        )
+                    elif method.upper() == "GET":
+                        response = await client.get(
+                            url,
+                            params=payload,
+                            headers=build_trace_headers(),
+                        )
+                    else:
+                        response = await client.post(
+                            url,
+                            json=payload,
+                            headers=build_trace_headers(),
+                        )
+
+                    data = response.json()
+
+                    # Check for rate limit (429)
+                    if data.get("error_code") == 429:
+                        retry_after = data.get("parameters", {}).get("retry_after", 60)
+                        error_desc = data.get("description", "Rate limit exceeded")
+                        last_error = error_desc
+
+                        if attempt < max_retries - 1:
+                            logger.warning(
+                                f"[telegram] {operation} rate limited, "
+                                f"retry in {retry_after}s (attempt {attempt + 1}/{max_retries})"
+                            )
+                            await asyncio.sleep(min(retry_after, 60))
+                            continue
+
+                        classified = _classify_telegram_error(
+                            error_desc, error_code=429, retry_after=retry_after
+                        )
+                        self._record_failure(classified)
+                        return False, None, error_desc
+
+                    if not data.get("ok"):
+                        error_desc = data.get("description", "Unknown error")
+                        error_code = data.get("error_code")
+                        last_error = error_desc
+
+                        # Check if retryable
+                        if error_code in {500, 502, 503, 504} and attempt < max_retries - 1:
+                            delay = min(1.0 * (2**attempt), 30.0)
+                            jitter = random.uniform(0, delay * 0.1)
+                            logger.warning(
+                                f"[telegram] {operation} server error {error_code} "
+                                f"(attempt {attempt + 1}/{max_retries})"
+                            )
+                            await asyncio.sleep(delay + jitter)
+                            continue
+
+                        classified = _classify_telegram_error(error_desc, error_code=error_code)
+                        logger.error(
+                            f"[telegram] {operation} failed [{type(classified).__name__}]: {error_desc}"
+                        )
+                        self._record_failure(classified)
+                        return False, data, error_desc
+
+                    self._record_success()
+                    return True, data, None
+
+            except httpx.TimeoutException:
+                last_error = f"Request timeout after {request_timeout}s"
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"[telegram] {operation} timeout (attempt {attempt + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                    continue
+                logger.error(f"[telegram] {operation} timeout after {max_retries} attempts")
+
+            except httpx.ConnectError as e:
+                last_error = f"Connection error: {e}"
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"[telegram] {operation} network error (attempt {attempt + 1}/{max_retries})"
+                    )
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                    continue
+                logger.error(
+                    f"[telegram] {operation} network error after {max_retries} attempts: {e}"
+                )
+
+            except Exception as e:
+                # Unexpected error - don't retry
+                last_error = f"Unexpected error: {e}"
+                classified = _classify_telegram_error(last_error)
+                logger.exception(
+                    f"[telegram] {operation} unexpected error [{type(classified).__name__}]: {e}"
+                )
+                break
+
+        classified = _classify_telegram_error(last_error or "Unknown error")
+        self._record_failure(classified)
+        return False, None, last_error or "Unknown error"
+
     async def send_message(
         self,
         channel_id: str,
@@ -168,19 +318,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Send a message to a Telegram chat.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
-
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(
-                success=False,
-                error=cb_error,
-            )
-
         payload: dict[str, Any] = {
             "chat_id": channel_id,
             "text": self._escape_markdown(text) if self.parse_mode.startswith("Markdown") else text,
@@ -197,59 +336,22 @@ class TelegramConnector(ChatPlatformConnector):
             if keyboard:
                 payload["reply_markup"] = json.dumps(keyboard)
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/sendMessage",
-                    json=payload,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
+        success, data, error = await self._telegram_api_request(
+            "sendMessage",
+            payload=payload,
+            operation="send_message",
+        )
 
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    error_desc = data.get("description", "Rate limit exceeded")
-                    classified = _classify_telegram_error(
-                        error_desc,
-                        error_code=429,
-                        retry_after=data.get("parameters", {}).get("retry_after"),
-                    )
-                    self._record_failure(classified)
-                    return SendMessageResponse(success=False, error=error_desc)
-
-                if not data.get("ok"):
-                    error_desc = data.get("description", "Unknown error")
-                    error_code = data.get("error_code")
-                    classified = _classify_telegram_error(error_desc, error_code=error_code)
-                    logger.error(
-                        f"[telegram] send failed [{type(classified).__name__}]: {error_desc}"
-                    )
-                    self._record_failure(classified)
-                    return SendMessageResponse(success=False, error=error_desc)
-
-                self._record_success()
-                result = data.get("result", {})
-                return SendMessageResponse(
-                    success=True,
-                    message_id=str(result.get("message_id")),
-                    channel_id=str(result.get("chat", {}).get("id")),
-                    timestamp=datetime.fromtimestamp(result.get("date", 0)).isoformat(),
-                )
-        except httpx.TimeoutException as e:
-            classified = _classify_telegram_error(f"Timeout: {e}")
-            self._record_failure(classified)
-            raise ConnectorTimeoutError(str(e), connector_name="telegram") from e
-        except httpx.ConnectError as e:
-            classified = _classify_telegram_error(f"Connection error: {e}")
-            self._record_failure(classified)
-            raise ConnectorNetworkError(str(e), connector_name="telegram") from e
-        except Exception as e:
-            classified = _classify_telegram_error(str(e))
-            logger.exception(
-                f"[telegram] sendMessage unexpected error [{type(classified).__name__}]: {e}"
+        if success and data:
+            result = data.get("result", {})
+            return SendMessageResponse(
+                success=True,
+                message_id=str(result.get("message_id")),
+                channel_id=str(result.get("chat", {}).get("id")),
+                timestamp=datetime.fromtimestamp(result.get("date", 0)).isoformat(),
             )
-            self._record_failure(classified)
-            raise
+
+        return SendMessageResponse(success=False, error=error)
 
     async def update_message(
         self,
@@ -261,19 +363,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Edit an existing message.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
-
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(
-                success=False,
-                error=cb_error,
-            )
-
         payload: dict[str, Any] = {
             "chat_id": channel_id,
             "message_id": int(message_id),
@@ -286,39 +377,20 @@ class TelegramConnector(ChatPlatformConnector):
             if keyboard:
                 payload["reply_markup"] = json.dumps(keyboard)
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/editMessageText",
-                    json=payload,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
+        success, _, error = await self._telegram_api_request(
+            "editMessageText",
+            payload=payload,
+            operation="update_message",
+        )
 
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=data.get("description", "Rate limit exceeded"),
-                    )
+        if success:
+            return SendMessageResponse(
+                success=True,
+                message_id=message_id,
+                channel_id=channel_id,
+            )
 
-                if not data.get("ok"):
-                    self._record_failure(Exception(data.get("description", "Unknown error")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=data.get("description", "Unknown error"),
-                    )
-
-                self._record_success()
-                return SendMessageResponse(
-                    success=True,
-                    message_id=message_id,
-                    channel_id=channel_id,
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return SendMessageResponse(success=False, error=error)
 
     async def delete_message(
         self,
@@ -328,43 +400,21 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Delete a message.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        success, _, error = await self._telegram_api_request(
+            "deleteMessage",
+            payload={
+                "chat_id": channel_id,
+                "message_id": int(message_id),
+            },
+            operation="delete_message",
+        )
 
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
-            return False
+        if not success and error:
+            logger.warning(f"Delete message failed: {error}")
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/deleteMessage",
-                    json={
-                        "chat_id": channel_id,
-                        "message_id": int(message_id),
-                    },
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
-
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return False
-
-                if data.get("ok"):
-                    self._record_success()
-                    return True
-                else:
-                    self._record_failure(Exception(data.get("description", "Delete failed")))
-                    return False
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return success
 
     async def send_typing_indicator(
         self,
@@ -373,38 +423,23 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Send typing indicator (chat action) to a Telegram chat.
 
-        Uses sendChatAction with action="typing".
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         Typing indicators expire after ~5 seconds.
         """
-        if not HTTPX_AVAILABLE:
-            return False
+        success, _, error = await self._telegram_api_request(
+            "sendChatAction",
+            payload={
+                "chat_id": channel_id,
+                "action": "typing",
+            },
+            operation="send_typing_indicator",
+            max_retries=1,  # Don't retry typing indicators
+        )
 
-        # Check circuit breaker
-        can_proceed, _ = self._check_circuit_breaker()
-        if not can_proceed:
-            return False
+        if not success:
+            logger.debug(f"Telegram typing indicator failed: {error}")
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/sendChatAction",
-                    json={
-                        "chat_id": channel_id,
-                        "action": "typing",
-                    },
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
-
-                if data.get("ok"):
-                    self._record_success()
-                    return True
-                else:
-                    logger.debug(f"Telegram typing indicator failed: {data.get('description')}")
-                    return False
-        except Exception as e:
-            logger.debug(f"Telegram typing indicator error: {e}")
-            return False
+        return success
 
     async def upload_file(  # type: ignore[override]
         self,
@@ -416,52 +451,36 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> FileAttachment:
         """Upload a file as a document.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        actual_filename = filename or file_path.split("/")[-1]
 
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            raise RuntimeError(cb_error)
+        with open(file_path, "rb") as f:
+            file_content = f.read()
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout * 2) as client:
-                with open(file_path, "rb") as f:
-                    files = {"document": (filename or file_path.split("/")[-1], f)}
-                    data = {"chat_id": channel_id}
-                    if comment:
-                        data["caption"] = comment
+        files = {"document": (actual_filename, file_content)}
+        payload: dict[str, Any] = {"chat_id": channel_id}
+        if comment:
+            payload["caption"] = comment
 
-                    response = await client.post(
-                        f"{self._api_base}/sendDocument",
-                        data=data,
-                        files=files,
-                        headers=build_trace_headers(),  # Distributed tracing
-                    )
-                    result = response.json()
+        success, data, error = await self._telegram_api_request(
+            "sendDocument",
+            payload=payload,
+            files=files,
+            operation="upload_file",
+            timeout=self._request_timeout * 2,
+        )
 
-                    # Check for rate limit (429)
-                    if result.get("error_code") == 429:
-                        self._record_failure(Exception("Rate limit exceeded (429)"))
-                        raise RuntimeError(result.get("description", "Rate limit exceeded"))
+        if success and data:
+            doc = data.get("result", {}).get("document", {})
+            return FileAttachment(
+                id=doc.get("file_id", ""),
+                filename=doc.get("file_name", actual_filename),
+                size=doc.get("file_size", 0),
+                content_type=doc.get("mime_type", "application/octet-stream"),
+            )
 
-                    if not result.get("ok"):
-                        self._record_failure(Exception(result.get("description", "Upload failed")))
-                        raise RuntimeError(result.get("description", "Upload failed"))
-
-                    self._record_success()
-                    doc = result.get("result", {}).get("document", {})
-                    return FileAttachment(
-                        id=doc.get("file_id", ""),
-                        filename=doc.get("file_name", filename or ""),
-                        size=doc.get("file_size", 0),
-                        content_type=doc.get("mime_type", "application/octet-stream"),
-                    )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        raise RuntimeError(error or "Upload failed")
 
     async def download_file(
         self,
@@ -470,7 +489,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> FileAttachment:
         """Download a file by file_id.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request and _http_request for circuit breaker,
+        retry, and timeout handling.
 
         Args:
             file_id: Telegram file_id to download
@@ -479,71 +499,60 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             FileAttachment with content populated
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        # Step 1: Get file path via API
+        success, data, error = await self._telegram_api_request(
+            "getFile",
+            payload={"file_id": file_id},
+            method="GET",
+            operation="download_file_info",
+            timeout=self._request_timeout * 2,
+        )
 
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            raise RuntimeError(cb_error)
+        if not success or not data:
+            raise RuntimeError(error or "Failed to get file info")
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout * 2) as client:
-                # Get file path
-                response = await client.get(
-                    f"{self._api_base}/getFile",
-                    params={"file_id": file_id},
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
+        file_info = data.get("result", {})
+        file_path = file_info.get("file_path")
+        if not file_path:
+            raise RuntimeError("No file path returned")
 
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    raise RuntimeError(data.get("description", "Rate limit exceeded"))
+        # Step 2: Download binary content
+        download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
+        dl_success, content, dl_error = await self._http_request(
+            method="GET",
+            url=download_url,
+            headers=build_trace_headers(),
+            timeout=self._request_timeout * 2,
+            return_raw=True,
+            operation="download_file_content",
+        )
 
-                if not data.get("ok"):
-                    self._record_failure(Exception(data.get("description", "Failed to get file")))
-                    raise RuntimeError(data.get("description", "Failed to get file"))
+        if not dl_success or not isinstance(content, bytes):
+            raise RuntimeError(dl_error or "Failed to download file")
 
-                file_info = data.get("result", {})
-                file_path = file_info.get("file_path")
-                if not file_path:
-                    self._record_failure(Exception("No file path returned"))
-                    raise RuntimeError("No file path returned")
+        # Extract filename from path or use kwargs hint
+        filename = kwargs.get("filename") or file_path.split("/")[-1]
 
-                # Download file
-                download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
-                response = await client.get(download_url, headers=build_trace_headers())
-                content = response.content
-                self._record_success()
+        # Guess content type from extension
+        content_type = "application/octet-stream"
+        if filename.endswith(".ogg") or filename.endswith(".oga"):
+            content_type = "audio/ogg"
+        elif filename.endswith(".mp3"):
+            content_type = "audio/mpeg"
+        elif filename.endswith(".wav"):
+            content_type = "audio/wav"
+        elif filename.endswith(".m4a"):
+            content_type = "audio/mp4"
 
-                # Extract filename from path or use kwargs hint
-                filename = kwargs.get("filename") or file_path.split("/")[-1]
-
-                # Guess content type from extension
-                content_type = "application/octet-stream"
-                if filename.endswith(".ogg") or filename.endswith(".oga"):
-                    content_type = "audio/ogg"
-                elif filename.endswith(".mp3"):
-                    content_type = "audio/mpeg"
-                elif filename.endswith(".wav"):
-                    content_type = "audio/wav"
-                elif filename.endswith(".m4a"):
-                    content_type = "audio/mp4"
-
-                return FileAttachment(
-                    id=file_id,
-                    filename=filename,
-                    content_type=content_type,
-                    size=file_info.get("file_size", len(content)),
-                    url=download_url,
-                    content=content,
-                    metadata={"telegram_file_path": file_path},
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return FileAttachment(
+            id=file_id,
+            filename=filename,
+            content_type=content_type,
+            size=file_info.get("file_size", len(content)),
+            url=download_url,
+            content=content,
+            metadata={"telegram_file_path": file_path},
+        )
 
     async def handle_webhook(
         self,
@@ -731,60 +740,31 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Send a voice message.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        files = {"voice": ("voice.ogg", audio_data, "audio/ogg")}
+        payload: dict[str, Any] = {"chat_id": channel_id}
+        if duration:
+            payload["duration"] = str(duration)
 
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
+        success, data, error = await self._telegram_api_request(
+            "sendVoice",
+            payload=payload,
+            files=files,
+            operation="send_voice_message",
+            timeout=self._request_timeout * 2,
+        )
+
+        if success and data:
+            msg = data.get("result", {})
             return SendMessageResponse(
-                success=False,
-                error=cb_error,
+                success=True,
+                message_id=str(msg.get("message_id")),
+                channel_id=channel_id,
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
             )
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout * 2) as client:
-                files = {"voice": ("voice.ogg", audio_data, "audio/ogg")}
-                data = {"chat_id": channel_id}
-                if duration:
-                    data["duration"] = str(duration)
-
-                response = await client.post(
-                    f"{self._api_base}/sendVoice",
-                    data=data,
-                    files=files,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                result = response.json()
-
-                # Check for rate limit (429)
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Rate limit exceeded"),
-                    )
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Voice send failed")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Voice send failed"),
-                    )
-
-                self._record_success()
-                msg = result.get("result", {})
-                return SendMessageResponse(
-                    success=True,
-                    message_id=str(msg.get("message_id")),
-                    channel_id=channel_id,
-                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return SendMessageResponse(success=False, error=error)
 
     async def download_voice_message(
         self,
@@ -802,48 +782,28 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> ChatChannel:
         """Get information about a chat.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        success, data, error = await self._telegram_api_request(
+            "getChat",
+            payload={"chat_id": channel_id},
+            method="GET",
+            operation="get_channel_info",
+        )
 
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            raise RuntimeError(cb_error)
+        if not success or not data:
+            raise RuntimeError(error or "Failed to get chat")
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.get(
-                    f"{self._api_base}/getChat",
-                    params={"chat_id": channel_id},
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
-
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    raise RuntimeError(data.get("description", "Rate limit exceeded"))
-
-                if not data.get("ok"):
-                    self._record_failure(Exception(data.get("description", "Failed to get chat")))
-                    raise RuntimeError(data.get("description", "Failed to get chat"))
-
-                self._record_success()
-                chat = data.get("result", {})
-                chat_type = chat.get("type", "private")
-                return ChatChannel(
-                    id=str(chat.get("id")),
-                    platform="telegram",
-                    name=chat.get("title") or chat.get("username") or "",
-                    is_private=chat_type == "private",
-                    is_dm=chat_type == "private",
-                    metadata={"type": chat_type, "member_count": chat.get("member_count")},
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        chat = data.get("result", {})
+        chat_type = chat.get("type", "private")
+        return ChatChannel(
+            id=str(chat.get("id")),
+            platform="telegram",
+            name=chat.get("title") or chat.get("username") or "",
+            is_private=chat_type == "private",
+            is_dm=chat_type == "private",
+            metadata={"type": chat_type, "member_count": chat.get("member_count")},
+        )
 
     async def get_user_info(
         self,
@@ -899,48 +859,24 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Answer a callback query (acknowledge button click).
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
-
-        # Check circuit breaker
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.warning(f"Circuit breaker open: {cb_error}")
-            return False
-
         payload: dict[str, Any] = {"callback_query_id": callback_query_id}
         if text:
             payload["text"] = text
         if show_alert:
             payload["show_alert"] = True
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/answerCallbackQuery",
-                    json=payload,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                data = response.json()
+        success, _, error = await self._telegram_api_request(
+            "answerCallbackQuery",
+            payload=payload,
+            operation="answer_callback_query",
+        )
 
-                # Check for rate limit (429)
-                if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return False
+        if not success and error:
+            logger.warning(f"Failed to answer callback query: {error}")
 
-                if data.get("ok"):
-                    self._record_success()
-                    return True
-                else:
-                    self._record_failure(
-                        Exception(data.get("description", "Failed to answer callback query"))
-                    )
-                    return False
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return success
 
     def _blocks_to_keyboard(self, blocks: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
         """Convert generic blocks to Telegram inline keyboard."""
@@ -1198,6 +1134,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Send a photo to a Telegram chat.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Args:
             channel_id: Target chat ID
             photo: File path, URL, or bytes of the photo
@@ -1209,86 +1147,49 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             SendMessageResponse with success status
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        payload: dict[str, Any] = {"chat_id": channel_id}
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(success=False, error=cb_error)
+        if caption:
+            payload["caption"] = (
+                self._escape_markdown(caption)
+                if self.parse_mode.startswith("Markdown")
+                else caption
+            )
+            payload["parse_mode"] = self.parse_mode
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                data: dict[str, Any] = {"chat_id": channel_id}
+        if thread_id:
+            payload["reply_to_message_id"] = int(thread_id)
 
-                if caption:
-                    data["caption"] = (
-                        self._escape_markdown(caption)
-                        if self.parse_mode.startswith("Markdown")
-                        else caption
-                    )
-                    data["parse_mode"] = self.parse_mode
+        if blocks:
+            keyboard = self._blocks_to_keyboard(blocks)
+            if keyboard:
+                payload["reply_markup"] = json.dumps(keyboard)
 
-                if thread_id:
-                    data["reply_to_message_id"] = int(thread_id)
+        # Determine how to send the photo
+        files = None
+        if isinstance(photo, bytes):
+            files = {"photo": ("photo.jpg", photo, "image/jpeg")}
+        else:
+            # URL or file_id
+            payload["photo"] = photo
 
-                if blocks:
-                    keyboard = self._blocks_to_keyboard(blocks)
-                    if keyboard:
-                        data["reply_markup"] = json.dumps(keyboard)
+        success, data, error = await self._telegram_api_request(
+            "sendPhoto",
+            payload=payload,
+            files=files,
+            operation="send_photo",
+        )
 
-                # Determine how to send the photo
-                trace_headers = build_trace_headers()  # Distributed tracing
-                if isinstance(photo, bytes):
-                    files = {"photo": ("photo.jpg", photo, "image/jpeg")}
-                    response = await client.post(
-                        f"{self._api_base}/sendPhoto",
-                        data=data,
-                        files=files,
-                        headers=trace_headers,
-                    )
-                elif photo.startswith(("http://", "https://")):
-                    data["photo"] = photo
-                    response = await client.post(
-                        f"{self._api_base}/sendPhoto",
-                        json=data,
-                        headers=trace_headers,
-                    )
-                else:
-                    # Assume file_id
-                    data["photo"] = photo
-                    response = await client.post(
-                        f"{self._api_base}/sendPhoto",
-                        json=data,
-                        headers=trace_headers,
-                    )
+        if success and data:
+            msg = data.get("result", {})
+            return SendMessageResponse(
+                success=True,
+                message_id=str(msg.get("message_id")),
+                channel_id=str(msg.get("chat", {}).get("id")),
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+            )
 
-                result = response.json()
-
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Rate limit exceeded"),
-                    )
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Unknown error"),
-                    )
-
-                self._record_success()
-                msg = result.get("result", {})
-                return SendMessageResponse(
-                    success=True,
-                    message_id=str(msg.get("message_id")),
-                    channel_id=str(msg.get("chat", {}).get("id")),
-                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return SendMessageResponse(success=False, error=error)
 
     async def send_video(
         self,
@@ -1305,6 +1206,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Send a video to a Telegram chat.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Args:
             channel_id: Target chat ID
             video: File path, URL, or bytes of the video
@@ -1320,95 +1223,58 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             SendMessageResponse with success status
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        payload: dict[str, Any] = {
+            "chat_id": channel_id,
+            "supports_streaming": supports_streaming,
+        }
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(success=False, error=cb_error)
+        if caption:
+            payload["caption"] = (
+                self._escape_markdown(caption)
+                if self.parse_mode.startswith("Markdown")
+                else caption
+            )
+            payload["parse_mode"] = self.parse_mode
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                data: dict[str, Any] = {
-                    "chat_id": channel_id,
-                    "supports_streaming": supports_streaming,
-                }
+        if thread_id:
+            payload["reply_to_message_id"] = int(thread_id)
+        if duration:
+            payload["duration"] = duration
+        if width:
+            payload["width"] = width
+        if height:
+            payload["height"] = height
 
-                if caption:
-                    data["caption"] = (
-                        self._escape_markdown(caption)
-                        if self.parse_mode.startswith("Markdown")
-                        else caption
-                    )
-                    data["parse_mode"] = self.parse_mode
+        if blocks:
+            keyboard = self._blocks_to_keyboard(blocks)
+            if keyboard:
+                payload["reply_markup"] = json.dumps(keyboard)
 
-                if thread_id:
-                    data["reply_to_message_id"] = int(thread_id)
-                if duration:
-                    data["duration"] = duration
-                if width:
-                    data["width"] = width
-                if height:
-                    data["height"] = height
+        # Determine how to send the video
+        files = None
+        if isinstance(video, bytes):
+            files = {"video": ("video.mp4", video, "video/mp4")}
+        else:
+            # URL or file_id
+            payload["video"] = video
 
-                if blocks:
-                    keyboard = self._blocks_to_keyboard(blocks)
-                    if keyboard:
-                        data["reply_markup"] = json.dumps(keyboard)
+        success, data, error = await self._telegram_api_request(
+            "sendVideo",
+            payload=payload,
+            files=files,
+            operation="send_video",
+        )
 
-                # Determine how to send the video
-                trace_headers = build_trace_headers()  # Distributed tracing
-                if isinstance(video, bytes):
-                    files = {"video": ("video.mp4", video, "video/mp4")}
-                    response = await client.post(
-                        f"{self._api_base}/sendVideo",
-                        data=data,
-                        files=files,
-                        headers=trace_headers,
-                    )
-                elif video.startswith(("http://", "https://")):
-                    data["video"] = video
-                    response = await client.post(
-                        f"{self._api_base}/sendVideo",
-                        json=data,
-                        headers=trace_headers,
-                    )
-                else:
-                    # Assume file_id
-                    data["video"] = video
-                    response = await client.post(
-                        f"{self._api_base}/sendVideo",
-                        json=data,
-                        headers=trace_headers,
-                    )
+        if success and data:
+            msg = data.get("result", {})
+            return SendMessageResponse(
+                success=True,
+                message_id=str(msg.get("message_id")),
+                channel_id=str(msg.get("chat", {}).get("id")),
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+            )
 
-                result = response.json()
-
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Rate limit exceeded"),
-                    )
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Unknown error"),
-                    )
-
-                self._record_success()
-                msg = result.get("result", {})
-                return SendMessageResponse(
-                    success=True,
-                    message_id=str(msg.get("message_id")),
-                    channel_id=str(msg.get("chat", {}).get("id")),
-                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return SendMessageResponse(success=False, error=error)
 
     async def send_animation(
         self,
@@ -1421,6 +1287,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> SendMessageResponse:
         """Send an animation (GIF) to a Telegram chat.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Args:
             channel_id: Target chat ID
             animation: File path, URL, or bytes of the animation
@@ -1432,84 +1300,48 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             SendMessageResponse with success status
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        payload: dict[str, Any] = {"chat_id": channel_id}
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(success=False, error=cb_error)
+        if caption:
+            payload["caption"] = (
+                self._escape_markdown(caption)
+                if self.parse_mode.startswith("Markdown")
+                else caption
+            )
+            payload["parse_mode"] = self.parse_mode
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                data: dict[str, Any] = {"chat_id": channel_id}
+        if thread_id:
+            payload["reply_to_message_id"] = int(thread_id)
 
-                if caption:
-                    data["caption"] = (
-                        self._escape_markdown(caption)
-                        if self.parse_mode.startswith("Markdown")
-                        else caption
-                    )
-                    data["parse_mode"] = self.parse_mode
+        if blocks:
+            keyboard = self._blocks_to_keyboard(blocks)
+            if keyboard:
+                payload["reply_markup"] = json.dumps(keyboard)
 
-                if thread_id:
-                    data["reply_to_message_id"] = int(thread_id)
+        # Handle bytes input (file upload) vs URL/file_id
+        files: Optional[dict[str, Any]] = None
+        if isinstance(animation, bytes):
+            files = {"animation": ("animation.gif", animation, "image/gif")}
+        else:
+            payload["animation"] = animation
 
-                if blocks:
-                    keyboard = self._blocks_to_keyboard(blocks)
-                    if keyboard:
-                        data["reply_markup"] = json.dumps(keyboard)
+        success, data, error = await self._telegram_api_request(
+            "sendAnimation",
+            payload=payload,
+            files=files,
+            operation="send_animation",
+        )
 
-                trace_headers = build_trace_headers()  # Distributed tracing
-                if isinstance(animation, bytes):
-                    files = {"animation": ("animation.gif", animation, "image/gif")}
-                    response = await client.post(
-                        f"{self._api_base}/sendAnimation",
-                        data=data,
-                        files=files,
-                        headers=trace_headers,
-                    )
-                elif animation.startswith(("http://", "https://")):
-                    data["animation"] = animation
-                    response = await client.post(
-                        f"{self._api_base}/sendAnimation",
-                        json=data,
-                        headers=trace_headers,
-                    )
-                else:
-                    data["animation"] = animation
-                    response = await client.post(
-                        f"{self._api_base}/sendAnimation",
-                        json=data,
-                        headers=trace_headers,
-                    )
+        if success and data:
+            msg = data.get("result", {})
+            return SendMessageResponse(
+                success=True,
+                message_id=str(msg.get("message_id")),
+                channel_id=str(msg.get("chat", {}).get("id")),
+                timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+            )
 
-                result = response.json()
-
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Rate limit exceeded"),
-                    )
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=result.get("description", "Unknown error"),
-                    )
-
-                self._record_success()
-                msg = result.get("result", {})
-                return SendMessageResponse(
-                    success=True,
-                    message_id=str(msg.get("message_id")),
-                    channel_id=str(msg.get("chat", {}).get("id")),
-                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
-                )
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return SendMessageResponse(success=False, error=error)
 
     async def send_media_group(
         self,
@@ -1519,6 +1351,8 @@ class TelegramConnector(ChatPlatformConnector):
         **kwargs: Any,
     ) -> list[SendMessageResponse]:
         """Send a group of photos or videos as an album.
+
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
 
         Args:
             channel_id: Target chat ID
@@ -1532,79 +1366,50 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             List of SendMessageResponse for each sent message
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
-
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return [SendMessageResponse(success=False, error=cb_error)]
-
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                # Format media for API
-                formatted_media = []
-                for item in media:
-                    media_item = {
-                        "type": item.get("type", "photo"),
-                        "media": item.get("media"),
-                    }
-                    if "caption" in item:
-                        caption = item["caption"]
-                        media_item["caption"] = (
-                            self._escape_markdown(caption)
-                            if self.parse_mode.startswith("Markdown")
-                            else caption
-                        )
-                        media_item["parse_mode"] = self.parse_mode
-                    formatted_media.append(media_item)
-
-                data: dict[str, Any] = {
-                    "chat_id": channel_id,
-                    "media": json.dumps(formatted_media),
-                }
-
-                if thread_id:
-                    data["reply_to_message_id"] = int(thread_id)
-
-                response = await client.post(
-                    f"{self._api_base}/sendMediaGroup",
-                    data=data,
-                    headers=build_trace_headers(),  # Distributed tracing
+        # Format media for API
+        formatted_media = []
+        for item in media:
+            media_item = {
+                "type": item.get("type", "photo"),
+                "media": item.get("media"),
+            }
+            if "caption" in item:
+                caption = item["caption"]
+                media_item["caption"] = (
+                    self._escape_markdown(caption)
+                    if self.parse_mode.startswith("Markdown")
+                    else caption
                 )
-                result = response.json()
+                media_item["parse_mode"] = self.parse_mode
+            formatted_media.append(media_item)
 
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return [
-                        SendMessageResponse(
-                            success=False,
-                            error=result.get("description", "Rate limit exceeded"),
-                        )
-                    ]
+        payload: dict[str, Any] = {
+            "chat_id": channel_id,
+            "media": json.dumps(formatted_media),
+        }
 
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return [
-                        SendMessageResponse(
-                            success=False,
-                            error=result.get("description", "Unknown error"),
-                        )
-                    ]
+        if thread_id:
+            payload["reply_to_message_id"] = int(thread_id)
 
-                self._record_success()
-                messages = result.get("result", [])
-                return [
-                    SendMessageResponse(
-                        success=True,
-                        message_id=str(msg.get("message_id")),
-                        channel_id=str(msg.get("chat", {}).get("id")),
-                        timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
-                    )
-                    for msg in messages
-                ]
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        success, data, error = await self._telegram_api_request(
+            "sendMediaGroup",
+            payload=payload,
+            operation="send_media_group",
+        )
+
+        if success and data:
+            messages = data.get("result", [])
+            return [
+                SendMessageResponse(
+                    success=True,
+                    message_id=str(msg.get("message_id")),
+                    channel_id=str(msg.get("chat", {}).get("id")),
+                    timestamp=datetime.fromtimestamp(msg.get("date", 0)).isoformat(),
+                )
+                for msg in messages
+            ]
+
+        return [SendMessageResponse(success=False, error=error)]
 
     # =========================================================================
     # Inline Query Support
@@ -1622,6 +1427,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Answer an inline query with results.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Args:
             inline_query_id: Unique identifier for the inline query
             results: List of InlineQueryResult objects. Each should have:
@@ -1638,49 +1445,28 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             True if successful, False otherwise
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        payload: dict[str, Any] = {
+            "inline_query_id": inline_query_id,
+            "results": json.dumps(results),
+            "cache_time": cache_time,
+            "is_personal": is_personal,
+        }
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.error(f"Circuit breaker open: {cb_error}")
-            return False
+        if next_offset:
+            payload["next_offset"] = next_offset
+        if button:
+            payload["button"] = json.dumps(button)
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                payload: dict[str, Any] = {
-                    "inline_query_id": inline_query_id,
-                    "results": json.dumps(results),
-                    "cache_time": cache_time,
-                    "is_personal": is_personal,
-                }
+        success, data, error = await self._telegram_api_request(
+            "answerInlineQuery",
+            payload=payload,
+            operation="answer_inline_query",
+        )
 
-                if next_offset:
-                    payload["next_offset"] = next_offset
-                if button:
-                    payload["button"] = json.dumps(button)
+        if not success:
+            logger.error(f"Failed to answer inline query: {error}")
 
-                response = await client.post(
-                    f"{self._api_base}/answerInlineQuery",
-                    json=payload,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                result = response.json()
-
-                if result.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return False
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    logger.error(f"Failed to answer inline query: {result.get('description')}")
-                    return False
-
-                self._record_success()
-                return True
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return success
 
     def build_inline_article_result(
         self,
@@ -1739,6 +1525,8 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Set the list of the bot's commands.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Args:
             commands: List of command dicts with 'command' and 'description' keys
             scope: Scope for which commands apply (all users, specific chat, etc.)
@@ -1748,77 +1536,51 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             True if successful
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        payload: dict[str, Any] = {
+            "commands": json.dumps(commands),
+        }
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.error(f"Circuit breaker open: {cb_error}")
-            return False
+        if scope:
+            payload["scope"] = json.dumps(scope)
+        if language_code:
+            payload["language_code"] = language_code
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                payload: dict[str, Any] = {
-                    "commands": json.dumps(commands),
-                }
+        success, data, error = await self._telegram_api_request(
+            "setMyCommands",
+            payload=payload,
+            operation="set_my_commands",
+        )
 
-                if scope:
-                    payload["scope"] = json.dumps(scope)
-                if language_code:
-                    payload["language_code"] = language_code
+        if not success:
+            logger.error(f"Failed to set commands: {error}")
 
-                response = await client.post(
-                    f"{self._api_base}/setMyCommands",
-                    json=payload,
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                result = response.json()
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return False
-
-                self._record_success()
-                return True
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return success
 
     async def get_me(self) -> Optional[dict[str, Any]]:
         """Get basic information about the bot.
 
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
+
         Returns:
             Bot user object with id, username, first_name, etc.
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        success, data, error = await self._telegram_api_request(
+            "getMe",
+            method="GET",
+            operation="get_me",
+        )
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.error(f"Circuit breaker open: {cb_error}")
-            return None
+        if success and data:
+            bot_info: Optional[dict[str, Any]] = data.get("result")
+            return bot_info
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.get(
-                    f"{self._api_base}/getMe",
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                result = response.json()
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return None
-
-                self._record_success()
-                bot_info: Optional[dict[str, Any]] = result.get("result")
-                return bot_info
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        logger.error(f"Failed to get bot info: {error}")
+        return None
 
     async def get_chat_member_count(self, channel_id: str) -> Optional[int]:
         """Get the number of members in a chat.
+
+        Uses _telegram_api_request for circuit breaker, retry, and timeout handling.
 
         Args:
             channel_id: Target chat ID
@@ -1826,33 +1588,18 @@ class TelegramConnector(ChatPlatformConnector):
         Returns:
             Number of members or None if failed
         """
-        if not HTTPX_AVAILABLE:
-            raise RuntimeError("httpx is required for Telegram connector")
+        success, data, error = await self._telegram_api_request(
+            "getChatMemberCount",
+            payload={"chat_id": channel_id},
+            operation="get_chat_member_count",
+        )
 
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.error(f"Circuit breaker open: {cb_error}")
-            return None
+        if success and data:
+            count: Optional[int] = data.get("result")
+            return count
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{self._api_base}/getChatMemberCount",
-                    json={"chat_id": channel_id},
-                    headers=build_trace_headers(),  # Distributed tracing
-                )
-                result = response.json()
-
-                if not result.get("ok"):
-                    self._record_failure(Exception(result.get("description", "Unknown error")))
-                    return None
-
-                self._record_success()
-                count: Optional[int] = result.get("result")
-                return count
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        logger.error(f"Failed to get chat member count: {error}")
+        return None
 
 
 __all__ = ["TelegramConnector"]

@@ -16,7 +16,10 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,
     DEFAULT_AGENTS,
+    DEFAULT_CONSENSUS,
+    DEFAULT_ROUNDS,
     MAX_CONCURRENT_DEBATES,
+    MAX_ROUNDS,
 )
 from aragora.server.debate_factory import DebateConfig, DebateFactory
 from aragora.server.debate_utils import (
@@ -56,8 +59,8 @@ class DebateRequest:
 
     question: str
     agents_str: str = DEFAULT_AGENTS
-    rounds: int = 8  # 9-round format (0-8), default for all debates
-    consensus: str = "judge"  # Judge-based consensus for final decisions
+    rounds: int = DEFAULT_ROUNDS  # 9-round format (0-8), default for all debates
+    consensus: str = DEFAULT_CONSENSUS  # Default consensus configuration
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     auto_select: bool = False
     auto_select_config: dict = None
@@ -95,15 +98,15 @@ class DebateRequest:
             raise ValueError("question must be under 10,000 characters")
 
         try:
-            rounds = min(max(int(data.get("rounds", 8)), 1), 10)
+            rounds = min(max(int(data.get("rounds", DEFAULT_ROUNDS)), 1), MAX_ROUNDS)
         except (ValueError, TypeError):
-            rounds = 8
+            rounds = DEFAULT_ROUNDS
 
         return cls(
             question=question,
             agents_str=data.get("agents", DEFAULT_AGENTS),
             rounds=rounds,
-            consensus=data.get("consensus", "judge"),
+            consensus=data.get("consensus", DEFAULT_CONSENSUS),
             debate_format=data.get("debate_format", "full"),
             auto_select=data.get("auto_select", False),
             auto_select_config=data.get("auto_select_config", {}),

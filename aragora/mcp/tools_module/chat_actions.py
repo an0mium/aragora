@@ -155,8 +155,8 @@ async def trigger_debate_tool(
     channel_id: str,
     question: str,
     platform: str = "slack",
-    agents: str = "anthropic-api,openai-api",
-    rounds: int = 3,
+    agents: str | None = None,
+    rounds: int | None = None,
     stream_progress: bool = True,
     post_receipt: bool = True,
 ) -> Dict[str, Any]:
@@ -178,11 +178,18 @@ async def trigger_debate_tool(
         Dict with debate trigger result including debate ID
     """
     try:
+        from aragora.config.settings import AgentSettings, DebateSettings
         from aragora.mcp.tools_module.debate import run_debate_tool
 
         # Note: Origin tracking for result routing will be implemented when
         # origin-aware debate routing is added. For now, we route results
         # through the debate tool's callback mechanism.
+        agent_settings = AgentSettings()
+        debate_settings = DebateSettings()
+        if agents is None:
+            agents = agent_settings.default_agents
+        if rounds is None:
+            rounds = debate_settings.default_rounds
 
         # Notify channel that debate is starting
         await send_message_tool(

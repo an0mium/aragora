@@ -122,11 +122,13 @@ async def create_checkpoint_tool(
                 )
 
         # Create checkpoint
+        from aragora.config.settings import DebateSettings
+
         checkpoint = await manager.create_checkpoint(
             debate_id=debate_id,
             task=debate.get("task", "Unknown task"),
             current_round=debate.get("rounds_used", len(messages) // 3),
-            total_rounds=debate.get("total_rounds", 3),
+            total_rounds=debate.get("total_rounds", DebateSettings().default_rounds),
             phase=debate.get("phase", "completed"),
             messages=messages,
             critiques=critiques,

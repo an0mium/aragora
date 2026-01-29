@@ -1,0 +1,512 @@
+"""
+Server startup validation functions.
+
+This module handles configuration validation, connectivity checks,
+and production requirements verification.
+"""
+
+import asyncio
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def _get_config_value(name: str) -> str | None:
+    """Get configuration value from environment or secrets manager."""
+    import os
+
+    # First check environment
+    value = os.environ.get(name)
+    if value:
+        return value
+
+    # Try secrets manager as fallback
+    try:
+        from aragora.config.secrets import get_secret
+
+        return get_secret(name)
+    except ImportError:
+        return None
+    except Exception:  # noqa: BLE001 - Secret fetch fallback
+        return None
+
+
+def check_connector_dependencies() -> list[str]:
+    """Check if connector dependencies are available.
+
+    SECURITY: Connectors fail-closed when dependencies are missing, but this
+    function provides early warnings at startup to help operators identify
+    misconfiguration before runtime failures occur.
+
+    Returns:
+        List of warnings for missing connector dependencies
+    """
+    import os
+
+    warnings = []
+
+    # Discord webhook verification requires PyNaCl
+    if os.environ.get("DISCORD_PUBLIC_KEY") or os.environ.get("DISCORD_WEBHOOK_URL"):
+        try:
+            import nacl.signing  # noqa: F401
+        except ImportError:
+            warnings.append(
+                "Discord connector configured but PyNaCl not installed. "
+                "Webhook signature verification will fail-closed. "
+                "Install with: pip install pynacl"
+            )
+
+    # Teams/Google Chat webhook verification requires PyJWT
+    teams_configured = os.environ.get("TEAMS_TENANT_ID") or os.environ.get("TEAMS_WEBHOOK_URL")
+    gchat_configured = os.environ.get("GOOGLE_CHAT_PROJECT") or os.environ.get(
+        "GOOGLE_CHAT_WEBHOOK_URL"
+    )
+    if teams_configured or gchat_configured:
+        try:
+            import jwt  # noqa: F401
+        except ImportError:
+            connectors = []
+            if teams_configured:
+                connectors.append("Teams")
+            if gchat_configured:
+                connectors.append("Google Chat")
+            warnings.append(
+                f"{'/'.join(connectors)} connector configured but PyJWT not installed. "
+                "Webhook signature verification will fail-closed. "
+                "Install with: pip install pyjwt"
+            )
+
+    # Slack webhook verification requires signing secret
+    if os.environ.get("SLACK_WEBHOOK_URL") and not os.environ.get("SLACK_SIGNING_SECRET"):
+        warnings.append(
+            "Slack webhook configured but SLACK_SIGNING_SECRET not set. "
+            "Webhook signature verification will fail-closed unless "
+            "ARAGORA_WEBHOOK_ALLOW_UNVERIFIED=1 is set (not recommended for production)."
+        )
+
+    # Slack OAuth configuration validation
+    slack_oauth_configured = os.environ.get("SLACK_CLIENT_ID") or os.environ.get(
+        "SLACK_CLIENT_SECRET"
+    )
+    if slack_oauth_configured:
+        slack_oauth_issues = []
+
+        if not os.environ.get("SLACK_CLIENT_ID"):
+            slack_oauth_issues.append("SLACK_CLIENT_ID")
+        if not os.environ.get("SLACK_CLIENT_SECRET"):
+            slack_oauth_issues.append("SLACK_CLIENT_SECRET")
+
+        if slack_oauth_issues:
+            warnings.append(
+                f"Slack OAuth partially configured - missing: {', '.join(slack_oauth_issues)}. "
+                "OAuth installation flow will fail without both variables set."
+            )
+
+        # Validate SLACK_REDIRECT_URI in production
+        is_production = os.environ.get("ARAGORA_ENV", "development") == "production"
+        redirect_uri = os.environ.get("SLACK_REDIRECT_URI", "")
+
+        if is_production and not redirect_uri:
+            warnings.append(
+                "SLACK_REDIRECT_URI not set in production. "
+                "Slack OAuth flow may fail or redirect to unexpected URLs."
+            )
+        elif redirect_uri and not redirect_uri.startswith("https://"):
+            if is_production:
+                warnings.append(
+                    "SLACK_REDIRECT_URI must use HTTPS in production. "
+                    f"Current value: {redirect_uri}"
+                )
+
+        # Encryption key is recommended for token storage
+        if not os.environ.get("ARAGORA_ENCRYPTION_KEY") and is_production:
+            warnings.append(
+                "ARAGORA_ENCRYPTION_KEY not set - Slack OAuth tokens will be stored "
+                "UNENCRYPTED. This is a security risk in production."
+            )
+
+    return warnings
+
+
+def check_agent_credentials(default_agents: str | None = None) -> list[str]:
+    """Check for missing API keys required by default agents.
+
+    This validates that environment variables or AWS Secrets Manager provide
+    the credentials needed to instantiate the configured default agents.
+    """
+    from aragora.config.settings import get_settings
+
+    warnings: list[str] = []
+    agents_str = default_agents or get_settings().agent.default_agents
+    agent_names = [a.strip() for a in agents_str.split(",") if a.strip()]
+
+    # Agents backed by OpenRouter (single key)
+    openrouter_agents = {
+        "deepseek",
+        "kimi",
+        "mistral",
+        "qwen",
+        "qwen-max",
+    }
+    if any(agent in openrouter_agents for agent in agent_names):
+        if not _get_config_value("OPENROUTER_API_KEY"):
+            warnings.append(
+                "OPENROUTER_API_KEY missing for OpenRouter-backed agents "
+                f"({', '.join(sorted(openrouter_agents & set(agent_names)))}). "
+                "Set via env or AWS Secrets Manager (ARAGORA_USE_SECRETS_MANAGER=1)."
+            )
+
+    # Direct API providers
+    if "openai-api" in agent_names and not _get_config_value("OPENAI_API_KEY"):
+        warnings.append("OPENAI_API_KEY missing for openai-api agent (env or Secrets Manager).")
+    if "anthropic-api" in agent_names and not _get_config_value("ANTHROPIC_API_KEY"):
+        warnings.append(
+            "ANTHROPIC_API_KEY missing for anthropic-api agent (env or Secrets Manager)."
+        )
+    if "gemini" in agent_names and not _get_config_value("GEMINI_API_KEY"):
+        warnings.append("GEMINI_API_KEY missing for gemini agent (env or Secrets Manager).")
+    if "grok" in agent_names and not _get_config_value("XAI_API_KEY"):
+        warnings.append("XAI_API_KEY missing for grok agent (env or Secrets Manager).")
+    if "mistral-api" in agent_names and not _get_config_value("MISTRAL_API_KEY"):
+        warnings.append("MISTRAL_API_KEY missing for mistral-api agent (env or Secrets Manager).")
+
+    return warnings
+
+
+def check_production_requirements() -> list[str]:
+    """Check if production requirements are met.
+
+    SECURITY: This function performs fail-fast validation of production
+    configuration to prevent runtime failures and security misconfigurations.
+
+    Environment Variables:
+        ARAGORA_ENV: Set to "production" to enable production checks
+        ARAGORA_MULTI_INSTANCE: Set to "true" to require Redis for HA
+        ARAGORA_REQUIRE_DATABASE: Set to "true" to require PostgreSQL
+
+    Returns:
+        List of missing requirements (empty if all met)
+    """
+    import os
+
+    from aragora.control_plane.leader import is_distributed_state_required
+
+    missing = []
+    warnings = []
+    env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env == "production"
+    distributed_state_required = is_distributed_state_required()
+    require_database = os.environ.get("ARAGORA_REQUIRE_DATABASE", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+
+    if is_production:
+        # =====================================================================
+        # HARD REQUIREMENTS (fail startup)
+        # =====================================================================
+
+        # Encryption key is required for production
+        if not _get_config_value("ARAGORA_ENCRYPTION_KEY"):
+            missing.append(
+                "ARAGORA_ENCRYPTION_KEY required in production "
+                "(32-byte hex string for AES-256 encryption)"
+            )
+
+        # Distributed state mode requires Redis
+        if distributed_state_required:
+            if not os.environ.get("REDIS_URL"):
+                missing.append(
+                    "REDIS_URL required for distributed state (multi-instance or production). "
+                    "Redis is needed for: session store, control-plane leader election, "
+                    "debate origins, and distributed caching. "
+                    "Set ARAGORA_SINGLE_INSTANCE=true if running single-node."
+                )
+
+        # Database requirement (optional flag for strict deployments)
+        if require_database:
+            if not os.environ.get("DATABASE_URL"):
+                missing.append(
+                    "DATABASE_URL required when ARAGORA_REQUIRE_DATABASE=true. "
+                    "PostgreSQL is needed for: governance store, audit logs, "
+                    "and enterprise connector sync."
+                )
+
+        # =====================================================================
+        # SOFT REQUIREMENTS (warnings)
+        # =====================================================================
+
+        # Redis recommended for durable state
+        if not distributed_state_required and not os.environ.get("REDIS_URL"):
+            warnings.append(
+                "REDIS_URL not set - using in-memory state for sessions, "
+                "debate origins, and control plane. Data will be lost on restart. "
+                "Set ARAGORA_MULTI_INSTANCE=true to make Redis mandatory."
+            )
+
+        # PostgreSQL recommended for governance store
+        if not require_database and not os.environ.get("DATABASE_URL"):
+            warnings.append(
+                "DATABASE_URL not set - using SQLite for governance store. "
+                "PostgreSQL recommended for production. "
+                "Set ARAGORA_REQUIRE_DATABASE=true to make it mandatory."
+            )
+
+        # JWT secret should be set for auth
+        if not _get_config_value("JWT_SECRET") and not _get_config_value("ARAGORA_JWT_SECRET"):
+            warnings.append(
+                "JWT_SECRET not set - using derived key from encryption key. "
+                "Consider setting JWT_SECRET for independent key rotation."
+            )
+
+    # Check connector dependencies (warnings, not errors)
+    connector_warnings = check_connector_dependencies()
+    warnings.extend(connector_warnings)
+
+    # Check agent API keys for default agents (warnings, not errors)
+    agent_warnings = check_agent_credentials()
+    warnings.extend(agent_warnings)
+
+    # Log all warnings
+    for warning in warnings:
+        logger.warning(f"[PRODUCTION CONFIG] {warning}")
+
+    # Log summary
+    if is_production:
+        if missing:
+            logger.error(
+                f"[PRODUCTION CONFIG] {len(missing)} critical requirement(s) missing. "
+                "Server startup will fail."
+            )
+        elif warnings:
+            logger.warning(
+                f"[PRODUCTION CONFIG] {len(warnings)} recommendation(s) not met. "
+                "Server will start but may have reduced durability."
+            )
+        else:
+            logger.info("[PRODUCTION CONFIG] All production requirements met.")
+
+    return missing
+
+
+async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
+    """Test Redis connectivity with a PING command.
+
+    This function validates that Redis is actually reachable when required,
+    not just that REDIS_URL is configured. This catches common issues like:
+    - Network connectivity problems
+    - Authentication failures
+    - Redis server not running
+
+    Args:
+        timeout_seconds: Connection timeout in seconds
+
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    import os
+
+    redis_url = os.environ.get("REDIS_URL") or os.environ.get("ARAGORA_REDIS_URL")
+    if not redis_url:
+        return True, "Redis not configured (skipping connectivity check)"
+
+    try:
+        import redis.asyncio as aioredis
+
+        client = aioredis.from_url(
+            redis_url,
+            socket_connect_timeout=timeout_seconds,
+            socket_timeout=timeout_seconds,
+        )
+        try:
+            result = await asyncio.wait_for(client.ping(), timeout=timeout_seconds)
+            if result:
+                # Check if we can get server info (validates auth)
+                info = await asyncio.wait_for(client.info("server"), timeout=timeout_seconds)
+                redis_version = info.get("redis_version", "unknown")
+                return True, f"Redis connected (version {redis_version})"
+            return False, "Redis PING failed"
+        finally:
+            await client.aclose()
+    except ImportError:
+        return False, "redis package not installed - run: pip install redis"
+    except asyncio.TimeoutError:
+        return False, f"Redis connection timed out after {timeout_seconds}s"
+    except Exception as e:
+        return False, f"Redis connection failed: {e}"
+
+
+async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[bool, str]:
+    """Test PostgreSQL connectivity with a simple query.
+
+    This function validates that PostgreSQL is actually reachable when required,
+    not just that DATABASE_URL is configured. This catches common issues like:
+    - Network connectivity problems
+    - Authentication failures
+    - Database server not running
+    - Database doesn't exist
+
+    Args:
+        timeout_seconds: Connection timeout in seconds
+
+    Returns:
+        Tuple of (success: bool, message: str)
+    """
+    import os
+
+    database_url = os.environ.get("DATABASE_URL") or os.environ.get("ARAGORA_POSTGRES_DSN")
+    if not database_url:
+        return True, "PostgreSQL not configured (skipping connectivity check)"
+
+    try:
+        import asyncpg
+
+        try:
+            conn = await asyncio.wait_for(
+                asyncpg.connect(database_url, timeout=timeout_seconds),
+                timeout=timeout_seconds,
+            )
+            try:
+                # Run a simple query to validate connection
+                version = await conn.fetchval("SELECT version()")
+                # Extract just the version string (e.g., "PostgreSQL 15.4")
+                version_short = version.split(",")[0] if version else "unknown"
+                return True, f"PostgreSQL connected ({version_short})"
+            finally:
+                await conn.close()
+        except asyncio.TimeoutError:
+            return False, f"PostgreSQL connection timed out after {timeout_seconds}s"
+    except ImportError:
+        return False, "asyncpg package not installed - run: pip install asyncpg"
+    except Exception as e:
+        return False, f"PostgreSQL connection failed: {e}"
+
+
+async def validate_backend_connectivity(
+    require_redis: bool = False,
+    require_database: bool = False,
+    timeout_seconds: float = 5.0,
+) -> dict[str, Any]:
+    """Validate connectivity to all configured backends.
+
+    This function should be called during startup after environment validation
+    to ensure that configured backends are actually reachable.
+
+    Args:
+        require_redis: If True, fail if Redis is not reachable
+        require_database: If True, fail if PostgreSQL is not reachable
+        timeout_seconds: Timeout for each connectivity test
+
+    Returns:
+        Dictionary with connectivity status:
+        {
+            "valid": True/False,
+            "redis": {"connected": bool, "message": str},
+            "database": {"connected": bool, "message": str},
+            "errors": [str, ...]
+        }
+    """
+    errors: list[str] = []
+
+    # Test Redis connectivity
+    redis_ok, redis_msg = await validate_redis_connectivity(timeout_seconds)
+    if not redis_ok and require_redis:
+        errors.append(f"Redis connectivity required but failed: {redis_msg}")
+
+    # Test database connectivity
+    db_ok, db_msg = await validate_database_connectivity(timeout_seconds)
+    if not db_ok and require_database:
+        errors.append(f"PostgreSQL connectivity required but failed: {db_msg}")
+
+    # Log results
+    if redis_ok and "connected" in redis_msg.lower():
+        logger.info(f"[BACKEND CHECK] {redis_msg}")
+    elif not redis_ok:
+        logger.warning(f"[BACKEND CHECK] Redis: {redis_msg}")
+
+    if db_ok and "connected" in db_msg.lower():
+        logger.info(f"[BACKEND CHECK] {db_msg}")
+    elif not db_ok:
+        logger.warning(f"[BACKEND CHECK] PostgreSQL: {db_msg}")
+
+    return {
+        "valid": len(errors) == 0,
+        "redis": {"connected": redis_ok, "message": redis_msg},
+        "database": {"connected": db_ok, "message": db_msg},
+        "errors": errors,
+    }
+
+
+def validate_storage_backend() -> dict[str, Any]:
+    """Validate storage backend configuration for production.
+
+    This function ensures that the correct storage backend is being used
+    in production environments. SQLite is not suitable for multi-instance
+    deployments as each server would have its own isolated database.
+
+    Returns:
+        Dictionary with validation results:
+        {
+            "valid": True/False,
+            "backend": "supabase" | "postgres" | "sqlite",
+            "is_production": True/False,
+            "warnings": [str, ...],
+            "errors": [str, ...]
+        }
+    """
+    import os
+
+    from aragora.storage.factory import get_storage_backend, StorageBackend
+
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env == "production"
+    backend = get_storage_backend()
+    allow_sqlite = os.environ.get("ARAGORA_ALLOW_SQLITE_FALLBACK", "").lower() in (
+        "true",
+        "1",
+    )
+
+    if is_production and backend == StorageBackend.SQLITE:
+        if allow_sqlite:
+            warnings.append(
+                "SQLite backend used in production with ARAGORA_ALLOW_SQLITE_FALLBACK=true. "
+                "This is not recommended for multi-instance deployments. "
+                "Users created on one server will not be visible on other servers."
+            )
+        else:
+            errors.append(
+                "Production environment requires distributed storage (Supabase or PostgreSQL). "
+                "SQLite is not suitable for multi-instance deployments. "
+                "Configure SUPABASE_URL + SUPABASE_DB_PASSWORD or ARAGORA_POSTGRES_DSN, "
+                "or set ARAGORA_ALLOW_SQLITE_FALLBACK=true to override (not recommended)."
+            )
+
+    # Log results
+    backend_name = backend.value
+    if backend == StorageBackend.SUPABASE:
+        logger.info("[STORAGE BACKEND] Using Supabase PostgreSQL (recommended)")
+    elif backend == StorageBackend.POSTGRES:
+        logger.info("[STORAGE BACKEND] Using self-hosted PostgreSQL")
+    else:
+        if is_production:
+            logger.warning("[STORAGE BACKEND] Using SQLite in production (not recommended)")
+        else:
+            logger.info("[STORAGE BACKEND] Using SQLite (development mode)")
+
+    for warning in warnings:
+        logger.warning(f"[STORAGE BACKEND] {warning}")
+    for error in errors:
+        logger.error(f"[STORAGE BACKEND] {error}")
+
+    return {
+        "valid": len(errors) == 0,
+        "backend": backend_name,
+        "is_production": is_production,
+        "warnings": warnings,
+        "errors": errors,
+    }

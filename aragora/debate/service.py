@@ -15,7 +15,7 @@ Usage:
     result = await service.run(
         task="Design a rate limiter",
         agents=["claude", "gemini"],
-        rounds=3,
+        rounds=9,
         consensus="supermajority",
     )
 
@@ -392,7 +392,7 @@ def get_debate_service(
         resolved_defaults = default_agents
         if resolved_defaults is None:
             settings = get_settings()
-            resolved_defaults = settings.agents.default_agent_list
+            resolved_defaults = settings.agent.default_agent_list
         _debate_service = DebateService(default_agents=resolved_defaults, **kwargs)
 
     return _debate_service

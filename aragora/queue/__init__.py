@@ -12,7 +12,7 @@ Usage:
     job = create_debate_job(
         question="Should we use microservices?",
         agents=["claude", "gpt"],
-        rounds=3,
+        rounds=9,
     )
     job_id = await queue.enqueue(job)
 

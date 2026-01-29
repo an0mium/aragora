@@ -137,10 +137,11 @@ class TestSlackThreadManager:
 
     @pytest.fixture
     def mock_connector(self):
-        """Create mock SlackConnector."""
+        """Create mock SlackConnector with _slack_api_request as AsyncMock."""
         connector = MagicMock()
         connector.bot_token = "xoxb-test-token"
         connector._request_timeout = 30.0
+        connector._slack_api_request = AsyncMock()
         return connector
 
     @pytest.fixture
@@ -155,29 +156,28 @@ class TestSlackThreadManager:
         assert thread_manager.platform_name == "slack"
 
     @pytest.mark.asyncio
-    async def test_get_thread_success(self, thread_manager):
+    async def test_get_thread_success(self, thread_manager, mock_connector):
         """Should get thread info from conversations.replies."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": True,
-            "messages": [
-                {
-                    "ts": "1704067200.000001",
-                    "user": "U12345",
-                    "text": "Thread root message",
-                    "reply_count": 5,
-                    "reply_users": ["U12345", "U67890"],
-                    "latest_reply": "1704153600.000002",
-                }
-            ],
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            True,
+            {
+                "ok": True,
+                "messages": [
+                    {
+                        "ts": "1704067200.000001",
+                        "user": "U12345",
+                        "text": "Thread root message",
+                        "reply_count": 5,
+                        "reply_users": ["U12345", "U67890"],
+                        "latest_reply": "1704153600.000002",
+                    }
+                ],
+            },
+            None,
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
-            thread = await thread_manager.get_thread("1704067200.000001", "C12345")
+        thread = await thread_manager.get_thread("1704067200.000001", "C12345")
 
         assert thread.id == "1704067200.000001"
         assert thread.channel_id == "C12345"
@@ -186,59 +186,54 @@ class TestSlackThreadManager:
         assert thread.participant_count == 3  # 2 reply_users + OP
 
     @pytest.mark.asyncio
-    async def test_get_thread_not_found(self, thread_manager):
+    async def test_get_thread_not_found(self, thread_manager, mock_connector):
         """Should raise ThreadNotFoundError when thread doesn't exist."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": False,
-            "error": "thread_not_found",
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            False,
+            {"ok": False, "error": "thread_not_found"},
+            "thread_not_found",
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
-            with pytest.raises(ThreadNotFoundError) as exc_info:
-                await thread_manager.get_thread("invalid_ts", "C12345")
+        with pytest.raises(ThreadNotFoundError) as exc_info:
+            await thread_manager.get_thread("invalid_ts", "C12345")
 
         assert exc_info.value.thread_id == "invalid_ts"
         assert exc_info.value.platform == "slack"
 
     @pytest.mark.asyncio
-    async def test_get_thread_messages(self, thread_manager):
+    async def test_get_thread_messages(self, thread_manager, mock_connector):
         """Should get all messages in a thread."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": True,
-            "messages": [
-                {
-                    "ts": "1704067200.000001",
-                    "user": "U12345",
-                    "text": "Root message",
-                },
-                {
-                    "ts": "1704067260.000002",
-                    "user": "U67890",
-                    "text": "Reply 1",
-                },
-                {
-                    "ts": "1704067320.000003",
-                    "user": "U12345",
-                    "text": "Reply 2",
-                },
-            ],
-            "response_metadata": {"next_cursor": ""},
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            True,
+            {
+                "ok": True,
+                "messages": [
+                    {
+                        "ts": "1704067200.000001",
+                        "user": "U12345",
+                        "text": "Root message",
+                    },
+                    {
+                        "ts": "1704067260.000002",
+                        "user": "U67890",
+                        "text": "Reply 1",
+                    },
+                    {
+                        "ts": "1704067320.000003",
+                        "user": "U12345",
+                        "text": "Reply 2",
+                    },
+                ],
+                "response_metadata": {"next_cursor": ""},
+            },
+            None,
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
-            messages, cursor = await thread_manager.get_thread_messages(
-                "1704067200.000001", "C12345", limit=50
-            )
+        messages, cursor = await thread_manager.get_thread_messages(
+            "1704067200.000001", "C12345", limit=50
+        )
 
         assert len(messages) == 3
         assert messages[0].content == "Root message"
@@ -246,63 +241,61 @@ class TestSlackThreadManager:
         assert cursor is None
 
     @pytest.mark.asyncio
-    async def test_get_thread_messages_with_pagination(self, thread_manager):
+    async def test_get_thread_messages_with_pagination(self, thread_manager, mock_connector):
         """Should handle pagination in thread messages."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": True,
-            "messages": [{"ts": "123", "user": "U1", "text": "Msg"}],
-            "response_metadata": {"next_cursor": "dGVzdF9jdXJzb3I="},
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            True,
+            {
+                "ok": True,
+                "messages": [{"ts": "123", "user": "U1", "text": "Msg"}],
+                "response_metadata": {"next_cursor": "dGVzdF9jdXJzb3I="},
+            },
+            None,
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
-            messages, cursor = await thread_manager.get_thread_messages("123", "C12345", limit=50)
+        messages, cursor = await thread_manager.get_thread_messages("123", "C12345", limit=50)
 
         assert len(messages) == 1
         assert cursor == "dGVzdF9jdXJzb3I="
 
     @pytest.mark.asyncio
-    async def test_list_threads(self, thread_manager):
+    async def test_list_threads(self, thread_manager, mock_connector):
         """Should list threads in a channel."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": True,
-            "messages": [
-                {
-                    "ts": "1704067200.000001",
-                    "user": "U12345",
-                    "text": "Thread 1 root",
-                    "reply_count": 3,
-                    "reply_users": ["U12345"],
-                    "latest_reply": "1704153600.000002",
-                },
-                {
-                    "ts": "1704067100.000001",
-                    "user": "U67890",
-                    "text": "Not a thread",
-                    "reply_count": 0,
-                },
-                {
-                    "ts": "1704067000.000001",
-                    "user": "U12345",
-                    "text": "Thread 2 root",
-                    "reply_count": 1,
-                    "reply_users": ["U67890"],
-                },
-            ],
-            "response_metadata": {"next_cursor": ""},
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            True,
+            {
+                "ok": True,
+                "messages": [
+                    {
+                        "ts": "1704067200.000001",
+                        "user": "U12345",
+                        "text": "Thread 1 root",
+                        "reply_count": 3,
+                        "reply_users": ["U12345"],
+                        "latest_reply": "1704153600.000002",
+                    },
+                    {
+                        "ts": "1704067100.000001",
+                        "user": "U67890",
+                        "text": "Not a thread",
+                        "reply_count": 0,
+                    },
+                    {
+                        "ts": "1704067000.000001",
+                        "user": "U12345",
+                        "text": "Thread 2 root",
+                        "reply_count": 1,
+                        "reply_users": ["U67890"],
+                    },
+                ],
+                "response_metadata": {"next_cursor": ""},
+            },
+            None,
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
-            threads, cursor = await thread_manager.list_threads("C12345", limit=10)
+        threads, cursor = await thread_manager.list_threads("C12345", limit=10)
 
         # Only messages with reply_count > 0 should be returned
         assert len(threads) == 2
@@ -330,25 +323,24 @@ class TestSlackThreadManager:
         assert call_kwargs["text"] == "This is a reply"
 
     @pytest.mark.asyncio
-    async def test_broadcast_thread_reply(self, thread_manager):
+    async def test_broadcast_thread_reply(self, thread_manager, mock_connector):
         """Should reply to thread with channel broadcast."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "ok": True,
-            "ts": "1704067400.000001",
-            "message": {"user": "B12345", "text": "Broadcast reply"},
-        }
+        # _slack_api_request returns (success, data, error)
+        mock_connector._slack_api_request.return_value = (
+            True,
+            {
+                "ok": True,
+                "ts": "1704067400.000001",
+                "message": {"user": "B12345", "text": "Broadcast reply"},
+            },
+            None,
+        )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
-
-            message = await thread_manager.broadcast_thread_reply(
-                "1704067200.000001",
-                "C12345",
-                "Important update!",
-            )
+        message = await thread_manager.broadcast_thread_reply(
+            "1704067200.000001",
+            "C12345",
+            "Important update!",
+        )
 
         assert message.id == "1704067400.000001"
         assert message.thread_id == "1704067200.000001"

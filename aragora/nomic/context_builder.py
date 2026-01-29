@@ -138,9 +138,10 @@ class NomicContextBuilder:
         knowledge_mound: Optional[Any] = None,
     ) -> None:
         self._aragora_path = aragora_path
-        self._max_context_bytes = max_context_bytes or int(
-            os.environ.get("NOMIC_MAX_CONTEXT_BYTES", str(100_000_000))
+        env_max = os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES") or os.environ.get(
+            "NOMIC_MAX_CONTEXT_BYTES"
         )
+        self._max_context_bytes = max_context_bytes or int(env_max or 100_000_000)
         if include_tests is None:
             self._include_tests = os.environ.get("NOMIC_INCLUDE_TESTS", "1") == "1"
         else:
@@ -228,6 +229,30 @@ class NomicContextBuilder:
         )
         return self._index
 
+    def _write_manifest(self) -> Optional[Path]:
+        """Write a lightweight manifest for REPL-based context access."""
+        if self._index is None:
+            return None
+
+        manifest_path = self._context_dir / "codebase_manifest.tsv"
+        try:
+            with manifest_path.open("w", encoding="utf-8") as handle:
+                handle.write(
+                    f"# Aragora codebase manifest\n"
+                    f"# root={self._index.root_path}\n"
+                    f"# files={self._index.total_files} lines={self._index.total_lines}\n"
+                    f"# format=path\\tlines\\tbytes\\textension\\tmodule\n"
+                )
+                for f in self._index.files:
+                    handle.write(
+                        f"{f.relative_path}\t{f.line_count}\t{f.size_bytes}\t"
+                        f"{f.extension}\t{f.module_path}\n"
+                    )
+            return manifest_path
+        except OSError as exc:
+            logger.warning("Failed to write manifest: %s", exc)
+            return None
+
     async def build_rlm_context(self) -> Any:
         """
         Build a TRUE RLM context from the codebase index.
@@ -255,12 +280,20 @@ class NomicContextBuilder:
                 cache_compressions=True,
             )
 
-            rlm = AragoraRLM(config=config)
+            rlm = AragoraRLM(aragora_config=config)
 
             # Build content from index (structure map + key files)
             content = self._build_structured_content()
+            manifest_path = self._write_manifest()
 
-            self._rlm_context = await rlm.build_context(content)
+            self._rlm_context = await rlm.build_context(
+                content,
+                source_type="codebase",
+                source_root=str(self._index.root_path) if self._index else None,
+                source_manifest=str(manifest_path) if manifest_path else None,
+            )
+            if getattr(self._rlm_context, "metadata", None) is not None:
+                self._rlm_context.metadata.setdefault("context_dir", str(self._context_dir))
             logger.info(
                 "RLM context built: %s mode",
                 "TRUE RLM"
@@ -291,7 +324,7 @@ class NomicContextBuilder:
                     prefer_true_rlm=True,
                     max_content_bytes=self._max_context_bytes,
                 )
-                rlm = AragoraRLM(config=config)
+                rlm = AragoraRLM(aragora_config=config)
                 result = await rlm.query(question, self._rlm_context)
                 return result.answer
             except Exception as exc:
@@ -317,6 +350,10 @@ class NomicContextBuilder:
             f"# Aragora Codebase Context ({self._index.total_files} files, "
             f"~{self._index.total_tokens_estimate // 1000}K tokens)"
         )
+        sections.append(f"Repo root: {self._index.root_path}")
+        manifest_path = self._write_manifest()
+        if manifest_path:
+            sections.append(f"Manifest: {manifest_path}")
         sections.append("")
 
         # Group files by top-level directory
@@ -348,6 +385,41 @@ class NomicContextBuilder:
             except Exception as exc:
                 logger.warning("Knowledge Mound query failed: %s", exc)
 
+        # Optional: augment with full-corpus TRUE RLM summary (file-backed)
+        if os.environ.get("NOMIC_RLM_FULL_CORPUS", "1") == "1":
+            try:
+                from aragora.nomic.rlm_codebase import summarize_codebase_with_rlm
+
+                require_true = os.environ.get("NOMIC_RLM_REQUIRE_TRUE", "1") == "1"
+                max_files = int(os.environ.get("NOMIC_RLM_MAX_FILES", "25000"))
+                max_file_bytes = int(os.environ.get("NOMIC_RLM_MAX_FILE_BYTES", "2000000"))
+                force_rebuild = os.environ.get("NOMIC_RLM_FORCE_REBUILD", "0") == "1"
+
+                output_dir = self._aragora_path / ".nomic" / "rlm"
+                result = await summarize_codebase_with_rlm(
+                    repo_path=self._aragora_path,
+                    output_dir=output_dir,
+                    require_true_rlm=require_true,
+                    max_content_bytes=self._max_context_bytes,
+                    max_files=max_files,
+                    max_file_bytes=max_file_bytes,
+                    force_rebuild=force_rebuild,
+                )
+
+                if result.summary:
+                    sections.append("## RLM Full-Corpus Summary (REPL)")
+                    sections.append(result.summary)
+                    sections.append("")
+                    sections.append(f"Corpus: {result.corpus.corpus_path}")
+                    sections.append(f"Manifest: {result.corpus.manifest_path}")
+                    if result.corpus.truncated:
+                        sections.append(
+                            "Warning: corpus truncated to size cap; set NOMIC_MAX_CONTEXT_BYTES to increase."
+                        )
+                    sections.append("")
+            except Exception as exc:
+                logger.warning("RLM full-corpus summary failed: %s", exc)
+
         return "\n".join(sections)
 
     def _build_structured_content(self) -> str:
@@ -359,6 +431,10 @@ class NomicContextBuilder:
         parts.append(
             f"CODEBASE: aragora ({self._index.total_files} files, {self._index.total_lines} lines)"
         )
+        parts.append(f"REPO_ROOT: {self._index.root_path}")
+        manifest_path = self._write_manifest()
+        if manifest_path:
+            parts.append(f"MANIFEST_PATH: {manifest_path}")
         parts.append("")
 
         # File tree

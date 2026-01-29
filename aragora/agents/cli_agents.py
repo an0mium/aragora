@@ -30,7 +30,7 @@ from aragora.agents.errors import (
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
-from aragora.resilience import CircuitBreaker, get_circuit_breaker
+from aragora.resilience_patterns import BaseCircuitBreaker, get_circuit_breaker
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import OpenRouterAgent
@@ -111,7 +111,7 @@ class CLIAgent(CritiqueMixin, Agent):
         role: AgentRole = "proposer",
         timeout: int = 300,  # Increased default for complex operations
         enable_fallback: bool | None = None,  # None = use config setting
-        circuit_breaker: CircuitBreaker | None = None,
+        circuit_breaker: BaseCircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         prefer_api: bool = False,  # Skip CLI, use OpenRouter directly
     ):
@@ -144,7 +144,7 @@ class CLIAgent(CritiqueMixin, Agent):
             self._circuit_breaker = None
 
     @property
-    def circuit_breaker(self) -> CircuitBreaker | None:
+    def circuit_breaker(self) -> BaseCircuitBreaker | None:
         """Get the circuit breaker for this agent."""
         return self._circuit_breaker
 
@@ -152,7 +152,7 @@ class CLIAgent(CritiqueMixin, Agent):
         """Check if the circuit breaker is open (blocking requests)."""
         if self._circuit_breaker is None:
             return False
-        return not self._circuit_breaker.can_proceed()
+        return not self._circuit_breaker.can_execute()
 
     def _get_fallback_agent(self) -> OpenRouterAgent | None:
         """Get or create the OpenRouter fallback agent.

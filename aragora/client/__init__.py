@@ -13,7 +13,7 @@ Quick Start:
     debate = client.debates.run(
         task="Should we use microservices or monolith?",
         agents=["anthropic-api", "openai-api"],
-        rounds=3,
+        rounds=9,
     )
 
     print(f"Consensus reached: {debate.consensus.reached}")

@@ -23,6 +23,7 @@ import os
 from typing import Any, Dict, Optional
 
 from aragora.audit.unified import audit_data
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -494,8 +495,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             job = create_debate_job(
                 question=topic,
                 agents=None,
-                rounds=3,
-                consensus="majority",
+                rounds=DEFAULT_ROUNDS,
+                consensus=DEFAULT_CONSENSUS,
                 protocol="standard",
                 user_id=f"telegram:{user_id}",
                 webhook_url=None,
@@ -526,7 +527,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
                 async def execute():
                     env = Environment(task=topic)
-                    protocol = DebateProtocol(rounds=3, consensus="majority")
+                    protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
                     agents = get_default_agents()[:3]  # Use first 3 agents
                     arena = Arena(env, agents, protocol)
                     result = await arena.run()

@@ -928,5 +928,302 @@ class TestFullDashboard:
         assert result is not None
 
 
+# =============================================================================
+# Wired Dashboard Endpoint Tests (Phase 4B)
+# =============================================================================
+
+
+def _parse_body(result):
+    """Parse HandlerResult body bytes into a dict."""
+    import json
+
+    if result is None:
+        return {}
+    body = result.body
+    if isinstance(body, bytes):
+        return json.loads(body.decode("utf-8"))
+    if isinstance(body, str):
+        return json.loads(body)
+    return body
+
+
+class TestDashboardDebates:
+    """Tests for _get_dashboard_debates (wired to storage)."""
+
+    def test_returns_debates_from_storage(self, handler, mock_storage):
+        """Fetches debates from storage with pagination."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+
+        # Mock count query then fetch
+        cursor.fetchone.side_effect = [(5,)]
+        cursor.fetchall.return_value = [
+            ("d1", "tech", "completed", True, 0.9, "2026-01-01T00:00:00"),
+            ("d2", "finance", "completed", False, 0.4, "2026-01-02T00:00:00"),
+        ]
+
+        result = handler._get_dashboard_debates(10, 0, None)
+        data = _parse_body(result)
+        assert data["total"] == 5
+        assert len(data["debates"]) == 2
+        assert data["debates"][0]["id"] == "d1"
+
+    def test_returns_empty_without_storage(self, handler):
+        """Returns empty when no storage is available."""
+        handler.get_storage = MagicMock(return_value=None)
+        result = handler._get_dashboard_debates(10, 0, None)
+        data = _parse_body(result)
+        assert data["total"] == 0
+        assert data["debates"] == []
+
+
+class TestDashboardStats:
+    """Tests for _get_dashboard_stats."""
+
+    def test_returns_stats_from_storage(self, handler, mock_storage):
+        """Stats includes debate counts and performance."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+        handler.get_elo_system = MagicMock(return_value=None)
+        handler.ctx = {}
+
+        # _get_summary_metrics_sql uses fetchone, then _get_dashboard_stats
+        # calls additional queries for today/week/month/by_status
+        cursor.fetchone.side_effect = [
+            (100, 75, 0.82),  # _get_summary_metrics_sql
+            (10,),  # today
+            (40,),  # this_week
+            (90,),  # this_month
+        ]
+        cursor.fetchall.return_value = [
+            ("completed", 80),
+            ("pending", 20),
+        ]
+
+        with patch.object(handler, "_get_performance_metrics", return_value={}):
+            result = handler._get_dashboard_stats()
+        data = _parse_body(result)
+        assert data["debates"]["total"] == 100
+        assert data["debates"]["today"] == 10
+        assert data["debates"]["this_week"] == 40
+        assert data["performance"]["consensus_rate"] == 0.75
+
+    def test_returns_defaults_without_storage(self, handler):
+        """Stats returns defaults when no storage."""
+        handler.get_storage = MagicMock(return_value=None)
+        handler.get_elo_system = MagicMock(return_value=None)
+        handler.ctx = {}
+
+        with patch.object(handler, "_get_performance_metrics", return_value={}):
+            result = handler._get_dashboard_stats()
+        data = _parse_body(result)
+        assert data["debates"]["total"] == 0
+        assert data["agents"]["total"] == 0
+
+
+class TestStatCards:
+    """Tests for _get_stat_cards."""
+
+    def test_returns_cards_with_data(self, handler, mock_storage):
+        """Stat cards include debate and agent metrics."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        # _get_summary_metrics_sql fetchone
+        cursor.fetchone.return_value = (50, 30, 0.78)
+
+        result = handler._get_stat_cards()
+        data = _parse_body(result)
+        assert len(data["cards"]) >= 3
+        card_ids = [c["id"] for c in data["cards"]]
+        assert "total_debates" in card_ids
+        assert "consensus_rate" in card_ids
+
+    def test_returns_cards_without_storage(self, handler):
+        """Cards still include agent metrics without storage."""
+        handler.get_storage = MagicMock(return_value=None)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        result = handler._get_stat_cards()
+        data = _parse_body(result)
+        assert "cards" in data
+        assert any(c["id"] == "active_agents" for c in data["cards"])
+
+
+class TestTeamPerformance:
+    """Tests for _get_team_performance."""
+
+    def test_groups_by_provider(self, handler):
+        """Groups agents by provider prefix."""
+        mock_elo = MagicMock()
+        mock_elo.get_all_ratings.return_value = [
+            MagicMock(
+                agent_name="claude-opus",
+                elo=1200,
+                wins=5,
+                losses=2,
+                draws=1,
+                win_rate=0.7,
+                debates_count=8,
+            ),
+            MagicMock(
+                agent_name="claude-sonnet",
+                elo=1150,
+                wins=4,
+                losses=3,
+                draws=0,
+                win_rate=0.57,
+                debates_count=7,
+            ),
+            MagicMock(
+                agent_name="gpt-4",
+                elo=1100,
+                wins=3,
+                losses=4,
+                draws=1,
+                win_rate=0.43,
+                debates_count=8,
+            ),
+        ]
+        handler.get_elo_system = MagicMock(return_value=mock_elo)
+
+        result = handler._get_team_performance(10, 0)
+        data = _parse_body(result)
+        assert data["total"] == 2  # claude, gpt
+        teams = {t["team_id"]: t for t in data["teams"]}
+        assert "claude" in teams
+        assert teams["claude"]["member_count"] == 2
+
+
+class TestActivity:
+    """Tests for _get_activity."""
+
+    def test_returns_activity_from_storage(self, handler, mock_storage):
+        """Activity feed includes recent debates."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+
+        cursor.fetchone.return_value = (3,)
+        cursor.fetchall.return_value = [
+            ("d1", "tech", True, 0.9, "2026-01-01T12:00:00"),
+        ]
+
+        result = handler._get_activity(10, 0)
+        data = _parse_body(result)
+        assert data["total"] == 3
+        assert len(data["activity"]) == 1
+        assert data["activity"][0]["type"] == "debate"
+
+
+class TestSearchDashboard:
+    """Tests for _search_dashboard."""
+
+    def test_returns_matching_debates(self, handler, mock_storage):
+        """Search returns debates matching query."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+
+        cursor.fetchall.return_value = [
+            ("d1", "tech", True, 0.9, "2026-01-01T12:00:00"),
+        ]
+
+        result = handler._search_dashboard("tech")
+        data = _parse_body(result)
+        assert data["total"] == 1
+        assert data["results"][0]["domain"] == "tech"
+
+    def test_empty_query_returns_empty(self, handler):
+        """Empty query returns no results."""
+        result = handler._search_dashboard("")
+        data = _parse_body(result)
+        assert data["total"] == 0
+
+
+class TestUrgentItems:
+    """Tests for _get_urgent_items."""
+
+    def test_returns_low_confidence_debates(self, handler, mock_storage):
+        """Urgent items include low-confidence debates."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+
+        cursor.fetchall.return_value = [
+            ("d1", "tech", 0.2, "2026-01-01T12:00:00"),
+        ]
+
+        result = handler._get_urgent_items(10, 0)
+        data = _parse_body(result)
+        assert data["total"] == 1
+        assert data["items"][0]["type"] == "low_consensus"
+
+
+class TestPendingActions:
+    """Tests for _get_pending_actions."""
+
+    def test_returns_pending_debates(self, handler, mock_storage):
+        """Pending actions include in-progress debates."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+
+        cursor.fetchall.return_value = [
+            ("d1", "finance", "2026-01-01T12:00:00"),
+        ]
+
+        result = handler._get_pending_actions(10, 0)
+        data = _parse_body(result)
+        assert data["total"] == 1
+        assert data["actions"][0]["type"] == "review_debate"
+
+
+class TestExportDashboard:
+    """Tests for _export_dashboard_data."""
+
+    def test_export_returns_snapshot(self, handler):
+        """Export includes summary, performance, and consensus."""
+        handler.get_storage = MagicMock(return_value=None)
+        handler.get_elo_system = MagicMock(return_value=None)
+        handler.ctx = {}
+
+        with patch.object(handler, "_get_consensus_insights", return_value={}):
+            result = handler._export_dashboard_data()
+        data = _parse_body(result)
+        assert "generated_at" in data
+        assert "summary" in data
+        assert "agent_performance" in data
+
+
+class TestOverviewWired:
+    """Tests for the wired _get_overview."""
+
+    def test_overview_with_storage(self, handler, mock_storage):
+        """Overview populates from storage."""
+        storage, cursor = mock_storage
+        handler.get_storage = MagicMock(return_value=storage)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        # _get_summary_metrics_sql fetchone, then today count
+        cursor.fetchone.side_effect = [
+            (50, 30, 0.8),  # _get_summary_metrics_sql
+            (5,),  # today count
+        ]
+
+        result = handler._get_overview({}, MagicMock())
+        data = _parse_body(result)
+        assert data["consensus_rate"] == 0.6
+        assert data["total_debates_today"] == 5
+        assert len(data["stats"]) == 2
+
+    def test_overview_without_storage(self, handler):
+        """Overview returns defaults without storage."""
+        handler.get_storage = MagicMock(return_value=None)
+        handler.get_elo_system = MagicMock(return_value=None)
+
+        result = handler._get_overview({}, MagicMock())
+        data = _parse_body(result)
+        assert data["system_health"] == "healthy"
+        assert "stats" in data
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

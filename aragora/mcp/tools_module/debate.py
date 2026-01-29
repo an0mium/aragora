@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 async def run_debate_tool(
     question: str,
-    agents: str = "anthropic-api,openai-api",
-    rounds: int = 3,
-    consensus: str = "majority",
+    agents: str | None = None,
+    rounds: int | None = None,
+    consensus: str | None = None,
 ) -> Dict[str, Any]:
     """
     Run a decision stress-test (debate engine) on a topic.
@@ -26,21 +26,32 @@ async def run_debate_tool(
     Args:
         question: The question or topic to stress-test
         agents: Comma-separated agent IDs
-        rounds: Number of debate rounds (1-10)
-        consensus: Consensus mechanism (majority, unanimous, none)
+        rounds: Number of debate rounds (1-max configured)
+        consensus: Consensus mechanism (e.g., majority, unanimous, judge)
 
     Returns:
         Dict with debate results including final_answer, consensus status, confidence
     """
     from aragora.agents.base import create_agent
+    from aragora.config.settings import AgentSettings, DebateSettings
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
 
     if not question:
         return {"error": "Question is required"}
 
+    # Resolve defaults from settings
+    agent_settings = AgentSettings()
+    debate_settings = DebateSettings()
+    if agents is None:
+        agents = agent_settings.default_agents
+    if rounds is None:
+        rounds = debate_settings.default_rounds
+    if consensus is None:
+        consensus = debate_settings.default_consensus
+
     # Validate rounds
-    rounds = min(max(rounds, 1), 10)
+    rounds = min(max(rounds, 1), debate_settings.max_rounds)
 
     # Parse and create agents
     agent_names = [a.strip() for a in agents.split(",")]

@@ -74,7 +74,7 @@ def _extract_user_id_from_headers(headers: Optional[Dict[str, str]]) -> str:
         payload = validate_access_token(token)
         if payload and payload.user_id:
             return payload.user_id
-    except Exception:
+    except (ImportError, ValueError, AttributeError):
         pass
 
     return "compliance_api"
@@ -495,7 +495,7 @@ class ComplianceHandler(BaseHandler):
             revoked_count = manager.bulk_revoke_for_user(user_id)
             logger.info(f"Revoked {revoked_count} consents for user {user_id}")
             return revoked_count
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to revoke consents for {user_id}: {e}")
             return 0
 
@@ -531,7 +531,7 @@ class ComplianceHandler(BaseHandler):
             consent_export = manager.export_consent_data(user_id)
             export_data["consent_records"] = consent_export.to_dict()
             data_categories.append("consent_records")
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to export consent data: {e}")
 
         # Calculate checksum
@@ -601,7 +601,7 @@ class ComplianceHandler(BaseHandler):
                     resource_id=user_id,
                     metadata=deletion_record,
                 )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError) as e:
                 logger.warning(f"Failed to log deletion schedule: {e}")
 
             return deletion_record
@@ -630,7 +630,7 @@ class ComplianceHandler(BaseHandler):
                     resource_id=user_id,
                     metadata=deletion_record,
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log deletion schedule: {log_err}")
 
             return deletion_record
@@ -660,7 +660,7 @@ class ComplianceHandler(BaseHandler):
                     ],
                 },
             )
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.warning(f"Failed to log RTBF request: {e}")
 
     # =========================================================================
@@ -694,7 +694,7 @@ class ComplianceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, ValueError, KeyError, RuntimeError) as e:
             logger.exception(f"Error listing deletions: {e}")
             return error_response(f"Failed to list deletions: {str(e)}", 500)
 
@@ -715,7 +715,7 @@ class ComplianceHandler(BaseHandler):
 
             return json_response({"deletion": request.to_dict()})
 
-        except Exception as e:
+        except (KeyError, RuntimeError, ValueError) as e:
             logger.exception(f"Error getting deletion: {e}")
             return error_response(f"Failed to get deletion: {str(e)}", 500)
 
@@ -758,7 +758,7 @@ class ComplianceHandler(BaseHandler):
                         else None,
                     },
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log deletion cancellation: {log_err}")
 
             return json_response(
@@ -805,7 +805,7 @@ class ComplianceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             logger.exception(f"Error listing legal holds: {e}")
             return error_response(f"Failed to list legal holds: {str(e)}", 500)
 
@@ -867,7 +867,7 @@ class ComplianceHandler(BaseHandler):
                         "case_reference": case_reference,
                     },
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log legal hold creation: {log_err}")
 
             return json_response(
@@ -878,7 +878,7 @@ class ComplianceHandler(BaseHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
             logger.exception(f"Error creating legal hold: {e}")
             return error_response(f"Failed to create legal hold: {str(e)}", 500)
 
@@ -921,7 +921,7 @@ class ComplianceHandler(BaseHandler):
                         "user_ids": released.user_ids,
                     },
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log legal hold release: {log_err}")
 
             return json_response(
@@ -931,7 +931,7 @@ class ComplianceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error releasing legal hold: {e}")
             return error_response(f"Failed to release legal hold: {str(e)}", 500)
 
@@ -1005,7 +1005,7 @@ class ComplianceHandler(BaseHandler):
                         "backup_purge_results": report.backup_purge_results,
                     },
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log coordinated deletion: {log_err}")
 
             return json_response(
@@ -1063,7 +1063,7 @@ class ComplianceHandler(BaseHandler):
                         "include_backups": include_backups,
                     },
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log batch deletion: {log_err}")
 
             return json_response(
@@ -1078,7 +1078,7 @@ class ComplianceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Error processing pending deletions: {e}")
             return error_response(f"Failed to process deletions: {str(e)}", 500)
 
@@ -1106,7 +1106,7 @@ class ComplianceHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error listing backup exclusions: {e}")
             return error_response(f"Failed to list exclusions: {str(e)}", 500)
 
@@ -1143,7 +1143,7 @@ class ComplianceHandler(BaseHandler):
                     resource_id=user_id,
                     metadata={"reason": reason},
                 )
-            except Exception as log_err:
+            except (RuntimeError, OSError, ValueError) as log_err:
                 logger.warning(f"Failed to log backup exclusion: {log_err}")
 
             return json_response(
@@ -1155,7 +1155,7 @@ class ComplianceHandler(BaseHandler):
                 status=201,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError) as e:
             logger.exception(f"Error adding backup exclusion: {e}")
             return error_response(f"Failed to add exclusion: {str(e)}", 500)
 
@@ -1484,7 +1484,7 @@ class ComplianceHandler(BaseHandler):
                 }
                 for r in receipts[:50]  # Limit for GDPR export
             ]
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             logger.warning(f"Failed to fetch user decisions: {e}")
             return []
 
@@ -1499,7 +1499,7 @@ class ComplianceHandler(BaseHandler):
             # Get recent activity for the user
             activity = store.get_recent_activity(user_id=user_id, hours=720, limit=100)
             return activity
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError) as e:
             logger.warning(f"Failed to fetch user activity: {e}")
             return []
 
@@ -1528,7 +1528,7 @@ class ComplianceHandler(BaseHandler):
                 "verdict": receipt.verdict,
                 "checked": datetime.now(timezone.utc).isoformat(),
             }
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logger.warning(f"Failed to verify trail {trail_id}: {e}")
             return {
                 "type": "audit_trail",
@@ -1583,7 +1583,7 @@ class ComplianceHandler(BaseHandler):
                 "events_checked": events_in_range,
                 "errors": errors[:10],  # Limit errors in response
             }
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError, TypeError) as e:
             logger.warning(f"Failed to verify date range: {e}")
             return {
                 "type": "date_range",
@@ -1627,7 +1627,7 @@ class ComplianceHandler(BaseHandler):
                         pass  # Include events with unparseable timestamps
                 filtered.append(event)
             return filtered[:limit]
-        except Exception as e:
+        except (RuntimeError, AttributeError, KeyError, ValueError) as e:
             logger.warning(f"Failed to fetch audit events: {e}")
             return []
 

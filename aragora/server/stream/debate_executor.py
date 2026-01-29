@@ -34,7 +34,10 @@ if TYPE_CHECKING:
 from aragora.config import (
     DEBATE_TIMEOUT_SECONDS,
     DEFAULT_AGENTS,
+    DEFAULT_CONSENSUS,
+    DEFAULT_ROUNDS,
     MAX_AGENTS_PER_DEBATE,
+    MAX_ROUNDS,
 )
 from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.stream.arena_hooks import (
@@ -163,10 +166,10 @@ def parse_debate_request(data: dict) -> tuple[Optional[dict], Optional[str]]:
     if agent_count > MAX_AGENTS_PER_DEBATE:
         return None, f"Too many agents. Maximum: {MAX_AGENTS_PER_DEBATE}"
     try:
-        rounds = min(max(int(data.get("rounds", 3)), 1), 10)  # Clamp to 1-10
+        rounds = min(max(int(data.get("rounds", DEFAULT_ROUNDS)), 1), MAX_ROUNDS)
     except (ValueError, TypeError):
-        rounds = 3
-    consensus = data.get("consensus", "majority")
+        rounds = DEFAULT_ROUNDS
+    consensus = data.get("consensus", DEFAULT_CONSENSUS)
 
     return {
         "question": question,

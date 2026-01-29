@@ -83,6 +83,32 @@ from .control_plane_adapter import (
     AgentCapabilityRecord,
     CrossWorkspaceInsight,
 )
+from .fabric_adapter import (
+    FabricAdapter,
+    PoolSnapshot,
+    TaskSchedulingOutcome,
+    BudgetUsageSnapshot,
+    PolicyDecisionRecord,
+)
+from .workspace_adapter import (
+    WorkspaceAdapter,
+    RigSnapshot,
+    ConvoyOutcome,
+    MergeOutcome,
+)
+from .computer_use_adapter import (
+    ComputerUseAdapter,
+    TaskExecutionRecord,
+    ActionPerformanceRecord,
+    PolicyBlockRecord,
+)
+from .gateway_adapter import (
+    GatewayAdapter,
+    MessageRoutingRecord,
+    ChannelPerformanceSnapshot,
+    DeviceRegistrationRecord,
+    RoutingDecisionRecord,
+)
 from .receipt_adapter import (
     ReceiptAdapter,
     ReceiptAdapterError,
@@ -155,6 +181,28 @@ __all__ = [
     "TaskOutcome",
     "AgentCapabilityRecord",
     "CrossWorkspaceInsight",
+    # Fabric adapter (Agent Fabric → Knowledge Mound)
+    "FabricAdapter",
+    "PoolSnapshot",
+    "TaskSchedulingOutcome",
+    "BudgetUsageSnapshot",
+    "PolicyDecisionRecord",
+    # Workspace adapter (Workspace Manager → Knowledge Mound)
+    "WorkspaceAdapter",
+    "RigSnapshot",
+    "ConvoyOutcome",
+    "MergeOutcome",
+    # Computer-Use adapter (Orchestrator → Knowledge Mound)
+    "ComputerUseAdapter",
+    "TaskExecutionRecord",
+    "ActionPerformanceRecord",
+    "PolicyBlockRecord",
+    # Gateway adapter (LocalGateway → Knowledge Mound)
+    "GatewayAdapter",
+    "MessageRoutingRecord",
+    "ChannelPerformanceSnapshot",
+    "DeviceRegistrationRecord",
+    "RoutingDecisionRecord",
     # Receipt adapter (Decision → Knowledge Mound)
     "ReceiptAdapter",
     "ReceiptAdapterError",

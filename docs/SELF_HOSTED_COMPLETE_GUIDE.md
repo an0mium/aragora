@@ -217,8 +217,8 @@ curl -X POST http://localhost:8080/api/debates \
 | `OPENROUTER_API_KEY` | - | - | OpenRouter fallback key |
 | `ARAGORA_PORT` | No | `8080` | HTTP server port |
 | `ARAGORA_LOG_LEVEL` | No | `INFO` | Logging verbosity |
-| `ARAGORA_DEFAULT_ROUNDS` | No | `3` | Default debate rounds |
-| `ARAGORA_DEBATE_TIMEOUT` | No | `900` | Debate timeout (seconds) |
+| `ARAGORA_DEFAULT_ROUNDS` | No | `9` | Default debate rounds |
+| `ARAGORA_DEBATE_TIMEOUT` | No | `600` | Debate timeout (seconds) |
 
 ### docker-compose.simple.yml Overview
 
@@ -1684,9 +1684,9 @@ kubectl -n aragora describe certificate aragora-tls
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ARAGORA_MAX_CONCURRENT_DEBATES` | `5` | Max parallel debates |
-| `ARAGORA_DEBATE_TIMEOUT` | `900` | Debate timeout (seconds) |
+| `ARAGORA_DEBATE_TIMEOUT` | `600` | Debate timeout (seconds) |
 | `ARAGORA_AGENT_TIMEOUT` | `240` | Per-agent timeout (seconds) |
-| `ARAGORA_DEFAULT_ROUNDS` | `3` | Default debate rounds |
+| `ARAGORA_DEFAULT_ROUNDS` | `9` | Default debate rounds |
 
 ### Observability
 

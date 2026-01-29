@@ -95,8 +95,9 @@ class ScopeLimiter:
         self.max_files = max_files
         self.protected_files = protected_files or [
             "CLAUDE.md",
-            "core.py",
             "aragora/__init__.py",
+            "aragora/core/__init__.py",
+            "aragora/core_types.py",
             ".env",
             "scripts/nomic_loop.py",
         ]

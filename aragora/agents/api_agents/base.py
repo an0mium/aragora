@@ -7,7 +7,7 @@ from __future__ import annotations
 from aragora.agents.base import CritiqueMixin
 from aragora.core import Agent, Message
 from aragora.core_types import AgentRole
-from aragora.resilience import CircuitBreaker, get_circuit_breaker
+from aragora.resilience_patterns import BaseCircuitBreaker, get_circuit_breaker
 
 
 class APIAgent(CritiqueMixin, Agent):
@@ -26,7 +26,7 @@ class APIAgent(CritiqueMixin, Agent):
         timeout: int = 120,
         api_key: str | None = None,
         base_url: str | None = None,
-        circuit_breaker: CircuitBreaker | None = None,
+        circuit_breaker: BaseCircuitBreaker | None = None,
         enable_circuit_breaker: bool = True,
         # Circuit breaker configuration (allows per-agent tuning)
         circuit_breaker_threshold: int = 8,
@@ -94,7 +94,7 @@ class APIAgent(CritiqueMixin, Agent):
         return params
 
     @property
-    def circuit_breaker(self) -> CircuitBreaker | None:
+    def circuit_breaker(self) -> BaseCircuitBreaker | None:
         """Get the circuit breaker for this agent."""
         return self._circuit_breaker
 

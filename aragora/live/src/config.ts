@@ -80,7 +80,7 @@ export const IS_PRODUCTION = typeof window !== 'undefined' && isProductionEnviro
 export const DEFAULT_AGENTS = process.env.NEXT_PUBLIC_DEFAULT_AGENTS || 'grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi';
 export const DEFAULT_ROUNDS = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ROUNDS || '9', 10);
 export const MAX_ROUNDS = parseInt(process.env.NEXT_PUBLIC_MAX_ROUNDS || '10', 10);
-export const DEFAULT_CONSENSUS = process.env.NEXT_PUBLIC_DEFAULT_CONSENSUS || 'hybrid';
+export const DEFAULT_CONSENSUS = process.env.NEXT_PUBLIC_DEFAULT_CONSENSUS || 'judge';
 
 // === Agent Display Names ===
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {

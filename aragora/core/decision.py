@@ -40,7 +40,7 @@ _DEFAULT_DECISION_MAX_AGENTS = _DEFAULT_SETTINGS.debate.max_agents_per_debate
 
 
 def _default_decision_agents() -> List[str]:
-    agents = _DEFAULT_SETTINGS.agents.default_agent_list
+    agents = _DEFAULT_SETTINGS.agent.default_agent_list
     return agents if agents else ["anthropic-api", "openai-api"]
 
 
@@ -668,9 +668,9 @@ class DecisionRequest:
                 decision_type=DecisionType(body.get("decision_type", "debate")),
                 source=InputSource.HTTP_API,
                 config=DecisionConfig(
-                    agents=body.get("agents", ["anthropic-api", "openai-api"]),
-                    rounds=body.get("rounds", 3),
-                    consensus=body.get("consensus", "majority"),
+                    agents=body.get("agents", _default_decision_agents()),
+                    rounds=body.get("rounds", _DEFAULT_DECISION_ROUNDS),
+                    consensus=body.get("consensus", _DEFAULT_DECISION_CONSENSUS),
                     timeout_seconds=body.get("timeout", 300),
                 ),
             )

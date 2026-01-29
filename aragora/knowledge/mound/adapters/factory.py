@@ -205,6 +205,61 @@ def _init_specs() -> None:
         )
     )
 
+    # Extension module adapters
+    from .fabric_adapter import FabricAdapter
+    from .workspace_adapter import WorkspaceAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="fabric",
+            adapter_class=FabricAdapter,
+            required_deps=["fabric"],  # AgentFabric instance
+            forward_method="sync_from_fabric",
+            reverse_method="get_pool_recommendations",
+            priority=35,  # Medium priority - extension module
+            config_key="km_fabric_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="workspace",
+            adapter_class=WorkspaceAdapter,
+            required_deps=["workspace_manager"],  # WorkspaceManager instance
+            forward_method="sync_from_workspace",
+            reverse_method="get_rig_recommendations",
+            priority=34,  # Medium priority - extension module
+            config_key="km_workspace_adapter",
+        )
+    )
+
+    from .computer_use_adapter import ComputerUseAdapter
+    from .gateway_adapter import GatewayAdapter
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="computer_use",
+            adapter_class=ComputerUseAdapter,
+            required_deps=["computer_use_orchestrator"],  # ComputerUseOrchestrator instance
+            forward_method="sync_from_orchestrator",
+            reverse_method="get_similar_tasks",
+            priority=33,  # Medium priority - extension module
+            config_key="km_computer_use_adapter",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="gateway",
+            adapter_class=GatewayAdapter,
+            required_deps=["gateway"],  # LocalGateway instance
+            forward_method="sync_from_gateway",
+            reverse_method="get_routing_recommendations",
+            priority=32,  # Medium priority - extension module
+            config_key="km_gateway_adapter",
+        )
+    )
+
 
 # Initialize specs on import
 _init_specs()
@@ -479,6 +534,26 @@ class AdapterFactory:
                     cost_tracker=deps.get("cost_tracker"),
                     event_callback=self._event_callback,
                 )
+            elif spec.name == "fabric":
+                adapter = adapter_class(
+                    fabric=deps.get("fabric"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "workspace":
+                adapter = adapter_class(
+                    workspace_manager=deps.get("workspace_manager"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "computer_use":
+                adapter = adapter_class(
+                    orchestrator=deps.get("computer_use_orchestrator"),
+                    event_callback=self._event_callback,
+                )
+            elif spec.name == "gateway":
+                adapter = adapter_class(
+                    gateway=deps.get("gateway"),
+                    event_callback=self._event_callback,
+                )
             else:
                 # Generic construction attempt
                 adapter = adapter_class(
@@ -512,6 +587,14 @@ class AdapterFactory:
                     return adapter_class(manager=deps.get("pulse_manager"))
                 elif spec.name == "cost":
                     return adapter_class(cost_tracker=deps.get("cost_tracker"))
+                elif spec.name == "fabric":
+                    return adapter_class(fabric=deps.get("fabric"))
+                elif spec.name == "workspace":
+                    return adapter_class(workspace_manager=deps.get("workspace_manager"))
+                elif spec.name == "computer_use":
+                    return adapter_class(orchestrator=deps.get("computer_use_orchestrator"))
+                elif spec.name == "gateway":
+                    return adapter_class(gateway=deps.get("gateway"))
                 else:
                     return adapter_class(**deps)
             except Exception as e2:

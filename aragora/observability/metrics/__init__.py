@@ -174,6 +174,50 @@ from aragora.observability.metrics.fabric import (  # noqa: F401, E402
     track_fabric_task,
 )
 
+from aragora.observability.metrics.task_queue import (  # noqa: F401, E402
+    init_task_queue_metrics,
+    record_task_queue_operation as record_task_queue_operation_v2,
+    set_task_queue_size,
+    record_task_queue_recovery as record_task_queue_recovery_v2,
+    record_task_queue_cleanup as record_task_queue_cleanup_v2,
+    track_task_queue_operation,
+)
+
+from aragora.observability.metrics.governance import (  # noqa: F401, E402
+    init_governance_metrics,
+    record_governance_decision as record_governance_decision_v2,
+    record_governance_verification as record_governance_verification_v2,
+    record_governance_approval as record_governance_approval_v2,
+    record_governance_store_latency,
+    set_governance_artifacts_active,
+    track_governance_store_operation,
+)
+
+from aragora.observability.metrics.user_mapping import (  # noqa: F401, E402
+    init_user_mapping_metrics,
+    record_user_mapping_operation as record_user_mapping_operation_v2,
+    record_user_mapping_cache_hit as record_user_mapping_cache_hit_v2,
+    record_user_mapping_cache_miss as record_user_mapping_cache_miss_v2,
+    set_user_mappings_active,
+)
+
+from aragora.observability.metrics.checkpoint import (  # noqa: F401, E402
+    init_checkpoint_metrics,
+    record_checkpoint_operation as record_checkpoint_operation_v2,
+    record_checkpoint_restore_result as record_checkpoint_restore_result_v2,
+    track_checkpoint_operation as track_checkpoint_operation_v2,
+)
+
+from aragora.observability.metrics.consensus import (  # noqa: F401, E402
+    init_consensus_metrics,
+    init_enhanced_consensus_metrics,
+    record_consensus_ingestion,
+    record_consensus_dissent,
+    record_consensus_evolution,
+    record_consensus_evidence_linked,
+    record_consensus_agreement_ratio,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup

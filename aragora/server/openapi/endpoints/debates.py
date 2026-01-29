@@ -77,7 +77,7 @@ DEBATE_ENDPOINTS = {
                                 "summary": "Simple debate",
                                 "value": {
                                     "task": "Should we use TypeScript for our next project?",
-                                    "rounds": 3,
+                                    "rounds": 9,
                                 },
                             },
                             "with_agents": {
@@ -85,8 +85,8 @@ DEBATE_ENDPOINTS = {
                                 "value": {
                                     "task": "Is GraphQL better than REST for mobile apps?",
                                     "agents": ["claude", "gpt-4", "gemini"],
-                                    "rounds": 3,
-                                    "consensus": "majority",
+                                    "rounds": 9,
+                                    "consensus": "judge",
                                 },
                             },
                             "with_context": {

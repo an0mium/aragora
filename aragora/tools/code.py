@@ -651,10 +651,14 @@ Be specific with code snippets. Prioritize:
     async def debate_improvement(
         self,
         focus: Optional[str] = None,
-        rounds: int = 3,
+        rounds: int | None = None,
     ) -> list[CodeProposal]:
         """Run a debate to generate improvement proposals."""
+        from aragora.config.settings import DebateSettings
         from aragora.core import Environment
+
+        if rounds is None:
+            rounds = DebateSettings().default_rounds
 
         prompt = self.generate_improvement_prompt(focus)
 

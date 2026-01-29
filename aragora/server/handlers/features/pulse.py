@@ -24,6 +24,8 @@ import logging
 import sqlite3
 from typing import Any, Optional
 
+from aragora.config import DEFAULT_ROUNDS
+
 try:
     import httpx
 except ImportError:
@@ -473,7 +475,7 @@ class PulseHandler(BaseHandler):
         try:
             rounds = min(max(int(rounds), 1), 10)  # Clamp 1-10
         except (TypeError, ValueError):
-            rounds = 3
+            rounds = DEFAULT_ROUNDS
         consensus = str(consensus).strip()
         if consensus not in {"majority", "unanimous", "judge", "none"}:
             return error_response("consensus must be one of: majority, unanimous, judge, none", 400)

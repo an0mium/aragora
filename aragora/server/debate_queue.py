@@ -36,6 +36,8 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
+
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -175,7 +177,7 @@ class BatchItem:
 
     question: str
     agents: str = "anthropic-api,openai-api,gemini"
-    rounds: int = 3
+    rounds: int = DEFAULT_ROUNDS
     consensus: str = "majority"
     priority: int = 0  # Higher = runs first
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -221,20 +223,20 @@ class BatchItem:
         if len(question) > 10000:
             raise ValueError("question exceeds 10,000 characters")
 
-        agents = data.get("agents", "anthropic-api,openai-api,gemini")
+        agents = data.get("agents", DEFAULT_AGENTS)
         if isinstance(agents, list):
             agents = ",".join(str(a).strip() for a in agents if str(a).strip())
         elif not isinstance(agents, str):
             raise ValueError("agents must be a string or list of strings")
 
         try:
-            rounds = min(max(int(data.get("rounds", 3)), 1), 10)
+            rounds = min(max(int(data.get("rounds", DEFAULT_ROUNDS)), 1), MAX_ROUNDS)
         except (TypeError, ValueError):
-            rounds = 3
+            rounds = DEFAULT_ROUNDS
 
-        consensus = str(data.get("consensus", "majority")).strip()
-        if consensus not in {"majority", "unanimous", "judge", "none"}:
-            raise ValueError("consensus must be one of: majority, unanimous, judge, none")
+        consensus = str(data.get("consensus", DEFAULT_CONSENSUS)).strip()
+        if consensus not in {"majority", "unanimous", "judge", "hybrid", "none"}:
+            raise ValueError("consensus must be one of: majority, unanimous, judge, hybrid, none")
 
         try:
             priority = int(data.get("priority", 0))

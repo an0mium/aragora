@@ -9,7 +9,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.config import DEFAULT_AGENTS, MAX_AGENTS_PER_DEBATE
+from aragora.config import (
+    DEFAULT_AGENTS,
+    DEFAULT_CONSENSUS,
+    DEFAULT_ROUNDS,
+    MAX_AGENTS_PER_DEBATE,
+)
 from aragora.exceptions import ConfigurationError
 from aragora.rlm.debate_integration import create_training_hook
 
@@ -81,8 +86,8 @@ class DebateConfig:
 
     question: str
     agents_str: str = DEFAULT_AGENTS
-    rounds: int = 8  # 9-round format (0-8), default for all debates
-    consensus: str = "judge"  # Judge-based consensus for final decisions
+    rounds: int = DEFAULT_ROUNDS  # 9-round format (0-8), default for all debates
+    consensus: str = DEFAULT_CONSENSUS  # Default consensus for final decisions
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     debate_id: Optional[str] = None
     trending_topic: Optional["TrendingTopic"] = None  # TrendingTopic from pulse
@@ -162,7 +167,7 @@ class DebateFactory:
         config = DebateConfig(
             question="What is the best sorting algorithm?",
             agents_str="anthropic-api,openai-api,gemini",
-            rounds=3,
+            rounds=DEFAULT_ROUNDS,
         )
 
         arena = factory.create_arena(config)

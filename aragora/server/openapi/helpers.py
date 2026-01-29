@@ -65,7 +65,7 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
         "invalid_value": {
             "summary": "Invalid field value",
             "value": {
-                "error": "Invalid value for 'rounds': must be between 1 and 10",
+                "error": "Invalid value for 'rounds': must be between 1 and 12",
                 "code": "INVALID_VALUE",
                 "field": "rounds",
                 "trace_id": "req_abc123xyz",

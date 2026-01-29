@@ -20,6 +20,7 @@ import os
 from typing import Any, Coroutine, Dict, Optional
 
 from aragora.audit.unified import audit_data
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
     json_response,
@@ -647,10 +648,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
 
             env = Environment(task=f"Debate: {topic}")
-            agents = get_agents_by_names(["anthropic-api", "openai-api"])
+            default_agents = [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]
+            agents = get_agents_by_names(default_agents)
             protocol = DebateProtocol(
-                rounds=3,
-                consensus="majority",
+                rounds=DEFAULT_ROUNDS,
+                consensus=DEFAULT_CONSENSUS,
                 convergence_detection=False,
                 early_stopping=False,
             )

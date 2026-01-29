@@ -92,7 +92,7 @@ DEFAULT_TRACK_CONFIGS: Dict[Track, TrackConfig] = {
     Track.SME: TrackConfig(
         name="SME",
         folders=["aragora/live/", "aragora/server/handlers/"],
-        protected_folders=["aragora/debate/", "aragora/agents/", "core.py"],
+        protected_folders=["aragora/debate/", "aragora/agents/", "aragora/core/"],
         agent_types=["claude", "gemini"],
         max_concurrent_tasks=2,
     ),

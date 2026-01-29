@@ -22,6 +22,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -481,8 +482,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             job = create_debate_job(
                 question=topic,
                 agents=None,  # Use default agents
-                rounds=3,
-                consensus="majority",
+                rounds=DEFAULT_ROUNDS,
+                consensus=DEFAULT_CONSENSUS,
                 protocol="standard",
                 user_id=f"whatsapp:{to_number}",
                 webhook_url=None,  # Results routed via debate_origin system
@@ -538,7 +539,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
                 async def execute():
                     env = Environment(task=topic)
-                    protocol = DebateProtocol(rounds=3, consensus="majority")
+                    protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
                     agents = get_default_agents()[:3]  # Use first 3 agents
                     arena = Arena(env, agents, protocol)
                     result = await arena.run()

@@ -676,10 +676,15 @@ class DecisionRoutingMiddleware:
     ) -> Dict[str, Any]:
         """Fallback routing when DecisionRouter is not available."""
         try:
+            from aragora.config.settings import DebateSettings
             from aragora.debate import Arena, Environment, DebateProtocol
 
             env = Environment(task=content)
-            protocol = DebateProtocol(rounds=2, consensus="majority")
+            defaults = DebateSettings()
+            protocol = DebateProtocol(
+                rounds=defaults.default_rounds,
+                consensus=defaults.default_consensus,  # type: ignore[arg-type]
+            )
 
             # Run with default agents
             arena = Arena(env, protocol=protocol)

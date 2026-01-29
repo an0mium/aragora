@@ -285,12 +285,14 @@ class TestFileOperations:
         )
         mock_download_response = MagicMock()
         mock_download_response.content = b"file content here"
+        mock_download_response.status_code = 200
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.get = AsyncMock(
-                side_effect=[mock_get_file_response, mock_download_response]
-            )
+            # _telegram_api_request uses client.get() for method="GET"
+            mock_instance.get = AsyncMock(return_value=mock_get_file_response)
+            # _http_request uses client.request() for all methods
+            mock_instance.request = AsyncMock(return_value=mock_download_response)
 
             result = await connector.download_file(file_id="file_123")
 
@@ -569,8 +571,10 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.telegram.HTTPX_AVAILABLE", False):
             connector = TelegramConnector(bot_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
-                await connector.send_message("-123", "test")
+            # Now returns error response instead of raising
+            result = await connector.send_message("-123", "test")
+            assert not result.success
+            assert "httpx not available" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_download_file_without_httpx(self):
@@ -578,7 +582,7 @@ class TestHttpxRequirement:
         with patch("aragora.connectors.chat.telegram.HTTPX_AVAILABLE", False):
             connector = TelegramConnector(bot_token="test")
 
-            with pytest.raises(RuntimeError, match="httpx is required"):
+            with pytest.raises(RuntimeError, match="httpx not available"):
                 await connector.download_file("file_123")
 
 

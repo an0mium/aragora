@@ -182,34 +182,52 @@ class ContextPhase:
 
         gathered_context = "\n\n".join(combined_context)
 
-        use_rlm_context = os.environ.get("ARAGORA_NOMIC_CONTEXT_RLM", "").lower() == "true"
+        env_rlm_context = os.environ.get("ARAGORA_NOMIC_CONTEXT_RLM")
+        use_rlm_context = True if env_rlm_context is None else env_rlm_context.lower() == "true"
         if use_rlm_context:
-            try:
-                from aragora.rlm import get_rlm, RLMConfig
+            # Prefer NomicContextBuilder (TRUE RLM + REPL) when available.
+            if self._context_builder is not None:
+                try:
+                    await self._context_builder.build_rlm_context()
+                    rlm_context = await self._context_builder.build_debate_context()
+                    if rlm_context:
+                        gathered_context = rlm_context
+                        self._log("  [context] TRUE RLM context builder applied (deep index)")
+                except Exception as e:
+                    self._log(f"  [context] RLM context builder unavailable: {e}")
+            else:
+                try:
+                    from aragora.rlm import get_rlm, RLMConfig
 
-                rlm_config = RLMConfig()
-                if hasattr(rlm_config, "max_content_bytes_nomic"):
-                    rlm_config.max_content_bytes = rlm_config.max_content_bytes_nomic
-                env_max_bytes = os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES")
-                if env_max_bytes:
-                    try:
-                        rlm_config.max_content_bytes = int(env_max_bytes)
-                    except ValueError:
-                        self._log(
-                            f"  [context] Invalid ARAGORA_NOMIC_MAX_CONTEXT_BYTES={env_max_bytes}"
-                        )
+                    rlm_config = RLMConfig()
+                    if hasattr(rlm_config, "max_content_bytes_nomic"):
+                        rlm_config.max_content_bytes = rlm_config.max_content_bytes_nomic
+                    env_max_bytes = os.environ.get(
+                        "ARAGORA_NOMIC_MAX_CONTEXT_BYTES"
+                    ) or os.environ.get("NOMIC_MAX_CONTEXT_BYTES")
+                    if env_max_bytes:
+                        try:
+                            rlm_config.max_content_bytes = int(env_max_bytes)
+                        except ValueError:
+                            self._log(
+                                "  [context] Invalid ARAGORA_NOMIC_MAX_CONTEXT_BYTES="
+                                f"{env_max_bytes}"
+                            )
 
-                rlm = get_rlm(config=rlm_config)
-                rlm_result = await rlm.compress_and_query(
-                    query="Provide a comprehensive, code-level summary of the aragora codebase for debate context.",
-                    content=gathered_context,
-                    source_type="nomic_context",
-                )
-                if rlm_result and rlm_result.answer:
-                    gathered_context = rlm_result.answer
-                    self._log("  [context] TRUE RLM context builder applied")
-            except Exception as e:
-                self._log(f"  [context] RLM context builder unavailable: {e}")
+                    rlm = get_rlm(config=rlm_config)
+                    rlm_result = await rlm.compress_and_query(
+                        query=(
+                            "Provide a comprehensive, code-level summary of the aragora "
+                            "codebase for debate context."
+                        ),
+                        content=gathered_context,
+                        source_type="nomic_context",
+                    )
+                    if rlm_result and rlm_result.answer:
+                        gathered_context = rlm_result.answer
+                        self._log("  [context] TRUE RLM context builder applied")
+                except Exception as e:
+                    self._log(f"  [context] RLM context builder unavailable: {e}")
 
         phase_duration = time.perf_counter() - phase_start
         success = len(combined_context) > 0

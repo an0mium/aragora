@@ -305,12 +305,13 @@ class A2AServer:
     async def _handle_debate(self, request: TaskRequest) -> TaskResult:
         """Handle debate capability requests."""
         from aragora.agents.base import create_agent
+        from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
         from aragora.core import Environment
         from aragora.debate.orchestrator import Arena, DebateProtocol
 
         # Parse context for additional parameters
-        rounds = 3
-        agents_str = "anthropic-api,openai-api"
+        rounds = DEFAULT_ROUNDS
+        agents_str = ",".join(DEFAULT_AGENTS)
 
         for ctx in request.context:
             if ctx.metadata.get("rounds"):
@@ -345,7 +346,7 @@ class A2AServer:
 
         # Run debate
         env = Environment(task=request.instruction, max_rounds=rounds)
-        protocol = DebateProtocol(rounds=rounds, consensus="majority")
+        protocol = DebateProtocol(rounds=rounds, consensus=DEFAULT_CONSENSUS)
         arena = Arena(env, agents, protocol)
 
         result = await arena.run()

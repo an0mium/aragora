@@ -50,15 +50,37 @@ from aragora.observability.otlp_export import (
     set_otlp_config,
     shutdown_otlp,
 )
-from aragora.observability.logging import (
-    LogConfig,
+
+# Use new logging module (aragora.logging_config) - the deprecated module
+# (aragora.observability.logging) is kept for backward compatibility but
+# emits deprecation warnings on import.
+from aragora.logging_config import (
+    LogContext,
+    LogContext as correlation_context,  # Backward compat alias
     StructuredLogger,
     configure_logging,
-    correlation_context,
-    get_correlation_id,
+    get_context as get_correlation_id,  # Backward compat alias
     get_logger,
-    set_correlation_id,
+    set_context as set_correlation_id,  # Backward compat alias (accepts **kwargs)
 )
+
+# LogConfig doesn't exist in new module - create minimal stub for backward compat
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class LogConfig:
+    """Minimal backward-compatible LogConfig stub.
+
+    Deprecated: Use configure_logging() directly instead.
+    """
+
+    level: str = "INFO"
+    format: str = "json"
+    file_path: Optional[str] = None
+
+
 from aragora.observability.metrics import (
     measure_async_latency,
     measure_latency,
@@ -181,12 +203,23 @@ from aragora.observability.query_analyzer import (
     get_query_analysis_stats,
     get_slow_queries as get_slow_query_history,
 )
+from aragora.observability.slo_alert_bridge import (
+    ActiveViolation,
+    AlertChannel,
+    AlertSeverity,
+    SLOAlertBridge,
+    SLOAlertConfig,
+    get_slo_alert_bridge,
+    init_slo_alerting,
+    shutdown_slo_alerting,
+)
 
 __all__ = [
     # Logging
     "configure_logging",
     "get_logger",
     "StructuredLogger",
+    "LogContext",
     "LogConfig",
     "set_correlation_id",
     "get_correlation_id",
@@ -320,4 +353,13 @@ __all__ = [
     "get_slow_query_history",
     "clear_slow_queries",
     "get_query_analysis_stats",
+    # SLO Alerting
+    "SLOAlertBridge",
+    "SLOAlertConfig",
+    "AlertSeverity",
+    "AlertChannel",
+    "ActiveViolation",
+    "init_slo_alerting",
+    "get_slo_alert_bridge",
+    "shutdown_slo_alerting",
 ]

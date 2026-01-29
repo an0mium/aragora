@@ -5,8 +5,8 @@ Aragora CLI - Control Plane for Multi-Agent Deliberation
 Orchestrate multi-agent vetted decisionmaking across your organization's knowledge and channels.
 
 Usage:
-    aragora ask "Design a rate limiter" --agents anthropic-api,openai-api --rounds 3
-    aragora ask "Implement auth system" --agents anthropic-api,openai-api,gemini
+    aragora ask "Design a rate limiter" --agents grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi --rounds 9
+    aragora ask "Implement auth system" --agents grok,anthropic-api,openai-api,gemini --rounds 9
     aragora stats
 
 Environment Variables:
@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from aragora.agents.base import create_agent
 from aragora.agents.spec import AgentSpec
+from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.core import Environment
 from aragora.debate.orchestrator import Arena, DebateProtocol
 from aragora.memory.store import CritiqueStore
@@ -1470,8 +1471,8 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  aragora ask "Design a rate limiter" --agents anthropic-api,openai-api
-  aragora ask "Implement auth" --agents anthropic-api,openai-api,gemini --rounds 4
+  aragora ask "Design a rate limiter" --agents grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi
+  aragora ask "Implement auth" --agents grok,anthropic-api,openai-api,gemini --rounds 9
   aragora stats
   aragora patterns --type security
         """,
@@ -1489,7 +1490,7 @@ Examples:
     ask_parser.add_argument(
         "--agents",
         "-a",
-        default="codex,claude",
+        default=DEFAULT_AGENTS,
         help=(
             "Comma-separated agents. Formats: "
             "'provider' (auto-assign role), "
@@ -1503,15 +1504,15 @@ Examples:
         "--rounds",
         "-r",
         type=int,
-        default=8,
-        help="Number of debate rounds (default: 8 for 9-round format)",
+        default=DEFAULT_ROUNDS,
+        help=f"Number of debate rounds (default: {DEFAULT_ROUNDS})",
     )
     ask_parser.add_argument(
         "--consensus",
         "-c",
-        choices=["majority", "unanimous", "judge", "none"],
-        default="judge",
-        help="Consensus mechanism (default: judge)",
+        choices=["majority", "unanimous", "judge", "hybrid", "none"],
+        default=DEFAULT_CONSENSUS,
+        help=f"Consensus mechanism (default: {DEFAULT_CONSENSUS})",
     )
     ask_parser.add_argument("--context", help="Additional context for the task")
     ask_parser.add_argument(

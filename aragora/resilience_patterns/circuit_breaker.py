@@ -181,6 +181,30 @@ class BaseCircuitBreaker:
         """Check if circuit is half-open (testing)."""
         return self.state == CircuitState.HALF_OPEN
 
+    @property
+    def failure_threshold(self) -> int:
+        """Get failure threshold (backward compatibility)."""
+        return self.config.failure_threshold
+
+    @property
+    def cooldown_seconds(self) -> float:
+        """Get cooldown seconds (backward compatibility)."""
+        return self.config.cooldown_seconds
+
+    @property
+    def failures(self) -> int:
+        """Get consecutive failure count (backward compatibility)."""
+        with self._lock:
+            return self._consecutive_failures
+
+    def get_status(self) -> str:
+        """Get status string (backward compatibility)."""
+        return self.state.value
+
+    def can_proceed(self) -> bool:
+        """Backward compatibility alias for can_execute()."""
+        return self.can_execute()
+
     def can_execute(self) -> bool:
         """Check if a request can be executed.
 
@@ -432,3 +456,77 @@ def with_circuit_breaker_sync(
         return wrapper
 
     return decorator
+
+
+# =============================================================================
+# Global Circuit Breaker Registry (backward-compatible with aragora.resilience)
+# =============================================================================
+
+_circuit_breakers: dict[str, BaseCircuitBreaker] = {}
+_circuit_breakers_lock = threading.Lock()
+
+
+def get_circuit_breaker(
+    name: str,
+    failure_threshold: Optional[int] = None,
+    cooldown_seconds: Optional[float] = None,
+    config: Optional[CircuitBreakerConfig] = None,
+) -> BaseCircuitBreaker:
+    """Get or create a named circuit breaker from the global registry.
+
+    This ensures consistent circuit breaker state across components
+    for the same service/agent.
+
+    Args:
+        name: Unique identifier for this circuit breaker
+        failure_threshold: Failures before opening circuit
+        cooldown_seconds: Seconds before attempting recovery
+        config: Explicit CircuitBreakerConfig to use
+
+    Returns:
+        BaseCircuitBreaker instance (shared if already exists)
+
+    Example:
+        cb = get_circuit_breaker("anthropic_agent", failure_threshold=5)
+        if cb.can_execute():
+            try:
+                result = await call_api()
+                cb.record_success()
+            except Exception as e:
+                cb.record_failure(e)
+                raise
+    """
+    with _circuit_breakers_lock:
+        if name not in _circuit_breakers:
+            # Build config from parameters
+            if config is not None:
+                resolved_config = config
+            else:
+                resolved_config = CircuitBreakerConfig(
+                    failure_threshold=failure_threshold or 5,
+                    cooldown_seconds=cooldown_seconds or 60.0,
+                )
+
+            _circuit_breakers[name] = BaseCircuitBreaker(name, resolved_config)
+            logger.debug(f"Created circuit breaker: {name}")
+
+        return _circuit_breakers[name]
+
+
+def reset_all_circuit_breakers() -> None:
+    """Reset all global circuit breakers. Useful for testing."""
+    with _circuit_breakers_lock:
+        for cb in _circuit_breakers.values():
+            cb.reset()
+        count = len(_circuit_breakers)
+    logger.info(f"Reset {count} circuit breakers")
+
+
+def get_all_circuit_breakers() -> dict[str, BaseCircuitBreaker]:
+    """Get all registered circuit breakers.
+
+    Returns:
+        Dict mapping circuit breaker names to instances.
+    """
+    with _circuit_breakers_lock:
+        return dict(_circuit_breakers)

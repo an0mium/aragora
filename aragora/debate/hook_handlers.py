@@ -131,7 +131,7 @@ class HookHandlerRegistry:
             )
             self._unregister_fns.append(unregister)
             return True
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError) as e:
             logger.debug(f"Failed to register {name}: {e}")
             return False
 
@@ -747,7 +747,7 @@ class HookHandlerRegistry:
                             )
                             # Record delivery in config store
                             store.record_delivery(webhook.id, 200, success=True)
-                        except Exception as e:
+                        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                             logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
                             store.record_delivery(webhook.id, 500, success=False)
 
@@ -814,7 +814,7 @@ class HookHandlerRegistry:
                                 secret=webhook.secret,
                             )
                             store.record_delivery(webhook.id, 200, success=True)
-                        except Exception as e:
+                        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
                             logger.debug(f"Webhook delivery failed for {webhook.id}: {e}")
                             store.record_delivery(webhook.id, 500, success=False)
 
@@ -933,7 +933,7 @@ class HookHandlerRegistry:
                         if hasattr(receipt_store, "save"):
                             receipt_store.save(receipt)
                             logger.debug(f"Persisted receipt {receipt.receipt_id} to store")
-                    except Exception as store_err:
+                    except (OSError, ValueError, TypeError) as store_err:
                         logger.warning(f"Failed to persist receipt: {store_err}")
 
             except ImportError as e:
@@ -1014,7 +1014,7 @@ class HookHandlerRegistry:
                             f"({len(provenance_manager.chain.records)} records, "
                             f"{len(provenance_manager.graph.citations)} citations)"
                         )
-                    except Exception as store_err:
+                    except (OSError, ValueError, TypeError) as store_err:
                         logger.warning(f"Failed to persist provenance: {store_err}")
 
                 # Register with provenance handler for API access

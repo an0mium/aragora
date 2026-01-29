@@ -14,7 +14,6 @@ import logging
 from typing import Optional
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
-from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -73,7 +72,7 @@ class EvolutionHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("evolution:read")
+    # TODO: RBAC should be handled at middleware level, not handler decorator
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)

@@ -388,18 +388,18 @@ explicitly if you need consistent pooling across subsystems.
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_DEFAULT_ROUNDS` | Optional | Default debate rounds | `3` |
-| `ARAGORA_MAX_ROUNDS` | Optional | Max debate rounds | `10` |
-| `ARAGORA_DEFAULT_CONSENSUS` | Optional | Consensus mode | `hybrid` |
-| `ARAGORA_DEBATE_TIMEOUT` | Optional | Debate timeout (seconds) | `900` |
+| `ARAGORA_DEFAULT_ROUNDS` | Optional | Default debate rounds | `9` |
+| `ARAGORA_MAX_ROUNDS` | Optional | Max debate rounds | `12` |
+| `ARAGORA_DEFAULT_CONSENSUS` | Optional | Consensus mode | `judge` |
+| `ARAGORA_DEBATE_TIMEOUT` | Optional | Debate timeout (seconds) | `600` |
 | `ARAGORA_AGENT_TIMEOUT` | Optional | Per-agent timeout (seconds) | `240` |
 
 ## Agent Defaults
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,gemini` |
-| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api` |
+| `ARAGORA_DEFAULT_AGENTS` | Optional | Default agent list when none specified | `grok,anthropic-api,openai-api,deepseek,mistral,gemini,qwen,kimi` |
+| `ARAGORA_STREAMING_AGENTS` | Optional | Agents allowed for streaming responses | `grok,anthropic-api,openai-api,mistral` |
 
 ## Streaming Controls
 

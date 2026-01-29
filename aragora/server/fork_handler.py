@@ -9,6 +9,8 @@ import logging
 import threading
 from typing import Any, Dict, Optional
 
+from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 # Lazy imports to avoid circular dependencies
@@ -153,10 +155,10 @@ class ForkBridgeHandler:
 
             # Create environment with fork context
             task = f"[Branch: {hypothesis}]\n[Lead: {lead_agent}]\n\n{original_task}"
-            env = Environment(task=task, max_rounds=3)
+            env = Environment(task=task, max_rounds=DEFAULT_ROUNDS)
             protocol = DebateProtocol(
-                rounds=3,
-                consensus="majority",
+                rounds=DEFAULT_ROUNDS,
+                consensus=DEFAULT_CONSENSUS,
                 convergence_detection=False,
                 early_stopping=False,
             )

@@ -56,8 +56,14 @@ from .timeout import (
 from .circuit_breaker import (
     CircuitState,
     CircuitBreakerConfig,
+    CircuitBreakerOpenError,
+    CircuitBreakerStats,
     BaseCircuitBreaker,
     with_circuit_breaker,
+    with_circuit_breaker_sync,
+    get_circuit_breaker,
+    reset_all_circuit_breakers,
+    get_all_circuit_breakers,
 )
 
 from .health import (
@@ -92,8 +98,14 @@ __all__ = [
     # Circuit breaker
     "CircuitState",
     "CircuitBreakerConfig",
+    "CircuitBreakerOpenError",
+    "CircuitBreakerStats",
     "BaseCircuitBreaker",
     "with_circuit_breaker",
+    "with_circuit_breaker_sync",
+    "get_circuit_breaker",
+    "reset_all_circuit_breakers",
+    "get_all_circuit_breakers",
     # Health
     "HealthStatus",
     "HealthChecker",

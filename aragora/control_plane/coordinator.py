@@ -192,7 +192,7 @@ class ControlPlaneConfig:
                         mode=redis_ha_mode,
                         enabled=redis_ha_enabled,
                     )
-            except Exception as e:
+            except (AttributeError, ValueError, KeyError, OSError) as e:
                 logger.debug(f"Redis HA config not available: {e}")
 
         return cls(
@@ -506,7 +506,7 @@ class ControlPlaneCoordinator:
         try:
             enforcement = getattr(violation.enforcement_level, "value", "hard")
             decision = "warn" if enforcement == "warn" else "deny"
-        except Exception:
+        except (AttributeError, TypeError):
             decision = "deny"
 
         async def _log_violation() -> None:
@@ -612,7 +612,7 @@ class ControlPlaneCoordinator:
                             "issue": issue.to_dict(),
                         }
                     )
-                except Exception as e:
+                except (ConnectionError, OSError, AttributeError) as e:
                     logger.debug(f"Failed to broadcast watchdog issue: {e}")
 
             # Record in KM if adapter available
@@ -974,7 +974,7 @@ class ControlPlaneCoordinator:
 
                 return agent_map.get(selected_id)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError) as e:
             logger.debug(f"KM recommendation failed, using fallback: {e}")
 
         # Fallback to registry selection
@@ -1026,7 +1026,7 @@ class ControlPlaneCoordinator:
                 required_capabilities=capabilities,
                 top_n=limit,
             )
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError) as e:
             logger.debug(f"Failed to get KM recommendations: {e}")
             return []
 
@@ -1105,7 +1105,7 @@ class ControlPlaneCoordinator:
                     or (metadata.get("workspace_id") if metadata else None),
                     metadata=metadata,
                 )
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Notification error on task submission: {e}")
 
             return task_id
@@ -1157,7 +1157,7 @@ class ControlPlaneCoordinator:
                     agent_id=agent_id,
                     workspace_id=task.metadata.get("workspace_id") if task.metadata else None,
                 )
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Notification error on task claim: {e}")
 
         return task
@@ -1266,7 +1266,7 @@ class ControlPlaneCoordinator:
                             metadata=task.metadata or {},
                         )
                         await self._km_adapter.store_task_outcome(outcome)
-                    except Exception as e:
+                    except (AttributeError, TypeError, KeyError) as e:
                         logger.debug("km_store_failed", error=str(e), task_id=task_id)
 
                 # Notify waiters
@@ -1294,7 +1294,7 @@ class ControlPlaneCoordinator:
                             task.metadata.get("workspace_id") if task and task.metadata else None
                         ),
                     )
-                except Exception as e:
+                except (ImportError, AttributeError, RuntimeError) as e:
                     logger.debug(f"Notification error on task completion: {e}")
 
             return success
@@ -1358,7 +1358,7 @@ class ControlPlaneCoordinator:
                             metadata=task.metadata or {},
                         )
                         await self._km_adapter.store_task_outcome(outcome)
-                    except Exception as e:
+                    except (AttributeError, TypeError, KeyError) as e:
                         logger.debug("km_store_failed", error=str(e), task_id=task_id)
 
             # Notify waiters if not requeued
@@ -1390,7 +1390,7 @@ class ControlPlaneCoordinator:
                         task.metadata.get("workspace_id") if task and task.metadata else None
                     ),
                 )
-            except Exception as e:
+            except (ImportError, AttributeError, RuntimeError) as e:
                 logger.debug(f"Notification error on task failure: {e}")
 
             return success
@@ -1641,7 +1641,7 @@ class ControlPlaneCoordinator:
                 }
                 for r in records
             ]
-        except Exception as e:
+        except (AttributeError, TypeError, ZeroDivisionError) as e:
             logger.debug(f"Failed to get agent recommendations: {e}")
             return []
 

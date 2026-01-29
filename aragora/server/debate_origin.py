@@ -470,13 +470,13 @@ def register_debate_origin(
                 loop.run_until_complete(pg_store.save(origin))
             else:
                 asyncio.create_task(pg_store.save(origin))
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"PostgreSQL origin storage failed: {e}")
     else:
         # Fall back to SQLite for durability (always available)
         try:
             _get_sqlite_store().save(origin)
-        except Exception as e:
+        except sqlite3.OperationalError as e:
             logger.warning(f"SQLite origin storage failed: {e}")
 
     # Persist to Redis for distributed deployments
@@ -539,7 +539,7 @@ def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
                 if origin:
                     _origin_store[debate_id] = origin  # Cache locally
                     return origin
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.debug(f"PostgreSQL origin lookup failed: {e}")
     else:
         # Try SQLite fallback
@@ -548,7 +548,7 @@ def get_debate_origin(debate_id: str) -> Optional[DebateOrigin]:
             if origin:
                 _origin_store[debate_id] = origin  # Cache locally
                 return origin
-        except Exception as e:
+        except (sqlite3.OperationalError, json.JSONDecodeError) as e:
             logger.debug(f"SQLite origin lookup failed: {e}")
 
     return None
@@ -570,13 +570,13 @@ def mark_result_sent(debate_id: str) -> None:
                     loop.run_until_complete(pg_store.save(origin))
                 else:
                     asyncio.create_task(pg_store.save(origin))
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
                 logger.debug(f"PostgreSQL update failed: {e}")
         else:
             # Update SQLite
             try:
                 _get_sqlite_store().save(origin)
-            except Exception as e:
+            except sqlite3.OperationalError as e:
                 logger.debug(f"SQLite update failed: {e}")
 
         # Update Redis if available
@@ -1929,7 +1929,7 @@ def cleanup_expired_origins() -> int:
                 if pg_cleaned > 0:
                     logger.info(f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL")
                     total_cleaned += pg_cleaned
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.warning(f"PostgreSQL cleanup failed: {e}")
     else:
         # Clean up SQLite store (fallback)
@@ -1938,7 +1938,7 @@ def cleanup_expired_origins() -> int:
             if sqlite_cleaned > 0:
                 logger.info(f"Cleaned up {sqlite_cleaned} expired debate origins from SQLite")
                 total_cleaned += sqlite_cleaned
-        except Exception as e:
+        except sqlite3.OperationalError as e:
             logger.warning(f"SQLite cleanup failed: {e}")
 
     return total_cleaned

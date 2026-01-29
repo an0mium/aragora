@@ -1,5 +1,9 @@
 # TypeScript SDK Quickstart
 
+> **Note:** For the comprehensive TypeScript SDK guide with React hooks, Next.js integration, streaming, and advanced features, see **[TypeScript Quickstart Guide](guides/typescript-quickstart.md)**.
+>
+> This page provides a minimal 5-minute quickstart.
+
 Get started with Aragora in under 5 minutes.
 
 ## Installation
