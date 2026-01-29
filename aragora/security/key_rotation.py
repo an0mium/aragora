@@ -244,7 +244,7 @@ class KeyRotationScheduler:
     ) -> None:
         """Record Prometheus metrics."""
         try:
-            from aragora.observability.metrics import (
+            from aragora.observability.metrics import (  # type: ignore[attr-defined]
                 record_key_rotation,
             )
 
