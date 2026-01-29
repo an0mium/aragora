@@ -28,6 +28,33 @@ from aragora.server.handlers.email_services import (
     get_email_services_routes,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.rbac.models import AuthorizationContext
+
+
+@pytest.fixture
+def admin_auth():
+    """Create admin auth context for RBAC-protected handlers."""
+    return AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin"},
+        permissions={"*"},  # Wildcard grants all permissions
+    )
+
+
+@pytest.fixture(autouse=True)
+def bypass_email_permission_check():
+    """Bypass email permission checks for all tests in this module.
+
+    The email_services handlers check RBAC permissions internally via
+    _check_email_permission. This fixture patches it to always allow.
+    """
+    with patch(
+        "aragora.server.handlers.email_services._check_email_permission",
+        return_value=None,  # None = no error = allowed
+    ):
+        yield
 
 
 def parse_result(result: HandlerResult) -> dict:
