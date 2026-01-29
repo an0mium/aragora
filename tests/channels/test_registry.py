@@ -257,13 +257,13 @@ class TestDockRegistry:
 
         assert platforms == []
 
-    def test_get_platforms_with_capability_text(self):
-        """Test filtering platforms by text capability."""
+    def test_get_platforms_with_capability_rich_text(self):
+        """Test filtering platforms by rich text capability."""
         registry = DockRegistry()
         registry.register(MockDock)
         registry.register(VoiceDock)
 
-        platforms = registry.get_platforms_with_capability(ChannelCapability.TEXT)
+        platforms = registry.get_platforms_with_capability(ChannelCapability.RICH_TEXT)
 
         assert "mock" in platforms
         assert "voice_platform" in platforms
