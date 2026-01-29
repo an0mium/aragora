@@ -185,7 +185,7 @@ The system draws inspiration from termite colonies, where specialized individual
 | Control | Status | Condition | File Reference |
 |---------|--------|-----------|----------------|
 | Encryption Required | Conditional | Enabled when `ARAGORA_ENV=production` | `aragora/security/encryption.py:84` |
-| Webhook Verification | Fail-closed | Unless `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1` | `aragora/connectors/chat/slack.py:985` |
+| Webhook Verification | Fail-closed | Unless `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=1` | `aragora/connectors/chat/slack/:985` |
 | Distributed State | Conditional | Enforced when `ARAGORA_MULTI_INSTANCE=true` or production | `aragora/control_plane/leader.py:27` |
 | JWT Authentication | Required | All Gmail/sensitive endpoints | `aragora/server/handlers/features/gmail_ingest.py:112` |
 | Rate Limiting | Enabled | Per-endpoint and per-user limits | Various handlers |

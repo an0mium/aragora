@@ -2,21 +2,25 @@
 Tests for aragora.server.handlers.gauntlet - Gauntlet stress-testing handler.
 
 Tests cover:
-- Routing and method handling
-- List personas
-- Start gauntlet
-- Get status
-- Get decision receipt
-- Get risk heatmap
-- List results with pagination
-- Compare results
-- Delete result
-- Export report
+- Route registration and can_handle (versioned and legacy)
+- List personas (happy path, import error)
+- Start gauntlet (happy path, invalid body, missing required field, quota exceeded)
+- Get status (pending, completed, not found, invalid ID, from persistent storage)
+- Get decision receipt (not completed, json format, not found in storage)
+- Get risk heatmap (not completed, json format, from storage fallback)
+- List results with pagination (happy path, pagination params, storage error)
+- Compare results (happy path, not found, invalid compare ID)
+- Delete result (happy path, not found, in-memory removal)
+- Export report (json format, html format, not completed, unsupported format, not found)
+- Version headers and legacy route deprecation
+- Memory management (cleanup old entries, memory limit enforcement)
+- ID validation (path traversal, valid IDs)
 """
 
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
@@ -25,6 +29,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.server.handlers.gauntlet as gauntlet_module
 from aragora.server.handlers.gauntlet import (
     GauntletHandler,
     _gauntlet_runs,
@@ -34,7 +39,7 @@ from aragora.server.handlers.gauntlet import (
 
 
 # ===========================================================================
-# Test Fixtures
+# Test Fixtures and Mocks
 # ===========================================================================
 
 
@@ -87,59 +92,6 @@ class MockGauntletResult:
     duration_seconds: float = 45.0
 
 
-class MockGauntletStorage:
-    """Mock gauntlet storage for testing."""
-
-    def __init__(self):
-        self.results: dict[str, dict] = {}
-
-    def save(self, result) -> None:
-        self.results[result.gauntlet_id] = result
-
-    def get(self, gauntlet_id: str) -> dict | None:
-        result = self.results.get(gauntlet_id)
-        if result:
-            return {
-                "gauntlet_id": gauntlet_id,
-                "verdict": "APPROVED",
-                "confidence": 0.85,
-                "robustness_score": 0.9,
-                "total_findings": 3,
-                "critical_count": 0,
-                "high_count": 1,
-                "medium_count": 1,
-                "low_count": 1,
-                "findings": [],
-            }
-        return None
-
-    def list_recent(
-        self, limit: int = 20, offset: int = 0, verdict: str = None, min_severity: str = None
-    ):
-        results = list(self.results.values())
-        return results[offset : offset + limit]
-
-    def count(self, verdict: str = None) -> int:
-        return len(self.results)
-
-    def delete(self, gauntlet_id: str) -> bool:
-        if gauntlet_id in self.results:
-            del self.results[gauntlet_id]
-            return True
-        return False
-
-    def compare(self, id1: str, id2: str) -> dict | None:
-        if id1 in self.results and id2 in self.results:
-            return {
-                "comparison": {
-                    "id1": id1,
-                    "id2": id2,
-                    "verdict_match": True,
-                }
-            }
-        return None
-
-
 class MockUserStore:
     """Mock user store for testing."""
 
@@ -189,7 +141,7 @@ def clear_gauntlet_runs():
     from aragora.server.handlers.utils.rate_limit import _limiters
 
     _gauntlet_runs.clear()
-    # Clear all handler rate limiters
+    # Clear all handler rate limiters so tests are not rate-limited
     for limiter in _limiters.values():
         limiter.clear()
     yield
@@ -199,12 +151,12 @@ def clear_gauntlet_runs():
 
 
 # ===========================================================================
-# Test Routing
+# Test Routing (can_handle)
 # ===========================================================================
 
 
 class TestGauntletHandlerRouting:
-    """Tests for GauntletHandler routing."""
+    """Tests for GauntletHandler.can_handle across versioned and legacy routes."""
 
     def test_can_handle_run_post(self, gauntlet_handler):
         assert gauntlet_handler.can_handle("/api/v1/gauntlet/run", "POST") is True
@@ -227,8 +179,17 @@ class TestGauntletHandlerRouting:
     def test_can_handle_delete(self, gauntlet_handler):
         assert gauntlet_handler.can_handle("/api/v1/gauntlet/test123", "DELETE") is True
 
+    def test_can_handle_legacy_route(self, gauntlet_handler):
+        """Legacy non-versioned routes should also be handled."""
+        assert gauntlet_handler.can_handle("/api/gauntlet/personas", "GET") is True
+
     def test_cannot_handle_other_paths(self, gauntlet_handler):
         assert gauntlet_handler.can_handle("/api/v1/debates", "GET") is False
+
+    def test_cannot_handle_run_get(self, gauntlet_handler):
+        """GET on /run path - can_handle returns True for any GET under /api/gauntlet/."""
+        result = gauntlet_handler.can_handle("/api/v1/gauntlet/run", "GET")
+        assert result is True
 
 
 # ===========================================================================
@@ -241,37 +202,34 @@ class TestGauntletListPersonas:
 
     @pytest.mark.asyncio
     async def test_list_personas_success(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.gauntlet.personas.list_personas") as mock_list:
-                with patch("aragora.gauntlet.personas.get_persona") as mock_get:
-                    mock_list.return_value = ["gdpr", "hipaa"]
-                    mock_get.return_value = MockPersona()
+        with patch("aragora.gauntlet.personas.list_personas") as mock_list:
+            with patch("aragora.gauntlet.personas.get_persona") as mock_get:
+                mock_list.return_value = ["gdpr", "hipaa"]
+                mock_get.return_value = MockPersona()
 
-                    handler = make_mock_handler()
+                handler = make_mock_handler()
 
-                    result = await gauntlet_handler.handle(
-                        "/api/v1/gauntlet/personas", "GET", handler
-                    )
+                result = await gauntlet_handler.handle("/api/v1/gauntlet/personas", "GET", handler)
 
-                    assert result is not None
-                    assert result.status_code == 200
-                    data = json.loads(result.body)
-                    assert "personas" in data
-                    assert "count" in data
+                assert result is not None
+                assert result.status_code == 200
+                data = json.loads(result.body)
+                assert "personas" in data
+                assert data["count"] == 2
+                assert len(data["personas"]) == 2
 
     @pytest.mark.asyncio
     async def test_list_personas_module_not_available(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch.dict("sys.modules", {"aragora.gauntlet.personas": None}):
-                handler = make_mock_handler()
+        with patch.dict("sys.modules", {"aragora.gauntlet.personas": None}):
+            handler = make_mock_handler()
 
-                # This will raise ImportError
-                result = gauntlet_handler._list_personas()
+            result = gauntlet_handler._list_personas()
 
-                assert result is not None
-                data = json.loads(result.body)
-                assert data["personas"] == []
-                assert "error" in data
+            assert result is not None
+            data = json.loads(result.body)
+            assert data["personas"] == []
+            assert data["count"] == 0
+            assert "error" in data
 
 
 # ===========================================================================
@@ -284,44 +242,80 @@ class TestGauntletStartRun:
 
     @pytest.mark.asyncio
     async def test_start_gauntlet_invalid_body(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            handler = MagicMock()
-            handler.command = "POST"
-            handler.path = "/api/v1/gauntlet/run"
-            handler.headers = {"Content-Length": "5"}
-            handler.rfile = BytesIO(b"invalid")
-            handler.client_address = ("127.0.0.1", 12345)
-            # Explicitly set user_store to None to skip quota checking
-            handler.user_store = None
+        handler = MagicMock()
+        handler.command = "POST"
+        handler.path = "/api/v1/gauntlet/run"
+        handler.headers = {"Content-Length": "5"}
+        handler.rfile = BytesIO(b"invalid")
+        handler.client_address = ("127.0.0.1", 12345)
+        handler.user_store = None
+
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_start_gauntlet_missing_required_field(self, gauntlet_handler):
+        """Submitting without input_content should fail schema validation."""
+        handler = make_mock_handler(
+            body={"input_type": "spec"},  # missing input_content
+            method="POST",
+        )
+        handler.user_store = None
+
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_start_gauntlet_quota_exceeded(self, gauntlet_handler):
+        user_store = MockUserStore()
+        org = MockOrganization(is_at_limit=True)
+        user_store.orgs["org-123"] = org
+
+        handler = make_mock_handler(
+            {"input_content": "Test spec", "input_type": "spec"},
+            method="POST",
+        )
+        handler.user_store = user_store
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
+            mock_auth.return_value = MockAuthContext()
 
             result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
 
             assert result is not None
-            assert result.status_code == 400
+            assert result.status_code == 429
+            data = json.loads(result.body)
+            assert data["code"] == "quota_exceeded"
+            assert "upgrade_url" in data
 
     @pytest.mark.asyncio
-    async def test_start_gauntlet_quota_exceeded(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Setup user store with org at limit
-            user_store = MockUserStore()
-            org = MockOrganization(is_at_limit=True)
-            user_store.orgs["org-123"] = org
+    async def test_start_gauntlet_success(self, gauntlet_handler):
+        """Happy path: valid request body creates a pending run."""
+        handler = make_mock_handler(
+            body={"input_content": "Test spec content for gauntlet"},
+            method="POST",
+        )
+        handler.user_store = None
 
-            handler = make_mock_handler(
-                {"input_content": "Test spec", "input_type": "spec"},
-                method="POST",
-            )
-            handler.user_store = user_store
+        with (
+            patch.object(gauntlet_module, "_get_storage") as mock_storage,
+            patch.object(gauntlet_module, "create_tracked_task"),
+        ):
+            mock_storage_inst = MagicMock()
+            mock_storage.return_value = mock_storage_inst
 
-            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth:
-                mock_auth.return_value = MockAuthContext()
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
 
-                result = await gauntlet_handler.handle("/api/v1/gauntlet/run", "POST", handler)
-
-                assert result is not None
-                assert result.status_code == 429
-                data = json.loads(result.body)
-                assert data["code"] == "quota_exceeded"
+        assert result is not None
+        assert result.status_code == 202
+        data = json.loads(result.body)
+        assert data["status"] == "pending"
+        assert "gauntlet_id" in data
+        assert data["gauntlet_id"].startswith("gauntlet-")
 
 
 # ===========================================================================
@@ -334,72 +328,85 @@ class TestGauntletGetStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_pending(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Add a pending run
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "pending",
-                "created_at": datetime.now().isoformat(),
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
+
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", "GET", handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_get_status_completed(self, gauntlet_handler):
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "completed",
+            "result": {"verdict": "APPROVED"},
+        }
+
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
+
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", "GET", handler)
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_status_not_found(self, gauntlet_handler):
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.get.return_value = None
+            mock_storage_instance.get_inflight.return_value = None
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-nonexistent")
 
             result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123", "GET", handler
+                "/api/v1/gauntlet/gauntlet-nonexistent", "GET", handler
+            )
+
+            assert result is not None
+            assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_status_from_persistent_storage(self, gauntlet_handler):
+        """When not in memory, falls back to persistent storage."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.get_inflight.return_value = None
+            mock_storage_instance.get.return_value = {
+                "gauntlet_id": "gauntlet-stored123",
+                "verdict": "APPROVED",
+                "confidence": 0.9,
+            }
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-stored123")
+
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-stored123", "GET", handler
             )
 
             assert result is not None
             assert result.status_code == 200
             data = json.loads(result.body)
-            assert data["status"] == "pending"
-
-    @pytest.mark.asyncio
-    async def test_get_status_completed(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Add a completed run
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "completed",
-                "result": {"verdict": "APPROVED"},
-            }
-
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
-
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123", "GET", handler
-            )
-
-            assert result is not None
-            assert result.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_get_status_not_found(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.get.return_value = None
-                mock_storage_instance.get_inflight.return_value = None  # Also mock get_inflight
-                mock_storage.return_value = mock_storage_instance
-
-                handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-nonexistent")
-
-                result = await gauntlet_handler.handle(
-                    "/api/v1/gauntlet/gauntlet-nonexistent", "GET", handler
-                )
-
-                assert result is not None
-                assert result.status_code == 404
+            assert data["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_get_status_invalid_id(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            handler = make_mock_handler(path="/api/v1/gauntlet/../etc/passwd")
+        handler = make_mock_handler(path="/api/v1/gauntlet/../etc/passwd")
 
-            result = await gauntlet_handler.handle("/api/v1/gauntlet/../etc/passwd", "GET", handler)
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/../etc/passwd", "GET", handler)
 
-            # Should reject invalid ID
-            assert result is not None
-            assert result.status_code == 400
+        assert result is not None
+        assert result.status_code == 400
 
 
 # ===========================================================================
@@ -412,52 +419,65 @@ class TestGauntletGetReceipt:
 
     @pytest.mark.asyncio
     async def test_get_receipt_not_completed(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Add a pending run
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "running",
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "running",
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
-            )
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
+        )
 
-            assert result is not None
-            assert result.status_code == 400
+        assert result is not None
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_get_receipt_json_format(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Add a completed run
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "completed",
-                "input_summary": "Test input",
-                "input_hash": "abc123",
-                "completed_at": datetime.now().isoformat(),
-                "result": {
-                    "verdict": "APPROVED",
-                    "confidence": 0.85,
-                    "robustness_score": 0.9,
-                    "critical_count": 0,
-                    "high_count": 1,
-                    "medium_count": 1,
-                    "low_count": 1,
-                    "total_findings": 3,
-                },
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "completed",
+            "input_summary": "Test input",
+            "input_hash": "abc123",
+            "completed_at": datetime.now().isoformat(),
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.85,
+                "robustness_score": 0.9,
+                "critical_count": 0,
+                "high_count": 1,
+                "medium_count": 1,
+                "low_count": 1,
+                "total_findings": 3,
+            },
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/receipt")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_receipt_not_found_in_storage(self, gauntlet_handler):
+        """Receipt for a run not in memory and not in storage returns error."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.get.return_value = None
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-missing123/receipt")
 
             result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/receipt", "GET", handler
+                "/api/v1/gauntlet/gauntlet-missing123/receipt", "GET", handler
             )
 
             assert result is not None
-            assert result.status_code == 200
+            assert result.status_code == 404
 
 
 # ===========================================================================
@@ -470,44 +490,59 @@ class TestGauntletGetHeatmap:
 
     @pytest.mark.asyncio
     async def test_get_heatmap_not_completed(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "pending",
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "pending",
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
-            )
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
+        )
 
-            assert result is not None
-            assert result.status_code == 400
+        assert result is not None
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_get_heatmap_json_format(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "completed",
-                "result": {
-                    "findings": [
-                        {"category": "privacy", "severity_level": "high"},
-                        {"category": "security", "severity_level": "medium"},
-                    ],
-                    "total_findings": 2,
-                },
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "completed",
+            "result": {
+                "findings": [
+                    {"category": "privacy", "severity_level": "high"},
+                    {"category": "security", "severity_level": "medium"},
+                ],
+                "total_findings": 2,
+            },
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/heatmap")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_heatmap_not_found(self, gauntlet_handler):
+        """Heatmap for a run not in memory and not in storage returns 404."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.get.return_value = None
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-missing123/heatmap")
 
             result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/heatmap", "GET", handler
+                "/api/v1/gauntlet/gauntlet-missing123/heatmap", "GET", handler
             )
 
             assert result is not None
-            assert result.status_code == 200
+            assert result.status_code == 404
 
 
 # ===========================================================================
@@ -520,41 +555,54 @@ class TestGauntletListResults:
 
     @pytest.mark.asyncio
     async def test_list_results_success(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.list_recent.return_value = [MockGauntletResult()]
-                mock_storage_instance.count.return_value = 1
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.list_recent.return_value = [MockGauntletResult()]
+            mock_storage_instance.count.return_value = 1
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/v1/gauntlet/results")
+            handler = make_mock_handler(path="/api/v1/gauntlet/results")
 
-                result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
 
-                assert result is not None
-                assert result.status_code == 200
-                data = json.loads(result.body)
-                assert "results" in data
-                assert "total" in data
+            assert result is not None
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert "results" in data
+            assert data["total"] == 1
 
     @pytest.mark.asyncio
     async def test_list_results_with_pagination(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.list_recent.return_value = []
-                mock_storage_instance.count.return_value = 0
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.list_recent.return_value = []
+            mock_storage_instance.count.return_value = 0
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(path="/api/v1/gauntlet/results?limit=10&offset=5")
+            handler = make_mock_handler(path="/api/v1/gauntlet/results?limit=10&offset=5")
 
-                result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
 
-                assert result is not None
-                assert result.status_code == 200
-                data = json.loads(result.body)
-                assert data["limit"] == 10
-                assert data["offset"] == 5
+            assert result is not None
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["limit"] == 10
+            assert data["offset"] == 5
+
+    @pytest.mark.asyncio
+    async def test_list_results_storage_error(self, gauntlet_handler):
+        """Storage failure should return 500."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.list_recent.side_effect = RuntimeError("DB down")
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/results")
+
+            result = await gauntlet_handler.handle("/api/v1/gauntlet/results", "GET", handler)
+
+            assert result is not None
+            assert result.status_code == 500
 
 
 # ===========================================================================
@@ -567,43 +615,57 @@ class TestGauntletCompareResults:
 
     @pytest.mark.asyncio
     async def test_compare_success(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.compare.return_value = {
-                    "comparison": {"id1": "gauntlet-test1", "id2": "gauntlet-test2"}
-                }
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.compare.return_value = {
+                "comparison": {"id1": "gauntlet-test1", "id2": "gauntlet-test2"}
+            }
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(
-                    path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
-                )
+            handler = make_mock_handler(
+                path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
+            )
 
-                result = await gauntlet_handler.handle(
-                    "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
-                )
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2",
+                "GET",
+                handler,
+            )
 
-                assert result is not None
-                assert result.status_code == 200
+            assert result is not None
+            assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_compare_not_found(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.compare.return_value = None
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.compare.return_value = None
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(
-                    path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
-                )
+            handler = make_mock_handler(
+                path="/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2"
+            )
 
-                result = await gauntlet_handler.handle(
-                    "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2", "GET", handler
-                )
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-test1/compare/gauntlet-test2",
+                "GET",
+                handler,
+            )
 
-                assert result is not None
-                assert result.status_code == 404
+            assert result is not None
+            assert result.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_compare_invalid_second_id(self, gauntlet_handler):
+        """Invalid compare ID should be rejected."""
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test1/compare/../../etc")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test1/compare/../../etc", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 400
 
 
 # ===========================================================================
@@ -616,49 +678,42 @@ class TestGauntletDeleteResult:
 
     @pytest.mark.asyncio
     async def test_delete_success(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            # Add to in-memory
-            _gauntlet_runs["gauntlet-test123"] = {"status": "completed"}
+        _gauntlet_runs["gauntlet-test123"] = {"status": "completed"}
 
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.delete.return_value = True
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.delete.return_value = True
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(
-                    path="/api/v1/gauntlet/gauntlet-test123", method="DELETE"
-                )
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123", method="DELETE")
 
-                result = await gauntlet_handler.handle(
-                    "/api/v1/gauntlet/gauntlet-test123", "DELETE", handler
-                )
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-test123", "DELETE", handler
+            )
 
-                assert result is not None
-                assert result.status_code == 200
-                data = json.loads(result.body)
-                assert data["deleted"] is True
-
-                # Should be removed from in-memory
-                assert "gauntlet-test123" not in _gauntlet_runs
+            assert result is not None
+            assert result.status_code == 200
+            data = json.loads(result.body)
+            assert data["deleted"] is True
+            assert "gauntlet-test123" not in _gauntlet_runs
 
     @pytest.mark.asyncio
     async def test_delete_not_found(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            with patch("aragora.server.handlers.gauntlet._get_storage") as mock_storage:
-                mock_storage_instance = MagicMock()
-                mock_storage_instance.delete.return_value = False
-                mock_storage.return_value = mock_storage_instance
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.delete.return_value = False
+            mock_storage.return_value = mock_storage_instance
 
-                handler = make_mock_handler(
-                    path="/api/v1/gauntlet/gauntlet-nonexistent", method="DELETE"
-                )
+            handler = make_mock_handler(
+                path="/api/v1/gauntlet/gauntlet-nonexistent", method="DELETE"
+            )
 
-                result = await gauntlet_handler.handle(
-                    "/api/v1/gauntlet/gauntlet-nonexistent", "DELETE", handler
-                )
+            result = await gauntlet_handler.handle(
+                "/api/v1/gauntlet/gauntlet-nonexistent", "DELETE", handler
+            )
 
-                assert result is not None
-                assert result.status_code == 404
+            assert result is not None
+            assert result.status_code == 404
 
 
 # ===========================================================================
@@ -669,60 +724,160 @@ class TestGauntletDeleteResult:
 class TestGauntletExportReport:
     """Tests for export report endpoint."""
 
+    def _completed_run_data(self) -> dict:
+        """Helper: data for a completed in-memory run."""
+        return {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "completed",
+            "input_summary": "Test",
+            "input_type": "spec",
+            "input_hash": "abc",
+            "created_at": datetime.now().isoformat(),
+            "completed_at": datetime.now().isoformat(),
+            "result": {
+                "verdict": "APPROVED",
+                "confidence": 0.85,
+                "robustness_score": 0.9,
+                "risk_score": 0.1,
+                "coverage_score": 0.8,
+                "total_findings": 2,
+                "critical_count": 0,
+                "high_count": 1,
+                "medium_count": 1,
+                "low_count": 0,
+                "findings": [
+                    {
+                        "category": "security",
+                        "severity_level": "high",
+                        "title": "SQL injection",
+                        "description": "Possible SQL injection in endpoint",
+                    },
+                ],
+            },
+        }
+
     @pytest.mark.asyncio
     async def test_export_json_format(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "completed",
-                "input_summary": "Test",
-                "input_type": "spec",
-                "input_hash": "abc",
-                "created_at": datetime.now().isoformat(),
-                "completed_at": datetime.now().isoformat(),
-                "result": {
-                    "verdict": "APPROVED",
-                    "confidence": 0.85,
-                    "robustness_score": 0.9,
-                    "risk_score": 0.1,
-                    "coverage_score": 0.8,
-                    "total_findings": 2,
-                    "critical_count": 0,
-                    "high_count": 1,
-                    "medium_count": 1,
-                    "low_count": 0,
-                    "findings": [],
-                },
-            }
+        _gauntlet_runs["gauntlet-test123"] = self._completed_run_data()
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
-            )
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
+        )
 
-            assert result is not None
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "summary" in data
-            assert "findings_summary" in data
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "summary" in data
+        assert "findings_summary" in data
+        assert "heatmap" in data
+        assert data["summary"]["verdict"] == "APPROVED"
+
+    @pytest.mark.asyncio
+    async def test_export_html_format(self, gauntlet_handler):
+        _gauntlet_runs["gauntlet-test123"] = self._completed_run_data()
+
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export?format=html")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 200
+        assert result.content_type == "text/html"
+        body_str = result.body.decode("utf-8") if isinstance(result.body, bytes) else result.body
+        assert "APPROVED" in body_str
 
     @pytest.mark.asyncio
     async def test_export_not_completed(self, gauntlet_handler):
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            _gauntlet_runs["gauntlet-test123"] = {
-                "gauntlet_id": "gauntlet-test123",
-                "status": "running",
-            }
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "running",
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_export_unsupported_format(self, gauntlet_handler):
+        """Unsupported export format should return 400."""
+        _gauntlet_runs["gauntlet-test123"] = self._completed_run_data()
+
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123/export?format=xml")
+
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
+        )
+
+        assert result is not None
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_export_not_found(self, gauntlet_handler):
+        """Export for a non-existent run returns 404."""
+        with patch.object(gauntlet_module, "_get_storage") as mock_storage:
+            mock_storage_instance = MagicMock()
+            mock_storage_instance.get.return_value = None
+            mock_storage.return_value = mock_storage_instance
+
+            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-missing123/export")
 
             result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-test123/export", "GET", handler
+                "/api/v1/gauntlet/gauntlet-missing123/export", "GET", handler
             )
 
             assert result is not None
-            assert result.status_code == 400
+            assert result.status_code == 404
+
+
+# ===========================================================================
+# Test Version Headers and Legacy Route Deprecation
+# ===========================================================================
+
+
+class TestGauntletVersionHeaders:
+    """Tests for API version headers and legacy route deprecation warnings."""
+
+    @pytest.mark.asyncio
+    async def test_versioned_route_has_version_header(self, gauntlet_handler):
+        """Versioned routes should include X-API-Version header."""
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "pending",
+        }
+
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-test123")
+
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/gauntlet-test123", "GET", handler)
+
+        assert result is not None
+        assert result.headers is not None
+        assert result.headers.get("X-API-Version") == "v1"
+
+    @pytest.mark.asyncio
+    async def test_legacy_route_has_deprecation_header(self, gauntlet_handler):
+        """Legacy routes should include Deprecation and Sunset headers."""
+        _gauntlet_runs["gauntlet-test123"] = {
+            "gauntlet_id": "gauntlet-test123",
+            "status": "pending",
+        }
+
+        handler = make_mock_handler(path="/api/gauntlet/gauntlet-test123")
+
+        result = await gauntlet_handler.handle("/api/gauntlet/gauntlet-test123", "GET", handler)
+
+        assert result is not None
+        assert result.headers is not None
+        assert result.headers.get("Deprecation") == "true"
+        assert "Sunset" in result.headers
 
 
 # ===========================================================================
@@ -735,9 +890,6 @@ class TestGauntletMemoryManagement:
 
     def test_cleanup_removes_old_entries(self):
         """Test that cleanup removes entries older than max age."""
-        import time
-
-        # Add old entry
         old_time = datetime.now(timezone.utc).isoformat()
         _gauntlet_runs["old-run"] = {
             "status": "completed",
@@ -745,7 +897,6 @@ class TestGauntletMemoryManagement:
             "completed_at": old_time,
         }
 
-        # Add recent entry
         _gauntlet_runs["new-run"] = {
             "status": "pending",
             "created_at": time.time(),
@@ -753,12 +904,10 @@ class TestGauntletMemoryManagement:
 
         _cleanup_gauntlet_runs()
 
-        # Old entry should be removed, new entry should remain
         assert "new-run" in _gauntlet_runs
 
     def test_cleanup_respects_memory_limit(self):
         """Test that cleanup enforces memory limit."""
-        # Add more entries than limit
         for i in range(MAX_GAUNTLET_RUNS_IN_MEMORY + 100):
             _gauntlet_runs[f"run-{i}"] = {
                 "status": "pending",
@@ -767,7 +916,6 @@ class TestGauntletMemoryManagement:
 
         _cleanup_gauntlet_runs()
 
-        # Should be at or below limit
         assert len(_gauntlet_runs) <= MAX_GAUNTLET_RUNS_IN_MEMORY
 
 
@@ -782,31 +930,27 @@ class TestGauntletIdValidation:
     @pytest.mark.asyncio
     async def test_reject_path_traversal_id(self, gauntlet_handler):
         """Test that path traversal attempts are rejected."""
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            handler = make_mock_handler(path="/api/v1/gauntlet/../../etc/passwd")
+        handler = make_mock_handler(path="/api/v1/gauntlet/../../etc/passwd")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/../../etc/passwd", "GET", handler
-            )
+        result = await gauntlet_handler.handle("/api/v1/gauntlet/../../etc/passwd", "GET", handler)
 
-            assert result is not None
-            assert result.status_code == 400
+        assert result is not None
+        assert result.status_code == 400
 
     @pytest.mark.asyncio
     async def test_accept_valid_id(self, gauntlet_handler):
         """Test that valid IDs are accepted."""
-        with patch("aragora.server.handlers.gauntlet.rate_limit", lambda **kwargs: lambda fn: fn):
-            _gauntlet_runs["gauntlet-20240114120000-abc123"] = {
-                "gauntlet_id": "gauntlet-20240114120000-abc123",
-                "status": "completed",
-                "result": {},
-            }
+        _gauntlet_runs["gauntlet-20240114120000-abc123"] = {
+            "gauntlet_id": "gauntlet-20240114120000-abc123",
+            "status": "completed",
+            "result": {},
+        }
 
-            handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-20240114120000-abc123")
+        handler = make_mock_handler(path="/api/v1/gauntlet/gauntlet-20240114120000-abc123")
 
-            result = await gauntlet_handler.handle(
-                "/api/v1/gauntlet/gauntlet-20240114120000-abc123", "GET", handler
-            )
+        result = await gauntlet_handler.handle(
+            "/api/v1/gauntlet/gauntlet-20240114120000-abc123", "GET", handler
+        )
 
-            assert result is not None
-            assert result.status_code == 200
+        assert result is not None
+        assert result.status_code == 200

@@ -202,7 +202,7 @@ aragora/server/handlers/orchestration.py
 aragora/server/handlers/public/status_page.py
 aragora/server/handlers/queue.py
 aragora/server/handlers/repository.py
-aragora/server/handlers/social/_slack_impl.py
+aragora/server/handlers/social/_slack_impl/handler.py
 aragora/server/handlers/social/collaboration.py
 aragora/server/handlers/social/discord_oauth.py
 aragora/server/handlers/social/notifications.py

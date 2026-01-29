@@ -312,15 +312,16 @@ class TestDecisionHandlerRBAC:
     @pytest.mark.asyncio
     async def test_list_decisions_requires_decisions_read(self, mock_server_context):
         """Test that listing decisions requires decisions:read permission."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
         try:
             h = DecisionHandler(mock_server_context)
             mock_handler = create_mock_handler()
 
-            # Without proper auth context, should return 401
-            result = h.handle("/api/v1/decisions", {}, mock_handler)
-            assert result is not None
-            assert result.status_code == 401
+            # Without proper auth context, should raise PermissionDeniedError
+            with pytest.raises(PermissionDeniedError):
+                h.handle("/api/v1/decisions", {}, mock_handler)
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
@@ -775,7 +776,7 @@ class TestDecisionHandlerErrors:
             result = await h.handle_post("/api/v1/decisions", {}, mock_handler)
             assert result.status_code == 408
             body = json.loads(result.body)
-            assert "timeout" in body.get("error", "").lower()
+            assert "timed out" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_decision_routing_error(self, mock_server_context, mock_result_store):
@@ -881,7 +882,7 @@ class TestRetryErrorHandling:
             result = await h.handle_post("/api/v1/decisions/dec_failed789/retry", {}, mock_handler)
             assert result.status_code == 408
             body = json.loads(result.body)
-            assert "timeout" in body.get("error", "").lower()
+            assert "timed out" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_retry_routing_error(self, mock_server_context, mock_result_store):

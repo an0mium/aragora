@@ -353,7 +353,7 @@ Service Level Objective tracking:
 
 | Platform | Location | Capabilities |
 |----------|----------|--------------|
-| **Slack** | `aragora/connectors/chat/slack.py` | Messages, channels, threads, evidence collection |
+| **Slack** | `aragora/connectors/chat/slack/` | Messages, channels, threads, evidence collection |
 | **Discord** | `aragora/connectors/chat/discord.py` | Guilds, channels, DMs, reactions |
 | **Teams** | `aragora/connectors/chat/teams.py` | Teams, channels, meetings |
 | **Google Chat** | `aragora/connectors/chat/google_chat.py` | Spaces, messages |

@@ -273,7 +273,7 @@ POST /api/debates
 |-----------|------|-------|
 | Signup API | `aragora/server/handlers/auth/handler.py` | OAuth and email signup |
 | Workspace API | `aragora/server/handlers/organizations.py` | Workspace CRUD |
-| Slack OAuth | `aragora/connectors/chat/slack.py` | OAuth flow |
+| Slack OAuth | `aragora/connectors/chat/slack/` | OAuth flow |
 | Debate API | `aragora/server/handlers/debates/handler.py` | Create and run |
 | Receipt API | `aragora/gauntlet/receipts.py` | Receipt generation |
 

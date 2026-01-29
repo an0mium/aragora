@@ -615,6 +615,7 @@ class TestExplainabilityHandlerRBAC:
     async def test_batch_create_requires_permission(self, mock_server_context, mock_http_handler):
         """Test that batch create requires explainability:read permission."""
         from aragora.server.handlers.explainability import ExplainabilityHandler
+        from aragora.rbac.decorators import PermissionDeniedError
 
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
         try:
@@ -624,10 +625,9 @@ class TestExplainabilityHandlerRBAC:
                 body={"debate_ids": ["d1", "d2"]},
             )
 
-            # Without proper auth context, should return 401
-            result = await h.handle("/api/v1/explainability/batch", {}, http)
-            assert result is not None
-            assert result.status_code == 401
+            # Without proper auth context, should raise PermissionDeniedError
+            with pytest.raises(PermissionDeniedError):
+                await h.handle("/api/v1/explainability/batch", {}, http)
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
@@ -636,15 +636,16 @@ class TestExplainabilityHandlerRBAC:
     async def test_explanation_requires_permission(self, mock_server_context, mock_http_handler):
         """Test that explanation endpoint requires explainability:read permission."""
         from aragora.server.handlers.explainability import ExplainabilityHandler
+        from aragora.rbac.decorators import PermissionDeniedError
 
         os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
         try:
             h = ExplainabilityHandler(mock_server_context)
             http = mock_http_handler(method="GET")
 
-            result = await h.handle("/api/v1/debates/debate-123/explanation", {}, http)
-            assert result is not None
-            assert result.status_code == 401
+            # Without proper auth context, should raise PermissionDeniedError
+            with pytest.raises(PermissionDeniedError):
+                await h.handle("/api/v1/debates/debate-123/explanation", {}, http)
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 

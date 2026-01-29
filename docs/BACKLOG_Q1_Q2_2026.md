@@ -158,7 +158,7 @@ Make Slack integration production-ready for SMEs:
 - [ ] Error messages are user-friendly
 
 **Files:**
-- `aragora/connectors/slack.py`
+- `aragora/connectors/chat/slack/`
 - `aragora/server/handlers/slack_oauth.py`
 - `docs/integrations/SLACK.md`
 

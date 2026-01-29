@@ -53,12 +53,12 @@ Last Updated: 2026-01-25
 | File | LOC | Reason |
 |------|-----|--------|
 | `control_plane/policy.py` | 2,565 | Well-organized domain model, 12 classes with clear purpose |
-| `storage/user_store.py` | 2,439 | Intentional facade pattern over 7 repositories |
+| `storage/user_store/sqlite_store.py` | 2,439 | Intentional facade pattern over 7 repositories |
 | `debate/orchestrator.py` | 2,180 | Core Arena engine, already partially extracted to phases/ |
 | `server/startup.py` | 2,397 | Server initialization complexity justified |
-| `server/handlers/social/slack.py` | 2,384 | Slack API handlers, complex by nature |
-| `connectors/chat/slack.py` | 2,309 | Slack connector, complex by nature |
-| `connectors/enterprise/communication/gmail.py` | 2,264 | Gmail API integration, justified |
+| `server/handlers/social/slack/handler.py` | 2,384 | Slack API handlers, complex by nature |
+| `connectors/chat/slack/` | 2,309 | Slack connector, complex by nature |
+| `connectors/enterprise/communication/gmail/` | 2,264 | Gmail API integration, justified |
 | `services/threat_intelligence.py` | 2,164 | Security service, justified |
 | `server/openapi/schemas.py` | 2,045 | API schemas, appropriate grouping |
 | `cli/main.py` | 2,013 | CLI entrypoint, appropriate grouping |

@@ -12,6 +12,7 @@ Tests cover:
 - Status endpoint
 - Error handling / connector unavailable
 - Module-level state cleanup
+- Utility methods
 """
 
 import sys
@@ -409,7 +410,7 @@ class TestAuthPermissions:
 
 
 # ---------------------------------------------------------------------------
-# Tests: Status endpoint
+# Tests: Status endpoint (via handle)
 # ---------------------------------------------------------------------------
 
 
@@ -444,7 +445,7 @@ class TestStatusEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# Tests: Connector unavailable (503)
+# Tests: Connector unavailable (503) via handle for top-level paths
 # ---------------------------------------------------------------------------
 
 
@@ -481,41 +482,9 @@ class TestConnectorUnavailable:
         _, status = _parse_result(result)
         assert status == 503
 
-    @pytest.mark.asyncio
-    async def test_get_incident_503(self, handler):
-        req = _make_request()
-        with _patch_connector(None):
-            result = await handler.handle(req, "/api/v1/incidents/INC1", "GET")
-        _, status = _parse_result(result)
-        assert status == 503
-
-    @pytest.mark.asyncio
-    async def test_acknowledge_503(self, handler):
-        req = _make_request()
-        with _patch_connector(None):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/acknowledge", "POST")
-        _, status = _parse_result(result)
-        assert status == 503
-
-    @pytest.mark.asyncio
-    async def test_resolve_503(self, handler):
-        req = _make_request(json_body={})
-        with _patch_connector(None):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/resolve", "POST")
-        _, status = _parse_result(result)
-        assert status == 503
-
-    @pytest.mark.asyncio
-    async def test_list_notes_503(self, handler):
-        req = _make_request()
-        with _patch_connector(None):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "GET")
-        _, status = _parse_result(result)
-        assert status == 503
-
 
 # ---------------------------------------------------------------------------
-# Tests: Incidents
+# Tests: List & Create incidents (via handle -- exact path match)
 # ---------------------------------------------------------------------------
 
 
@@ -629,6 +598,14 @@ class TestCreateIncident:
         assert status == 500
 
 
+# ---------------------------------------------------------------------------
+# Tests: Incident sub-handlers (direct method calls)
+#
+# The private handler methods are tested directly to exercise incident
+# lifecycle logic (get, acknowledge, resolve, reassign, merge, notes).
+# ---------------------------------------------------------------------------
+
+
 class TestGetIncident:
     @pytest.mark.asyncio
     async def test_get_incident_success(self, handler, mock_connector):
@@ -637,11 +614,20 @@ class TestGetIncident:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC42", "GET")
+            result = await handler._handle_get_incident(req, "test-tenant", "INC42")
 
         body, status = _parse_result(result)
         assert status == 200
         assert body["data"]["incident"]["id"] == "INC42"
+        assert body["data"]["incident"]["description"] == "A test incident"
+
+    @pytest.mark.asyncio
+    async def test_get_incident_503(self, handler):
+        req = _make_request()
+        with _patch_connector(None):
+            result = await handler._handle_get_incident(req, "test-tenant", "INC42")
+        _, status = _parse_result(result)
+        assert status == 503
 
     @pytest.mark.asyncio
     async def test_get_incident_error(self, handler, mock_connector):
@@ -649,7 +635,7 @@ class TestGetIncident:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC99", "GET")
+            result = await handler._handle_get_incident(req, "test-tenant", "INC99")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -662,7 +648,7 @@ class TestAcknowledgeIncident:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC10/acknowledge", "POST")
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -670,12 +656,20 @@ class TestAcknowledgeIncident:
         assert body["data"]["message"] == "Incident acknowledged"
 
     @pytest.mark.asyncio
+    async def test_acknowledge_503(self, handler):
+        req = _make_request()
+        with _patch_connector(None):
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
+        _, status = _parse_result(result)
+        assert status == 503
+
+    @pytest.mark.asyncio
     async def test_acknowledge_error(self, handler, mock_connector):
         mock_connector.acknowledge_incident = AsyncMock(side_effect=RuntimeError("err"))
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC10/acknowledge", "POST")
+            result = await handler._handle_acknowledge_incident(req, "test-tenant", "INC10")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -688,7 +682,7 @@ class TestResolveIncident:
 
         req = _make_request(json_body={"resolution": "Restarted the service"})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC20/resolve", "POST")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -703,11 +697,29 @@ class TestResolveIncident:
 
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC20/resolve", "POST")
+            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
 
         body, _ = _parse_result(result)
         assert body["data"]["incident"]["status"] == "resolved"
         mock_connector.resolve_incident.assert_called_once_with("INC20", None)
+
+    @pytest.mark.asyncio
+    async def test_resolve_503(self, handler):
+        req = _make_request(json_body={})
+        with _patch_connector(None):
+            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+        _, status = _parse_result(result)
+        assert status == 503
+
+    @pytest.mark.asyncio
+    async def test_resolve_error(self, handler, mock_connector):
+        mock_connector.resolve_incident = AsyncMock(side_effect=RuntimeError("err"))
+
+        req = _make_request(json_body={})
+        with _patch_connector(mock_connector):
+            result = await handler._handle_resolve_incident(req, "test-tenant", "INC20")
+        _, status = _parse_result(result)
+        assert status == 500
 
 
 class TestReassignIncident:
@@ -719,7 +731,7 @@ class TestReassignIncident:
 
         req = _make_request(json_body={"user_ids": ["USR001"]})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC30/reassign", "POST")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -732,7 +744,7 @@ class TestReassignIncident:
 
         req = _make_request(json_body={"escalation_policy_id": "ESCPOL1"})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC30/reassign", "POST")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -742,9 +754,19 @@ class TestReassignIncident:
     async def test_reassign_missing_params(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC30/reassign", "POST")
+            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
         _, status = _parse_result(result)
         assert status == 400
+
+    @pytest.mark.asyncio
+    async def test_reassign_error(self, handler, mock_connector):
+        mock_connector.reassign_incident = AsyncMock(side_effect=RuntimeError("err"))
+
+        req = _make_request(json_body={"user_ids": ["USR001"]})
+        with _patch_connector(mock_connector):
+            result = await handler._handle_reassign_incident(req, "test-tenant", "INC30")
+        _, status = _parse_result(result)
+        assert status == 500
 
 
 class TestMergeIncidents:
@@ -755,7 +777,7 @@ class TestMergeIncidents:
 
         req = _make_request(json_body={"source_incident_ids": ["INC51", "INC52"]})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC50/merge", "POST")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -765,7 +787,7 @@ class TestMergeIncidents:
     async def test_merge_missing_source_ids(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC50/merge", "POST")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -773,13 +795,23 @@ class TestMergeIncidents:
     async def test_merge_empty_source_ids(self, handler, mock_connector):
         req = _make_request(json_body={"source_incident_ids": []})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC50/merge", "POST")
+            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
         _, status = _parse_result(result)
         assert status == 400
 
+    @pytest.mark.asyncio
+    async def test_merge_error(self, handler, mock_connector):
+        mock_connector.merge_incidents = AsyncMock(side_effect=RuntimeError("err"))
+
+        req = _make_request(json_body={"source_incident_ids": ["INC51"]})
+        with _patch_connector(mock_connector):
+            result = await handler._handle_merge_incidents(req, "test-tenant", "INC50")
+        _, status = _parse_result(result)
+        assert status == 500
+
 
 # ---------------------------------------------------------------------------
-# Tests: Notes
+# Tests: Notes (direct method calls)
 # ---------------------------------------------------------------------------
 
 
@@ -791,7 +823,7 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "GET")
+            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -806,10 +838,18 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "GET")
+            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
 
         body, _ = _parse_result(result)
         assert body["data"]["notes"][0]["user"] is None
+
+    @pytest.mark.asyncio
+    async def test_list_notes_503(self, handler):
+        req = _make_request()
+        with _patch_connector(None):
+            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
+        _, status = _parse_result(result)
+        assert status == 503
 
     @pytest.mark.asyncio
     async def test_list_notes_error(self, handler, mock_connector):
@@ -817,7 +857,7 @@ class TestListNotes:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "GET")
+            result = await handler._handle_list_notes(req, "test-tenant", "INC1")
         _, status = _parse_result(result)
         assert status == 500
 
@@ -830,7 +870,7 @@ class TestAddNote:
 
         req = _make_request(json_body={"content": "root cause found"})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "POST")
+            result = await handler._handle_add_note(req, "test-tenant", "INC1")
 
         body, status = _parse_result(result)
         assert status == 201
@@ -840,7 +880,7 @@ class TestAddNote:
     async def test_add_note_missing_content(self, handler, mock_connector):
         req = _make_request(json_body={})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "POST")
+            result = await handler._handle_add_note(req, "test-tenant", "INC1")
         _, status = _parse_result(result)
         assert status == 400
 
@@ -850,13 +890,21 @@ class TestAddNote:
 
         req = _make_request(json_body={"content": "text"})
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/incidents/INC1/notes", "POST")
+            result = await handler._handle_add_note(req, "test-tenant", "INC1")
         _, status = _parse_result(result)
         assert status == 500
 
+    @pytest.mark.asyncio
+    async def test_add_note_503(self, handler):
+        req = _make_request(json_body={"content": "text"})
+        with _patch_connector(None):
+            result = await handler._handle_add_note(req, "test-tenant", "INC1")
+        _, status = _parse_result(result)
+        assert status == 503
+
 
 # ---------------------------------------------------------------------------
-# Tests: On-Call
+# Tests: On-Call (via handle for top-level, direct for service-specific)
 # ---------------------------------------------------------------------------
 
 
@@ -904,7 +952,7 @@ class TestGetOncallForService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/oncall/services/SVC1", "GET")
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
 
         body, status = _parse_result(result)
         assert status == 200
@@ -912,18 +960,26 @@ class TestGetOncallForService:
         assert len(body["data"]["oncall"]) == 1
 
     @pytest.mark.asyncio
+    async def test_get_oncall_for_service_503(self, handler):
+        req = _make_request()
+        with _patch_connector(None):
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
+        _, status = _parse_result(result)
+        assert status == 503
+
+    @pytest.mark.asyncio
     async def test_get_oncall_for_service_error(self, handler, mock_connector):
         mock_connector.get_current_on_call_for_service = AsyncMock(side_effect=RuntimeError("err"))
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/oncall/services/SVC1", "GET")
+            result = await handler._handle_get_oncall_for_service(req, "test-tenant", "SVC1")
         _, status = _parse_result(result)
         assert status == 500
 
 
 # ---------------------------------------------------------------------------
-# Tests: Services
+# Tests: Services (via handle for list, direct for get)
 # ---------------------------------------------------------------------------
 
 
@@ -971,11 +1027,20 @@ class TestGetService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/services/SVC42", "GET")
+            result = await handler._handle_get_service(req, "test-tenant", "SVC42")
 
         body, status = _parse_result(result)
         assert status == 200
         assert body["data"]["service"]["id"] == "SVC42"
+        assert body["data"]["service"]["escalation_policy_id"] == "ESCPOL001"
+
+    @pytest.mark.asyncio
+    async def test_get_service_503(self, handler):
+        req = _make_request()
+        with _patch_connector(None):
+            result = await handler._handle_get_service(req, "test-tenant", "SVC99")
+        _, status = _parse_result(result)
+        assert status == 503
 
     @pytest.mark.asyncio
     async def test_get_service_error(self, handler, mock_connector):
@@ -983,13 +1048,13 @@ class TestGetService:
 
         req = _make_request()
         with _patch_connector(mock_connector):
-            result = await handler.handle(req, "/api/v1/services/SVC99", "GET")
+            result = await handler._handle_get_service(req, "test-tenant", "SVC99")
         _, status = _parse_result(result)
         assert status == 500
 
 
 # ---------------------------------------------------------------------------
-# Tests: Webhooks
+# Tests: Webhooks (via handle)
 # ---------------------------------------------------------------------------
 
 
@@ -1055,20 +1120,30 @@ class TestPagerDutyWebhook:
         assert status == 200
         assert body["data"]["received"] is True
 
+    @pytest.mark.asyncio
+    async def test_webhook_invalid_signature_still_processes(self, handler, mock_connector):
+        mock_connector.verify_webhook_signature = MagicMock(return_value=False)
+        mock_connector.parse_webhook = MagicMock(return_value=None)
+
+        req = _make_request(
+            json_body={"event": {"event_type": "incident.acknowledged"}},
+            raw_body=b"{}",
+            headers={"X-PagerDuty-Signature": "bad_sig"},
+        )
+        with _patch_connector(mock_connector):
+            result = await handler.handle(req, "/api/v1/webhooks/pagerduty", "POST")
+
+        body, status = _parse_result(result)
+        assert status == 200
+        assert body["data"]["received"] is True
+
 
 # ---------------------------------------------------------------------------
-# Tests: Not found / unknown routes
+# Tests: Not found / unknown routes (via handle)
 # ---------------------------------------------------------------------------
 
 
 class TestNotFound:
-    @pytest.mark.asyncio
-    async def test_unknown_incident_action(self, handler):
-        req = _make_request()
-        result = await handler.handle(req, "/api/v1/incidents/INC1/unknown_action", "POST")
-        _, status = _parse_result(result)
-        assert status == 404
-
     @pytest.mark.asyncio
     async def test_put_incidents_not_routed(self, handler):
         req = _make_request()
@@ -1080,6 +1155,13 @@ class TestNotFound:
     async def test_delete_incidents_not_routed(self, handler):
         req = _make_request()
         result = await handler.handle(req, "/api/v1/incidents", "DELETE")
+        _, status = _parse_result(result)
+        assert status == 404
+
+    @pytest.mark.asyncio
+    async def test_unknown_devops_subpath(self, handler):
+        req = _make_request()
+        result = await handler.handle(req, "/api/v1/devops/nonexistent", "GET")
         _, status = _parse_result(result)
         assert status == 404
 
@@ -1249,3 +1331,30 @@ class TestUtilities:
         h = DevOpsHandler(server_context={})
         req = SimpleNamespace()
         assert h._get_header(req, "X-Custom") is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: _emit_connector_event
+# ---------------------------------------------------------------------------
+
+
+class TestEmitConnectorEvent:
+    @pytest.mark.asyncio
+    async def test_emit_event_without_emitter(self, handler):
+        """When no emitter in context, no error raised."""
+        handler.ctx = {}
+        await handler._emit_connector_event(
+            event_type="incident.resolved",
+            tenant_id="t1",
+            data={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_emit_event_with_no_context(self, handler):
+        """When ctx is None, no error raised."""
+        handler.ctx = None
+        await handler._emit_connector_event(
+            event_type="test",
+            tenant_id="t1",
+            data={},
+        )

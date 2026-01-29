@@ -256,6 +256,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error getting ratings for {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:write")
     def handle_star_template(self, template_id: str) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/{id}/star
@@ -277,6 +278,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error starring template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:read")
     def handle_list_categories(self) -> HandlerResult:
         """
         GET /api/v1/marketplace/categories
@@ -291,6 +293,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception("Error listing categories")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:read")
     def handle_export_template(self, template_id: str) -> HandlerResult:
         """
         GET /api/v1/marketplace/templates/{id}/export
@@ -316,6 +319,7 @@ class MarketplaceHandler(BaseHandler):
             logger.exception(f"Error exporting template {template_id}")
             return self.json_error(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @require_permission("marketplace:write")
     def handle_import_template(self) -> HandlerResult:
         """
         POST /api/v1/marketplace/templates/import

@@ -182,7 +182,7 @@ These are always visible in the dashboard header:
 | Structured Logging | `aragora/observability/logging.py` | Ready |
 | SLO Framework | `aragora/observability/slo.py` | Ready |
 | **Connectors (24+)** | | |
-| Slack | `aragora/connectors/chat/slack.py` | Ready |
+| Slack | `aragora/connectors/chat/slack/` | Ready |
 | Discord | `aragora/connectors/chat/discord.py` | Ready |
 | Teams | `aragora/connectors/chat/teams.py` | Ready |
 | GitHub | `aragora/connectors/enterprise/git/github.py` | Ready |

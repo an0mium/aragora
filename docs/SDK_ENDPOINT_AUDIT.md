@@ -298,7 +298,7 @@ openapi-generator generate -i openapi.yaml -g python -o sdk/python/aragora/gener
 **Key Handlers by Endpoint Count:**
 1. `handlers/debates/handler.py` - 60+ endpoints
 2. `handlers/knowledge_base/mound/handler.py` - 50+ endpoints
-3. `handlers/social/slack.py` - 30+ endpoints
+3. `handlers/social/slack/handler.py` - 30+ endpoints
 4. `handlers/analytics_dashboard.py` - 25+ endpoints
 5. `handlers/agents/agents.py` - 20+ endpoints
 

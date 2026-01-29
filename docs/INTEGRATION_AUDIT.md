@@ -23,7 +23,7 @@ All four target integrations are **production-ready** with comprehensive impleme
 
 ### 1. Slack Connector
 
-**File:** `aragora/connectors/chat/slack.py`
+**File:** `aragora/connectors/chat/slack/`
 **Lines:** 2,304
 **Status:** Production-ready
 
@@ -76,7 +76,7 @@ class SlackConnector(BaseConnector):
 
 **Files:**
 - `aragora/connectors/email/gmail_sync.py` (896 lines)
-- `aragora/connectors/enterprise/communication/gmail.py` (1,605 lines)
+- `aragora/connectors/enterprise/communication/gmail/` (1,605 lines)
 
 **Status:** Production-ready (dual implementation)
 

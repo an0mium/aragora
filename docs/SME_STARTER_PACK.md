@@ -66,8 +66,8 @@ A step-by-step wizard that walks users through:
 | Outlook | Production-ready | OAuth 2.0 | 5 min |
 
 **Implementation References:**
-- `aragora/connectors/chat/slack.py` (2,304 lines, circuit breaker)
-- `aragora/connectors/enterprise/communication/gmail.py` (1,605 lines)
+- `aragora/connectors/chat/slack/` (2,304 lines, circuit breaker)
+- `aragora/connectors/enterprise/communication/gmail/` (1,605 lines)
 - `aragora/connectors/enterprise/documents/gdrive.py`
 - `aragora/connectors/email/outlook_sync.py` (1,004 lines)
 
@@ -239,7 +239,7 @@ Workspace Security Checklist:
 | "Token expired" | Reconnect integration |
 | "Rate limited" | Results queued, delivered within 5min |
 
-**Implementation:** `aragora/connectors/chat/slack.py` (circuit breaker enabled)
+**Implementation:** `aragora/connectors/chat/slack/` (circuit breaker enabled)
 
 ### Gmail Integration
 

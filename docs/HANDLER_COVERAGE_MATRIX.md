@@ -414,7 +414,7 @@ Handlers without any test coverage that should be prioritized:
 - `aragora/server/handlers/chat/router.py`
 - `aragora/server/handlers/social/sharing.py`
 - `aragora/server/handlers/bots/slack.py`
-- `aragora/server/handlers/social/slack.py`
+- `aragora/server/handlers/social/slack/handler.py`
 - `aragora/server/handlers/social/social_media.py`
 - `aragora/server/handlers/bots/teams.py`
 - `aragora/server/handlers/social/teams.py`
