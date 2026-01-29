@@ -84,12 +84,12 @@ class TestValidationConfig:
     """Tests for ValidationConfig dataclass."""
 
     def test_default_values(self):
-        """Default config should be enabled, non-blocking."""
+        """Default config should be enabled, blocking (security default)."""
         from aragora.server.middleware.validation import ValidationConfig
 
         config = ValidationConfig()
         assert config.enabled is True
-        assert config.blocking is False
+        assert config.blocking is True  # Blocking by default for security
         assert config.log_all is False
         assert config.max_body_size == 10_485_760  # 10MB
 
@@ -434,19 +434,19 @@ class TestUtilityFunctions:
     """Tests for utility functions."""
 
     def test_create_validation_middleware_defaults(self):
-        """create_validation_middleware should create with defaults."""
+        """create_validation_middleware should create with defaults (blocking for security)."""
         from aragora.server.middleware.validation import create_validation_middleware
 
         middleware = create_validation_middleware()
         assert middleware.config.enabled is True
-        assert middleware.config.blocking is False
+        assert middleware.config.blocking is True  # Blocking by default for security
 
-    def test_create_validation_middleware_blocking(self):
-        """create_validation_middleware should respect blocking param."""
+    def test_create_validation_middleware_non_blocking(self):
+        """create_validation_middleware should respect blocking=False param."""
         from aragora.server.middleware.validation import create_validation_middleware
 
-        middleware = create_validation_middleware(blocking=True)
-        assert middleware.config.blocking is True
+        middleware = create_validation_middleware(blocking=False)
+        assert middleware.config.blocking is False
 
     def test_add_route_validation(self):
         """add_route_validation should add to global registry."""

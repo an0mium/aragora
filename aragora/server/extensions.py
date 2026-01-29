@@ -87,13 +87,17 @@ OnboardingOrchestrator = _imp.get("OnboardingOrchestrator")
 # Computer Use
 _imp, COMPUTER_USE_AVAILABLE = try_import(
     "aragora.computer_use",
-    "ComputerOrchestrator",
+    "ComputerUseOrchestrator",
     "ComputerPolicyChecker",
-    "default_computer_policy",
+    "create_default_computer_policy",
+    "PlaywrightActionExecutor",
+    "ExecutorConfig",
 )
-ComputerOrchestrator = _imp.get("ComputerOrchestrator")
+ComputerUseOrchestrator = _imp.get("ComputerUseOrchestrator")
 ComputerPolicyChecker = _imp.get("ComputerPolicyChecker")
-default_computer_policy = _imp.get("default_computer_policy")
+create_default_computer_policy = _imp.get("create_default_computer_policy")
+PlaywrightActionExecutor = _imp.get("PlaywrightActionExecutor")
+ExecutorConfig = _imp.get("ExecutorConfig")
 
 
 # =============================================================================
@@ -314,32 +318,40 @@ def init_computer_use() -> tuple[Any | None, Any | None]:
     Initialize the Computer Use orchestration (disabled by default).
 
     Returns:
-        Tuple of (ComputerOrchestrator, ComputerPolicyChecker)
+        Tuple of (ComputerUseOrchestrator, ComputerPolicyChecker)
     """
     if not ENABLE_COMPUTER_USE or not COMPUTER_USE_AVAILABLE:
         logger.debug("[extensions] Computer Use disabled or unavailable")
         return None, None
 
     try:
-        # Create policy checker with default policy
-        policy = None
-        if ComputerPolicyChecker and default_computer_policy:
-            default_policy = default_computer_policy()
-            policy = ComputerPolicyChecker(default_policy)
+        # Create default policy
+        default_policy = None
+        policy_checker = None
+        if create_default_computer_policy:
+            default_policy = create_default_computer_policy()
+        if ComputerPolicyChecker and default_policy:
+            policy_checker = ComputerPolicyChecker(default_policy)
 
-        # Create orchestrator
+        # Create executor for browser automation
+        executor = None
+        if PlaywrightActionExecutor:
+            executor = PlaywrightActionExecutor()
+
+        # Create orchestrator with executor and policy
         orchestrator = (
-            ComputerOrchestrator(
-                policy_checker=policy,
+            ComputerUseOrchestrator(
+                executor=executor,
+                policy=default_policy,
             )
-            if ComputerOrchestrator
+            if ComputerUseOrchestrator
             else None
         )
 
         if orchestrator:
             logger.info("[extensions] Computer Use initialized (with policy enforcement)")
 
-        return orchestrator, policy
+        return orchestrator, policy_checker
 
     except Exception as e:
         logger.warning(f"[extensions] Failed to initialize Computer Use: {e}")

@@ -98,6 +98,14 @@ class TestWorkflowHandlerRoutes:
         """ROUTES contains workflow-templates endpoint."""
         assert "/api/v1/workflow-templates" in handler.ROUTES
 
+    def test_routes_contains_templates_alias(self, handler):
+        """ROUTES contains workflow templates alias."""
+        assert "/api/v1/workflows/templates" in handler.ROUTES
+
+    def test_routes_contains_templates_alias_wildcard(self, handler):
+        """ROUTES contains workflow templates alias wildcard."""
+        assert "/api/v1/workflows/templates/*" in handler.ROUTES
+
     def test_routes_contains_approvals(self, handler):
         """ROUTES contains workflow-approvals endpoint."""
         assert "/api/v1/workflow-approvals" in handler.ROUTES
@@ -114,11 +122,20 @@ class TestWorkflowHandlerRoutes:
         """ROUTES contains workflow-executions wildcard."""
         assert "/api/v1/workflow-executions/*" in handler.ROUTES
 
+    def test_routes_contains_executions_alias(self, handler):
+        """ROUTES contains workflow executions alias."""
+        assert "/api/v1/workflows/executions" in handler.ROUTES
+
+    def test_routes_contains_executions_alias_wildcard(self, handler):
+        """ROUTES contains workflow executions alias wildcard."""
+        assert "/api/v1/workflows/executions/*" in handler.ROUTES
+
     def test_routes_count(self, handler):
         """ROUTES contains expected number of routes."""
-        # 7 routes: workflows, workflows/*, templates, approvals, approvals/*,
-        # executions, executions/*
-        assert len(handler.ROUTES) == 7
+        # 11 routes: workflows, workflows/*, templates, workflows/templates,
+        # workflows/templates/*, approvals, approvals/*, executions,
+        # executions/*, workflows/executions, workflows/executions/*
+        assert len(handler.ROUTES) == 11
 
 
 class TestWorkflowHandlerIdExtraction:

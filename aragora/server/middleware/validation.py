@@ -267,7 +267,7 @@ class ValidationConfig:
     """
 
     enabled: bool = True
-    blocking: bool = False  # Start in warning mode
+    blocking: bool = True  # Block invalid requests for security
     log_all: bool = False
     max_body_size: int = 10_485_760  # 10MB default
 
@@ -448,7 +448,7 @@ class ValidationMiddleware:
 
 
 def create_validation_middleware(
-    blocking: bool = False,
+    blocking: bool = True,
     enabled: bool = True,
 ) -> ValidationMiddleware:
     """Create a validation middleware with standard configuration.
