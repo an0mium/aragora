@@ -972,14 +972,28 @@ async def init_postgres_stores() -> dict[str, bool]:
 
     results: dict[str, bool] = {}
 
+    # Use the shared pool from pool_manager if available (preferred path)
+    pool = None
     try:
-        from aragora.storage.postgres_store import get_postgres_pool
+        from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
 
-        pool = await get_postgres_pool()
-        logger.info("[init] PostgreSQL connection pool created")
-    except Exception as e:
-        logger.error(f"[init] Failed to create PostgreSQL pool: {e}")
-        return {"_connection": False}
+        if is_pool_initialized():
+            pool = get_shared_pool()
+            if pool:
+                logger.info("[init] Using shared PostgreSQL pool from pool_manager")
+    except ImportError:
+        pass
+
+    # Fall back to creating a new pool if shared pool not available
+    if pool is None:
+        try:
+            from aragora.storage.postgres_store import get_postgres_pool
+
+            pool = await get_postgres_pool()
+            logger.info("[init] PostgreSQL connection pool created (standalone)")
+        except Exception as e:
+            logger.error(f"[init] Failed to create PostgreSQL pool: {e}")
+            return {"_connection": False}
 
     # List of PostgreSQL stores to initialize
     stores_to_init: list[tuple[str, str, str]] = [
@@ -1060,7 +1074,7 @@ def init_postgres_stores_sync() -> dict[str, bool]:
     import asyncio
 
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # We're in an async context - CAN'T use ThreadPoolExecutor approach
         # because asyncpg pools would be bound to the wrong event loop
         logger.warning(

@@ -405,6 +405,15 @@ def reset_pools() -> None:
         _postgres_pool = None
 
 
+async def _safe_store_init(store: Any, store_name: str) -> None:
+    """Safely initialize a store asynchronously, logging any errors."""
+    try:
+        await store.initialize()
+        logger.debug(f"[{store_name}] Async store initialization completed")
+    except Exception as e:
+        logger.error(f"[{store_name}] Async store initialization failed: {e}")
+
+
 def create_persistent_store(
     store_name: str,
     sqlite_class: type,
@@ -487,9 +496,35 @@ def create_persistent_store(
 
     # Try PostgreSQL backends (Supabase or self-hosted)
     if config.backend_type in (StorageBackendType.SUPABASE, StorageBackendType.POSTGRES):
+        # Check for pre-initialized shared pool FIRST
+        # This is the recommended path: pool_manager initializes the pool
+        # during server startup, and stores use it here
+        try:
+            from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
+
+            if is_pool_initialized():
+                pool = get_shared_pool()
+                if pool:
+                    try:
+                        store = postgres_class(pool)
+                        # Schedule async initialization if in async context
+                        if hasattr(store, "initialize") and in_async_context:
+                            loop = asyncio.get_running_loop()
+                            loop.create_task(_safe_store_init(store, store_name))
+                        elif hasattr(store, "initialize") and not in_async_context:
+                            from aragora.utils.async_utils import run_async
+
+                            run_async(store.initialize())
+                        backend_name = "Supabase" if config.is_supabase else "PostgreSQL"
+                        logger.info(f"[{store_name}] Using shared pool ({backend_name})")
+                        return store
+                    except Exception as e:
+                        logger.warning(f"[{store_name}] Shared pool store creation failed: {e}")
+        except ImportError:
+            pass  # pool_manager not available
+
         if in_async_context:
-            # Can't safely initialize PostgreSQL from async context
-            # The pool would be created in a different event loop via ThreadPoolExecutor
+            # No shared pool and can't safely create one from async context
             logger.warning(
                 f"[{store_name}] Cannot initialize PostgreSQL from async context. "
                 "asyncpg pools are event-loop bound. Initialize stores BEFORE starting "

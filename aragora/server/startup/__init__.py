@@ -71,6 +71,10 @@ from aragora.server.startup.security import (
     init_key_rotation_scheduler,
     init_rbac_distributed_cache,
 )
+from aragora.server.startup.database import (  # noqa: F401
+    close_postgres_pool,
+    init_postgres_pool,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +297,12 @@ async def run_startup_sequence(
         "backup_scheduler": False,
         "witness_patrol": False,
         "mayor_coordinator": False,
+        "postgres_pool": {"enabled": False},
     }
+
+    # Initialize PostgreSQL connection pool FIRST (event-loop bound)
+    # This MUST happen before any subsystems that need database access
+    status["postgres_pool"] = await init_postgres_pool()
 
     # Initialize Redis HA early (other components may depend on it)
     status["redis_ha"] = await init_redis_ha()

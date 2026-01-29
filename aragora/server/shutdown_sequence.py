@@ -480,7 +480,38 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
-    # Phase 17: Close database connections
+    # Phase 17: Close PostgreSQL connection pools
+    async def close_postgres_pools():
+        try:
+            from aragora.storage.pool_manager import close_shared_pool
+
+            await close_shared_pool()
+        except ImportError:
+            pass  # pool_manager not available
+        except Exception as e:
+            logger.warning(f"Error closing shared pool: {e}")
+
+        try:
+            from aragora.storage.connection_factory import close_all_pools
+
+            await close_all_pools()
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Error closing connection factory pools: {e}")
+
+        logger.info("PostgreSQL connection pools closed")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Close PostgreSQL pools",
+            execute=close_postgres_pools,
+            timeout=5.0,
+            critical=False,
+        )
+    )
+
+    # Phase 18: Close database connections
     async def close_databases():
         from aragora.storage.schema import DatabaseManager
 
