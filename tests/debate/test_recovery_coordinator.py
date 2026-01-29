@@ -296,10 +296,10 @@ class TestStallRecovery:
         from aragora.debate.witness import StallEvent, StallReason
 
         return StallEvent(
+            debate_id="debate-test",
             agent_id="claude",
             round_number=1,
             reason=StallReason.TIMEOUT,
-            duration_seconds=60.0,
         )
 
     def test_decide_stall_timeout_nudge_first(self, coordinator, mock_stall_event):
@@ -323,10 +323,10 @@ class TestStallRecovery:
         from aragora.debate.witness import StallEvent, StallReason
 
         stall = StallEvent(
+            debate_id="debate-test",
             agent_id="claude",
             round_number=1,
             reason=StallReason.REPEATED_CONTENT,
-            duration_seconds=30.0,
         )
 
         decision = coordinator._decide_stall_recovery(stall)
@@ -339,10 +339,10 @@ class TestStallRecovery:
         from aragora.debate.witness import StallEvent, StallReason
 
         stall = StallEvent(
+            debate_id="debate-test",
             agent_id="claude",
             round_number=1,
             reason=StallReason.AGENT_FAILURE,
-            duration_seconds=0.0,
         )
 
         decision = coordinator._decide_stall_recovery(stall)
@@ -354,10 +354,10 @@ class TestStallRecovery:
         from aragora.debate.witness import StallEvent, StallReason
 
         stall = StallEvent(
+            debate_id="debate-test",
             agent_id="claude",
             round_number=1,
             reason=StallReason.NO_PROGRESS,
-            duration_seconds=120.0,
         )
 
         decision = coordinator._decide_stall_recovery(stall)
@@ -390,10 +390,11 @@ class TestDeadlockRecovery:
 
         deadlock = Deadlock(
             id="deadlock-1",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.CYCLE,
-            description="Circular dependency detected",
+            debate_id="debate-test",
             involved_agents=["agent-1", "agent-2"],
+            involved_arguments=["arg-1", "arg-2"],
+            description="Circular dependency detected",
             severity="medium",
         )
 
@@ -407,10 +408,11 @@ class TestDeadlockRecovery:
 
         deadlock = Deadlock(
             id="deadlock-2",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.MUTUAL_BLOCK,
-            description="Agents blocking each other",
+            debate_id="debate-test",
             involved_agents=["agent-1", "agent-2"],
+            involved_arguments=["arg-1", "arg-2"],
+            description="Agents blocking each other",
             severity="medium",
         )
 
@@ -425,10 +427,11 @@ class TestDeadlockRecovery:
 
         deadlock = Deadlock(
             id="deadlock-3",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.SEMANTIC_LOOP,
-            description="Arguments repeating",
+            debate_id="debate-test",
             involved_agents=["agent-1"],
+            involved_arguments=["arg-1", "arg-2", "arg-3"],
+            description="Arguments repeating",
             severity="low",
         )
 
@@ -442,10 +445,11 @@ class TestDeadlockRecovery:
 
         deadlock = Deadlock(
             id="deadlock-4",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.CONVERGENCE_FAILURE,
-            description="No consensus forming",
+            debate_id="debate-test",
             involved_agents=[],
+            involved_arguments=["arg-1", "arg-2"],
+            description="No consensus forming",
             severity="high",
         )
 
@@ -460,10 +464,11 @@ class TestDeadlockRecovery:
 
         deadlock = Deadlock(
             id="deadlock-5",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.CYCLE,
-            description="Critical cycle",
+            debate_id="debate-test",
             involved_agents=[],
+            involved_arguments=["arg-1"],
+            description="Critical cycle",
             severity="critical",
         )
 
@@ -590,10 +595,10 @@ class TestHandleMethods:
         from aragora.debate.witness import StallEvent, StallReason
 
         stall = StallEvent(
+            debate_id="debate-test",
             agent_id="claude",
             round_number=1,
             reason=StallReason.TIMEOUT,
-            duration_seconds=60.0,
         )
 
         event = await coordinator.handle_stall(stall)
@@ -614,10 +619,10 @@ class TestHandleMethods:
             return_value=RecoveryDecision(action=RecoveryAction.NONE),
         ):
             stall = StallEvent(
+                debate_id="debate-test",
                 agent_id="claude",
                 round_number=1,
                 reason=StallReason.TIMEOUT,
-                duration_seconds=60.0,
             )
 
             event = await coordinator.handle_stall(stall)
@@ -631,10 +636,11 @@ class TestHandleMethods:
 
         deadlock = Deadlock(
             id="dl-1",
-            debate_id="debate-test",
             deadlock_type=DeadlockType.CYCLE,
-            description="Test deadlock",
+            debate_id="debate-test",
             involved_agents=["agent-1"],
+            involved_arguments=["arg-1", "arg-2"],
+            description="Test deadlock",
             severity="medium",
         )
 

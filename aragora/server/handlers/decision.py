@@ -141,6 +141,21 @@ class DecisionHandler(BaseHandler):
         """Handle POST requests."""
         if path == "/api/v1/decisions":
             return await self._create_decision(handler)
+
+        # Handle /api/v1/decisions/:id/cancel
+        if path.startswith("/api/v1/decisions/") and path.endswith("/cancel"):
+            parts = path.split("/")
+            if len(parts) == 6:  # ['', 'api', 'v1', 'decisions', '<id>', 'cancel']
+                request_id = parts[4]
+                return await self._cancel_decision(request_id, handler)
+
+        # Handle /api/v1/decisions/:id/retry
+        if path.startswith("/api/v1/decisions/") and path.endswith("/retry"):
+            parts = path.split("/")
+            if len(parts) == 6:  # ['', 'api', 'v1', 'decisions', '<id>', 'retry']
+                request_id = parts[4]
+                return await self._retry_decision(request_id, handler)
+
         return None
 
     async def _create_decision(self, handler) -> HandlerResult:
@@ -358,6 +373,183 @@ class DecisionHandler(BaseHandler):
                 "total": len(_decision_results_fallback),
             }
         )
+
+    async def _cancel_decision(self, request_id: str, handler) -> HandlerResult:
+        """
+        Cancel a pending or running decision.
+
+        Only decisions in PENDING or RUNNING status can be cancelled.
+        """
+        # Get current result
+        result = _get_result(request_id)
+        if not result:
+            return error_response("Decision not found", 404)
+
+        current_status = result.get("status", "unknown")
+
+        # Validate state transition
+        cancellable_statuses = {"pending", "running", "processing"}
+        if current_status not in cancellable_statuses:
+            return error_response(
+                f"Cannot cancel decision in '{current_status}' status. "
+                f"Only decisions in {cancellable_statuses} can be cancelled.",
+                409,
+            )
+
+        # Parse optional reason from body
+        reason = None
+        try:
+            body, _ = self.read_json_body_validated(handler)
+            if body:
+                reason = body.get("reason")
+        except Exception:
+            pass  # Reason is optional
+
+        # Update the result with cancelled status
+        result["status"] = "cancelled"
+        result["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        if reason:
+            result["cancellation_reason"] = reason
+
+        # Persist the update
+        _save_result(request_id, result)
+
+        logger.info(f"Decision {request_id} cancelled by user. Reason: {reason or 'not provided'}")
+
+        return json_response(
+            {
+                "request_id": request_id,
+                "status": "cancelled",
+                "cancelled_at": result["cancelled_at"],
+                "reason": reason,
+            }
+        )
+
+    async def _retry_decision(self, request_id: str, handler) -> HandlerResult:
+        """
+        Retry a failed or cancelled decision.
+
+        Creates a new decision with the same parameters as the original.
+        """
+        # Get original result
+        original = _get_result(request_id)
+        if not original:
+            return error_response("Decision not found", 404)
+
+        current_status = original.get("status", "unknown")
+
+        # Validate state transition
+        retryable_statuses = {"failed", "cancelled", "timeout"}
+        if current_status not in retryable_statuses:
+            return error_response(
+                f"Cannot retry decision in '{current_status}' status. "
+                f"Only decisions in {retryable_statuses} can be retried.",
+                409,
+            )
+
+        # Get the original request data
+        original_result = original.get("result", {})
+        original_request = original_result.get("request", {})
+
+        # Extract the original content/task
+        content = (
+            original_request.get("content")
+            or original_result.get("task")
+            or original.get("content")
+        )
+        if not content:
+            return error_response(
+                "Cannot retry: original decision content not found",
+                400,
+            )
+
+        # Get router
+        router = _get_decision_router()
+        if not router:
+            return error_response("Decision router not available", 503)
+
+        # Build new decision request
+        try:
+            from aragora.core.decision import DecisionRequest
+            import uuid
+
+            # Generate new request ID
+            new_request_id = f"dec_{uuid.uuid4().hex[:12]}"
+
+            # Create new request with same parameters
+            new_body = {
+                "content": content,
+                "decision_type": original_request.get("decision_type", "auto"),
+                "config": original_request.get("config", {}),
+                "context": original_request.get("context", {}),
+            }
+
+            request = DecisionRequest.from_http(new_body, {})
+            request.request_id = new_request_id
+
+            # Track retry lineage
+            request.context.metadata = request.context.metadata or {}
+            request.context.metadata["retried_from"] = request_id
+            request.context.metadata["retry_count"] = original_result.get("retry_count", 0) + 1
+
+        except Exception as e:
+            logger.warning(f"Failed to build retry request: {e}")
+            return error_response(f"Failed to create retry request: {e}", 400)
+
+        # Route the new decision
+        try:
+            result = await router.route(request)
+
+            # Cache result
+            _save_result(
+                new_request_id,
+                {
+                    "request_id": new_request_id,
+                    "status": "completed" if result.success else "failed",
+                    "result": result.to_dict(),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "retried_from": request_id,
+                },
+            )
+
+            logger.info(f"Decision {request_id} retried as {new_request_id}")
+
+            return json_response(
+                {
+                    "request_id": new_request_id,
+                    "status": "completed" if result.success else "failed",
+                    "retried_from": request_id,
+                    "decision_type": result.decision_type.value,
+                    "answer": result.answer,
+                    "confidence": result.confidence,
+                    "consensus_reached": result.consensus_reached,
+                }
+            )
+
+        except asyncio.TimeoutError:
+            _save_result(
+                new_request_id,
+                {
+                    "request_id": new_request_id,
+                    "status": "timeout",
+                    "error": "Decision retry timed out",
+                    "retried_from": request_id,
+                },
+            )
+            return error_response("Decision retry timed out", 408)
+
+        except Exception as e:
+            logger.exception(f"Decision retry failed: {e}")
+            _save_result(
+                new_request_id,
+                {
+                    "request_id": new_request_id,
+                    "status": "failed",
+                    "error": str(e),
+                    "retried_from": request_id,
+                },
+            )
+            return error_response(f"Decision retry failed: {e}", 500)
 
 
 __all__ = ["DecisionHandler"]

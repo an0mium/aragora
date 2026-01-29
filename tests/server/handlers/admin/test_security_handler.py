@@ -139,6 +139,11 @@ class TestCanHandle:
         assert not security_handler.can_handle("/api/v1/security/status")
 
 
+# Patch path for runtime imports
+ENCRYPTION_MODULE = "aragora.security.encryption"
+MIGRATION_MODULE = "aragora.security.migration"
+
+
 class TestGetStatus:
     """Tests for _get_status endpoint."""
 
@@ -148,10 +153,8 @@ class TestGetStatus:
         """Status returns key information when active key exists."""
         service = MockEncryptionService()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -166,7 +169,7 @@ class TestGetStatus:
         self, security_handler: SecurityHandler, mock_handler: MagicMock
     ):
         """Status handles missing cryptography library."""
-        with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", False):
+        with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
             result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -179,10 +182,8 @@ class TestGetStatus:
         service = MockEncryptionService(active_key=None)
         service._active_key = None
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -196,10 +197,8 @@ class TestGetStatus:
         old_key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=65))
         service = MockEncryptionService(active_key=old_key)
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
 
         body = json.loads(result.body.decode())
@@ -213,10 +212,8 @@ class TestGetStatus:
         old_key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=95))
         service = MockEncryptionService(active_key=old_key)
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
 
         body = json.loads(result.body.decode())
@@ -231,12 +228,10 @@ class TestRotateKey:
         service = MockEncryptionService()
         result_obj = MockRotationResult()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 with patch(
-                    "aragora.server.handlers.admin.security.rotate_encryption_key",
+                    f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=result_obj,
                 ):
                     result = security_handler._rotate_key.__wrapped__(
@@ -254,12 +249,10 @@ class TestRotateKey:
         service = MockEncryptionService(active_key=old_key)
         result_obj = MockRotationResult()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 with patch(
-                    "aragora.server.handlers.admin.security.rotate_encryption_key",
+                    f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=result_obj,
                 ):
                     result = security_handler._rotate_key.__wrapped__(
@@ -280,10 +273,8 @@ class TestRotateKey:
         recent_key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=15))
         service = MockEncryptionService(active_key=recent_key)
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._rotate_key.__wrapped__(
                     security_handler, {}, mock_handler
                 )
@@ -296,7 +287,7 @@ class TestRotateKey:
         self, security_handler: SecurityHandler, mock_handler: MagicMock
     ):
         """Rotation fails when crypto unavailable."""
-        with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", False):
+        with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
             result = security_handler._rotate_key.__wrapped__(security_handler, {}, mock_handler)
 
         assert result.status_code == 400
@@ -309,10 +300,8 @@ class TestGetHealth:
         """Health returns healthy when all checks pass."""
         service = MockEncryptionService()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -327,7 +316,7 @@ class TestGetHealth:
         self, security_handler: SecurityHandler, mock_handler: MagicMock
     ):
         """Health returns unhealthy when crypto unavailable."""
-        with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", False):
+        with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
             result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -342,10 +331,8 @@ class TestGetHealth:
         old_key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=95))
         service = MockEncryptionService(active_key=old_key)
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -358,10 +345,8 @@ class TestGetHealth:
         service = MockEncryptionService()
         service._active_key = None
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -377,10 +362,8 @@ class TestListKeys:
         """Lists single active key."""
         service = MockEncryptionService()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -406,10 +389,8 @@ class TestListKeys:
             keys=[old_key, active_key],
         )
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 200
@@ -428,7 +409,7 @@ class TestListKeys:
         self, security_handler: SecurityHandler, mock_handler: MagicMock
     ):
         """List keys fails when crypto unavailable."""
-        with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", False):
+        with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
             result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
 
         assert result.status_code == 400
@@ -443,10 +424,8 @@ class TestRouting:
         """GET request routes to status handler."""
         service = MockEncryptionService()
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 with patch.object(security_handler, "_get_status") as mock_status:
                     mock_status.return_value = MagicMock(status_code=200)
                     security_handler.handle("/api/v1/admin/security/status", {}, mock_handler)
@@ -489,10 +468,8 @@ class TestIntegration:
         initial_key = MockEncryptionKey(created_at=datetime.now(timezone.utc) - timedelta(days=45))
         service = MockEncryptionService(active_key=initial_key)
 
-        with patch(
-            "aragora.server.handlers.admin.security.get_encryption_service", return_value=service
-        ):
-            with patch("aragora.server.handlers.admin.security.CRYPTO_AVAILABLE", True):
+        with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
+            with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 # Step 1: Check status
                 status_result = security_handler._get_status.__wrapped__(
                     security_handler, mock_handler
@@ -503,7 +480,7 @@ class TestIntegration:
 
                 # Step 2: Dry run rotation
                 with patch(
-                    "aragora.server.handlers.admin.security.rotate_encryption_key",
+                    f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=MockRotationResult(),
                 ):
                     dry_result = security_handler._rotate_key.__wrapped__(
@@ -514,7 +491,7 @@ class TestIntegration:
 
                 # Step 3: Actual rotation
                 with patch(
-                    "aragora.server.handlers.admin.security.rotate_encryption_key",
+                    f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=MockRotationResult(),
                 ):
                     rotate_result = security_handler._rotate_key.__wrapped__(

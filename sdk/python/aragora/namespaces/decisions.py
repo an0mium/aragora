@@ -117,26 +117,45 @@ class DecisionsAPI:
         """
         Cancel a pending or processing decision.
 
+        Only decisions in PENDING or PROCESSING status can be cancelled.
+
         Args:
             decision_id: Decision identifier
             reason: Cancellation reason
 
         Returns:
-            Cancellation confirmation
+            Cancellation confirmation with status and cancelled_at timestamp
+
+        Raises:
+            HTTPError: If decision cannot be cancelled (wrong status or not found)
         """
-        raise NotImplementedError("Decision cancellation is not supported by the current API.")
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+
+        return self._client._request(
+            "POST",
+            f"/api/v1/decisions/{decision_id}/cancel",
+            json=data if data else None,
+        )
 
     def retry(self, decision_id: str) -> dict[str, Any]:
         """
-        Retry a failed decision.
+        Retry a failed or cancelled decision.
+
+        Creates a new decision with the same parameters as the original.
+        Only decisions in FAILED, CANCELLED, or TIMEOUT status can be retried.
 
         Args:
             decision_id: Decision identifier
 
         Returns:
-            Retry result with new decision_id
+            Retry result with new decision_id and result
+
+        Raises:
+            HTTPError: If decision cannot be retried (wrong status or not found)
         """
-        raise NotImplementedError("Decision retry is not supported by the current API.")
+        return self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
 
     def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """
@@ -237,12 +256,40 @@ class AsyncDecisionsAPI:
         return await self._client._request("GET", "/api/v1/decisions", params=params)
 
     async def cancel(self, decision_id: str, reason: str | None = None) -> dict[str, Any]:
-        """Cancel a pending or processing decision."""
-        raise NotImplementedError("Decision cancellation is not supported by the current API.")
+        """Cancel a pending or processing decision.
+
+        Only decisions in PENDING or PROCESSING status can be cancelled.
+
+        Args:
+            decision_id: Decision identifier
+            reason: Cancellation reason
+
+        Returns:
+            Cancellation confirmation with status and cancelled_at timestamp
+        """
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+
+        return await self._client._request(
+            "POST",
+            f"/api/v1/decisions/{decision_id}/cancel",
+            json=data if data else None,
+        )
 
     async def retry(self, decision_id: str) -> dict[str, Any]:
-        """Retry a failed decision."""
-        raise NotImplementedError("Decision retry is not supported by the current API.")
+        """Retry a failed or cancelled decision.
+
+        Creates a new decision with the same parameters as the original.
+        Only decisions in FAILED, CANCELLED, or TIMEOUT status can be retried.
+
+        Args:
+            decision_id: Decision identifier
+
+        Returns:
+            Retry result with new decision_id and result
+        """
+        return await self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
 
     async def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """Get the receipt for a completed decision."""

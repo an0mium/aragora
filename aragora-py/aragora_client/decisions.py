@@ -322,41 +322,64 @@ class DecisionsAPI:
     # Decision Management
     # =========================================================================
 
-    async def cancel(self, decision_id: str) -> DecisionResult:
+    async def cancel(
+        self,
+        decision_id: str,
+        *,
+        reason: str | None = None,
+    ) -> DecisionResult:
         """Cancel a pending or running decision.
+
+        Only decisions in PENDING or RUNNING status can be cancelled.
 
         Args:
             decision_id: The decision request ID
+            reason: Optional cancellation reason
 
         Returns:
             Updated DecisionResult with cancelled status
+
+        Raises:
+            HTTPError: If decision cannot be cancelled (wrong status or not found)
 
         Example:
             result = await client.decisions.cancel("dec_abc123")
             assert result.status == DecisionStatus.CANCELLED
         """
-        raise NotImplementedError(
-            "Decision cancellation is not supported by the current API."
+        data: dict[str, Any] = {}
+        if reason:
+            data["reason"] = reason
+
+        response = await self._client._post(
+            f"/api/v1/decisions/{decision_id}/cancel",
+            data if data else None,
         )
+        return DecisionResult.from_dict(response)
 
     async def retry(self, decision_id: str) -> DecisionResult:
-        """Retry a failed decision.
+        """Retry a failed or cancelled decision.
 
-        Creates a new decision with the same parameters as the failed one.
+        Creates a new decision with the same parameters as the original.
+        Only decisions in FAILED, CANCELLED, or TIMEOUT status can be retried.
 
         Args:
-            decision_id: The failed decision ID
+            decision_id: The decision ID to retry
 
         Returns:
-            New DecisionResult for the retry
+            New DecisionResult for the retry (with new request_id)
+
+        Raises:
+            HTTPError: If decision cannot be retried (wrong status or not found)
 
         Example:
             # Retry a failed decision
             original = await client.decisions.get("dec_abc123")
             if original.status == DecisionStatus.FAILED:
                 new_result = await client.decisions.retry("dec_abc123")
+                print(f"New decision ID: {new_result.request_id}")
         """
-        raise NotImplementedError("Decision retry is not supported by the current API.")
+        response = await self._client._post(f"/api/v1/decisions/{decision_id}/retry")
+        return DecisionResult.from_dict(response)
 
     # =========================================================================
     # Convenience Methods

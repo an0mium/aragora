@@ -404,10 +404,12 @@ async def audit_encryption_operation(
     """
     record_encryption_operation(operation, success, (latency_ms or 0) / 1000)
 
+    # Map operation name to event key (encrypt -> encryption, decrypt -> decryption)
+    event_key_base = f"{operation}ion" if operation in ("encrypt", "decrypt") else operation
     event_type = (
-        SECURITY_EVENTS[f"{operation}_success"]
+        SECURITY_EVENTS[f"{event_key_base}_success"]
         if success
-        else SECURITY_EVENTS[f"{operation}_failure"]
+        else SECURITY_EVENTS[f"{event_key_base}_failure"]
     )
 
     return await get_audit_log().append(
