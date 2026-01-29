@@ -46,6 +46,7 @@ Aragora is the control plane for multi-agent vetted decisionmaking across organi
 
 > **Detailed Backlog:** See [docs/BACKLOG_Q1_Q2_2026.md](docs/BACKLOG_Q1_Q2_2026.md) for 36 issues across 8 sprints (16 weeks).
 > **GitHub Issues:** Import from [docs/BACKLOG_ISSUES.csv](docs/BACKLOG_ISSUES.csv)
+> **Parity + Agent Fabric Backlog:** See [docs/BACKLOG_PARITY_GASTOWN_MOLTBOT.md](docs/BACKLOG_PARITY_GASTOWN_MOLTBOT.md) for the extension roadmap (Gastown/Moltbot parity and Nomic upgrades).
 
 ### Track 1: SME Starter Pack
 - [ ] Slack integration (OAuth, slash commands, thread debates)
