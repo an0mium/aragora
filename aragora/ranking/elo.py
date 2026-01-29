@@ -870,7 +870,8 @@ class EloSystem:
                 from aragora.server.stream.events import StreamEvent, StreamEventType
 
                 for agent_name, elo_change in elo_changes.items():
-                    base_rating: float = ratings.get(agent_name) or 1500
+                    agent_rating = ratings.get(agent_name)
+                    base_rating: float = agent_rating.elo if agent_rating else 1500.0
                     new_rating = base_rating + elo_change
                     self.event_emitter.emit(
                         StreamEvent(

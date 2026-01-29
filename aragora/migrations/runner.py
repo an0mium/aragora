@@ -14,7 +14,9 @@ import importlib
 import logging
 import os
 import pkgutil
+import socket
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -109,10 +111,84 @@ class MigrationRunner:
             CREATE TABLE IF NOT EXISTS {self.MIGRATIONS_TABLE} (
                 version {version_type} PRIMARY KEY,
                 name TEXT NOT NULL,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                applied_by TEXT DEFAULT NULL
             )
         """
         self._backend.execute_write(sql)
+
+    def _acquire_migration_lock(self, timeout_seconds: float = 30.0) -> bool:
+        """
+        Acquire an advisory lock for running migrations (PostgreSQL only).
+
+        Uses pg_try_advisory_lock to prevent concurrent migration runs across
+        multiple pods/instances. SQLite uses file-level locking inherently.
+
+        Args:
+            timeout_seconds: Maximum time to wait for lock acquisition.
+
+        Returns:
+            True if lock acquired.
+
+        Raises:
+            RuntimeError: If lock cannot be acquired within timeout.
+        """
+        if not isinstance(self._backend, PostgreSQLBackend):
+            # SQLite has inherent file locking, no advisory lock needed
+            return True
+
+        start_time = time.time()
+        poll_interval = 0.5  # seconds between retry attempts
+
+        while True:
+            # Try to acquire advisory lock (non-blocking)
+            result = self._backend.fetch_one(
+                f"SELECT pg_try_advisory_lock({MIGRATION_LOCK_ID})"
+            )
+
+            if result and result[0]:
+                logger.info("Acquired migration advisory lock")
+                return True
+
+            elapsed = time.time() - start_time
+            if elapsed >= timeout_seconds:
+                logger.error(
+                    f"Failed to acquire migration lock after {elapsed:.1f}s. "
+                    "Another migration may be in progress."
+                )
+                raise RuntimeError(
+                    f"Migration lock acquisition timeout after {timeout_seconds}s. "
+                    "Ensure no other migration is running and try again."
+                )
+
+            logger.debug(
+                f"Migration lock held by another process, retrying in {poll_interval}s..."
+            )
+            time.sleep(poll_interval)
+
+    def _release_migration_lock(self) -> None:
+        """
+        Release the advisory lock for migrations (PostgreSQL only).
+
+        Safe to call even if lock was not acquired (no-op for SQLite).
+        """
+        if not isinstance(self._backend, PostgreSQLBackend):
+            return
+
+        try:
+            self._backend.execute_write(
+                f"SELECT pg_advisory_unlock({MIGRATION_LOCK_ID})"
+            )
+            logger.info("Released migration advisory lock")
+        except Exception as e:
+            # Log but don't raise - lock will be released on connection close anyway
+            logger.warning(f"Failed to release migration lock: {e}")
+
+    def _get_applied_by(self) -> str:
+        """Get identifier for who applied the migration."""
+        hostname = socket.gethostname()
+        pid = os.getpid()
+        return f"{hostname}:{pid}"
 
     def register(self, migration: Migration) -> None:
         """
@@ -135,46 +211,70 @@ class MigrationRunner:
         applied = self.get_applied_versions()
         return [m for m in self._migrations if m.version not in applied]
 
-    def upgrade(self, target_version: Optional[int] = None) -> list[Migration]:
+    def upgrade(
+        self,
+        target_version: Optional[int] = None,
+        lock_timeout: float = 30.0,
+    ) -> list[Migration]:
         """
         Apply pending migrations up to target version.
 
+        Acquires an advisory lock (PostgreSQL) to prevent concurrent migrations
+        across multiple pods/instances.
+
         Args:
             target_version: Maximum version to apply (None = all pending).
+            lock_timeout: Maximum seconds to wait for migration lock.
 
         Returns:
             List of applied migrations.
+
+        Raises:
+            RuntimeError: If migration lock cannot be acquired.
         """
         applied: list[Migration] = []
         pending = self.get_pending_migrations()
 
-        for migration in pending:
-            if target_version and migration.version > target_version:
-                break
+        if not pending:
+            return applied
 
-            logger.info(f"Applying migration {migration.version}: {migration.name}")
+        # Acquire lock before running migrations
+        self._acquire_migration_lock(timeout_seconds=lock_timeout)
 
-            try:
-                if migration.up_fn:
-                    migration.up_fn(self._backend)
-                elif migration.up_sql:
-                    # Split by semicolon and execute each statement
-                    for stmt in migration.up_sql.split(";"):
-                        stmt = stmt.strip()
-                        if stmt:
-                            self._backend.execute_write(stmt)
+        try:
+            applied_by = self._get_applied_by()
 
-                # Record migration
-                self._backend.execute_write(
-                    f"INSERT INTO {self.MIGRATIONS_TABLE} (version, name) VALUES (?, ?)",
-                    (migration.version, migration.name),
-                )
-                applied.append(migration)
-                logger.info(f"Applied migration {migration.version}")
+            for migration in pending:
+                if target_version and migration.version > target_version:
+                    break
 
-            except Exception as e:
-                logger.error(f"Failed to apply migration {migration.version}: {e}")
-                raise
+                logger.info(f"Applying migration {migration.version}: {migration.name}")
+
+                try:
+                    if migration.up_fn:
+                        migration.up_fn(self._backend)
+                    elif migration.up_sql:
+                        # Split by semicolon and execute each statement
+                        for stmt in migration.up_sql.split(";"):
+                            stmt = stmt.strip()
+                            if stmt:
+                                self._backend.execute_write(stmt)
+
+                    # Record migration with applied_by metadata
+                    self._backend.execute_write(
+                        f"INSERT INTO {self.MIGRATIONS_TABLE} (version, name, applied_by) "
+                        "VALUES (?, ?, ?)",
+                        (migration.version, migration.name, applied_by),
+                    )
+                    applied.append(migration)
+                    logger.info(f"Applied migration {migration.version}")
+
+                except Exception as e:
+                    logger.error(f"Failed to apply migration {migration.version}: {e}")
+                    raise
+        finally:
+            # Always release lock
+            self._release_migration_lock()
 
         return applied
 
