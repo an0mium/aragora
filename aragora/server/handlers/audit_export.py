@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 
+from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
 
 if TYPE_CHECKING:
@@ -79,13 +80,13 @@ async def handle_audit_events(request: web.Request) -> web.Response:
         try:
             start_date = datetime.fromisoformat(params["start_date"].replace("Z", "+00:00"))
         except ValueError:
-            return web.json_response({"error": "Invalid start_date format"}, status=400)
+            return web_error_response("Invalid start_date format", 400)
 
     if params.get("end_date"):
         try:
             end_date = datetime.fromisoformat(params["end_date"].replace("Z", "+00:00"))
         except ValueError:
-            return web.json_response({"error": "Invalid end_date format"}, status=400)
+            return web_error_response("Invalid end_date format", 400)
 
     # Build query
     query = AuditQuery(
@@ -99,9 +100,7 @@ async def handle_audit_events(request: web.Request) -> web.Response:
         try:
             query.category = AuditCategory(params["category"])
         except ValueError:
-            return web.json_response(
-                {"error": f"Invalid category: {params['category']}"}, status=400
-            )
+            return web_error_response(f"Invalid category: {params['category']}", 400)
 
     if params.get("action"):
         query.action = params["action"]
@@ -113,7 +112,7 @@ async def handle_audit_events(request: web.Request) -> web.Response:
         try:
             query.outcome = AuditOutcome(params["outcome"])
         except ValueError:
-            return web.json_response({"error": f"Invalid outcome: {params['outcome']}"}, status=400)
+            return web_error_response(f"Invalid outcome: {params['outcome']}", 400)
 
     if params.get("org_id"):
         query.org_id = params["org_id"]
@@ -174,19 +173,19 @@ async def handle_audit_export(request: web.Request) -> web.Response:
     try:
         body = await request.json()
     except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON body"}, status=400)
+        return web_error_response("Invalid JSON body", 400)
 
     # Validate required fields
     if not body.get("start_date"):
-        return web.json_response({"error": "start_date is required"}, status=400)
+        return web_error_response("start_date is required", 400)
     if not body.get("end_date"):
-        return web.json_response({"error": "end_date is required"}, status=400)
+        return web_error_response("end_date is required", 400)
 
     try:
         start_date = datetime.fromisoformat(body["start_date"].replace("Z", "+00:00"))
         end_date = datetime.fromisoformat(body["end_date"].replace("Z", "+00:00"))
     except ValueError:
-        return web.json_response({"error": "Invalid date format. Use ISO 8601."}, status=400)
+        return web_error_response("Invalid date format. Use ISO 8601.", 400)
 
     export_format = body.get("format", "json").lower()
     org_id = body.get("org_id")
@@ -214,9 +213,8 @@ async def handle_audit_export(request: web.Request) -> web.Response:
             filename = f"soc2_audit_{start_date.date()}_{end_date.date()}.json"
 
         else:
-            return web.json_response(
-                {"error": f"Invalid format: {export_format}. Use json, csv, or soc2."},
-                status=400,
+            return web_error_response(
+                f"Invalid format: {export_format}. Use json, csv, or soc2.", 400
             )
 
         # Read file content
@@ -271,13 +269,13 @@ async def handle_audit_verify(request: web.Request) -> web.Response:
         try:
             start_date = datetime.fromisoformat(body["start_date"].replace("Z", "+00:00"))
         except ValueError:
-            return web.json_response({"error": "Invalid start_date format"}, status=400)
+            return web_error_response("Invalid start_date format", 400)
 
     if body.get("end_date"):
         try:
             end_date = datetime.fromisoformat(body["end_date"].replace("Z", "+00:00"))
         except ValueError:
-            return web.json_response({"error": "Invalid end_date format"}, status=400)
+            return web_error_response("Invalid end_date format", 400)
 
     is_valid, errors = audit.verify_integrity(start_date, end_date)
 

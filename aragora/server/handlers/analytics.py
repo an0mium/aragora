@@ -507,13 +507,15 @@ class AnalyticsHandler(SecureHandler):
             efficiency = elo.get_learning_efficiency(agent, domain=domain)
             return json_response({"agent": agent, "domain": domain, "efficiency": efficiency})
 
-        # Get top agents by learning efficiency
+        # Get top agents by learning efficiency (batch query for performance)
         leaderboard = elo.get_leaderboard(limit=limit)
-        agents_data = []
-        for entry in leaderboard:
-            name = entry.agent_name
-            efficiency = elo.get_learning_efficiency(name, domain=domain)
-            agents_data.append({"agent": name, "efficiency": efficiency})
+        agent_names = [entry.agent_name for entry in leaderboard]
+
+        # Batch fetch learning efficiency for all agents at once
+        efficiency_batch = elo.get_learning_efficiency_batch(agent_names, domain=domain)
+        agents_data = [
+            {"agent": name, "efficiency": efficiency_batch.get(name, {})} for name in agent_names
+        ]
 
         return json_response({"domain": domain, "agents": agents_data})
 
@@ -539,13 +541,15 @@ class AnalyticsHandler(SecureHandler):
             accuracy = elo.get_voting_accuracy(agent)
             return json_response({"agent": agent, "accuracy": accuracy})
 
-        # Get top agents by voting accuracy
+        # Get top agents by voting accuracy (batch query for performance)
         leaderboard = elo.get_leaderboard(limit=limit)
-        agents_data = []
-        for entry in leaderboard:
-            name = entry.agent_name
-            accuracy = elo.get_voting_accuracy(name)
-            agents_data.append({"agent": name, "accuracy": accuracy})
+        agent_names = [entry.agent_name for entry in leaderboard]
+
+        # Batch fetch voting accuracy for all agents at once
+        accuracy_batch = elo.get_voting_accuracy_batch(agent_names)
+        agents_data = [
+            {"agent": name, "accuracy": accuracy_batch.get(name, {})} for name in agent_names
+        ]
 
         return json_response({"agents": agents_data})
 

@@ -14,6 +14,7 @@ from typing import Any
 from aiohttp import web
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 
 logger = logging.getLogger(__name__)
 
@@ -286,4 +287,4 @@ class ChannelHealthHandler:
             if len(parts) == 6 and parts[5] == "health":
                 return await self.get_channel_health(request)
 
-        return web.json_response({"error": "Not found"}, status=404)
+        return web_error_response("Not found", 404)

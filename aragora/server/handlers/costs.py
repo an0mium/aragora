@@ -28,6 +28,7 @@ from typing import Any
 
 from aiohttp import web
 
+from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -397,10 +398,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get costs: {e}")
-            return web.json_response(
-                {"error": str(e)},
-                status=500,
-            )
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_breakdown(self, request: web.Request) -> web.Response:
@@ -433,7 +431,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get breakdown: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_timeline(self, request: web.Request) -> web.Response:
@@ -460,7 +458,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get timeline: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_alerts(self, request: web.Request) -> web.Response:
@@ -500,7 +498,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get alerts: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("budget:set")
     async def handle_set_budget(self, request: web.Request) -> web.Response:
@@ -523,10 +521,7 @@ class CostHandler:
             name = body.get("name", f"Budget for {workspace_id}")
 
             if budget_amount is None or budget_amount < 0:
-                return web.json_response(
-                    {"error": "Valid budget amount required"},
-                    status=400,
-                )
+                return web_error_response("Valid budget amount required", 400)
 
             tracker = _get_cost_tracker()
             if tracker:
@@ -552,7 +547,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to set budget: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_dismiss_alert(self, request: web.Request) -> web.Response:
@@ -579,7 +574,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to dismiss alert: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_recommendations(self, request: web.Request) -> web.Response:
@@ -630,7 +625,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get recommendations: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_recommendation(self, request: web.Request) -> web.Response:
@@ -648,16 +643,13 @@ class CostHandler:
             recommendation = optimizer.get_recommendation(recommendation_id)
 
             if not recommendation:
-                return web.json_response(
-                    {"error": "Recommendation not found"},
-                    status=404,
-                )
+                return web_error_response("Recommendation not found", 404)
 
             return web.json_response(recommendation.to_dict())
 
         except Exception as e:
             logger.exception(f"Failed to get recommendation: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_apply_recommendation(self, request: web.Request) -> web.Response:
@@ -677,10 +669,7 @@ class CostHandler:
             success = optimizer.apply_recommendation(recommendation_id, user_id)
 
             if not success:
-                return web.json_response(
-                    {"error": "Recommendation not found"},
-                    status=404,
-                )
+                return web_error_response("Recommendation not found", 404)
 
             recommendation = optimizer.get_recommendation(recommendation_id)
 
@@ -693,7 +682,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to apply recommendation: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_dismiss_recommendation(self, request: web.Request) -> web.Response:
@@ -711,16 +700,13 @@ class CostHandler:
             success = optimizer.dismiss_recommendation(recommendation_id)
 
             if not success:
-                return web.json_response(
-                    {"error": "Recommendation not found"},
-                    status=404,
-                )
+                return web_error_response("Recommendation not found", 404)
 
             return web.json_response({"success": True, "dismissed": True})
 
         except Exception as e:
             logger.exception(f"Failed to dismiss recommendation: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_efficiency(self, request: web.Request) -> web.Response:
@@ -739,10 +725,7 @@ class CostHandler:
 
             tracker = _get_cost_tracker()
             if not tracker:
-                return web.json_response(
-                    {"error": "Cost tracker not available"},
-                    status=503,
-                )
+                return web_error_response("Cost tracker not available", 503)
 
             stats = tracker.get_workspace_stats(workspace_id)
 
@@ -785,7 +768,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get efficiency: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_get_forecast(self, request: web.Request) -> web.Response:
@@ -814,7 +797,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to get forecast: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
     @require_permission("costs:read")
     async def handle_simulate_forecast(self, request: web.Request) -> web.Response:
@@ -853,7 +836,7 @@ class CostHandler:
 
         except Exception as e:
             logger.exception(f"Failed to simulate forecast: {e}")
-            return web.json_response({"error": str(e)}, status=500)
+            return web_error_response(str(e), 500)
 
 
 def register_routes(app: web.Application) -> None:

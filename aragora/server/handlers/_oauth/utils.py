@@ -12,6 +12,7 @@ from typing import Any
 
 from aragora.server.handlers.oauth.config import _get_allowed_redirect_hosts
 from aragora.server.oauth_state_store import (
+    generate_oauth_state as _generate_state,  # noqa: F401 - re-exported for mixins
     validate_oauth_state as _validate_state_internal,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter

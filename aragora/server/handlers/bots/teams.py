@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from aragora.server.handlers.base import (
     HandlerResult,
+    error_response,
     json_response,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
@@ -193,11 +194,11 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             except (ValueError, KeyError) as auth_error:
                 logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
                 self._audit_webhook_auth_failure("auth_token", "invalid_token")
-                return json_response({"error": "Invalid authentication token"}, status=401)
+                return error_response("Invalid authentication token", 401)
             except Exception as auth_error:
                 logger.exception(f"Unexpected Teams auth error: {auth_error}")
                 self._audit_webhook_auth_failure("auth_token", "unexpected_error")
-                return json_response({"error": "Unauthorized"}, status=401)
+                return error_response("Unauthorized", 401)
 
             # Process the activity
             try:
@@ -209,10 +210,10 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
                 return json_response({}, status=200)
             except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Data error processing Teams activity: {e}")
-                return json_response({"error": str(e)[:100]}, status=400)
+                return error_response(str(e)[:100], 400)
             except Exception as e:
                 logger.exception(f"Unexpected error processing Teams activity: {e}")
-                return json_response({"error": "Internal processing error"}, status=500)
+                return error_response("Internal processing error", 500)
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)

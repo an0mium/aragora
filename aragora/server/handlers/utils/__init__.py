@@ -56,6 +56,7 @@ from .params import (
     parse_query_params,
 )
 from .rate_limit import RateLimiter, get_client_ip, rate_limit
+from .aiohttp_responses import web_error_response
 from .responses import (
     HandlerResult,
     error_response,
@@ -104,6 +105,7 @@ __all__ = [
     "error_response",
     "html_response",
     "redirect_response",
+    "web_error_response",
     # Decorators
     "generate_trace_id",
     "map_exception_to_status",

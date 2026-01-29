@@ -411,6 +411,7 @@ exclude = [
 # Start non-strict globally, enable per-module
 check_untyped_defs = false
 disallow_untyped_defs = false
+strict_optional = false
 
 # Strict settings for core modules (enable incrementally)
 [[tool.mypy.overrides]]

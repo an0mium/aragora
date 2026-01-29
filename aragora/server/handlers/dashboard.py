@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import random
-import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -32,36 +31,27 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.utils.cache import TTLCache
 
 logger = logging.getLogger(__name__)
 
-# In-memory cache for dashboard data
-_dashboard_cache: dict[str, dict[str, Any]] = {}
-_dashboard_cache_lock = threading.Lock()
-
 # Cache TTL (30 seconds for real-time feel)
 CACHE_TTL = 30
+
+# Bounded LRU cache for dashboard data (max 1000 entries to prevent memory leaks)
+_dashboard_cache: TTLCache[dict[str, Any]] = TTLCache(maxsize=1000, ttl_seconds=CACHE_TTL)
 
 
 def _get_cached_data(user_id: str, key: str) -> Optional[dict[str, Any]]:
     """Get cached dashboard data if not expired."""
     cache_key = f"{user_id}:{key}"
-    with _dashboard_cache_lock:
-        cached = _dashboard_cache.get(cache_key)
-        if cached:
-            if datetime.now(timezone.utc).timestamp() - cached.get("cached_at", 0) < CACHE_TTL:
-                return cached.get("data")
-    return None
+    return _dashboard_cache.get(cache_key)
 
 
 def _set_cached_data(user_id: str, key: str, data: dict[str, Any]) -> None:
     """Cache dashboard data."""
     cache_key = f"{user_id}:{key}"
-    with _dashboard_cache_lock:
-        _dashboard_cache[cache_key] = {
-            "data": data,
-            "cached_at": datetime.now(timezone.utc).timestamp(),
-        }
+    _dashboard_cache.set(cache_key, data)
 
 
 # =============================================================================

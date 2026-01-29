@@ -605,11 +605,16 @@ class TestIsolationLevels:
 
 
 class TestDeadlockHandling:
-    """Tests for deadlock detection and recovery."""
+    """Tests for deadlock detection.
+
+    Note: The TransactionManager detects deadlocks and raises DeadlockError
+    but does not automatically retry. Retry logic should be implemented
+    by the caller using execute_with_retry or similar patterns.
+    """
 
     @pytest.mark.asyncio
     async def test_deadlock_detected(self):
-        """Deadlock error is detected from error message."""
+        """Deadlock error is detected and wrapped in DeadlockError."""
         mock_conn = create_mock_connection()
 
         # Simulate deadlock error
@@ -627,67 +632,26 @@ class TestDeadlockHandling:
         pool = MagicMock()
         pool.acquire = mock_acquire
 
-        config = TransactionConfig(
-            deadlock_retries=2,
-            deadlock_base_delay=0.001,
-            deadlock_max_delay=0.01,
-            validate_connection_state=False,
-        )
+        config = TransactionConfig(validate_connection_state=False)
         manager = TransactionManager(pool, config)
 
         with pytest.raises(DeadlockError):
             async with manager.transaction() as conn:
                 await conn.execute("INSERT INTO test VALUES (1)")
 
-        assert manager.get_stats().deadlocks_detected >= 1
+        assert manager.get_stats().deadlocks_detected == 1
 
     @pytest.mark.asyncio
-    async def test_deadlock_recovery_succeeds(self):
-        """Deadlock is recovered after retry."""
-        mock_conn = create_mock_connection()
-        call_count = [0]
-
-        async def intermittent_deadlock(query, *args, **kwargs):
-            call_count[0] += 1
-            if "INSERT" in query and call_count[0] <= 2:
-                raise Exception("ERROR: deadlock detected")
-            return "OK"
-
-        mock_conn.execute = AsyncMock(side_effect=intermittent_deadlock)
-
-        @asynccontextmanager
-        async def mock_acquire(readonly: bool = False):
-            yield mock_conn
-
-        pool = MagicMock()
-        pool.acquire = mock_acquire
-
-        config = TransactionConfig(
-            deadlock_retries=3,
-            deadlock_base_delay=0.001,
-            deadlock_max_delay=0.01,
-            validate_connection_state=False,
-        )
-        manager = TransactionManager(pool, config)
-
-        # Should succeed after retries
-        async with manager.transaction() as conn:
-            await conn.execute("INSERT INTO test VALUES (1)")
-
-        assert manager.get_stats().deadlocks_detected >= 1
-        assert manager.get_stats().transactions_committed == 1
-
-    @pytest.mark.asyncio
-    async def test_deadlock_max_retries_exceeded(self):
-        """DeadlockError raised after max retries exceeded."""
+    async def test_deadlock_error_contains_original_message(self):
+        """DeadlockError preserves the original error message."""
         mock_conn = create_mock_connection()
 
-        async def always_deadlock(query, *args, **kwargs):
+        async def deadlock_execute(query, *args, **kwargs):
             if "INSERT" in query:
-                raise Exception("ERROR: deadlock detected")
+                raise Exception("ERROR: deadlock detected on relation users")
             return "OK"
 
-        mock_conn.execute = AsyncMock(side_effect=always_deadlock)
+        mock_conn.execute = AsyncMock(side_effect=deadlock_execute)
 
         @asynccontextmanager
         async def mock_acquire(readonly: bool = False):
@@ -696,19 +660,14 @@ class TestDeadlockHandling:
         pool = MagicMock()
         pool.acquire = mock_acquire
 
-        config = TransactionConfig(
-            deadlock_retries=2,
-            deadlock_base_delay=0.001,
-            deadlock_max_delay=0.01,
-            validate_connection_state=False,
-        )
+        config = TransactionConfig(validate_connection_state=False)
         manager = TransactionManager(pool, config)
 
         with pytest.raises(DeadlockError) as exc_info:
             async with manager.transaction() as conn:
-                await conn.execute("INSERT INTO test VALUES (1)")
+                await conn.execute("INSERT INTO users VALUES (1)")
 
-        assert exc_info.value.retry_count == 3  # Initial + 2 retries
+        assert "deadlock" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_serialization_failure_treated_as_deadlock(self):
@@ -729,18 +688,69 @@ class TestDeadlockHandling:
         pool = MagicMock()
         pool.acquire = mock_acquire
 
-        config = TransactionConfig(
-            deadlock_retries=1,
-            deadlock_base_delay=0.001,
-            validate_connection_state=False,
-        )
+        config = TransactionConfig(validate_connection_state=False)
         manager = TransactionManager(pool, config)
 
         with pytest.raises(DeadlockError):
             async with manager.transaction() as conn:
                 await conn.execute("UPDATE test SET value = 1")
 
-        assert manager.get_stats().deadlocks_detected >= 1
+        assert manager.get_stats().deadlocks_detected == 1
+
+    @pytest.mark.asyncio
+    async def test_deadlock_40p01_code_detected(self):
+        """PostgreSQL error code 40P01 (deadlock_detected) triggers DeadlockError."""
+        mock_conn = create_mock_connection()
+
+        async def deadlock_execute(query, *args, **kwargs):
+            if "UPDATE" in query:
+                raise Exception("ERROR 40P01: deadlock detected")
+            return "OK"
+
+        mock_conn.execute = AsyncMock(side_effect=deadlock_execute)
+
+        @asynccontextmanager
+        async def mock_acquire(readonly: bool = False):
+            yield mock_conn
+
+        pool = MagicMock()
+        pool.acquire = mock_acquire
+
+        config = TransactionConfig(validate_connection_state=False)
+        manager = TransactionManager(pool, config)
+
+        with pytest.raises(DeadlockError):
+            async with manager.transaction() as conn:
+                await conn.execute("UPDATE test SET value = 1")
+
+    @pytest.mark.asyncio
+    async def test_non_deadlock_error_not_wrapped(self):
+        """Non-deadlock errors are not wrapped in DeadlockError."""
+        mock_conn = create_mock_connection()
+
+        async def other_error(query, *args, **kwargs):
+            if "INSERT" in query:
+                raise ValueError("Constraint violation")
+            return "OK"
+
+        mock_conn.execute = AsyncMock(side_effect=other_error)
+
+        @asynccontextmanager
+        async def mock_acquire(readonly: bool = False):
+            yield mock_conn
+
+        pool = MagicMock()
+        pool.acquire = mock_acquire
+
+        config = TransactionConfig(validate_connection_state=False)
+        manager = TransactionManager(pool, config)
+
+        with pytest.raises(ValueError, match="Constraint violation"):
+            async with manager.transaction() as conn:
+                await conn.execute("INSERT INTO test VALUES (1)")
+
+        # Should not count as deadlock
+        assert manager.get_stats().deadlocks_detected == 0
 
 
 # ===========================================================================

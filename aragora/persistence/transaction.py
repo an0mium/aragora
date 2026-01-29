@@ -308,135 +308,108 @@ class TransactionManager:
 
         Raises:
             TransactionError: If transaction cannot be started
-            DeadlockError: If deadlock cannot be recovered after retries
+            DeadlockError: If deadlock is detected (wrap with retry for auto-recovery)
             asyncio.TimeoutError: If timeout exceeded
+
+        Note:
+            This method does not automatically retry on deadlock internally.
+            Deadlocks are detected and raised as DeadlockError. For automatic
+            deadlock retry, use the `execute_with_retry` method instead.
         """
         isolation = isolation or self._config.isolation
         timeout = timeout if timeout is not None else self._config.timeout_seconds
 
-        last_error: Optional[Exception] = None
-        attempt = 0
-        max_attempts = self._config.deadlock_retries + 1
-
-        # Acquire connection from pool - check once at the start
+        # Acquire connection from pool
         acquire_method = getattr(self._pool, "acquire", None)
         if acquire_method is None:
             raise TransactionError("Pool does not support acquire()")
 
-        while attempt < max_attempts:
-            txn_id = self._generate_transaction_id()
-            start_time = time.time()
-            should_retry = False
+        txn_id = self._generate_transaction_id()
+        start_time = time.time()
 
-            async with acquire_method(readonly=readonly) as conn:
-                # Get the underlying connection if wrapped
-                actual_conn = getattr(conn, "connection", conn)
+        async with acquire_method(readonly=readonly) as conn:
+            # Get the underlying connection if wrapped
+            actual_conn = getattr(conn, "connection", conn)
 
-                # Validate connection state
-                if self._config.validate_connection_state:
-                    if not await self._validate_connection(actual_conn):
-                        raise TransactionError("Connection validation failed")
+            # Validate connection state
+            if self._config.validate_connection_state:
+                if not await self._validate_connection(actual_conn):
+                    raise TransactionError("Connection validation failed")
 
-                # Create transaction context
-                ctx = TransactionContext(
-                    id=txn_id,
-                    connection=actual_conn,
-                    isolation=isolation,
-                    started_at=start_time,
-                    state=TransactionState.ACTIVE,
-                )
+            # Create transaction context
+            ctx = TransactionContext(
+                id=txn_id,
+                connection=actual_conn,
+                isolation=isolation,
+                started_at=start_time,
+                state=TransactionState.ACTIVE,
+            )
+
+            async with self._lock:
+                self._active_contexts[txn_id] = ctx
+                self._stats.transactions_started += 1
+                self._stats.active_transactions += 1
+
+            try:
+                # Set isolation level and begin transaction
+                await actual_conn.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation.value}")
+                await actual_conn.execute("BEGIN")
+
+                # Apply timeout if specified
+                if timeout and timeout > 0:
+                    async with asyncio.timeout(timeout):
+                        yield actual_conn
+                else:
+                    yield actual_conn
+
+                # Commit on success
+                await actual_conn.execute("COMMIT")
+                ctx.state = TransactionState.COMMITTED
+                self._stats.transactions_committed += 1
+                logger.debug(f"Transaction {txn_id} committed successfully")
+
+            except asyncio.TimeoutError:
+                # Rollback on timeout
+                await actual_conn.execute("ROLLBACK")
+                ctx.state = TransactionState.ROLLED_BACK
+                self._stats.transactions_rolled_back += 1
+                logger.warning(f"Transaction {txn_id} rolled back: timeout")
+                raise
+
+            except asyncio.CancelledError:
+                # Rollback on cancellation
+                await actual_conn.execute("ROLLBACK")
+                ctx.state = TransactionState.ROLLED_BACK
+                self._stats.transactions_rolled_back += 1
+                raise
+
+            except Exception as e:
+                # Rollback on any exception
+                try:
+                    await actual_conn.execute("ROLLBACK")
+                except Exception as rollback_error:
+                    logger.error(f"Rollback failed: {rollback_error}")
+
+                ctx.state = TransactionState.FAILED
+                self._stats.transactions_failed += 1
+
+                # Check for deadlock and wrap in DeadlockError
+                if self._is_deadlock_error(e):
+                    self._stats.deadlocks_detected += 1
+                    logger.warning(f"Deadlock detected in transaction {txn_id}")
+                    raise DeadlockError(str(e), retry_count=0) from e
+
+                logger.warning(f"Transaction {txn_id} rolled back: {e}")
+                raise
+
+            finally:
+                # Update stats
+                duration_ms = (time.time() - start_time) * 1000
+                self._stats.total_transaction_time_ms += duration_ms
 
                 async with self._lock:
-                    self._active_contexts[txn_id] = ctx
-                    self._stats.transactions_started += 1
-                    self._stats.active_transactions += 1
-
-                try:
-                    # Set isolation level and begin transaction
-                    await actual_conn.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation.value}")
-                    await actual_conn.execute("BEGIN")
-
-                    # Apply timeout if specified
-                    if timeout and timeout > 0:
-                        async with asyncio.timeout(timeout):
-                            yield actual_conn
-                    else:
-                        yield actual_conn
-
-                    # Commit on success
-                    await actual_conn.execute("COMMIT")
-                    ctx.state = TransactionState.COMMITTED
-                    self._stats.transactions_committed += 1
-                    logger.debug(f"Transaction {txn_id} committed successfully")
-                    return
-
-                except asyncio.TimeoutError:
-                    # Rollback on timeout
-                    await actual_conn.execute("ROLLBACK")
-                    ctx.state = TransactionState.ROLLED_BACK
-                    self._stats.transactions_rolled_back += 1
-                    logger.warning(f"Transaction {txn_id} rolled back: timeout")
-                    raise
-
-                except asyncio.CancelledError:
-                    # Rollback on cancellation
-                    await actual_conn.execute("ROLLBACK")
-                    ctx.state = TransactionState.ROLLED_BACK
-                    self._stats.transactions_rolled_back += 1
-                    raise
-
-                except Exception as e:
-                    # Rollback on any exception
-                    try:
-                        await actual_conn.execute("ROLLBACK")
-                    except Exception as rollback_error:
-                        logger.error(f"Rollback failed: {rollback_error}")
-
-                    ctx.state = TransactionState.FAILED
-                    self._stats.transactions_failed += 1
-
-                    # Check for deadlock
-                    if self._is_deadlock_error(e):
-                        self._stats.deadlocks_detected += 1
-                        logger.warning(
-                            f"Deadlock detected in transaction {txn_id} "
-                            f"(attempt {attempt + 1}/{max_attempts})"
-                        )
-                        last_error = e
-                        attempt += 1
-
-                        if attempt < max_attempts:
-                            should_retry = True
-                        else:
-                            raise DeadlockError(
-                                f"Deadlock not recovered after {max_attempts} attempts",
-                                retry_count=attempt,
-                            )
-                    else:
-                        logger.warning(f"Transaction {txn_id} rolled back: {e}")
-                        raise
-
-                finally:
-                    # Update stats
-                    duration_ms = (time.time() - start_time) * 1000
-                    self._stats.total_transaction_time_ms += duration_ms
-
-                    async with self._lock:
-                        self._stats.active_transactions -= 1
-                        self._active_contexts.pop(txn_id, None)
-
-            # Handle retry with delay - outside the async with context
-            if should_retry:
-                delay = self._calculate_retry_delay(attempt)
-                await asyncio.sleep(delay)
-                continue
-            else:
-                # No retry needed, exit the loop
-                break
-
-        # Should not reach here in normal operation
-        if last_error:
-            raise last_error
+                    self._stats.active_transactions -= 1
+                    self._active_contexts.pop(txn_id, None)
 
     @asynccontextmanager
     async def savepoint(

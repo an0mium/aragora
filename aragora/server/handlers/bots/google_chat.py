@@ -23,6 +23,7 @@ from aragora.audit.unified import audit_data
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
+    error_response,
     json_response,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
@@ -176,7 +177,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         if not auth_header.startswith("Bearer "):
             logger.warning("Google Chat webhook missing bearer token")
             self._audit_webhook_auth_failure("bearer_token", "missing")
-            return json_response({"error": "Missing authorization"}, status=401)
+            return error_response("Missing authorization", 401)
 
         # Note: Full JWT verification against Google's public keys would require
         # additional dependencies (google-auth). For now, we verify the token is present

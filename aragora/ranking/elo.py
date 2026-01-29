@@ -450,62 +450,6 @@ class EloSystem:
             updated_at=row[9],
         )
 
-    def get_ratings_batch(self, agent_names: list[str]) -> dict[str, AgentRating]:
-        """Get ratings for multiple agents in a single query (batch optimization).
-
-        Args:
-            agent_names: List of agent names to fetch ratings for
-
-        Returns:
-            Dict mapping agent_name -> AgentRating. Missing agents get default ratings.
-        """
-        if not agent_names:
-            return {}
-
-        result = {}
-        with self._db.connection() as conn:
-            cursor = conn.cursor()
-
-            # Use parameterized IN clause
-            placeholders = ",".join("?" * len(agent_names))
-            cursor.execute(
-                f"""
-                SELECT agent_name, elo, domain_elos, wins, losses, draws,
-                       debates_count, critiques_accepted, critiques_total,
-                       calibration_correct, calibration_total, calibration_brier_sum,
-                       updated_at
-                FROM ratings WHERE agent_name IN ({placeholders})
-                """,
-                tuple(agent_names),
-            )
-            rows = cursor.fetchall()
-
-        # Build result dict from fetched rows
-        for row in rows:
-            rating = AgentRating(
-                agent_name=row[0],
-                elo=row[1],
-                domain_elos=safe_json_loads(row[2], {}),
-                wins=row[3],
-                losses=row[4],
-                draws=row[5],
-                debates_count=row[6],
-                critiques_accepted=row[7],
-                critiques_total=row[8],
-                calibration_correct=row[9] or 0,
-                calibration_total=row[10] or 0,
-                calibration_brier_sum=row[11] or 0.0,
-                updated_at=row[12],
-            )
-            result[rating.agent_name] = rating
-
-        # Add default ratings for agents not found in DB
-        for name in agent_names:
-            if name not in result:
-                result[name] = AgentRating(agent_name=name)
-
-        return result
-
     def list_agents(self) -> list[str]:
         """Get list of all known agent names.
 
@@ -1661,23 +1605,203 @@ class EloSystem:
             "has_meaningful_data": len(history) >= 5,
         }
 
+    # =========================================================================
+    # Batch Methods (Performance Optimization)
+    # =========================================================================
+
+    def get_ratings_batch(self, agent_names: list[str]) -> dict[str, AgentRating]:
+        """Get ratings for multiple agents in a single database query.
+
+        Args:
+            agent_names: List of agent names to fetch
+
+        Returns:
+            Dict mapping agent_name to AgentRating
+        """
+        if not agent_names:
+            return {}
+
+        results: dict[str, AgentRating] = {}
+
+        # Check cache first
+        uncached = []
+        for name in agent_names:
+            _validate_agent_name(name)
+            cache_key = f"rating:{name}"
+            cached = self._rating_cache.get(cache_key)
+            if cached is not None:
+                results[name] = cached
+            else:
+                uncached.append(name)
+
+        if not uncached:
+            return results
+
+        # Batch fetch from database
+        placeholders = ",".join("?" * len(uncached))
+        with self._db.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT agent_name, elo, domain_elos, wins, losses, draws,
+                       debates_count, critiques_accepted, critiques_total,
+                       calibration_correct, calibration_total, calibration_brier_sum,
+                       updated_at
+                FROM ratings WHERE agent_name IN ({placeholders})
+                """,
+                uncached,
+            )
+            rows = cursor.fetchall()
+
+        # Build ratings from rows
+        found_names = set()
+        for row in rows:
+            rating = AgentRating(
+                agent_name=row[0],
+                elo=row[1],
+                domain_elos=safe_json_loads(row[2], {}),
+                wins=row[3],
+                losses=row[4],
+                draws=row[5],
+                debates_count=row[6],
+                critiques_accepted=row[7],
+                critiques_total=row[8],
+                calibration_correct=row[9],
+                calibration_total=row[10],
+                calibration_brier_sum=row[11],
+            )
+            results[rating.agent_name] = rating
+            found_names.add(rating.agent_name)
+            # Cache the rating
+            self._rating_cache.set(f"rating:{rating.agent_name}", rating)
+
+        # Create default ratings for agents not found
+        for name in uncached:
+            if name not in found_names:
+                rating = AgentRating(agent_name=name)
+                results[name] = rating
+
+        return results
+
+    def get_voting_accuracy_batch(self, agent_names: list[str]) -> dict[str, dict]:
+        """Get voting accuracy statistics for multiple agents in one query.
+
+        Args:
+            agent_names: List of agent names
+
+        Returns:
+            Dict mapping agent_name to accuracy metrics dict
+        """
+        ratings = self.get_ratings_batch(agent_names)
+        results = {}
+
+        for name, rating in ratings.items():
+            total = rating.calibration_total
+            correct = rating.calibration_correct
+            results[name] = {
+                "agent_name": name,
+                "total_votes": total,
+                "correct_votes": correct,
+                "accuracy": correct / total if total > 0 else 0.0,
+                "has_meaningful_data": total >= 5,
+            }
+
+        return results
+
+    def get_learning_efficiency_batch(
+        self,
+        agent_names: list[str],
+        domain: str | None = None,
+        window_debates: int = 20,
+    ) -> dict[str, dict]:
+        """Get learning efficiency for multiple agents with batch optimization.
+
+        Args:
+            agent_names: List of agent names
+            domain: Optional domain filter
+            window_debates: Number of recent debates to analyze
+
+        Returns:
+            Dict mapping agent_name to efficiency metrics dict
+        """
+        # Batch fetch ratings
+        ratings = self.get_ratings_batch(agent_names)
+        results = {}
+
+        for name in agent_names:
+            rating = ratings.get(name)
+            if not rating:
+                rating = AgentRating(agent_name=name)
+
+            # Get ELO history (still individual queries, but ratings are cached)
+            history = self.get_elo_history(name, limit=window_debates)
+
+            if len(history) < 3:
+                results[name] = {
+                    "agent_name": name,
+                    "domain": domain,
+                    "elo_gain_rate": 0.0,
+                    "win_rate_improvement": 0.0,
+                    "consistency_score": 0.0,
+                    "learning_category": "insufficient_data",
+                    "has_meaningful_data": False,
+                }
+                continue
+
+            elo_values = [h[1] for h in history]
+            elo_gain_rate = self._compute_elo_gain_rate(elo_values)
+            consistency = self._compute_consistency_score(elo_values)
+            category = self._categorize_learning(elo_gain_rate, consistency)
+
+            domain_elo = None
+            if domain and rating.domain_elos:
+                domain_elo = rating.domain_elos.get(domain)
+
+            total_games = rating.wins + rating.losses + rating.draws
+            win_rate_improvement = 0.0
+            if total_games >= 6:
+                win_rate_improvement = rating.win_rate - 0.5
+
+            results[name] = {
+                "agent_name": name,
+                "domain": domain,
+                "elo_gain_rate": elo_gain_rate,
+                "win_rate_improvement": win_rate_improvement,
+                "consistency_score": consistency,
+                "learning_category": category,
+                "current_elo": rating.elo,
+                "domain_elo": domain_elo,
+                "debates_analyzed": len(history),
+                "has_meaningful_data": len(history) >= 5,
+            }
+
+        return results
+
     def _compute_elo_gain_rate(self, elo_values: list[float]) -> float:
         """Compute average ELO gain per debate from history.
 
         Uses linear regression slope as the gain rate.
+        Optimized to use single pass + closed-form formulas.
         """
         if len(elo_values) < 2:
             return 0.0
 
         n = len(elo_values)
-        # Simple linear regression: y = mx + b
-        # Slope m = (n*sum(xy) - sum(x)*sum(y)) / (n*sum(x^2) - sum(x)^2)
-        x_values = list(range(n))
-        sum_x = sum(x_values)
-        sum_y = sum(elo_values)
-        sum_xy = sum(x * y for x, y in zip(x_values, elo_values))
-        sum_x2 = sum(x * x for x in x_values)
 
+        # For x = 0, 1, 2, ..., n-1, use closed-form formulas:
+        # sum(x) = n*(n-1)/2
+        # sum(x^2) = n*(n-1)*(2n-1)/6
+        sum_x = n * (n - 1) // 2
+        sum_x2 = n * (n - 1) * (2 * n - 1) // 6
+
+        # Single pass to compute sum_y and sum_xy simultaneously
+        sum_y = 0.0
+        sum_xy = 0.0
+        for i, y in enumerate(elo_values):
+            sum_y += y
+            sum_xy += i * y
+
+        # Linear regression: slope m = (n*sum(xy) - sum(x)*sum(y)) / (n*sum(x^2) - sum(x)^2)
         denominator = n * sum_x2 - sum_x * sum_x
         if denominator == 0:
             return 0.0

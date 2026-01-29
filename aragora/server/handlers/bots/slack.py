@@ -538,7 +538,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
 
     except Exception as e:
         logger.error(f"Slack events handler error: {e}")
-        return json_response({"error": str(e)}, status=500)
+        return error_response(str(e), 500)
 
 
 async def handle_slack_interactions(request: Any) -> HandlerResult:
@@ -704,7 +704,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
     except Exception as e:
         logger.error(f"Slack interactions handler error: {e}")
-        return json_response({"error": str(e)}, status=500)
+        return error_response(str(e), 500)
 
 
 async def handle_slack_commands(request: Any) -> HandlerResult:

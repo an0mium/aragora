@@ -110,10 +110,10 @@ class SpeechHandler(BaseHandler):
         try:
             content_length = int(handler.headers.get("Content-Length", "0"))
         except ValueError:
-            return json_response({"error": "Invalid Content-Length header"}, status=400)
+            return error_response("Invalid Content-Length header", 400)
 
         if content_length == 0:
-            return json_response({"error": "No audio file provided"}, status=400)
+            return error_response("No audio file provided", 400)
 
         if content_length > MAX_FILE_SIZE_BYTES:
             return json_response(
@@ -135,7 +135,7 @@ class SpeechHandler(BaseHandler):
         file_content, filename = self._parse_upload(handler, content_type, content_length)
 
         if not file_content:
-            return json_response({"error": "Could not extract file from upload"}, status=400)
+            return error_response("Could not extract file from upload", 400)
 
         # Validate extension
         ext = ("." + filename.split(".")[-1].lower()) if filename and "." in filename else ""
@@ -180,17 +180,15 @@ class SpeechHandler(BaseHandler):
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, UnicodeDecodeError):
-            return json_response({"error": "Invalid JSON body"}, status=400)
+            return error_response("Invalid JSON body", 400)
 
         url = data.get("url")
         if not url:
-            return json_response({"error": "Missing 'url' in request body"}, status=400)
+            return error_response("Missing 'url' in request body", 400)
 
         # Validate URL
         if not url.startswith(("http://", "https://")):
-            return json_response(
-                {"error": "Invalid URL. Must start with http:// or https://"}, status=400
-            )
+            return error_response("Invalid URL. Must start with http:// or https://", 400)
 
         language = data.get("language")
         prompt = data.get("prompt")
@@ -215,20 +213,16 @@ class SpeechHandler(BaseHandler):
                 content, error = asyncio.run(fetch_audio())
 
             if error:
-                return json_response({"error": error}, status=400)
+                return error_response(error, 400)
 
         except ImportError:
-            return json_response(
-                {"error": "aiohttp package required for URL transcription"}, status=500
-            )
+            return error_response("aiohttp package required for URL transcription", 500)
         except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching audio from URL: {url}")
-            return json_response({"error": "Timeout fetching audio from URL"}, status=400)
+            return error_response("Timeout fetching audio from URL", 400)
         except OSError as e:
             logger.warning(f"Network error fetching audio: {e}")
-            return json_response(
-                {"error": safe_error_message(e, "Failed to fetch audio")}, status=400
-            )
+            return error_response(safe_error_message(e, "Failed to fetch audio"), 400)
 
         # Extract filename from URL
         filename = url.split("/")[-1].split("?")[0] or "audio.mp3"

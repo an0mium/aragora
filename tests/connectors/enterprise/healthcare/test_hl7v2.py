@@ -443,8 +443,9 @@ class TestOBRSegment:
     def test_from_segment_basic(self):
         """Parse basic OBR segment."""
         # OBR-25 is result_status, so we need fields 1-25
-        # Fields: 1=SetID, 2=PlacerOrderNum, 3=FillerOrderNum, 4=UniversalServiceID, 5=Priority, 6=RequestedDT, 7=ObsDT, 8=ObsEndDT, 9=CollVol, 10=Collector, 11=SpecimenAction, 12=DangerCode, 13=ClinicalInfo, 14=SpecReceivedDT, 15=SpecSource, 16=OrderingProvider, ..., 25=ResultStatus
-        raw = "OBR|1|ORD001|FIL001|80053^CMP^L||20240115|20240115120000||COL001|||INFO||SPEC|PROV||||||||||||F"
+        # Fields: 1=SetID, 2=PlacerOrderNum, 3=FillerOrderNum, 4=UniversalServiceID, 5=Priority, 6=RequestedDT, 7=ObsDT, 8=ObsEndDT, 9=CollVol, 10=Collector, 11=SpecimenAction, 12=DangerCode, 13=ClinicalInfo, 14=SpecReceivedDT, 15=SpecSource, 16=OrderingProvider, 17-24=empty, 25=ResultStatus
+        # Need 26 parts total (OBR + 25 fields), with F at parts[25] = field 25
+        raw = "OBR|1|ORD001|FIL001|80053^CMP^L||20240115|20240115120000||COL001|||INFO||SPEC|PROV||||||||||F"
         segment = HL7Segment.parse(raw)
         obr = OBRSegment.from_segment(segment)
 

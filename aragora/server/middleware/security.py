@@ -231,9 +231,13 @@ class SecurityConfig:
     )  # "api", "standard", "development"
     csp_report_uri: str | None = field(default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_URI"))
     csp_report_only: bool = field(
-        default_factory=lambda: os.getenv("ARAGORA_CSP_REPORT_ONLY", "true").lower()
+        default_factory=lambda: os.getenv(
+            "ARAGORA_CSP_REPORT_ONLY",
+            # Default to enforcing in production, report-only in development
+            "false" if os.getenv("ARAGORA_ENV", "development").lower() == "production" else "true",
+        ).lower()
         in ("true", "1", "yes")
-    )  # Default to report-only for safer initial deployment
+    )  # Default: enforce in production, report-only in development
 
     # Query parameter whitelist
     # Maps param name -> allowed values (None = any string, set = restricted)
