@@ -41,7 +41,7 @@ from aragora.server.handlers.features.scheduler import SchedulerHandler
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return SchedulerHandler(ctx={})
+    return SchedulerHandler({})
 
 
 class TestSchedulerHandler:

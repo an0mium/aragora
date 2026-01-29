@@ -53,7 +53,7 @@ def clear_jobs():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return FolderUploadHandler(ctx={})
+    return FolderUploadHandler({})
 
 
 class TestFolderUploadStatus:

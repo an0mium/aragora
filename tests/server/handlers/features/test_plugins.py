@@ -54,7 +54,7 @@ def clear_plugin_stores():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return PluginsHandler(ctx={})
+    return PluginsHandler({})
 
 
 class TestPluginsHandler:

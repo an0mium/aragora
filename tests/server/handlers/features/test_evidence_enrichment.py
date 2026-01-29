@@ -45,7 +45,7 @@ from aragora.server.handlers.features.evidence_enrichment import (
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return EvidenceEnrichmentHandler(ctx={})
+    return EvidenceEnrichmentHandler({})
 
 
 class TestEvidenceEnrichmentHandler:

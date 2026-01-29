@@ -45,7 +45,7 @@ from aragora.server.handlers.features.gmail_threads import (
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return GmailThreadsHandler(ctx={})
+    return GmailThreadsHandler({})
 
 
 class TestGmailThreadsHandler:
@@ -97,7 +97,7 @@ class TestGmailThreadsAuthentication:
     @pytest.mark.asyncio
     async def test_handle_requires_authentication(self):
         """Test handle method requires authentication."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -112,7 +112,7 @@ class TestGmailThreadsAuthentication:
     @pytest.mark.asyncio
     async def test_handle_post_requires_authentication(self):
         """Test handle_post method requires authentication."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -127,7 +127,7 @@ class TestGmailThreadsAuthentication:
     @pytest.mark.asyncio
     async def test_handle_delete_requires_authentication(self):
         """Test handle_delete method requires authentication."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -146,7 +146,7 @@ class TestGmailThreadOperations:
     @pytest.mark.asyncio
     async def test_list_threads_not_connected(self):
         """Test list threads fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -165,7 +165,7 @@ class TestGmailThreadOperations:
     @pytest.mark.asyncio
     async def test_get_thread_not_connected(self):
         """Test get thread fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -184,7 +184,7 @@ class TestGmailThreadOperations:
     @pytest.mark.asyncio
     async def test_archive_thread_not_connected(self):
         """Test archive thread fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -205,7 +205,7 @@ class TestGmailThreadOperations:
     @pytest.mark.asyncio
     async def test_modify_labels_requires_labels(self):
         """Test modify labels requires add or remove labels."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         mock_state = MagicMock()
@@ -233,7 +233,7 @@ class TestGmailDraftOperations:
     @pytest.mark.asyncio
     async def test_list_drafts_not_connected(self):
         """Test list drafts fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -252,7 +252,7 @@ class TestGmailDraftOperations:
     @pytest.mark.asyncio
     async def test_get_draft_not_connected(self):
         """Test get draft fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -271,7 +271,7 @@ class TestGmailDraftOperations:
     @pytest.mark.asyncio
     async def test_delete_draft_not_connected(self):
         """Test delete draft fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -290,7 +290,7 @@ class TestGmailDraftOperations:
     @pytest.mark.asyncio
     async def test_update_draft_not_connected(self):
         """Test update draft fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -313,7 +313,7 @@ class TestGmailAttachments:
     @pytest.mark.asyncio
     async def test_get_attachment_not_connected(self):
         """Test get attachment fails when not connected."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -338,7 +338,7 @@ class TestGmailPermissions:
     @pytest.mark.asyncio
     async def test_read_operations_require_read_permission(self):
         """Test read operations check gmail:read permission."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -358,7 +358,7 @@ class TestGmailPermissions:
     @pytest.mark.asyncio
     async def test_write_operations_require_write_permission(self):
         """Test write operations check gmail:write permission."""
-        handler = GmailThreadsHandler(ctx={})
+        handler = GmailThreadsHandler({})
         mock_handler = MagicMock()
 
         with (

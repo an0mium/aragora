@@ -46,7 +46,7 @@ from aragora.server.handlers.features.gmail_query import (
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return GmailQueryHandler(ctx={})
+    return GmailQueryHandler({})
 
 
 class TestQueryResponse:
@@ -131,7 +131,7 @@ class TestGmailQueryAuthentication:
     @pytest.mark.asyncio
     async def test_handle_requires_authentication(self):
         """Test handle method requires authentication."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -146,7 +146,7 @@ class TestGmailQueryAuthentication:
     @pytest.mark.asyncio
     async def test_handle_post_requires_authentication(self):
         """Test handle_post method requires authentication."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -161,7 +161,7 @@ class TestGmailQueryAuthentication:
     @pytest.mark.asyncio
     async def test_handle_checks_permission(self):
         """Test handle checks gmail:read permission."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -184,7 +184,7 @@ class TestGmailQuery:
     @pytest.mark.asyncio
     async def test_query_not_connected(self):
         """Test query fails when user is not connected."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -203,7 +203,7 @@ class TestGmailQuery:
     @pytest.mark.asyncio
     async def test_query_requires_question(self):
         """Test query requires question parameter."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         mock_state = MagicMock()
@@ -227,7 +227,7 @@ class TestGmailVoiceQuery:
     @pytest.mark.asyncio
     async def test_voice_query_requires_audio(self):
         """Test voice query requires audio data or URL."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         mock_state = MagicMock()
@@ -247,7 +247,7 @@ class TestGmailVoiceQuery:
     @pytest.mark.asyncio
     async def test_voice_query_not_connected(self):
         """Test voice query fails when not connected."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -270,7 +270,7 @@ class TestGmailPriorityInbox:
     @pytest.mark.asyncio
     async def test_priority_inbox_not_connected(self):
         """Test priority inbox fails when not connected."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -293,7 +293,7 @@ class TestGmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_requires_email_id(self):
         """Test feedback requires email_id."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -310,7 +310,7 @@ class TestGmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_requires_action(self):
         """Test feedback requires action."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -327,7 +327,7 @@ class TestGmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_validates_action(self):
         """Test feedback validates action value."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -349,7 +349,7 @@ class TestSimpleAnswer:
 
     def test_simple_answer_how_many(self):
         """Test simple answer for count questions."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         emails = ["email1", "email2", "email3"]
 
         answer = handler._simple_answer("how many emails?", emails)
@@ -357,7 +357,7 @@ class TestSimpleAnswer:
 
     def test_simple_answer_from_question(self):
         """Test simple answer extracts senders."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         emails = ["From: test@example.com\nSubject: Test"]
 
         answer = handler._simple_answer("who sent me emails?", emails)
@@ -365,7 +365,7 @@ class TestSimpleAnswer:
 
     def test_simple_answer_about_question(self):
         """Test simple answer extracts subjects."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         emails = ["From: test@example.com\nSubject: Important Meeting"]
 
         answer = handler._simple_answer("what are the emails about?", emails)
@@ -373,7 +373,7 @@ class TestSimpleAnswer:
 
     def test_simple_answer_fallback(self):
         """Test simple answer fallback response."""
-        handler = GmailQueryHandler(ctx={})
+        handler = GmailQueryHandler({})
         emails = ["email1", "email2"]
 
         answer = handler._simple_answer("random question", emails)

@@ -54,7 +54,7 @@ def reset_rate_limiter():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return SpeechHandler(ctx={})
+    return SpeechHandler({})
 
 
 class TestSpeechConstants:

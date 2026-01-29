@@ -58,7 +58,7 @@ def clear_uploads():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return SmartUploadHandler(ctx={})
+    return SmartUploadHandler({})
 
 
 class TestFileCategory:
@@ -248,7 +248,7 @@ class TestSmartUploadEndpoints:
 
     def test_get_status_not_found(self):
         """Test getting status for non-existent upload."""
-        handler = SmartUploadHandler(ctx={})
+        handler = SmartUploadHandler({})
 
         result = handler._get_status("invalid-id")
         assert result.status == 404
@@ -256,7 +256,7 @@ class TestSmartUploadEndpoints:
     @pytest.mark.asyncio
     async def test_handle_smart_upload_missing_content(self):
         """Test smart upload requires content."""
-        handler = SmartUploadHandler(ctx={})
+        handler = SmartUploadHandler({})
         mock_handler = MagicMock()
 
         result = await handler._handle_smart_upload({"filename": "test.txt"}, mock_handler)
@@ -265,7 +265,7 @@ class TestSmartUploadEndpoints:
     @pytest.mark.asyncio
     async def test_handle_smart_upload_success(self):
         """Test successful smart upload."""
-        handler = SmartUploadHandler(ctx={})
+        handler = SmartUploadHandler({})
         mock_handler = MagicMock()
 
         import base64
@@ -280,7 +280,7 @@ class TestSmartUploadEndpoints:
     @pytest.mark.asyncio
     async def test_handle_batch_upload_missing_files(self):
         """Test batch upload requires files."""
-        handler = SmartUploadHandler(ctx={})
+        handler = SmartUploadHandler({})
         mock_handler = MagicMock()
 
         result = await handler._handle_batch_upload({}, mock_handler)
@@ -289,7 +289,7 @@ class TestSmartUploadEndpoints:
     @pytest.mark.asyncio
     async def test_handle_batch_upload_success(self):
         """Test successful batch upload."""
-        handler = SmartUploadHandler(ctx={})
+        handler = SmartUploadHandler({})
         mock_handler = MagicMock()
 
         import base64

@@ -162,7 +162,7 @@ class TestHealthHandlerRoutes:
         """Test can_handle returns True for health routes."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         assert handler.can_handle("/healthz") is True
         assert handler.can_handle("/readyz") is True
@@ -172,7 +172,7 @@ class TestHealthHandlerRoutes:
         """Test can_handle returns False for non-health routes."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         assert handler.can_handle("/api/debates") is False
         assert handler.can_handle("/api/agents") is False
@@ -204,7 +204,7 @@ class TestHealthHandlerHandle:
         """Test /healthz is handled without auth."""
         from aragora.server.handlers.admin._health_impl import HealthHandler
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         mock_http_handler = MagicMock()
 
@@ -224,7 +224,7 @@ class TestHealthHandlerHandle:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.secure import UnauthorizedError
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         mock_http_handler = MagicMock()
 
@@ -240,7 +240,7 @@ class TestHealthHandlerHandle:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.secure import ForbiddenError
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         mock_http_handler = MagicMock()
         mock_auth_context = MagicMock()
@@ -264,7 +264,7 @@ class TestHealthHandlerDelegation:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.admin.health import kubernetes
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         with patch.object(kubernetes, "liveness_probe") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
@@ -277,7 +277,7 @@ class TestHealthHandlerDelegation:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.admin.health import kubernetes
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         with patch.object(kubernetes, "readiness_probe_fast") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
@@ -290,7 +290,7 @@ class TestHealthHandlerDelegation:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.admin.health import detailed
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         with patch.object(detailed, "health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
@@ -303,7 +303,7 @@ class TestHealthHandlerDelegation:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.admin.health import detailed
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         with patch.object(detailed, "detailed_health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)
@@ -316,7 +316,7 @@ class TestHealthHandlerDelegation:
         from aragora.server.handlers.admin._health_impl import HealthHandler
         from aragora.server.handlers.admin.health import detailed
 
-        handler = HealthHandler()
+        handler = HealthHandler({"storage": None, "elo_system": None})
 
         with patch.object(detailed, "deep_health_check") as mock_func:
             mock_func.return_value = MagicMock(status_code=200)

@@ -51,7 +51,7 @@ def reset_rate_limiter():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return GmailIngestHandler(ctx={})
+    return GmailIngestHandler({})
 
 
 class TestGmailIngestHandler:
@@ -115,7 +115,7 @@ class TestGmailIngestAuthentication:
 
     def test_get_authenticated_user_no_auth(self):
         """Test _get_authenticated_user with no authentication."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
         mock_request = MagicMock()
 
         with patch(
@@ -134,7 +134,7 @@ class TestGmailIngestAuthentication:
 
     def test_get_authenticated_user_with_auth(self):
         """Test _get_authenticated_user with valid authentication."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
         mock_request = MagicMock()
 
         with patch(
@@ -153,19 +153,19 @@ class TestGmailIngestAuthentication:
 
     def test_is_configured_no_env_vars(self):
         """Test _is_configured returns False when no env vars set."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
         with patch.dict("os.environ", {}, clear=True):
             assert handler._is_configured() is False
 
     def test_is_configured_with_gmail_client_id(self):
         """Test _is_configured returns True with GMAIL_CLIENT_ID."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
         with patch.dict("os.environ", {"GMAIL_CLIENT_ID": "test_id"}):
             assert handler._is_configured() is True
 
     def test_is_configured_with_google_client_id(self):
         """Test _is_configured returns True with GOOGLE_CLIENT_ID."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
         with patch.dict("os.environ", {"GOOGLE_CLIENT_ID": "test_id"}):
             assert handler._is_configured() is True
 
@@ -176,7 +176,7 @@ class TestGmailIngestStatus:
     @pytest.mark.asyncio
     async def test_get_status_not_connected(self):
         """Test status when user is not connected."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with patch(
             "aragora.server.handlers.features.gmail_ingest.get_user_state",
@@ -194,7 +194,7 @@ class TestGmailIngestStatus:
     @pytest.mark.asyncio
     async def test_get_status_connected(self):
         """Test status when user is connected."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         mock_state = MagicMock()
         mock_state.refresh_token = "test_refresh_token"
@@ -223,7 +223,7 @@ class TestGmailIngestOAuth:
 
     def test_get_auth_url(self):
         """Test _get_auth_url generates OAuth URL."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with patch(
             "aragora.server.handlers.features.gmail_ingest.GmailConnector",
@@ -242,7 +242,7 @@ class TestGmailIngestOAuth:
 
     def test_start_connect(self):
         """Test _start_connect starts OAuth flow."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with patch(
             "aragora.server.handlers.features.gmail_ingest.GmailConnector",
@@ -269,7 +269,7 @@ class TestGmailIngestSync:
     @pytest.mark.asyncio
     async def test_start_sync_not_connected(self):
         """Test sync fails when user is not connected."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with patch(
             "aragora.server.handlers.features.gmail_ingest.get_user_state",
@@ -282,7 +282,7 @@ class TestGmailIngestSync:
     @pytest.mark.asyncio
     async def test_get_sync_status(self):
         """Test getting sync status."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         mock_state = MagicMock()
         mock_state.refresh_token = "test_token"
@@ -325,7 +325,7 @@ class TestGmailIngestMessages:
     @pytest.mark.asyncio
     async def test_list_messages_not_connected(self):
         """Test listing messages fails when not connected."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with patch(
             "aragora.server.handlers.features.gmail_ingest.get_user_state",
@@ -338,7 +338,7 @@ class TestGmailIngestMessages:
     @pytest.mark.asyncio
     async def test_search_requires_query(self):
         """Test search requires query parameter."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         mock_state = MagicMock()
         mock_state.refresh_token = "test_token"
@@ -358,7 +358,7 @@ class TestGmailIngestDisconnect:
     @pytest.mark.asyncio
     async def test_disconnect(self):
         """Test disconnecting Gmail account."""
-        handler = GmailIngestHandler(ctx={})
+        handler = GmailIngestHandler({})
 
         with (
             patch(

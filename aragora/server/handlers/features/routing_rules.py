@@ -466,4 +466,4 @@ class RoutingRulesHandler(SecureHandler):
 
 # Handler class (instantiated by server with context)
 # Note: Do not instantiate at module level - requires server_context
-routing_rules_handler = None  # type: ignore
+routing_rules_handler = None  # type: ignore[assignment]

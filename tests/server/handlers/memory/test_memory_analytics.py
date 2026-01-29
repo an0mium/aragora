@@ -147,7 +147,7 @@ def mock_tracker():
 @pytest.fixture
 def handler(mock_tracker):
     """Create a test handler with mock tracker."""
-    h = MemoryAnalyticsHandler(server_context={"analytics_db": ":memory:"})
+    h = MemoryAnalyticsHandler(ctx={"analytics_db": ":memory:"})
     h._tracker = mock_tracker
     return h
 
@@ -155,7 +155,7 @@ def handler(mock_tracker):
 @pytest.fixture
 def handler_no_tracker():
     """Create a test handler without tracker."""
-    h = MemoryAnalyticsHandler(server_context={})
+    h = MemoryAnalyticsHandler(ctx={})
     h._tracker = None
     return h
 

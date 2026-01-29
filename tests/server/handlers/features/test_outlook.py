@@ -14,7 +14,7 @@ class TestOutlookHandler:
 
     def test_handler_creation(self):
         """Test creating handler instance."""
-        handler = OutlookHandler(ctx={})
+        handler = OutlookHandler({})
         assert handler is not None
 
     def test_handler_routes(self):
@@ -35,7 +35,7 @@ class TestOutlookHandler:
 
     def test_can_handle_method(self):
         """Test can_handle method for valid routes."""
-        handler = OutlookHandler(ctx={})
+        handler = OutlookHandler({})
 
         # OAuth routes
         assert handler.can_handle("/api/v1/outlook/oauth/url") is True
@@ -58,7 +58,7 @@ class TestOutlookHandler:
 
     def test_handler_has_handle_method(self):
         """Test that handler has handle method."""
-        handler = OutlookHandler(ctx={})
+        handler = OutlookHandler({})
         assert hasattr(handler, "handle")
         assert callable(handler.handle)
 

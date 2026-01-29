@@ -61,7 +61,7 @@ def clear_tokens():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return CloudStorageHandler(ctx={})
+    return CloudStorageHandler({})
 
 
 class TestProviderConstants:
@@ -113,7 +113,7 @@ class TestCloudStorageAuthentication:
     @pytest.mark.asyncio
     async def test_handle_requires_authentication(self):
         """Test handle method requires authentication."""
-        handler = CloudStorageHandler(ctx={})
+        handler = CloudStorageHandler({})
         mock_handler = MagicMock()
 
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
@@ -128,7 +128,7 @@ class TestCloudStorageAuthentication:
     @pytest.mark.asyncio
     async def test_handle_checks_permission(self):
         """Test handle checks cloud:read permission."""
-        handler = CloudStorageHandler(ctx={})
+        handler = CloudStorageHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -351,7 +351,7 @@ class TestCloudStorageHandlerEndpoints:
     @pytest.mark.asyncio
     async def test_get_status_endpoint(self):
         """Test cloud status endpoint."""
-        handler = CloudStorageHandler(ctx={})
+        handler = CloudStorageHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -370,7 +370,7 @@ class TestCloudStorageHandlerEndpoints:
     @pytest.mark.asyncio
     async def test_invalid_provider_endpoint(self):
         """Test endpoint with invalid provider."""
-        handler = CloudStorageHandler(ctx={})
+        handler = CloudStorageHandler({})
         mock_handler = MagicMock()
 
         with (
@@ -387,7 +387,7 @@ class TestCloudStorageHandlerEndpoints:
     @pytest.mark.asyncio
     async def test_auth_callback_missing_code(self):
         """Test auth callback with missing code."""
-        handler = CloudStorageHandler(ctx={})
+        handler = CloudStorageHandler({})
         mock_handler = MagicMock()
         mock_handler.command = "POST"
 

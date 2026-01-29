@@ -52,7 +52,7 @@ def clear_rules():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return RoutingRulesHandler(ctx={})
+    return RoutingRulesHandler({})
 
 
 class TestRoutingRulesHandler:
@@ -86,7 +86,7 @@ class TestRoutingRulesAuthentication:
     @pytest.mark.asyncio
     async def test_handle_requires_authentication(self):
         """Test handle_request requires authentication."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
         mock_request.method = "GET"
         mock_request.path = "/api/v1/routing-rules"
@@ -103,7 +103,7 @@ class TestRoutingRulesAuthentication:
     @pytest.mark.asyncio
     async def test_handle_checks_permission(self):
         """Test handle checks policies.read permission."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
         mock_request.method = "GET"
         mock_request.path = "/api/v1/routing-rules"
@@ -128,7 +128,7 @@ class TestListRules:
     @pytest.mark.asyncio
     async def test_list_rules_empty(self):
         """Test listing rules when none exist."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
         mock_request.args = {}
 
@@ -150,7 +150,7 @@ class TestListRules:
             "actions": [],
         }
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
         mock_request.args = {}
 
@@ -174,7 +174,7 @@ class TestCreateRule:
     @pytest.mark.asyncio
     async def test_create_rule_missing_body(self):
         """Test create rule requires body."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -186,7 +186,7 @@ class TestCreateRule:
     @pytest.mark.asyncio
     async def test_create_rule_success(self):
         """Test successful rule creation."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         mock_rule = MagicMock()
@@ -216,7 +216,7 @@ class TestGetRule:
     @pytest.mark.asyncio
     async def test_get_rule_not_found(self):
         """Test getting non-existent rule."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._get_rule(mock_request, "invalid-rule")
@@ -228,7 +228,7 @@ class TestGetRule:
         """Test getting existing rule."""
         _rules_store["rule1"] = {"id": "rule1", "name": "Test Rule"}
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._get_rule(mock_request, "rule1")
@@ -242,7 +242,7 @@ class TestUpdateRule:
     @pytest.mark.asyncio
     async def test_update_rule_not_found(self):
         """Test updating non-existent rule."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._update_rule(mock_request, "invalid-rule")
@@ -254,7 +254,7 @@ class TestUpdateRule:
         """Test update rule requires body."""
         _rules_store["rule1"] = {"id": "rule1", "name": "Test Rule"}
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -273,7 +273,7 @@ class TestUpdateRule:
             "actions": [],
         }
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -290,7 +290,7 @@ class TestDeleteRule:
     @pytest.mark.asyncio
     async def test_delete_rule_not_found(self):
         """Test deleting non-existent rule."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._delete_rule(mock_request, "invalid-rule")
@@ -302,7 +302,7 @@ class TestDeleteRule:
         """Test successful rule deletion."""
         _rules_store["rule1"] = {"id": "rule1", "name": "Test Rule"}
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._delete_rule(mock_request, "rule1")
@@ -316,7 +316,7 @@ class TestToggleRule:
     @pytest.mark.asyncio
     async def test_toggle_rule_not_found(self):
         """Test toggling non-existent rule."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         result = await handler._toggle_rule(mock_request, "invalid-rule")
@@ -328,7 +328,7 @@ class TestToggleRule:
         """Test successful rule toggle."""
         _rules_store["rule1"] = {"id": "rule1", "name": "Test Rule", "enabled": True}
 
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -345,7 +345,7 @@ class TestEvaluateRules:
     @pytest.mark.asyncio
     async def test_evaluate_missing_body(self):
         """Test evaluate requires body."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -357,7 +357,7 @@ class TestEvaluateRules:
     @pytest.mark.asyncio
     async def test_evaluate_missing_context(self):
         """Test evaluate requires context."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -369,7 +369,7 @@ class TestEvaluateRules:
     @pytest.mark.asyncio
     async def test_evaluate_success(self):
         """Test successful rule evaluation."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         mock_result = MagicMock()
@@ -398,7 +398,7 @@ class TestGetTemplates:
     @pytest.mark.asyncio
     async def test_get_templates(self):
         """Test getting rule templates."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
 
         with patch(
@@ -416,7 +416,7 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_get_json_body_callable(self):
         """Test JSON body extraction when json is callable."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock()
         mock_request.json = AsyncMock(return_value={"test": "data"})
 
@@ -426,7 +426,7 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_get_json_body_from_body(self):
         """Test JSON body extraction from body attribute."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
         mock_request = MagicMock(spec=["body"])
         mock_request.body = b'{"test": "data"}'
 
@@ -435,7 +435,7 @@ class TestUtilityMethods:
 
     def test_method_not_allowed(self):
         """Test method not allowed response."""
-        handler = RoutingRulesHandler(ctx={})
+        handler = RoutingRulesHandler({})
 
         result = handler._method_not_allowed("PATCH", "/api/v1/routing-rules")
         assert result["status"] == "error"

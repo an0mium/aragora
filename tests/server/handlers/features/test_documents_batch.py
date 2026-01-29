@@ -51,7 +51,7 @@ def reset_rate_limiter():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return DocumentsBatchHandler(ctx={})
+    return DocumentsBatchHandler({})
 
 
 class TestDocumentsBatchHandler:

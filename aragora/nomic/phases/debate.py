@@ -501,8 +501,13 @@ class DebatePhase:
             judge_selection=self.config.judge_selection,
             proposer_count=self.config.proposer_count,
             role_rotation=self.config.role_rotation,
+            agreement_intensity=self.config.agreement_intensity,
             asymmetric_stances=asymmetric,
             rotate_stances=asymmetric,
+            early_stopping=self.config.early_stopping,
+            early_stop_threshold=self.config.early_stop_threshold,
+            min_rounds_before_early_stop=self.config.min_rounds_before_early_stop,
+            convergence_detection=self.config.convergence_detection,
             audience_injection=self.config.audience_injection,
             enable_research=self.config.enable_research,
         )

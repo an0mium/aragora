@@ -137,7 +137,7 @@ def _make_fallback(fallback: T, error: str, include_error: bool) -> T:
         result = fallback.copy()
         result["error"] = error
         result["available"] = False
-        return result  # type: ignore
+        return result  # type: ignore[return-value]
 
     return fallback
 

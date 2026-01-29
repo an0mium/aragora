@@ -51,7 +51,7 @@ def reset_rate_limiter():
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return BroadcastHandler(ctx={})
+    return BroadcastHandler({})
 
 
 class TestBroadcastHandler:

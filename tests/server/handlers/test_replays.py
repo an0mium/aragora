@@ -138,14 +138,14 @@ def temp_nomic_dir():
 @pytest.fixture
 def handler(temp_nomic_dir):
     """Create a test handler with temp directory."""
-    h = ReplaysHandler(ctx={"nomic_dir": temp_nomic_dir})
+    h = ReplaysHandler(server_context={"nomic_dir": temp_nomic_dir})
     return h
 
 
 @pytest.fixture
 def handler_no_dir():
     """Create a test handler without nomic directory."""
-    return ReplaysHandler(ctx={})
+    return ReplaysHandler(server_context={})
 
 
 @pytest.fixture(autouse=True)

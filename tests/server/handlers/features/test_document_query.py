@@ -41,7 +41,7 @@ from aragora.server.handlers.features.document_query import DocumentQueryHandler
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return DocumentQueryHandler(ctx={})
+    return DocumentQueryHandler({})
 
 
 class TestDocumentQueryHandler:
