@@ -160,7 +160,7 @@ class InboxCommandHandler:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
                 if registry.has(GmailConnector):
-                    self.gmail_connector = registry.resolve(GmailConnector)
+                    self.gmail_connector = registry.resolve(GmailConnector)  # type: ignore[type-abstract]
                     logger.debug("Resolved GmailConnector from registry")
             except Exception as e:
                 logger.debug(f"GmailConnector not available: {e}")

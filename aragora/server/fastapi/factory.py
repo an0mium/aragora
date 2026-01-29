@@ -66,7 +66,7 @@ def _build_server_context(nomic_dir: Optional[Path] = None) -> dict[str, Any]:
     # Initialize user store (optional)
     try:
         from aragora.storage.user_store import UserStore
-        ctx["user_store"] = UserStore()
+        ctx["user_store"] = UserStore()  # type: ignore[call-arg]
     except Exception:
         ctx["user_store"] = None
 

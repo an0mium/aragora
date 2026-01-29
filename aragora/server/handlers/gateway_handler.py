@@ -445,7 +445,7 @@ class GatewayHandler(BaseHandler):
         if not router:
             return error_response("Agent router not available", 503)
 
-        rules: list = router.list_rules() if hasattr(router, "list_rules") else []
+        rules: list = router.list_rules() if hasattr(router, "list_rules") else []  # type: ignore[assignment]
 
         return json_response(
             {
