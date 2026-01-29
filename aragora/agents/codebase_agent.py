@@ -12,6 +12,7 @@ Provides comprehensive codebase analysis through:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -285,6 +286,9 @@ class CodebaseUnderstandingAgent:
         self._security_scanner: Optional[Any] = None
         self._bug_detector: Optional[Any] = None
         self._index: Optional[CodebaseIndex] = None
+        self._context_builder: Optional[Any] = None
+        self._rlm_context_cache: Optional[str] = None
+        self._use_rlm_context = os.environ.get("ARAGORA_CODEBASE_CONTEXT_RLM", "1") == "1"
 
         # Specialist agents for debate
         self._agents = [
@@ -292,6 +296,36 @@ class CodebaseUnderstandingAgent:
             SecurityReviewerAgent(),
             BugHunterAgent(),
         ]
+
+    def _get_context_builder(self) -> Optional[Any]:
+        """Lazy-load a shared RLM codebase context builder."""
+        if self._context_builder is not None:
+            return self._context_builder
+        try:
+            from aragora.rlm.codebase_context import CodebaseContextBuilder
+
+            self._context_builder = CodebaseContextBuilder(root_path=self.root_path)
+        except Exception as exc:
+            logger.warning("Codebase RLM context builder unavailable: %s", exc)
+            self._context_builder = None
+        return self._context_builder
+
+    async def _get_rlm_context(self) -> Optional[str]:
+        """Build or return cached RLM codebase context."""
+        if not self._use_rlm_context:
+            return None
+        if self._rlm_context_cache:
+            return self._rlm_context_cache
+        builder = self._get_context_builder()
+        if not builder:
+            return None
+        try:
+            context = await builder.build_debate_context()
+            self._rlm_context_cache = context
+            return context
+        except Exception as exc:
+            logger.warning("RLM context build failed: %s", exc)
+            return None
 
     @property
     def code_intel(self) -> Any:
@@ -455,6 +489,9 @@ class CodebaseUnderstandingAgent:
 
         # Build context for answering
         context = self._build_understanding_context(question, index, relevant_files, code_citations)
+        rlm_context = await self._get_rlm_context()
+        if rlm_context:
+            context = f"=== CODEBASE STRUCTURE MAP (RLM) ===\n{rlm_context}\n\n{context}"
 
         # Generate answer (with optional multi-agent debate)
         if self.enable_debate:

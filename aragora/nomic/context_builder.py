@@ -136,11 +136,14 @@ class NomicContextBuilder:
         max_context_bytes: int = 0,
         include_tests: Optional[bool] = None,
         knowledge_mound: Optional[Any] = None,
+        full_corpus: Optional[bool] = None,
     ) -> None:
         self._aragora_path = aragora_path
         env_max = os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES") or os.environ.get(
             "NOMIC_MAX_CONTEXT_BYTES"
         )
+        if env_max is None:
+            env_max = os.environ.get("ARAGORA_RLM_MAX_CONTENT_BYTES")
         default_max = 100_000_000
         try:
             from aragora.rlm import RLMConfig
@@ -154,6 +157,10 @@ class NomicContextBuilder:
         else:
             self._include_tests = include_tests
         self._knowledge_mound = knowledge_mound
+        if full_corpus is None:
+            self._full_corpus = os.environ.get("NOMIC_RLM_FULL_CORPUS", "1") == "1"
+        else:
+            self._full_corpus = full_corpus
         self._index: Optional[CodebaseIndex] = None
         self._rlm_context: Optional[Any] = None
         self._context_dir = self._aragora_path / ".nomic" / "context"
@@ -411,7 +418,7 @@ class NomicContextBuilder:
                 logger.warning("Knowledge Mound query failed: %s", exc)
 
         # Optional: augment with full-corpus TRUE RLM summary (file-backed)
-        if os.environ.get("NOMIC_RLM_FULL_CORPUS", "1") == "1":
+        if self._full_corpus:
             try:
                 from aragora.nomic.rlm_codebase import summarize_codebase_with_rlm
                 from aragora.rlm.bridge import HAS_OFFICIAL_RLM
