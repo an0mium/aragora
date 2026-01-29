@@ -240,7 +240,7 @@ class GoogleHomeConnector(DeviceConnector):
                     password=None,
                 )
                 message = f"{header_b64}.{payload_b64}".encode()
-                signature = key.sign(  # type: ignore
+                signature = key.sign(  # type: ignore[union-attr]  # RSA key sign method
                     message,
                     padding.PKCS1v15(),
                     hashes.SHA256(),
@@ -272,7 +272,7 @@ class GoogleHomeConnector(DeviceConnector):
                 self._access_token = response.get("access_token")
                 expires_in = response.get("expires_in", 3600)
                 self._token_expires_at = time.time() + expires_in
-                return self._access_token  # type: ignore
+                return self._access_token  # type: ignore[return-value]  # Checked via response
             else:
                 raise Exception(f"Token exchange failed: {error}")
 

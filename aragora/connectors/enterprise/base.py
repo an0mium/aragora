@@ -175,7 +175,7 @@ except ImportError:
     # Fallback for backwards compatibility
     from typing import Protocol as CredentialProtocol
 
-    class CredentialProvider(CredentialProtocol):  # type: ignore
+    class CredentialProvider(CredentialProtocol):  # type: ignore[no-redef]  # Stub when creds module unavailable
         """Protocol for credential providers."""
 
         async def get_credential(self, key: str) -> Optional[str]:
@@ -454,7 +454,7 @@ class EnterpriseConnector(BaseConnector):
         Yields:
             SyncItem objects to ingest into Knowledge Mound
         """
-        yield  # type: ignore
+        yield  # type: ignore[misc]  # Async generator yield
 
     async def sync(
         self,

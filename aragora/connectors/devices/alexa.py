@@ -226,7 +226,7 @@ class AlexaConnector(DeviceConnector):
         self._token_expires_at = time.time() + expires_in
 
         logger.debug(f"Alexa access token refreshed, expires in {expires_in}s")
-        return self._access_token  # type: ignore
+        return self._access_token  # type: ignore[return-value]  # Checked via response
 
     # ==========================================================================
     # Request Verification

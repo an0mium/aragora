@@ -394,7 +394,7 @@ def with_recovery(
             return await strategy.execute(operation, func.__name__)
 
         # Attach strategy for configuration
-        wrapper._recovery_strategy = strategy  # type: ignore
+        wrapper._recovery_strategy = strategy  # type: ignore[attr-defined]  # Dynamic attribute
         return wrapper
 
     return decorator
