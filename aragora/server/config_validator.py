@@ -541,8 +541,43 @@ def validate_startup_config(strict: bool = False, exit_on_error: bool = True) ->
     return is_valid
 
 
+async def validate_startup_config_async(
+    strict: bool = False,
+    check_connectivity: bool = True,
+) -> ValidationResult:
+    """
+    Async convenience function to validate configuration and connectivity at startup.
+
+    Args:
+        strict: If True, treat warnings as errors
+        check_connectivity: If True, verify database/cache connectivity
+
+    Returns:
+        ValidationResult with all validation errors and warnings
+    """
+    # Run standard config validation
+    result = ConfigValidator.validate_all()
+
+    # Optionally check connectivity
+    if check_connectivity:
+        connectivity_result = await ConfigValidator.validate_connectivity_async()
+        result.errors.extend(connectivity_result.errors)
+        result.warnings.extend(connectivity_result.warnings)
+        result.is_valid = len(result.errors) == 0
+
+    # Log results
+    for warning in result.warnings:
+        logger.warning(f"Configuration warning: {warning}")
+
+    for error in result.errors:
+        logger.error(f"Configuration error: {error}")
+
+    return result
+
+
 __all__ = [
     "ConfigValidator",
     "ValidationResult",
     "validate_startup_config",
+    "validate_startup_config_async",
 ]
