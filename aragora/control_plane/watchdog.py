@@ -326,10 +326,30 @@ class ThreeTierWatchdog:
         """Stop the watchdog monitoring loops."""
         self._running = False
 
-        for task in self._tasks:
-            task.cancel()
+        if not self._tasks:
+            logger.info("Three-tier watchdog stopped")
+            return
 
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        active_tasks: list[asyncio.Task] = []
+        for task in self._tasks:
+            try:
+                loop = task.get_loop()
+                if loop.is_closed():
+                    continue
+            except Exception:
+                continue
+
+            if not task.done():
+                task.cancel()
+            active_tasks.append(task)
+
+        if active_tasks:
+            try:
+                await asyncio.gather(*active_tasks, return_exceptions=True)
+            except RuntimeError as e:
+                # Safeguard against tasks bound to closed loops during test teardown.
+                logger.debug("watchdog_stop_failed", error=str(e))
+
         self._tasks.clear()
 
         logger.info("Three-tier watchdog stopped")
@@ -751,5 +771,15 @@ def reset_watchdog() -> None:
     """Reset the default watchdog (for testing)."""
     global _default_watchdog
     if _default_watchdog:
-        asyncio.create_task(_default_watchdog.stop())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                from aragora.utils.async_utils import run_async
+
+                run_async(_default_watchdog.stop())
+            except Exception:
+                pass
+        else:
+            loop.create_task(_default_watchdog.stop())
     _default_watchdog = None
