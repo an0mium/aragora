@@ -290,11 +290,17 @@ class NudgeRouter:
                         msg.delivery_status = DeliveryStatus.DELIVERED
                         msg.delivered_at = time.time()
                         self._messages_delivered += 1
-                    messages.append(msg)
+                        messages.append(msg)
+                    else:
+                        # Peek mode: add to messages but keep in queue
+                        messages.append(msg)
+                        remaining.append(msg)
                 else:
                     remaining.append(msg)
 
-            self._queues[agent_id] = remaining
+            # Only modify queue when consuming (not peeking)
+            if mark_delivered:
+                self._queues[agent_id] = remaining
 
         return messages
 

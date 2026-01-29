@@ -4689,7 +4689,13 @@ paths:
           maximum: 50
       responses:
         '200':
-          description: Similar debates
+          description: Similar debates found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimilarDebatesResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/similar:
     get:
@@ -4727,7 +4733,13 @@ paths:
           maximum: 50
       responses:
         '200':
-          description: Similar debates
+          description: Similar debates found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimilarDebatesResponse'
+      security:
+      - bearerAuth: []
   /api/consensus/settled:
     get:
       tags:
@@ -4767,6 +4779,12 @@ paths:
       responses:
         '200':
           description: Settled questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettledQuestionsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/settled:
     get:
@@ -4808,6 +4826,12 @@ paths:
       responses:
         '200':
           description: Settled questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettledQuestionsResponse'
+      security:
+      - bearerAuth: []
   /api/consensus/stats:
     get:
       tags:
@@ -4827,7 +4851,13 @@ paths:
         - Trend over time'
       responses:
         '200':
-          description: Consensus stats
+          description: Consensus statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsensusStats'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/stats:
     get:
@@ -4849,7 +4879,13 @@ paths:
       operationId: getConsensusStats
       responses:
         '200':
-          description: Consensus stats
+          description: Consensus statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsensusStats'
+      security:
+      - bearerAuth: []
   /api/consensus/dissents:
     get:
       tags:
@@ -4881,6 +4917,12 @@ paths:
       responses:
         '200':
           description: Dissenting views
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DissentingViewsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/dissents:
     get:
@@ -4914,6 +4956,12 @@ paths:
       responses:
         '200':
           description: Dissenting views
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DissentingViewsResponse'
+      security:
+      - bearerAuth: []
   /api/consensus/contrarian-views:
     get:
       tags:
@@ -4936,6 +4984,12 @@ paths:
       responses:
         '200':
           description: Contrarian views
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContrarianViewsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/contrarian-views:
     get:
@@ -4960,6 +5014,12 @@ paths:
       responses:
         '200':
           description: Contrarian views
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContrarianViewsResponse'
+      security:
+      - bearerAuth: []
   /api/consensus/risk-warnings:
     get:
       tags:
@@ -4980,6 +5040,12 @@ paths:
       responses:
         '200':
           description: Risk warnings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskWarningsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/risk-warnings:
     get:
@@ -5002,6 +5068,12 @@ paths:
       responses:
         '200':
           description: Risk warnings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskWarningsResponse'
+      security:
+      - bearerAuth: []
   /api/consensus/domain/{domain}:
     get:
       tags:
@@ -5030,6 +5102,12 @@ paths:
       responses:
         '200':
           description: Domain consensus data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainConsensusResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/consensus/domain/{domain}:
     get:
@@ -5060,6 +5138,12 @@ paths:
       responses:
         '200':
           description: Domain consensus data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainConsensusResponse'
+      security:
+      - bearerAuth: []
   /api/relationships/summary:
     get:
       tags:
@@ -5183,12 +5267,28 @@ paths:
       tags:
       - Memory
       summary: Retrieve memories
-      description: Retrieve memories from continuum store
+      description: 'Retrieve memories from the continuum store.
+
+
+        The continuum memory system stores memories across four tiers:
+
+        - **fast**: Short-term memory (1 minute TTL)
+
+        - **medium**: Session memory (1 hour TTL)
+
+        - **slow**: Cross-session memory (1 day TTL)
+
+        - **glacial**: Long-term patterns (1 week TTL)
+
+
+        Memories are retrieved by semantic similarity to the query.'
       parameters:
       - name: query
         in: query
         schema:
           type: string
+        description: Semantic search query
+        required: true
       - name: tier
         in: query
         schema:
@@ -5198,14 +5298,24 @@ paths:
           - medium
           - slow
           - glacial
+        description: Filter by specific tier (optional)
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 100
+        description: Maximum memories to return
       responses:
         '200':
           description: Retrieved memories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryRetrievalResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/memory/continuum/retrieve:
     get:
@@ -5213,12 +5323,28 @@ paths:
       - Memory
       summary: Retrieve memories
       operationId: listMemoryContinuumRetrieve
-      description: Retrieve memories from continuum store
+      description: 'Retrieve memories from the continuum store.
+
+
+        The continuum memory system stores memories across four tiers:
+
+        - **fast**: Short-term memory (1 minute TTL)
+
+        - **medium**: Session memory (1 hour TTL)
+
+        - **slow**: Cross-session memory (1 day TTL)
+
+        - **glacial**: Long-term patterns (1 week TTL)
+
+
+        Memories are retrieved by semantic similarity to the query.'
       parameters:
       - name: query
         in: query
         schema:
           type: string
+        description: Semantic search query
+        required: true
       - name: tier
         in: query
         schema:
@@ -5228,23 +5354,42 @@ paths:
           - medium
           - slow
           - glacial
+        description: Filter by specific tier (optional)
       - name: limit
         in: query
         schema:
           type: integer
           default: 10
+          minimum: 1
+          maximum: 100
+        description: Maximum memories to return
       responses:
         '200':
           description: Retrieved memories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryRetrievalResponse'
+      security:
+      - bearerAuth: []
   /api/memory/continuum/consolidate:
     post:
       tags:
       - Memory
       summary: Consolidate memories
-      description: Trigger memory consolidation across tiers
+      description: 'Trigger memory consolidation across tiers.
+
+
+        Consolidation promotes frequently-accessed memories to faster tiers
+
+        and demotes stale memories to slower tiers based on access patterns.'
       responses:
         '200':
-          description: Consolidation result
+          description: Consolidation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryConsolidationResult'
       security:
       - bearerAuth: []
       deprecated: true
@@ -5254,21 +5399,39 @@ paths:
       - Memory
       summary: Consolidate memories
       operationId: createMemoryContinuumConsolidate
-      description: Trigger memory consolidation across tiers
+      description: 'Trigger memory consolidation across tiers.
+
+
+        Consolidation promotes frequently-accessed memories to faster tiers
+
+        and demotes stale memories to slower tiers based on access patterns.'
       responses:
         '200':
-          description: Consolidation result
+          description: Consolidation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryConsolidationResult'
       security:
       - bearerAuth: []
   /api/memory/continuum/cleanup:
     post:
       tags:
       - Memory
-      summary: Cleanup memories
-      description: Remove expired memories
+      summary: Cleanup expired memories
+      description: 'Remove expired memories from all tiers.
+
+
+        Each tier has different TTLs. This operation removes memories
+
+        that have exceeded their tier''s TTL threshold.'
       responses:
         '200':
-          description: Cleanup result
+          description: Cleanup completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryCleanupResult'
       security:
       - bearerAuth: []
       deprecated: true
@@ -5276,12 +5439,21 @@ paths:
     post:
       tags:
       - Memory
-      summary: Cleanup memories
+      summary: Cleanup expired memories
       operationId: createMemoryContinuumCleanup
-      description: Remove expired memories
+      description: 'Remove expired memories from all tiers.
+
+
+        Each tier has different TTLs. This operation removes memories
+
+        that have exceeded their tier''s TTL threshold.'
       responses:
         '200':
-          description: Cleanup result
+          description: Cleanup completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryCleanupResult'
       security:
       - bearerAuth: []
   /api/memory/tier-stats:
@@ -5289,137 +5461,257 @@ paths:
       tags:
       - Memory
       summary: Memory tier statistics
-      description: Get statistics for each memory tier (fast, medium, slow, glacial).
+      description: 'Get statistics for each memory tier.
+
+
+        Returns count, size, and age metrics for fast, medium, slow, and glacial tiers.'
       responses:
         '200':
-          description: Tier stats
+          description: Tier statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryTierStatsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/memory/tier-stats:
     get:
       tags:
       - Memory
       summary: Memory tier statistics
-      description: Get statistics for each memory tier (fast, medium, slow, glacial).
       operationId: listMemoryTierStats
+      description: 'Get statistics for each memory tier.
+
+
+        Returns count, size, and age metrics for fast, medium, slow, and glacial tiers.'
       responses:
         '200':
-          description: Tier stats
+          description: Tier statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryTierStatsResponse'
+      security:
+      - bearerAuth: []
   /api/memory/archive-stats:
     get:
       tags:
       - Memory
       summary: Archive statistics
-      description: Get statistics on archived memories and storage usage.
+      description: 'Get statistics on archived memories and storage usage.
+
+
+        Archives contain memories that have been moved to cold storage for long-term
+        retention.'
       responses:
         '200':
-          description: Archive stats
+          description: Archive statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryArchiveStats'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/memory/archive-stats:
     get:
       tags:
       - Memory
       summary: Archive statistics
-      description: Get statistics on archived memories and storage usage.
       operationId: listMemoryArchiveStats
+      description: 'Get statistics on archived memories and storage usage.
+
+
+        Archives contain memories that have been moved to cold storage for long-term
+        retention.'
       responses:
         '200':
-          description: Archive stats
+          description: Archive statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryArchiveStats'
+      security:
+      - bearerAuth: []
   /api/belief-network/{debate_id}/cruxes:
     get:
       tags:
       - Belief
       summary: Get debate cruxes
-      description: Get the crux points where agents most strongly disagree in a debate.
+      description: 'Get the crux points where agents most strongly disagree in a debate.
+
+
+        **Cruxes** are propositions where changing an agent''s belief would change
+        their
+
+        overall conclusion. Identifying cruxes helps focus further debate on the most
+
+        productive points of disagreement.'
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Debate cruxes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeliefCruxesResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/belief-network/{debate_id}/cruxes:
     get:
       tags:
       - Belief
       summary: Get debate cruxes
-      description: Get the crux points where agents most strongly disagree in a debate.
-      operationId: getBeliefNetworkCruxe
+      description: 'Get the crux points where agents most strongly disagree in a debate.
+
+
+        **Cruxes** are propositions where changing an agent''s belief would change
+        their
+
+        overall conclusion. Identifying cruxes helps focus further debate on the most
+
+        productive points of disagreement.'
+      operationId: getBeliefNetworkCruxes
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Debate cruxes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeliefCruxesResponse'
+      security:
+      - bearerAuth: []
   /api/belief-network/{debate_id}/load-bearing-claims:
     get:
       tags:
       - Belief
       summary: Get load-bearing claims
-      description: Get claims that are foundational to the debate's argument structure.
+      description: 'Get claims that are foundational to the debate''s argument structure.
+
+
+        **Load-bearing claims** are propositions that, if removed or disproven, would
+
+        cause significant parts of the argument structure to collapse. These are the
+
+        critical assumptions underlying the debate''s conclusions.'
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Load-bearing claims
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadBearingClaimsResponse'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/belief-network/{debate_id}/load-bearing-claims:
     get:
       tags:
       - Belief
       summary: Get load-bearing claims
-      description: Get claims that are foundational to the debate's argument structure.
-      operationId: getBeliefNetworkLoadBearingClaim
+      description: 'Get claims that are foundational to the debate''s argument structure.
+
+
+        **Load-bearing claims** are propositions that, if removed or disproven, would
+
+        cause significant parts of the argument structure to collapse. These are the
+
+        critical assumptions underlying the debate''s conclusions.'
+      operationId: getBeliefNetworkLoadBearingClaims
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Load-bearing claims
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadBearingClaimsResponse'
+      security:
+      - bearerAuth: []
   /api/debate/{debate_id}/graph-stats:
     get:
       tags:
       - Belief
       summary: Get debate graph stats
-      description: Get graph-based statistics for the belief network of a debate.
+      description: 'Get graph-based statistics for the belief network of a debate.
+
+
+        **Includes:** node count, edge count, clustering coefficient, argument depth,
+
+        most-connected claims, and structural metrics.'
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Graph statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeliefGraphStats'
+      security:
+      - bearerAuth: []
       deprecated: true
   /api/v1/debate/{debate_id}/graph-stats:
     get:
       tags:
       - Belief
       summary: Get debate graph stats
-      description: Get graph-based statistics for the belief network of a debate.
-      operationId: getDebateGraphStat
+      description: 'Get graph-based statistics for the belief network of a debate.
+
+
+        **Includes:** node count, edge count, clustering coefficient, argument depth,
+
+        most-connected claims, and structural metrics.'
+      operationId: getDebateGraphStats
       parameters:
       - name: debate_id
         in: path
         required: true
+        description: The debate ID
         schema:
           type: string
       responses:
         '200':
           description: Graph statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeliefGraphStats'
+      security:
+      - bearerAuth: []
   /api/pulse/trending:
     get:
       tags:
@@ -21256,6 +21548,61 @@ paths:
                         type: integer
       security:
       - bearerAuth: []
+  /api/v1/integrations/status:
+    get:
+      tags:
+      - Integrations
+      summary: Get integration status
+      description: Get aggregated integration status for all providers.
+      operationId: getIntegrationsStatusV1
+      responses:
+        '200':
+          description: Integration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  integrations:
+                    type: array
+                    items:
+                      type: object
+                  checked_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
   /api/v1/integrations/{type}:
     get:
       tags:
@@ -21452,6 +21799,290 @@ paths:
             application/json:
               schema:
                 type: object
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/wizard:
+    get:
+      tags:
+      - Integrations
+      - Wizard
+      summary: Get wizard configuration
+      description: Get the complete OAuth wizard configuration including all providers,
+        status, and setup guidance.
+      operationId: getWizardConfig
+      responses:
+        '200':
+          description: Wizard configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wizard:
+                    type: object
+                  generated_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/wizard/providers:
+    get:
+      tags:
+      - Integrations
+      - Wizard
+      summary: List available providers
+      description: List all available integration providers with optional filtering.
+      operationId: listWizardProviders
+      parameters:
+      - name: category
+        in: query
+        description: Filter by category
+        schema:
+          type: string
+          enum:
+          - communication
+          - development
+      - name: configured
+        in: query
+        description: Filter by configuration status
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Provider list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/wizard/status:
+    get:
+      tags:
+      - Integrations
+      - Wizard
+      summary: Get all integration statuses
+      description: Get detailed status of all integrations including configuration
+        and connection status.
+      operationId: getWizardStatus
+      responses:
+        '200':
+          description: Integration statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statuses:
+                    type: array
+                    items:
+                      type: object
+                  summary:
+                    type: object
+                  checked_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/wizard/validate:
+    post:
+      tags:
+      - Integrations
+      - Wizard
+      summary: Validate provider configuration
+      description: Validate configuration for a provider before connecting.
+      operationId: validateWizardConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - provider
+              properties:
+                provider:
+                  type: string
+                config:
+                  type: object
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                  valid:
+                    type: boolean
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                  recommendations:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request - Invalid input or malformed JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_json:
+                  summary: Invalid JSON body
+                  value:
+                    error: Invalid JSON in request body
+                    code: INVALID_JSON
+                    trace_id: req_abc123xyz
+                missing_field:
+                  summary: Missing required field
+                  value:
+                    error: 'Missing required field: task'
+                    code: MISSING_FIELD
+                    field: task
+                    trace_id: req_abc123xyz
+                invalid_value:
+                  summary: Invalid field value
+                  value:
+                    error: 'Invalid value for ''rounds'': must be between 1 and 10'
+                    code: INVALID_VALUE
+                    field: rounds
+                    trace_id: req_abc123xyz
         '401':
           description: Unauthorized - Authentication required or token invalid
           content:
@@ -22018,6 +22649,76 @@ paths:
                     code: NOT_FOUND
                     resource_type: debate
                     resource_id: deb_abc123
+                    trace_id: req_abc123xyz
+        '500':
+          description: Internal server error - Unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                internal_error:
+                  summary: Internal server error
+                  value:
+                    error: An unexpected error occurred
+                    code: INTERNAL_ERROR
+                    trace_id: req_abc123xyz
+                    support_url: https://github.com/an0mium/aragora/issues
+  /api/v2/integrations/stats:
+    get:
+      tags:
+      - Integrations
+      summary: Get integration statistics
+      description: Get aggregate statistics about all integrations.
+      operationId: getIntegrationStats
+      responses:
+        '200':
+          description: Integration statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stats:
+                    type: object
+                    properties:
+                      slack:
+                        type: object
+                        properties:
+                          total_workspaces:
+                            type: integer
+                          active_workspaces:
+                            type: integer
+                      teams:
+                        type: object
+                        properties:
+                          total_workspaces:
+                            type: integer
+                          active_workspaces:
+                            type: integer
+                      total_integrations:
+                        type: integer
+                  generated_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized - Authentication required or token invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_token:
+                  summary: No authentication token
+                  value:
+                    error: Authentication required
+                    code: AUTH_REQUIRED
+                    trace_id: req_abc123xyz
+                invalid_token:
+                  summary: Invalid or expired token
+                  value:
+                    error: Invalid or expired authentication token
+                    code: INVALID_TOKEN
                     trace_id: req_abc123xyz
         '500':
           description: Internal server error - Unexpected error occurred
@@ -29006,7 +29707,45 @@ paths:
           description: OK
       x-autogenerated: true
       x-method-inferred: true
+  /api/v1/graph-debates:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
   /api/v1/debates/matrix:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/matrix-debates:
     get:
       summary: Autogenerated placeholder (spec pending)
       tags:
@@ -33055,6 +33794,16 @@ paths:
           description: OK
       x-autogenerated: true
       x-method-inferred: true
+  /api/v1/team-selection:
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
   /api/v1/evaluate:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -33939,6 +34688,321 @@ paths:
           description: OK
       x-autogenerated: true
       x-method-inferred: false
+  /api/auth/password/change:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/password/change:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/password/forgot:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/password/forgot:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/password/reset:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/password/reset:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/forgot-password:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/forgot-password:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/reset-password:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/reset-password:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/profile:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/profile:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/api-keys:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/api-keys:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/mfa:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/mfa:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/verify-email:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/verify-email:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/verify-email/resend:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/verify-email/resend:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/resend-verification:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/resend-verification:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/setup-organization:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/setup-organization:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/check-invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/check-invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/auth/accept-invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/v1/auth/accept-invite:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
   /api/v1/billing/plans:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -34229,6 +35293,36 @@ paths:
           description: OK
       x-autogenerated: true
       x-method-inferred: false
+  /api/v1/auth/oauth/url:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/v1/auth/oauth/authorize:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+  /api/v1/auth/oauth/callback:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
   /api/auth/oauth/microsoft:
     get:
       summary: Autogenerated placeholder (spec pending)
@@ -34285,6 +35379,39 @@ paths:
       x-method-inferred: false
       deprecated: true
   /api/auth/oauth/oidc/callback:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/auth/oauth/url:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/auth/oauth/authorize:
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: false
+      deprecated: true
+  /api/auth/oauth/callback:
     get:
       summary: Autogenerated placeholder (spec pending)
       tags:
@@ -34553,6 +35680,342 @@ paths:
           description: OK
       x-autogenerated: true
       x-method-inferred: false
+  /api/v1/integrations:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/available:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/config:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/{param}/sync:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    get:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/zapier/apps:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/zapier/triggers:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/make/connections:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/make/webhooks:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/make/modules:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/n8n/credentials:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/n8n/webhooks:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/integrations/n8n/nodes:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
   /api/v1/gmail/connect:
     post:
       summary: Autogenerated placeholder (spec pending)
@@ -35919,6 +37382,80 @@ paths:
       x-method-inferred: true
   /api/v1/audit/denied:
     delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/workflows/templates:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    post:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    put:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+  /api/v1/workflows/executions:
+    delete:
+      summary: Autogenerated placeholder (spec pending)
+      tags:
+      - Undocumented
+      responses:
+        '200':
+          description: OK
+      x-autogenerated: true
+      x-method-inferred: true
+    patch:
       summary: Autogenerated placeholder (spec pending)
       tags:
       - Undocumented
@@ -38399,6 +39936,281 @@ components:
           type: array
           items:
             type: string
+    SimilarDebate:
+      type: object
+      description: A debate similar to the query topic
+      properties:
+        debate_id:
+          type: string
+        topic:
+          type: string
+        similarity_score:
+          type: number
+          description: 0-1 similarity
+        verdict:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        agents:
+          type: array
+          items:
+            type: string
+    SimilarDebatesResponse:
+      type: object
+      properties:
+        debates:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimilarDebate'
+        query:
+          type: string
+        total:
+          type: integer
+    SettledQuestion:
+      type: object
+      description: A question with strong consensus
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+        confidence:
+          type: number
+        debate_count:
+          type: integer
+        last_debated:
+          type: string
+          format: date-time
+        supporting_debates:
+          type: array
+          items:
+            type: string
+    SettledQuestionsResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettledQuestion'
+        total:
+          type: integer
+        threshold:
+          type: number
+    ConsensusStats:
+      type: object
+      description: Aggregate consensus statistics
+      properties:
+        total_debates:
+          type: integer
+        consensus_rate:
+          type: number
+        avg_time_to_consensus_ms:
+          type: integer
+        avg_rounds_to_consensus:
+          type: number
+        by_domain:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              count:
+                type: integer
+              consensus_rate:
+                type: number
+    DissentingView:
+      type: object
+      description: A significant dissenting position
+      properties:
+        debate_id:
+          type: string
+        agent:
+          type: string
+        position:
+          type: string
+        reasoning:
+          type: string
+        strength_score:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+    DissentingViewsResponse:
+      type: object
+      properties:
+        dissents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DissentingView'
+        total:
+          type: integer
+    ContrarianView:
+      type: object
+      description: A view opposing established consensus
+      properties:
+        topic:
+          type: string
+        consensus_position:
+          type: string
+        contrarian_position:
+          type: string
+        agent:
+          type: string
+        argument_strength:
+          type: number
+    ContrarianViewsResponse:
+      type: object
+      properties:
+        views:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContrarianView'
+        total:
+          type: integer
+    RiskWarning:
+      type: object
+      description: A consensus risk warning
+      properties:
+        type:
+          type: string
+          enum:
+          - low_confidence
+          - shifting
+          - contradictory
+          - bias
+        topic:
+          type: string
+        description:
+          type: string
+        severity:
+          type: string
+          enum:
+          - low
+          - medium
+          - high
+        debate_ids:
+          type: array
+          items:
+            type: string
+    RiskWarningsResponse:
+      type: object
+      properties:
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskWarning'
+        total:
+          type: integer
+    DomainConsensusResponse:
+      type: object
+      description: Consensus data for a specific domain
+      properties:
+        domain:
+          type: string
+        total_debates:
+          type: integer
+        consensus_rate:
+          type: number
+        settled_questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettledQuestion'
+        top_agents:
+          type: array
+          items:
+            type: object
+            properties:
+              agent:
+                type: string
+              contribution_count:
+                type: integer
+    BeliefCrux:
+      type: object
+      description: A crux point of disagreement between agents
+      properties:
+        id:
+          type: string
+        proposition:
+          type: string
+          description: The crux proposition
+        importance:
+          type: number
+          description: Importance score 0-1
+        agents_for:
+          type: array
+          items:
+            type: string
+        agents_against:
+          type: array
+          items:
+            type: string
+        resolution_impact:
+          type: string
+          description: How resolving this crux would affect the debate
+    BeliefCruxesResponse:
+      type: object
+      properties:
+        debate_id:
+          type: string
+        cruxes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BeliefCrux'
+        total:
+          type: integer
+    LoadBearingClaim:
+      type: object
+      description: A claim foundational to the argument structure
+      properties:
+        id:
+          type: string
+        claim:
+          type: string
+        agent:
+          type: string
+        dependents_count:
+          type: integer
+          description: Number of arguments that depend on this claim
+        confidence:
+          type: number
+        evidence:
+          type: array
+          items:
+            type: string
+    LoadBearingClaimsResponse:
+      type: object
+      properties:
+        debate_id:
+          type: string
+        claims:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoadBearingClaim'
+        total:
+          type: integer
+    BeliefGraphStats:
+      type: object
+      description: Graph-based statistics for a belief network
+      properties:
+        debate_id:
+          type: string
+        node_count:
+          type: integer
+        edge_count:
+          type: integer
+        max_depth:
+          type: integer
+        clustering_coefficient:
+          type: number
+        most_connected_claims:
+          type: array
+          items:
+            type: object
+            properties:
+              claim:
+                type: string
+              connections:
+                type: integer
     Calibration:
       type: object
       properties:
@@ -41135,6 +42947,124 @@ components:
               type: integer
         cache_hit_rate:
           type: number
+    MemoryEntry:
+      type: object
+      description: A single memory entry from the continuum store
+      properties:
+        id:
+          type: string
+          description: Unique memory ID
+        content:
+          type: string
+          description: Memory content
+        tier:
+          type: string
+          enum:
+          - fast
+          - medium
+          - slow
+          - glacial
+          description: Memory tier
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        relevance_score:
+          type: number
+          description: Relevance to query 0-1
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+      - id
+      - content
+      - tier
+    MemoryRetrievalResponse:
+      type: object
+      description: Response from memory retrieval
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryEntry'
+        total:
+          type: integer
+        tier:
+          type: string
+        query:
+          type: string
+    MemoryTierStats:
+      type: object
+      description: Statistics for a single memory tier
+      properties:
+        tier:
+          type: string
+          enum:
+          - fast
+          - medium
+          - slow
+          - glacial
+        count:
+          type: integer
+        size_bytes:
+          type: integer
+        oldest_entry:
+          type: string
+          format: date-time
+        newest_entry:
+          type: string
+          format: date-time
+        avg_age_seconds:
+          type: number
+    MemoryTierStatsResponse:
+      type: object
+      description: Statistics for all memory tiers
+      properties:
+        tiers:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryTierStats'
+        total_memories:
+          type: integer
+        total_size_bytes:
+          type: integer
+    MemoryArchiveStats:
+      type: object
+      description: Archive statistics
+      properties:
+        archived_count:
+          type: integer
+        archive_size_bytes:
+          type: integer
+        oldest_archive:
+          type: string
+          format: date-time
+        compression_ratio:
+          type: number
+    MemoryConsolidationResult:
+      type: object
+      description: Result of memory consolidation
+      properties:
+        memories_processed:
+          type: integer
+        memories_promoted:
+          type: integer
+        memories_demoted:
+          type: integer
+        duration_ms:
+          type: integer
+    MemoryCleanupResult:
+      type: object
+      description: Result of memory cleanup
+      properties:
+        memories_removed:
+          type: integer
+        bytes_freed:
+          type: integer
+        duration_ms:
+          type: integer
     KnowledgeNode:
       type: object
       description: A knowledge node in the mound
