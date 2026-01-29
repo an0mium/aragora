@@ -597,4 +597,154 @@ class ArenaConfig:
         }
 
 
-__all__ = ["ArenaConfig"]
+# ===========================================================================
+# Decomposed Config Groups
+# ===========================================================================
+# These provide focused configuration for specific Arena subsystems.
+# They can be passed individually to Arena or composed into an ArenaConfig.
+
+
+@dataclass
+class MemoryConfig:
+    """Memory subsystem configuration."""
+
+    memory: Any | None = None
+    continuum_memory: ContinuumMemoryProtocol | None = None
+    consensus_memory: ConsensusMemoryProtocol | None = None
+    cross_debate_memory: Any | None = None
+    enable_cross_debate_memory: bool = True
+    debate_embeddings: DebateEmbeddingsProtocol | None = None
+    insight_store: InsightStoreProtocol | None = None
+
+
+@dataclass
+class KnowledgeConfig:
+    """Knowledge Mound configuration."""
+
+    knowledge_mound: Any | None = None
+    auto_create_knowledge_mound: bool = True
+    enable_knowledge_retrieval: bool = True
+    enable_knowledge_ingestion: bool = True
+    enable_knowledge_extraction: bool = False
+    extraction_min_confidence: float = 0.3
+    enable_auto_revalidation: bool = False
+    revalidation_staleness_threshold: float = 0.7
+    revalidation_check_interval_seconds: int = 3600
+    revalidation_scheduler: Any | None = None
+    enable_belief_guidance: bool = False
+
+
+@dataclass
+class MLConfig:
+    """Machine learning integration configuration."""
+
+    enable_ml_delegation: bool = False
+    ml_delegation_strategy: Any | None = None
+    ml_delegation_weight: float = 0.3
+    enable_quality_gates: bool = False
+    quality_gate_threshold: float = 0.6
+    enable_consensus_estimation: bool = False
+    consensus_early_termination_threshold: float = 0.85
+
+
+@dataclass
+class RLMConfig:
+    """RLM cognitive load limiter configuration."""
+
+    use_rlm_limiter: bool = True
+    rlm_limiter: Any | None = None
+    rlm_compression_threshold: int = 3000
+    rlm_max_recent_messages: int = 5
+    rlm_summary_level: str = "SUMMARY"
+    rlm_compression_round_threshold: int = 3
+
+
+@dataclass
+class TelemetryConfig:
+    """Telemetry and performance monitoring configuration."""
+
+    performance_monitor: Any | None = None
+    enable_performance_monitor: bool = True
+    enable_telemetry: bool = False
+
+
+@dataclass
+class PersonaConfig:
+    """Persona and vertical configuration."""
+
+    persona_manager: PersonaManagerProtocol | None = None
+    vertical: str | None = None
+    auto_detect_vertical: bool = True
+    vertical_persona_manager: Any | None = None
+
+
+@dataclass
+class ResilienceConfig:
+    """Resilience and fault tolerance configuration."""
+
+    circuit_breaker: CircuitBreaker | None = None
+    use_airlock: bool = False
+    airlock_config: Any | None = None
+
+
+@dataclass
+class EvolutionConfig:
+    """Evolution and prompt optimization configuration."""
+
+    population_manager: PopulationManagerProtocol | None = None
+    auto_evolve: bool = False
+    breeding_threshold: float = 0.8
+    prompt_evolver: PromptEvolverProtocol | None = None
+    enable_prompt_evolution: bool = False
+
+
+@dataclass
+class BillingConfig:
+    """Billing and usage tracking configuration."""
+
+    org_id: str = ""
+    user_id: str = ""
+    usage_tracker: Any | None = None
+
+
+@dataclass
+class BroadcastConfig:
+    """Broadcast and training export configuration."""
+
+    broadcast_pipeline: BroadcastPipelineProtocol | None = None
+    auto_broadcast: bool = False
+    broadcast_min_confidence: float = 0.8
+    broadcast_platforms: Optional[list[str]] = None
+    training_exporter: Any | None = None
+    auto_export_training: bool = False
+    training_export_min_confidence: float = 0.75
+
+
+ALL_CONFIG_CLASSES = (
+    MemoryConfig,
+    KnowledgeConfig,
+    MLConfig,
+    RLMConfig,
+    TelemetryConfig,
+    PersonaConfig,
+    ResilienceConfig,
+    EvolutionConfig,
+    BillingConfig,
+    BroadcastConfig,
+)
+
+
+__all__ = [
+    "ArenaConfig",
+    "MemoryConfig",
+    "KnowledgeConfig",
+    "MLConfig",
+    "RLMConfig",
+    "TelemetryConfig",
+    "PersonaConfig",
+    "ResilienceConfig",
+    "EvolutionConfig",
+    "BillingConfig",
+    "BroadcastConfig",
+    "ALL_CONFIG_CLASSES",
+]

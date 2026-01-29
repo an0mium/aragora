@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -102,12 +102,15 @@ class RedisBatchJobStore(BatchJobStore):
         key = self._key(batch_id)
         data = self._redis.get(key)
         if data:
-            return BatchJob.from_dict(cast(dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
+            # json.loads returns Any; we know it's a dict from our schema
+            parsed: dict[str, Any] = json.loads(data if isinstance(data, str) else data.decode())
+            return BatchJob.from_dict(parsed)
         return None
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
-        return bool(self._redis.delete(key) > 0)  # type: ignore[operator]
+        deleted_count = self._redis.delete(key)
+        return bool(deleted_count and int(deleted_count) > 0)
 
     async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         # Scan for keys and filter
@@ -118,7 +121,11 @@ class RedisBatchJobStore(BatchJobStore):
             for key in keys:
                 data = self._redis.get(key)
                 if data:
-                    job = BatchJob.from_dict(cast(dict[str, Any], json.loads(data)))  # type: ignore[arg-type]
+                    # json.loads returns Any; we know it's a dict from our schema
+                    parsed_job: dict[str, Any] = json.loads(
+                        data if isinstance(data, str) else data.decode()
+                    )
+                    job = BatchJob.from_dict(parsed_job)
                     if status is None or job.status == status:
                         jobs.append(job)
                         if len(jobs) >= limit:
