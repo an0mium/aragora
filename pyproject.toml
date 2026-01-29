@@ -1065,6 +1065,7 @@ exclude_dirs = ["tests", "node_modules", ".venv", "venv", "build", "dist"]
 skips = [
     "B101",  # assert_used - OK in tests
     "B104",  # hardcoded_bind_all_interfaces - OK for dev server
+    "B310",  # urllib_urlopen - OK, we validate URLs before opening
     "B311",  # random - OK for non-crypto uses
 ]
 # Target confidence level
