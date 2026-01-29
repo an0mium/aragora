@@ -58,6 +58,7 @@ PulseHandler: HandlerType = None
 AnalyticsHandler: HandlerType = None
 AnalyticsDashboardHandler: HandlerType = None
 EndpointAnalyticsHandler: HandlerType = None
+AnalyticsMetricsHandler: HandlerType = None
 MetricsHandler: HandlerType = None
 ConsensusHandler: HandlerType = None
 BeliefHandler: HandlerType = None
@@ -167,6 +168,7 @@ OnboardingHandler: HandlerType = None
 SMEUsageDashboardHandler: HandlerType = None
 CanvasHandler: HandlerType = None
 GatewayHandler: HandlerType = None
+SCIMHandler: HandlerType = None
 ComputerUseHandler: HandlerType = None
 HandlerResult: HandlerType = None
 
@@ -207,6 +209,9 @@ try:
     )
     from aragora.server.handlers import (
         EndpointAnalyticsHandler as _EndpointAnalyticsHandler,
+    )
+    from aragora.server.handlers import (
+        AnalyticsMetricsHandler as _AnalyticsMetricsHandler,
     )
     from aragora.server.handlers import (
         AudioHandler as _AudioHandler,
@@ -532,6 +537,9 @@ try:
     from aragora.server.handlers.gateway_handler import (
         GatewayHandler as _GatewayHandler,
     )
+    from aragora.server.handlers.scim_handler import (
+        SCIMHandler as _SCIMHandler,
+    )
     from aragora.server.handlers.computer_use_handler import (
         ComputerUseHandler as _ComputerUseHandler,
     )
@@ -547,6 +555,7 @@ try:
     AnalyticsHandler = _AnalyticsHandler
     AnalyticsDashboardHandler = _AnalyticsDashboardHandler
     EndpointAnalyticsHandler = _EndpointAnalyticsHandler
+    AnalyticsMetricsHandler = _AnalyticsMetricsHandler
     MetricsHandler = _MetricsHandler
     ConsensusHandler = _ConsensusHandler
     BeliefHandler = _BeliefHandler
@@ -656,6 +665,7 @@ try:
     SMEUsageDashboardHandler = _SMEUsageDashboardHandler
     CanvasHandler = _CanvasHandler
     GatewayHandler = _GatewayHandler
+    SCIMHandler = _SCIMHandler
     ComputerUseHandler = _ComputerUseHandler
     HandlerResult = _HandlerResult
 
@@ -718,6 +728,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_analytics_handler", AnalyticsHandler),
     ("_analytics_dashboard_handler", AnalyticsDashboardHandler),
     ("_endpoint_analytics_handler", EndpointAnalyticsHandler),
+    ("_analytics_metrics_handler", AnalyticsMetricsHandler),
     ("_metrics_handler", MetricsHandler),
     ("_slo_handler", SLOHandler),
     ("_consensus_handler", ConsensusHandler),
@@ -825,6 +836,7 @@ HANDLER_REGISTRY: list[tuple[str, Any]] = [
     ("_sme_usage_dashboard_handler", SMEUsageDashboardHandler),
     ("_canvas_handler", CanvasHandler),
     ("_gateway_handler", GatewayHandler),
+    ("_scim_handler", SCIMHandler),
     ("_computer_use_handler", ComputerUseHandler),
 ]
 
@@ -874,6 +886,7 @@ class RouteIndex:
             "_pulse_handler": ["/api/pulse/"],
             "_analytics_dashboard_handler": ["/api/analytics/"],
             "_endpoint_analytics_handler": ["/api/analytics/endpoints"],
+            "_analytics_metrics_handler": ["/api/v1/analytics/"],
             "_consensus_handler": ["/api/consensus/"],
             "_belief_handler": ["/api/belief-network/", "/api/laboratory/"],
             "_decision_handler": ["/api/decisions"],
@@ -1055,6 +1068,10 @@ class RouteIndex:
             ],
             "_gateway_handler": [
                 "/api/v1/gateway/",
+            ],
+            "_scim_handler": [
+                "/scim/",
+                "/scim/v2/",
             ],
             "_computer_use_handler": [
                 "/api/v1/computer-use/",
@@ -1387,6 +1404,7 @@ class HandlerRegistryMixin:
     _analytics_handler: Optional["BaseHandler"] = None
     _analytics_dashboard_handler: Optional["BaseHandler"] = None
     _endpoint_analytics_handler: Optional["BaseHandler"] = None
+    _analytics_metrics_handler: Optional["BaseHandler"] = None
     _metrics_handler: Optional["BaseHandler"] = None
     _slo_handler: Optional["BaseHandler"] = None
     _consensus_handler: Optional["BaseHandler"] = None
@@ -1466,6 +1484,7 @@ class HandlerRegistryMixin:
     _sme_usage_dashboard_handler: Optional["BaseHandler"] = None
     _canvas_handler: Optional["BaseHandler"] = None
     _gateway_handler: Optional["BaseHandler"] = None
+    _scim_handler: Optional["BaseHandler"] = None
     _computer_use_handler: Optional["BaseHandler"] = None
     _receipts_handler: Optional["BaseHandler"] = None
     _backup_handler: Optional["BaseHandler"] = None

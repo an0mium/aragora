@@ -246,6 +246,7 @@ from .bots import (
 )  # Bot platform handlers
 from .explainability import ExplainabilityHandler  # Decision explainability API
 from .a2a import A2AHandler  # A2A protocol handler
+from .scim_handler import SCIMHandler  # SCIM 2.0 provisioning handler
 from .autonomous import (  # Autonomous operations handlers (Phase 5)
     ApprovalHandler,
     AlertHandler,
@@ -409,6 +410,8 @@ ALL_HANDLERS = [
     ZoomHandler,  # Zoom webhooks and chat
     # Explainability
     ExplainabilityHandler,  # Decision explainability API
+    # Enterprise provisioning
+    SCIMHandler,  # SCIM 2.0 user/group provisioning (RFC 7643/7644)
     # Protocols
     A2AHandler,  # A2A protocol handler
     # Autonomous operations handlers (Phase 5)
@@ -574,6 +577,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "ZoomHandler": Stability.STABLE,  # Zoom webhooks and chat - 19 tests
     # Explainability
     "ExplainabilityHandler": Stability.STABLE,  # Decision explainability API - 44 tests
+    # Enterprise provisioning
+    "SCIMHandler": Stability.STABLE,  # SCIM 2.0 provisioning - RFC 7643/7644, 47 tests
     # Protocols
     "A2AHandler": Stability.EXPERIMENTAL,  # A2A protocol handler - new
     # Autonomous operations handlers (Phase 5)
@@ -820,6 +825,8 @@ __all__ = [
     "ZoomHandler",
     # Explainability
     "ExplainabilityHandler",
+    # Enterprise provisioning
+    "SCIMHandler",
     # Protocols
     "A2AHandler",
     # Autonomous operations handlers (Phase 5)

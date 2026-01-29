@@ -413,6 +413,34 @@ class SCIMServer:
             if token != self.config.bearer_token:
                 raise HTTPException(status_code=401, detail="Invalid bearer token")
 
+        async def parse_json_body(request: Request) -> tuple[dict, JSONResponse | None]:
+            """Parse and validate JSON body, returning SCIM error on failure."""
+            try:
+                body = await request.json()
+            except Exception:
+                error = SCIMError(
+                    status=400,
+                    detail="Invalid JSON in request body",
+                    scim_type=SCIMErrorType.INVALID_SYNTAX,
+                )
+                return {}, JSONResponse(
+                    content=error.to_dict(),
+                    status_code=400,
+                    media_type="application/scim+json",
+                )
+            if not isinstance(body, dict):
+                error = SCIMError(
+                    status=400,
+                    detail="Request body must be a JSON object",
+                    scim_type=SCIMErrorType.INVALID_VALUE,
+                )
+                return {}, JSONResponse(
+                    content=error.to_dict(),
+                    status_code=400,
+                    media_type="application/scim+json",
+                )
+            return body, None
+
         # User endpoints
         @router.get("/Users")
         async def list_users(
@@ -429,7 +457,9 @@ class SCIMServer:
             request: Request,
             _: None = Depends(verify_bearer_token),
         ):
-            body = await request.json()
+            body, err = await parse_json_body(request)
+            if err:
+                return err
             result, status = await self.create_user(body)
             return JSONResponse(
                 content=result, status_code=status, media_type="application/scim+json"
@@ -451,7 +481,9 @@ class SCIMServer:
             request: Request,
             _: None = Depends(verify_bearer_token),
         ):
-            body = await request.json()
+            body, err = await parse_json_body(request)
+            if err:
+                return err
             result, status = await self.replace_user(user_id, body)
             return JSONResponse(
                 content=result, status_code=status, media_type="application/scim+json"
@@ -463,7 +495,9 @@ class SCIMServer:
             request: Request,
             _: None = Depends(verify_bearer_token),
         ):
-            body = await request.json()
+            body, err = await parse_json_body(request)
+            if err:
+                return err
             result, status = await self.patch_user(user_id, body)
             return JSONResponse(
                 content=result, status_code=status, media_type="application/scim+json"
@@ -499,7 +533,9 @@ class SCIMServer:
                 request: Request,
                 _: None = Depends(verify_bearer_token),
             ):
-                body = await request.json()
+                body, err = await parse_json_body(request)
+                if err:
+                    return err
                 result, status = await self.create_group(body)
                 return JSONResponse(
                     content=result, status_code=status, media_type="application/scim+json"
@@ -521,7 +557,9 @@ class SCIMServer:
                 request: Request,
                 _: None = Depends(verify_bearer_token),
             ):
-                body = await request.json()
+                body, err = await parse_json_body(request)
+                if err:
+                    return err
                 result, status = await self.replace_group(group_id, body)
                 return JSONResponse(
                     content=result, status_code=status, media_type="application/scim+json"
@@ -533,7 +571,9 @@ class SCIMServer:
                 request: Request,
                 _: None = Depends(verify_bearer_token),
             ):
-                body = await request.json()
+                body, err = await parse_json_body(request)
+                if err:
+                    return err
                 result, status = await self.patch_group(group_id, body)
                 return JSONResponse(
                     content=result, status_code=status, media_type="application/scim+json"
