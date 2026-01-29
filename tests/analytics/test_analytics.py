@@ -506,8 +506,8 @@ class TestDebateAnalyticsRecordDebate:
 
 class TestDebateAnalyticsRecordAgentActivity:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_record_agent_activity(self, analytics):
@@ -553,8 +553,8 @@ class TestDebateAnalyticsRecordAgentActivity:
 
 class TestDebateAnalyticsRecordElo:
     @pytest.mark.asyncio
-    async def test_record_elo_update(self):
-        analytics = DebateAnalytics()
+    async def test_record_elo_update(self, tmp_db_path):
+        analytics = DebateAnalytics(db_path=tmp_db_path)
         await analytics.record_elo_update("claude", 1650.0, debate_id="d1")
 
         import sqlite3
@@ -569,8 +569,8 @@ class TestDebateAnalyticsRecordElo:
 
 class TestDebateAnalyticsGetDebateStats:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_empty_stats(self, analytics):
@@ -649,8 +649,8 @@ class TestDebateAnalyticsGetDebateStats:
 
 class TestDebateAnalyticsGetAgentPerformance:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_no_data_returns_defaults(self, analytics):
@@ -718,8 +718,8 @@ class TestDebateAnalyticsGetAgentPerformance:
 
 class TestDebateAnalyticsLeaderboard:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_empty_leaderboard(self, analytics):
@@ -805,8 +805,8 @@ class TestDebateAnalyticsLeaderboard:
 
 class TestDebateAnalyticsUsageTrends:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_empty_trends(self, analytics):
@@ -859,8 +859,8 @@ class TestDebateAnalyticsUsageTrends:
 
 class TestDebateAnalyticsCostBreakdown:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_empty_cost_breakdown(self, analytics):
@@ -920,8 +920,8 @@ class TestDebateAnalyticsCostBreakdown:
 
 class TestDebateAnalyticsDashboardSummary:
     @pytest.fixture
-    def analytics(self):
-        return DebateAnalytics()
+    def analytics(self, tmp_db_path):
+        return DebateAnalytics(db_path=tmp_db_path)
 
     @pytest.mark.asyncio
     async def test_empty_dashboard(self, analytics):
