@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import deque
-from functools import lru_cache
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -56,7 +55,6 @@ from aragora.server.metrics import (
     track_debate_outcome,
 )
 from aragora.spectate.stream import SpectatorStream
-from aragora.utils.cache_registry import register_lru_cache
 
 # Extracted sibling modules for hook/bead, memory, and agent selection logic
 from aragora.debate.orchestrator_hooks import (
@@ -84,6 +82,9 @@ from aragora.debate.orchestrator_agents import (
     select_debate_team as _agents_select_debate_team,
     should_terminate_early as _agents_should_terminate_early,
 )
+from aragora.debate.orchestrator_domains import (
+    compute_domain_from_task as _compute_domain_from_task,
+)
 
 # Structured logger for all debate events (JSON-formatted in production)
 logger = get_structured_logger(__name__)
@@ -106,33 +107,6 @@ if TYPE_CHECKING:
     from aragora.reasoning.citations import CitationExtractor
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
     from aragora.types.protocols import EventEmitterProtocol
-
-
-@register_lru_cache
-@lru_cache(maxsize=1024)
-def _compute_domain_from_task(task_lower: str) -> str:
-    """Compute domain from lowercased task string.
-
-    Module-level cached helper to avoid O(n) string matching
-    for repeated task strings across debate instances.
-    """
-    if any(w in task_lower for w in ("security", "hack", "vulnerability", "auth", "encrypt")):
-        return "security"
-    if any(w in task_lower for w in ("performance", "speed", "optimize", "cache", "latency")):
-        return "performance"
-    if any(w in task_lower for w in ("test", "testing", "coverage", "regression")):
-        return "testing"
-    if any(w in task_lower for w in ("design", "architecture", "pattern", "structure")):
-        return "architecture"
-    if any(w in task_lower for w in ("bug", "error", "fix", "crash", "exception")):
-        return "debugging"
-    if any(w in task_lower for w in ("api", "endpoint", "rest", "graphql")):
-        return "api"
-    if any(w in task_lower for w in ("database", "sql", "query", "schema")):
-        return "database"
-    if any(w in task_lower for w in ("ui", "frontend", "react", "css", "layout")):
-        return "frontend"
-    return "general"
 
 
 class Arena:
