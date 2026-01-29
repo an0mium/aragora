@@ -52,6 +52,9 @@ def _make_handler(
     """Build a fake HTTP handler object."""
     handler = SimpleNamespace()
     handler.headers = headers or {}
+    # Add default auth header for tests
+    if "Authorization" not in handler.headers:
+        handler.headers["Authorization"] = "Bearer test-token"
     if content_length > 0:
         handler.headers["Content-Length"] = str(content_length)
     handler.rfile = rfile or BytesIO(b"")
@@ -108,6 +111,25 @@ def _make_debate_record(
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock authentication for all tests."""
+    from aragora.server.auth import auth_config
+
+    # Directly patch the singleton's attributes
+    original_token = auth_config.api_token
+    original_validate = auth_config.validate_token
+
+    auth_config.api_token = "test-token"
+    auth_config.validate_token = lambda t: True
+
+    yield
+
+    # Restore
+    auth_config.api_token = original_token
+    auth_config.validate_token = original_validate
 
 
 @pytest.fixture
@@ -234,10 +256,10 @@ class TestGetTrendingTopics:
         ]
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {"hackernews": MagicMock()}
@@ -261,10 +283,10 @@ class TestGetTrendingTopics:
         http_handler = _make_handler()
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {"hackernews": MagicMock()}
@@ -282,10 +304,10 @@ class TestGetTrendingTopics:
 
         # The method should cap limit at 50
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -307,7 +329,7 @@ class TestGetTrendingTopics:
         ):
             # Simulate ImportError
             with patch(
-                "aragora.server.handlers.features.pulse.PulseManager",
+                "aragora.pulse.ingestor.PulseManager",
                 side_effect=ImportError("Module not found"),
             ):
                 result = pulse_handler._get_trending_topics(10)
@@ -322,10 +344,10 @@ class TestGetTrendingTopics:
         ]
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {"hackernews": MagicMock()}
@@ -355,10 +377,10 @@ class TestSuggestDebateTopic:
         selected_topic = _make_trending_topic("AI Safety", "hackernews", 1000, "tech")
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -379,10 +401,10 @@ class TestSuggestDebateTopic:
         selected_topic = _make_trending_topic("Climate", "reddit", 500, "science")
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -399,10 +421,10 @@ class TestSuggestDebateTopic:
     def test_suggest_topic_no_suitable_topic(self, pulse_handler):
         """Test response when no suitable topic is found."""
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -570,10 +592,10 @@ class TestStartDebateOnTopic:
 
         # Mock to get past module imports
         with (
-            patch("aragora.server.handlers.features.pulse.Arena"),
-            patch("aragora.server.handlers.features.pulse.DebateProtocol"),
-            patch("aragora.server.handlers.features.pulse.Environment"),
-            patch("aragora.server.handlers.features.pulse.get_agents_by_names"),
+            patch("aragora.Arena"),
+            patch("aragora.DebateProtocol"),
+            patch("aragora.Environment"),
+            patch("aragora.agents.get_agents_by_names"),
         ):
             result = pulse_handler._start_debate_on_topic(http_handler)
             body, status = _parse_result(result)
@@ -983,10 +1005,10 @@ class TestErrorHandling:
         pulse_handler._run_async_safely = MagicMock(side_effect=asyncio.TimeoutError("Timeout"))
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -1004,10 +1026,10 @@ class TestErrorHandling:
         )
 
         with (
-            patch("aragora.server.handlers.features.pulse.PulseManager") as mock_manager_cls,
-            patch("aragora.server.handlers.features.pulse.HackerNewsIngestor"),
-            patch("aragora.server.handlers.features.pulse.RedditIngestor"),
-            patch("aragora.server.handlers.features.pulse.TwitterIngestor"),
+            patch("aragora.pulse.ingestor.PulseManager") as mock_manager_cls,
+            patch("aragora.pulse.ingestor.HackerNewsIngestor"),
+            patch("aragora.pulse.ingestor.RedditIngestor"),
+            patch("aragora.pulse.ingestor.TwitterIngestor"),
         ):
             mock_manager = MagicMock()
             mock_manager.ingestors = {}
@@ -1036,7 +1058,7 @@ class TestSingletonFunctions:
 
         with patch.dict("sys.modules", {"aragora.pulse.ingestor": None}):
             with patch(
-                "aragora.server.handlers.features.pulse.PulseManager",
+                "aragora.pulse.ingestor.PulseManager",
                 side_effect=ImportError("Not found"),
             ):
                 result = get_pulse_manager()
@@ -1051,7 +1073,7 @@ class TestSingletonFunctions:
         pulse_module._shared_debate_store = None
 
         with patch(
-            "aragora.server.handlers.features.pulse.ScheduledDebateStore",
+            "aragora.pulse.store.ScheduledDebateStore",
             side_effect=ImportError("Not found"),
         ):
             result = get_scheduled_debate_store()
