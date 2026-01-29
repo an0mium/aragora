@@ -153,6 +153,7 @@ class ApprovalPolicy:
             "*.env*",
             "credentials*",
             "secrets*",
+            "**/core.py",
             "**/core_types.py",
             "**/core/__init__.py",
             "**/__init__.py",

@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 # Default protected files
 DEFAULT_PROTECTED_FILES = [
     "CLAUDE.md",
+    "core.py",
+    "aragora/core.py",
     "aragora/__init__.py",
     "aragora/core/__init__.py",
     "aragora/core_types.py",

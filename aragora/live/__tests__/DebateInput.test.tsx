@@ -33,7 +33,7 @@ jest.mock('../src/context/AuthContext', () => ({
 // Mock config
 jest.mock('../src/config', () => ({
   DEFAULT_AGENTS: 'claude,gemini,gpt4',
-  DEFAULT_ROUNDS: 8,  // 9-round format default
+  DEFAULT_ROUNDS: 9,  // 9-round format default
   DEFAULT_CONSENSUS: 'judge',
   AGENT_DISPLAY_NAMES: {
     claude: 'Claude',
@@ -185,7 +185,7 @@ describe('DebateInput', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate')) {
+        if (url.includes('/api/v1/debates')) {
           return Promise.resolve(
             jsonResponse({
               success: true,
@@ -261,7 +261,7 @@ describe('DebateInput', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate')) {
+        if (url.includes('/api/v1/debates')) {
           return new Promise(() => {}); // Never resolves
         }
         return Promise.resolve(jsonResponse({}));
@@ -291,7 +291,7 @@ describe('DebateInput', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate')) {
+        if (url.includes('/api/v1/debates')) {
           return Promise.resolve(jsonResponse({ error: 'Server error' }, false, 500));
         }
         return Promise.resolve(jsonResponse({}));
@@ -320,7 +320,7 @@ describe('DebateInput', () => {
         if (url.includes('/api/health')) {
           return Promise.resolve(jsonResponse({ status: 'ok' }));
         }
-        if (url.includes('/api/debate')) {
+        if (url.includes('/api/v1/debates')) {
           const error = new TypeError('Failed to fetch');
           return Promise.reject(error);
         }
@@ -342,7 +342,7 @@ describe('DebateInput', () => {
 
       await waitFor(() => {
         expect(onError).toHaveBeenCalledWith(
-          expect.stringContaining('unavailable')
+          expect.stringContaining('Cannot reach API server')
         );
       });
     });

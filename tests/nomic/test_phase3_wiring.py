@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -61,12 +62,13 @@ class TestContextPhaseWithBuilder:
             context_builder=mock_builder,
         )
 
-        with _patch_streaming():
+        # Disable TRUE RLM path so the prepended header is preserved
+        with _patch_streaming(), patch.dict(os.environ, {"ARAGORA_NOMIC_CONTEXT_RLM": "false"}):
             result = await phase.execute()
 
         assert result["success"]
         summary = result["codebase_summary"]
-        # Builder output should be first (prepended)
+        # Builder output should be first (prepended with header)
         assert "CODEBASE STRUCTURE MAP" in summary
         assert "Structured Codebase Map" in summary
         mock_builder.build_debate_context.assert_called_once()
