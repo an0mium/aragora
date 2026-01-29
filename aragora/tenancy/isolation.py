@@ -416,6 +416,9 @@ class TenantDataIsolation:
         """
         Get encryption key for tenant data.
 
+        Uses KMS provider when available for production-grade key management.
+        Falls back to deterministic key generation for development.
+
         Args:
             tenant_id: Tenant ID (uses current context if not provided)
 
@@ -434,12 +437,60 @@ class TenantDataIsolation:
         tid = tenant_id or require_tenant_id()
 
         if tid not in self._encryption_keys:
-            # Generate deterministic key from tenant ID
-            # In production, this would come from a key management service
-            seed = f"aragora_tenant_key_{tid}".encode()
-            self._encryption_keys[tid] = hashlib.sha256(seed).digest()
+            # Try to get key from KMS provider
+            key = self._get_key_from_kms(tid)
+            if key is not None:
+                self._encryption_keys[tid] = key
+            else:
+                # Fallback: Generate deterministic key from tenant ID
+                # WARNING: Only use in development - not cryptographically secure
+                logger.warning(
+                    f"Using deterministic key generation for tenant {tid}. "
+                    "Configure a KMS provider for production use."
+                )
+                seed = f"aragora_tenant_key_{tid}".encode()
+                self._encryption_keys[tid] = hashlib.sha256(seed).digest()
 
         return self._encryption_keys[tid]
+
+    def _get_key_from_kms(self, tenant_id: str) -> Optional[bytes]:
+        """
+        Retrieve tenant encryption key from KMS provider.
+
+        Args:
+            tenant_id: Tenant ID to get key for
+
+        Returns:
+            Encryption key bytes, or None if KMS unavailable
+        """
+        try:
+            from aragora.security.kms_provider import get_kms_provider, LocalKmsProvider
+            import asyncio
+
+            provider = get_kms_provider()
+
+            # Skip KMS for local provider (same as fallback behavior)
+            if isinstance(provider, LocalKmsProvider):
+                return None
+
+            # Get key from KMS (using tenant ID as key identifier)
+            key_id = f"tenant-{tenant_id}"
+
+            # Run async method synchronously if needed
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context - need to use async call
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, provider.get_encryption_key(key_id))
+                    return future.result(timeout=10)
+            else:
+                return loop.run_until_complete(provider.get_encryption_key(key_id))
+
+        except Exception as e:
+            logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
+            return None
 
     def set_encryption_key(self, tenant_id: str, key: bytes) -> None:
         """
@@ -452,6 +503,72 @@ class TenantDataIsolation:
         if len(key) != 32:
             raise ValueError("Encryption key must be 32 bytes")
         self._encryption_keys[tenant_id] = key
+
+    async def get_encryption_key_async(self, tenant_id: Optional[str] = None) -> bytes:
+        """
+        Async version of get_encryption_key for use in async contexts.
+
+        Uses KMS provider when available for production-grade key management.
+
+        Args:
+            tenant_id: Tenant ID (uses current context if not provided)
+
+        Returns:
+            Encryption key bytes
+        """
+        if not self.config.encrypt_at_rest:
+            raise ValueError("Encryption not enabled")
+
+        if not self.config.per_tenant_keys:
+            # Use shared key
+            if "_shared" not in self._encryption_keys:
+                self._encryption_keys["_shared"] = secrets.token_bytes(32)
+            return self._encryption_keys["_shared"]
+
+        tid = tenant_id or require_tenant_id()
+
+        if tid not in self._encryption_keys:
+            # Try to get key from KMS provider
+            key = await self._get_key_from_kms_async(tid)
+            if key is not None:
+                self._encryption_keys[tid] = key
+            else:
+                # Fallback: Generate deterministic key from tenant ID
+                logger.warning(
+                    f"Using deterministic key generation for tenant {tid}. "
+                    "Configure a KMS provider for production use."
+                )
+                seed = f"aragora_tenant_key_{tid}".encode()
+                self._encryption_keys[tid] = hashlib.sha256(seed).digest()
+
+        return self._encryption_keys[tid]
+
+    async def _get_key_from_kms_async(self, tenant_id: str) -> Optional[bytes]:
+        """
+        Async retrieval of tenant encryption key from KMS provider.
+
+        Args:
+            tenant_id: Tenant ID to get key for
+
+        Returns:
+            Encryption key bytes, or None if KMS unavailable
+        """
+        try:
+            from aragora.security.kms_provider import get_kms_provider, LocalKmsProvider
+
+            provider = get_kms_provider()
+
+            # Skip KMS for local provider (same as fallback behavior)
+            if isinstance(provider, LocalKmsProvider):
+                return None
+
+            # Get key from KMS (using tenant ID as key identifier)
+            key_id = f"tenant-{tenant_id}"
+            return await provider.get_encryption_key(key_id)
+
+        except Exception as e:
+            logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
+            return None
 
     def _audit_access(
         self,
