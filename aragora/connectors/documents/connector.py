@@ -15,6 +15,7 @@ from aragora.connectors.base import Connector, Evidence
 from aragora.connectors.documents.parser import (
     DocumentFormat,
     DocumentParser,
+    DocumentTable,
     ParsedDocument,
 )
 from aragora.reasoning.provenance import SourceType
@@ -111,11 +112,14 @@ class DocumentConnector(Connector):
 
         if evidence_type == "chunk" and index < len(doc.chunks):
             chunk = doc.chunks[index]
-            return Evidence(  # type: ignore[call-arg]
+            reliability = self._get_reliability(doc.format)
+            return Evidence(
                 id=evidence_id,
+                source_type=SourceType.DOCUMENT,
+                source_id=doc_id,
                 content=chunk.content,
-                source=self.name,
-                reliability_score=self._get_reliability(doc.format),
+                title=self.name,
+                confidence=reliability,
                 metadata={
                     "document_id": doc_id,
                     "chunk_index": index,
@@ -130,11 +134,14 @@ class DocumentConnector(Connector):
                 content = table.to_markdown()
             else:
                 content = str(table)
-            return Evidence(  # type: ignore[call-arg]
+            reliability = self._get_reliability(doc.format)
+            return Evidence(
                 id=evidence_id,
+                source_type=SourceType.DOCUMENT,
+                source_id=doc_id,
                 content=content,
-                source=self.name,
-                reliability_score=self._get_reliability(doc.format),
+                title=self.name,
+                confidence=reliability,
                 metadata={
                     "document_id": doc_id,
                     "table_index": index,
@@ -208,7 +215,19 @@ class DocumentConnector(Connector):
 
             # Search in tables
             for j, table in enumerate(doc.tables):
-                table_str = str(table.data).lower()  # type: ignore[union-attr]
+                # Handle both DocumentTable and raw list formats
+                if isinstance(table, DocumentTable):
+                    table_data = table.data
+                    table_headers = table.headers
+                    table_page = table.page
+                    table_caption = table.caption
+                else:
+                    table_data = table  # raw List[List[str]]
+                    table_headers = None
+                    table_page = None
+                    table_caption = None
+
+                table_str = str(table_data).lower()
                 term_matches = sum(1 for term in query_terms if term in table_str)
                 if term_matches == 0:
                     continue
@@ -216,7 +235,7 @@ class DocumentConnector(Connector):
                 relevance = term_matches / len(query_terms)
 
                 # Format table as text
-                table_content = self._format_table(table.data, table.headers)  # type: ignore[union-attr]
+                table_content = self._format_table(table_data, table_headers)
 
                 results.append(
                     {
@@ -232,8 +251,8 @@ class DocumentConnector(Connector):
                         "metadata": {
                             "doc_id": doc_id,
                             "table_index": j,
-                            "page": table.page,  # type: ignore[union-attr]
-                            "caption": table.caption,  # type: ignore[union-attr]
+                            "page": table_page,
+                            "caption": table_caption,
                             "filename": doc.filename,
                         },
                     }
@@ -460,7 +479,19 @@ class DocumentEvidence:
 
         # Create snippets from tables
         for j, table in enumerate(doc.tables):
-            table_text = DocumentEvidence._format_table_text(table.data, table.headers)  # type: ignore[union-attr]
+            # Handle both DocumentTable and raw list formats
+            if isinstance(table, DocumentTable):
+                table_data = table.data
+                table_headers = table.headers
+                table_page = table.page
+                table_caption = table.caption
+            else:
+                table_data = table  # raw List[List[str]]
+                table_headers = None
+                table_page = None
+                table_caption = None
+
+            table_text = DocumentEvidence._format_table_text(table_data, table_headers)
             if len(table_text) > max_snippet_length:
                 table_text = table_text[:max_snippet_length] + "..."
 
@@ -474,8 +505,8 @@ class DocumentEvidence:
                 "metadata": {
                     "filename": doc.filename,
                     "format": doc.format.value if doc.format else "unknown",
-                    "page": table.page,  # type: ignore[union-attr]
-                    "caption": table.caption,  # type: ignore[union-attr]
+                    "page": table_page,
+                    "caption": table_caption,
                     "table_index": j,
                     "total_tables": len(doc.tables),
                 },

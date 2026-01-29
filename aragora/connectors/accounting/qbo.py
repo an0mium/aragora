@@ -824,7 +824,9 @@ class QuickBooksConnector:
             raise ValueError(f"{field_name} must be a numeric ID, got: {value!r}")
         return clean_value
 
-    def _validate_pagination(self, limit: int, offset: int, max_limit: int = 1000) -> tuple[int, int]:
+    def _validate_pagination(
+        self, limit: int, offset: int, max_limit: int = 1000
+    ) -> tuple[int, int]:
         """
         Validate and sanitize pagination parameters.
 
@@ -874,7 +876,9 @@ class QuickBooksConnector:
             ValueError: If date_value is not a valid datetime
         """
         if not isinstance(date_value, datetime):
-            raise ValueError(f"{field_name} must be a datetime object, got {type(date_value).__name__}")
+            raise ValueError(
+                f"{field_name} must be a datetime object, got {type(date_value).__name__}"
+            )
         # Format produces only digits and hyphens - safe for query use
         return date_value.strftime("%Y-%m-%d")
 

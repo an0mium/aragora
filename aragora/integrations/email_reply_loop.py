@@ -633,20 +633,20 @@ def parse_raw_email(raw_data: bytes) -> InboundEmail:
                 )
             elif content_type == "text/plain":
                 payload = part.get_payload(decode=True)
-                if payload:
-                    body_plain = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
+                if payload and isinstance(payload, bytes):
+                    body_plain = payload.decode("utf-8", errors="replace")
             elif content_type == "text/html":
                 payload = part.get_payload(decode=True)
-                if payload:
-                    body_html = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
+                if payload and isinstance(payload, bytes):
+                    body_html = payload.decode("utf-8", errors="replace")
     else:
         content_type = msg.get_content_type()
         payload = msg.get_payload(decode=True)
-        if payload:
+        if payload and isinstance(payload, bytes):
             if content_type == "text/html":
-                body_html = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
+                body_html = payload.decode("utf-8", errors="replace")
             else:
-                body_plain = payload.decode("utf-8", errors="replace")  # type: ignore[union-attr]
+                body_plain = payload.decode("utf-8", errors="replace")
 
     # Parse From header
     from_header = msg.get("From", "")

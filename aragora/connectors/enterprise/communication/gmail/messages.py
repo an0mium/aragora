@@ -13,7 +13,8 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from email.utils import parseaddr
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING
+from email.message import Message
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, TYPE_CHECKING, Union
 
 from aragora.connectors.enterprise.base import SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
@@ -349,29 +350,28 @@ class GmailMessagesMixin(GmailBaseMethods):
 
         message_ids, _ = await self.list_messages(query=query, max_results=limit)
 
+        # Batch fetch messages to avoid N+1 queries
+        messages = await self.get_messages(message_ids[:limit], format="metadata")
+
         results = []
-        for msg_id in message_ids[:limit]:
-            try:
-                msg = await self.get_message(msg_id, format="metadata")
-                results.append(
-                    Evidence(
-                        id=f"gmail-{msg.id}",
-                        source_type=self.source_type,
-                        source_id=msg.id,
-                        content=msg.snippet,
-                        title=msg.subject,
-                        url=f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
-                        author=msg.from_address,
-                        confidence=0.8,
-                        metadata={
-                            "thread_id": msg.thread_id,
-                            "date": msg.date.isoformat() if msg.date else None,
-                            "labels": msg.labels,
-                        },
-                    )
+        for msg in messages:
+            results.append(
+                Evidence(
+                    id=f"gmail-{msg.id}",
+                    source_type=self.source_type,
+                    source_id=msg.id,
+                    content=msg.snippet,
+                    title=msg.subject,
+                    url=f"https://mail.google.com/mail/u/0/#inbox/{msg.id}",
+                    author=msg.from_address,
+                    confidence=0.8,
+                    metadata={
+                        "thread_id": msg.thread_id,
+                        "date": msg.date.isoformat() if msg.date else None,
+                        "labels": msg.labels,
+                    },
                 )
-            except Exception as e:
-                logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+            )
 
         return results
 
@@ -567,7 +567,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             message.attach(MIMEText(body, "plain"))
             message.attach(MIMEText(html_body, "html"))
         else:
-            message = MIMEText(body, "plain")  # type: ignore[assignment]
+            message = MIMEText(body, "plain")
 
         message["To"] = ", ".join(to)
         message["Subject"] = subject
@@ -671,7 +671,7 @@ class GmailMessagesMixin(GmailBaseMethods):
             message.attach(MIMEText(body, "plain"))
             message.attach(MIMEText(html_body, "html"))
         else:
-            message = MIMEText(body, "plain")  # type: ignore[assignment]
+            message = MIMEText(body, "plain")
 
         message["To"] = ", ".join(to)
         message["Subject"] = subject
@@ -877,13 +877,8 @@ class GmailMessagesMixin(GmailBaseMethods):
             max_results=max_messages,
         )
 
-        messages: List[EmailMessage] = []
-        for msg_id in message_ids[:max_messages]:
-            try:
-                msg = await self.get_message(msg_id)
-                messages.append(msg)
-            except Exception as e:
-                logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
+        # Batch fetch messages to avoid N+1 queries
+        messages = await self.get_messages(message_ids[:max_messages])
 
         # Prioritize and return
         return await self.sync_with_prioritization(messages)
