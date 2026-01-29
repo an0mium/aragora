@@ -271,7 +271,10 @@ class TestRateLimiterBypass:
 
     def test_bypasses_when_disabled(self, monkeypatch):
         """Should bypass rate limiting when globally disabled."""
-        import aragora.server.handlers.utils.rate_limit as rate_limit_module
+        from importlib import import_module
+
+        # Need to use import_module because the package __init__ exports a function
+        rate_limit_module = import_module("aragora.server.handlers.utils.rate_limit")
 
         monkeypatch.setattr(rate_limit_module, "RATE_LIMITING_DISABLED", True)
 

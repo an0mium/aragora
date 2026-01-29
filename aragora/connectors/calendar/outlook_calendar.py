@@ -486,7 +486,8 @@ class OutlookCalendarConnector(EnterpriseConnector):
             result = await _make_request()
             self._circuit_breaker.record_success()
             return result
-        except Exception:
+        except Exception as e:
+            logger.warning(f"API request failed, recording circuit breaker failure: {e}")
             self._circuit_breaker.record_failure()
             raise
 

@@ -762,7 +762,8 @@ class IMessageConnector(ChatPlatformConnector):
                     display_name=handle.get("firstName") or user_id,
                     metadata=handle,
                 )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to get user info for {user_id}, returning default: {e}")
             return ChatUser(
                 id=user_id,
                 platform="imessage",

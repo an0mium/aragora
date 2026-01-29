@@ -51,7 +51,9 @@ except ImportError:
     HANDLER_AVAILABLE = False
     ReceiptDeliveryHandler = None
 
-pytestmark = pytest.mark.skipif(not HANDLER_AVAILABLE, reason="ReceiptDeliveryHandler not available")
+pytestmark = pytest.mark.skipif(
+    not HANDLER_AVAILABLE, reason="ReceiptDeliveryHandler not available"
+)
 
 
 # ===========================================================================

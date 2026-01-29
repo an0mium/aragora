@@ -319,9 +319,7 @@ class TestSearchSkills:
     @pytest.mark.asyncio
     async def test_search_success(self, handler):
         """Test successful skill search."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._search_skills({"q": "test"})
@@ -334,9 +332,7 @@ class TestSearchSkills:
     @pytest.mark.asyncio
     async def test_search_with_filters(self, handler):
         """Test search with category and tier filters."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._search_skills(
@@ -353,9 +349,7 @@ class TestSearchSkills:
     @pytest.mark.asyncio
     async def test_search_marketplace_unavailable(self, handler):
         """Test search when marketplace not available."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.side_effect = ImportError("Not available")
 
             result = await handler._search_skills({})
@@ -374,9 +368,7 @@ class TestGetSkill:
     @pytest.mark.asyncio
     async def test_get_skill_success(self, handler):
         """Test successful skill retrieval."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._get_skill("skill-123")
@@ -388,9 +380,7 @@ class TestGetSkill:
     @pytest.mark.asyncio
     async def test_get_skill_not_found(self, handler):
         """Test skill not found."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._get_skill("nonexistent")
@@ -409,9 +399,7 @@ class TestGetVersions:
     @pytest.mark.asyncio
     async def test_get_versions_success(self, handler):
         """Test successful version listing."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._get_versions("skill-123")
@@ -433,9 +421,7 @@ class TestGetRatings:
     @pytest.mark.asyncio
     async def test_get_ratings_success(self, handler):
         """Test successful ratings retrieval."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._get_ratings("skill-123", {})
@@ -478,9 +464,7 @@ class TestInstallSkill:
             mock_installer_cls.return_value = MockInstaller()
 
             auth_context = {"user_id": "user-123", "tenant_id": "tenant-1"}
-            result = await handler._install_skill(
-                "skill-123", {"version": "1.1.0"}, auth_context
-            )
+            result = await handler._install_skill("skill-123", {"version": "1.1.0"}, auth_context)
 
             assert result.status_code == 200
 
@@ -520,9 +504,7 @@ class TestRateSkill:
     @pytest.mark.asyncio
     async def test_rate_success(self, handler):
         """Test successful skill rating."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             auth_context = {"user_id": "user-123"}
@@ -586,9 +568,7 @@ class TestGetStats:
     @pytest.mark.asyncio
     async def test_get_stats_success(self, handler):
         """Test successful stats retrieval."""
-        with patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get:
             mock_get.return_value = MockMarketplace()
 
             result = await handler._get_stats()
@@ -673,9 +653,10 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_search_allows_anonymous(self, handler):
         """Test search allows anonymous access."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get,
+        ):
             mock_auth.return_value = {}
             mock_get.return_value = MockMarketplace()
 
@@ -691,9 +672,10 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_stats_allows_anonymous(self, handler):
         """Test stats allows anonymous access."""
-        with patch.object(handler, "get_auth_context") as mock_auth, patch(
-            "aragora.server.handlers.skill_marketplace.get_marketplace"
-        ) as mock_get:
+        with (
+            patch.object(handler, "get_auth_context") as mock_auth,
+            patch("aragora.server.handlers.skill_marketplace.get_marketplace") as mock_get,
+        ):
             mock_auth.return_value = {}
             mock_get.return_value = MockMarketplace()
 

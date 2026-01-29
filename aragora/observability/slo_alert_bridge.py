@@ -224,6 +224,8 @@ class SLOAlertBridge:
                 incident_key=violation.incident_key,
             )
 
+            # Client is guaranteed to be non-None after the above assignment
+            assert self._pagerduty_client is not None
             incident = await self._pagerduty_client.create_incident(request)
             logger.info(f"Created PagerDuty incident {incident.id} for {violation.operation}")
             return incident.id
