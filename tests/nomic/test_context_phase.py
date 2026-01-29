@@ -118,6 +118,36 @@ class TestContextPhaseExecution:
             # Should still return a result using fallback
             assert result is not None
 
+    @pytest.mark.asyncio
+    async def test_run_uses_context_builder_when_enabled(
+        self, mock_aragora_path, mock_claude_agent, mock_codex_agent, mock_log_fn, monkeypatch
+    ):
+        """Should use the provided context builder when RLM context is enabled."""
+
+        class DummyBuilder:
+            async def build_debate_context(self):
+                return "RLM MAP"
+
+            async def build_rlm_context(self):
+                return object()
+
+        monkeypatch.setenv("ARAGORA_NOMIC_CONTEXT_RLM", "true")
+
+        phase = ContextPhase(
+            aragora_path=mock_aragora_path,
+            claude_agent=mock_claude_agent,
+            codex_agent=mock_codex_agent,
+            log_fn=mock_log_fn,
+            context_builder=DummyBuilder(),
+        )
+
+        with patch.object(phase, "_gather_with_agent", new_callable=AsyncMock) as mock_gather:
+            mock_gather.return_value = ("claude", "Claude Code", "Context gathered")
+
+            result = await phase.execute()
+
+        assert result["codebase_summary"] == "RLM MAP"
+
 
 class TestContextPhaseMetrics:
     """Tests for context phase metrics recording."""
