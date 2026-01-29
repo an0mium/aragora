@@ -112,6 +112,10 @@ interface AuthClientInterface {
     providers: Array<{ type: string; name: string; enabled: boolean }>;
     sso_enabled: boolean;
   }>;
+  setupOrganization(request: { name: string; slug?: string }): Promise<{ organization: import('../types').Tenant }>;
+  inviteTeamMember(request: { email: string; role?: string }): Promise<{ invite_token: string; invite_url: string; expires_in: number }>;
+  checkInvite(token: string): Promise<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }>;
+  acceptInvite(token: string): Promise<{ organization_id: string; role: string }>;
 }
 
 /**
@@ -356,5 +360,33 @@ export class AuthAPI {
     sso_enabled: boolean;
   }> {
     return this.client.listSSOProviders();
+  }
+
+  /**
+   * Setup a new organization after registration.
+   */
+  async setupOrganization(request: { name: string; slug?: string }): Promise<{ organization: import('../types').Tenant }> {
+    return this.client.setupOrganization(request);
+  }
+
+  /**
+   * Invite a team member to the organization.
+   */
+  async inviteTeamMember(request: { email: string; role?: string }): Promise<{ invite_token: string; invite_url: string; expires_in: number }> {
+    return this.client.inviteTeamMember(request);
+  }
+
+  /**
+   * Check if an invite token is valid.
+   */
+  async checkInvite(token: string): Promise<{ valid: boolean; email: string; organization_id: string; role: string; expires_at: number }> {
+    return this.client.checkInvite(token);
+  }
+
+  /**
+   * Accept an organization invite.
+   */
+  async acceptInvite(token: string): Promise<{ organization_id: string; role: string }> {
+    return this.client.acceptInvite(token);
   }
 }

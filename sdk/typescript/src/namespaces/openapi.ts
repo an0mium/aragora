@@ -3734,8 +3734,8 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/probes/run', { body, params });
   }
 
-  async requestGetApiV1ProvenanceByParamClaimsByParamSupport(param: string, param: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', `/api/v1/provenance/${encodeURIComponent(param)}/claims/${encodeURIComponent(param)}/support`, { params });
+  async requestGetApiV1ProvenanceByParamClaimsByParamSupport(provenanceId: string, claimId: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/provenance/${encodeURIComponent(provenanceId)}/claims/${encodeURIComponent(claimId)}/support`, { params });
   }
 
   async requestPatchApiV1PulseAnalytics(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -4270,8 +4270,8 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/matches`, { body, params });
   }
 
-  async requestPostApiV1TournamentsByParamMatchesByParamResult(param: string, param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/matches/${encodeURIComponent(param)}/result`, { body, params });
+  async requestPostApiV1TournamentsByParamMatchesByParamResult(tournamentId: string, matchId: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/result`, { body, params });
   }
 
   async requestGetApiV1TrainingExportDpo(params?: Record<string, unknown>): Promise<unknown> {
@@ -4582,11 +4582,11 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/workflow/patterns/${encodeURIComponent(pattern_id)}/instantiate`, { body, params });
   }
 
-  async requestGetApiV1WorkflowTemplates(params?: Record<string, unknown>): Promise<unknown> {
+  async requestGetApiV1WorkflowSlashTemplates(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/workflow/templates', { params });
   }
 
-  async requestGetApiV1WorkflowTemplatesByTemplateId(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
+  async requestGetApiV1WorkflowSlashTemplatesByTemplateId(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/workflow/templates/${encodeURIComponent(template_id)}`, { params });
   }
 
