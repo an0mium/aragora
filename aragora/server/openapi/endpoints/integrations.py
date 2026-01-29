@@ -751,4 +751,236 @@ INTEGRATION_ENDPOINTS = {
             },
         },
     },
+    # OAuth Install/Callback endpoints for platform integrations
+    "/api/integrations/slack/install": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Start Slack OAuth installation",
+            "description": "Redirects to Slack OAuth authorization page to install the app in a workspace. Requires connectors.authorize permission.",
+            "operationId": "installSlackIntegration",
+            "parameters": [
+                {
+                    "name": "redirect_url",
+                    "in": "query",
+                    "description": "URL to redirect after OAuth completes",
+                    "schema": {"type": "string", "format": "uri"},
+                }
+            ],
+            "responses": {
+                "302": {"description": "Redirect to Slack OAuth"},
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/slack/callback": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Handle Slack OAuth callback",
+            "description": "Handles the OAuth callback from Slack after user authorization. Exchanges code for access token and stores workspace credentials.",
+            "operationId": "slackOAuthCallback",
+            "parameters": [
+                {
+                    "name": "code",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth authorization code from Slack",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "state",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth state parameter for CSRF protection",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "302": {"description": "Redirect to success page"},
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/slack/uninstall": {
+        "post": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Handle Slack app uninstall webhook",
+            "description": "Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.",
+            "operationId": "slackUninstallWebhook",
+            "responses": {
+                "200": _response("Uninstall acknowledged"),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/slack/preview": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Preview Slack OAuth permissions",
+            "description": "Returns a detailed preview of OAuth scopes and permissions that will be requested.",
+            "operationId": "previewSlackOAuth",
+            "responses": {
+                "200": _response(
+                    "OAuth scope preview",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "scopes": {"type": "array", "items": {"type": "object"}},
+                            "install_url": {"type": "string", "format": "uri"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/slack/workspaces": {
+        "get": {
+            "tags": ["Integrations"],
+            "summary": "List connected Slack workspaces",
+            "description": "Returns all Slack workspaces connected to the current organization.",
+            "operationId": "listSlackWorkspaces",
+            "responses": {
+                "200": _response(
+                    "List of connected workspaces",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "workspaces": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "workspace_id": {"type": "string"},
+                                        "workspace_name": {"type": "string"},
+                                        "connected_at": {"type": "number"},
+                                        "status": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    # Discord OAuth endpoints
+    "/api/integrations/discord/install": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Start Discord OAuth installation",
+            "description": "Redirects to Discord OAuth authorization page to add the bot to a server.",
+            "operationId": "installDiscordIntegration",
+            "responses": {
+                "302": {"description": "Redirect to Discord OAuth"},
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/discord/callback": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Handle Discord OAuth callback",
+            "description": "Handles the OAuth callback from Discord after user authorization.",
+            "operationId": "discordOAuthCallback",
+            "parameters": [
+                {
+                    "name": "code",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth authorization code",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "state",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth state parameter",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "302": {"description": "Redirect to success page"},
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/discord/uninstall": {
+        "post": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Handle Discord bot removal",
+            "description": "Called when bot is removed from a Discord server.",
+            "operationId": "discordUninstallWebhook",
+            "responses": {
+                "200": _response("Uninstall acknowledged"),
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    # Teams OAuth endpoints
+    "/api/integrations/teams/install": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Start Microsoft Teams installation",
+            "description": "Redirects to Microsoft OAuth authorization page to install the Teams app.",
+            "operationId": "installTeamsIntegration",
+            "responses": {
+                "302": {"description": "Redirect to Microsoft OAuth"},
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/teams/callback": {
+        "get": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Handle Teams OAuth callback",
+            "description": "Handles the OAuth callback from Microsoft after user authorization.",
+            "operationId": "teamsOAuthCallback",
+            "parameters": [
+                {
+                    "name": "code",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth authorization code",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "state",
+                    "in": "query",
+                    "required": True,
+                    "description": "OAuth state parameter",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "302": {"description": "Redirect to success page"},
+                "400": STANDARD_ERRORS["400"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/integrations/teams/refresh": {
+        "post": {
+            "tags": ["Integrations", "OAuth"],
+            "summary": "Refresh Teams OAuth token",
+            "description": "Refresh the OAuth token for a Teams integration.",
+            "operationId": "refreshTeamsToken",
+            "responses": {
+                "200": _response("Token refreshed"),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
 }

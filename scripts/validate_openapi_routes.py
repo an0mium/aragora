@@ -96,12 +96,22 @@ def normalize_route(route: str) -> str:
     Returns:
         Normalized route for comparison.
     """
+    import re
+
     # Strip trailing slash
     route = route.rstrip("/")
 
     # Normalize version prefix
     if route.startswith("/api/") and not route.startswith("/api/v"):
         route = route.replace("/api/", "/api/v1/", 1)
+
+    # Convert wildcard * to generic {param} for comparison
+    # This matches both /debates/* and /debates/{id}
+    route = re.sub(r"/\*(/|$)", r"/{param}\1", route)
+
+    # Also normalize common OpenAPI param names to generic {param}
+    # so /debates/{id} matches /debates/{param}
+    route = re.sub(r"/\{[^}]+\}", "/{param}", route)
 
     return route
 
