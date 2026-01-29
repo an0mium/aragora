@@ -3,9 +3,13 @@
 Deployment diagnostics and production readiness checklist.
 
 Provides:
-- /api/diagnostics - Full deployment validation
+- /api/diagnostics - Full deployment validation (requires admin:diagnostics)
 - /api/diagnostics/deployment - Same as above
 - Production readiness checklist generation
+
+Security: All endpoints require admin:diagnostics permission as they expose
+sensitive deployment configuration including API key availability, database
+connectivity details, and security configuration status.
 """
 
 from __future__ import annotations
@@ -17,12 +21,58 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
-from ...base import HandlerResult, json_response
+from ...base import HandlerResult, json_response, error_response
 
 logger = logging.getLogger(__name__)
 
+
+def _check_diagnostics_permission(handler) -> HandlerResult | None:
+    """Check admin:diagnostics permission for diagnostics endpoints.
+
+    This endpoint exposes sensitive deployment information and must be
+    protected with proper RBAC checks.
+
+    Returns:
+        None if authorized, error HandlerResult if not authorized.
+    """
+    from aragora.server.auth import auth_config
+    from aragora.billing.jwt_auth import extract_user_from_request
+
+    # If auth is disabled globally, allow access (development mode)
+    if not auth_config.enabled:
+        return None
+
+    # Extract user context from request
+    user_ctx = extract_user_from_request(handler, None)
+    if not user_ctx.is_authenticated:
+        return error_response("Authentication required for diagnostics endpoint", 401)
+
+    # Check for admin:diagnostics permission
+    try:
+        from aragora.rbac.checker import get_permission_checker
+
+        checker = get_permission_checker()
+        if checker and hasattr(user_ctx, "user_id"):
+            from aragora.rbac.models import AuthorizationContext
+
+            auth_ctx = AuthorizationContext(
+                user_id=user_ctx.user_id,
+                org_id=getattr(user_ctx, "org_id", None),
+                roles=getattr(user_ctx, "roles", []),
+            )
+            if not checker.has_permission(auth_ctx, "admin:diagnostics"):
+                return error_response("Permission denied: admin:diagnostics required", 403)
+    except ImportError:
+        # RBAC module not available, fall back to auth-only check
+        logger.debug("RBAC module not available, allowing authenticated access")
+
+    return None
+
+
 def deployment_diagnostics(handler) -> HandlerResult:
     """Comprehensive deployment diagnostics endpoint.
+
+    Requires: admin:diagnostics permission
 
     Runs the full deployment validator and returns detailed results
     including all production readiness checks:
@@ -45,6 +95,10 @@ def deployment_diagnostics(handler) -> HandlerResult:
     Returns:
         JSON response with comprehensive deployment validation results
     """
+    # Check permission before exposing sensitive deployment info
+    permission_error = _check_diagnostics_permission(handler)
+    if permission_error:
+        return permission_error
 
     start_time = time.time()
 
@@ -140,6 +194,7 @@ def deployment_diagnostics(handler) -> HandlerResult:
             },
             status=500,
         )
+
 
 def _generate_checklist(result) -> dict[str, Any]:
     """Generate a production readiness checklist from validation results.

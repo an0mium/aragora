@@ -54,6 +54,7 @@ CACHE_TTL_HISTORY = 60  # History queries
 # Uses introspection.export_history permission from RBAC defaults
 HISTORY_PERMISSION = "introspection:export_history"
 
+
 class SystemHandler(BaseHandler):
     """Handler for system-related endpoints."""
 
@@ -140,11 +141,12 @@ class SystemHandler(BaseHandler):
         """
         path = strip_version_prefix(path)
         # Simple routes with no parameters
+        # All routes now pass handler for RBAC permission checks
         simple_routes = {
             "/api/debug/test": lambda: self._handle_debug_test(handler),
             "/api/auth/stats": lambda: self._get_auth_stats(handler),
-            "/metrics": self._get_prometheus_metrics,
-            "/api/circuit-breakers": self._get_circuit_breaker_metrics,
+            "/metrics": lambda: self._get_prometheus_metrics(handler),
+            "/api/circuit-breakers": lambda: self._get_circuit_breaker_metrics(handler),
         }
 
         if path in simple_routes:
@@ -160,9 +162,13 @@ class SystemHandler(BaseHandler):
 
         return None
 
-    def _handle_debug_test(self, handler) -> HandlerResult:
-        """Handle debug test endpoint."""
-        method = getattr(handler, "command", "GET")
+    @require_permission("admin:debug")
+    def _handle_debug_test(self, handler=None, user=None) -> HandlerResult:
+        """Handle debug test endpoint.
+
+        Requires admin:debug permission.
+        """
+        method = getattr(handler, "command", "GET") if handler else "GET"
         return json_response({"status": "ok", "method": method, "message": "Modular handler works"})
 
     @require_permission("admin:system")
@@ -468,8 +474,11 @@ class SystemHandler(BaseHandler):
             }
         )
 
-    def _get_prometheus_metrics(self) -> HandlerResult:
+    @require_permission("monitoring:metrics")
+    def _get_prometheus_metrics(self, handler=None, user=None) -> HandlerResult:
         """Get Prometheus-format metrics.
+
+        Requires monitoring:metrics permission.
 
         Exposes metrics for:
         - Subscription events and active subscriptions by tier
@@ -495,8 +504,11 @@ class SystemHandler(BaseHandler):
             logger.exception(f"Metrics generation failed: {e}")
             return error_response(safe_error_message(e, "metrics"), 500)
 
-    def _get_circuit_breaker_metrics(self) -> HandlerResult:
+    @require_permission("monitoring:resilience")
+    def _get_circuit_breaker_metrics(self, handler=None, user=None) -> HandlerResult:
         """Get circuit breaker metrics for monitoring.
+
+        Requires monitoring:resilience permission.
 
         Returns comprehensive metrics for all registered circuit breakers:
         - summary: Aggregate counts (total, open, closed, half-open)
