@@ -3918,7 +3918,7 @@
                   "summary": "Simple debate",
                   "value": {
                     "task": "Should we use TypeScript for our next project?",
-                    "rounds": 3
+                    "rounds": 9
                   }
                 },
                 "with_agents": {
@@ -3930,8 +3930,8 @@
                       "gpt-4",
                       "gemini"
                     ],
-                    "rounds": 3,
-                    "consensus": "majority"
+                    "rounds": 9,
+                    "consensus": "judge"
                   }
                 },
                 "with_context": {
@@ -3986,7 +3986,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -4235,7 +4235,7 @@
                   "summary": "Simple debate",
                   "value": {
                     "task": "Should we use TypeScript for our next project?",
-                    "rounds": 3
+                    "rounds": 9
                   }
                 },
                 "with_agents": {
@@ -4247,8 +4247,8 @@
                       "gpt-4",
                       "gemini"
                     ],
-                    "rounds": 3,
-                    "consensus": "majority"
+                    "rounds": 9,
+                    "consensus": "judge"
                   }
                 },
                 "with_context": {
@@ -4303,7 +4303,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -4453,7 +4453,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -4557,7 +4557,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -5265,7 +5265,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -5348,7 +5348,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -9979,7 +9979,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10088,7 +10088,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10212,7 +10212,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10315,7 +10315,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10399,7 +10399,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10508,7 +10508,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10624,7 +10624,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10719,7 +10719,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10825,7 +10825,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -10940,7 +10940,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -11040,7 +11040,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -11164,7 +11164,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -11526,7 +11526,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -11758,7 +11758,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -12360,7 +12360,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -12514,7 +12514,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -12993,7 +12993,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -13178,7 +13178,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -13416,7 +13416,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -13634,7 +13634,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14110,7 +14110,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14220,7 +14220,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14321,7 +14321,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14424,7 +14424,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14816,7 +14816,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -14966,7 +14966,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -15395,7 +15395,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -15580,7 +15580,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -15711,7 +15711,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -15911,7 +15911,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -16061,7 +16061,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -16189,7 +16189,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -16731,7 +16731,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -16862,7 +16862,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -17072,7 +17072,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -17216,7 +17216,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -18245,7 +18245,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -18342,7 +18342,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -19988,7 +19988,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -20163,7 +20163,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -20484,7 +20484,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -20613,7 +20613,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -20763,7 +20763,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -21089,7 +21089,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -21809,7 +21809,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -21961,7 +21961,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -22113,7 +22113,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -22265,7 +22265,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -22531,7 +22531,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -23218,7 +23218,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -23811,7 +23811,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -24787,7 +24787,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25059,7 +25059,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25163,7 +25163,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25267,7 +25267,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25456,7 +25456,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25728,7 +25728,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25832,7 +25832,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -25936,7 +25936,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -26127,7 +26127,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -26765,7 +26765,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -26859,7 +26859,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -26953,7 +26953,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -27126,7 +27126,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -27236,7 +27236,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -27523,7 +27523,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -28125,7 +28125,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -28219,7 +28219,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -28313,7 +28313,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -28485,7 +28485,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -28832,7 +28832,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -29565,7 +29565,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -32687,7 +32687,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -32815,7 +32815,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -33401,7 +33401,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -33720,7 +33720,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -33896,7 +33896,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -34104,7 +34104,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -34293,7 +34293,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -38517,7 +38517,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -39322,7 +39322,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -39535,7 +39535,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -39784,7 +39784,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -40373,7 +40373,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -40692,7 +40692,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -41177,7 +41177,7 @@
                   "invalid_value": {
                     "summary": "Invalid field value",
                     "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
                       "code": "INVALID_VALUE",
                       "field": "rounds",
                       "trace_id": "req_abc123xyz"
@@ -59633,6 +59633,35 @@
           }
         }
       },
+      "HealthCheck": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "response_time_ms": {
+            "type": "number"
+          }
+        }
+      },
       "DebateStatus": {
         "type": "string",
         "enum": [
@@ -59715,10 +59744,10 @@
           "rounds": {
             "type": "integer",
             "description": "Maximum number of debate rounds",
-            "default": 3,
+            "default": 9,
             "minimum": 1,
-            "maximum": 10,
-            "example": 3
+            "maximum": 12,
+            "example": 9
           },
           "consensus": {
             "type": "string",
@@ -59726,11 +59755,14 @@
             "enum": [
               "majority",
               "unanimous",
+              "supermajority",
               "weighted",
-              "semantic"
+              "hybrid",
+              "judge",
+              "none"
             ],
-            "default": "majority",
-            "example": "majority"
+            "default": "judge",
+            "example": "judge"
           },
           "context": {
             "type": "string",
@@ -59792,8 +59824,8 @@
             "gpt-4",
             "gemini"
           ],
-          "rounds": 3,
-          "consensus": "majority",
+          "rounds": 9,
+          "consensus": "judge",
           "context": "We have 1M daily active users and need 99.9% uptime."
         }
       },
@@ -59967,32 +59999,26 @@
           }
         }
       },
-      "HealthCheck": {
+      "Round": {
         "type": "object",
         "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "unhealthy"
-            ]
+          "round_number": {
+            "type": "integer",
+            "description": "Round number (1-indexed)"
           },
-          "version": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "checks": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object"
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
             }
           },
-          "response_time_ms": {
-            "type": "number"
+          "votes": {
+            "type": "object",
+            "description": "Agent votes for this round"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Round summary"
           }
         }
       },
@@ -60300,6 +60326,28 @@
           }
         }
       },
+      "DebateSummary": {
+        "type": "object",
+        "description": "Summary of a debate decision",
+        "properties": {
+          "debate_id": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "consensus_reached": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "debate_id",
+          "summary"
+        ]
+      },
       "BeliefCrux": {
         "type": "object",
         "description": "A crux point of disagreement between agents",
@@ -60502,29 +60550,6 @@
         "required": [
           "providers"
         ]
-      },
-      "Round": {
-        "type": "object",
-        "properties": {
-          "round_number": {
-            "type": "integer",
-            "description": "Round number (1-indexed)"
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Message"
-            }
-          },
-          "votes": {
-            "type": "object",
-            "description": "Agent votes for this round"
-          },
-          "summary": {
-            "type": "string",
-            "description": "Round summary"
-          }
-        }
       },
       "Workspace": {
         "type": "object",
@@ -61422,28 +61447,6 @@
           "counterfactuals"
         ]
       },
-      "DebateSummary": {
-        "type": "object",
-        "description": "Summary of a debate decision",
-        "properties": {
-          "debate_id": {
-            "type": "string"
-          },
-          "summary": {
-            "type": "string"
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "consensus_reached": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "debate_id",
-          "summary"
-        ]
-      },
       "ExplainabilityBatch": {
         "type": "object",
         "description": "Batch explainability job creation response",
@@ -61921,6 +61924,91 @@
           }
         }
       },
+      "AgentRegistration": {
+        "type": "object",
+        "description": "Agent registration data",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskStatus": {
+        "type": "object",
+        "description": "Task status record",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "number"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "result": {
+            "type": "object",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PolicyEvaluation": {
+        "type": "object",
+        "description": "Policy evaluation result",
+        "properties": {
+          "policy_id": {
+            "type": "string"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "conditions_met": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "VulnerabilityReference": {
         "type": "object",
         "properties": {
@@ -62346,6 +62434,255 @@
             "type": "boolean"
           },
           "analyses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseDependencyAnalysisRequest": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "include_dev": {
+            "type": "boolean"
+          },
+          "ecosystems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "CodebaseDependencyAnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "analysis_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseDependencyScanRequest": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "severity_threshold": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "CodebaseDependencyScanResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scan_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseLicenseCheckRequest": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "allowed_licenses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blocked_licenses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "CodebaseLicenseCheckResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "check_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseSBOMRequest": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "spdx",
+              "cyclonedx"
+            ]
+          },
+          "include_dev": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "CodebaseSBOMResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "sbom_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          }
+        }
+      },
+      "CodebaseSecretsScanRequest": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "include_history": {
+            "type": "boolean"
+          },
+          "patterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "repository"
+        ]
+      },
+      "CodebaseSecretsScanStartResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scan_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "include_history": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CodebaseSecretsScanResultResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scan_id": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseSecretsListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "secrets": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "CodebaseSecretsScanListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "scans": {
             "type": "array",
             "items": {
               "type": "object"
@@ -63204,6 +63541,414 @@
           "success"
         ]
       },
+      "BudgetPeriod": {
+        "type": "string",
+        "description": "Budget period type",
+        "enum": [
+          "daily",
+          "weekly",
+          "monthly",
+          "quarterly",
+          "annual",
+          "unlimited"
+        ]
+      },
+      "BudgetStatus": {
+        "type": "string",
+        "description": "Budget status",
+        "enum": [
+          "active",
+          "warning",
+          "critical",
+          "exceeded",
+          "suspended",
+          "paused",
+          "closed"
+        ]
+      },
+      "BudgetAction": {
+        "type": "string",
+        "description": "Action when budget threshold is reached",
+        "enum": [
+          "notify",
+          "warn",
+          "soft_limit",
+          "hard_limit",
+          "suspend"
+        ]
+      },
+      "BudgetThreshold": {
+        "type": "object",
+        "description": "Budget alert threshold configuration",
+        "properties": {
+          "percentage": {
+            "type": "number",
+            "description": "Threshold percentage (0.0 - 1.0)",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "action": {
+            "$ref": "#/components/schemas/BudgetAction"
+          }
+        },
+        "required": [
+          "percentage",
+          "action"
+        ]
+      },
+      "Budget": {
+        "type": "object",
+        "description": "Budget configuration",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "limit_usd": {
+            "type": "number"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BudgetStatus"
+          },
+          "current_spend_usd": {
+            "type": "number"
+          },
+          "current_period_start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_period_end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetThreshold"
+            }
+          },
+          "scope": {
+            "type": "object"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "name",
+          "limit_usd",
+          "period",
+          "status"
+        ]
+      },
+      "BudgetCreateRequest": {
+        "type": "object",
+        "description": "Request to create a budget",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "limit_usd": {
+            "type": "number"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod"
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetThreshold"
+            }
+          },
+          "scope": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "limit_usd",
+          "period"
+        ]
+      },
+      "BudgetUpdateRequest": {
+        "type": "object",
+        "description": "Request to update a budget",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "limit_usd": {
+            "type": "number"
+          },
+          "period": {
+            "$ref": "#/components/schemas/BudgetPeriod"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BudgetStatus"
+          },
+          "thresholds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetThreshold"
+            }
+          }
+        }
+      },
+      "BudgetListResponse": {
+        "type": "object",
+        "description": "Response containing list of budgets",
+        "properties": {
+          "budgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Budget"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "budgets",
+          "total"
+        ]
+      },
+      "BudgetSummary": {
+        "type": "object",
+        "description": "Summary of budget status across workspace",
+        "properties": {
+          "total_budget_usd": {
+            "type": "number"
+          },
+          "total_spend_usd": {
+            "type": "number"
+          },
+          "active_budgets": {
+            "type": "integer"
+          },
+          "warning_budgets": {
+            "type": "integer"
+          },
+          "exceeded_budgets": {
+            "type": "integer"
+          },
+          "utilization_percentage": {
+            "type": "number"
+          },
+          "trend": {
+            "type": "string",
+            "enum": [
+              "increasing",
+              "stable",
+              "decreasing"
+            ]
+          }
+        }
+      },
+      "BudgetCheckRequest": {
+        "type": "object",
+        "description": "Request to check budget for a specific operation",
+        "properties": {
+          "operation_type": {
+            "type": "string"
+          },
+          "estimated_cost_usd": {
+            "type": "number"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation_type"
+        ]
+      },
+      "BudgetCheckResponse": {
+        "type": "object",
+        "description": "Response to budget check request",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "budget_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "remaining_usd": {
+            "type": "number",
+            "nullable": true
+          },
+          "current_utilization": {
+            "type": "number",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "allowed"
+        ]
+      },
+      "BudgetAlert": {
+        "type": "object",
+        "description": "Budget alert notification",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "budget_id": {
+            "type": "string"
+          },
+          "budget_name": {
+            "type": "string"
+          },
+          "threshold_percentage": {
+            "type": "number"
+          },
+          "actual_percentage": {
+            "type": "number"
+          },
+          "action_taken": {
+            "$ref": "#/components/schemas/BudgetAction"
+          },
+          "message": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acknowledged": {
+            "type": "boolean"
+          },
+          "acknowledged_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "acknowledged_by": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "budget_id",
+          "budget_name",
+          "threshold_percentage",
+          "action_taken"
+        ]
+      },
+      "BudgetAlertListResponse": {
+        "type": "object",
+        "description": "Response containing list of budget alerts",
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetAlert"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "unacknowledged_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "alerts",
+          "total"
+        ]
+      },
+      "BudgetOverrideRequest": {
+        "type": "object",
+        "description": "Request to add a temporary budget override",
+        "properties": {
+          "budget_id": {
+            "type": "string"
+          },
+          "override_limit_usd": {
+            "type": "number"
+          },
+          "duration_hours": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "budget_id",
+          "override_limit_usd",
+          "reason"
+        ]
+      },
+      "BudgetOverrideResponse": {
+        "type": "object",
+        "description": "Response for budget override request",
+        "properties": {
+          "override_added": {
+            "type": "boolean"
+          },
+          "budget_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "duration_hours": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "override_added",
+          "budget_id",
+          "user_id"
+        ]
+      },
       "SharedInbox": {
         "type": "object",
         "properties": {
@@ -63396,6 +64141,78 @@
           "success"
         ]
       },
+      "SharedInboxCreateRequest": {
+        "type": "object",
+        "properties": {
+          "workspace_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "email_address": {
+            "type": "string"
+          },
+          "connector_type": {
+            "type": "string"
+          },
+          "team_members": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "admins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "settings": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "name"
+        ]
+      },
+      "SharedInboxAssignRequest": {
+        "type": "object",
+        "properties": {
+          "assigned_to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "assigned_to"
+        ]
+      },
+      "SharedInboxStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "SharedInboxTagRequest": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag"
+        ]
+      },
       "RoutingRule": {
         "type": "object",
         "properties": {
@@ -63532,78 +64349,6 @@
           "success"
         ]
       },
-      "SharedInboxCreateRequest": {
-        "type": "object",
-        "properties": {
-          "workspace_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "email_address": {
-            "type": "string"
-          },
-          "connector_type": {
-            "type": "string"
-          },
-          "team_members": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "admins": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "settings": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "workspace_id",
-          "name"
-        ]
-      },
-      "SharedInboxAssignRequest": {
-        "type": "object",
-        "properties": {
-          "assigned_to": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "assigned_to"
-        ]
-      },
-      "SharedInboxStatusRequest": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "SharedInboxTagRequest": {
-        "type": "object",
-        "properties": {
-          "tag": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "tag"
-        ]
-      },
       "RoutingRuleCreateRequest": {
         "type": "object",
         "properties": {
@@ -63687,737 +64432,6 @@
         "required": [
           "workspace_id"
         ]
-      },
-      "CodebaseDependencyAnalysisRequest": {
-        "type": "object",
-        "properties": {
-          "repo_path": {
-            "type": "string"
-          },
-          "include_dev": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "repo_path"
-        ]
-      },
-      "CodebaseDependencyAnalysisResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      },
-      "CodebaseDependencyScanRequest": {
-        "type": "object",
-        "properties": {
-          "repo_path": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "repo_path"
-        ]
-      },
-      "CodebaseDependencyScanResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      },
-      "CodebaseLicenseCheckRequest": {
-        "type": "object",
-        "properties": {
-          "repo_path": {
-            "type": "string"
-          },
-          "project_license": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "repo_path"
-        ]
-      },
-      "CodebaseLicenseCheckResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      },
-      "CodebaseSBOMRequest": {
-        "type": "object",
-        "properties": {
-          "repo_path": {
-            "type": "string"
-          },
-          "format": {
-            "type": "string"
-          },
-          "include_vulnerabilities": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "repo_path"
-        ]
-      },
-      "CodebaseSBOMResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
-      },
-      "CodebaseSecretsScanRequest": {
-        "type": "object",
-        "properties": {
-          "repo_path": {
-            "type": "string"
-          },
-          "branch": {
-            "type": "string"
-          },
-          "commit_sha": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "repo_path"
-        ]
-      },
-      "CodebaseSecretsScanStartResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "scan_id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "repository": {
-            "type": "string"
-          },
-          "error": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "success"
-        ]
-      },
-      "CodebaseSecretsScanResultResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "scan_result": {
-            "type": "object"
-          },
-          "error": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "success"
-        ]
-      },
-      "CodebaseSecretsListResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "secrets": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "success"
-        ]
-      },
-      "CodebaseSecretsScanListResponse": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          },
-          "scans": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "success"
-        ]
-      },
-      "BudgetPeriod": {
-        "type": "string",
-        "description": "Budget period type",
-        "enum": [
-          "daily",
-          "weekly",
-          "monthly",
-          "quarterly",
-          "annual",
-          "unlimited"
-        ]
-      },
-      "BudgetStatus": {
-        "type": "string",
-        "description": "Budget status",
-        "enum": [
-          "active",
-          "warning",
-          "critical",
-          "exceeded",
-          "suspended",
-          "paused",
-          "closed"
-        ]
-      },
-      "BudgetAction": {
-        "type": "string",
-        "description": "Action when budget threshold is reached",
-        "enum": [
-          "notify",
-          "warn",
-          "soft_limit",
-          "hard_limit",
-          "suspend"
-        ]
-      },
-      "BudgetThreshold": {
-        "type": "object",
-        "description": "Budget alert threshold configuration",
-        "properties": {
-          "percentage": {
-            "type": "number",
-            "description": "Threshold percentage (0.0 - 1.0)",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "action": {
-            "$ref": "#/components/schemas/BudgetAction"
-          }
-        },
-        "required": [
-          "percentage",
-          "action"
-        ]
-      },
-      "Budget": {
-        "type": "object",
-        "description": "Budget configuration and state",
-        "properties": {
-          "budget_id": {
-            "type": "string",
-            "description": "Unique budget identifier"
-          },
-          "org_id": {
-            "type": "string",
-            "description": "Organization ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Budget name"
-          },
-          "description": {
-            "type": "string",
-            "description": "Budget description"
-          },
-          "amount_usd": {
-            "type": "number",
-            "description": "Budget limit in USD"
-          },
-          "period": {
-            "$ref": "#/components/schemas/BudgetPeriod"
-          },
-          "spent_usd": {
-            "type": "number",
-            "description": "Amount spent in current period"
-          },
-          "remaining_usd": {
-            "type": "number",
-            "description": "Remaining budget"
-          },
-          "usage_percentage": {
-            "type": "number",
-            "description": "Current usage as percentage (0.0 - 1.0+)"
-          },
-          "period_start": {
-            "type": "number",
-            "description": "Period start timestamp"
-          },
-          "period_start_iso": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "period_end": {
-            "type": "number",
-            "description": "Period end timestamp"
-          },
-          "period_end_iso": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "status": {
-            "$ref": "#/components/schemas/BudgetStatus"
-          },
-          "current_action": {
-            "$ref": "#/components/schemas/BudgetAction"
-          },
-          "auto_suspend": {
-            "type": "boolean",
-            "description": "Auto-suspend on exceed"
-          },
-          "is_exceeded": {
-            "type": "boolean",
-            "description": "Whether budget is exceeded"
-          },
-          "thresholds": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BudgetThreshold"
-            }
-          },
-          "created_at": {
-            "type": "number",
-            "description": "Creation timestamp"
-          },
-          "updated_at": {
-            "type": "number",
-            "description": "Last update timestamp"
-          }
-        },
-        "required": [
-          "budget_id",
-          "org_id",
-          "name",
-          "amount_usd"
-        ]
-      },
-      "BudgetCreateRequest": {
-        "type": "object",
-        "description": "Request to create a new budget",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Budget name",
-            "minLength": 1
-          },
-          "amount_usd": {
-            "type": "number",
-            "description": "Budget limit in USD",
-            "minimum": 0.01
-          },
-          "period": {
-            "$ref": "#/components/schemas/BudgetPeriod",
-            "default": "monthly"
-          },
-          "description": {
-            "type": "string",
-            "description": "Budget description"
-          },
-          "auto_suspend": {
-            "type": "boolean",
-            "description": "Auto-suspend when exceeded",
-            "default": true
-          }
-        },
-        "required": [
-          "name",
-          "amount_usd"
-        ]
-      },
-      "BudgetUpdateRequest": {
-        "type": "object",
-        "description": "Request to update a budget",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "amount_usd": {
-            "type": "number",
-            "minimum": 0.01
-          },
-          "auto_suspend": {
-            "type": "boolean"
-          },
-          "status": {
-            "$ref": "#/components/schemas/BudgetStatus"
-          }
-        }
-      },
-      "BudgetListResponse": {
-        "type": "object",
-        "description": "List of budgets",
-        "properties": {
-          "budgets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Budget"
-            }
-          },
-          "count": {
-            "type": "integer"
-          },
-          "org_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "budgets",
-          "count"
-        ]
-      },
-      "BudgetSummary": {
-        "type": "object",
-        "description": "Organization budget summary",
-        "properties": {
-          "org_id": {
-            "type": "string"
-          },
-          "total_budget_usd": {
-            "type": "number"
-          },
-          "total_spent_usd": {
-            "type": "number"
-          },
-          "total_remaining_usd": {
-            "type": "number"
-          },
-          "overall_usage_percentage": {
-            "type": "number"
-          },
-          "active_budgets": {
-            "type": "integer"
-          },
-          "exceeded_budgets": {
-            "type": "integer"
-          },
-          "budgets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Budget"
-            }
-          }
-        },
-        "required": [
-          "org_id",
-          "total_budget_usd",
-          "total_spent_usd"
-        ]
-      },
-      "BudgetCheckRequest": {
-        "type": "object",
-        "description": "Pre-flight budget check request",
-        "properties": {
-          "estimated_cost_usd": {
-            "type": "number",
-            "description": "Estimated operation cost",
-            "minimum": 0.01
-          }
-        },
-        "required": [
-          "estimated_cost_usd"
-        ]
-      },
-      "BudgetCheckResponse": {
-        "type": "object",
-        "description": "Budget check result",
-        "properties": {
-          "allowed": {
-            "type": "boolean",
-            "description": "Whether operation is allowed"
-          },
-          "reason": {
-            "type": "string",
-            "description": "Explanation"
-          },
-          "action": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Required action if any"
-          },
-          "estimated_cost_usd": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "allowed",
-          "reason"
-        ]
-      },
-      "BudgetAlert": {
-        "type": "object",
-        "description": "Budget alert event",
-        "properties": {
-          "alert_id": {
-            "type": "string"
-          },
-          "budget_id": {
-            "type": "string"
-          },
-          "org_id": {
-            "type": "string"
-          },
-          "threshold_percentage": {
-            "type": "number"
-          },
-          "action": {
-            "$ref": "#/components/schemas/BudgetAction"
-          },
-          "spent_usd": {
-            "type": "number"
-          },
-          "amount_usd": {
-            "type": "number"
-          },
-          "usage_percentage": {
-            "type": "number"
-          },
-          "message": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "number"
-          },
-          "created_at_iso": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "acknowledged": {
-            "type": "boolean"
-          },
-          "acknowledged_by": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "acknowledged_at": {
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "alert_id",
-          "budget_id",
-          "message"
-        ]
-      },
-      "BudgetAlertListResponse": {
-        "type": "object",
-        "description": "List of budget alerts",
-        "properties": {
-          "alerts": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BudgetAlert"
-            }
-          },
-          "count": {
-            "type": "integer"
-          },
-          "budget_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "alerts",
-          "count"
-        ]
-      },
-      "BudgetOverrideRequest": {
-        "type": "object",
-        "description": "Request to add budget override",
-        "properties": {
-          "user_id": {
-            "type": "string",
-            "description": "User to grant override"
-          },
-          "duration_hours": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Override duration (null for permanent)"
-          }
-        },
-        "required": [
-          "user_id"
-        ]
-      },
-      "BudgetOverrideResponse": {
-        "type": "object",
-        "properties": {
-          "override_added": {
-            "type": "boolean"
-          },
-          "budget_id": {
-            "type": "string"
-          },
-          "user_id": {
-            "type": "string"
-          },
-          "duration_hours": {
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "override_added",
-          "budget_id",
-          "user_id"
-        ]
-      },
-      "DisagreementStats": {
-        "type": "object",
-        "description": "Statistics about debate disagreements",
-        "properties": {
-          "total_debates": {
-            "type": "integer",
-            "description": "Total debates analyzed"
-          },
-          "with_disagreements": {
-            "type": "integer",
-            "description": "Debates with disagreements"
-          },
-          "unanimous": {
-            "type": "integer",
-            "description": "Unanimous debates"
-          },
-          "disagreement_types": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "description": "Count by disagreement type"
-          }
-        }
-      },
-      "RoleRotationStats": {
-        "type": "object",
-        "description": "Statistics about agent role rotation",
-        "properties": {
-          "total_rotations": {
-            "type": "integer"
-          },
-          "by_agent": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "proposer": {
-                  "type": "integer"
-                },
-                "critic": {
-                  "type": "integer"
-                },
-                "judge": {
-                  "type": "integer"
-                }
-              }
-            }
-          }
-        }
-      },
-      "EarlyStopStats": {
-        "type": "object",
-        "description": "Statistics about early debate stops",
-        "properties": {
-          "total_early_stops": {
-            "type": "integer"
-          },
-          "by_reason": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer"
-            }
-          },
-          "average_rounds_saved": {
-            "type": "number"
-          }
-        }
-      },
-      "RankingStats": {
-        "type": "object",
-        "description": "Aggregate ELO ranking statistics",
-        "properties": {
-          "total_agents": {
-            "type": "integer"
-          },
-          "average_elo": {
-            "type": "number"
-          },
-          "highest_elo": {
-            "type": "number"
-          },
-          "lowest_elo": {
-            "type": "number"
-          },
-          "total_matches": {
-            "type": "integer"
-          }
-        }
       },
       "MemoryStats": {
         "type": "object",
@@ -64688,81 +64702,59 @@
         "type": "object",
         "description": "Result of storing knowledge",
         "properties": {
-          "node_id": {
+          "id": {
             "type": "string"
           },
           "success": {
             "type": "boolean"
           },
-          "duplicate": {
-            "type": "boolean"
+          "source": {
+            "type": "string"
           },
-          "topics_extracted": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
           }
-        },
-        "required": [
-          "node_id",
-          "success"
-        ]
+        }
       },
       "KnowledgeFact": {
         "type": "object",
-        "description": "Knowledge fact record",
+        "description": "A verified knowledge fact",
         "properties": {
           "id": {
             "type": "string"
           },
-          "statement": {
+          "content": {
             "type": "string"
           },
-          "workspace_id": {
+          "source": {
             "type": "string"
           },
           "confidence": {
             "type": "number"
           },
-          "validation_status": {
-            "type": "string"
-          },
-          "topics": {
+          "evidence": {
             "type": "array",
             "items": {
               "type": "string"
             }
           },
-          "evidence_ids": {
+          "contradictions": {
             "type": "array",
             "items": {
               "type": "string"
             }
-          },
-          "source_documents": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
           },
           "created_at": {
             "type": "string",
             "format": "date-time"
           },
-          "updated_at": {
+          "verified_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
           }
-        },
-        "required": [
-          "id",
-          "statement"
-        ]
+        }
       },
       "KnowledgeFactList": {
         "type": "object",
@@ -64776,75 +64768,59 @@
           },
           "total": {
             "type": "integer"
-          },
-          "limit": {
-            "type": "integer"
-          },
-          "offset": {
-            "type": "integer"
           }
         }
       },
       "KnowledgeSearchResult": {
         "type": "object",
-        "description": "Knowledge search result entry",
+        "description": "A search result from the knowledge mound",
         "properties": {
-          "id": {
-            "type": "string"
-          },
-          "content": {
-            "type": "string"
+          "node": {
+            "$ref": "#/components/schemas/KnowledgeNode"
           },
           "score": {
             "type": "number"
           },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
+          "highlights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
       "KnowledgeSearchResponse": {
         "type": "object",
-        "description": "Knowledge search response",
+        "description": "Search results from knowledge mound",
         "properties": {
-          "query": {
-            "type": "string"
-          },
-          "workspace_id": {
-            "type": "string"
-          },
           "results": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/KnowledgeSearchResult"
             }
           },
-          "count": {
+          "total": {
+            "type": "integer"
+          },
+          "query": {
+            "type": "string"
+          },
+          "search_time_ms": {
             "type": "integer"
           }
         }
       },
       "KnowledgeStats": {
         "type": "object",
-        "description": "Knowledge base statistics",
+        "description": "Knowledge mound statistics",
         "properties": {
-          "workspace_id": {
-            "type": "string"
+          "total_nodes": {
+            "type": "integer"
           },
           "total_facts": {
             "type": "integer"
           },
-          "total_entries": {
-            "type": "integer"
-          },
-          "sources": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "integer"
-            }
-          },
-          "categories": {
+          "by_source": {
             "type": "object",
             "additionalProperties": {
               "type": "integer"
@@ -64853,129 +64829,112 @@
           "avg_confidence": {
             "type": "number"
           },
-          "last_updated": {
-            "type": "string",
-            "format": "date-time"
+          "contradiction_rate": {
+            "type": "number"
           }
         }
       },
       "KnowledgeQueryResponse": {
         "type": "object",
-        "description": "Knowledge query response (structure depends on query engine)",
-        "additionalProperties": true
-      },
-      "AgentRegistration": {
-        "type": "object",
-        "description": "Registered agent information",
+        "description": "Response from knowledge query",
         "properties": {
-          "agent_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "healthy",
-              "degraded",
-              "unhealthy"
-            ]
-          },
-          "last_heartbeat": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "metadata": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "agent_id",
-          "name",
-          "status"
-        ]
-      },
-      "TaskStatus": {
-        "type": "object",
-        "description": "Task execution status",
-        "properties": {
-          "task_id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "running",
-              "completed",
-              "failed",
-              "cancelled"
-            ]
-          },
-          "progress": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "result": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "error": {
-            "type": "string",
-            "nullable": true
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "task_id",
-          "status"
-        ]
-      },
-      "PolicyEvaluation": {
-        "type": "object",
-        "description": "Policy evaluation result",
-        "properties": {
-          "allowed": {
+          "success": {
             "type": "boolean"
           },
-          "policy_id": {
-            "type": "string"
+          "result": {
+            "$ref": "#/components/schemas/KnowledgeQueryResult"
+          }
+        }
+      },
+      "DisagreementStats": {
+        "type": "object",
+        "description": "Statistics about debate disagreements",
+        "properties": {
+          "total_debates": {
+            "type": "integer",
+            "description": "Total debates analyzed"
           },
-          "reason": {
-            "type": "string"
+          "with_disagreements": {
+            "type": "integer",
+            "description": "Debates with disagreements"
           },
-          "conditions_met": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "unanimous": {
+            "type": "integer",
+            "description": "Unanimous debates"
           },
-          "conditions_failed": {
-            "type": "array",
-            "items": {
-              "type": "string"
+          "disagreement_types": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Count by disagreement type"
+          }
+        }
+      },
+      "RoleRotationStats": {
+        "type": "object",
+        "description": "Statistics about agent role rotation",
+        "properties": {
+          "total_rotations": {
+            "type": "integer"
+          },
+          "by_agent": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "proposer": {
+                  "type": "integer"
+                },
+                "critic": {
+                  "type": "integer"
+                },
+                "judge": {
+                  "type": "integer"
+                }
+              }
             }
           }
-        },
-        "required": [
-          "allowed"
-        ]
+        }
+      },
+      "EarlyStopStats": {
+        "type": "object",
+        "description": "Statistics about early debate stops",
+        "properties": {
+          "total_early_stops": {
+            "type": "integer"
+          },
+          "by_reason": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "average_rounds_saved": {
+            "type": "number"
+          }
+        }
+      },
+      "RankingStats": {
+        "type": "object",
+        "description": "Aggregate ELO ranking statistics",
+        "properties": {
+          "total_agents": {
+            "type": "integer"
+          },
+          "average_elo": {
+            "type": "number"
+          },
+          "highest_elo": {
+            "type": "number"
+          },
+          "lowest_elo": {
+            "type": "number"
+          },
+          "total_matches": {
+            "type": "integer"
+          }
+        }
       },
       "PositionFlip": {
         "type": "object",
