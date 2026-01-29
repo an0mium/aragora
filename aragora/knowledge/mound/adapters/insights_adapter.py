@@ -252,10 +252,10 @@ class InsightsAdapter:
                 self._debate_insights[insight.debate_id] = []
             self._debate_insights[insight.debate_id].append(insight_id)
 
-        insight_type = insight_data["type"]  # type: ignore[index,valid-type,assignment]
-        if insight_type not in self._type_insights:  # type: ignore[index,valid-type,operator]
-            self._type_insights[insight_type] = []  # type: ignore[index]
-        self._type_insights[insight_type].append(insight_id)  # type: ignore[index]
+        insight_type: str = str(insight_data.get("type", "unknown"))
+        if insight_type not in self._type_insights:
+            self._type_insights[insight_type] = []
+        self._type_insights[insight_type].append(insight_id)
 
         logger.info(f"Stored insight: {insight_id} (confidence={insight.confidence:.2f})")
         return insight_id
