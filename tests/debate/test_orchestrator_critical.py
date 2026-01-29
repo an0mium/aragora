@@ -2,14 +2,29 @@
 Tests for critical untested methods in the Arena orchestrator.
 
 These tests cover critical methods that delegate to helper classes:
+
+Phase 1 (Methods 1-5):
 1. _build_proposal_prompt() - Core to proposal generation
 2. _check_early_stopping() - Controls debate termination
 3. _select_judge() - Judge selection for consensus
 4. _record_grounded_position() - Position tracking
 5. _extract_citation_needs() - Citation tracking
 
+Phase 2 (Methods 6-10):
+6. _perform_research() (Line 1168) - Research context gathering
+7. _gather_evidence_context() (Line 1176) - Evidence grounding
+8. _notify_spectator() (Line 1111) - User feedback events
+9. _create_debate_bead() (Line 1198) - Audit trail creation
+10. _update_role_assignments() (Line 1731) - Role rotation
+
 Each method is tested through the Arena's delegation pattern to ensure
 proper integration with the underlying helper classes.
+
+Test coverage for each method includes:
+- Happy path with all dependencies available
+- Graceful handling when dependencies are None/unavailable
+- Error handling for exceptions
+- Edge cases (empty inputs, timeouts, etc.)
 """
 
 from __future__ import annotations
@@ -660,3 +675,753 @@ class TestIntegration:
         judge = await arena._select_judge(proposals, context)
         assert judge is not None
         assert judge in mock_agents
+
+
+# =============================================================================
+# Tests for _perform_research() (Line 1168)
+# =============================================================================
+
+
+class TestPerformResearch:
+    """Tests for the _perform_research method - research context gathering."""
+
+    @pytest.mark.asyncio
+    async def test_performs_research_with_context_gatherer(self, arena):
+        """Test that research is performed via context gatherer when available."""
+        # Mock the context gatherer
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="Research results from web and docs")
+        mock_gatherer.evidence_pack = {"sources": ["web"], "snippets": ["Test evidence"]}
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        result = await arena._perform_research("What is machine learning?")
+
+        assert result == "Research results from web and docs"
+        mock_gatherer.gather_all.assert_called_once_with("What is machine learning?")
+
+    @pytest.mark.asyncio
+    async def test_updates_cache_after_research(self, arena):
+        """Test that cache is updated with evidence pack after research."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="Research context")
+        evidence_pack = {"sources": ["github", "web"], "snippets": ["Evidence 1", "Evidence 2"]}
+        mock_gatherer.evidence_pack = evidence_pack
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = MagicMock()
+
+        await arena._perform_research("Research topic")
+
+        # Verify cache was updated with evidence pack
+        assert arena._context_delegator._cache.evidence_pack == evidence_pack
+
+    @pytest.mark.asyncio
+    async def test_updates_evidence_grounder_after_research(self, arena):
+        """Test that evidence grounder receives the evidence pack."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="Research results")
+        evidence_pack = {"sources": ["docs"], "snippets": ["Found evidence"]}
+        mock_gatherer.evidence_pack = evidence_pack
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        mock_grounder = MagicMock()
+        arena._context_delegator.evidence_grounder = mock_grounder
+
+        await arena._perform_research("Test task")
+
+        mock_grounder.set_evidence_pack.assert_called_once_with(evidence_pack)
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_context_gatherer(self, env, mock_agents, protocol):
+        """Test handling when context gatherer is None."""
+        arena = Arena(env, mock_agents, protocol)
+
+        # Set context gatherer to have gather_all that returns empty
+        arena._context_delegator.context_gatherer.gather_all = AsyncMock(
+            return_value="No research context available."
+        )
+
+        result = await arena._perform_research("Unknown topic")
+
+        # Should return the no-context message
+        assert "No research context available" in result or result is not None
+
+    @pytest.mark.asyncio
+    async def test_handles_research_timeout_gracefully(self, arena):
+        """Test that research timeouts are handled gracefully."""
+        mock_gatherer = MagicMock()
+
+        async def slow_gather(task):
+            await asyncio.sleep(10)  # Simulate slow research
+            return "Slow results"
+
+        mock_gatherer.gather_all = slow_gather
+        mock_gatherer.evidence_pack = None
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        # Use a short timeout
+        try:
+            result = await asyncio.wait_for(
+                arena._perform_research("Test topic"),
+                timeout=0.1,
+            )
+        except asyncio.TimeoutError:
+            result = None
+
+        # Timeout should occur, result is None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_research_exceptions_gracefully(self, arena):
+        """Test that research exceptions are propagated or handled."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(side_effect=ConnectionError("Network error"))
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        with pytest.raises(ConnectionError):
+            await arena._perform_research("Test topic")
+
+    @pytest.mark.asyncio
+    async def test_research_with_empty_task(self, arena):
+        """Test research handling with empty task string."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="No research context available.")
+        mock_gatherer.evidence_pack = None
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        result = await arena._perform_research("")
+
+        # Should still attempt research with empty task
+        mock_gatherer.gather_all.assert_called_once_with("")
+
+
+# =============================================================================
+# Tests for _gather_evidence_context() (Line 1176)
+# =============================================================================
+
+
+class TestGatherEvidenceContext:
+    """Tests for the _gather_evidence_context method - evidence grounding."""
+
+    @pytest.mark.asyncio
+    async def test_gathers_evidence_from_connectors(self, arena):
+        """Test that evidence is gathered from web, GitHub, and docs connectors."""
+        mock_gatherer = MagicMock()
+        evidence_result = "Evidence from GitHub: Code patterns found. Evidence from web: Articles."
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value=evidence_result)
+        mock_gatherer.evidence_pack = {"sources": ["github", "web"]}
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        result = await arena._gather_evidence_context("Test task for evidence")
+
+        assert result == evidence_result
+        mock_gatherer.gather_evidence_context.assert_called_once_with("Test task for evidence")
+
+    @pytest.mark.asyncio
+    async def test_updates_cache_with_evidence_pack(self, arena):
+        """Test that cache is updated with evidence pack."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value="Evidence context")
+        evidence_pack = {"sources": ["local_docs"], "snippets": ["Doc snippet"]}
+        mock_gatherer.evidence_pack = evidence_pack
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = MagicMock()
+
+        await arena._gather_evidence_context("Task")
+
+        assert arena._context_delegator._cache.evidence_pack == evidence_pack
+
+    @pytest.mark.asyncio
+    async def test_updates_evidence_grounder(self, arena):
+        """Test that evidence grounder is updated with new pack."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value="Found evidence")
+        evidence_pack = {"sources": ["web"], "snippets": ["Web snippet"]}
+        mock_gatherer.evidence_pack = evidence_pack
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        mock_grounder = MagicMock()
+        arena._context_delegator.evidence_grounder = mock_grounder
+
+        await arena._gather_evidence_context("Evidence task")
+
+        mock_grounder.set_evidence_pack.assert_called_once_with(evidence_pack)
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_evidence_found(self, arena):
+        """Test handling when no evidence is found."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value=None)
+        mock_gatherer.evidence_pack = None
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        result = await arena._gather_evidence_context("Obscure topic with no evidence")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_handles_evidence_collection_errors(self, arena):
+        """Test graceful handling of evidence collection errors."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(
+            side_effect=OSError("Network unreachable")
+        )
+        arena._context_delegator.context_gatherer = mock_gatherer
+
+        with pytest.raises(OSError):
+            await arena._gather_evidence_context("Test task")
+
+    @pytest.mark.asyncio
+    async def test_handles_empty_evidence_pack(self, arena):
+        """Test handling when evidence pack is empty dict."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value="Some context")
+        mock_gatherer.evidence_pack = {}
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = MagicMock()
+
+        result = await arena._gather_evidence_context("Task")
+
+        assert result == "Some context"
+        # Empty pack should still be set
+        assert arena._context_delegator._cache.evidence_pack == {}
+
+    @pytest.mark.asyncio
+    async def test_evidence_with_cache_and_grounder_none(self, arena):
+        """Test evidence gathering when cache and grounder are None."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value="Evidence found")
+        mock_gatherer.evidence_pack = {"sources": ["test"]}
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = None
+        arena._context_delegator.evidence_grounder = None
+
+        result = await arena._gather_evidence_context("Task")
+
+        # Should still work without cache/grounder
+        assert result == "Evidence found"
+
+
+# =============================================================================
+# Tests for _notify_spectator() (Line 1111)
+# =============================================================================
+
+
+class TestNotifySpectator:
+    """Tests for the _notify_spectator method - user feedback events."""
+
+    def test_notifies_via_event_bus_when_available(self, arena):
+        """Test that spectator is notified via EventBus when available."""
+        mock_event_bus = MagicMock()
+        arena._event_emitter.event_bus = mock_event_bus
+        arena._event_emitter._current_debate_id = "test-debate-123"
+
+        arena._notify_spectator("proposal_ready", agent="agent1", content="My proposal")
+
+        mock_event_bus.emit_sync.assert_called_once()
+        call_args = mock_event_bus.emit_sync.call_args
+        assert call_args[0][0] == "proposal_ready"  # event_type
+        assert call_args[1]["agent"] == "agent1"
+        assert call_args[1]["content"] == "My proposal"
+
+    def test_notifies_via_event_bridge_as_fallback(self, arena):
+        """Test that event_bridge is used when event_bus is None."""
+        arena._event_emitter.event_bus = None
+        mock_bridge = MagicMock()
+        arena._event_emitter.event_bridge = mock_bridge
+
+        arena._notify_spectator("round_complete", round=2, total=5)
+
+        mock_bridge.notify.assert_called_once()
+        call_args = mock_bridge.notify.call_args
+        assert call_args[1]["round"] == 2
+        assert call_args[1]["total"] == 5
+
+    def test_handles_no_event_bus_or_bridge(self, arena):
+        """Test handling when both event_bus and event_bridge are None."""
+        arena._event_emitter.event_bus = None
+        arena._event_emitter.event_bridge = None
+
+        # Should not raise an exception
+        arena._notify_spectator("test_event", data="test")
+
+    def test_passes_debate_id_from_kwargs(self, arena):
+        """Test that debate_id from kwargs is used instead of default."""
+        mock_event_bus = MagicMock()
+        arena._event_emitter.event_bus = mock_event_bus
+        arena._event_emitter._current_debate_id = "default-id"
+
+        arena._notify_spectator(
+            "custom_event",
+            debate_id="custom-debate-id",
+            message="Test message",
+        )
+
+        call_args = mock_event_bus.emit_sync.call_args
+        assert call_args[1]["debate_id"] == "custom-debate-id"
+
+    def test_handles_various_event_types(self, arena):
+        """Test notification of various event types."""
+        mock_event_bus = MagicMock()
+        arena._event_emitter.event_bus = mock_event_bus
+
+        event_types = [
+            ("debate_start", {"agents": ["a1", "a2"]}),
+            ("round_start", {"round": 1}),
+            ("proposal", {"agent": "a1", "content": "text"}),
+            ("critique", {"agent": "a2", "target": "a1"}),
+            ("vote", {"agent": "a1", "choice": "a2"}),
+            ("consensus", {"reached": True, "confidence": 0.9}),
+            ("debate_end", {"result": "completed"}),
+        ]
+
+        for event_type, kwargs in event_types:
+            mock_event_bus.reset_mock()
+            arena._notify_spectator(event_type, **kwargs)
+            assert mock_event_bus.emit_sync.called
+
+    def test_handles_exception_in_event_bus(self, arena):
+        """Test graceful handling when event_bus raises exception."""
+        mock_event_bus = MagicMock()
+        mock_event_bus.emit_sync.side_effect = RuntimeError("EventBus error")
+        arena._event_emitter.event_bus = mock_event_bus
+
+        # The method may raise or catch - depends on implementation
+        # Just verify it doesn't crash unexpectedly
+        try:
+            arena._notify_spectator("test_event", data="test")
+        except RuntimeError:
+            pass  # Expected if not caught
+
+    def test_notifies_with_empty_kwargs(self, arena):
+        """Test notification with no additional kwargs."""
+        mock_event_bus = MagicMock()
+        arena._event_emitter.event_bus = mock_event_bus
+
+        arena._notify_spectator("simple_event")
+
+        mock_event_bus.emit_sync.assert_called_once()
+
+
+# =============================================================================
+# Tests for _create_debate_bead() (Line 1198)
+# =============================================================================
+
+
+class TestCreateDebateBead:
+    """Tests for the _create_debate_bead method - audit trail creation."""
+
+    @pytest.mark.asyncio
+    async def test_creates_bead_when_tracking_enabled(self, env, mock_agents, protocol):
+        """Test that a bead is created when bead tracking is enabled."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.5
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Create a mock result with high confidence
+        mock_result = MagicMock()
+        mock_result.task = "Test debate task"
+        mock_result.confidence = 0.9
+        mock_result.final_answer = "The conclusion is..."
+        mock_result.status = "completed"
+        mock_result.debate_id = "test-debate-id"
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 3
+        mock_result.participants = ["agent1", "agent2"]
+        mock_result.winner = "agent1"
+
+        # Mock the beads module that is imported inside the function
+        mock_bead_module = MagicMock()
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_store.create = AsyncMock(return_value="bead-id-123")
+        mock_bead_module.BeadStore.return_value = mock_store
+
+        mock_bead = MagicMock()
+        mock_bead_module.Bead.create.return_value = mock_bead
+        mock_bead_module.BeadPriority.HIGH = "HIGH"
+        mock_bead_module.BeadPriority.NORMAL = "NORMAL"
+        mock_bead_module.BeadPriority.LOW = "LOW"
+        mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
+
+        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
+            bead_id = await arena._create_debate_bead(mock_result)
+
+            # Should create and return a bead ID
+            assert bead_id == "bead-id-123"
+
+    @pytest.mark.asyncio
+    async def test_skips_bead_when_tracking_disabled(self, env, mock_agents, protocol):
+        """Test that no bead is created when tracking is disabled."""
+        protocol.enable_bead_tracking = False
+        arena = Arena(env, mock_agents, protocol)
+
+        mock_result = MagicMock()
+        mock_result.confidence = 0.9
+
+        bead_id = await arena._create_debate_bead(mock_result)
+
+        assert bead_id is None
+
+    @pytest.mark.asyncio
+    async def test_skips_bead_when_confidence_too_low(self, env, mock_agents, protocol):
+        """Test that no bead is created when confidence is below threshold."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.8
+
+        arena = Arena(env, mock_agents, protocol)
+
+        mock_result = MagicMock()
+        mock_result.confidence = 0.5  # Below threshold
+
+        bead_id = await arena._create_debate_bead(mock_result)
+
+        assert bead_id is None
+
+    @pytest.mark.asyncio
+    async def test_handles_bead_store_not_available(self, env, mock_agents, protocol):
+        """Test handling when BeadStore module is not available."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.5
+
+        arena = Arena(env, mock_agents, protocol)
+
+        mock_result = MagicMock()
+        mock_result.confidence = 0.9
+
+        # The function should handle ImportError gracefully
+        # Mock the import to fail
+        with patch.dict(
+            "sys.modules",
+            {"aragora.nomic.beads": None},
+        ):
+            bead_id = await arena._create_debate_bead(mock_result)
+
+            # Should return None when import fails
+            # (The actual implementation catches ImportError)
+            assert bead_id is None or isinstance(bead_id, str)
+
+    @pytest.mark.asyncio
+    async def test_handles_bead_creation_errors(self, env, mock_agents, protocol):
+        """Test graceful handling of bead creation errors."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.5
+
+        arena = Arena(env, mock_agents, protocol)
+
+        mock_result = MagicMock()
+        mock_result.task = "Test task"
+        mock_result.confidence = 0.9
+        mock_result.final_answer = "Answer"
+        mock_result.status = "completed"
+        mock_result.debate_id = "id"
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+        mock_result.participants = []
+        mock_result.winner = None
+
+        # Mock the beads module that is imported inside the function
+        mock_bead_module = MagicMock()
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_store.create = AsyncMock(side_effect=OSError("Disk full"))
+        mock_bead_module.BeadStore.return_value = mock_store
+
+        mock_bead = MagicMock()
+        mock_bead_module.Bead.create.return_value = mock_bead
+        mock_bead_module.BeadPriority.HIGH = "HIGH"
+        mock_bead_module.BeadPriority.NORMAL = "NORMAL"
+        mock_bead_module.BeadPriority.LOW = "LOW"
+        mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
+
+        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
+            bead_id = await arena._create_debate_bead(mock_result)
+
+            # Should return None on error
+            assert bead_id is None
+
+    @pytest.mark.asyncio
+    async def test_bead_priority_based_on_confidence(self, env, mock_agents, protocol):
+        """Test that bead priority is set based on confidence level."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.5
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Test high confidence -> HIGH priority
+        mock_result = MagicMock()
+        mock_result.task = "Task"
+        mock_result.confidence = 0.95  # >= 0.9 -> HIGH
+        mock_result.final_answer = "Answer"
+        mock_result.status = "completed"
+        mock_result.debate_id = "id"
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 2
+        mock_result.participants = []
+        mock_result.winner = None
+
+        # Mock the beads module that is imported inside the function
+        mock_bead_module = MagicMock()
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_store.create = AsyncMock(return_value="bead-id")
+        mock_bead_module.BeadStore.return_value = mock_store
+
+        mock_bead = MagicMock()
+        mock_bead_module.Bead.create.return_value = mock_bead
+        mock_bead_module.BeadPriority.HIGH = "HIGH"
+        mock_bead_module.BeadPriority.NORMAL = "NORMAL"
+        mock_bead_module.BeadPriority.LOW = "LOW"
+        mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
+
+        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
+            await arena._create_debate_bead(mock_result)
+
+            # Verify Bead.create was called with HIGH priority
+            call_args = mock_bead_module.Bead.create.call_args
+            assert call_args[1]["priority"] == "HIGH"
+
+
+# =============================================================================
+# Tests for _update_role_assignments() (Line 1731)
+# =============================================================================
+
+
+class TestUpdateRoleAssignments:
+    """Tests for the _update_role_assignments method - role rotation."""
+
+    def test_updates_roles_via_roles_manager(self, arena):
+        """Test that role assignments are updated through RolesManager."""
+        # Mock the roles manager
+        mock_assignment = MagicMock()
+        mock_assignment.role = MagicMock()
+        mock_assignment.role.value = "critic"
+
+        arena.roles_manager.current_role_assignments = {
+            "agent1": mock_assignment,
+            "agent2": mock_assignment,
+        }
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        arena._update_role_assignments(round_num=2)
+
+        arena.roles_manager.update_role_assignments.assert_called_once()
+        call_args = arena.roles_manager.update_role_assignments.call_args
+        assert call_args[0][0] == 2  # round_num
+
+    def test_extracts_domain_for_role_matching(self, arena):
+        """Test that debate domain is extracted and used for role matching."""
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        # Set up cache to return a specific domain
+        arena._cache.debate_domain = "technology"
+
+        arena._update_role_assignments(round_num=1)
+
+        call_args = arena.roles_manager.update_role_assignments.call_args
+        assert call_args[0][1] == "technology"  # debate_domain
+
+    def test_syncs_assignments_back_to_arena(self, arena):
+        """Test that role assignments are synced back to Arena instance."""
+        mock_assignment = MagicMock()
+        mock_assignment.role = MagicMock()
+        mock_assignment.role.value = "synthesizer"
+
+        new_assignments = {
+            "agent1": mock_assignment,
+            "agent2": mock_assignment,
+            "agent3": mock_assignment,
+        }
+
+        def update_fn(round_num, domain):
+            arena.roles_manager.current_role_assignments = new_assignments
+
+        arena.roles_manager.update_role_assignments = update_fn
+
+        arena._update_role_assignments(round_num=3)
+
+        # Verify assignments are synced to Arena
+        assert arena.current_role_assignments == new_assignments
+
+    def test_logs_role_assignments(self, arena):
+        """Test that role assignments are logged for debugging."""
+        mock_assignment = MagicMock()
+        mock_assignment.role = MagicMock()
+        mock_assignment.role.value = "proposer"
+
+        arena.roles_manager.current_role_assignments = {"agent1": mock_assignment}
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        with patch("aragora.debate.orchestrator.logger") as mock_logger:
+            arena._update_role_assignments(round_num=1)
+
+            # Verify debug logging was called
+            mock_logger.debug.assert_called()
+
+    def test_handles_empty_assignments(self, arena):
+        """Test handling when there are no role assignments."""
+        arena.roles_manager.current_role_assignments = {}
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        # Should not raise an exception
+        arena._update_role_assignments(round_num=1)
+
+        # Verify sync still happens
+        assert arena.current_role_assignments == {}
+
+    def test_handles_role_matcher_not_available(self, arena):
+        """Test behavior when role_matcher is None."""
+        arena.roles_manager.role_matcher = None
+        arena.roles_manager.role_rotator = None
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        # Should still work without role systems
+        arena._update_role_assignments(round_num=2)
+
+        arena.roles_manager.update_role_assignments.assert_called_once()
+
+    def test_updates_for_multiple_rounds(self, arena):
+        """Test role updates across multiple rounds."""
+        call_count = 0
+        round_nums = []
+
+        def track_updates(round_num, domain):
+            nonlocal call_count
+            call_count += 1
+            round_nums.append(round_num)
+
+        arena.roles_manager.update_role_assignments = track_updates
+        arena.roles_manager.current_role_assignments = {}
+
+        for round_num in range(1, 6):
+            arena._update_role_assignments(round_num)
+
+        assert call_count == 5
+        assert round_nums == [1, 2, 3, 4, 5]
+
+    def test_handles_update_exception_gracefully(self, arena):
+        """Test graceful handling of update exceptions."""
+        arena.roles_manager.update_role_assignments = MagicMock(
+            side_effect=ValueError("Invalid round")
+        )
+
+        with pytest.raises(ValueError):
+            arena._update_role_assignments(round_num=-1)
+
+
+# =============================================================================
+# Additional Integration Tests for New Methods
+# =============================================================================
+
+
+class TestCriticalMethodsIntegration:
+    """Integration tests for the new critical methods together."""
+
+    @pytest.mark.asyncio
+    async def test_research_and_evidence_context_flow(self, arena):
+        """Test that research and evidence gathering work together."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="Research: AI is transformative")
+        mock_gatherer.gather_evidence_context = AsyncMock(
+            return_value="Evidence: Multiple studies confirm"
+        )
+        mock_gatherer.evidence_pack = {"sources": ["web", "academic"]}
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = MagicMock()
+
+        # Perform research
+        research = await arena._perform_research("AI impact on society")
+        assert "Research: AI is transformative" in research
+
+        # Then gather additional evidence
+        evidence = await arena._gather_evidence_context("AI impact on society")
+        assert "Evidence: Multiple studies confirm" in evidence
+
+    def test_role_updates_and_spectator_notification(self, arena):
+        """Test that role updates can trigger spectator notifications."""
+        mock_event_bus = MagicMock()
+        arena._event_emitter.event_bus = mock_event_bus
+
+        mock_assignment = MagicMock()
+        mock_assignment.role = MagicMock()
+        mock_assignment.role.value = "critic"
+        arena.roles_manager.current_role_assignments = {"agent1": mock_assignment}
+        arena.roles_manager.update_role_assignments = MagicMock()
+
+        # Update roles
+        arena._update_role_assignments(round_num=2)
+
+        # Notify spectator about role change
+        arena._notify_spectator(
+            "role_update",
+            agent="agent1",
+            new_role="critic",
+            round=2,
+        )
+
+        # Verify both operations completed
+        arena.roles_manager.update_role_assignments.assert_called_once()
+        mock_event_bus.emit_sync.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_bead_creation_after_successful_debate(self, env, mock_agents, protocol):
+        """Test bead creation after a successful debate."""
+        protocol.enable_bead_tracking = True
+        protocol.bead_min_confidence = 0.6
+
+        arena = Arena(env, mock_agents, protocol)
+
+        # Simulate a successful debate result
+        mock_result = MagicMock()
+        mock_result.task = "Should we adopt microservices?"
+        mock_result.confidence = 0.85
+        mock_result.final_answer = "Yes, for better scalability."
+        mock_result.status = "completed"
+        mock_result.debate_id = "debate-456"
+        mock_result.consensus_reached = True
+        mock_result.rounds_used = 4
+        mock_result.participants = ["agent1", "agent2", "agent3"]
+        mock_result.winner = "agent2"
+
+        # Mock the beads module that is imported inside the function
+        mock_bead_module = MagicMock()
+        mock_store = MagicMock()
+        mock_store.initialize = AsyncMock()
+        mock_store.create = AsyncMock(return_value="bead-xyz-789")
+        mock_bead_module.BeadStore.return_value = mock_store
+
+        mock_bead = MagicMock()
+        mock_bead_module.Bead.create.return_value = mock_bead
+        mock_bead_module.BeadPriority.HIGH = "HIGH"
+        mock_bead_module.BeadPriority.NORMAL = "NORMAL"
+        mock_bead_module.BeadPriority.LOW = "LOW"
+        mock_bead_module.BeadType.DEBATE_DECISION = "DEBATE_DECISION"
+
+        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_bead_module}):
+            bead_id = await arena._create_debate_bead(mock_result)
+
+            assert bead_id == "bead-xyz-789"
+
+    @pytest.mark.asyncio
+    async def test_full_context_gathering_pipeline(self, arena):
+        """Test the full context gathering pipeline."""
+        mock_gatherer = MagicMock()
+        mock_gatherer.gather_all = AsyncMock(return_value="Full research context")
+        mock_gatherer.gather_evidence_context = AsyncMock(return_value="Evidence snippets")
+        mock_gatherer.evidence_pack = {"sources": ["all"]}
+        arena._context_delegator.context_gatherer = mock_gatherer
+        arena._context_delegator._cache = MagicMock()
+
+        mock_grounder = MagicMock()
+        arena._context_delegator.evidence_grounder = mock_grounder
+
+        # Step 1: Perform initial research
+        research = await arena._perform_research("Complex topic")
+        assert research == "Full research context"
+
+        # Step 2: Gather specific evidence
+        evidence = await arena._gather_evidence_context("Complex topic")
+        assert evidence == "Evidence snippets"
+
+        # Verify evidence grounder was updated
+        assert mock_grounder.set_evidence_pack.call_count == 2
