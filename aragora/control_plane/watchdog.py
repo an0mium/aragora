@@ -348,7 +348,7 @@ class ThreeTierWatchdog:
                 await asyncio.gather(*active_tasks, return_exceptions=True)
             except RuntimeError as e:
                 # Safeguard against tasks bound to closed loops during test teardown.
-                logger.debug("watchdog_stop_failed", error=str(e))
+                logger.debug("watchdog_stop_failed: %s", str(e))
 
         self._tasks.clear()
 
