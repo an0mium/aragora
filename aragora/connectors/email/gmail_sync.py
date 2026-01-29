@@ -361,7 +361,7 @@ class GmailSyncService:
             if not self._connector:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                self._connector = GmailConnector()
+                self._connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
                 if refresh_token:
                     success = await self._connector.authenticate(refresh_token=refresh_token)
                     if not success:
