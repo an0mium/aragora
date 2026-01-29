@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from ._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
     from aragora.fabric import AgentFabric
 
 logger = logging.getLogger(__name__)
@@ -870,14 +870,14 @@ class FabricAdapter(KnowledgeMoundAdapter):
     # Sync from Fabric
     # =========================================================================
 
-    async def sync_from_fabric(self) -> Dict[str, int]:
+    async def sync_from_fabric(self) -> Dict[str, Any]:
         """
         Sync current fabric state to Knowledge Mound.
 
         Captures pool snapshots, recent task outcomes, and budget status.
 
         Returns:
-            Dict with counts of synced items
+            Dict with counts of synced items, or error dict on failure
         """
         if not self._fabric:
             logger.warning("No fabric configured for sync")
@@ -914,19 +914,33 @@ class FabricAdapter(KnowledgeMoundAdapter):
                 for entity_id in budget_stats.get("tracked_entities", []):
                     try:
                         report = await self._fabric.get_usage_report(entity_id, period_days=1)
-                        snapshot = BudgetUsageSnapshot(
+                        # Map UsageReport attributes to BudgetUsageSnapshot
+                        # UsageReport uses total_tokens/total_cost_usd; BudgetUsageSnapshot uses tokens_used/cost_used_usd
+                        # Convert datetime to timestamp if needed
+                        period_start_ts = (
+                            report.period_start.timestamp()
+                            if hasattr(report.period_start, "timestamp")
+                            else float(report.period_start)
+                        )  # type: ignore[arg-type, union-attr]
+                        period_end_ts = (
+                            report.period_end.timestamp()
+                            if hasattr(report.period_end, "timestamp")
+                            else float(report.period_end)
+                        )  # type: ignore[arg-type, union-attr]
+
+                        budget_snapshot = BudgetUsageSnapshot(
                             entity_id=entity_id,
                             entity_type="agent",  # Default, could be improved
-                            tokens_used=report.tokens_used,
-                            tokens_limit=report.tokens_limit,
-                            cost_used_usd=report.cost_used_usd,
-                            cost_limit_usd=report.cost_limit_usd,
-                            period_start=report.period_start,
-                            period_end=report.period_end,
-                            alerts_triggered=report.alerts_count,
+                            tokens_used=getattr(report, "total_tokens", 0),
+                            tokens_limit=getattr(report, "tokens_limit", 0),  # May not exist
+                            cost_used_usd=getattr(report, "total_cost_usd", 0.0),
+                            cost_limit_usd=getattr(report, "cost_limit_usd", 0.0),  # May not exist
+                            period_start=period_start_ts,
+                            period_end=period_end_ts,
+                            alerts_triggered=getattr(report, "alerts_count", 0),
                             workspace_id=self._workspace_id,
                         )
-                        if await self.store_budget_snapshot(snapshot):
+                        if await self.store_budget_snapshot(budget_snapshot):
                             synced["budgets"] += 1
                     except Exception as e:
                         logger.debug(f"Failed to sync budget for {entity_id}: {e}")
