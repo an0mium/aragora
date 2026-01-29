@@ -51,7 +51,8 @@ import json
 import logging
 import math
 import os
-import pickle  # Legacy support only - do not use for new saves
+
+# SECURITY: Removed pickle import - only JSON supported for model loading
 import re
 import sqlite3
 import threading
@@ -1002,29 +1003,20 @@ class NaiveBayesClassifier:
                 json.dump(data, f)
 
     def load(self, path: str) -> bool:
-        """Load model from file.
+        """Load model from JSON file.
 
-        Supports JSON (preferred) with legacy pickle fallback for migration.
+        SECURITY: Only JSON format supported. Legacy pickle format no longer accepted.
+        If you have old pickle models, use the migration script or recreate the model.
         """
         try:
-            # Try JSON first (secure format)
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # Legacy pickle fallback - only for migration from old format
-            # SECURITY: Only load pickle files from trusted sources
-            logger.warning(f"Loading legacy pickle model from {path} - will re-save as JSON")
-            try:
-                with open(path, "rb") as f:
-                    data = pickle.load(f)
-                # Re-save as JSON immediately to migrate away from pickle
-                self._apply_model_data(data)
-                self.save(path)
-                logger.info(f"Migrated model from pickle to JSON: {path}")
-                return True
-            except Exception as e:
-                logger.warning(f"Failed to load legacy pickle model: {e}")
-                return False
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.warning(f"Invalid JSON model file {path}: {e}")
+            return False
+        except FileNotFoundError:
+            logger.warning(f"Model file not found: {path}")
+            return False
         except Exception as e:
             logger.warning(f"Failed to load model: {e}")
             return False
