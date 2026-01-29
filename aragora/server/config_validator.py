@@ -277,9 +277,20 @@ class ConfigValidator:
             return False, f"Database connectivity check failed: {e}"
 
     @classmethod
-    def check_postgresql_connectivity(cls) -> tuple[bool, Optional[str]]:
+    def check_postgresql_connectivity(
+        cls,
+        timeout_seconds: float = 5.0,
+        skip_connectivity_test: bool = False,
+    ) -> tuple[bool, Optional[str]]:
         """
         Check if PostgreSQL is accessible (if configured).
+
+        Performs an actual connection test to verify database connectivity,
+        not just configuration format validation.
+
+        Args:
+            timeout_seconds: Maximum time to wait for connection.
+            skip_connectivity_test: If True, only validate config format (for testing).
 
         Returns:
             (success, error_message) tuple
@@ -293,12 +304,55 @@ class ConfigValidator:
             return True, None  # Not PostgreSQL
 
         try:
-            import asyncpg  # noqa: F401 - check availability
-
-            # Don't actually connect during validation - just verify config format
-            return True, None
+            import asyncpg
         except ImportError:
             return False, "asyncpg package required for PostgreSQL support"
+
+        if skip_connectivity_test:
+            return True, None
+
+        # Actually test the connection
+        import asyncio
+
+        async def _test_connection() -> tuple[bool, Optional[str]]:
+            conn = None
+            try:
+                conn = await asyncio.wait_for(
+                    asyncpg.connect(database_url),
+                    timeout=timeout_seconds,
+                )
+                # Verify connection works with a simple query
+                result = await conn.fetchval("SELECT 1")
+                if result != 1:
+                    return False, "Database query returned unexpected result"
+                return True, None
+            except asyncio.TimeoutError:
+                return False, f"Database connection timeout after {timeout_seconds}s"
+            except asyncpg.PostgresError as e:
+                return False, f"Database connection failed: {e}"
+            except Exception as e:
+                return False, f"Database connectivity check failed: {e}"
+            finally:
+                if conn:
+                    await conn.close()
+
+        # Run async test in event loop
+        try:
+            # Check if there's already a running loop
+            try:
+                loop = asyncio.get_running_loop()
+                # Already in async context - can't run sync
+                # Return success but warn
+                logger.warning(
+                    "PostgreSQL connectivity test skipped: already in async context. "
+                    "Connection will be verified at first use."
+                )
+                return True, None
+            except RuntimeError:
+                # No running loop - create one
+                return asyncio.run(_test_connection())
+        except Exception as e:
+            return False, f"Failed to run connectivity test: {e}"
 
     @classmethod
     def check_redis_connectivity(cls) -> tuple[bool, Optional[str]]:
@@ -323,6 +377,110 @@ class ConfigValidator:
             return True, None  # Redis not installed, not an error
         except Exception as e:
             return False, f"Redis connectivity check failed: {e}"
+
+    @classmethod
+    async def check_postgresql_connectivity_async(
+        cls,
+        timeout_seconds: float = 5.0,
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Async version of PostgreSQL connectivity check.
+
+        Use this in async contexts like server startup.
+
+        Args:
+            timeout_seconds: Maximum time to wait for connection.
+
+        Returns:
+            (success, error_message) tuple
+        """
+        import asyncio
+
+        database_url = os.getenv("DATABASE_URL")
+
+        if not database_url:
+            return True, None  # Not configured, not an error
+
+        if not database_url.startswith(("postgresql://", "postgres://")):
+            return True, None  # Not PostgreSQL
+
+        try:
+            import asyncpg
+        except ImportError:
+            return False, "asyncpg package required for PostgreSQL support"
+
+        conn = None
+        try:
+            conn = await asyncio.wait_for(
+                asyncpg.connect(database_url),
+                timeout=timeout_seconds,
+            )
+            # Verify connection works with a simple query
+            result = await conn.fetchval("SELECT 1")
+            if result != 1:
+                return False, "Database query returned unexpected result"
+            logger.info("PostgreSQL connectivity verified")
+            return True, None
+        except asyncio.TimeoutError:
+            return False, f"Database connection timeout after {timeout_seconds}s"
+        except Exception as e:
+            # Import here to avoid circular imports and check if it's a postgres error
+            try:
+                import asyncpg as apg
+
+                if isinstance(e, apg.PostgresError):
+                    return False, f"Database connection failed: {e}"
+            except ImportError:
+                pass
+            return False, f"Database connectivity check failed: {e}"
+        finally:
+            if conn:
+                await conn.close()
+
+    @classmethod
+    async def validate_connectivity_async(
+        cls,
+        check_postgresql: bool = True,
+        check_redis: bool = True,
+    ) -> ValidationResult:
+        """
+        Validate database and cache connectivity (async version).
+
+        Use this during async server startup to verify all backends are reachable.
+
+        Args:
+            check_postgresql: Whether to check PostgreSQL connectivity.
+            check_redis: Whether to check Redis connectivity.
+
+        Returns:
+            ValidationResult with any connectivity errors.
+        """
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        if check_postgresql:
+            success, error = await cls.check_postgresql_connectivity_async()
+            if not success and error:
+                is_production = os.getenv("ARAGORA_ENV", "development").lower() == "production"
+                if is_production:
+                    errors.append(f"PostgreSQL: {error}")
+                else:
+                    warnings.append(f"PostgreSQL: {error}")
+
+        if check_redis:
+            success, error = cls.check_redis_connectivity()
+            if not success and error:
+                is_production = os.getenv("ARAGORA_ENV", "development").lower() == "production"
+                if is_production:
+                    errors.append(f"Redis: {error}")
+                else:
+                    warnings.append(f"Redis: {error}")
+
+        return ValidationResult(
+            is_valid=len(errors) == 0,
+            errors=errors,
+            warnings=warnings,
+        )
 
     @classmethod
     def get_config_summary(cls) -> dict:
