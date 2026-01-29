@@ -32,6 +32,7 @@ from functools import wraps
 from typing import Any, Callable, Generator, Optional, TypeVar, cast
 
 from aragora.observability.config import get_metrics_config
+from aragora.observability.metrics.base import NoOpMetric
 
 logger = logging.getLogger(__name__)
 
@@ -1205,22 +1206,7 @@ def _init_noop_metrics() -> None:
     # Slow debate detection
     global SLOW_DEBATES_TOTAL, SLOW_ROUNDS_TOTAL, DEBATE_ROUND_LATENCY
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def dec(self, amount: float = 1) -> None:
-            pass
-
-        def set(self, value: float) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     REQUEST_COUNT = NoOpMetric()
     REQUEST_LATENCY = NoOpMetric()
     AGENT_CALLS = NoOpMetric()
@@ -2535,16 +2521,7 @@ def _init_gauntlet_noop_metrics() -> None:
     """Initialize no-op Gauntlet metrics."""
     global GAUNTLET_EXPORTS_TOTAL, GAUNTLET_EXPORT_LATENCY, GAUNTLET_EXPORT_SIZE
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     GAUNTLET_EXPORTS_TOTAL = NoOpMetric()
     GAUNTLET_EXPORT_LATENCY = NoOpMetric()
     GAUNTLET_EXPORT_SIZE = NoOpMetric()
@@ -2660,16 +2637,7 @@ def _init_workflow_noop_metrics() -> None:
     global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
     global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     WORKFLOW_TEMPLATES_CREATED = NoOpMetric()
     WORKFLOW_TEMPLATE_EXECUTIONS = NoOpMetric()
     WORKFLOW_TEMPLATE_EXECUTION_LATENCY = NoOpMetric()
@@ -2794,16 +2762,7 @@ def _init_checkpoint_noop_metrics() -> None:
     global CHECKPOINT_OPERATIONS, CHECKPOINT_OPERATION_LATENCY
     global CHECKPOINT_SIZE, CHECKPOINT_RESTORE_RESULTS
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     CHECKPOINT_OPERATIONS = NoOpMetric()
     CHECKPOINT_OPERATION_LATENCY = NoOpMetric()
     CHECKPOINT_SIZE = NoOpMetric()
@@ -2938,16 +2897,7 @@ def _init_consensus_ingestion_noop_metrics() -> None:
     global CONSENSUS_INGESTION_TOTAL, CONSENSUS_INGESTION_LATENCY
     global CONSENSUS_INGESTION_CLAIMS
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     CONSENSUS_INGESTION_TOTAL = NoOpMetric()
     CONSENSUS_INGESTION_LATENCY = NoOpMetric()
     CONSENSUS_INGESTION_CLAIMS = NoOpMetric()
@@ -3037,16 +2987,7 @@ def _init_enhanced_consensus_noop_metrics() -> None:
     global CONSENSUS_DISSENT_INGESTED, CONSENSUS_EVOLUTION_TRACKED
     global CONSENSUS_EVIDENCE_LINKED, CONSENSUS_AGREEMENT_RATIO
 
-    class NoOpMetric:
-        def labels(self, *args: Any, **kwargs: Any) -> "NoOpMetric":
-            return self
-
-        def inc(self, amount: float = 1) -> None:
-            pass
-
-        def observe(self, value: float) -> None:
-            pass
-
+    # Use imported NoOpMetric from base module
     CONSENSUS_DISSENT_INGESTED = NoOpMetric()
     CONSENSUS_EVOLUTION_TRACKED = NoOpMetric()
     CONSENSUS_EVIDENCE_LINKED = NoOpMetric()
