@@ -88,7 +88,7 @@ class TestDatabaseSchemaHealth:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.database.get_database_health",
+            "aragora.persistence.validator.get_database_health",
             return_value=mock_health,
         ):
             result = database_schema_health(handler)
@@ -108,7 +108,7 @@ class TestDatabaseSchemaHealth:
         }
 
         with patch(
-            "aragora.server.handlers.admin.health.database.get_database_health",
+            "aragora.persistence.validator.get_database_health",
             return_value=mock_health,
         ):
             result = database_schema_health(handler)
@@ -124,7 +124,7 @@ class TestDatabaseSchemaHealth:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.database.get_database_health",
+            "aragora.persistence.validator.get_database_health",
             side_effect=ImportError("Module not found"),
         ):
             result = database_schema_health(handler)
@@ -140,7 +140,7 @@ class TestDatabaseSchemaHealth:
         handler = MockHandler()
 
         with patch(
-            "aragora.server.handlers.admin.health.database.get_database_health",
+            "aragora.persistence.validator.get_database_health",
             side_effect=RuntimeError("Unexpected error"),
         ):
             result = database_schema_health(handler)
