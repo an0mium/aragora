@@ -111,7 +111,7 @@ type ActiveView = 'inboxes' | 'messages' | 'rules';
 
 export default function SharedInboxPage() {
   const { config: backendConfig } = useBackend();
-  const { tokens } = useAuth();
+  const { tokens, organization, user } = useAuth();
 
   const [inboxes, setInboxes] = useState<SharedInbox[]>([]);
   const [selectedInbox, setSelectedInbox] = useState<SharedInbox | null>(null);
@@ -128,7 +128,8 @@ export default function SharedInboxPage() {
   const [newInboxDescription, setNewInboxDescription] = useState('');
   const [newInboxEmail, setNewInboxEmail] = useState('');
 
-  const workspaceId = 'default'; // TODO: Get from auth context
+  // Get workspace ID from auth context (organization or user's org_id)
+  const workspaceId = organization?.id || user?.org_id || 'default';
 
   const fetchInboxes = useCallback(async () => {
     try {
