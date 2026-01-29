@@ -599,8 +599,8 @@ class SMESuccessDashboardHandler(SecureHandler):
         next_milestone = None
 
         for milestone in MILESTONES:
-            metric_value = metrics.get(milestone["metric"], 0)
-            threshold = milestone["threshold"]
+            metric_value = metrics.get(str(milestone["metric"]), 0)
+            threshold = int(milestone["threshold"])
 
             milestone_data = {
                 "id": milestone["id"],

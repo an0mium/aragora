@@ -180,7 +180,7 @@ async def handle_gastown_workspace_create(
             root_path=data.get("root_path", "/tmp/workspace"),
             description=data.get("description", ""),
             owner_id=ctx.user_id if ctx else "",
-            tenant_id=ctx.tenant_id if ctx else None,
+            tenant_id=ctx.org_id if ctx else None,
         )
         return {
             "status": "ok",
