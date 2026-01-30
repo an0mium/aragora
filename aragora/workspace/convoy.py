@@ -24,6 +24,7 @@ from aragora.nomic.stores import (
     ConvoyManager as NomicConvoyManager,
     ConvoyStatus as NomicConvoyStatus,
 )
+from aragora.nomic.stores.paths import resolve_store_dir
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,8 @@ class ConvoyTracker:
     ) -> None:
         self._convoys: dict[str, Convoy] = {}
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else bool(bead_store)
+        if self._use_nomic_store and bead_store is None:
+            bead_store = NomicBeadStore(resolve_store_dir(), git_enabled=False, auto_commit=False)
         self._nomic_manager = NomicConvoyManager(bead_store) if bead_store else None
         self._nomic_initialized = False
 

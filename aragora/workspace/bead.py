@@ -24,6 +24,7 @@ from aragora.nomic.stores import (
     BeadStore as NomicBeadStore,
     BeadType as NomicBeadType,
 )
+from aragora.nomic.stores.paths import resolve_store_dir
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class BeadManager:
             self._storage_dir.mkdir(parents=True, exist_ok=True)
         if self._use_nomic_store and self._nomic_store is None:
             if not self._storage_dir:
-                raise ValueError("storage_dir is required when use_nomic_store is True")
+                self._storage_dir = resolve_store_dir()
             self._nomic_store = NomicBeadStore(
                 self._storage_dir, git_enabled=False, auto_commit=False
             )
