@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 from aragora.protocols import HTTPRequestHandler
@@ -1632,7 +1632,7 @@ class DashboardHandler(SecureHandler):
         try:
             performance_monitor = self.ctx.get("performance_monitor")
             if performance_monitor:
-                insights = performance_monitor.get_performance_insights()  # type: ignore[attr-defined]
+                insights = cast(Any, performance_monitor).get_performance_insights()
                 if insights:
                     metrics["agents"] = insights.get("agents", {})
                     metrics["avg_latency_ms"] = insights.get("avg_latency_ms", 0.0)
@@ -1658,7 +1658,7 @@ class DashboardHandler(SecureHandler):
                 # Get version counts per agent
                 for agent_name in ["claude", "gemini", "codex", "grok"]:
                     try:
-                        version = prompt_evolver.get_prompt_version(agent_name)  # type: ignore[attr-defined]
+                        version = cast(Any, prompt_evolver).get_prompt_version(agent_name)
                         if version:
                             metrics["agents"][agent_name] = {
                                 "current_version": version.version,
@@ -1670,7 +1670,7 @@ class DashboardHandler(SecureHandler):
                         logger.debug(f"Skipping agent version with missing data: {e}")
 
                 # Get pattern count
-                patterns = prompt_evolver.get_top_patterns(limit=100)  # type: ignore[attr-defined]
+                patterns = cast(Any, prompt_evolver).get_top_patterns(limit=100)
                 metrics["patterns_extracted"] = len(patterns) if patterns else 0
         except Exception as e:
             logger.warning("Evolution metrics error: %s", e)

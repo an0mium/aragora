@@ -371,7 +371,7 @@ class KMWebSocketBridge:
 
             # Determine event type enum
             if event_type == "km_batch":
-                event_enum = StreamEventType.KM_BATCH
+                event_enum: StreamEventType = StreamEventType.KM_BATCH
             else:
                 # Map individual event types
                 event_map = {
@@ -386,27 +386,24 @@ class KMWebSocketBridge:
                     "mound_updated": StreamEventType.MOUND_UPDATED,
                     "knowledge_stale": StreamEventType.KNOWLEDGE_STALE,
                 }
-                event_enum = event_map.get(event_type)
-                if event_enum is None:
-                    # Generic batch event for unrecognized types
-                    event_enum = StreamEventType.KM_BATCH
+                event_enum = event_map.get(event_type, StreamEventType.KM_BATCH)
 
             # Create stream event
-            stream_event = StreamEvent(event_type=event_enum, data=data)  # type: ignore[arg-type,call-arg]
+            stream_event = StreamEvent(type=event_enum, data=data)
 
             # Schedule async broadcast
             if self._loop and self._loop.is_running():
                 asyncio.ensure_future(
                     self._broadcaster.broadcast(stream_event),
-                    loop=self._loop,  # type: ignore[arg-type]
+                    loop=self._loop,
                 )
 
                 # Record Prometheus metric
                 try:
-                    from aragora.observability.metrics import record_km_event_emitted  # type: ignore[attr-defined]
+                    from aragora.observability import metrics
 
-                    record_km_event_emitted(event_type)
-                except ImportError:
+                    metrics.record_km_event_emitted(event_type)
+                except (ImportError, AttributeError):
                     pass
             else:
                 logger.debug("[km_websocket] No event loop available, event not broadcast")

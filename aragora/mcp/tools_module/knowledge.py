@@ -14,6 +14,8 @@ import logging
 import time
 from typing import Any
 
+from aragora.knowledge.mound import KnowledgeMound, get_knowledge_mound
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,9 +42,7 @@ async def query_knowledge_tool(
     results: list[dict[str, Any]] = []
 
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
-
-        mound = get_knowledge_mound()
+        mound: KnowledgeMound = get_knowledge_mound()
 
         # Parse node types
         types_filter = None if node_types == "all" else node_types.split(",")
@@ -137,9 +137,7 @@ async def store_knowledge_tool(
         return {"error": "Confidence must be between 0 and 1"}
 
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
-
-        mound = get_knowledge_mound()
+        mound: KnowledgeMound = get_knowledge_mound()
 
         # Parse topics
         topics_list = [t.strip() for t in topics.split(",") if t.strip()] if topics else []
@@ -186,9 +184,7 @@ async def get_knowledge_stats_tool() -> dict[str, Any]:
         Dict with node counts, tier utilization, and health metrics
     """
     try:
-        from aragora.knowledge.mound.core import get_knowledge_mound  # type: ignore[attr-defined]
-
-        mound = get_knowledge_mound()
+        mound: KnowledgeMound = get_knowledge_mound()
         stats = await mound.get_stats()
 
         return {

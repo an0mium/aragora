@@ -271,8 +271,8 @@ class MultiInboxManager:
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         async with self._accounts_lock:
-            # Create connector
-            connector = GmailConnector()  # type: ignore[abstract]
+            # Create connector with explicit type annotation
+            connector: GmailConnector = GmailConnector()
 
             # Authenticate
             success = await connector.authenticate(refresh_token=refresh_token)
@@ -354,17 +354,24 @@ class MultiInboxManager:
         account = self._accounts[account_id]
 
         try:
-            # Fetch messages
-            messages = []
-            async for item in connector.sync(max_items=max_messages):  # type: ignore[attr-defined]
-                messages.append(item)
+            # Fetch message IDs from INBOX
+            message_ids, _ = await connector.list_messages(
+                query="",
+                max_results=max_messages,
+            )
+
+            # Fetch full messages
+            messages = await connector.get_messages(
+                message_ids=message_ids[:max_messages],
+                format="full",
+            )
 
             # Update account stats
             account.last_sync = datetime.now()
             account.total_emails = len(messages)
             account.sync_error = None
 
-            # Update sender profiles
+            # Update sender profiles with EmailMessage objects
             await self._update_sender_profiles(account_id, messages)
 
             logger.info(f"[MultiInbox] Synced {len(messages)} messages from {account_id}")
@@ -438,15 +445,19 @@ class MultiInboxManager:
 
                 query = " ".join(query_parts) if query_parts else None
 
-                # Fetch messages
-                messages = await connector.list_messages(
+                # Fetch message IDs
+                message_ids, _ = await connector.list_messages(
                     query=query,
                     max_results=limit,
                 )
 
-                for msg in messages:
-                    # Get full message
-                    full_msg = await connector.get_message(msg.get("id", ""))  # type: ignore[union-attr]
+                # Get full messages
+                full_messages = await connector.get_messages(
+                    message_ids=message_ids,
+                    format="full",
+                )
+
+                for full_msg in full_messages:
                     if not full_msg:
                         continue
 

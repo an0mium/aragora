@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.debate.checkpoint import (
     CheckpointManager,
@@ -29,6 +29,7 @@ from aragora.rbac.decorators import require_permission
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     get_int_param,
     handle_errors,
@@ -51,8 +52,8 @@ class CheckpointHandler(BaseHandler):
         "/api/v1/checkpoints/resumable",
     ]
 
-    def __init__(self, context: Optional[dict[str, Any]] = None):
-        super().__init__(context)  # type: ignore[arg-type]
+    def __init__(self, context: Optional[ServerContext] = None):
+        super().__init__(cast(ServerContext, context or {}))
         self._checkpoint_manager: CheckpointManager | None = None
 
     def _get_checkpoint_manager(self) -> CheckpointManager:
@@ -73,8 +74,8 @@ class CheckpointHandler(BaseHandler):
         )
 
     @require_permission("checkpoints:read")
-    @handle_errors("checkpoint handling")  # type: ignore[arg-type]
-    async def handle(  # type: ignore[override]
+    @handle_errors("checkpoint handling")
+    async def handle(
         self,
         path: str,
         query_params: dict[str, str],

@@ -6,7 +6,7 @@ Bridges compliance policies to control plane.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, Protocol
 
 from aragora.observability import get_logger
 
@@ -17,9 +17,6 @@ from .types import (
     RegionConstraint,
     SLARequirements,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = get_logger(__name__)
 
@@ -150,7 +147,7 @@ class PolicyStoreSync:
 
         return False
 
-    def _convert_data_residency_policy(self, policy) -> ControlPlanePolicy | None:
+    def _convert_data_residency_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Convert data residency compliance policy to region constraint."""
         # Extract allowed regions from policy rules
         allowed_regions: list[str] = []
@@ -188,7 +185,7 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_agent_restriction_policy(self, policy) -> ControlPlanePolicy | None:
+    def _convert_agent_restriction_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Convert agent restriction compliance policy."""
         allowlist: list[str] = []
         blocklist: list[str] = []

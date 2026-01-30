@@ -32,7 +32,7 @@ import binascii
 import logging
 import threading
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Awaitable
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -44,6 +44,9 @@ from aragora.server.handlers.base import (
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
+
+# Type alias for handler methods that can return async or sync results
+MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
 
 # Thread-safe service instance
 _expense_tracker: Any | None = None
@@ -821,20 +824,18 @@ class ExpenseHandler(BaseHandler):
             logger.debug(f"Permission check failed: {e}")
             return error_response("Authentication required", status=401)
 
-    async def handle_get(
+    async def handle(
         self,
         path: str,
-        query_params: Optional[dict[str, Any]] = None,
-        handler: Any | None = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> MaybeAsyncHandlerResult:
         """Handle GET requests."""
         # Check authentication for all GET requests
         if handler:
             auth_error = self._check_auth(handler)
             if auth_error:
                 return auth_error
-
-        query_params = query_params or {}
 
         if path == "/api/v1/accounting/expenses":
             return await handle_list_expenses(query_params)
@@ -855,13 +856,16 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        data: Optional[dict[str, Any]] = None,
-        handler: Any | None = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> MaybeAsyncHandlerResult:
         """Handle POST requests."""
+        # Extract data from query_params for backwards compatibility
+        data = query_params if isinstance(query_params, dict) else {}
+
         # Check write permission for all POST requests
         if handler:
             # Approve/reject need special permission
@@ -871,8 +875,6 @@ class ExpenseHandler(BaseHandler):
                 perm_error = self._check_permission(handler, self.EXPENSE_WRITE_PERMISSION)
             if perm_error:
                 return perm_error
-
-        data = data or {}
 
         if path == "/api/v1/accounting/expenses/upload":
             return await handle_upload_receipt(data)
@@ -896,20 +898,21 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_put(  # type: ignore[override]
+    async def handle_put(
         self,
         path: str,
-        data: Optional[dict[str, Any]] = None,
-        handler: Any | None = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> MaybeAsyncHandlerResult:
         """Handle PUT requests."""
+        # Extract data from query_params for backwards compatibility
+        data = query_params if isinstance(query_params, dict) else {}
+
         # Check write permission for all PUT requests
         if handler:
             perm_error = self._check_permission(handler, self.EXPENSE_WRITE_PERMISSION)
             if perm_error:
                 return perm_error
-
-        data = data or {}
 
         expense_id = self._extract_expense_id(path)
         if expense_id:
@@ -917,11 +920,12 @@ class ExpenseHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
-        handler: Any | None = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> MaybeAsyncHandlerResult:
         """Handle DELETE requests."""
         # Note: handle_delete_expense already has @require_permission("admin:audit")
         # But we also check at handler level for consistency

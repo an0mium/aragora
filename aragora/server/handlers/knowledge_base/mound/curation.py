@@ -175,9 +175,7 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_set_curation_policy(self, handler: Any) -> HandlerResult:
         """Set curation policy for a workspace."""
-        from ...base import read_json_body  # type: ignore[attr-defined]
-
-        body = read_json_body(handler)
+        body = self.read_json_body(handler)
         if body is None:
             return error_response("JSON body required", 400)
 
@@ -276,12 +274,10 @@ class CurationOperationsMixin:
     @require_auth
     def _handle_run_curation(self, handler: Any) -> HandlerResult:
         """Trigger a curation run for a workspace."""
-        from ...base import read_json_body  # type: ignore[attr-defined]
-
-        body = read_json_body(handler) or {}
+        body = self.read_json_body(handler) or {}
         workspace_id = body.get("workspace_id", "default")
         dry_run = body.get("dry_run", False)
-        limit = body.get("limit", 100)
+        _limit = body.get("limit", 100)  # Reserved for future use
 
         mound = self._get_mound()
         if not mound:
@@ -302,10 +298,9 @@ class CurationOperationsMixin:
             # Run curation if method exists
             if hasattr(mound, "run_curation"):
                 curation_result = _run_async(
-                    mound.run_curation(  # type: ignore[call-arg]
+                    mound.run_curation(
                         workspace_id=workspace_id,
                         dry_run=dry_run,
-                        limit=limit,
                     )
                 )
                 if curation_result:

@@ -7,7 +7,6 @@ with tsvector-based full-text search for production deployments.
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -23,6 +22,7 @@ from aragora.knowledge.types import (
     ValidationStatus,
 )
 from aragora.storage.postgres_store import PostgresStore
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class PostgresFactStore(PostgresStore):
         deduplicate: bool = True,
     ) -> Fact:
         """Add a fact to the store (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.add_fact_async(
                 statement=statement,
                 workspace_id=workspace_id,
@@ -147,7 +147,7 @@ class PostgresFactStore(PostgresStore):
 
     def get_fact(self, fact_id: str) -> Fact | None:
         """Get a fact by ID (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_fact_async(fact_id))
+        return run_async(self.get_fact_async(fact_id))
 
     def update_fact(
         self,
@@ -161,7 +161,7 @@ class PostgresFactStore(PostgresStore):
         superseded_by: str | None = None,
     ) -> Fact | None:
         """Update a fact (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.update_fact_async(
                 fact_id=fact_id,
                 confidence=confidence,
@@ -180,15 +180,15 @@ class PostgresFactStore(PostgresStore):
         filters: FactFilters | None = None,
     ) -> list[Fact]:
         """Search facts using full-text search (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.query_facts_async(query, filters))
+        return run_async(self.query_facts_async(query, filters))
 
     def list_facts(self, filters: FactFilters | None = None) -> list[Fact]:
         """List facts with optional filtering (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_facts_async(filters))
+        return run_async(self.list_facts_async(filters))
 
     def get_contradictions(self, fact_id: str) -> list[Fact]:
         """Get facts that contradict a given fact (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_contradictions_async(fact_id))
+        return run_async(self.get_contradictions_async(fact_id))
 
     def add_relation(
         self,
@@ -200,7 +200,7 @@ class PostgresFactStore(PostgresStore):
         metadata: dict[str, Any] | None = None,
     ) -> FactRelation:
         """Add a relation between facts (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.add_relation_async(
                 source_fact_id=source_fact_id,
                 target_fact_id=target_fact_id,
@@ -219,17 +219,15 @@ class PostgresFactStore(PostgresStore):
         as_target: bool = True,
     ) -> list[FactRelation]:
         """Get relations for a fact (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_relations_async(fact_id, relation_type, as_source, as_target)
-        )
+        return run_async(self.get_relations_async(fact_id, relation_type, as_source, as_target))
 
     def delete_fact(self, fact_id: str) -> bool:
         """Delete a fact and its relations (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete_fact_async(fact_id))
+        return run_async(self.delete_fact_async(fact_id))
 
     def get_statistics(self, workspace_id: str | None = None) -> dict[str, Any]:
         """Get store statistics (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_statistics_async(workspace_id))
+        return run_async(self.get_statistics_async(workspace_id))
 
     # =========================================================================
     # Async implementations

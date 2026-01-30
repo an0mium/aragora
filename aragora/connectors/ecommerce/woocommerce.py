@@ -1211,6 +1211,7 @@ class WooCommerceConnector(EnterpriseConnector):
         self,
         payload: bytes,
         signature: str,
+        secret: str | None = None,
     ) -> bool:
         """Verify webhook payload signature.
 
@@ -1220,12 +1221,13 @@ class WooCommerceConnector(EnterpriseConnector):
         Args:
             payload: Raw webhook payload bytes
             signature: X-WC-Webhook-Signature header value
+            secret: Webhook secret (optional, uses get_webhook_secret() if not provided)
 
         Returns:
             True if signature is valid
         """
-        secret = self.get_webhook_secret()
-        if not secret:
+        effective_secret = secret if secret is not None else self.get_webhook_secret()
+        if not effective_secret:
             return True  # No secret configured, skip verification
 
         import base64
@@ -1233,35 +1235,7 @@ class WooCommerceConnector(EnterpriseConnector):
         import hmac
 
         expected = base64.b64encode(
-            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
-        ).decode()
-        return hmac.compare_digest(expected, signature)
-
-    def verify_webhook_signature_with_secret(
-        self,
-        payload: bytes,
-        signature: str,
-        secret: str,
-    ) -> bool:
-        """Verify webhook payload signature with an explicit secret.
-
-        This is a convenience method when you want to pass a secret directly
-        rather than using get_webhook_secret().
-
-        Args:
-            payload: Raw webhook payload bytes
-            signature: X-WC-Webhook-Signature header value
-            secret: Webhook secret
-
-        Returns:
-            True if signature is valid
-        """
-        import base64
-        import hashlib
-        import hmac
-
-        expected = base64.b64encode(
-            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+            hmac.new(effective_secret.encode(), payload, hashlib.sha256).digest()
         ).decode()
         return hmac.compare_digest(expected, signature)
 

@@ -14,6 +14,8 @@ import logging
 import os
 from typing import Any
 
+from aragora.persistence.migrations.runner import MigrationRunner
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +99,7 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
         total_pending = 0
         for status in statuses.values():
             if status is not None:
-                total_pending += len(status.pending)  # type: ignore[attr-defined]
+                total_pending += len(status.pending_migrations)
 
         if total_pending == 0:
             logger.debug("No pending SQLite migrations")
@@ -147,12 +149,11 @@ def check_migrations_pending() -> dict[str, Any]:
         logger.debug("PostgreSQL migration check skipped: %s", e)
 
     try:
-        from aragora.persistence.migrations.runner import MigrationRunner
-
-        runner = MigrationRunner()  # type: ignore[assignment]
-        statuses = runner.get_all_status()  # type: ignore[attr-defined]
+        runner: MigrationRunner = MigrationRunner()
+        statuses = runner.get_all_status()
         for status in statuses.values():
-            result["sqlite_pending"] += len(status.pending)
+            if status is not None:
+                result["sqlite_pending"] += len(status.pending_migrations)
     except (ImportError, RuntimeError, OSError, AttributeError) as e:
         logger.debug("SQLite migration check skipped: %s", e)
 

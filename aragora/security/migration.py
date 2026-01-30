@@ -17,7 +17,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -693,8 +693,8 @@ def _get_integration_store_config() -> Optional[dict[str, Any]]:
         store = get_integration_store()
 
         return {
-            "list_fn": lambda: list(store.list_all()),  # type: ignore[call-overload,union-attr]
-            "save_fn": lambda id, record: store.save(record),
+            "list_fn": lambda: list(cast(Any, store).list_all()),
+            "save_fn": lambda id, record: cast(Any, store).save(record),
             "sensitive_fields": [
                 "api_key",
                 "api_secret",
@@ -719,8 +719,10 @@ def _get_gmail_store_config() -> Optional[dict[str, Any]]:
         store = get_gmail_token_store()
 
         return {
-            "list_fn": lambda: list(store.list_all()) if hasattr(store, "list_all") else [],  # type: ignore[call-overload]
-            "save_fn": lambda id, record: store.save_state(id, record),  # type: ignore[attr-defined]
+            "list_fn": lambda: list(cast(Any, store).list_all())
+            if hasattr(store, "list_all")
+            else [],
+            "save_fn": lambda id, record: cast(Any, store).save_state(id, record),
             "sensitive_fields": ["access_token", "refresh_token"],
             "id_field": "user_id",
         }

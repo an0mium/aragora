@@ -101,9 +101,14 @@ from .circuit_breaker_v2 import (
     BaseCircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerConfig as CircuitBreakerConfigV2,
+    CircuitBreakerOpenError,
+    CircuitBreakerStats,
     CircuitState,
+    get_all_circuit_breakers as get_all_v2_circuit_breakers,
     get_circuit_breaker as get_v2_circuit_breaker,
+    reset_all_circuit_breakers as reset_all_v2_circuit_breakers,
     with_circuit_breaker,
+    with_circuit_breaker_sync,
 )
 
 # Health monitoring
@@ -159,9 +164,14 @@ __all__ = [
     "BaseCircuitBreaker",
     "CircuitBreakerConfig",
     "CircuitBreakerConfigV2",
+    "CircuitBreakerOpenError",
+    "CircuitBreakerStats",
     "CircuitState",
+    "get_all_v2_circuit_breakers",
     "get_v2_circuit_breaker",
+    "reset_all_v2_circuit_breakers",
     "with_circuit_breaker",
+    "with_circuit_breaker_sync",
     # Health monitoring
     "HealthChecker",
     "HealthReport",

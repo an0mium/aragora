@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Awaitable
 
 if TYPE_CHECKING:
     pass
@@ -110,9 +110,9 @@ class DecisionExplainHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict, handler: Any
-    ) -> HandlerResult | None:
+    ) -> Awaitable[HandlerResult | None]:
         """Route decision explain requests with RBAC."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -330,7 +330,7 @@ class DecisionExplainHandler(SecureHandler):
 
     def _build_dissent(self, result: Any) -> dict[str, Any]:
         """Build dissent section with minority views."""
-        dissent = {
+        dissent: dict[str, Any] = {
             "dissenting_agents": [],
             "reasons": [],
             "alternative_views": [],
@@ -345,11 +345,13 @@ class DecisionExplainHandler(SecureHandler):
             total_severity = 0.0
             for record in dissent_records:
                 reasons = getattr(record, "reasons", [])
-                dissent["reasons"].extend(reasons)  # type: ignore[attr-defined]
+                reasons_list: list[Any] = dissent["reasons"]
+                reasons_list.extend(reasons)
 
                 alt_view = getattr(record, "alternative_view", None)
                 if alt_view:
-                    dissent["alternative_views"].append(  # type: ignore[attr-defined]
+                    alt_views_list: list[Any] = dissent["alternative_views"]
+                    alt_views_list.append(
                         {
                             "agent": getattr(record, "agent", "unknown"),
                             "view": alt_view,

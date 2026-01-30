@@ -26,7 +26,7 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Optional
+from typing import Any, Coroutine, Optional, cast
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -52,6 +52,7 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     auto_error_response,
     error_response,
     json_response,
@@ -60,8 +61,8 @@ from ..base import (
 # RBAC imports - optional dependency
 try:
     from aragora.rbac.checker import check_permission
-    from aragora.rbac.middleware import extract_user_from_request  # type: ignore[attr-defined]
     from aragora.rbac.models import AuthorizationContext
+    from aragora.billing.auth import extract_user_from_request
 
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
@@ -574,7 +575,7 @@ class TelegramHandler(BaseHandler):
         record_debate_started("telegram")
         try:
             from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+            from aragora.agents import get_agents_by_names
 
             # Register debate origin for tracking and potential async routing
             try:
@@ -1304,13 +1305,13 @@ class TelegramHandler(BaseHandler):
 _telegram_handler: Optional["TelegramHandler"] = None
 
 
-def get_telegram_handler(server_context: dict | None = None) -> "TelegramHandler":
+def get_telegram_handler(server_context: ServerContext | None = None) -> "TelegramHandler":
     """Get or create the Telegram handler instance."""
     global _telegram_handler
     if _telegram_handler is None:
         if server_context is None:
-            server_context = {}
-        _telegram_handler = TelegramHandler(server_context)  # type: ignore[arg-type]
+            server_context = cast(ServerContext, {})
+        _telegram_handler = TelegramHandler(server_context)
     return _telegram_handler
 
 

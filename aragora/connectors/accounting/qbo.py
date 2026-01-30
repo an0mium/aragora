@@ -524,7 +524,7 @@ class QuickBooksConnector:
         # active_only is a bool - convert safely to QBO boolean literal
         active_str = "true" if active_only else "false"
 
-        query = f"SELECT * FROM Customer WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        query = f"SELECT Id, DisplayName, CompanyName, PrimaryEmailAddr, PrimaryPhone, Balance, Active FROM Customer WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -596,7 +596,7 @@ class QuickBooksConnector:
             conditions.append(f"CustomerRef = '{safe_customer_id}'")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT * FROM Invoice WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        query = f"SELECT Id, DocNumber, TxnDate, DueDate, TotalAmt, Balance, CustomerRef, VendorRef, PrivateNote, Line FROM Invoice WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -629,7 +629,7 @@ class QuickBooksConnector:
             conditions.append(f"TxnDate <= '{safe_end}'")
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT * FROM Purchase WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        query = f"SELECT Id, DocNumber, TxnDate, DueDate, TotalAmt, Balance, CustomerRef, VendorRef, PrivateNote, Line FROM Purchase WHERE {where_clause} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -716,7 +716,7 @@ class QuickBooksConnector:
             conditions.append(f"AccountType = '{safe_account_type}'")
 
         where_clause = " AND ".join(conditions)
-        query = f"SELECT * FROM Account WHERE {where_clause}"
+        query = f"SELECT Id, Name, AccountType, AccountSubType, CurrentBalance, Active FROM Account WHERE {where_clause}"
 
         response = await self._request("GET", f"query?query={query}")
 
@@ -760,7 +760,7 @@ class QuickBooksConnector:
         # active_only is a bool - convert safely to QBO boolean literal
         active_str = "true" if active_only else "false"
 
-        query = f"SELECT * FROM Vendor WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
+        query = f"SELECT Id, DisplayName, CompanyName, PrimaryEmailAddr, PrimaryPhone, Balance, Active FROM Vendor WHERE Active = {active_str} MAXRESULTS {limit} STARTPOSITION {offset + 1}"
         response = await self._request("GET", f"query?query={query}")
         return response.get("QueryResponse", {}).get("Vendor", [])
 
@@ -775,7 +775,7 @@ class QuickBooksConnector:
             Vendor data or None if not found
         """
         safe_name = self._sanitize_query_value(name)
-        query = f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}'"
+        query = f"SELECT Id, DisplayName, CompanyName, PrimaryEmailAddr, PrimaryPhone, Balance, Active FROM Vendor WHERE DisplayName = '{safe_name}'"
 
         response = await self._request("GET", f"query?query={query}")
         vendors = response.get("QueryResponse", {}).get("Vendor", [])

@@ -532,7 +532,9 @@ class DebateKnowledgeExtractor:
 
             try:
                 # Create knowledge item
-                await mound.store(  # type: ignore[misc,call-arg]
+                from aragora.knowledge.mound.types import IngestionRequest, KnowledgeSource
+
+                request = IngestionRequest(
                     workspace_id=workspace_id,
                     content=claim.content,
                     topics=claim.topics,
@@ -544,7 +546,10 @@ class DebateKnowledgeExtractor:
                         "agreement_ratio": claim.agreement_ratio,
                     },
                     confidence=claim.confidence,
+                    source_type=KnowledgeSource.DEBATE,
+                    debate_id=claim.source_debate_id,
                 )
+                await mound.store(request)
                 promoted += 1
             except Exception as e:
                 logger.warning(f"Failed to promote claim {claim.id}: {e}")
@@ -597,14 +602,14 @@ class ExtractionMixin:
         self,
         workspace_id: str,
         claims: Optional[list[ExtractedClaim]] = None,
-        min_confidence: float = 0.6,
+        min_confidence: float | None = None,
     ) -> int:
         """Promote extracted claims to Knowledge Mound."""
         return await self._get_extractor().promote_to_mound(
-            self,  # type: ignore[arg-type]
-            workspace_id,
-            claims,
-            min_confidence,  # type: ignore[arg-type]
+            mound=self,
+            workspace_id=workspace_id,
+            claims=claims,
+            min_confidence=min_confidence,
         )
 
     def get_extraction_stats(self) -> dict[str, Any]:

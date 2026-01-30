@@ -305,15 +305,15 @@ async def _transcribe_audio_video(
 
         try:
             # Transcribe
-            transcription = await connector.transcribe(  # type: ignore[call-arg]
-                audio_path=tmp_path,
-                language=options.get("language"),
+            transcription = await connector.transcribe(
+                audio_content=content,
+                filename=filename,
                 prompt=options.get("prompt"),
             )
 
             return {
                 "transcription": transcription.text,
-                "duration": transcription.duration,  # type: ignore[attr-defined]
+                "duration": transcription.duration_seconds,
                 "language": transcription.language,
                 "segments": [
                     {
@@ -562,7 +562,9 @@ async def _expand_archive(
     elif ext in (".tar", ".gz", ".tgz"):
         try:
             mode = "r:gz" if ext in (".gz", ".tgz") else "r"
-            with tarfile.open(fileobj=io.BytesIO(content), mode=mode) as tf:  # type: ignore[call-overload]
+            # tarfile.open accepts fileobj parameter for stream reading
+            bio: io.IOBase = io.BytesIO(content)
+            with tarfile.open(fileobj=bio, mode=mode) as tf:
                 for member in tf.getmembers():
                     files.append(
                         {

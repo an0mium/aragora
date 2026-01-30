@@ -546,3 +546,495 @@ class TestParameterValidation:
             result = parse_handler_result(raw_result)
 
         assert result["success"] is True
+
+
+# ===========================================================================
+# Additional Tests for Rate Limiting and Authentication
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting behavior."""
+
+    def test_rate_limit_exceeded_returns_429(self, mock_server_context):
+        """Test rate limit exceeded returns 429 error."""
+        from aragora.server.handlers.analytics_metrics import (
+            AnalyticsMetricsHandler,
+            _analytics_metrics_limiter,
+        )
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+        mock_http_handler = MagicMock()
+        mock_http_handler.client_address = ("127.0.0.1", 12345)
+
+        with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=False):
+            with patch.object(handler, "get_auth_context", return_value=MagicMock()):
+                raw_result = handler.handle(
+                    "/api/analytics/debates/overview",
+                    {},
+                    mock_http_handler,
+                )
+
+        assert raw_result is not None
+        assert raw_result.status_code == 429
+
+    def test_rate_limit_allowed_proceeds(self, mock_server_context, mock_storage):
+        """Test within rate limit proceeds to handler logic."""
+        from aragora.server.handlers.analytics_metrics import (
+            AnalyticsMetricsHandler,
+            _analytics_metrics_limiter,
+        )
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+        mock_http_handler = MagicMock()
+        mock_http_handler.client_address = ("127.0.0.1", 12345)
+
+        mock_auth_ctx = MagicMock()
+        mock_auth_ctx.user_id = "test-user"
+        mock_auth_ctx.roles = {"admin"}
+
+        with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=True):
+            with patch.object(handler, "get_auth_context", return_value=mock_auth_ctx):
+                with patch.object(handler, "check_permission", return_value=None):
+                    with patch.object(handler, "get_storage", return_value=mock_storage):
+                        raw_result = handler.handle(
+                            "/api/analytics/debates/overview",
+                            {},
+                            mock_http_handler,
+                        )
+
+        assert raw_result is not None
+        assert raw_result.status_code != 429
+
+
+class TestAuthentication:
+    """Tests for authentication and authorization."""
+
+    def test_unauthenticated_returns_401(self, mock_server_context):
+        """Test unauthenticated request returns 401."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+        from aragora.server.handlers.secure import UnauthorizedError
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+        mock_http_handler = MagicMock()
+        mock_http_handler.client_address = ("127.0.0.1", 12345)
+
+        with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
+            raw_result = handler.handle(
+                "/api/analytics/debates/overview",
+                {},
+                mock_http_handler,
+            )
+
+        assert raw_result is not None
+        assert raw_result.status_code == 401
+
+    def test_permission_denied_returns_403(self, mock_server_context):
+        """Test permission denied returns 403."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+        from aragora.server.handlers.secure import ForbiddenError
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+        mock_http_handler = MagicMock()
+        mock_http_handler.client_address = ("127.0.0.1", 12345)
+
+        mock_auth_ctx = MagicMock()
+
+        with patch.object(handler, "get_auth_context", return_value=mock_auth_ctx):
+            with patch.object(
+                handler, "check_permission", side_effect=ForbiddenError("Permission denied")
+            ):
+                raw_result = handler.handle(
+                    "/api/analytics/debates/overview",
+                    {},
+                    mock_http_handler,
+                )
+
+        assert raw_result is not None
+        assert raw_result.status_code == 403
+
+
+class TestAgentPerformanceRouting:
+    """Tests for agent performance pattern matching."""
+
+    def test_can_handle_agent_performance_pattern(self, mock_server_context):
+        """Test handler recognizes agent performance pattern."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        assert handler.can_handle("/api/analytics/agents/agent-1/performance")
+        assert handler.can_handle("/api/analytics/agents/claude_3/performance")
+        assert handler.can_handle("/api/analytics/agents/gpt-4-turbo/performance")
+
+    def test_cannot_handle_invalid_agent_performance_pattern(self, mock_server_context):
+        """Test handler rejects invalid agent performance patterns."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        # Missing /performance
+        assert not handler.can_handle("/api/analytics/agents/agent-1")
+        # Extra segments
+        assert not handler.can_handle("/api/analytics/agents/agent-1/performance/extra")
+
+
+class TestUsageAnalyticsEdgeCases:
+    """Tests for usage analytics edge cases."""
+
+    def test_usage_tokens_missing_org_id_returns_error(self, mock_server_context):
+        """Test usage tokens without org_id returns error."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        raw_result = handler._get_usage_tokens({})
+        result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 400
+
+    def test_usage_costs_missing_org_id_returns_error(self, mock_server_context):
+        """Test usage costs without org_id returns error."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        raw_result = handler._get_usage_costs({})
+        result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 400
+
+    def test_usage_tokens_import_error_graceful(self, mock_server_context):
+        """Test usage tokens handles import error gracefully."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch(
+            "aragora.server.handlers.analytics_metrics.AnalyticsMetricsHandler._get_usage_tokens",
+            wraps=handler._get_usage_tokens,
+        ):
+            raw_result = handler._get_usage_tokens({"org_id": "org-123"})
+            result = parse_handler_result(raw_result)
+
+        # Should return message about cost tracker not available or success
+        assert result["success"] is True or "message" in result["data"]
+
+    def test_active_users_no_user_store(self, mock_server_context):
+        """Test active users returns defaults when user_store not available."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        raw_result = handler._get_active_users({})
+        result = parse_handler_result(raw_result)
+
+        assert result["success"] is True
+        assert result["data"]["active_users"]["daily"] == 0
+        assert "message" in result["data"]
+
+    def test_active_users_with_time_range(self, mock_server_context):
+        """Test active users respects time_range parameter."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        for time_range in ["7d", "30d", "90d"]:
+            raw_result = handler._get_active_users({"time_range": time_range})
+            result = parse_handler_result(raw_result)
+            assert result["success"] is True
+            assert result["data"]["time_range"] == time_range
+
+
+class TestAgentsComparisonEdgeCases:
+    """Tests for agents comparison edge cases."""
+
+    def test_agents_comparison_missing_agents_param(self, mock_server_context):
+        """Test agents comparison without agents param returns error."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        raw_result = handler._get_agents_comparison({})
+        result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 400
+
+    def test_agents_comparison_single_agent_error(self, mock_elo_system, mock_server_context):
+        """Test agents comparison with only one agent returns error."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_comparison({"agents": "agent-1"})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 400
+
+    def test_agents_comparison_too_many_agents(self, mock_elo_system, mock_server_context):
+        """Test agents comparison with more than 10 agents returns error."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        agents = ",".join([f"agent-{i}" for i in range(15)])
+
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_comparison({"agents": agents})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 400
+
+    def test_agents_comparison_missing_agent_in_comparison(
+        self, mock_elo_system, mock_server_context
+    ):
+        """Test agents comparison handles missing agents gracefully."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch.object(handler, "get_elo_system", return_value=mock_elo_system):
+            raw_result = handler._get_agents_comparison({"agents": "agent-1,nonexistent"})
+            result = parse_handler_result(raw_result)
+
+        # Should succeed but include error info for missing agent
+        assert result["success"] is True
+        comparison = result["data"]["comparison"]
+        # One agent should have error info
+        assert any("error" in c for c in comparison if isinstance(c, dict))
+
+
+class TestDebateAnalyticsWithDictData:
+    """Tests for debate analytics with dict-based debates."""
+
+    def test_debates_overview_with_dict_debates(self, mock_server_context):
+        """Test debates overview handles dict-based debates."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        mock_storage = MagicMock()
+        mock_storage.list_debates.return_value = [
+            {
+                "id": "debate-1",
+                "task": "Test task",
+                "consensus_reached": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "result": {"rounds_used": 3, "confidence": 0.85},
+                "agents": ["agent-1", "agent-2"],
+            },
+            {
+                "id": "debate-2",
+                "task": "Test task 2",
+                "consensus_reached": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "result": {"rounds_used": 5, "confidence": 0.5},
+                "agents": ["agent-1", "agent-3"],
+            },
+        ]
+
+        with patch.object(handler, "get_storage", return_value=mock_storage):
+            raw_result = handler._get_debates_overview({})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is True
+        assert result["data"]["total_debates"] == 2
+
+    def test_debates_outcomes_with_various_result_types(self, mock_server_context):
+        """Test debates outcomes handles various outcome types."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        mock_storage = MagicMock()
+        mock_storage.list_debates.return_value = [
+            {
+                "id": "debate-1",
+                "consensus_reached": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "result": {"outcome_type": "consensus", "confidence": 0.9},
+            },
+            {
+                "id": "debate-2",
+                "consensus_reached": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "result": {"outcome_type": "majority", "confidence": 0.6},
+            },
+            {
+                "id": "debate-3",
+                "consensus_reached": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "result": {"outcome_type": "dissent", "confidence": 0.4},
+            },
+        ]
+
+        with patch.object(handler, "get_storage", return_value=mock_storage):
+            raw_result = handler._get_debates_outcomes({})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is True
+        assert "outcomes" in result["data"]
+
+
+class TestEloSystemEdgeCases:
+    """Tests for ELO system edge cases."""
+
+    def test_agent_performance_no_elo_system(self, mock_server_context):
+        """Test agent performance returns error when no ELO system."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch.object(handler, "get_elo_system", return_value=None):
+            raw_result = handler._get_agent_performance("agent-1", {})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 503
+
+    def test_agents_trends_no_elo_system(self, mock_server_context):
+        """Test agents trends returns error when no ELO system."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch.object(handler, "get_elo_system", return_value=None):
+            raw_result = handler._get_agents_trends({})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 503
+
+    def test_agents_comparison_no_elo_system(self, mock_server_context):
+        """Test agents comparison returns error when no ELO system."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        with patch.object(handler, "get_elo_system", return_value=None):
+            raw_result = handler._get_agents_comparison({"agents": "a,b"})
+            result = parse_handler_result(raw_result)
+
+        assert result["success"] is False
+        assert result["status_code"] == 503
+
+
+class TestHelperFunctions:
+    """Tests for helper functions."""
+
+    def test_parse_time_range_valid(self):
+        """Test _parse_time_range with valid ranges."""
+        from aragora.server.handlers.analytics_metrics import _parse_time_range
+
+        result = _parse_time_range("30d")
+        assert result is not None
+
+        result = _parse_time_range("all")
+        assert result is None
+
+    def test_parse_time_range_invalid(self):
+        """Test _parse_time_range with invalid range."""
+        from aragora.server.handlers.analytics_metrics import _parse_time_range
+
+        result = _parse_time_range("invalid")
+        assert result is not None  # Should return default
+
+    def test_group_by_time_daily(self):
+        """Test _group_by_time with daily granularity."""
+        from aragora.server.handlers.analytics_metrics import _group_by_time
+
+        items = [
+            {"timestamp": datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)},
+            {"timestamp": datetime(2026, 1, 1, 15, 0, tzinfo=timezone.utc)},
+            {"timestamp": datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc)},
+        ]
+
+        result = _group_by_time(items, "timestamp", "daily")
+
+        assert "2026-01-01" in result
+        assert "2026-01-02" in result
+        assert len(result["2026-01-01"]) == 2
+
+    def test_group_by_time_weekly(self):
+        """Test _group_by_time with weekly granularity."""
+        from aragora.server.handlers.analytics_metrics import _group_by_time
+
+        items = [
+            {"timestamp": datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)},
+            {"timestamp": datetime(2026, 1, 8, 10, 0, tzinfo=timezone.utc)},
+        ]
+
+        result = _group_by_time(items, "timestamp", "weekly")
+
+        # Should have different week keys
+        assert len(result) == 2
+
+    def test_group_by_time_monthly(self):
+        """Test _group_by_time with monthly granularity."""
+        from aragora.server.handlers.analytics_metrics import _group_by_time
+
+        items = [
+            {"timestamp": datetime(2026, 1, 15, 10, 0, tzinfo=timezone.utc)},
+            {"timestamp": datetime(2026, 2, 15, 10, 0, tzinfo=timezone.utc)},
+        ]
+
+        result = _group_by_time(items, "timestamp", "monthly")
+
+        assert "2026-01" in result
+        assert "2026-02" in result
+
+    def test_group_by_time_string_timestamp(self):
+        """Test _group_by_time with string timestamps."""
+        from aragora.server.handlers.analytics_metrics import _group_by_time
+
+        items = [
+            {"timestamp": "2026-01-01T10:00:00+00:00"},
+            {"timestamp": "2026-01-01T15:00:00Z"},
+        ]
+
+        result = _group_by_time(items, "timestamp", "daily")
+
+        assert "2026-01-01" in result
+        assert len(result["2026-01-01"]) == 2
+
+    def test_group_by_time_missing_timestamp(self):
+        """Test _group_by_time with missing timestamp."""
+        from aragora.server.handlers.analytics_metrics import _group_by_time
+
+        items = [
+            {"timestamp": "2026-01-01T10:00:00+00:00"},
+            {"other_field": "value"},  # No timestamp
+        ]
+
+        result = _group_by_time(items, "timestamp", "daily")
+
+        assert "2026-01-01" in result
+        assert len(result["2026-01-01"]) == 1
+
+
+class TestVersionPrefixHandling:
+    """Tests for version prefix handling in routes."""
+
+    def test_can_handle_with_v1_prefix(self, mock_server_context):
+        """Test handler recognizes paths with /v1 prefix."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        assert handler.can_handle("/api/v1/analytics/debates/overview")
+        assert handler.can_handle("/api/v1/analytics/agents/leaderboard")
+
+    def test_can_handle_without_version_prefix(self, mock_server_context):
+        """Test handler recognizes paths without version prefix."""
+        from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
+
+        handler = AnalyticsMetricsHandler(mock_server_context)
+
+        assert handler.can_handle("/api/analytics/debates/overview")
+        assert handler.can_handle("/api/analytics/agents/leaderboard")

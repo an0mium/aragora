@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 def record_governance_verification(verification_type: str, result: str) -> None:
     """Record governance verification metric if available."""
     try:
-        from aragora.observability.metrics import record_governance_verification as _record  # type: ignore[attr-defined]
+        from aragora.observability.metrics import (
+            record_governance_verification as _record,
+        )
 
         _record(verification_type, result)
     except ImportError:
@@ -25,7 +27,9 @@ def record_governance_verification(verification_type: str, result: str) -> None:
 def record_governance_decision(decision_type: str, outcome: str) -> None:
     """Record governance decision metric if available."""
     try:
-        from aragora.observability.metrics import record_governance_decision as _record  # type: ignore[attr-defined]
+        from aragora.observability.metrics import (
+            record_governance_decision as _record,
+        )
 
         _record(decision_type, outcome)
     except ImportError:
@@ -35,7 +39,9 @@ def record_governance_decision(decision_type: str, outcome: str) -> None:
 def record_governance_approval(approval_type: str, status: str) -> None:
     """Record governance approval metric if available."""
     try:
-        from aragora.observability.metrics import record_governance_approval as _record  # type: ignore[attr-defined]
+        from aragora.observability.metrics import (
+            record_governance_approval as _record,
+        )
 
         _record(approval_type, status)
     except ImportError:

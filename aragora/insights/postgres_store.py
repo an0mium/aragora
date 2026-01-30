@@ -9,7 +9,6 @@ Provides async storage for insights with:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.insights.extractor import DebateInsights, Insight, InsightType
 from aragora.storage.postgres_store import PostgresStore
+from aragora.utils.async_utils import run_async
 from aragora.utils.json_helpers import safe_json_loads
 
 if TYPE_CHECKING:
@@ -186,11 +186,11 @@ class PostgresInsightStore(PostgresStore):
 
     def store_debate_insights_sync(self, insights: DebateInsights) -> int:
         """Store debate insights (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.store_debate_insights(insights))
+        return run_async(self.store_debate_insights(insights))
 
     def get_insight_sync(self, insight_id: str) -> Insight | None:
         """Get insight by ID (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_insight(insight_id))
+        return run_async(self.get_insight(insight_id))
 
     def search_sync(
         self,
@@ -200,9 +200,7 @@ class PostgresInsightStore(PostgresStore):
         limit: int = 20,
     ) -> list[Insight]:
         """Search insights (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.search(query, insight_type, agent, limit)
-        )
+        return run_async(self.search(query, insight_type, agent, limit))
 
     # =========================================================================
     # Core async methods

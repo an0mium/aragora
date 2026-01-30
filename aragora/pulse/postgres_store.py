@@ -9,7 +9,6 @@ Enables:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 import time
@@ -17,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from aragora.storage.postgres_store import PostgresStore
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -104,17 +104,15 @@ class PostgresScheduledDebateStore(PostgresStore):
 
     def record_scheduled_debate(self, record: ScheduledDebateRecord) -> None:
         """Persist a scheduled debate record (sync wrapper)."""
-        asyncio.get_event_loop().run_until_complete(self.record_scheduled_debate_async(record))
+        run_async(self.record_scheduled_debate_async(record))
 
     def get_recent_topics(self, hours: int = 24) -> list[ScheduledDebateRecord]:
         """Get topics debated within the last N hours (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_recent_topics_async(hours))
+        return run_async(self.get_recent_topics_async(hours))
 
     def is_duplicate(self, topic_text: str, hours: int = 24) -> bool:
         """Check if a topic was recently debated (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.is_duplicate_async(topic_text, hours)
-        )
+        return run_async(self.is_duplicate_async(topic_text, hours))
 
     def get_history(
         self,
@@ -124,17 +122,15 @@ class PostgresScheduledDebateStore(PostgresStore):
         category: str | None = None,
     ) -> list[ScheduledDebateRecord]:
         """Get historical scheduled debates (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_history_async(limit, offset, platform, category)
-        )
+        return run_async(self.get_history_async(limit, offset, platform, category))
 
     def count_total(self) -> int:
         """Get total count of scheduled debates (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.count_total_async())
+        return run_async(self.count_total_async())
 
     def get_analytics(self) -> dict[str, Any]:
         """Get analytics on scheduled debates (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_analytics_async())
+        return run_async(self.get_analytics_async())
 
     def finalize_debate_outcome(
         self,
@@ -144,7 +140,7 @@ class PostgresScheduledDebateStore(PostgresStore):
         rounds_used: int,
     ) -> bool:
         """Update a scheduled debate with its final outcome (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.finalize_debate_outcome_async(
                 debate_id, consensus_reached, confidence, rounds_used
             )
@@ -152,11 +148,11 @@ class PostgresScheduledDebateStore(PostgresStore):
 
     def get_pending_outcomes(self, limit: int = 100) -> list[ScheduledDebateRecord]:
         """Get debates that have a debate_id but no outcome recorded (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_pending_outcomes_async(limit))
+        return run_async(self.get_pending_outcomes_async(limit))
 
     def cleanup_old(self, days: int = 30) -> int:
         """Remove records older than N days (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.cleanup_old_async(days))
+        return run_async(self.cleanup_old_async(days))
 
     # =========================================================================
     # Async implementations

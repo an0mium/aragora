@@ -500,12 +500,12 @@ class InMemoryVectorStore(BaseVectorStore):
             return float(dot / (norm_a * norm_b))
         else:
             # Pure Python fallback
-            dot = float(sum(x * y for x, y in zip(a, b)))  # type: ignore[no-redef,assignment]
-            norm_a = float(math.sqrt(sum(x * x for x in a)))  # type: ignore[no-redef,assignment]
-            norm_b = float(math.sqrt(sum(x * x for x in b)))  # type: ignore[no-redef,assignment]
-            if norm_a == 0 or norm_b == 0:
+            dot_product: float = float(sum(x * y for x, y in zip(a, b)))
+            norm_a_val: float = float(math.sqrt(sum(x * x for x in a)))
+            norm_b_val: float = float(math.sqrt(sum(x * x for x in b)))
+            if norm_a_val == 0 or norm_b_val == 0:
                 return 0.0
-            return dot / (norm_a * norm_b)
+            return dot_product / (norm_a_val * norm_b_val)
 
     # -------------------------------------------------------------------------
     # Testing Utilities

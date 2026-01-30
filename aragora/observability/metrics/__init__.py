@@ -42,18 +42,18 @@ def _sync_public_attrs() -> None:
             globals()[name] = getattr(_metrics_module, name)
 
 
-def _init_metrics() -> bool:  # type: ignore[override]
+def _init_metrics() -> bool:
     result = _impl_init_metrics()
     _sync_public_attrs()
     return result
 
 
-def _init_noop_metrics() -> None:  # type: ignore[override]
+def _init_noop_metrics() -> None:
     _impl_init_noop_metrics()
     _sync_public_attrs()
 
 
-def init_core_metrics():  # type: ignore[override]
+def init_core_metrics() -> bool:
     result = _metrics_module.init_core_metrics()
     _sync_public_attrs()
     return result

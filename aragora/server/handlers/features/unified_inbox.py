@@ -35,7 +35,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional, cast, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 from uuid import uuid4
 
 from ..base import (
@@ -321,10 +321,9 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/trends",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize handler with optional server context."""
-        ctx: ServerContext = cast(ServerContext, server_context or {})
-        super().__init__(ctx)
+        super().__init__(server_context or cast(ServerContext, {}))
         self._store = get_unified_inbox_store()
 
     def can_handle(self, path: str, method: str = "GET") -> bool:

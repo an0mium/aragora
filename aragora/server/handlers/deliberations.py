@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from aragora.config import DEFAULT_ROUNDS
+from aragora.memory.debate_store import get_debate_store
 from aragora.server.handlers.base import BaseHandler
 
 # RBAC imports - graceful fallback if not available
@@ -180,8 +181,6 @@ class DeliberationsHandler(BaseHandler):
 
         try:
             # Try to get from debate store
-            from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
-
             store = get_debate_store()
             if store:
                 # Get recent debates
@@ -250,8 +249,6 @@ class DeliberationsHandler(BaseHandler):
             # Get completed today
             completed_today = 0
             try:
-                from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
-
                 store = get_debate_store()
                 if store:
                     today = datetime.now(timezone.utc).date()
@@ -294,8 +291,6 @@ class DeliberationsHandler(BaseHandler):
 
             # Try debate store
             try:
-                from aragora.server.handlers.debates import get_debate_store  # type: ignore[attr-defined]
-
                 store = get_debate_store()
                 if store:
                     debate = store.get(deliberation_id)

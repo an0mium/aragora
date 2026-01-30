@@ -21,7 +21,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING, Protocol
 
 from aragora.config import BELIEF_CONVERGENCE_THRESHOLD, BELIEF_MAX_ITERATIONS
 from aragora.reasoning.claims import ClaimsKernel, ClaimType, RelationType, TypedClaim
@@ -44,8 +44,34 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+class _BeliefAdapterProtocol(Protocol):
+    """Protocol for BeliefAdapter methods used in BeliefNetwork."""
+
+    def search_beliefs(self, query: str, limit: int, min_confidence: float) -> list[dict]:
+        """Search for related beliefs."""
+        ...
+
+    def search_cruxes(self, query: str, limit: int) -> list[dict]:
+        """Search for historical cruxes."""
+        ...
+
+    def store_belief(
+        self,
+        belief_id: str,
+        claim_id: str,
+        statement: str,
+        author: str,
+        confidence: float,
+        p_true: float,
+        centrality: float,
+        debate_id: str | None,
+    ) -> None:
+        """Store a belief in the Knowledge Mound."""
+        ...
+
+
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -335,7 +361,7 @@ class BeliefNetwork:
         max_iterations: int = BELIEF_MAX_ITERATIONS,
         convergence_threshold: float = BELIEF_CONVERGENCE_THRESHOLD,
         event_emitter: Any | None = None,
-        km_adapter: Optional["BeliefAdapter"] = None,
+        km_adapter: Optional[_BeliefAdapterProtocol] = None,
         km_min_confidence: float = 0.8,
     ):
         self.debate_id = debate_id or str(uuid.uuid4())
@@ -358,7 +384,7 @@ class BeliefNetwork:
         self.created_at = datetime.now()
         self.propagation_count = 0
 
-    def set_km_adapter(self, adapter: "BeliefAdapter") -> None:
+    def set_km_adapter(self, adapter: _BeliefAdapterProtocol) -> None:
         """Set the Knowledge Mound adapter for bidirectional sync.
 
         Args:
@@ -388,7 +414,7 @@ class BeliefNetwork:
             return []
 
         try:
-            return self._km_adapter.search_beliefs(  # type: ignore[attr-defined]
+            return self._km_adapter.search_beliefs(
                 query=topic,
                 limit=limit,
                 min_confidence=min_confidence,
@@ -418,7 +444,7 @@ class BeliefNetwork:
             return []
 
         try:
-            return self._km_adapter.search_cruxes(  # type: ignore[attr-defined]
+            return self._km_adapter.search_cruxes(
                 query=topic,
                 limit=limit,
             )
@@ -640,7 +666,7 @@ class BeliefNetwork:
                 confidence = max(node.posterior.p_true, node.posterior.p_false)
                 if confidence >= self._km_min_confidence:
                     try:
-                        self._km_adapter.store_belief(  # type: ignore[attr-defined]
+                        self._km_adapter.store_belief(
                             belief_id=node.node_id,
                             claim_id=node.claim_id,
                             statement=node.claim_statement,

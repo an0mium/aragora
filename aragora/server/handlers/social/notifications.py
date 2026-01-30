@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
+from aragora.billing.auth.context import UserAuthContext
 from aragora.integrations.email import EmailConfig, EmailIntegration, EmailRecipient
 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 from aragora.server.handlers.base import (
@@ -301,7 +302,9 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.read' permission for all GET endpoints
-        _, perm_err = self.require_permission_or_error(handler, "read")  # type: ignore[attr-defined]
+        user_ctx: UserAuthContext | None
+        perm_err: Optional[HandlerResult]
+        user_ctx, perm_err = self.require_permission_or_error(handler, "read")
         if perm_err:
             return perm_err
 
@@ -339,7 +342,9 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.write' permission for configuration changes
-        _, perm_err = self.require_permission_or_error(handler, "write")  # type: ignore[attr-defined]
+        user_ctx: UserAuthContext | None
+        perm_err: Optional[HandlerResult]
+        user_ctx, perm_err = self.require_permission_or_error(handler, "write")
         if perm_err:
             return perm_err
 
@@ -377,7 +382,9 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.delete' permission
-        _, perm_err = self.require_permission_or_error(handler, "delete")  # type: ignore[attr-defined]
+        user_ctx: UserAuthContext | None
+        perm_err: Optional[HandlerResult]
+        user_ctx, perm_err = self.require_permission_or_error(handler, "delete")
         if perm_err:
             return perm_err
 

@@ -43,8 +43,11 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+from aragora.observability.metrics import track_handler
 
 logger = logging.getLogger(__name__)
+
+# track_handler is used on GauntletHandler.handle below
 
 # In-memory storage for in-flight gauntlet runs (pending/running)
 # Completed runs are persisted to GauntletStorage
@@ -342,6 +345,7 @@ class GauntletHandler(BaseHandler):
 
         return result
 
+    @track_handler("gauntlet/main", method="GET")
     @rate_limit(requests_per_minute=10)
     async def handle(  # type: ignore[override]
         self, path: str, method: str, handler: Any = None

@@ -58,8 +58,11 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.decorators import has_permission, require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit, user_rate_limit
 from aragora.server.validation.query_params import safe_query_int
+from aragora.observability.metrics import track_handler
 
 logger = logging.getLogger(__name__)
+
+# track_handler is used on ControlPlaneHandler.handle methods below
 
 
 class ControlPlaneHandler(BaseHandler):
@@ -164,6 +167,7 @@ class ControlPlaneHandler(BaseHandler):
     # GET Handlers
     # =========================================================================
 
+    @track_handler("control-plane/main", method="GET")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         path = self._normalize_path(path)
@@ -693,6 +697,7 @@ class ControlPlaneHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @track_handler("control-plane/main", method="POST")
     @user_rate_limit(action="agent_call")
     @rate_limit(requests_per_minute=60, limiter_name="control_plane_post")
     async def handle_post(
@@ -1195,6 +1200,7 @@ class ControlPlaneHandler(BaseHandler):
     # DELETE Handlers
     # =========================================================================
 
+    @track_handler("control-plane/main", method="DELETE")
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -1484,6 +1490,7 @@ class ControlPlaneHandler(BaseHandler):
     # PATCH Handlers
     # =========================================================================
 
+    @track_handler("control-plane/main", method="PATCH")
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:

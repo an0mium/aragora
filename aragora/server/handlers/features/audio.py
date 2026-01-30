@@ -53,15 +53,29 @@ if TYPE_CHECKING:
     )
 
 # Optional imports for broadcast functionality
-try:
-    from aragora.broadcast.rss_gen import PodcastConfig, PodcastEpisode, PodcastFeedGenerator
+_podcast_config_type: type[PodcastConfigType] | None = None
+_podcast_episode_type: type[PodcastEpisodeType] | None = None
+_podcast_feed_generator_type: type[PodcastFeedGeneratorType] | None = None
+PODCAST_AVAILABLE: bool = False
 
-    PODCAST_AVAILABLE: bool = True
+try:
+    from aragora.broadcast.rss_gen import (
+        PodcastConfig as _PodcastConfig,
+        PodcastEpisode as _PodcastEpisode,
+        PodcastFeedGenerator as _PodcastFeedGenerator,
+    )
+
+    _podcast_config_type = _PodcastConfig
+    _podcast_episode_type = _PodcastEpisode
+    _podcast_feed_generator_type = _PodcastFeedGenerator
+    PODCAST_AVAILABLE = True
 except ImportError:
-    PODCAST_AVAILABLE = False
-    PodcastFeedGenerator: type[PodcastFeedGeneratorType] | None = None  # type: ignore[name-defined,misc,no-redef]
-    PodcastConfig: type[PodcastConfigType] | None = None  # type: ignore[name-defined,misc,no-redef]
-    PodcastEpisode: type[PodcastEpisodeType] | None = None  # type: ignore[name-defined,misc,no-redef]
+    pass
+
+# Re-export with type-safe names for backward compatibility
+PodcastConfig = _podcast_config_type
+PodcastEpisode = _podcast_episode_type
+PodcastFeedGenerator = _podcast_feed_generator_type
 
 
 class AudioHandler(BaseHandler):
