@@ -771,6 +771,162 @@ class TestBatchMessageFetching:
 
             assert messages == []
 
+    @pytest.mark.asyncio
+    async def test_get_messages_strict_mode_raises_on_failure(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages with strict=True raises when any fetch fails."""
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                return msg_1
+            elif "msg_2" in endpoint:
+                raise Exception("API error for msg_2")
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            with pytest.raises(RuntimeError, match="Failed to fetch 1 of 2 messages"):
+                await authenticated_connector.get_messages(["msg_1", "msg_2"], strict=True)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_strict_mode_success_when_all_pass(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages with strict=True succeeds when all fetches pass."""
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+        msg_2 = {**sample_gmail_message, "id": "msg_2"}
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                return msg_1
+            elif "msg_2" in endpoint:
+                return msg_2
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            messages = await authenticated_connector.get_messages(["msg_1", "msg_2"], strict=True)
+            assert len(messages) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_messages_batch_returns_result_object(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages_batch returns BatchFetchResult with proper structure."""
+        from aragora.connectors.enterprise.communication.models import BatchFetchResult
+
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+        msg_3 = {**sample_gmail_message, "id": "msg_3"}
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                return msg_1
+            elif "msg_2" in endpoint:
+                raise ValueError("Message not found")
+            elif "msg_3" in endpoint:
+                return msg_3
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            result = await authenticated_connector.get_messages_batch(["msg_1", "msg_2", "msg_3"])
+
+            assert isinstance(result, BatchFetchResult)
+            assert result.total_requested == 3
+            assert result.success_count == 2
+            assert result.failure_count == 1
+            assert result.is_partial is True
+            assert result.is_complete is False
+            assert result.is_total_failure is False
+            assert "msg_2" in result.failed_ids
+            assert len(result.messages) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_messages_batch_failure_details(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages_batch captures failure details correctly."""
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                raise TimeoutError("Connection timed out")
+            elif "msg_2" in endpoint:
+                raise ValueError("Invalid message format")
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            result = await authenticated_connector.get_messages_batch(["msg_1", "msg_2"])
+
+            assert result.failure_count == 2
+            assert result.is_total_failure is True
+
+            # Check failure details
+            failures_by_id = {f.message_id: f for f in result.failures}
+
+            assert "msg_1" in failures_by_id
+            assert failures_by_id["msg_1"].error_type == "TimeoutError"
+            assert failures_by_id["msg_1"].is_retryable is True
+
+            assert "msg_2" in failures_by_id
+            assert failures_by_id["msg_2"].error_type == "ValueError"
+            assert failures_by_id["msg_2"].is_retryable is False
+
+    @pytest.mark.asyncio
+    async def test_get_messages_batch_retryable_ids(
+        self, authenticated_connector, sample_gmail_message
+    ):
+        """Test get_messages_batch correctly identifies retryable errors."""
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                raise ConnectionError("Connection reset")
+            elif "msg_2" in endpoint:
+                raise ValueError("Invalid data")
+            elif "msg_3" in endpoint:
+                raise RuntimeError("429 rate limit exceeded")
+            return sample_gmail_message
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            result = await authenticated_connector.get_messages_batch(["msg_1", "msg_2", "msg_3"])
+
+            # msg_1 (connection) and msg_3 (429) should be retryable
+            assert len(result.retryable_ids) == 2
+            assert "msg_1" in result.retryable_ids
+            assert "msg_3" in result.retryable_ids
+            assert "msg_2" not in result.retryable_ids
+
+    @pytest.mark.asyncio
+    async def test_get_messages_batch_empty_input(self, authenticated_connector):
+        """Test get_messages_batch with empty input returns empty result."""
+        result = await authenticated_connector.get_messages_batch([])
+
+        assert result.total_requested == 0
+        assert result.success_count == 0
+        assert result.failure_count == 0
+        assert result.is_complete is True
+        assert result.is_total_failure is False
+
+    @pytest.mark.asyncio
+    async def test_get_messages_batch_to_dict(self, authenticated_connector, sample_gmail_message):
+        """Test BatchFetchResult.to_dict() serialization."""
+        msg_1 = {**sample_gmail_message, "id": "msg_1"}
+
+        async def mock_api_request(endpoint, **kwargs):
+            if "msg_1" in endpoint:
+                return msg_1
+            raise ValueError("Not found")
+
+        with patch.object(authenticated_connector, "_api_request", side_effect=mock_api_request):
+            result = await authenticated_connector.get_messages_batch(["msg_1", "msg_2"])
+            result_dict = result.to_dict()
+
+            assert result_dict["success_count"] == 1
+            assert result_dict["failure_count"] == 1
+            assert result_dict["total_requested"] == 2
+            assert result_dict["is_partial"] is True
+            assert "msg_2" in result_dict["failed_ids"]
+            assert len(result_dict["failures"]) == 1
+            assert result_dict["failures"][0]["message_id"] == "msg_2"
+
 
 class TestMessageParsing:
     """Tests for message parsing logic."""
