@@ -35,6 +35,21 @@ from .senders import (
 )
 from .sessions import get_sessions_for_debate
 
+
+def get_debate_origin(debate_id: str):
+    """Wrapper for registry.get_debate_origin (supports test patching)."""
+    from .registry import get_debate_origin as _get_debate_origin
+
+    return _get_debate_origin(debate_id)
+
+
+def mark_result_sent(debate_id: str) -> None:
+    """Wrapper for registry.mark_result_sent (supports test patching)."""
+    from .registry import mark_result_sent as _mark_result_sent
+
+    _mark_result_sent(debate_id)
+
+
 logger = logging.getLogger(__name__)
 
 # Feature flag for dock-based routing (default: enabled)
@@ -67,9 +82,6 @@ async def route_debate_result(
     Returns:
         True if result was successfully routed, False otherwise
     """
-    # Lazy import to avoid circular dependency
-    from .registry import get_debate_origin, mark_result_sent
-
     origin = get_debate_origin(debate_id)
     if not origin:
         logger.warning(f"No origin found for debate {debate_id}")
@@ -303,9 +315,6 @@ async def route_result_to_all_sessions(
     Returns:
         Number of channels successfully notified
     """
-    # Lazy import to avoid circular dependency
-    from .registry import get_debate_origin
-
     success_count = 0
 
     # First, route via origin (primary channel)

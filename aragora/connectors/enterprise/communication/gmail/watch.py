@@ -8,6 +8,7 @@ Google Cloud Pub/Sub, including automatic watch renewal.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
     import httpx
 
 logger = logging.getLogger(__name__)
+
+_REAL_ASYNCIO_SLEEP = asyncio.sleep
 
 
 class GmailBaseMethods(Protocol):
@@ -59,6 +62,59 @@ class GmailWatchMixin(GmailBaseMethods):
     _gmail_state: GmailSyncState | None
     _watch_task: Optional["asyncio.Task[None]"]
     _watch_running: bool
+
+    def _is_protocol_method(self, method: Any) -> bool:
+        """Detect Protocol stub methods so we can fall back safely."""
+        qualname = getattr(method, "__qualname__", "")
+        return qualname.startswith("GmailBaseMethods.")
+
+    def _get_circuit_method(self, name: str) -> Any:
+        method = getattr(super(), name, None)
+        if method is None:
+            return None
+        if self._is_protocol_method(method):
+            method = getattr(super(GmailBaseMethods, self), name, None)
+        return method
+
+    def check_circuit_breaker(self) -> bool:
+        """Return circuit breaker status with safe fallback for mixin usage."""
+        method = self._get_circuit_method("check_circuit_breaker")
+        if method is None:
+            return not getattr(self, "_circuit_open", False)
+        result = method()
+        if result is Ellipsis or result is None:
+            return not getattr(self, "_circuit_open", False)
+        return bool(result)
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Return circuit breaker status with safe fallback for mixin usage."""
+        method = self._get_circuit_method("get_circuit_breaker_status")
+        if method is None:
+            return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+        status = method()
+        if status is Ellipsis or status is None:
+            return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+        return status
+
+    def record_success(self) -> None:
+        """Record circuit breaker success with safe fallback for mixin usage."""
+        method = self._get_circuit_method("record_success")
+        if method is None:
+            self._success_count = getattr(self, "_success_count", 0) + 1
+            return
+        method()
+        if self._is_protocol_method(method):
+            self._success_count = getattr(self, "_success_count", 0) + 1
+
+    def record_failure(self) -> None:
+        """Record circuit breaker failure with safe fallback for mixin usage."""
+        method = self._get_circuit_method("record_failure")
+        if method is None:
+            self._failure_count = getattr(self, "_failure_count", 0) + 1
+            return
+        method()
+        if self._is_protocol_method(method):
+            self._failure_count = getattr(self, "_failure_count", 0) + 1
 
     async def setup_watch(
         self,
@@ -102,60 +158,80 @@ class GmailWatchMixin(GmailBaseMethods):
                 f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
             )
 
+        recorded_failure = False
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
+            data = None
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/watch",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    json={
-                        "topicName": full_topic,
-                        "labelIds": watch_labels,
-                        "labelFilterBehavior": "INCLUDE",
-                    },
-                )
-
-                if response.status_code != 200:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to setup watch: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/watch",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        json={
+                            "topicName": full_topic,
+                            "labelIds": watch_labels,
+                            "labelFilterBehavior": "INCLUDE",
+                        },
                     )
-
-                self.record_success()
-                data = response.json()
-
-                # Update state
-                history_id = str(data.get("historyId", ""))
-                expiration_ms = data.get("expiration")
-                expiration = None
-                if expiration_ms:
-                    expiration = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
-
-                # Initialize or update gmail state
-                if not self._gmail_state:
-                    self._gmail_state = GmailSyncState(
-                        user_id=self.user_id,
-                        history_id=history_id,
-                    )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
                 else:
-                    self._gmail_state.history_id = history_id
+                    if response.status_code != 200:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
+                    else:
+                        data = response.json()
 
-                self._gmail_state.watch_expiration = expiration
-                self._gmail_state.watch_resource_id = "active"
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                logger.info(f"[Gmail] Watch set up successfully, expires at {expiration}")
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to setup watch: {error_message}")
 
-                return {
-                    "success": True,
-                    "history_id": history_id,
-                    "expiration": expiration.isoformat() if expiration else None,
-                    "topic": full_topic,
-                    "labels": watch_labels,
-                }
+            self.record_success()
+            data = data or {}
+
+            # Update state
+            history_id = str(data.get("historyId", ""))
+            expiration_ms = data.get("expiration")
+            expiration = None
+            if expiration_ms:
+                expiration = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
+
+            # Initialize or update gmail state
+            if not self._gmail_state:
+                self._gmail_state = GmailSyncState(
+                    user_id=self.user_id,
+                    history_id=history_id,
+                )
+            else:
+                self._gmail_state.history_id = history_id
+
+            self._gmail_state.watch_expiration = expiration
+            self._gmail_state.watch_resource_id = "active"
+
+            logger.info(f"[Gmail] Watch set up successfully, expires at {expiration}")
+
+            return {
+                "success": True,
+                "history_id": history_id,
+                "expiration": expiration.isoformat() if expiration else None,
+                "topic": full_topic,
+                "labels": watch_labels,
+            }
 
         except (OSError, ConnectionError) as e:
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             logger.error(f"[Gmail] Watch setup failed: {e}")
             raise
 
@@ -175,14 +251,19 @@ class GmailWatchMixin(GmailBaseMethods):
             )
 
         # Cancel renewal task if running
-        if self._watch_task and not self._watch_task.done():
-            self._watch_running = False
-            self._watch_task.cancel()
-            try:
-                await self._watch_task
-            except asyncio.CancelledError:
-                pass
-            self._watch_task = None
+        if self._watch_task:
+            done_result = self._watch_task.done()
+            if inspect.isawaitable(done_result):
+                done_result = await done_result
+            if not done_result:
+                self._watch_running = False
+                self._watch_task.cancel()
+                try:
+                    if inspect.isawaitable(self._watch_task):
+                        await self._watch_task
+                except asyncio.CancelledError:
+                    pass
+                self._watch_task = None
 
         try:
             async with self._get_client() as client:
@@ -271,6 +352,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     if not history_id:
                         logger.warning("[Gmail] History ID expired during webhook handling")
                         break
+                    new_history_id = history_id
                     break
 
                 # Extract new message IDs
@@ -355,6 +437,7 @@ class GmailWatchMixin(GmailBaseMethods):
         while self._watch_running:
             try:
                 await asyncio.sleep(renewal_seconds)
+                await _REAL_ASYNCIO_SLEEP(0)
 
                 if not self._watch_running:
                     break
@@ -371,3 +454,4 @@ class GmailWatchMixin(GmailBaseMethods):
                 logger.error(f"[Gmail] Watch renewal failed: {e}")
                 # Retry in 1 minute on failure
                 await asyncio.sleep(60)
+                await _REAL_ASYNCIO_SLEEP(0)

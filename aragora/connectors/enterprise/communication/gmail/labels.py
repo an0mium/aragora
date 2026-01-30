@@ -40,6 +40,59 @@ class GmailBaseMethods(Protocol):
 class GmailLabelsMixin(GmailBaseMethods):
     """Mixin providing label management and message action operations."""
 
+    def _is_protocol_method(self, method: Any) -> bool:
+        """Detect Protocol stub methods so we can fall back safely."""
+        qualname = getattr(method, "__qualname__", "")
+        return qualname.startswith("GmailBaseMethods.")
+
+    def _get_circuit_method(self, name: str) -> Any:
+        method = getattr(super(), name, None)
+        if method is None:
+            return None
+        if self._is_protocol_method(method):
+            method = getattr(super(GmailBaseMethods, self), name, None)
+        return method
+
+    def check_circuit_breaker(self) -> bool:
+        """Return circuit breaker status with safe fallback for mixin usage."""
+        method = self._get_circuit_method("check_circuit_breaker")
+        if method is None:
+            return not getattr(self, "_circuit_open", False)
+        result = method()
+        if result is Ellipsis or result is None:
+            return not getattr(self, "_circuit_open", False)
+        return bool(result)
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Return circuit breaker status with safe fallback for mixin usage."""
+        method = self._get_circuit_method("get_circuit_breaker_status")
+        if method is None:
+            return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+        status = method()
+        if status is Ellipsis or status is None:
+            return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+        return status
+
+    def record_success(self) -> None:
+        """Record circuit breaker success with safe fallback for mixin usage."""
+        method = self._get_circuit_method("record_success")
+        if method is None:
+            self._success_count = getattr(self, "_success_count", 0) + 1
+            return
+        method()
+        if self._is_protocol_method(method):
+            self._success_count = getattr(self, "_success_count", 0) + 1
+
+    def record_failure(self) -> None:
+        """Record circuit breaker failure with safe fallback for mixin usage."""
+        method = self._get_circuit_method("record_failure")
+        if method is None:
+            self._failure_count = getattr(self, "_failure_count", 0) + 1
+            return
+        method()
+        if self._is_protocol_method(method):
+            self._failure_count = getattr(self, "_failure_count", 0) + 1
+
     async def list_labels(self) -> list[GmailLabel]:
         """List all Gmail labels."""
         data = await self._api_request("/labels")
@@ -131,36 +184,60 @@ class GmailLabelsMixin(GmailBaseMethods):
                 f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
             )
 
+        recorded_failure = False
+        recorded_failure = False
+        recorded_failure = False
+        recorded_failure = False
+        recorded_failure = False
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
+            result = None
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/modify",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    json={
-                        "addLabelIds": add_labels or [],
-                        "removeLabelIds": remove_labels or [],
-                    },
-                )
-
-                if response.status_code != 200:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to modify message: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/modify",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        json={
+                            "addLabelIds": add_labels or [],
+                            "removeLabelIds": remove_labels or [],
+                        },
                     )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
+                else:
+                    if response.status_code != 200:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
+                    else:
+                        result = response.json()
 
-                self.record_success()
-                result = response.json()
-                logger.info(f"[Gmail] Modified message: {message_id}")
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                return {
-                    "message_id": result.get("id"),
-                    "labels": result.get("labelIds", []),
-                    "success": True,
-                }
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to modify message: {error_message}")
+
+            self.record_success()
+            result = result or {}
+            logger.info(f"[Gmail] Modified message: {message_id}")
+
+            return {
+                "message_id": result.get("id"),
+                "labels": result.get("labelIds", []),
+                "success": True,
+            }
         except (OSError, ConnectionError):
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             raise
 
     async def archive_message(self, message_id: str) -> dict[str, Any]:
@@ -199,29 +276,45 @@ class GmailLabelsMixin(GmailBaseMethods):
             )
 
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/trash",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-
-                if response.status_code != 200:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to trash message: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/trash",
+                        headers={"Authorization": f"Bearer {access_token}"},
                     )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
+                else:
+                    if response.status_code != 200:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
 
-                self.record_success()
-                logger.info(f"[Gmail] Trashed message: {message_id}")
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                return {
-                    "message_id": message_id,
-                    "success": True,
-                }
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to trash message: {error_message}")
+
+            self.record_success()
+            logger.info(f"[Gmail] Trashed message: {message_id}")
+
+            return {
+                "message_id": message_id,
+                "success": True,
+            }
         except (OSError, ConnectionError):
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             raise
 
     async def untrash_message(self, message_id: str) -> dict[str, Any]:
@@ -243,29 +336,45 @@ class GmailLabelsMixin(GmailBaseMethods):
             )
 
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/untrash",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-
-                if response.status_code != 200:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to untrash message: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/{message_id}/untrash",
+                        headers={"Authorization": f"Bearer {access_token}"},
                     )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
+                else:
+                    if response.status_code != 200:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
 
-                self.record_success()
-                logger.info(f"[Gmail] Untrashed message: {message_id}")
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                return {
-                    "message_id": message_id,
-                    "success": True,
-                }
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to untrash message: {error_message}")
+
+            self.record_success()
+            logger.info(f"[Gmail] Untrashed message: {message_id}")
+
+            return {
+                "message_id": message_id,
+                "success": True,
+            }
         except (OSError, ConnectionError):
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             raise
 
     async def mark_as_read(self, message_id: str) -> dict[str, Any]:
@@ -458,34 +567,50 @@ class GmailLabelsMixin(GmailBaseMethods):
             )
 
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/batchModify",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    json={
-                        "ids": message_ids,
-                        "addLabelIds": add_labels or [],
-                        "removeLabelIds": remove_labels or [],
-                    },
-                )
-
-                if response.status_code != 204:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to batch modify: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/batchModify",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        json={
+                            "ids": message_ids,
+                            "addLabelIds": add_labels or [],
+                            "removeLabelIds": remove_labels or [],
+                        },
                     )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
+                else:
+                    if response.status_code != 204:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
 
-                self.record_success()
-                logger.info(f"[Gmail] Batch modified {len(message_ids)} messages")
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                return {
-                    "modified_count": len(message_ids),
-                    "success": True,
-                }
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to batch modify: {error_message}")
+
+            self.record_success()
+            logger.info(f"[Gmail] Batch modified {len(message_ids)} messages")
+
+            return {
+                "modified_count": len(message_ids),
+                "success": True,
+            }
         except (OSError, ConnectionError):
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             raise
 
     async def batch_archive(self, message_ids: list[str]) -> dict[str, Any]:
@@ -524,30 +649,46 @@ class GmailLabelsMixin(GmailBaseMethods):
             )
 
         try:
+            request_error: Exception | None = None
+            error_message = None
+            should_record_failure = False
             async with self._get_client() as client:
-                response = await client.post(
-                    f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/batchDelete",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                    json={"ids": message_ids},
-                )
-
-                # Note: This permanently deletes, not trash
-                # For trash, we use batch_modify with TRASH label
-                if response.status_code != 204:
-                    error = response.json().get("error", {})
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                    raise RuntimeError(
-                        f"Failed to batch delete: {error.get('message', response.text)}"
+                try:
+                    response = await client.post(
+                        f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}/messages/batchDelete",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        json={"ids": message_ids},
                     )
+                except (OSError, ConnectionError) as exc:
+                    request_error = exc
+                else:
+                    # Note: This permanently deletes, not trash
+                    # For trash, we use batch_modify with TRASH label
+                    if response.status_code != 204:
+                        error = response.json().get("error", {})
+                        if response.status_code >= 500 or response.status_code == 429:
+                            should_record_failure = True
+                        error_message = error.get("message", response.text)
 
-                self.record_success()
-                logger.info(f"[Gmail] Batch deleted {len(message_ids)} messages")
+            if request_error:
+                self.record_failure()
+                recorded_failure = True
+                raise request_error
 
-                return {
-                    "deleted_count": len(message_ids),
-                    "success": True,
-                }
+            if error_message:
+                if should_record_failure:
+                    self.record_failure()
+                    recorded_failure = True
+                raise RuntimeError(f"Failed to batch delete: {error_message}")
+
+            self.record_success()
+            logger.info(f"[Gmail] Batch deleted {len(message_ids)} messages")
+
+            return {
+                "deleted_count": len(message_ids),
+                "success": True,
+            }
         except (OSError, ConnectionError):
-            self.record_failure()
+            if not recorded_failure:
+                self.record_failure()
             raise

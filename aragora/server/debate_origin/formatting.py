@@ -91,11 +91,22 @@ def _format_receipt_summary(receipt: Any, url: str) -> str:
     emoji = emoji_map.get(receipt.verdict, "\U0001f4cb")
 
     cost_line = ""
-    if hasattr(receipt, "cost_usd") and receipt.cost_usd > 0:
-        cost_line = f"\n\u2022 Cost: ${receipt.cost_usd:.4f}"
+    cost_value = None
+    if hasattr(receipt, "cost_usd"):
+        try:
+            cost_value = float(receipt.cost_usd)
+        except (TypeError, ValueError):
+            cost_value = None
+    if cost_value is not None and cost_value > 0:
+        cost_line = f"\n\u2022 Cost: ${cost_value:.4f}"
         if hasattr(receipt, "budget_limit_usd") and receipt.budget_limit_usd:
-            pct = (receipt.cost_usd / receipt.budget_limit_usd) * 100
-            cost_line += f" ({pct:.0f}% of budget)"
+            try:
+                budget_value = float(receipt.budget_limit_usd)
+            except (TypeError, ValueError):
+                budget_value = None
+            if budget_value:
+                pct = (cost_value / budget_value) * 100
+                cost_line += f" ({pct:.0f}% of budget)"
 
     return f"""{emoji} **Decision Receipt**
 \u2022 Verdict: {receipt.verdict}

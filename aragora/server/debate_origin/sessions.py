@@ -12,6 +12,16 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
+def get_debate_session_manager():
+    """Get the debate session manager.
+
+    Defined here for test patching and to avoid repeated import sites.
+    """
+    from aragora.connectors.debate_session import get_debate_session_manager as _get_manager
+
+    return _get_manager()
+
+
 async def _create_and_link_session(
     manager,
     platform: str,
@@ -37,8 +47,6 @@ async def get_sessions_for_debate(debate_id: str) -> list:
         List of DebateSession objects linked to the debate
     """
     try:
-        from aragora.connectors.debate_session import get_debate_session_manager
-
         manager = get_debate_session_manager()
         return await manager.find_sessions_for_debate(debate_id)
     except ImportError:

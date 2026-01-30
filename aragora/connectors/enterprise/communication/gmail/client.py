@@ -71,6 +71,73 @@ class GmailClientMixin(EnterpriseConnectorMethods):
     _token_lock: asyncio.Lock
     user_id: str
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Ensure parent initializers run (e.g., circuit breaker state)
+        super().__init__(*args, **kwargs)
+        # Default token state if not set by concrete class
+        if not hasattr(self, "_access_token"):
+            self._access_token = None
+        if not hasattr(self, "_refresh_token"):
+            self._refresh_token = None
+        if not hasattr(self, "_token_expiry"):
+            self._token_expiry = None
+        if not hasattr(self, "_token_lock"):
+            self._token_lock = asyncio.Lock()
+        # Circuit breaker defaults for mixin-only usage (tests)
+        if not hasattr(self, "_circuit_open"):
+            self._circuit_open = False
+        if not hasattr(self, "_failure_count"):
+            self._failure_count = 0
+        if not hasattr(self, "_success_count"):
+            self._success_count = 0
+
+    def _is_protocol_method(self, method: Any) -> bool:
+        """Detect Protocol stub methods so we can fall back safely."""
+        qualname = getattr(method, "__qualname__", "")
+        return qualname.startswith("EnterpriseConnectorMethods.")
+
+    def check_circuit_breaker(self) -> bool:
+        """Return circuit breaker status with safe fallback."""
+        try:
+            method = super().check_circuit_breaker  # type: ignore[misc]
+            result = method()
+            if result is Ellipsis or result is None or self._is_protocol_method(method):
+                return not getattr(self, "_circuit_open", False)
+            return bool(result)
+        except AttributeError:
+            return not getattr(self, "_circuit_open", False)
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Return circuit breaker status with safe fallback."""
+        try:
+            method = super().get_circuit_breaker_status  # type: ignore[misc]
+            status = method()
+            if status is Ellipsis or status is None or self._is_protocol_method(method):
+                return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+            return status
+        except AttributeError:
+            return {"cooldown_seconds": 60, "failure_count": getattr(self, "_failure_count", 0)}
+
+    def record_success(self) -> None:
+        """Record circuit breaker success with safe fallback."""
+        try:
+            method = super().record_success  # type: ignore[misc]
+            method()
+            if self._is_protocol_method(method):
+                self._success_count = getattr(self, "_success_count", 0) + 1
+        except AttributeError:
+            self._success_count = getattr(self, "_success_count", 0) + 1
+
+    def record_failure(self) -> None:
+        """Record circuit breaker failure with safe fallback."""
+        try:
+            method = super().record_failure  # type: ignore[misc]
+            method()
+            if self._is_protocol_method(method):
+                self._failure_count = getattr(self, "_failure_count", 0) + 1
+        except AttributeError:
+            self._failure_count = getattr(self, "_failure_count", 0) + 1
+
     @property
     def source_type(self) -> SourceType:
         return SourceType.DOCUMENT
@@ -188,10 +255,18 @@ class GmailClientMixin(EnterpriseConnectorMethods):
                     logger.error("[Gmail] No code or refresh_token provided")
                     return False
 
+                if response.status_code >= 400:
+                    logger.error(f"[Gmail] Authentication failed: {response.text}")
+                    return False
                 response.raise_for_status()
                 data = response.json()
 
-            self._access_token = data["access_token"]
+            access_token = data.get("access_token")
+            if not access_token:
+                logger.error("[Gmail] Authentication response missing access_token")
+                return False
+
+            self._access_token = access_token
             self._refresh_token = data.get("refresh_token", refresh_token)
 
             expires_in = data.get("expires_in", 3600)
@@ -200,7 +275,13 @@ class GmailClientMixin(EnterpriseConnectorMethods):
             logger.info("[Gmail] Authentication successful")
             return True
 
+        except httpx.HTTPError as e:
+            logger.error(f"[Gmail] Authentication failed: {e}")
+            return False
         except (OSError, ValueError, KeyError) as e:
+            logger.error(f"[Gmail] Authentication failed: {e}")
+            return False
+        except Exception as e:
             logger.error(f"[Gmail] Authentication failed: {e}")
             return False
 
@@ -260,7 +341,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
         # Check circuit breaker first
         if not self.check_circuit_breaker():
-            cb_status = self.get_circuit_breaker_status()
+            cb_status = self.get_circuit_breaker_status() or {}
             raise ConnectionError(
                 f"Circuit breaker open for Gmail. Cooldown: {cb_status.get('cooldown_seconds', 60)}s"
             )
@@ -273,8 +354,10 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
         url = f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}{endpoint}"
 
-        try:
-            async with httpx.AsyncClient() as client:
+        request_error: Exception | None = None
+        response: httpx.Response | None = None
+        async with httpx.AsyncClient() as client:
+            try:
                 response = await client.request(
                     method,
                     url,
@@ -283,26 +366,32 @@ class GmailClientMixin(EnterpriseConnectorMethods):
                     json=json_data,
                     timeout=60,
                 )
-                if response.status_code >= 400:
-                    # Log the full error response for debugging
-                    logger.error(f"Gmail API error {response.status_code}: {response.text}")
-                    # Record failure for circuit breaker on 5xx errors or rate limits
-                    if response.status_code >= 500 or response.status_code == 429:
-                        self.record_failure()
-                response.raise_for_status()
-                self.record_success()
-                return response.json() if response.content else {}
-        except httpx.TimeoutException as e:
+            except httpx.TimeoutException as e:
+                request_error = e
+            except (OSError, ConnectionError) as e:
+                request_error = e
+
+        if request_error:
             self.record_failure()
-            logger.error(f"Gmail API timeout: {e}")
-            raise
-        except httpx.HTTPStatusError:
-            # Already handled above
-            raise
-        except (OSError, ConnectionError) as e:
-            self.record_failure()
-            logger.error(f"Gmail API error: {e}")
-            raise
+            if isinstance(request_error, httpx.TimeoutException):
+                logger.error(f"Gmail API timeout: {request_error}")
+            else:
+                logger.error(f"Gmail API error: {request_error}")
+            raise request_error
+
+        if response is None:
+            raise RuntimeError("Gmail API request failed without a response")
+
+        if response.status_code >= 400:
+            # Log the full error response for debugging
+            logger.error(f"Gmail API error {response.status_code}: {response.text}")
+            # Record failure for circuit breaker on 5xx errors or rate limits
+            if response.status_code >= 500 or response.status_code == 429:
+                self.record_failure()
+            response.raise_for_status()
+
+        self.record_success()
+        return response.json() if response.content else {}
 
     def _get_client(self):
         """Get HTTP client context manager for API requests."""

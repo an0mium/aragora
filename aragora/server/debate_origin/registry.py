@@ -255,7 +255,7 @@ def register_debate_origin(
             # No running event loop - use sync version
             try:
                 _get_sqlite_store().save(origin)
-            except sqlite3.OperationalError as e:
+            except (sqlite3.Error, OSError, RuntimeError, ValueError, Exception) as e:
                 logger.warning(f"SQLite origin storage failed: {e}")
 
     # Persist to Redis for distributed deployments
