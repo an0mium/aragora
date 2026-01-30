@@ -64,9 +64,11 @@ def clean_inbox_state():
 
     # Mock the store functions to return None (forces in-memory fallback)
     with (
-        patch("aragora.server.handlers.shared_inbox._get_store", return_value=None),
-        patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None),
-        patch("aragora.server.handlers.shared_inbox._get_activity_store", return_value=None),
+        patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None),
+        patch("aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None),
+        patch(
+            "aragora.server.handlers._shared_inbox_handler._get_activity_store", return_value=None
+        ),
     ):
         yield
 
@@ -434,7 +436,7 @@ class TestCreateSharedInbox:
     @pytest.mark.asyncio
     async def test_create_inbox_success(self, clean_inbox_state):
         """Should create inbox successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_create_shared_inbox(
                 workspace_id="ws_test",
                 name="New Inbox",
@@ -452,7 +454,7 @@ class TestCreateSharedInbox:
     @pytest.mark.asyncio
     async def test_create_inbox_generates_id(self, clean_inbox_state):
         """Created inbox should have generated ID."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_create_shared_inbox(
                 workspace_id="ws_test",
                 name="New Inbox",
@@ -464,7 +466,7 @@ class TestCreateSharedInbox:
     @pytest.mark.asyncio
     async def test_create_inbox_stores_in_memory(self, clean_inbox_state):
         """Created inbox should be stored in memory."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_create_shared_inbox(
                 workspace_id="ws_test",
                 name="New Inbox",
@@ -480,7 +482,7 @@ class TestListSharedInboxes:
     @pytest.mark.asyncio
     async def test_list_inboxes_empty(self, clean_inbox_state):
         """Should return empty list when no inboxes."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_list_shared_inboxes(workspace_id="ws_test")
 
         assert result["success"] is True
@@ -490,7 +492,7 @@ class TestListSharedInboxes:
     @pytest.mark.asyncio
     async def test_list_inboxes_returns_matching(self, sample_inbox):
         """Should return inboxes matching workspace."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_list_shared_inboxes(workspace_id="ws_test")
 
         assert result["success"] is True
@@ -500,7 +502,7 @@ class TestListSharedInboxes:
     @pytest.mark.asyncio
     async def test_list_inboxes_filters_by_user(self, sample_inbox):
         """Should filter inboxes by user membership."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             # User who is a member
             result = await handle_list_shared_inboxes(workspace_id="ws_test", user_id="user1")
             assert len(result["inboxes"]) == 1
@@ -518,7 +520,7 @@ class TestGetSharedInbox:
     @pytest.mark.asyncio
     async def test_get_inbox_success(self, sample_inbox):
         """Should return inbox details."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -528,7 +530,7 @@ class TestGetSharedInbox:
     @pytest.mark.asyncio
     async def test_get_inbox_not_found(self, clean_inbox_state):
         """Should return error for non-existent inbox."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id="nonexistent")
 
         assert result["success"] is False
@@ -541,7 +543,7 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_get_messages_success(self, sample_inbox, sample_message):
         """Should return messages in inbox."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_inbox_messages(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -551,7 +553,7 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_get_messages_empty(self, sample_inbox):
         """Should return empty list when no messages."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_inbox_messages(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -560,7 +562,7 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_get_messages_filters_by_status(self, sample_inbox, sample_message):
         """Should filter messages by status."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             # Filter by matching status
             result = await handle_get_inbox_messages(inbox_id=sample_inbox.id, status="open")
             assert len(result["messages"]) == 1
@@ -572,7 +574,7 @@ class TestGetInboxMessages:
     @pytest.mark.asyncio
     async def test_get_messages_pagination(self, sample_inbox, sample_message):
         """Should support pagination."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_inbox_messages(inbox_id=sample_inbox.id, limit=10, offset=0)
 
         assert result["success"] is True
@@ -591,8 +593,10 @@ class TestAssignMessage:
     @pytest.mark.asyncio
     async def test_assign_message_success(self, sample_inbox, sample_message):
         """Should assign message to user."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
-            with patch("aragora.server.handlers.shared_inbox._log_activity", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
+            with patch(
+                "aragora.server.handlers._shared_inbox_handler._log_activity", return_value=None
+            ):
                 result = await handle_assign_message(
                     inbox_id=sample_inbox.id,
                     message_id=sample_message.id,
@@ -607,7 +611,7 @@ class TestAssignMessage:
     @pytest.mark.asyncio
     async def test_assign_message_not_found(self, sample_inbox):
         """Should return error for non-existent message."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_assign_message(
                 inbox_id=sample_inbox.id,
                 message_id="nonexistent",
@@ -624,8 +628,10 @@ class TestUpdateMessageStatus:
     @pytest.mark.asyncio
     async def test_update_status_success(self, sample_inbox, sample_message):
         """Should update message status."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
-            with patch("aragora.server.handlers.shared_inbox._log_activity", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
+            with patch(
+                "aragora.server.handlers._shared_inbox_handler._log_activity", return_value=None
+            ):
                 result = await handle_update_message_status(
                     inbox_id=sample_inbox.id,
                     message_id=sample_message.id,
@@ -638,8 +644,10 @@ class TestUpdateMessageStatus:
     @pytest.mark.asyncio
     async def test_update_status_to_resolved(self, sample_inbox, sample_message):
         """Should set resolved timestamp when status is resolved."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
-            with patch("aragora.server.handlers.shared_inbox._log_activity", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
+            with patch(
+                "aragora.server.handlers._shared_inbox_handler._log_activity", return_value=None
+            ):
                 result = await handle_update_message_status(
                     inbox_id=sample_inbox.id,
                     message_id=sample_message.id,
@@ -654,7 +662,7 @@ class TestUpdateMessageStatus:
     @pytest.mark.asyncio
     async def test_update_status_invalid(self, sample_inbox, sample_message):
         """Should return error for invalid status."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_update_message_status(
                 inbox_id=sample_inbox.id,
                 message_id=sample_message.id,
@@ -670,7 +678,7 @@ class TestAddMessageTag:
     @pytest.mark.asyncio
     async def test_add_tag_success(self, sample_inbox, sample_message):
         """Should add tag to message."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_add_message_tag(
                 inbox_id=sample_inbox.id,
                 message_id=sample_message.id,
@@ -683,7 +691,7 @@ class TestAddMessageTag:
     @pytest.mark.asyncio
     async def test_add_duplicate_tag(self, sample_inbox, sample_message):
         """Should not add duplicate tag."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             # Add tag first time
             await handle_add_message_tag(
                 inbox_id=sample_inbox.id,
@@ -713,7 +721,9 @@ class TestCreateRoutingRule:
     @pytest.mark.asyncio
     async def test_create_rule_success(self, clean_inbox_state):
         """Should create routing rule successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_create_routing_rule(
                 workspace_id="ws_test",
                 name="Test Rule",
@@ -728,7 +738,9 @@ class TestCreateRoutingRule:
     @pytest.mark.asyncio
     async def test_create_rule_generates_id(self, clean_inbox_state):
         """Created rule should have generated ID."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_create_routing_rule(
                 workspace_id="ws_test",
                 name="Test Rule",
@@ -742,7 +754,9 @@ class TestCreateRoutingRule:
     @pytest.mark.asyncio
     async def test_create_rule_with_priority(self, clean_inbox_state):
         """Should create rule with specified priority."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_create_routing_rule(
                 workspace_id="ws_test",
                 name="High Priority Rule",
@@ -761,7 +775,9 @@ class TestListRoutingRules:
     @pytest.mark.asyncio
     async def test_list_rules_empty(self, clean_inbox_state):
         """Should return empty list when no rules."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_list_routing_rules(workspace_id="ws_test")
 
         assert result["success"] is True
@@ -770,7 +786,9 @@ class TestListRoutingRules:
     @pytest.mark.asyncio
     async def test_list_rules_returns_matching(self, sample_routing_rule):
         """Should return rules matching workspace."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_list_routing_rules(workspace_id="ws_test")
 
         assert result["success"] is True
@@ -780,7 +798,9 @@ class TestListRoutingRules:
     @pytest.mark.asyncio
     async def test_list_rules_filters_enabled(self, sample_routing_rule):
         """Should filter by enabled status."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_list_routing_rules(workspace_id="ws_test", enabled_only=True)
 
         assert result["success"] is True
@@ -793,7 +813,9 @@ class TestUpdateRoutingRule:
     @pytest.mark.asyncio
     async def test_update_rule_success(self, sample_routing_rule):
         """Should update routing rule."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_update_routing_rule(
                 rule_id=sample_routing_rule.id,
                 updates={"name": "Updated Rule Name"},
@@ -805,7 +827,9 @@ class TestUpdateRoutingRule:
     @pytest.mark.asyncio
     async def test_update_rule_enabled(self, sample_routing_rule):
         """Should update rule enabled status."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_update_routing_rule(
                 rule_id=sample_routing_rule.id,
                 updates={"enabled": False},
@@ -817,7 +841,9 @@ class TestUpdateRoutingRule:
     @pytest.mark.asyncio
     async def test_update_rule_not_found(self, clean_inbox_state):
         """Should return error for non-existent rule."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_update_routing_rule(
                 rule_id="nonexistent",
                 updates={"name": "Test"},
@@ -833,7 +859,9 @@ class TestDeleteRoutingRule:
     @pytest.mark.asyncio
     async def test_delete_rule_success(self, sample_routing_rule):
         """Should delete routing rule."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_delete_routing_rule(rule_id=sample_routing_rule.id)
 
         assert result["success"] is True
@@ -842,7 +870,9 @@ class TestDeleteRoutingRule:
     @pytest.mark.asyncio
     async def test_delete_rule_not_found(self, clean_inbox_state):
         """Should return error for non-existent rule."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await handle_delete_routing_rule(rule_id="nonexistent")
 
         assert result["success"] is False
@@ -937,7 +967,7 @@ class TestHandlerPostSharedInbox:
     @pytest.mark.asyncio
     async def test_post_inbox_success(self, shared_inbox_handler, clean_inbox_state):
         """Should create inbox successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await shared_inbox_handler.handle_post_shared_inbox(
                 {"workspace_id": "ws_test", "name": "Test Inbox"}
             )
@@ -956,7 +986,7 @@ class TestHandlerGetSharedInboxes:
     @pytest.mark.asyncio
     async def test_get_inboxes_success(self, shared_inbox_handler, clean_inbox_state):
         """Should return inboxes successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await shared_inbox_handler.handle_get_shared_inboxes(
                 {"workspace_id": "ws_test"}
             )
@@ -975,7 +1005,9 @@ class TestHandlerPostRoutingRule:
     @pytest.mark.asyncio
     async def test_post_rule_success(self, shared_inbox_handler, clean_inbox_state):
         """Should create rule successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await shared_inbox_handler.handle_post_routing_rule(
                 {
                     "workspace_id": "ws_test",
@@ -999,7 +1031,9 @@ class TestHandlerGetRoutingRules:
     @pytest.mark.asyncio
     async def test_get_rules_success(self, shared_inbox_handler, clean_inbox_state):
         """Should return rules successfully."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             result = await shared_inbox_handler.handle_get_routing_rules(
                 {"workspace_id": "ws_test"}
             )
@@ -1018,9 +1052,12 @@ class TestErrorHandling:
     async def test_handles_store_exception(self, clean_inbox_state):
         """Should handle store exceptions gracefully."""
         mock_store = MagicMock()
-        mock_store.create_shared_inbox.side_effect = Exception("Store error")
+        # Use RuntimeError (handled by the handler) rather than bare Exception
+        mock_store.create_shared_inbox.side_effect = RuntimeError("Store error")
 
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=mock_store):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_store", return_value=mock_store
+        ):
             result = await handle_create_shared_inbox(
                 workspace_id="ws_test",
                 name="Test Inbox",
@@ -1032,7 +1069,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_handles_invalid_status(self, sample_inbox, sample_message):
         """Should handle invalid status gracefully."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_update_message_status(
                 inbox_id=sample_inbox.id,
                 message_id=sample_message.id,
@@ -1051,7 +1088,9 @@ class TestThreadSafety:
         import asyncio
 
         async def create_inbox(i):
-            with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+            with patch(
+                "aragora.server.handlers._shared_inbox_handler._get_store", return_value=None
+            ):
                 return await handle_create_shared_inbox(
                     workspace_id="ws_test",
                     name=f"Inbox {i}",
@@ -1077,7 +1116,7 @@ class TestParticipantHandling:
     @pytest.mark.asyncio
     async def test_inbox_team_members_list(self, sample_inbox):
         """Should store and return team members correctly."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -1087,7 +1126,7 @@ class TestParticipantHandling:
     @pytest.mark.asyncio
     async def test_inbox_admins_list(self, sample_inbox):
         """Should store and return admins correctly."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -1096,7 +1135,7 @@ class TestParticipantHandling:
     @pytest.mark.asyncio
     async def test_admin_can_access_inbox(self, sample_inbox):
         """Admin should be able to access the inbox."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_list_shared_inboxes(
                 workspace_id="ws_test",
                 user_id="admin1",
@@ -1108,7 +1147,7 @@ class TestParticipantHandling:
     @pytest.mark.asyncio
     async def test_create_inbox_without_team_members(self, clean_inbox_state):
         """Should create inbox with empty team members list."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_create_shared_inbox(
                 workspace_id="ws_test",
                 name="Empty Team Inbox",
@@ -1304,7 +1343,7 @@ class TestExtendedErrorHandling:
     @pytest.mark.asyncio
     async def test_assign_to_inbox_not_found(self, clean_inbox_state):
         """Should fail to assign message when inbox doesn't exist."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_assign_message(
                 inbox_id="nonexistent_inbox",
                 message_id="msg_123",
@@ -1317,7 +1356,7 @@ class TestExtendedErrorHandling:
     @pytest.mark.asyncio
     async def test_add_tag_to_nonexistent_message(self, sample_inbox):
         """Should fail to add tag when message doesn't exist."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_add_message_tag(
                 inbox_id=sample_inbox.id,
                 message_id="nonexistent_msg",
@@ -1330,7 +1369,7 @@ class TestExtendedErrorHandling:
     @pytest.mark.asyncio
     async def test_update_status_nonexistent_message(self, sample_inbox):
         """Should fail to update status when message doesn't exist."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_update_message_status(
                 inbox_id=sample_inbox.id,
                 message_id="nonexistent_msg",
@@ -1400,7 +1439,7 @@ class TestInboxMessageCounts:
     @pytest.mark.asyncio
     async def test_inbox_message_count_updated(self, sample_inbox, sample_message):
         """Should update message count when getting inbox."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -1410,7 +1449,7 @@ class TestInboxMessageCounts:
     async def test_inbox_unread_count_updated(self, sample_inbox, sample_message):
         """Should update unread count based on open messages."""
         # sample_message has status=OPEN
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
             result = await handle_get_shared_inbox(inbox_id=sample_inbox.id)
 
         assert result["success"] is True
@@ -1419,8 +1458,10 @@ class TestInboxMessageCounts:
     @pytest.mark.asyncio
     async def test_unread_count_decreases_when_assigned(self, sample_inbox, sample_message):
         """Unread count should decrease when message is assigned."""
-        with patch("aragora.server.handlers.shared_inbox._get_store", return_value=None):
-            with patch("aragora.server.handlers.shared_inbox._log_activity", return_value=None):
+        with patch("aragora.server.handlers._shared_inbox_handler._get_store", return_value=None):
+            with patch(
+                "aragora.server.handlers._shared_inbox_handler._log_activity", return_value=None
+            ):
                 # Assign the message (changes status from OPEN to ASSIGNED)
                 await handle_assign_message(
                     inbox_id=sample_inbox.id,
@@ -1445,7 +1486,9 @@ class TestRulePriority:
     @pytest.mark.asyncio
     async def test_rules_sorted_by_priority(self, clean_inbox_state):
         """Rules should be returned sorted by priority."""
-        with patch("aragora.server.handlers.shared_inbox._get_rules_store", return_value=None):
+        with patch(
+            "aragora.server.handlers._shared_inbox_handler._get_rules_store", return_value=None
+        ):
             # Create rules with different priorities
             await handle_create_routing_rule(
                 workspace_id="ws_test",
