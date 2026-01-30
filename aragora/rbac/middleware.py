@@ -475,7 +475,7 @@ DEFAULT_ROUTE_PERMISSIONS = [
     RoutePermission(r"^/api/v1/sme/budgets/([^/]+)/transactions$", "GET", "budget.read", 1),
     # ── Device endpoints ──
     RoutePermission(r"^/api/(v1/)?devices/register$", "POST", "devices.write"),
-    RoutePermission(r"^/api/(v1/)?devices/health$", "GET", "devices.read"),
+    RoutePermission(r"^/api/(v1/)?devices/health$", "GET", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/(v1/)?devices/alexa/webhook$", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/(v1/)?devices/google/webhook$", "POST", "", allow_unauthenticated=True),
     RoutePermission(r"^/api/(v1/)?devices/([^/]+)$", "GET", "devices.read", 2),

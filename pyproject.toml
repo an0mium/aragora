@@ -859,16 +859,9 @@ module = ["yaml", "croniter"]
 ignore_missing_imports = true
 
 # Ignore errors in modules with complex third-party types or dynamic patterns
-# Phase 22: Reduced from 100+ to ~25 modules (Jan 2026)
-# Many modules promoted to strict after verification
+# Phase 24: Reduced to ~15 core modules requiring ignore_errors (Jan 2026)
 [[tool.mypy.overrides]]
 module = [
-    # Third-party integrations (external SDK types)
-    "aragora.persistence.supabase_client",
-    "aragora.persistence.migrations.*",
-    "aragora.observability.slo",
-    "aragora.billing.stripe_client",
-    "aragora.billing.auth.blacklist",
     # Nomic phases (complex orchestration)
     "aragora.nomic.phases.*",
     "aragora.nomic.checkpoints",
@@ -885,12 +878,9 @@ module = [
     "aragora.training.model_registry",
     "aragora.pipeline.pr_generator",
     "aragora.policy.engine",
-    # Storage layer (database return types)
-    "aragora.storage.audit_store",
-    "aragora.storage.organization_store",
-    "aragora.storage.postgres_store",
+    # Storage layer (repository patterns)
     "aragora.storage.repositories.*",
-    # Server/handler modules with complex db interactions
+    # Server/handler modules with complex patterns
     "aragora.server.openapi",
     "aragora.server.validation.decorators",
     "aragora.server.middleware.*",
@@ -900,30 +890,36 @@ module = [
     "aragora.documents.indexing.weaviate_store",
     # Modules with actual type errors (need fixes)
     "aragora.evidence.collector",
-    # Enterprise connectors - database adapters (complex third-party types)
-    "aragora.connectors.enterprise.database.sqlserver",
-    "aragora.connectors.enterprise.database.mysql",
-    # Healthcare connectors (HL7/FHIR complex schemas)
-    "aragora.connectors.enterprise.healthcare.ehr.epic",
-    "aragora.connectors.enterprise.healthcare.ehr.cerner",
-    "aragora.connectors.enterprise.healthcare.hl7v2",
-    # Chat connectors (webhook signature type mismatches)
-    "aragora.connectors.chat.whatsapp",
-    "aragora.connectors.chat.telegram",
-    # Payment connectors (external API types)
-    "aragora.connectors.payments.paypal",
-    "aragora.connectors.accounting.qbo",
-    # Enterprise database connectors (complex third-party async types)
-    "aragora.connectors.enterprise.database.mongodb",
-    "aragora.connectors.enterprise.database.postgres",
-    # Server stream modules
-    "aragora.server.stream.debate_executor",
-    "aragora.server.handlers.knowledge.analytics",
-    "aragora.server.stream.servers",
-    # MCP server (complex dynamic typing)
-    "aragora.mcp.server",
 ]
 ignore_errors = true
+
+# ============================================================================
+# PROMOTED TO STRICT (Phase 24, Jan 2026)
+# These modules now pass mypy --ignore-missing-imports
+# ============================================================================
+# aragora.persistence.supabase_client
+# aragora.persistence.migrations.*
+# aragora.observability.slo
+# aragora.billing.stripe_client
+# aragora.billing.auth.blacklist
+# aragora.storage.audit_store
+# aragora.storage.organization_store
+# aragora.storage.postgres_store
+# aragora.connectors.enterprise.database.sqlserver
+# aragora.connectors.enterprise.database.mysql
+# aragora.connectors.enterprise.database.mongodb
+# aragora.connectors.enterprise.database.postgres
+# aragora.connectors.enterprise.healthcare.ehr.epic
+# aragora.connectors.enterprise.healthcare.ehr.cerner
+# aragora.connectors.enterprise.healthcare.hl7v2
+# aragora.connectors.chat.whatsapp
+# aragora.connectors.chat.telegram
+# aragora.connectors.payments.paypal
+# aragora.connectors.accounting.qbo
+# aragora.server.stream.debate_executor
+# aragora.server.handlers.knowledge.analytics
+# aragora.server.stream.servers
+# aragora.mcp.server
 
 # ============================================================================
 # PROMOTED TO STRICT (Phase 23, Jan 2026)
