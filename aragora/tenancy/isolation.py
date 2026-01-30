@@ -136,11 +136,15 @@ class TenantDataIsolation:
     and namespacing resources to prevent cross-tenant data access.
     """
 
+    # Maximum number of encryption keys to cache per instance
+    MAX_ENCRYPTION_KEYS = 1000
+
     def __init__(self, config: TenantIsolationConfig | None = None):
         """Initialize isolation enforcement."""
         self.config = config or TenantIsolationConfig()
         self._audit_log: list[IsolationAuditEntry] = []
         self._encryption_keys: dict[str, bytes] = {}
+        self._key_access_order: list[str] = []  # Track access order for LRU eviction
 
         # SECURITY: Validate that all shared_resources are in the allow-list
         invalid_shared = self.config.shared_resources - ALLOWED_SHARED_RESOURCES
@@ -451,6 +455,16 @@ class TenantDataIsolation:
                 seed = f"aragora_tenant_key_{tid}".encode()
                 self._encryption_keys[tid] = hashlib.sha256(seed).digest()
 
+            # LRU eviction: remove oldest keys if at capacity
+            self._key_access_order.append(tid)
+            if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
+                self._evict_oldest_keys()
+        else:
+            # Move to end of access order (most recently used)
+            if tid in self._key_access_order:
+                self._key_access_order.remove(tid)
+            self._key_access_order.append(tid)
+
         return self._encryption_keys[tid]
 
     def _get_key_from_kms(self, tenant_id: str) -> bytes | None:
@@ -497,6 +511,19 @@ class TenantDataIsolation:
             logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
             return None
 
+    def _evict_oldest_keys(self) -> None:
+        """Evict oldest encryption keys when at capacity (LRU eviction)."""
+        # Remove oldest 10% of keys
+        evict_count = max(1, len(self._encryption_keys) // 10)
+        evicted = 0
+        while evicted < evict_count and self._key_access_order:
+            oldest_tid = self._key_access_order.pop(0)
+            if oldest_tid in self._encryption_keys and oldest_tid != "_shared":
+                del self._encryption_keys[oldest_tid]
+                evicted += 1
+        if evicted > 0:
+            logger.debug(f"Evicted {evicted} encryption keys (LRU)")
+
     def set_encryption_key(self, tenant_id: str, key: bytes) -> None:
         """
         Set encryption key for a tenant.
@@ -508,6 +535,13 @@ class TenantDataIsolation:
         if len(key) != 32:
             raise ValueError("Encryption key must be 32 bytes")
         self._encryption_keys[tenant_id] = key
+        # Track in access order
+        if tenant_id in self._key_access_order:
+            self._key_access_order.remove(tenant_id)
+        self._key_access_order.append(tenant_id)
+        # Evict if at capacity
+        if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
+            self._evict_oldest_keys()
 
     async def get_encryption_key_async(self, tenant_id: str | None = None) -> bytes:
         """
@@ -545,6 +579,16 @@ class TenantDataIsolation:
                 )
                 seed = f"aragora_tenant_key_{tid}".encode()
                 self._encryption_keys[tid] = hashlib.sha256(seed).digest()
+
+            # LRU eviction: remove oldest keys if at capacity
+            self._key_access_order.append(tid)
+            if len(self._encryption_keys) > self.MAX_ENCRYPTION_KEYS:
+                self._evict_oldest_keys()
+        else:
+            # Move to end of access order (most recently used)
+            if tid in self._key_access_order:
+                self._key_access_order.remove(tid)
+            self._key_access_order.append(tid)
 
         return self._encryption_keys[tid]
 

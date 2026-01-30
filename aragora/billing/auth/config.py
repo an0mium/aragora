@@ -30,9 +30,29 @@ def _get_secret_value(name: str, default: str = "") -> str:
 
 # Environment configuration
 ARAGORA_ENVIRONMENT = os.environ.get("ARAGORA_ENVIRONMENT", "development")
-# Use secrets manager for sensitive values
-JWT_SECRET = _get_secret_value("ARAGORA_JWT_SECRET", "")
-JWT_SECRET_PREVIOUS = _get_secret_value("ARAGORA_JWT_SECRET_PREVIOUS", "")
+
+# Lazy-loaded secrets - populated on first access to avoid import-time issues
+# When running under systemd, env vars may not be fully propagated during imports
+_jwt_secret_cache: str | None = None
+_jwt_secret_previous_cache: str | None = None
+
+
+def _get_jwt_secret() -> str:
+    """Get JWT secret with lazy loading and caching."""
+    global _jwt_secret_cache
+    if _jwt_secret_cache is None:
+        _jwt_secret_cache = _get_secret_value("ARAGORA_JWT_SECRET", "")
+    return _jwt_secret_cache
+
+
+def _get_jwt_secret_previous() -> str:
+    """Get previous JWT secret with lazy loading and caching."""
+    global _jwt_secret_previous_cache
+    if _jwt_secret_previous_cache is None:
+        _jwt_secret_previous_cache = _get_secret_value("ARAGORA_JWT_SECRET_PREVIOUS", "")
+    return _jwt_secret_previous_cache
+
+
 # Unix timestamp when secret was rotated (for limiting previous secret validity)
 JWT_SECRET_ROTATED_AT = os.environ.get("ARAGORA_JWT_SECRET_ROTATED_AT", "")
 # How long previous secret remains valid after rotation (default: 24 hours)
@@ -84,28 +104,30 @@ def validate_security_config() -> None:
             MAX_REFRESH_TOKEN_DAYS,
         )
 
-    if JWT_SECRET_PREVIOUS and len(JWT_SECRET_PREVIOUS) < MIN_SECRET_LENGTH:
+    jwt_secret_prev = _get_jwt_secret_previous()
+    if jwt_secret_prev and len(jwt_secret_prev) < MIN_SECRET_LENGTH:
         logger.warning(
             "jwt_previous_secret_too_short length=%s min=%s",
-            len(JWT_SECRET_PREVIOUS),
+            len(jwt_secret_prev),
             MIN_SECRET_LENGTH,
         )
 
-    if JWT_SECRET_PREVIOUS and not JWT_SECRET_ROTATED_AT:
+    if jwt_secret_prev and not JWT_SECRET_ROTATED_AT:
         logger.warning("jwt_previous_secret_without_rotation_timestamp")
 
     if is_production():
-        if not JWT_SECRET:
+        jwt_secret = _get_jwt_secret()
+        if not jwt_secret:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason="ARAGORA_JWT_SECRET must be set in production. "
                 'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
             )
-        if len(JWT_SECRET) < MIN_SECRET_LENGTH:
+        if len(jwt_secret) < MIN_SECRET_LENGTH:
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters in production. "
-                f"Current length: {len(JWT_SECRET)}",
+                f"Current length: {len(jwt_secret)}",
             )
 
 
@@ -126,13 +148,15 @@ def get_secret() -> bytes:
     Raises:
         RuntimeError: If secret is missing or weak (except in pytest).
     """
-    global JWT_SECRET
+    global _jwt_secret_cache
     running_under_pytest = "pytest" in sys.modules
 
-    if not JWT_SECRET:
+    jwt_secret = _get_jwt_secret()
+    if not jwt_secret:
         if running_under_pytest:
             # Allow ephemeral secret only in test environments
-            JWT_SECRET = base64.b64encode(os.urandom(32)).decode("utf-8")
+            _jwt_secret_cache = base64.b64encode(os.urandom(32)).decode("utf-8")
+            jwt_secret = _jwt_secret_cache
             logger.debug("TEST MODE: Using ephemeral JWT secret")
         else:
             logger.error("[JWT_DEBUG] get_secret: ARAGORA_JWT_SECRET is NOT SET!")
@@ -142,28 +166,28 @@ def get_secret() -> bytes:
                 'Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"',
             )
 
-    if not validate_secret_strength(JWT_SECRET):
+    if not validate_secret_strength(jwt_secret):
         if running_under_pytest:
             logger.debug(f"TEST MODE: JWT secret is weak (< {MIN_SECRET_LENGTH} chars)")
         else:
             logger.error(
-                f"[JWT_DEBUG] get_secret: Secret too weak! Length={len(JWT_SECRET)}, required={MIN_SECRET_LENGTH}"
+                f"[JWT_DEBUG] get_secret: Secret too weak! Length={len(jwt_secret)}, required={MIN_SECRET_LENGTH}"
             )
             raise ConfigurationError(
                 component="JWT Authentication",
                 reason=f"ARAGORA_JWT_SECRET must be at least {MIN_SECRET_LENGTH} characters. "
-                f"Current length: {len(JWT_SECRET)}",
+                f"Current length: {len(jwt_secret)}",
             )
 
     # Log secret fingerprint (first 4 chars of hash) for debugging without exposing secret
     import hashlib
 
-    secret_fingerprint = hashlib.sha256(JWT_SECRET.encode()).hexdigest()[:8]
+    secret_fingerprint = hashlib.sha256(jwt_secret.encode()).hexdigest()[:8]
     logger.info(
-        f"[JWT_DEBUG] get_secret: Using secret with fingerprint={secret_fingerprint}, length={len(JWT_SECRET)}"
+        f"[JWT_DEBUG] get_secret: Using secret with fingerprint={secret_fingerprint}, length={len(jwt_secret)}"
     )
 
-    return JWT_SECRET.encode("utf-8")
+    return jwt_secret.encode("utf-8")
 
 
 def get_previous_secret() -> bytes | None:
@@ -176,7 +200,8 @@ def get_previous_secret() -> bytes | None:
 
     This prevents leaked old secrets from being exploitable indefinitely.
     """
-    if not JWT_SECRET_PREVIOUS or len(JWT_SECRET_PREVIOUS) < MIN_SECRET_LENGTH:
+    jwt_secret_prev = _get_jwt_secret_previous()
+    if not jwt_secret_prev or len(jwt_secret_prev) < MIN_SECRET_LENGTH:
         return None
 
     # Check rotation timestamp if set
@@ -198,7 +223,7 @@ def get_previous_secret() -> bytes | None:
             if is_production():
                 return None
 
-    return JWT_SECRET_PREVIOUS.encode("utf-8")
+    return jwt_secret_prev.encode("utf-8")
 
 
 # Backward compatibility alias

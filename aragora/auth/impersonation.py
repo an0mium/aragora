@@ -112,6 +112,9 @@ class ImpersonationManager:
     # Default session duration
     DEFAULT_SESSION_DURATION = timedelta(minutes=30)
 
+    # Maximum total sessions to track (prevents memory leaks)
+    MAX_TOTAL_SESSIONS = 10000
+
     def __init__(
         self,
         audit_callback: Optional[Callable[[ImpersonationAuditEntry], None]] = None,
@@ -364,6 +367,9 @@ class ImpersonationManager:
             self._admin_sessions[admin_user_id] = []
         self._admin_sessions[admin_user_id].append(session_id)
 
+        # Enforce max total sessions - cleanup expired and evict oldest if needed
+        self._enforce_session_limits()
+
         # Persist session to store
         store = self._get_store()
         if store:
@@ -559,6 +565,24 @@ class ImpersonationManager:
             return None
 
         return session
+
+    def _enforce_session_limits(self) -> None:
+        """Enforce session limits by cleaning expired and evicting oldest if needed."""
+        # First, cleanup all expired sessions
+        expired_ids = [sid for sid, session in self._sessions.items() if session.is_expired()]
+        for sid in expired_ids:
+            self._cleanup_expired_session(sid)
+
+        # If still over limit, evict oldest sessions
+        if len(self._sessions) > self.MAX_TOTAL_SESSIONS:
+            # Sort by started_at and remove oldest
+            sorted_sessions = sorted(self._sessions.items(), key=lambda x: x[1].started_at)
+            evict_count = len(self._sessions) - self.MAX_TOTAL_SESSIONS + 1
+            for sid, _ in sorted_sessions[:evict_count]:
+                self._cleanup_expired_session(sid)
+            logger.warning(
+                f"Evicted {evict_count} oldest impersonation sessions (limit: {self.MAX_TOTAL_SESSIONS})"
+            )
 
     def _cleanup_expired_session(self, session_id: str) -> None:
         """Clean up an expired session with audit logging."""
