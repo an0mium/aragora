@@ -20,9 +20,32 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.audit.unified import audit_data
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+
+
+class VoteRecordingStore(Protocol):
+    """Protocol for stores that can record votes.
+
+    This is a forward-looking interface - ConsensusStore with record_vote
+    is planned but not yet implemented. The code gracefully handles ImportError.
+    """
+
+    def record_vote(
+        self,
+        debate_id: str,
+        user_id: str,
+        vote: str,
+        source: str,
+    ) -> None:
+        """Record a user vote on a debate outcome."""
+        ...
+
+
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -126,9 +149,9 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         return json_response(status)
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    ) -> "MaybeAsyncHandlerResult":
         """Route Telegram GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/telegram/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -295,10 +318,10 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
         try:
-            from aragora.memory.consensus import ConsensusStore  # type: ignore[attr-defined]
+            from aragora.memory.consensus import ConsensusStore
 
             # Record the vote
-            store = ConsensusStore()
+            store: VoteRecordingStore = ConsensusStore()
             store.record_vote(
                 debate_id=debate_id,
                 user_id=f"telegram:{user_id}",
@@ -510,8 +533,8 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
             queue = await create_redis_queue()
             await queue.enqueue(job)
-            logger.info(f"Debate job enqueued via fallback: {job.job_id}")  # type: ignore[attr-defined]
-            return job.job_id  # type: ignore[attr-defined]
+            logger.info(f"Debate job enqueued via fallback: {job.id}")
+            return job.id
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")

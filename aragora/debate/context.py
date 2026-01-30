@@ -240,6 +240,14 @@ class DebateContext:
     See aragora.rlm.types.RLMContext for the interface.
     """
 
+    rlm_compressed_context: str | None = None
+    """Compressed context summary from RLM compression.
+
+    When RLM compression is enabled during context initialization,
+    this holds the compressed summary of the accumulated context.
+    This can be used as a fallback when the full context is too large.
+    """
+
     use_compressed_context: bool = False
     """When True, use RLM summary level in prompts instead of full context."""
 

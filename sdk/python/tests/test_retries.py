@@ -155,6 +155,8 @@ class TestSyncRetries:
 
     def test_no_retry_on_http_error(self) -> None:
         """HTTP errors (4xx, 5xx) are not retried by default."""
+        from aragora.exceptions import ValidationError
+
         with patch("httpx.Client.request") as mock_request:
             mock_response = MagicMock(spec=httpx.Response)
             mock_response.is_success = False
@@ -166,7 +168,7 @@ class TestSyncRetries:
 
             client = AragoraClient(base_url="https://api.aragora.ai", max_retries=3)
 
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(ValidationError):
                 client.request("GET", "/api/v1/debates")
 
             # Should not retry on HTTP errors

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
@@ -26,6 +26,8 @@ from ...base import (
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.types import KnowledgeItem
+    from aragora.knowledge.mound_core import NodeType
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +108,8 @@ class CultureOperationsMixin:
                 source_id="culture_document",
             )
 
-            node = KnowledgeNode(  # type: ignore[call-arg]
-                node_type="culture",  # type: ignore[arg-type]
+            node = KnowledgeNode(
+                node_type=cast("NodeType", "culture"),
                 content=content,
                 confidence=1.0,
                 provenance=provenance,
@@ -117,7 +119,7 @@ class CultureOperationsMixin:
                 metadata={"document_type": document_type, **metadata},
             )
 
-            node_id = _run_async(mound.add_node(node))  # type: ignore[misc]
+            node_id = cast(str, _run_async(mound.add_node(node)))
         except Exception as e:
             logger.error(f"Failed to add culture document: {e}")
             return error_response(f"Failed to add culture document: {e}", 500)
@@ -158,15 +160,18 @@ class CultureOperationsMixin:
         try:
             from aragora.memory.tier_manager import MemoryTier
 
-            updated = _run_async(
-                mound.update(  # type: ignore[misc]
-                    node_id,
-                    {
-                        "node_type": "culture",
-                        "tier": MemoryTier.GLACIAL.value,
-                        "promoted_to_culture": True,
-                    },
-                )
+            updated = cast(
+                "KnowledgeItem | None",
+                _run_async(
+                    mound.update(
+                        node_id,
+                        {
+                            "node_type": "culture",
+                            "tier": MemoryTier.GLACIAL.value,
+                            "promoted_to_culture": True,
+                        },
+                    )
+                ),
             )
 
             if not updated:

@@ -22,15 +22,132 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Callable, Awaitable
+from typing import TYPE_CHECKING, Any, Optional, Callable, Awaitable, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
     from aragora.debate.context import DebateContext
     from aragora.memory.continuum import ContinuumMemory
-    from aragora.memory.consensus import ConsensusMemory
+    from aragora.memory.consensus import ConsensusMemory, ConsensusRecord
     from aragora.memory.store import CritiqueStore
     from aragora.knowledge.mound import KnowledgeMound
+
+
+# Protocols for the memory systems used in coordinator
+# These define the minimal interfaces needed for memory coordination
+
+
+@runtime_checkable
+class ContinuumMemoryProtocol(Protocol):
+    """Protocol for ContinuumMemory-like objects used in coordinator."""
+
+    def store_pattern(
+        self,
+        content: str,
+        importance: float,
+        metadata: dict[str, Any],
+    ) -> str:
+        """Store a pattern and return its ID."""
+        ...
+
+    def delete(
+        self,
+        memory_id: str,
+        archive: bool = True,
+        reason: str = "",
+    ) -> dict[str, Any]:
+        """Delete a memory entry."""
+        ...
+
+
+@runtime_checkable
+class ConsensusMemoryProtocol(Protocol):
+    """Protocol for ConsensusMemory-like objects used in coordinator."""
+
+    def store_consensus(
+        self,
+        topic: str,
+        conclusion: str,
+        strength: Any,  # ConsensusStrength
+        confidence: float,
+        participating_agents: list[str],
+        agreeing_agents: list[str],
+        winner: str | None = None,
+        domain: str = "general",
+        rounds: int = 0,
+        **kwargs: Any,
+    ) -> "ConsensusRecord":
+        """Store a consensus record and return it."""
+        ...
+
+    def delete_consensus(
+        self,
+        consensus_id: str,
+        cascade_dissents: bool = True,
+    ) -> bool:
+        """Delete a consensus record."""
+        ...
+
+
+@runtime_checkable
+class CritiqueStoreProtocol(Protocol):
+    """Protocol for CritiqueStore-like objects used in coordinator."""
+
+    def store_result(self, result: Any) -> None:
+        """Store a debate result."""
+        ...
+
+    def delete_debate(
+        self,
+        debate_id: str,
+        cascade_critiques: bool = True,
+    ) -> bool:
+        """Delete a debate record."""
+        ...
+
+
+@runtime_checkable
+class KnowledgeMoundProtocol(Protocol):
+    """Protocol for KnowledgeMound-like objects used in coordinator."""
+
+    async def ingest_debate_outcome(
+        self,
+        debate_id: str,
+        task: str,
+        conclusion: str,
+        confidence: float,
+        domain: str,
+        consensus_reached: bool,
+        winner: str | None = None,
+        key_claims: list[str] | None = None,
+    ) -> str:
+        """Ingest a debate outcome and return the item ID."""
+        ...
+
+    async def store_knowledge(
+        self,
+        content: str,
+        source: str,
+        source_id: str,
+        confidence: float,
+        metadata: dict[str, Any],
+    ) -> str:
+        """Store knowledge and return the item ID."""
+        ...
+
+    async def delete_entry(
+        self,
+        km_id: str,
+        archive: bool = True,
+        reason: str = "",
+    ) -> bool:
+        """Delete a knowledge entry."""
+        ...
+
+    async def delete_node_async(self, node_id: str) -> bool:
+        """Delete a knowledge node asynchronously."""
+        ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -495,15 +612,32 @@ class MemoryCoordinator:
         if not self.continuum_memory:
             raise ValueError("ContinuumMemory not configured")
 
-        entry_id = self.continuum_memory.store_pattern(  # type: ignore[attr-defined]
-            content=f"Debate: {data['task']}\nConclusion: {data['final_answer']}",
-            importance=data["confidence"],
-            metadata={
-                "debate_id": data["debate_id"],
-                "domain": data["domain"],
-                "consensus_reached": data["consensus_reached"],
-            },
-        )
+        content = f"Debate: {data['task']}\nConclusion: {data['final_answer']}"
+        importance = data["confidence"]
+        metadata = {
+            "debate_id": data["debate_id"],
+            "domain": data["domain"],
+            "consensus_reached": data["consensus_reached"],
+        }
+
+        # Use store_pattern if available (protocol method), otherwise fall back to add
+        if hasattr(self.continuum_memory, "store_pattern"):
+            store_pattern_fn: Callable[..., str] = getattr(self.continuum_memory, "store_pattern")
+            entry_id = store_pattern_fn(
+                content=content,
+                importance=importance,
+                metadata=metadata,
+            )
+        else:
+            # Fallback to the standard add() method
+            entry = self.continuum_memory.add(
+                id=data["debate_id"],
+                content=content,
+                importance=importance,
+                metadata=metadata,
+            )
+            entry_id = entry.id
+
         logger.debug("[coordinator] Stored in continuum: %s", entry_id)
         return entry_id
 
@@ -515,7 +649,7 @@ class MemoryCoordinator:
         from aragora.memory.consensus import ConsensusStrength
 
         # Map confidence to strength
-        confidence = data["confidence"]
+        confidence: float = data["confidence"]
         if confidence >= 0.9:
             strength = ConsensusStrength.UNANIMOUS
         elif confidence >= 0.75:
@@ -527,16 +661,22 @@ class MemoryCoordinator:
         else:
             strength = ConsensusStrength.SPLIT
 
-        record = self.consensus_memory.store_consensus(  # type: ignore[call-arg]
+        # Build metadata with winner if provided
+        metadata: dict[str, Any] = {}
+        winner = data.get("winner")
+        if winner:
+            metadata["winner"] = winner
+
+        record = self.consensus_memory.store_consensus(
             topic=data["topic"],
             conclusion=data["conclusion"],
             strength=strength,
             confidence=confidence,
             participating_agents=data["agents"],
             agreeing_agents=data["agents"],  # All agents agree for coordinator
-            winner=data.get("winner"),
             domain=data["domain"],
             rounds=data["rounds_used"],
+            metadata=metadata,
         )
         logger.debug("[coordinator] Stored in consensus: %s", record.id)
         return record.id
@@ -547,10 +687,16 @@ class MemoryCoordinator:
             raise ValueError("CritiqueStore not configured")
 
         result = data["result"]
-        debate_id = data["debate_id"]
+        debate_id: str = data["debate_id"]
 
-        # Store the debate result
-        self.critique_store.store_result(result)  # type: ignore[attr-defined]
+        # Store the debate result using store_result if available, else store_debate
+        if hasattr(self.critique_store, "store_result"):
+            store_result_fn: Callable[[Any], None] = getattr(self.critique_store, "store_result")
+            store_result_fn(result)
+        else:
+            # Standard CritiqueStore uses store_debate
+            self.critique_store.store_debate(result)
+
         logger.debug("[coordinator] Stored in critique: %s", debate_id)
         return debate_id
 
@@ -559,10 +705,15 @@ class MemoryCoordinator:
         if not self.knowledge_mound:
             raise ValueError("KnowledgeMound not configured")
 
+        item_id: str
+
         # Use the mound's native ingest method which handles item creation
         # The mound.ingest_debate_outcome is the preferred API
         if hasattr(self.knowledge_mound, "ingest_debate_outcome"):
-            item_id = await self.knowledge_mound.ingest_debate_outcome(
+            ingest_fn: Callable[..., Awaitable[str]] = getattr(
+                self.knowledge_mound, "ingest_debate_outcome"
+            )
+            item_id = await ingest_fn(
                 debate_id=data["debate_id"],
                 task=data["task"],
                 conclusion=data["conclusion"],
@@ -572,9 +723,12 @@ class MemoryCoordinator:
                 winner=data.get("winner"),
                 key_claims=data.get("key_claims", []),
             )
-        else:
+        elif hasattr(self.knowledge_mound, "store_knowledge"):
             # Fallback: use store_knowledge if available
-            item_id = await self.knowledge_mound.store_knowledge(  # type: ignore[attr-defined]
+            store_knowledge_fn: Callable[..., Awaitable[str]] = getattr(
+                self.knowledge_mound, "store_knowledge"
+            )
+            item_id = await store_knowledge_fn(
                 content=f"{data['task']}\n\nConclusion: {data['conclusion']}",
                 source="debate",
                 source_id=data["debate_id"],
@@ -585,6 +739,10 @@ class MemoryCoordinator:
                     "winner": data.get("winner"),
                     "key_claims": data.get("key_claims", []),
                 },
+            )
+        else:
+            raise ValueError(
+                "KnowledgeMound has neither ingest_debate_outcome nor store_knowledge method"
             )
 
         logger.debug("[coordinator] Stored in mound: %s", item_id)

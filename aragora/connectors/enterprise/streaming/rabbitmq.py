@@ -363,9 +363,11 @@ class RabbitMQConnector(EnterpriseConnector):
             self._connection = await aio_pika.connect_robust(url)
 
         # Create channel with QoS - connection is guaranteed to be set at this point
-        assert self._connection is not None
+        if self._connection is None:
+            raise RuntimeError("Failed to establish RabbitMQ connection")
         self._channel = await self._connection.channel()
-        assert self._channel is not None
+        if self._channel is None:
+            raise RuntimeError("Failed to create RabbitMQ channel")
         await self._channel.set_qos(prefetch_count=self.config.prefetch_count)
 
         # Declare exchange if specified
@@ -398,7 +400,8 @@ class RabbitMQConnector(EnterpriseConnector):
 
         # Bind queue to exchange if specified
         if self.config.exchange:
-            assert self._queue is not None
+            if self._queue is None:
+                raise RuntimeError("Failed to declare RabbitMQ queue")
             await self._queue.bind(
                 exchange,
                 routing_key=self.config.routing_key or self.config.queue,
@@ -461,7 +464,8 @@ class RabbitMQConnector(EnterpriseConnector):
             await self.start()
 
         messages_consumed = 0
-        assert self._queue is not None
+        if self._queue is None:
+            raise RuntimeError("RabbitMQ queue not initialized - call start() first")
 
         try:
             async with self._queue.iterator() as queue_iter:

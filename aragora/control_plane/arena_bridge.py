@@ -147,7 +147,7 @@ class ArenaEventAdapter:
         # Also update shared state if available
         if self.shared_state:
             try:
-                await self.shared_state.update_task_progress(  # type: ignore[attr-defined]
+                await self.shared_state.update_task_progress(
                     self.task_id,
                     {
                         "event_type": event_type.value,
@@ -385,7 +385,7 @@ class ArenaEventAdapter:
 
     async def on_debate_complete(
         self,
-        result: "DebateResult",
+        result: Optional["DebateResult"],
         success: bool,
         error: str | None = None,
     ) -> None:
@@ -496,7 +496,7 @@ class ArenaControlPlaneBridge:
         protocol = DebateProtocol(
             rounds=task.sla.max_rounds,
             consensus="majority",
-            min_confidence=0.6,  # type: ignore[call-arg]
+            consensus_threshold=0.6,
         )
 
         try:
@@ -662,7 +662,7 @@ class ArenaControlPlaneBridge:
                     logger.debug(f"Failed to record SLA violation: {e}")
 
             await adapter.on_debate_complete(
-                None,  # type: ignore[arg-type]  # Passing None for timeout case
+                None,
                 success=False,
                 error=f"Timeout after {task.sla.timeout_seconds}s",
             )
@@ -696,7 +696,7 @@ class ArenaControlPlaneBridge:
                     logger.debug(f"Failed to record failure metrics: {exc}")
 
             await adapter.on_debate_complete(
-                None,  # type: ignore[arg-type]  # Passing None for error case
+                None,
                 success=False,
                 error=error_msg,
             )

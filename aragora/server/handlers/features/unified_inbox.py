@@ -35,18 +35,22 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast, TYPE_CHECKING
 from uuid import uuid4
 
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.utils import parse_json_body
 from aragora.storage.unified_inbox_store import get_unified_inbox_store
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +323,8 @@ class UnifiedInboxHandler(BaseHandler):
 
     def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        ctx: ServerContext = cast(ServerContext, server_context or {})
+        super().__init__(ctx)
         self._store = get_unified_inbox_store()
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -327,7 +332,7 @@ class UnifiedInboxHandler(BaseHandler):
         return path.startswith("/api/v1/inbox")
 
     @require_permission("inbox:read")
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
+    async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             # Extract tenant context
@@ -412,7 +417,7 @@ class UnifiedInboxHandler(BaseHandler):
             try:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                connector = GmailConnector()  # type: ignore[abstract]
+                connector: GmailConnector = cast(Any, GmailConnector)()
 
                 if not connector.is_configured:
                     return error_response(
@@ -574,7 +579,7 @@ class UnifiedInboxHandler(BaseHandler):
             )
 
             # Exchange auth code for tokens via Gmail connector
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector: GmailConnector = cast(Any, GmailConnector)()
             auth_ok = await connector.authenticate(code=auth_code, redirect_uri=redirect_uri)
             if not auth_ok:
                 return {"success": False, "error": "Gmail authentication failed"}
@@ -1535,7 +1540,7 @@ def get_unified_inbox_handler() -> UnifiedInboxHandler:
 async def handle_unified_inbox(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for unified inbox requests."""
     handler = get_unified_inbox_handler()
-    return await handler.handle(request, path, method)
+    return await handler.handle_request(request, path, method)
 
 
 __all__ = [

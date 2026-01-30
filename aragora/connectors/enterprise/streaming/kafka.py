@@ -404,7 +404,8 @@ class KafkaConnector(EnterpriseConnector):
             await self.start()
 
         consumer = self._consumer
-        assert consumer is not None, "Consumer should be initialized after start()"
+        if consumer is None:
+            raise RuntimeError("Kafka consumer not initialized - call start() first")
         messages_consumed = 0
 
         try:

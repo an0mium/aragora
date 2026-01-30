@@ -560,7 +560,7 @@ class TestTeamsSSOErrorHandling:
         """Test handles network errors gracefully."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(side_effect=Exception("Network error"))
+            mock_instance.post = AsyncMock(side_effect=OSError("Network error"))
 
             result = await teams_sso.exchange_token("token")
 
@@ -571,7 +571,7 @@ class TestTeamsSSOErrorHandling:
         """Test handles Graph API network errors gracefully."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.get = AsyncMock(side_effect=Exception("Network error"))
+            mock_instance.get = AsyncMock(side_effect=OSError("Network error"))
 
             result = await teams_sso.get_user_from_graph("token")
 

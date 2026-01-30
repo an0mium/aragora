@@ -31,16 +31,22 @@ _knowledge_cache: dict[str, tuple[str, float]] = {}
 _KNOWLEDGE_CACHE_TTL = 300.0  # 5 minutes
 
 # Check for RLM availability (prefer factory for TRUE RLM support)
-try:
-    from aragora.rlm import get_rlm, RLMConfig, RLMContext as _RLMContext, HAS_OFFICIAL_RLM
+# Declare types as unions to handle both import success and failure
+_get_rlm: Optional[Callable[..., Any]] = None
+_RLMConfig: Optional[type[Any]] = None
+_RLMContextClass: Optional[type[Any]] = None
+HAS_RLM = False
+HAS_OFFICIAL_RLM = False
 
+try:
+    from aragora.rlm import get_rlm, RLMConfig, RLMContext as RLMContextImport, HAS_OFFICIAL_RLM
+
+    _get_rlm = get_rlm
+    _RLMConfig = RLMConfig
+    _RLMContextClass = RLMContextImport
     HAS_RLM = True
 except ImportError:
-    HAS_RLM = False
-    HAS_OFFICIAL_RLM = False
-    get_rlm: Optional[Callable[..., Any]] = None  # type: ignore[no-redef]
-    RLMConfig: Optional[type[Any]] = None  # type: ignore[no-redef]
-    _RLMContext: Optional[type[Any]] = None  # type: ignore[no-redef]
+    pass
 
 
 class ContextInitializer:
@@ -147,10 +153,10 @@ class ContextInitializer:
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
         self._rlm: Any | None = None
-        if self.enable_rlm_compression and get_rlm is not None:
+        if self.enable_rlm_compression and _get_rlm is not None:
             try:
-                config = rlm_config if rlm_config else (RLMConfig() if RLMConfig else None)
-                self._rlm = get_rlm(config=config)
+                config = rlm_config if rlm_config else (_RLMConfig() if _RLMConfig else None)
+                self._rlm = _get_rlm(config=config)
                 if HAS_OFFICIAL_RLM:
                     logger.info(
                         "[rlm] TRUE RLM enabled for context initialization "
@@ -1018,7 +1024,7 @@ class ContextInitializer:
 
             # Store summary in context
             if compression_result and compression_result.answer:
-                ctx.rlm_compressed_context = compression_result.answer  # type: ignore[attr-defined]
+                ctx.rlm_compressed_context = compression_result.answer
 
                 # Log which approach was used
                 if compression_result.used_true_rlm:

@@ -8,12 +8,40 @@ and integrating with LangChain's callback system.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
+
+# Stub classes for when LangChain is not installed at runtime
+class _StubBaseCallbackHandler:
+    """Stub BaseCallbackHandler when LangChain not installed."""
+
+    pass
+
+
+class _StubLLMResult:
+    """Stub LLMResult when LangChain not installed."""
+
+    llm_output: dict[str, Any] | None = None
+
+
+class _StubAgentAction:
+    """Stub AgentAction when LangChain not installed."""
+
+    tool: str = ""
+
+
+class _StubAgentFinish:
+    """Stub AgentFinish when LangChain not installed."""
+
+    pass
+
+
 # LangChain imports with fallback
+LANGCHAIN_AVAILABLE: bool
+
 try:
     from langchain.callbacks.base import BaseCallbackHandler
     from langchain.schema import AgentAction, AgentFinish, LLMResult
@@ -21,26 +49,12 @@ try:
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
-
-    class BaseCallbackHandler:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub BaseCallbackHandler when LangChain not installed."""
-
-        pass
-
-    class LLMResult:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub LLMResult."""
-
-        pass
-
-    class AgentAction:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub AgentAction."""
-
-        pass
-
-    class AgentFinish:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub AgentFinish."""
-
-        pass
+    # Assign stubs at runtime when LangChain is not available
+    if not TYPE_CHECKING:
+        BaseCallbackHandler = _StubBaseCallbackHandler
+        LLMResult = _StubLLMResult
+        AgentAction = _StubAgentAction
+        AgentFinish = _StubAgentFinish
 
 
 class AragoraCallbackHandler(BaseCallbackHandler):

@@ -6,7 +6,7 @@ Bridges compliance policies to control plane.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.observability import get_logger
 
@@ -18,7 +18,22 @@ from .types import (
     SLARequirements,
 )
 
+if TYPE_CHECKING:
+    pass
+
 logger = get_logger(__name__)
+
+
+class _PolicyManagerProtocol(Protocol):
+    """Protocol defining the policy manager interface needed by PolicyStoreSync."""
+
+    _store_sync: PolicyStoreSync
+
+    def add_policy(self, policy: ControlPlanePolicy) -> None: ...
+
+    def remove_policy(self, policy_id: str) -> bool: ...
+
+    def _extract_control_plane_policy(self, policy: Any) -> ControlPlanePolicy | None: ...
 
 
 class PolicyStoreSync:
@@ -44,9 +59,9 @@ class PolicyStoreSync:
         "task_restrictions": "_convert_task_restriction_policy",
     }
 
-    def __init__(self, policy_manager: Any):
+    def __init__(self, policy_manager: _PolicyManagerProtocol):
         self._policy_manager = policy_manager
-        self._synced_policy_ids: set = set()
+        self._synced_policy_ids: set[str] = set()
 
     def sync_from_store(
         self,
@@ -102,13 +117,11 @@ class PolicyStoreSync:
             logger.warning(f"Policy store sync failed: {e}")
             return 0
 
-    def _sync_policy(self, compliance_policy) -> bool:
+    def _sync_policy(self, compliance_policy: Any) -> bool:
         """Convert and sync a single compliance policy."""
         # Explicit control plane payloads take priority
         if hasattr(self._policy_manager, "_extract_control_plane_policy"):
-            control_policy = self._policy_manager._extract_control_plane_policy(  # type: ignore[attr-defined]
-                compliance_policy
-            )
+            control_policy = self._policy_manager._extract_control_plane_policy(compliance_policy)
             if control_policy:
                 self._policy_manager.add_policy(control_policy)
                 self._synced_policy_ids.add(control_policy.id)
@@ -340,7 +353,7 @@ class PolicyStoreSync:
 
 # Add sync method to ControlPlanePolicyManager
 def _sync_from_compliance_store(
-    self,
+    self: _PolicyManagerProtocol,
     workspace_id: str | None = None,
     enabled_only: bool = True,
     store: Any | None = None,
@@ -360,8 +373,8 @@ def _sync_from_compliance_store(
         Number of policies synced
     """
     if not hasattr(self, "_store_sync"):
-        self._store_sync = PolicyStoreSync(self)  # type: ignore[attr-defined]
-    return self._store_sync.sync_from_store(  # type: ignore[attr-defined]
+        object.__setattr__(self, "_store_sync", PolicyStoreSync(self))
+    return self._store_sync.sync_from_store(
         workspace_id=workspace_id,
         enabled_only=enabled_only,
         store=store,
@@ -373,5 +386,5 @@ def _apply_monkey_patch() -> None:
     """Apply the monkey-patch to add sync_from_compliance_store to ControlPlanePolicyManager."""
     from .manager import ControlPlanePolicyManager
 
-    # Monkey-patch the method onto the class
-    ControlPlanePolicyManager.sync_from_compliance_store = _sync_from_compliance_store  # type: ignore[method-assign,assignment]
+    # Monkey-patch the method onto the class using setattr to avoid type errors
+    setattr(ControlPlanePolicyManager, "sync_from_compliance_store", _sync_from_compliance_store)

@@ -949,7 +949,7 @@ class TestImpersonationCallbackErrors:
         """Audit callback errors should not block operation."""
 
         def failing_callback(entry):
-            raise Exception("Callback failed")
+            raise RuntimeError("Callback failed")
 
         manager = ImpersonationManager(audit_callback=failing_callback)
         manager._use_persistence = False
@@ -972,7 +972,7 @@ class TestImpersonationCallbackErrors:
         """Notification callback errors should not block operation."""
 
         def failing_notification(user_id, admin_email, reason):
-            raise Exception("Notification failed")
+            raise RuntimeError("Notification failed")
 
         manager = ImpersonationManager(notification_callback=failing_notification)
         manager._use_persistence = False

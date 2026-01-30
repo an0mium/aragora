@@ -273,8 +273,8 @@ class TestCritiqueAdapterPatternBoost:
 
         assert boost.was_applied is True
         assert boost.boost_amount == 3
-        # Should have called record_pattern_outcome 3 times
-        assert mock_store.record_pattern_outcome.call_count == 3
+        # Should have called store_pattern 3 times (one for each boost)
+        assert mock_store.store_pattern.call_count == 3
 
 
 class TestCritiqueAdapterReputationAdjustment:

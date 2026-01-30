@@ -37,6 +37,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import PermissionDeniedError, require_permission
+from aragora.observability.metrics import track_handler
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
 from aragora.privacy.deletion import get_deletion_scheduler, get_legal_hold_manager
@@ -104,6 +105,7 @@ class ComplianceHandler(BaseHandler):
             return method in ("GET", "POST", "DELETE")
         return False
 
+    @track_handler("compliance/main", method="GET")
     @rate_limit(requests_per_minute=20)
     async def handle(  # type: ignore[override]
         self,
@@ -191,6 +193,7 @@ class ComplianceHandler(BaseHandler):
             logger.exception(f"Error handling compliance request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @track_handler("compliance/status", method="GET")
     @require_permission("compliance:read")
     async def _get_status(self) -> HandlerResult:
         """
@@ -250,6 +253,7 @@ class ComplianceHandler(BaseHandler):
             }
         )
 
+    @track_handler("compliance/soc2-report", method="GET")
     @require_permission("compliance:soc2")
     async def _get_soc2_report(self, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -318,6 +322,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(report)
 
+    @track_handler("compliance/gdpr-export", method="GET")
     @require_permission("compliance:gdpr")
     async def _gdpr_export(self, query_params: dict[str, str]) -> HandlerResult:
         """
@@ -377,6 +382,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(export_data)
 
+    @track_handler("compliance/gdpr-rtbf", method="POST")
     @require_permission("compliance:gdpr")
     async def _right_to_be_forgotten(self, body: dict[str, Any]) -> HandlerResult:
         """
@@ -810,6 +816,7 @@ class ComplianceHandler(BaseHandler):
             logger.exception(f"Error listing legal holds: {e}")
             return error_response(f"Failed to list legal holds: {str(e)}", 500)
 
+    @track_handler("compliance/legal-hold-create", method="POST")
     @require_permission("compliance:legal")
     async def _create_legal_hold(
         self,
@@ -940,6 +947,7 @@ class ComplianceHandler(BaseHandler):
     # Coordinated Deletion Endpoints (Backup-Aware GDPR Compliance)
     # =========================================================================
 
+    @track_handler("compliance/coordinated-deletion", method="POST")
     @require_permission("compliance:gdpr")
     async def _coordinated_deletion(self, body: dict[str, Any]) -> HandlerResult:
         """
@@ -1160,6 +1168,7 @@ class ComplianceHandler(BaseHandler):
             logger.exception(f"Error adding backup exclusion: {e}")
             return error_response(f"Failed to add exclusion: {str(e)}", 500)
 
+    @track_handler("compliance/audit-verify", method="POST")
     @require_permission("compliance:audit")
     async def _verify_audit(self, body: dict[str, Any]) -> HandlerResult:
         """
@@ -1225,6 +1234,7 @@ class ComplianceHandler(BaseHandler):
 
         return json_response(verification_results)
 
+    @track_handler("compliance/audit-events", method="GET")
     @require_permission("compliance:audit")
     async def _get_audit_events(self, query_params: dict[str, str]) -> HandlerResult:
         """

@@ -562,6 +562,47 @@ class SharedControlPlaneState:
 
         return task.to_dict()
 
+    async def update_task_progress(
+        self,
+        task_id: str,
+        progress_data: dict[str, Any],
+    ) -> None:
+        """
+        Update task progress with event data.
+
+        Used by ArenaControlPlaneBridge to record deliberation events
+        for real-time monitoring and progress tracking.
+
+        Args:
+            task_id: Task identifier
+            progress_data: Progress event data including event_type, timestamp, etc.
+        """
+        task = await self._get_task(task_id)
+        if not task:
+            # Task may not be tracked in shared state, just log and continue
+            logger.debug(f"Task {task_id} not found in shared state for progress update")
+            return
+
+        # Store progress in task metadata
+        if "progress_events" not in task.metadata:
+            task.metadata["progress_events"] = []
+        task.metadata["progress_events"].append(progress_data)
+
+        # Limit stored events to prevent unbounded growth
+        if len(task.metadata["progress_events"]) > 100:
+            task.metadata["progress_events"] = task.metadata["progress_events"][-100:]
+
+        await self._save_task(task)
+
+        # Broadcast progress event
+        await self._broadcast_event(
+            {
+                "type": "task_progress",
+                "task_id": task_id,
+                **progress_data,
+            }
+        )
+
     # --- Metrics ---
 
     async def get_metrics(self) -> dict[str, Any]:

@@ -1207,13 +1207,46 @@ class WooCommerceConnector(EnterpriseConnector):
             logger.error(f"Failed to delete webhook {webhook_id}: {e}")
             return False
 
-    def verify_webhook_signature(  # type: ignore[override]
+    def verify_webhook_signature(
+        self,
+        payload: bytes,
+        signature: str,
+    ) -> bool:
+        """Verify webhook payload signature.
+
+        WooCommerce uses base64-encoded HMAC-SHA256 signatures.
+        Override parent to handle WooCommerce's signature format.
+
+        Args:
+            payload: Raw webhook payload bytes
+            signature: X-WC-Webhook-Signature header value
+
+        Returns:
+            True if signature is valid
+        """
+        secret = self.get_webhook_secret()
+        if not secret:
+            return True  # No secret configured, skip verification
+
+        import base64
+        import hashlib
+        import hmac
+
+        expected = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
+        return hmac.compare_digest(expected, signature)
+
+    def verify_webhook_signature_with_secret(
         self,
         payload: bytes,
         signature: str,
         secret: str,
     ) -> bool:
-        """Verify webhook payload signature.
+        """Verify webhook payload signature with an explicit secret.
+
+        This is a convenience method when you want to pass a secret directly
+        rather than using get_webhook_secret().
 
         Args:
             payload: Raw webhook payload bytes
@@ -1506,10 +1539,10 @@ class WooCommerceConnector(EnterpriseConnector):
             yield SyncItem(
                 id=f"woo-order-{order.id}",
                 content=f"Order #{order.number} - {order.status.value} - ${order.total}",
-                metadata=order.to_dict(),
-                updated_at=order.date_modified,  # type: ignore[call-arg]
                 source_type="woocommerce",
                 source_id=str(order.id),
+                updated_at=order.date_modified,
+                metadata=order.to_dict(),
             )
 
         # Sync products
@@ -1517,10 +1550,10 @@ class WooCommerceConnector(EnterpriseConnector):
             yield SyncItem(
                 id=f"woo-product-{product.id}",
                 content=f"{product.name}: {product.short_description or ''}",
-                metadata=product.to_dict(),
-                updated_at=product.date_modified,  # type: ignore[call-arg]
                 source_type="woocommerce",
                 source_id=str(product.id),
+                updated_at=product.date_modified,
+                metadata=product.to_dict(),
             )
 
         # Sync customers
@@ -1528,10 +1561,10 @@ class WooCommerceConnector(EnterpriseConnector):
             yield SyncItem(
                 id=f"woo-customer-{customer.id}",
                 content=f"{customer.first_name} {customer.last_name} - {customer.email}",
-                metadata=customer.to_dict(),
-                updated_at=customer.date_modified,  # type: ignore[call-arg]
                 source_type="woocommerce",
                 source_id=str(customer.id),
+                updated_at=customer.date_modified,
+                metadata=customer.to_dict(),
             )
 
     # =========================================================================

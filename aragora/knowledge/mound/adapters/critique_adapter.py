@@ -258,7 +258,7 @@ class CritiqueAdapter:
         elif success_rate >= 0.4:
             confidence = ConfidenceLevel.LOW
         else:
-            confidence = ConfidenceLevel.UNCERTAIN  # type: ignore[attr-defined]
+            confidence = ConfidenceLevel.UNVERIFIED
 
         # Build content from issue + suggestion
         content = pattern.issue_text
@@ -553,15 +553,24 @@ class CritiqueAdapter:
             return boost
 
         # Apply the boost via the store
-        # Note: CritiqueStore.record_pattern_outcome is the API for this
+        # Note: CritiqueStore.store_pattern is the API for successful patterns
         try:
+            from aragora.core import Critique
+
             for _ in range(validation.boost_amount):
-                self._store.record_pattern_outcome(  # type: ignore[attr-defined]
-                    issue_type=pattern.issue_type,
-                    issue_text=pattern.issue_text,
-                    suggestion=pattern.suggestion_text,
+                # Create a synthetic critique to record the successful pattern
+                synthetic_critique = Critique(
+                    agent="km_boost",
+                    target_agent="",
+                    target_content="",
+                    issues=[pattern.issue_text],
+                    suggestions=[pattern.suggestion_text] if pattern.suggestion_text else [],
                     severity=pattern.avg_severity,
-                    accepted=True,  # Boost = successful outcomes
+                    reasoning="KM validation boost",
+                )
+                self._store.store_pattern(
+                    critique=synthetic_critique,
+                    successful_fix=pattern.example_task or "KM validated pattern",
                 )
             boost.was_applied = True
             self._km_boosts_applied += 1
@@ -674,20 +683,22 @@ class CritiqueAdapter:
                 return False
 
             # CritiqueStore doesn't have direct reputation adjustment
-            # We simulate by recording outcomes
+            # We simulate by recording outcomes using the actual API
             if adjustment.adjustment > 0:
-                # Record positive outcomes
+                # Record positive outcomes (proposal accepted)
                 for _ in range(int(abs(adjustment.adjustment) * 10)):
-                    self._store.update_reputation(  # type: ignore[call-arg]
+                    self._store.update_reputation(
                         agent_name=adjustment.agent_name,
-                        accepted=True,
+                        proposal_made=True,
+                        proposal_accepted=True,
                     )
             else:
-                # Record negative outcomes
+                # Record negative outcomes (proposal made but not accepted)
                 for _ in range(int(abs(adjustment.adjustment) * 10)):
-                    self._store.update_reputation(  # type: ignore[call-arg]
+                    self._store.update_reputation(
                         agent_name=adjustment.agent_name,
-                        accepted=False,
+                        proposal_made=True,
+                        proposal_accepted=False,
                     )
 
             self._km_reputation_adjustments += 1

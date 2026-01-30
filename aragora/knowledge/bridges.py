@@ -284,7 +284,7 @@ class EvidenceBridge:
             workspace_id=self.mound.workspace_id,
         )
 
-        node_id = await self.mound.add_node(node)  # type: ignore[misc]
+        node_id: str = await self.mound.add_node(node)
         logger.info(f"Stored evidence as node: {node_id} (source: {source})")
         return node_id
 
@@ -347,7 +347,7 @@ class EvidenceBridge:
             contradicts=contradicts,
         )
 
-        node_id = await self.mound.add_node(node)  # type: ignore[misc]
+        node_id: str = await self.mound.add_node(node)
         logger.info(f"Stored collector evidence as node: {node_id}")
         return node_id
 
@@ -430,8 +430,10 @@ class PatternBridge:
         # Surprise based on how novel this pattern is
         surprise_score = max(0.1, 1.0 - (occurrences / 20))  # Less surprise for common patterns
 
+        # Note: "pattern" is not a valid NodeType, use "fact" for detected patterns
+        # The pattern_type is stored in the content and provenance for categorization
         node = KnowledgeNode(
-            node_type="pattern",  # type: ignore[arg-type]
+            node_type="fact",
             content=content,
             confidence=confidence,
             provenance=provenance,
@@ -441,7 +443,7 @@ class PatternBridge:
             derived_from=source_ids or [],
         )
 
-        node_id = await self.mound.add_node(node)  # type: ignore[misc]
+        node_id: str = await self.mound.add_node(node)
         logger.info(f"Stored pattern as node: {node_id} (type: {pattern_type})")
         return node_id
 

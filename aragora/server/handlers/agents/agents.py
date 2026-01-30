@@ -28,7 +28,10 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.protocols import HTTPRequestHandler
 
 from aragora.config import (
     CACHE_TTL_AGENT_FLIPS,
@@ -176,8 +179,8 @@ class AgentsHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: "HTTPRequestHandler"
     ) -> HandlerResult | None:
         """Route agent requests with RBAC."""
         # Rate limit check
@@ -370,9 +373,9 @@ class AgentsHandler(SecureHandler):
 
         # Fallback to known agent types if no ELO data
         if not agents:
-            from aragora.agents.cli_agents import AGENT_TYPES  # type: ignore[attr-defined]
+            from aragora.config import ALLOWED_AGENT_TYPES
 
-            agents = [{"name": name} for name in AGENT_TYPES.keys()]
+            agents = [{"name": name} for name in ALLOWED_AGENT_TYPES]
 
         return json_response(
             {
@@ -1235,10 +1238,14 @@ class AgentsHandler(SecureHandler):
             from aragora.memory.continuum import ContinuumMemory
 
             memory = ContinuumMemory()
-            tier_stats = memory.get_tier_counts()  # type: ignore[attr-defined]
+            stats = memory.get_stats()
+            by_tier = stats.get("by_tier", {})
+            tier_counts: dict[str, int] = {
+                tier: data.get("count", 0) for tier, data in by_tier.items()
+            }
             introspection["memory_summary"] = {
-                "tier_counts": tier_stats,
-                "total_memories": sum(tier_stats.values()),
+                "tier_counts": tier_counts,
+                "total_memories": sum(tier_counts.values()),
                 "red_line_count": len(memory.get_red_line_memories()),
             }
         except Exception as e:
@@ -1343,18 +1350,8 @@ class AgentsHandler(SecureHandler):
             except ImportError:
                 pass
 
-        # Get calibration tracker if available
-        calibration_tracker = None
-        try:
-            from aragora.ranking.calibration import CalibrationTracker
-
-            calibration_tracker = CalibrationTracker()
-        except ImportError:
-            pass
-
-        synthesizer = PersonaSynthesizer(  # type: ignore[call-arg]
+        synthesizer = PersonaSynthesizer(
             elo_system=elo,
-            calibration_tracker=calibration_tracker,
             position_ledger=position_ledger,
         )
         briefing = synthesizer.get_opponent_briefing(agent, opponent)

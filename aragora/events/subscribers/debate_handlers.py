@@ -207,7 +207,7 @@ class DebateHandlersMixin:
                 try:
                     from aragora.knowledge.mound_core import KnowledgeMound
 
-                    mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                    mound = KnowledgeMound(workspace_id=workspace)
                     if hasattr(mound, "get_culture_patterns"):
                         patterns = await mound.get_culture_patterns(task)
                         if patterns and debate_id:
@@ -312,7 +312,7 @@ class DebateHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "refresh_nodes"):
                     mound.refresh_nodes(node_ids)
                     logger.debug(f"Triggered refresh for {len(node_ids)} stale nodes")
@@ -346,7 +346,7 @@ class DebateHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "update_provenance"):
                     mound.update_provenance(
                         claim_id=claim_id,
@@ -383,7 +383,7 @@ class DebateHandlersMixin:
             try:
                 from aragora.knowledge.mound_core import KnowledgeMound
 
-                mound = KnowledgeMound(workspace=workspace)  # type: ignore[call-arg]
+                mound = KnowledgeMound(workspace_id=workspace)
                 if hasattr(mound, "find_claim_provenance"):
                     provenance = mound.find_claim_provenance(claim_text)
                     if provenance:

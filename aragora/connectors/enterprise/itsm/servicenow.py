@@ -340,10 +340,16 @@ class ServiceNowConnector(EnterpriseConnector):
     ) -> dict[str, Any]:
         """Get records from a ServiceNow table."""
         table_config = SERVICENOW_TABLES.get(table, {})
-        fields = table_config.get("fields", ["number", "short_description", "description"])
+        fields_value = table_config.get("fields", ["number", "short_description", "description"])
+        # Ensure fields is always a list of strings
+        fields: list[str] = (
+            list(fields_value)
+            if isinstance(fields_value, list)
+            else ["number", "short_description", "description"]
+        )
 
-        params = {
-            "sysparm_fields": ",".join(["sys_id"] + fields),  # type: ignore[arg-type,operator]
+        params: dict[str, Any] = {
+            "sysparm_fields": ",".join(["sys_id"] + fields),
             "sysparm_limit": limit,
             "sysparm_offset": offset,
             "sysparm_display_value": "true",  # Get display values instead of sys_ids
@@ -734,7 +740,7 @@ class ServiceNowConnector(EnterpriseConnector):
                 logger.warning(f"[{self.name}] Webhook missing signature")
                 return False
 
-            if not self.verify_webhook_signature(payload, signature, secret):
+            if not self._verify_payload_signature(payload, signature, secret):
                 logger.warning(f"[{self.name}] Webhook signature verification failed")
                 return False
 
@@ -763,12 +769,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         return False
 
-    def verify_webhook_signature(  # type: ignore[override]
-        self,
-        payload: dict[str, Any],
-        signature: str,
-        secret: str,
-    ) -> bool:
+    def verify_webhook_signature(self, payload: bytes, signature: str) -> bool:
         """
         Verify HMAC-SHA256 signature from ServiceNow webhook.
 
@@ -776,23 +777,23 @@ class ServiceNowConnector(EnterpriseConnector):
         using a shared secret.
 
         Args:
-            payload: Webhook payload
-            signature: Base64-encoded HMAC-SHA256 signature
-            secret: Shared secret key
+            payload: Raw webhook payload bytes
+            signature: Base64-encoded or hex-encoded HMAC-SHA256 signature
 
         Returns:
             True if signature is valid
         """
         import hashlib
         import hmac
-        import json
+
+        secret = self.get_webhook_secret()
+        if not secret:
+            return True  # No secret configured, skip verification
 
         try:
-            # Serialize payload consistently
-            payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
             expected = hmac.new(
                 secret.encode(),
-                payload_bytes,
+                payload,
                 hashlib.sha256,
             ).digest()
 
@@ -808,6 +809,31 @@ class ServiceNowConnector(EnterpriseConnector):
         except (ValueError, TypeError, AttributeError) as e:
             logger.error(f"[{self.name}] Signature verification error: {e}")
             return False
+
+    def _verify_payload_signature(
+        self,
+        payload: dict[str, Any],
+        signature: str,
+        secret: str,
+    ) -> bool:
+        """
+        Verify HMAC-SHA256 signature from ServiceNow webhook dict payload.
+
+        Internal method for verifying dict payloads by serializing to JSON.
+
+        Args:
+            payload: Webhook payload as dictionary
+            signature: Base64-encoded or hex-encoded HMAC-SHA256 signature
+            secret: Shared secret key
+
+        Returns:
+            True if signature is valid
+        """
+        import json
+
+        # Serialize payload consistently for verification
+        payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return self.verify_webhook_signature(payload_bytes, signature)
 
     def get_webhook_secret(self) -> str | None:
         """Get webhook secret for signature verification."""
@@ -845,15 +871,9 @@ class ServiceNowConnector(EnterpriseConnector):
             params["sysparm_display_value"] = "all"
 
         try:
-            async with self._client.get(  # type: ignore[union-attr,attr-defined]
-                f"{self.instance_url}/api/now/table/{table}",
-                headers=self._get_headers(),  # type: ignore[arg-type,attr-defined]
-                params=params,
-            ) as resp:
-                if resp.status_code == 200:
-                    data = resp.json()
-                    results = data.get("result", [])
-                    return results[0] if results else None
+            data = await self._api_request(f"/table/{table}", params=params)
+            results = data.get("result", [])
+            return results[0] if results else None
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error(f"[{self.name}] Reference resolution failed: {e}")
 

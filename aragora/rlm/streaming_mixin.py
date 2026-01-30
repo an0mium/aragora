@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional
+from typing import TYPE_CHECKING, AsyncIterator, Callable, Optional, Protocol
 
 from .types import (
     AbstractionLevel,
@@ -20,9 +20,44 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from .compressor import HierarchicalCompressor
 
 logger = logging.getLogger(__name__)
+
+
+class _RLMHostProtocol(Protocol):
+    """
+    Protocol defining the interface expected from the host class.
+
+    This Protocol enables proper type checking for the RLMStreamingMixin
+    by defining the methods and attributes it expects from AragoraRLM.
+    """
+
+    _compressor: "HierarchicalCompressor"
+
+    async def query(
+        self,
+        query: str,
+        context: RLMContext,
+        strategy: str = "auto",
+    ) -> RLMResult:
+        """Query using RLM over hierarchical context."""
+        ...
+
+    async def _query_iteration(
+        self,
+        query: str,
+        context: RLMContext,
+        strategy: str,
+        iteration: int,
+        feedback: str | None,
+    ) -> RLMResult:
+        """Execute a single query iteration with optional feedback."""
+        ...
+
+    def _default_feedback(self, result: RLMResult, original_query: str) -> str:
+        """Generate default feedback for incomplete answers."""
+        ...
 
 
 class RLMStreamingMixin:
@@ -32,10 +67,13 @@ class RLMStreamingMixin:
     Adds streaming versions of query, refinement, and compression
     methods that yield RLMStreamEvent instances for real-time
     progress tracking.
+
+    This mixin expects to be combined with a class implementing
+    the _RLMHostProtocol interface (i.e., AragoraRLM).
     """
 
     async def query_stream(
-        self,
+        self: _RLMHostProtocol,
         query: str,
         context: RLMContext,
         strategy: str = "auto",
@@ -92,7 +130,7 @@ class RLMStreamingMixin:
                         )
 
             # Execute the actual query (provided by base class)
-            result = await self.query(query, context, strategy)  # type: ignore[attr-defined]
+            result = await self.query(query, context, strategy)
 
             # Emit completion
             yield RLMStreamEvent(
@@ -114,7 +152,7 @@ class RLMStreamingMixin:
             raise
 
     async def query_with_refinement_stream(
-        self,
+        self: _RLMHostProtocol,
         query: str,
         context: RLMContext,
         strategy: str = "auto",
@@ -161,7 +199,7 @@ class RLMStreamingMixin:
                 if feedback_generator:
                     feedback = feedback_generator(result)
                 else:
-                    feedback = self._default_feedback(result, query)  # type: ignore[attr-defined]
+                    feedback = self._default_feedback(result, query)
 
                 yield RLMStreamEvent(
                     event_type=RLMStreamEventType.FEEDBACK_GENERATED,
@@ -172,7 +210,7 @@ class RLMStreamingMixin:
 
             # Execute query iteration
             try:
-                result = await self._query_iteration(  # type: ignore[attr-defined]
+                result = await self._query_iteration(
                     query=query,
                     context=context,
                     strategy=strategy,
@@ -267,7 +305,7 @@ class RLMStreamingMixin:
         )
 
     async def compress_stream(
-        self,
+        self: _RLMHostProtocol,
         content: str,
         source_type: str = "text",
     ) -> AsyncIterator[RLMStreamEvent]:
@@ -290,7 +328,7 @@ class RLMStreamingMixin:
         )
 
         try:
-            compression = await self._compressor.compress(content, source_type)  # type: ignore[attr-defined]
+            compression = await self._compressor.compress(content, source_type)
 
             # Emit events for each level created
             for level in [

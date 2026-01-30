@@ -8816,10 +8816,20 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
             at_floor = self._consensus_threshold_decay >= 2
             activate_floor_breaker = at_floor and self._floor_failure_count >= 2
 
+            # Configurable guardrails to avoid aborting on low-consensus designs
+            try:
+                min_design_len = int(os.environ.get("NOMIC_DESIGN_MIN_LEN", "100"))
+            except Exception:
+                min_design_len = 100
+            require_keywords = os.environ.get("NOMIC_DESIGN_REQUIRE_KEYWORDS", "1") != "0"
+            force_proceed = os.environ.get("NOMIC_DESIGN_FORCE_PROCEED", "0") == "1"
+
             # Helper to validate design quality
             def is_viable_design(d: str) -> bool:
-                if not d or len(d.strip()) < 100:
+                if not d or len(d.strip()) < min_design_len:
                     return False
+                if not require_keywords:
+                    return True
                 # Must contain actual implementation details
                 keywords = ["file", "function", "class", "import", "def ", "async ", "return"]
                 return any(kw in d.lower() for kw in keywords)
@@ -8882,6 +8892,23 @@ DEPENDENCIES: {", ".join(subtask.dependencies) if subtask.dependencies else "non
                     design_result["floor_breaker_used"] = True
                     design_result["floor_breaker_method"] = floor_breaker_method
                     self._log(f"  [floor-breaker] Design forced via: {floor_breaker_method}")
+
+            # Strategy 6: Force proceed with best available material (configurable)
+            if not candidate_design and force_proceed:
+                if design and design.strip():
+                    candidate_design = design
+                    self._log(
+                        f"  [force] Proceeding with non-consensus design from phase output ({len(design)} chars)"
+                    )
+                elif individual_proposals:
+                    longest = max(
+                        (p for p in individual_proposals.values() if p), key=len, default=None
+                    )
+                    if longest:
+                        candidate_design = longest
+                        self._log(
+                            f"  [force] Proceeding with longest proposal ({len(longest)} chars)"
+                        )
 
             # Final assignment
             if candidate_design:

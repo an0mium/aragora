@@ -252,10 +252,14 @@ class RLMHandler(BaseHandler):
     async def _get_debate_result(self, debate_id: str) -> Any | None:
         """Fetch debate result from storage."""
         try:
-            from aragora.storage.factory import get_store  # type: ignore[attr-defined]
+            from aragora.server.postgres_storage import PostgresDebateStorage
 
-            store = get_store()
+            store = PostgresDebateStorage()
+            await store.initialize()
             return await store.get_debate(debate_id)
+        except ImportError:
+            logger.warning(f"PostgresDebateStorage not available for debate {debate_id}")
+            return None
         except Exception as e:  # noqa: BLE001 - Best effort fetch, log warning on failure
             logger.warning(f"Failed to get debate {debate_id}: {e}")
             return None
@@ -526,9 +530,9 @@ class RLMHandler(BaseHandler):
         from aragora.rlm.bridge import AragoraRLM, KnowledgeMoundAdapter
 
         try:
-            from aragora.knowledge.mound import KnowledgeMound
+            from aragora.knowledge.mound import KnowledgeMound, MoundConfig
 
-            mound = KnowledgeMound()  # type: ignore[abstract]
+            mound = KnowledgeMound(config=MoundConfig())
         except ImportError:
             return {
                 "answer": "Knowledge Mound not available",
@@ -594,7 +598,7 @@ class RLMHandler(BaseHandler):
 
             # Check training support
             try:
-                from aragora.rlm.training.trainer import RLMTrainer  # type: ignore[attr-defined]  # noqa: F401
+                from aragora.rlm.training import Trainer  # noqa: F401
 
                 features.append("training")
             except ImportError:
@@ -635,26 +639,26 @@ class RLMHandler(BaseHandler):
         """
         try:
             # Try to get metrics from Prometheus registry
-            from aragora.rlm.metrics import (  # type: ignore[attr-defined]
-                RLM_COMPRESSIONS_TOTAL,
-                RLM_TOKENS_SAVED_TOTAL,
-                RLM_QUERIES_TOTAL,
-                RLM_CACHE_HITS_TOTAL,
-                RLM_CACHE_MISSES_TOTAL,
-                RLM_MEMORY_BYTES,
-                RLM_REFINEMENT_SUCCESS_TOTAL,
-                RLM_READY_FALSE_TOTAL,
+            from aragora.rlm.metrics import (
+                RLM_COMPRESSIONS,
+                RLM_TOKENS_SAVED,
+                RLM_QUERIES,
+                RLM_CACHE_HITS,
+                RLM_CACHE_MISSES,
+                RLM_MEMORY_USAGE,
+                RLM_REFINEMENT_SUCCESS,
+                RLM_READY_FALSE_RATE,
             )
 
             # Extract values from Prometheus metrics
-            compressions_total = self._get_counter_value(RLM_COMPRESSIONS_TOTAL)
-            tokens_saved = self._get_counter_value(RLM_TOKENS_SAVED_TOTAL)
-            queries_total = self._get_counter_value(RLM_QUERIES_TOTAL)
-            cache_hits = self._get_counter_value(RLM_CACHE_HITS_TOTAL)
-            cache_misses = self._get_counter_value(RLM_CACHE_MISSES_TOTAL)
-            refinement_success = self._get_counter_value(RLM_REFINEMENT_SUCCESS_TOTAL)
-            ready_false = self._get_counter_value(RLM_READY_FALSE_TOTAL)
-            memory_bytes = self._get_gauge_value(RLM_MEMORY_BYTES)
+            compressions_total = self._get_counter_value(RLM_COMPRESSIONS)
+            tokens_saved = self._get_counter_value(RLM_TOKENS_SAVED)
+            queries_total = self._get_counter_value(RLM_QUERIES)
+            cache_hits = self._get_counter_value(RLM_CACHE_HITS)
+            cache_misses = self._get_counter_value(RLM_CACHE_MISSES)
+            refinement_success = self._get_counter_value(RLM_REFINEMENT_SUCCESS)
+            ready_false = self._get_counter_value(RLM_READY_FALSE_RATE)
+            memory_bytes = self._get_gauge_value(RLM_MEMORY_USAGE)
 
             # Calculate derived metrics
             cache_total = cache_hits + cache_misses
@@ -664,13 +668,13 @@ class RLMHandler(BaseHandler):
                 {
                     "compressions": {
                         "total": int(compressions_total),
-                        "byType": self._get_counter_by_label(RLM_COMPRESSIONS_TOTAL, "source_type"),
+                        "byType": self._get_counter_by_label(RLM_COMPRESSIONS, "source_type"),
                         "avgRatio": 0.34,  # Would need histogram to calculate
                         "tokensSaved": int(tokens_saved),
                     },
                     "queries": {
                         "total": int(queries_total),
-                        "byType": self._get_counter_by_label(RLM_QUERIES_TOTAL, "query_type"),
+                        "byType": self._get_counter_by_label(RLM_QUERIES, "query_type"),
                         "avgDuration": 1.24,  # Would need histogram to calculate
                         "successRate": 0.94,  # Would need tracking
                     },

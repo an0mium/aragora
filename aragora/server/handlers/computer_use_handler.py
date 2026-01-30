@@ -54,11 +54,14 @@ try:
         ComputerPolicy,
         create_default_computer_policy,
     )
+    from aragora.computer_use.orchestrator import TaskResult, TaskStatus
 
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
     ComputerUseOrchestrator: Any = None
+    TaskResult: Any = None
+    TaskStatus: Any = None
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +96,7 @@ class ComputerUseHandler(BaseHandler):
             return None
         if self._orchestrator is None:
             policy = create_default_computer_policy()
-            config = ComputerUseConfig(max_steps=20, timeout_seconds=300)  # type: ignore[call-arg]
+            config = ComputerUseConfig(max_steps=20, total_timeout_seconds=300)
             self._orchestrator = ComputerUseOrchestrator(policy=policy, config=config)
         return self._orchestrator
 
@@ -291,19 +294,22 @@ class ComputerUseHandler(BaseHandler):
         else:
             # Run the task asynchronously
             try:
-                result = run_async(orchestrator.run_task(goal=goal, max_steps=max_steps))
-                task["status"] = "completed" if result.success else "failed"  # type: ignore[attr-defined]
+                result: TaskResult = run_async(
+                    orchestrator.run_task(goal=goal, max_steps=max_steps)
+                )
+                is_success = result.status == TaskStatus.COMPLETED
+                task["status"] = "completed" if is_success else "failed"
                 task["result"] = {
-                    "success": result.success,  # type: ignore[attr-defined]
-                    "message": result.message if hasattr(result, "message") else "",
-                    "steps_taken": result.steps_taken if hasattr(result, "steps_taken") else 0,
+                    "success": is_success,
+                    "message": result.error or "",
+                    "steps_taken": len(result.steps),
                 }
                 task["steps"] = [
                     {
-                        "action": s.action.value if hasattr(s.action, "value") else str(s.action),
-                        "success": s.success,  # type: ignore[attr-defined]
+                        "action": s.action.action_type.value,
+                        "success": s.result.success,
                     }
-                    for s in (result.steps if hasattr(result, "steps") else [])
+                    for s in result.steps
                 ]
             except Exception as e:
                 task["status"] = "failed"

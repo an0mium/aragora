@@ -36,6 +36,8 @@ class ChunkType(Enum):
     IMAGE = "image"  # Image with caption/OCR
     FORMULA = "formula"  # Mathematical formula
     METADATA = "metadata"  # Document metadata
+    SUMMARY = "summary"  # Summarized content (RLM hierarchical)
+    ABSTRACT = "abstract"  # High-level abstract (RLM hierarchical)
 
 
 @dataclass

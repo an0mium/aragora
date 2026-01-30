@@ -13,6 +13,16 @@ Import from `aragora.resilience` instead:
 Both imports resolve to the same code.
 """
 
+import warnings
+
+warnings.warn(
+    "aragora.resilience_patterns is deprecated. "
+    "Import from aragora.resilience instead. "
+    "This package will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 # Re-export everything from the consolidated resilience package.
 # Submodule imports (e.g., from aragora.resilience_patterns.retry import ...)
 # still work because the original .py files remain in this directory.

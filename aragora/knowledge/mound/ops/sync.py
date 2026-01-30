@@ -567,7 +567,6 @@ class SyncOperationsMixin:
         Returns a dict mapping source name to SyncResult.
         Only syncs from sources that have been connected.
         """
-        from aragora.knowledge.mound.types import SyncResult
 
         self._ensure_initialized()
         results: dict[str, SyncResult] = {}

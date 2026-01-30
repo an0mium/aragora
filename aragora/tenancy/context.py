@@ -27,6 +27,7 @@ from typing import (
     Optional,
     ParamSpec,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -271,13 +272,14 @@ def tenant_required(
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         if _current_tenant_id.get() is None:
             raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
-        return func(*args, **kwargs)  # type: ignore[return-value]
+        return cast(T, func(*args, **kwargs))
 
     @wraps(func)
     async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         if _current_tenant_id.get() is None:
             raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
-        return await func(*args, **kwargs)  # type: ignore[misc]
+        result = await cast(Awaitable[T], func(*args, **kwargs))
+        return result
 
     if asyncio.iscoroutinefunction(func):
         return async_wrapper
@@ -317,12 +319,13 @@ def for_tenant(
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             with TenantContext(tenant_id=tenant_id):
-                return func(*args, **kwargs)  # type: ignore[return-value]
+                return cast(T, func(*args, **kwargs))
 
         @wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             async with TenantContext(tenant_id=tenant_id):
-                return await func(*args, **kwargs)  # type: ignore[misc]
+                result = await cast(Awaitable[T], func(*args, **kwargs))
+                return result
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper

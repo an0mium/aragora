@@ -28,10 +28,13 @@ from __future__ import annotations
 import json
 import logging
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, Protocol, TypeVar, cast
 
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
+
+if TYPE_CHECKING:
+    from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,31 @@ T = TypeVar("T")
 
 # Default RBAC permission for bot status endpoints
 DEFAULT_BOTS_READ_PERMISSION = "bots.read"
+
+
+class _SecureHandlerProtocol(Protocol):
+    """Protocol defining the SecureHandler methods that BotHandlerMixin depends on.
+
+    This allows proper type checking when BotHandlerMixin is used as a mixin
+    with SecureHandler without requiring a direct inheritance relationship.
+    """
+
+    async def get_auth_context(
+        self,
+        request: Any,
+        require_auth: bool = True,
+    ) -> AuthorizationContext:
+        """Get authentication context for the current request."""
+        ...
+
+    def check_permission(
+        self,
+        auth_context: AuthorizationContext,
+        permission: str,
+        resource_id: str | None = None,
+    ) -> bool:
+        """Check if user has a specific permission."""
+        ...
 
 
 class BotErrorCode(str, Enum):
@@ -107,9 +135,11 @@ class BotHandlerMixin:
         Returns:
             HandlerResult with status JSON or error response.
         """
+        # Cast self to protocol to satisfy type checker for mixin pattern
+        secure_self = cast(_SecureHandlerProtocol, self)
         try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)  # type: ignore[attr-defined]
-            self.check_permission(auth_context, self.bots_read_permission)  # type: ignore[attr-defined]
+            auth_context = await secure_self.get_auth_context(handler, require_auth=True)
+            secure_self.check_permission(auth_context, self.bots_read_permission)
         except UnauthorizedError:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
@@ -171,9 +201,11 @@ class BotHandlerMixin:
         Returns:
             Result of operation or error response.
         """
+        # Cast self to protocol to satisfy type checker for mixin pattern
+        secure_self = cast(_SecureHandlerProtocol, self)
         try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)  # type: ignore[attr-defined]
-            self.check_permission(auth_context, permission)  # type: ignore[attr-defined]
+            auth_context = await secure_self.get_auth_context(handler, require_auth=True)
+            secure_self.check_permission(auth_context, permission)
         except UnauthorizedError:
             return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:

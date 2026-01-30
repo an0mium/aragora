@@ -447,12 +447,31 @@ async def handle_get_snooze_suggestions(
         # Build priority result if provided
         priority_result = None
         if data.get("priority") is not None:
-            from aragora.services.email_prioritization import PriorityResult, PriorityTier  # type: ignore[attr-defined]
+            from aragora.services.email_prioritization import (
+                EmailPriority,
+                EmailPriorityResult,
+                ScoringTier,
+            )
 
-            priority_result = PriorityResult(
-                final_score=data.get("priority", 0.5),
-                tier=PriorityTier.MEDIUM,
-                reasons=[],
+            # Map priority score to EmailPriority enum
+            priority_score = data.get("priority", 0.5)
+            if priority_score >= 0.8:
+                priority_enum = EmailPriority.CRITICAL
+            elif priority_score >= 0.6:
+                priority_enum = EmailPriority.HIGH
+            elif priority_score >= 0.4:
+                priority_enum = EmailPriority.MEDIUM
+            elif priority_score >= 0.2:
+                priority_enum = EmailPriority.LOW
+            else:
+                priority_enum = EmailPriority.DEFER
+
+            priority_result = EmailPriorityResult(
+                email_id=email_id,
+                priority=priority_enum,
+                confidence=priority_score,
+                tier_used=ScoringTier.TIER_1_RULES,
+                rationale="User-provided priority",
             )
 
         max_suggestions = data.get("max_suggestions", 5)
@@ -913,14 +932,16 @@ class EmailServicesHandler(SecureHandler):
         """Route email services endpoint requests."""
         return None
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        data: dict[str, Any],
-        query_params: dict[str, Any] | None = None,
-        handler: Any = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult | None:
         """Handle POST requests with RBAC protection."""
+        # Read JSON body from request
+        data = self.read_json_body(handler) or {}
+
         # Require authentication for all email operations
         try:
             auth_context = await self.get_auth_context(handler, require_auth=True)
@@ -964,12 +985,12 @@ class EmailServicesHandler(SecureHandler):
             return await handle_category_feedback(data)
         return error_response("Not found", status=404)
 
-    async def handle_get(  # type: ignore[override]
+    async def handle_get(
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any = None,
-    ) -> HandlerResult:
+        handler: Any,
+    ) -> HandlerResult | None:
         """Handle GET requests with RBAC protection."""
         # Categories endpoint is public (static reference data)
         if path == "/api/v1/email/categories":
@@ -1007,12 +1028,12 @@ class EmailServicesHandler(SecureHandler):
                 )
         return error_response("Not found", status=404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
         query_params: dict[str, Any],
-        handler: Any = None,
-    ) -> HandlerResult:
+        handler: Any,
+    ) -> HandlerResult | None:
         """Handle DELETE requests with RBAC protection."""
         # Require authentication for all delete operations
         try:

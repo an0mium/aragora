@@ -28,8 +28,12 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    import aiosqlite
+    import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -87,21 +91,33 @@ except ImportError:
 
 
 # Import metrics (optional - graceful degradation if not available)
+# Define fallback functions with proper signatures first
+def _noop_record_encryption_operation(operation: str, store: str, latency_seconds: float) -> None:
+    """No-op fallback when metrics module is unavailable."""
+    pass
+
+
+def _noop_record_encryption_error(operation: str, error_type: str) -> None:
+    """No-op fallback when metrics module is unavailable."""
+    pass
+
+
+# Try to import real implementations
+record_encryption_operation = _noop_record_encryption_operation
+record_encryption_error = _noop_record_encryption_error
+METRICS_AVAILABLE = False
+
 try:
-    from aragora.observability.metrics import (  # type: ignore[attr-defined]
-        record_encryption_operation,
-        record_encryption_error,
+    from aragora.observability.metrics import (
+        record_encryption_operation as _real_record_encryption_operation,
+        record_encryption_error as _real_record_encryption_error,
     )
 
+    record_encryption_operation = _real_record_encryption_operation
+    record_encryption_error = _real_record_encryption_error
     METRICS_AVAILABLE = True
-except ImportError:
-    METRICS_AVAILABLE = False
-
-    def record_encryption_operation(*args, **kwargs):  # type: ignore[misc,no-redef]
-        pass
-
-    def record_encryption_error(*args, **kwargs):  # type: ignore[misc,no-redef]
-        pass
+except (ImportError, AttributeError):
+    pass
 
 
 # Credential fields that should be encrypted
@@ -275,7 +291,7 @@ class SyncStore:
         )
         self._use_encryption = use_encryption
         self._initialized = False
-        self._connection = None
+        self._connection: aiosqlite.Connection | asyncpg.Connection | None = None
 
         # In-memory cache for fast access
         self._connectors_cache: dict[str, ConnectorConfig] = {}
@@ -321,7 +337,7 @@ class SyncStore:
         # Ensure directory exists
         os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
 
-        self._connection = await aiosqlite.connect(db_path)  # type: ignore[assignment]
+        self._connection = await aiosqlite.connect(db_path)
         if self._connection is None:
             raise RuntimeError("Database connection failed")
 
