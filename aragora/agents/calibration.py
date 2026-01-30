@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.storage.base_store import SQLiteStore
+from aragora.storage.schema import safe_add_column
 
 # Schema version for CalibrationTracker migrations
 CALIBRATION_SCHEMA_VERSION = 2  # Added temperature scaling columns
@@ -354,6 +355,7 @@ class CalibrationTracker(SQLiteStore):
             db_path = get_db_path(DatabaseType.CALIBRATION)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
         self._ensure_temperature_params_table()
+        self._ensure_predictions_schema()
 
     def _ensure_temperature_params_table(self) -> None:
         """Ensure temperature_params table exists (defensive migration).
@@ -379,6 +381,38 @@ class CalibrationTracker(SQLiteStore):
             import logging
 
             logging.getLogger(__name__).warning(f"Failed to ensure temperature_params table: {e}")
+
+    def _ensure_predictions_schema(self) -> None:
+        """Ensure predictions table has required columns for calibration tracking.
+
+        This is defensive against older schemas or consolidated DBs where a
+        different predictions table may already exist without the expected columns.
+        """
+        try:
+            with self.connection() as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS predictions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        agent TEXT NOT NULL,
+                        confidence REAL NOT NULL,
+                        correct INTEGER NOT NULL,
+                        domain TEXT DEFAULT 'general',
+                        debate_id TEXT,
+                        position_id TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
+
+                safe_add_column(conn, "predictions", "agent", "TEXT", "''")
+                safe_add_column(conn, "predictions", "confidence", "REAL", "0.0")
+                safe_add_column(conn, "predictions", "correct", "INTEGER", "0")
+                safe_add_column(conn, "predictions", "domain", "TEXT", "'general'")
+                safe_add_column(conn, "predictions", "debate_id", "TEXT", "NULL")
+                safe_add_column(conn, "predictions", "position_id", "TEXT", "NULL")
+                safe_add_column(conn, "predictions", "created_at", "TEXT", "CURRENT_TIMESTAMP")
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Failed to ensure predictions schema: {e}")
 
     def record_prediction(
         self,
