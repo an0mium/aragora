@@ -252,11 +252,11 @@ class PluginRunner:
             "context": context,
         }
 
-    def _make_safe_open(self, context: PluginContext, read_only: bool = True):
+    def _make_safe_open(self, context: PluginContext, read_only: bool = True) -> Callable[..., Any]:
         """Create a safe open function with path restrictions."""
         base_dir = Path(context.working_dir).resolve()
 
-        def safe_open(path, mode="r", *args, **kwargs):
+        def safe_open(path: str, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
             # Resolve and validate path
             resolved = Path(path).resolve()
 
@@ -274,7 +274,7 @@ class PluginRunner:
 
         return safe_open
 
-    def _set_resource_limits(self):
+    def _set_resource_limits(self) -> None:
         """Set resource limits (Unix only)."""
         if not RESOURCE_AVAILABLE:
             return
@@ -393,7 +393,7 @@ class PluginRegistry:
         # Load built-in plugins
         self._load_builtins()
 
-    def _load_builtins(self):
+    def _load_builtins(self) -> None:
         """Load built-in plugin manifests."""
         from aragora.plugins.manifest import BUILTIN_MANIFESTS
 

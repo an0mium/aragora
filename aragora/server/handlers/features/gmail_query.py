@@ -476,7 +476,10 @@ class GmailQueryHandler(SecureHandler):
             )
 
         # Sort by priority score
-        emails.sort(key=lambda x: float(x.get("priority_score") or 0), reverse=True)
+        emails.sort(
+            key=lambda x: float(x.get("priority_score") or 0),  # type: ignore[arg-type]
+            reverse=True,
+        )
 
         return emails[:limit]
 

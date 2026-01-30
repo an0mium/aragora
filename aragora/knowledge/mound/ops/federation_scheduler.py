@@ -249,13 +249,13 @@ class CronParser:
             return list(range(min_val, max_val + 1))
 
         if "/" in field_str:
-            base, step = field_str.split("/")
-            step = int(step)
+            base, step_str = field_str.split("/")
+            step_val = int(step_str)
             if base == "*":
-                return list(range(min_val, max_val + 1, step))
+                return list(range(min_val, max_val + 1, step_val))
             else:
                 start = int(base)
-                return list(range(start, max_val + 1, step))
+                return list(range(start, max_val + 1, step_val))
 
         if "-" in field_str:
             range_start, range_end = field_str.split("-")

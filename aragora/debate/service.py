@@ -154,24 +154,11 @@ class DebateOptions:
     def to_protocol(self) -> DebateProtocol:
         """Convert options to a DebateProtocol."""
         # Use "judge" as default if consensus not set (matches DebateProtocol default)
-        consensus_value = cast(
-            Literal[
-                "majority",
-                "unanimous",
-                "judge",
-                "none",
-                "weighted",
-                "supermajority",
-                "any",
-                "byzantine",
-            ],
-            self.consensus or "judge",
-        )
+        consensus_value = self.consensus or "judge"
         return DebateProtocol(
             rounds=self.rounds or 3,
-            consensus=consensus_value,
+            consensus=consensus_value,  # type: ignore[arg-type]
             topology=self.topology,
-            enable_graph=self.enable_graph,
         )
 
 
