@@ -36,6 +36,7 @@ from aragora.config import (
 )
 
 logger = logging.getLogger(__name__)
+from aragora.server.validation.query_params import safe_query_int
 from .base import (
     HandlerResult,
     error_response,
@@ -493,7 +494,7 @@ class AnalyticsHandler(SecureHandler):
         """
         agent = query_params.get("agent", [None])[0]
         domain = query_params.get("domain", ["general"])[0]
-        limit = int(query_params.get("limit", [20])[0])
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=1000)
 
         try:
             from aragora.ranking.elo import get_elo_store
@@ -528,7 +529,7 @@ class AnalyticsHandler(SecureHandler):
             limit: Max agents to return (default 20)
         """
         agent = query_params.get("agent", [None])[0]
-        limit = int(query_params.get("limit", [20])[0])
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=1000)
 
         try:
             from aragora.ranking.elo import get_elo_store
@@ -562,7 +563,7 @@ class AnalyticsHandler(SecureHandler):
             limit: Max agents to return (default 20)
         """
         agent = query_params.get("agent", [None])[0]
-        limit = int(query_params.get("limit", [20])[0])
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=1000)
 
         try:
             from aragora.ranking.elo import get_elo_store

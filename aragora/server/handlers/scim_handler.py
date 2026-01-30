@@ -32,6 +32,7 @@ from aragora.server.handlers.base import (
     error_response,
 )
 from aragora.server.http_utils import run_async
+from aragora.server.validation.query_params import safe_query_int
 
 # SCIM imports
 try:
@@ -175,8 +176,10 @@ class SCIMHandler(BaseHandler):
 
         # GET /scim/v2/Users
         if path.rstrip("/") == "/scim/v2/Users":
-            start_index = int(query_params.get("startIndex", 1))
-            count = int(query_params.get("count", 100))
+            start_index = safe_query_int(
+                query_params, "startIndex", default=1, min_val=1, max_val=1000000
+            )
+            count = safe_query_int(query_params, "count", default=100, min_val=1, max_val=1000)
             filter_expr = query_params.get("filter")
             result = run_async(scim.list_users(start_index, count, filter_expr))
             return self._scim_response(result, 200)
@@ -189,8 +192,10 @@ class SCIMHandler(BaseHandler):
 
         # GET /scim/v2/Groups
         if path.rstrip("/") == "/scim/v2/Groups":
-            start_index = int(query_params.get("startIndex", 1))
-            count = int(query_params.get("count", 100))
+            start_index = safe_query_int(
+                query_params, "startIndex", default=1, min_val=1, max_val=1000000
+            )
+            count = safe_query_int(query_params, "count", default=100, min_val=1, max_val=1000)
             filter_expr = query_params.get("filter")
             result = run_async(scim.list_groups(start_index, count, filter_expr))
             return self._scim_response(result, 200)

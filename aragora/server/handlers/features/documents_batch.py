@@ -28,6 +28,7 @@ from ..base import (
     safe_error_message,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 # Knowledge processing enabled by default
 KNOWLEDGE_PROCESSING_DEFAULT = (
@@ -77,7 +78,7 @@ class DocumentBatchHandler(BaseHandler):
         if path == "/api/v1/knowledge/jobs":
             workspace_id = query_params.get("workspace_id", [None])[0]
             status = query_params.get("status", [None])[0]
-            limit = int(query_params.get("limit", ["100"])[0])
+            limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
             return self._list_knowledge_jobs(workspace_id, status, limit)
 
         # GET /api/knowledge/jobs/{job_id} - get specific job status
@@ -102,8 +103,10 @@ class DocumentBatchHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 5:
                 doc_id = parts[3]
-                limit = int(query_params.get("limit", ["100"])[0])
-                offset = int(query_params.get("offset", ["0"])[0])
+                limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
+                offset = safe_query_int(
+                    query_params, "offset", default=0, min_val=0, max_val=1000000
+                )
                 return self._get_document_chunks(doc_id, limit, offset)
 
         # GET /api/documents/{doc_id}/context

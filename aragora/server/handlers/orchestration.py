@@ -939,11 +939,13 @@ class OrchestrationHandler(SecureHandler):
 
         # BEST_FOR_DOMAIN - use routing handler if available
         try:
-            from aragora.server.handlers.routing import recommend_agents  # type: ignore[attr-defined]
+            import aragora.server.handlers.routing as routing_module
 
-            recommended = await recommend_agents(request.question)
-            if recommended:
-                return recommended[:4]
+            recommend_fn = getattr(routing_module, "recommend_agents", None)
+            if recommend_fn is not None:
+                recommended = await recommend_fn(request.question)
+                if recommended:
+                    return recommended[:4]
         except (ImportError, AttributeError) as e:
             logger.debug(f"Routing handler not available: {e}")
         except Exception as e:
@@ -1051,13 +1053,15 @@ class OrchestrationHandler(SecureHandler):
     ) -> None:
         """Send result via email."""
         try:
-            from aragora.connectors.email import send_email  # type: ignore[attr-defined]
+            import aragora.connectors.email as email_module
 
-            await send_email(
-                to=channel.channel_id,
-                subject=f"Deliberation Result: {request.question[:50]}...",
-                body=message,
-            )
+            send_fn = getattr(email_module, "send_email", None)
+            if send_fn is not None:
+                await send_fn(
+                    to=channel.channel_id,
+                    subject=f"Deliberation Result: {request.question[:50]}...",
+                    body=message,
+                )
         except Exception as e:
             logger.warning(f"Failed to send email: {e}")
 

@@ -22,6 +22,7 @@ from typing import Any
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
+from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.audit.unified import audit_admin, audit_data
 
@@ -852,7 +853,9 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         if queue is None:
             return error_response("Queue not available", 503)
 
-        older_than_days = int(query_params.get("older_than_days", ["7"])[0])
+        older_than_days = safe_query_int(
+            query_params, "older_than_days", default=7, min_val=1, max_val=365
+        )
         status_filter = query_params.get("status", ["completed"])[0]
         dry_run = query_params.get("dry_run", ["false"])[0].lower() == "true"
 
@@ -918,8 +921,10 @@ class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  
         if queue is None:
             return error_response("Queue not available", 503)
 
-        stale_minutes = int(query_params.get("stale_minutes", ["60"])[0])
-        limit = min(int(query_params.get("limit", ["50"])[0]), 100)
+        stale_minutes = safe_query_int(
+            query_params, "stale_minutes", default=60, min_val=1, max_val=1440
+        )
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=100)
 
         try:
             from aragora.queue import JobStatus

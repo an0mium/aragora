@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from aragora.server.http_utils import run_async
+from aragora.server.validation.query_params import safe_query_int
 
 from aragora.billing.jwt_auth import extract_user_from_request
 
@@ -1454,7 +1455,7 @@ class WorkspaceHandler(SecureHandler):
         if rbac_error:
             return rbac_error
 
-        days = int(query_params.get("days", "30"))
+        days = safe_query_int(query_params, "days", default=30, min_val=1, max_val=365)
         audit_log = self._get_audit_log()
         entries = self._run_async(
             audit_log.get_resource_history(resource_id=resource_id, days=days)
@@ -1482,7 +1483,7 @@ class WorkspaceHandler(SecureHandler):
         if rbac_error:
             return rbac_error
 
-        days = int(query_params.get("days", "7"))
+        days = safe_query_int(query_params, "days", default=7, min_val=1, max_val=365)
         audit_log = self._get_audit_log()
         entries = self._run_async(audit_log.get_denied_access_attempts(days=days))
 

@@ -1,5 +1,17 @@
 """
-Aragora Configuration.
+Aragora Configuration (Legacy Module).
+
+.. deprecated:: 2.9.0
+    This module is deprecated and will be removed in version 3.0.0.
+    Please migrate to the new configuration API:
+
+    - For database paths: Use ``aragora.persistence.db_config.get_db_path()``
+    - For settings: Use ``aragora.config.settings.get_settings()``
+    - For concurrency: Use ``aragora.config.settings.get_settings().concurrency``
+
+    Migration timeline:
+    - v2.9.0 (Jan 2026): Deprecation warnings added
+    - v3.0.0 (planned): This module will be removed
 
 Centralized configuration with environment variable overrides.
 Import these values instead of hardcoding throughout the codebase.
@@ -10,6 +22,14 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
+
+# Emit deprecation warning on import
+warnings.warn(
+    "aragora.config.legacy is deprecated and will be removed in v3.0.0. "
+    "Use aragora.config.settings or aragora.persistence.db_config instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Explicit exports for type checking and IDE support
 __all__ = [

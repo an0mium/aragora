@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -266,8 +267,8 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
 
     async def list_transactions(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
-        limit = int(request.query.get("limit", "100"))
-        offset = int(request.query.get("offset", "0"))
+        limit = safe_query_int(request.query, "limit", default=100, min_val=1, max_val=1000)
+        offset = safe_query_int(request.query, "offset", default=0, min_val=0, max_val=1000000)
         tx_type = request.query.get("type")
         result = await handler.list_transactions(org_id, limit, offset, tx_type)
         return web.Response(
@@ -285,7 +286,9 @@ def register_credits_admin_routes(app: web.Application, handler: CreditsAdminHan
 
     async def get_expiring(request: web.Request) -> web.Response:
         org_id = request.match_info["org_id"]
-        within_days = int(request.query.get("within_days", "30"))
+        within_days = safe_query_int(
+            request.query, "within_days", default=30, min_val=1, max_val=365
+        )
         result = await handler.get_expiring_credits(org_id, within_days)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
