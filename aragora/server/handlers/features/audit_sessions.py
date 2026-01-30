@@ -32,6 +32,7 @@ from typing import Any
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +220,8 @@ class AuditSessionsHandler(SecureHandler):
         """List all audit sessions with optional filtering."""
         # Parse query params
         status_filter = request.query.get("status")
-        limit = int(request.query.get("limit", 50))
-        offset = int(request.query.get("offset", 0))
+        limit = safe_query_int(request.query, "limit", default=50, min_val=1, max_val=1000)
+        offset = safe_query_int(request.query, "offset", default=0, min_val=0, max_val=1000000)
 
         sessions = list(_sessions.values())
 

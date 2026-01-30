@@ -33,6 +33,7 @@ from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -325,7 +326,7 @@ class SupportHandler(SecureHandler):
         """List tickets from all connected platforms."""
         status = request.query.get("status")
         priority = request.query.get("priority")
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, min_val=1, max_val=1000)
 
         all_tickets: list[dict[str, Any]] = []
 

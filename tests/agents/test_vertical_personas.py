@@ -998,9 +998,13 @@ class TestDetectVerticalFromTaskAdditional:
         assert manager.detect_vertical_from_task("HIPAA audit requirements") is Vertical.HEALTHCARE
 
     def test_gaap_keyword_detects_accounting(self):
-        """GAAP keyword maps to ACCOUNTING."""
+        """GAAP keyword without 'compliance' maps to ACCOUNTING."""
         manager = VerticalPersonaManager()
-        assert manager.detect_vertical_from_task("Review GAAP compliance") is Vertical.ACCOUNTING
+        # Use a phrase without 'compliance' which is also a LEGAL keyword
+        assert (
+            manager.detect_vertical_from_task("Review GAAP standards for audit")
+            is Vertical.ACCOUNTING
+        )
 
     def test_grant_keyword_detects_academic(self):
         """Grant keyword maps to ACADEMIC."""
@@ -1021,11 +1025,11 @@ class TestDetectVerticalFromTaskAdditional:
         assert manager.detect_vertical_from_task("Analyze patient records") is Vertical.HEALTHCARE
 
     def test_tax_keyword_detects_accounting(self):
-        """Tax keyword maps to ACCOUNTING."""
+        """Tax keyword without 'compliance' maps to ACCOUNTING."""
         manager = VerticalPersonaManager()
+        # Use a phrase without 'compliance' which is also a LEGAL keyword
         assert (
-            manager.detect_vertical_from_task("Review tax returns for compliance")
-            is Vertical.ACCOUNTING
+            manager.detect_vertical_from_task("Review tax returns for audit") is Vertical.ACCOUNTING
         )
 
     def test_mixed_keywords_tiebreaker(self):

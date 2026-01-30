@@ -123,9 +123,7 @@ class PruningOperationsMixin:
     # Type stubs for mixin - actual implementation provided by composed class
     # Uses adapter methods from KnowledgeMoundCore
     # These attributes/methods are expected from the composed class:
-    from typing import Any
-
-    _staleness_detector: Any
+    _staleness_detector: _StalenessDetectorProtocol
 
     async def _archive_node_with_reason(
         self, node_id: str, workspace_id: str, reason: str
@@ -168,7 +166,7 @@ class PruningOperationsMixin:
         prunable = []
 
         # Get stale nodes
-        stale_nodes = await self._staleness_detector.get_stale_nodes(  # type: ignore[attr-defined]
+        stale_nodes = await self._staleness_detector.get_stale_nodes(
             workspace_id=workspace_id,
             threshold=staleness_threshold,
             limit=limit * 2,  # Get extra to filter
@@ -251,7 +249,7 @@ class PruningOperationsMixin:
         for node_id in item_ids:
             try:
                 if action == PruningAction.ARCHIVE:
-                    await self._archive_node_with_reason(  # type: ignore[attr-defined]
+                    await self._archive_node_with_reason(
                         node_id=node_id,
                         workspace_id=workspace_id,
                         reason=reason,
@@ -260,13 +258,13 @@ class PruningOperationsMixin:
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.DELETE:
-                    await self._delete_node(node_id)  # type: ignore[attr-defined]
+                    await self._delete_node(node_id)
                     deleted += 1
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.DEMOTE:
                     # Move to lower tier
-                    node = await self._get_node(node_id)  # type: ignore[attr-defined]
+                    node = await self._get_node(node_id)
                     if node:
                         tier = getattr(node, "tier", "medium")
                         if hasattr(tier, "value"):
@@ -274,13 +272,13 @@ class PruningOperationsMixin:
                         tier_order = ["fast", "medium", "slow", "glacial"]
                         current_idx = tier_order.index(tier) if tier in tier_order else 0
                         new_tier = tier_order[min(current_idx + 1, len(tier_order) - 1)]
-                        await self._update_node(node_id, {"tier": new_tier})  # type: ignore[attr-defined]
+                        await self._update_node(node_id, {"tier": new_tier})
                     demoted += 1
                     pruned_ids.append(node_id)
 
                 elif action == PruningAction.FLAG:
                     # Mark for review
-                    await self._update_node(  # type: ignore[attr-defined]
+                    await self._update_node(
                         node_id,
                         {"metadata": {"flagged_for_review": True, "flagged_reason": reason}},
                     )
@@ -396,7 +394,7 @@ class PruningOperationsMixin:
         Returns:
             List of pruning history entries
         """
-        result = await self._get_prune_history(  # type: ignore[attr-defined]
+        result = await self._get_prune_history(
             workspace_id=workspace_id,
             limit=limit,
             since=since,
@@ -417,7 +415,7 @@ class PruningOperationsMixin:
         Returns:
             True if restored, False if not found or already active
         """
-        result = await self._restore_archived_node(  # type: ignore[attr-defined]
+        result = await self._restore_archived_node(
             node_id=node_id,
             workspace_id=workspace_id,
         )
@@ -445,7 +443,7 @@ class PruningOperationsMixin:
         updated = 0
 
         # Get items that haven't been validated recently using adapter method
-        nodes = await self._get_nodes_for_workspace(  # type: ignore[attr-defined]
+        nodes = await self._get_nodes_for_workspace(
             workspace_id=workspace_id,
             limit=1000,
         )
@@ -466,7 +464,7 @@ class PruningOperationsMixin:
             new_confidence = max(confidence - decay, min_confidence)
 
             if new_confidence < confidence:
-                await self._update_node(node.id, {"confidence": new_confidence})  # type: ignore[attr-defined]
+                await self._update_node(node.id, {"confidence": new_confidence})
                 updated += 1
 
         return updated
@@ -491,4 +489,4 @@ class PruningOperationsMixin:
             reason=reason,
             executed_by=executed_by,
         )
-        await self._save_prune_history(history)  # type: ignore[attr-defined]
+        await self._save_prune_history(history)

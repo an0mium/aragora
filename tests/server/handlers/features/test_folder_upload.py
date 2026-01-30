@@ -50,10 +50,28 @@ def clear_jobs():
     yield
 
 
+@pytest.fixture(autouse=True)
+def mock_auth():
+    """Mock authentication for all tests."""
+    mock_user = MagicMock()
+    mock_user.is_authenticated = True
+    mock_user.user_id = "test_user"
+    mock_user.role = "admin"
+    mock_user.error_reason = None
+
+    with patch(
+        "aragora.billing.jwt_auth.extract_user_from_request",
+        return_value=mock_user,
+    ):
+        yield
+
+
 @pytest.fixture
 def handler():
     """Create handler instance."""
-    return FolderUploadHandler({})
+    h = FolderUploadHandler({})
+    h.headers = MagicMock()  # Add headers for auth decorator
+    return h
 
 
 class TestFolderUploadStatus:
@@ -345,16 +363,13 @@ class TestFolderDelete:
             status=FolderUploadStatus.COMPLETED,
             created_at=now,
             updated_at=now,
+            user_id="test_user",  # Match mock user
         )
         FolderUploadHandler._jobs["folder123"] = job
 
-        with patch(
-            "aragora.server.handlers.features.folder_upload.require_user_auth",
-            lambda f: f,
-        ):
-            result = handler._delete_folder("folder123")
-            assert result.status_code == 200
-            assert "folder123" not in FolderUploadHandler._jobs
+        result = handler._delete_folder("folder123")
+        assert result.status_code == 200
+        assert "folder123" not in FolderUploadHandler._jobs
 
 
 class TestFolderJobStatusUpdate:
