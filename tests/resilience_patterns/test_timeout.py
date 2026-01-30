@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aragora.resilience_patterns.timeout import (
+from aragora.resilience.timeout import (
     TimeoutConfig,
     TimeoutError,
     timeout_context,

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from aragora.resilience_patterns.retry import JitterMode, RetryConfig
+from aragora.resilience.retry import JitterMode, RetryConfig
 
 
 class TestRetryConfigJitterCompat:

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from aragora.resilience_patterns.health import (
+from aragora.resilience.health import (
     HealthChecker,
     HealthRegistry,
     HealthReport,

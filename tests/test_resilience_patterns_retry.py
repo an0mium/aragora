@@ -14,7 +14,7 @@ import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aragora.resilience_patterns import (
+from aragora.resilience import (
     RetryStrategy,
     RetryConfig,
     ExponentialBackoff,
@@ -22,7 +22,7 @@ from aragora.resilience_patterns import (
     with_retry_sync,
     calculate_backoff_delay,
 )
-from aragora.resilience_patterns.retry import JitterMode
+from aragora.resilience.retry import JitterMode
 
 
 class TestRetryConfig:

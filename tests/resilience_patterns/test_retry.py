@@ -17,7 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aragora.resilience_patterns.retry import (
+from aragora.resilience.retry import (
     DEFAULT_RETRYABLE_EXCEPTIONS,
     JitterMode,
     RetryConfig,

@@ -15,13 +15,13 @@ import time
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
-from aragora.resilience_patterns import (
+from aragora.resilience import (
     CircuitState,
     CircuitBreakerConfig,
     BaseCircuitBreaker,
     with_circuit_breaker,
 )
-from aragora.resilience_patterns.circuit_breaker import CircuitBreakerOpenError
+from aragora.resilience.circuit_breaker_v2 import CircuitBreakerOpenError
 
 
 class TestCircuitState:

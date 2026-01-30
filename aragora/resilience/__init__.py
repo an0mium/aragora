@@ -80,9 +80,11 @@ _set_metrics_callback(_emit_metrics)
 
 # Retry patterns
 from .retry import (
+    ExponentialBackoff,
     JitterMode,
     RetryConfig,
     RetryStrategy,
+    calculate_backoff_delay,
     with_retry,
     with_retry_sync,
 )
@@ -145,6 +147,8 @@ __all__ = [
     "JitterMode",
     "RetryConfig",
     "RetryStrategy",
+    "ExponentialBackoff",
+    "calculate_backoff_delay",
     "with_retry",
     "with_retry_sync",
     # Timeout patterns

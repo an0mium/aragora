@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aragora.resilience_patterns.circuit_breaker import (
+from aragora.resilience.circuit_breaker_v2 import (
     BaseCircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
