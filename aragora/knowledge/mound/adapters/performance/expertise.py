@@ -13,14 +13,31 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Optional, cast
+from typing import Any, Optional, Protocol, cast
 
 from aragora.knowledge.mound.adapters.performance.models import AgentExpertise
 
 logger = logging.getLogger(__name__)
 
 
-class ExpertiseMixin:
+class _ExpertiseHostProtocol(Protocol):
+    """Protocol for host class of ExpertiseMixin."""
+
+    EXPERTISE_PREFIX: str
+    MIN_ELO_CHANGE: int
+    MIN_DEBATES_FOR_CONFIDENCE: int
+    DOMAIN_KEYWORDS: dict[str, list[str]]
+    _expertise: dict[str, dict[str, Any]]
+    _agent_history: dict[str, list[dict[str, Any]]]
+    _domain_agents: dict[str, list[str]]
+    _agent_domains: dict[str, list[str]]
+    _domain_experts_cache: dict[str, tuple[float, Any]]
+    _cache_hits: int
+    _cache_misses: int
+    _cache_ttl_seconds: float
+
+
+class ExpertiseMixin(_ExpertiseHostProtocol):
     """Mixin providing expertise storage, retrieval, and caching methods.
 
     Expects the following attributes on the host class:

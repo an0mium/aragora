@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.knowledge.mound.adapters.performance.models import (
     EloAdjustmentRecommendation,
@@ -26,7 +26,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ReverseFlowMixin:
+class _ReverseFlowHostProtocol(Protocol):
+    """Protocol for host class of ReverseFlowMixin."""
+
+    _elo_system: Optional[Any]
+    _km_patterns: dict[str, list[KMEloPattern]]
+    _pending_km_adjustments: list[EloAdjustmentRecommendation]
+    _applied_km_adjustments: list[EloAdjustmentRecommendation]
+    _km_adjustments_applied: int
+
+
+class ReverseFlowMixin(_ReverseFlowHostProtocol):
     """Mixin providing KM-to-ELO reverse flow methods.
 
     Expects the following attributes on the host class:

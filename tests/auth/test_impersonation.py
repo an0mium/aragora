@@ -447,3 +447,546 @@ class TestGlobalManager:
         )
         assert manager._max_concurrent_sessions == 5
         assert manager._audit_callback is callback
+
+
+class TestImpersonationTokenGeneration:
+    """Tests for impersonation token/session ID generation."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager()
+        mgr._use_persistence = False
+        return mgr
+
+    def test_session_id_is_unique(self, manager):
+        """Should generate unique session IDs for different sessions."""
+        session_ids = set()
+        for i in range(10):
+            session, _ = manager.start_impersonation(
+                admin_user_id=f"admin{i}",
+                admin_email=f"admin{i}@example.com",
+                admin_roles=["admin"],
+                target_user_id=f"user{i}",
+                target_email=f"user{i}@example.com",
+                target_roles=["user"],
+                reason="Testing unique session ID generation",
+                ip_address="127.0.0.1",
+                user_agent="TestAgent/1.0",
+            )
+            assert session is not None
+            session_ids.add(session.session_id)
+        assert len(session_ids) == 10
+
+    def test_session_id_format(self, manager):
+        """Should generate valid hex session ID."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing session ID format",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+        assert len(session.session_id) == 16
+        # Should be valid hex
+        int(session.session_id, 16)
+
+
+class TestImpersonationErrorHandling:
+    """Tests for error handling in impersonation."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager()
+        mgr._use_persistence = False
+        return mgr
+
+    def test_end_nonexistent_session(self, manager):
+        """Should return error for non-existent session."""
+        success, msg = manager.end_impersonation(
+            session_id="nonexistent123",
+            admin_user_id="admin1",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert success is False
+        assert "not found" in msg.lower()
+
+    def test_log_action_nonexistent_session(self, manager):
+        """Should return False for non-existent session."""
+        result = manager.log_impersonation_action(
+            session_id="nonexistent123",
+            action_type="view_profile",
+            action_details={},
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert result is False
+
+    def test_log_action_expired_session(self, manager):
+        """Should return False for expired session."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing expired session action",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+        # Manually expire the session
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        manager._sessions[session.session_id] = session
+
+        result = manager.log_impersonation_action(
+            session_id=session.session_id,
+            action_type="view_profile",
+            action_details={},
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert result is False
+
+    def test_validate_nonexistent_session(self, manager):
+        """Should return None for non-existent session."""
+        result = manager.validate_session("nonexistent123")
+        assert result is None
+
+    def test_empty_reason_rejected(self, manager):
+        """Should reject empty reason."""
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is None
+        assert "10 characters" in msg
+
+    def test_whitespace_only_reason_rejected(self, manager):
+        """Should reject whitespace-only reason."""
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="         ",  # Only whitespace
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is None
+        assert "10 characters" in msg
+
+
+class TestImpersonationAuditLog:
+    """Tests for audit log functionality."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager()
+        mgr._use_persistence = False
+        return mgr
+
+    def test_audit_log_limit(self, manager):
+        """Should respect limit parameter."""
+        # Create multiple audit entries
+        for i in range(10):
+            manager.start_impersonation(
+                admin_user_id="admin1",
+                admin_email="admin@example.com",
+                admin_roles=["admin"],
+                target_user_id=f"user{i}",
+                target_email=f"user{i}@example.com",
+                target_roles=["user"],
+                reason="Testing audit log limit feature",
+                ip_address="127.0.0.1",
+                user_agent="TestAgent/1.0",
+            )
+
+        entries = manager.get_audit_log(limit=5)
+        assert len(entries) == 5
+
+    def test_audit_log_since_filter(self, manager):
+        """Should filter by timestamp."""
+        # Create an entry
+        manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing since filter functionality",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+
+        # Filter with future timestamp - should return nothing
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        entries = manager.get_audit_log(since=future)
+        assert len(entries) == 0
+
+        # Filter with past timestamp - should return entries
+        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        entries = manager.get_audit_log(since=past)
+        assert len(entries) >= 1
+
+    def test_audit_log_target_filter(self, manager):
+        """Should filter by target user ID."""
+        manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="specific_user",
+            target_email="specific@example.com",
+            target_roles=["user"],
+            reason="Testing target user filter",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="other_user",
+            target_email="other@example.com",
+            target_roles=["user"],
+            reason="Testing target user filter",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+
+        entries = manager.get_audit_log(target_user_id="specific_user")
+        assert len(entries) >= 1
+        assert all(e.target_user_id == "specific_user" for e in entries)
+
+    def test_denied_events_logged(self, manager):
+        """Should log denied impersonation attempts."""
+        # Attempt self-impersonation (will be denied)
+        manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="admin1",
+            target_email="admin@example.com",
+            target_roles=["admin"],
+            reason="Testing denied event logging",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+
+        entries = manager.get_audit_log(event_type="denied")
+        assert len(entries) >= 1
+        assert entries[0].success is False
+
+
+class TestImpersonationSessionExpiry:
+    """Tests for session expiration handling."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager()
+        mgr._use_persistence = False
+        return mgr
+
+    def test_cleanup_expired_session_logs_timeout(self, manager):
+        """Should log timeout event when cleaning expired session."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing expiration cleanup logging",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+        # Manually expire the session
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        manager._sessions[session.session_id] = session
+
+        # Trigger cleanup via validate
+        manager.validate_session(session.session_id)
+
+        # Check timeout event logged
+        entries = manager.get_audit_log(event_type="timeout")
+        assert len(entries) >= 1
+
+    def test_expired_sessions_excluded_from_active_list(self, manager):
+        """Should not include expired sessions in active list."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing expired exclusion from list",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+        # Initially should be in active list
+        active = manager.get_active_sessions_for_admin("admin1")
+        assert len(active) == 1
+
+        # Manually expire the session
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        manager._sessions[session.session_id] = session
+
+        # Should not be in active list anymore
+        active = manager.get_active_sessions_for_admin("admin1")
+        assert len(active) == 0
+
+
+class TestImpersonation2FARequirements:
+    """Tests for 2FA requirements when impersonating."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager(require_2fa_for_admin_targets=True)
+        mgr._use_persistence = False
+        return mgr
+
+    def test_owner_role_requires_2fa(self, manager):
+        """Should require 2FA when target has owner role."""
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="owner1",
+            target_email="owner@example.com",
+            target_roles=["owner"],  # Owner role
+            reason="Testing owner role 2FA requirement",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+            has_2fa=False,
+        )
+        assert session is None
+        assert "2fa" in msg.lower()
+
+    def test_2fa_not_required_when_disabled(self):
+        """Should not require 2FA when disabled in config."""
+        manager = ImpersonationManager(require_2fa_for_admin_targets=False)
+        manager._use_persistence = False
+
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="admin2",
+            target_email="admin2@example.com",
+            target_roles=["admin"],
+            reason="Testing 2FA disabled configuration",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+            has_2fa=False,
+        )
+        assert session is not None
+
+
+class TestImpersonationRateLimiting:
+    """Tests for rate limiting and concurrent session limits."""
+
+    def test_different_admins_have_separate_limits(self):
+        """Each admin should have their own concurrent session limit."""
+        manager = ImpersonationManager(max_concurrent_sessions=2)
+        manager._use_persistence = False
+
+        # Admin 1 creates 2 sessions
+        for i in range(2):
+            session, _ = manager.start_impersonation(
+                admin_user_id="admin1",
+                admin_email="admin1@example.com",
+                admin_roles=["admin"],
+                target_user_id=f"user{i}",
+                target_email=f"user{i}@example.com",
+                target_roles=["user"],
+                reason="Testing admin session limit separation",
+                ip_address="127.0.0.1",
+                user_agent="TestAgent/1.0",
+            )
+            assert session is not None
+
+        # Admin 2 should still be able to create sessions
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin2",
+            admin_email="admin2@example.com",
+            admin_roles=["admin"],
+            target_user_id="user10",
+            target_email="user10@example.com",
+            target_roles=["user"],
+            reason="Testing admin session limit separation",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+    def test_expired_sessions_free_up_slots(self):
+        """Expired sessions should not count against limit."""
+        manager = ImpersonationManager(max_concurrent_sessions=1)
+        manager._use_persistence = False
+
+        # Create a session
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing expired session slot release",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+        # Manually expire it
+        session.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        manager._sessions[session.session_id] = session
+
+        # Should be able to create a new session
+        session2, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user2",
+            target_email="user2@example.com",
+            target_roles=["user"],
+            reason="Testing slot freed by expiration",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session2 is not None
+
+
+class TestImpersonationOriginalIdentity:
+    """Tests for preserving original admin identity."""
+
+    @pytest.fixture
+    def manager(self):
+        """Create a fresh manager for each test."""
+        mgr = ImpersonationManager()
+        mgr._use_persistence = False
+        return mgr
+
+    def test_session_preserves_admin_identity(self, manager):
+        """Should preserve admin identity in session."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing identity preservation",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+        assert session.admin_user_id == "admin1"
+        assert session.admin_email == "admin@example.com"
+        assert session.target_user_id == "user1"
+        assert session.target_email == "user@example.com"
+
+    def test_action_log_includes_both_identities(self, manager):
+        """Action logs should include both admin and target identities."""
+        session, _ = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing identity in action logs",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+        manager.log_impersonation_action(
+            session_id=session.session_id,
+            action_type="view_profile",
+            action_details={"profile_id": "user1"},
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+
+        entries = manager.get_audit_log(event_type="action")
+        assert len(entries) >= 1
+        assert entries[0].admin_user_id == "admin1"
+        assert entries[0].target_user_id == "user1"
+
+
+class TestImpersonationCallbackErrors:
+    """Tests for callback error handling."""
+
+    def test_audit_callback_error_does_not_block(self):
+        """Audit callback errors should not block operation."""
+
+        def failing_callback(entry):
+            raise Exception("Callback failed")
+
+        manager = ImpersonationManager(audit_callback=failing_callback)
+        manager._use_persistence = False
+
+        # Should still succeed despite callback error
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing callback error handling",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None
+
+    def test_notification_callback_error_does_not_block(self):
+        """Notification callback errors should not block operation."""
+
+        def failing_notification(user_id, admin_email, reason):
+            raise Exception("Notification failed")
+
+        manager = ImpersonationManager(notification_callback=failing_notification)
+        manager._use_persistence = False
+
+        # Should still succeed despite notification error
+        session, msg = manager.start_impersonation(
+            admin_user_id="admin1",
+            admin_email="admin@example.com",
+            admin_roles=["admin"],
+            target_user_id="user1",
+            target_email="user@example.com",
+            target_roles=["user"],
+            reason="Testing notification error handling",
+            ip_address="127.0.0.1",
+            user_agent="TestAgent/1.0",
+        )
+        assert session is not None

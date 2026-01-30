@@ -405,7 +405,7 @@ class BidirectionalCoordinator:
         Returns:
             List of SyncResult for each adapter
         """
-        results = []
+        results: list[SyncResult] = []
 
         # Get enabled adapters sorted by priority
         enabled = [r for r in self._adapters.values() if r.enabled]
@@ -414,23 +414,21 @@ class BidirectionalCoordinator:
         if self.config.parallel_sync:
             # Sync all adapters in parallel
             tasks = [self._sync_adapter_forward(reg) for reg in enabled]
-            results = await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore[assignment]
+            raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Handle exceptions
-            final_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    final_results.append(
+            for i, raw_result in enumerate(raw_results):
+                if isinstance(raw_result, BaseException):
+                    results.append(
                         SyncResult(
                             adapter_name=enabled[i].name,
                             direction="forward",
                             success=False,
-                            errors=[str(result)],
+                            errors=[str(raw_result)],
                         )
                     )
                 else:
-                    final_results.append(result)  # type: ignore[arg-type]
-            results = final_results  # type: ignore[assignment]
+                    results.append(raw_result)
         else:
             # Sync sequentially
             for reg in enabled:
@@ -438,7 +436,7 @@ class BidirectionalCoordinator:
                 results.append(result)
 
         self._total_forward_syncs += 1
-        return results  # type: ignore[return-value]
+        return results
 
     async def sync_all_from_km(
         self,

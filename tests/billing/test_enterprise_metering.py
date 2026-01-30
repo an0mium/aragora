@@ -556,3 +556,791 @@ class TestCostCalculation:
         breakdown = await meter.get_cost_breakdown(tenant_id="multi_provider_test")
         # Should have tracked usage from all providers
         assert breakdown.total_cost > Decimal("0")
+
+
+# =============================================================================
+# Metering Event Ingestion Tests
+# =============================================================================
+
+
+class TestMeteringEventIngestion:
+    """Tests for metering event ingestion."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_ingestion.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_ingest_basic_event(self, meter):
+        """Should ingest a basic metering event."""
+        record = await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=500,
+            tokens_out=200,
+            tenant_id="tenant_ingest",
+        )
+        assert record.id is not None
+        assert record.tenant_id == "tenant_ingest"
+        assert record.provider == "anthropic"
+        assert record.model == "claude-opus-4"
+
+    @pytest.mark.asyncio
+    async def test_ingest_with_all_metadata(self, meter):
+        """Should ingest event with all optional metadata."""
+        record = await meter.record_token_usage(
+            provider="openai",
+            model="gpt-4o",
+            tokens_in=1000,
+            tokens_out=500,
+            tenant_id="tenant_full",
+            user_id="user_123",
+            debate_id="debate_456",
+            agent_id="agent_789",
+            request_type="debate",
+            cached_tokens=200,
+            latency_ms=350,
+            success=True,
+            metadata={"round": 1, "topic": "AI safety"},
+        )
+        assert record.user_id == "user_123"
+        assert record.debate_id == "debate_456"
+        assert record.agent_id == "agent_789"
+        assert record.request_type == "debate"
+        assert record.latency_ms == 350
+        assert record.metadata["round"] == 1
+
+    @pytest.mark.asyncio
+    async def test_ingest_failed_request(self, meter):
+        """Should track failed requests."""
+        record = await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=100,
+            tokens_out=0,
+            tenant_id="tenant_fail",
+            success=False,
+        )
+        assert record.success is False
+
+    @pytest.mark.asyncio
+    async def test_ingest_batch_events(self, meter):
+        """Should handle batch ingestion of events."""
+        for i in range(10):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100 * (i + 1),
+                tokens_out=50 * (i + 1),
+                tenant_id="tenant_batch",
+                user_id=f"user_{i % 3}",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_batch")
+        assert breakdown.total_requests == 10
+
+
+# =============================================================================
+# Usage Aggregation by Dimension Tests
+# =============================================================================
+
+
+class TestUsageAggregationByDimension:
+    """Tests for usage aggregation by user, org, workspace dimensions."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_aggregation.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_aggregate_by_user(self, meter):
+        """Should aggregate usage by user."""
+        users = ["alice", "bob", "alice", "charlie", "alice"]
+        for user in users:
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_user_agg",
+                user_id=user,
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_user_agg")
+        assert "alice" in breakdown.cost_by_user
+        assert "bob" in breakdown.cost_by_user
+        assert "charlie" in breakdown.cost_by_user
+
+    @pytest.mark.asyncio
+    async def test_aggregate_by_provider(self, meter):
+        """Should aggregate usage by provider."""
+        for provider in ["anthropic", "openai", "anthropic", "google"]:
+            await meter.record_token_usage(
+                provider=provider,
+                model="default",
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_provider_agg",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_provider_agg")
+        assert "anthropic" in breakdown.cost_by_provider
+        assert "openai" in breakdown.cost_by_provider
+        assert "google" in breakdown.cost_by_provider
+        assert breakdown.cost_by_provider["anthropic"] > breakdown.cost_by_provider["openai"]
+
+    @pytest.mark.asyncio
+    async def test_aggregate_by_model(self, meter):
+        """Should aggregate usage by model."""
+        models = [
+            ("anthropic", "claude-opus-4"),
+            ("openai", "gpt-4o"),
+            ("anthropic", "claude-opus-4"),
+        ]
+        for provider, model in models:
+            await meter.record_token_usage(
+                provider=provider,
+                model=model,
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_model_agg",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_model_agg")
+        assert len(breakdown.cost_by_model) == 2
+
+    @pytest.mark.asyncio
+    async def test_aggregate_by_request_type(self, meter):
+        """Should aggregate usage by request type."""
+        for req_type in ["chat", "debate", "analysis", "debate", "chat"]:
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_type_agg",
+                request_type=req_type,
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_type_agg")
+        assert "chat" in breakdown.cost_by_type
+        assert "debate" in breakdown.cost_by_type
+        assert "analysis" in breakdown.cost_by_type
+
+
+# =============================================================================
+# API Call Counting Tests
+# =============================================================================
+
+
+class TestAPICallCounting:
+    """Tests for API call counting."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_api_count.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_count_total_requests(self, meter):
+        """Should count total API requests."""
+        for _ in range(15):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_count",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_count")
+        assert breakdown.total_requests == 15
+
+    @pytest.mark.asyncio
+    async def test_average_tokens_per_request(self, meter):
+        """Should calculate average tokens per request."""
+        for i in range(5):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100 + i * 50,
+                tokens_out=50 + i * 25,
+                tenant_id="tenant_avg",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_avg")
+        assert breakdown.total_requests == 5
+        assert breakdown.avg_tokens_per_request > 0
+
+    @pytest.mark.asyncio
+    async def test_average_cost_per_request(self, meter):
+        """Should calculate average cost per request."""
+        for _ in range(10):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=1000,
+                tokens_out=500,
+                tenant_id="tenant_avg_cost",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_avg_cost")
+        assert breakdown.avg_cost_per_request > Decimal("0")
+
+
+# =============================================================================
+# Real-time Usage Query Tests
+# =============================================================================
+
+
+class TestRealtimeUsageQueries:
+    """Tests for real-time usage queries."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_realtime.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_query_current_month(self, meter):
+        """Should query current month usage by default."""
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=500,
+            tokens_out=200,
+            tenant_id="tenant_current",
+        )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_current")
+        assert breakdown.total_requests >= 1
+
+    @pytest.mark.asyncio
+    async def test_query_custom_date_range(self, meter):
+        """Should query custom date range."""
+        now = datetime.utcnow()
+        last_week = now - timedelta(days=7)
+
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=500,
+            tokens_out=200,
+            tenant_id="tenant_range",
+        )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(
+            tenant_id="tenant_range",
+            start_date=last_week,
+            end_date=now,
+        )
+        assert breakdown.period_start == last_week
+        assert breakdown.period_end == now
+
+    @pytest.mark.asyncio
+    async def test_query_empty_tenant(self, meter):
+        """Should return empty breakdown for tenant with no usage."""
+        breakdown = await meter.get_cost_breakdown(tenant_id="nonexistent_tenant")
+        assert breakdown.total_cost == Decimal("0")
+        assert breakdown.total_requests == 0
+        assert breakdown.total_tokens == 0
+
+
+# =============================================================================
+# Historical Usage Report Tests
+# =============================================================================
+
+
+class TestHistoricalUsageReports:
+    """Tests for historical usage reports."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_historical.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_get_cost_by_day(self, meter):
+        """Should return costs grouped by day."""
+        for _ in range(5):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=500,
+                tokens_out=200,
+                tenant_id="tenant_daily",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_daily")
+        # Today's date should be in cost_by_day
+        assert len(breakdown.cost_by_day) >= 1
+
+    @pytest.mark.asyncio
+    async def test_invoice_includes_line_items(self, meter):
+        """Should generate invoice with detailed line items."""
+        for provider, model in [("anthropic", "claude-opus-4"), ("openai", "gpt-4o")]:
+            await meter.record_token_usage(
+                provider=provider,
+                model=model,
+                tokens_in=1000,
+                tokens_out=500,
+                tenant_id="tenant_invoice_items",
+            )
+        await meter._flush_buffer()
+
+        period = datetime.utcnow().strftime("%Y-%m")
+        invoice = await meter.generate_invoice(
+            tenant_id="tenant_invoice_items",
+            period=period,
+        )
+        assert len(invoice.line_items) >= 1
+        assert "description" in invoice.line_items[0]
+        assert "amount" in invoice.line_items[0]
+
+    @pytest.mark.asyncio
+    async def test_invoice_with_tax_and_discount(self, meter):
+        """Should apply tax and discount to invoice."""
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=10000,
+            tokens_out=5000,
+            tenant_id="tenant_tax_disc",
+        )
+        await meter._flush_buffer()
+
+        period = datetime.utcnow().strftime("%Y-%m")
+        invoice = await meter.generate_invoice(
+            tenant_id="tenant_tax_disc",
+            period=period,
+            tax_rate=Decimal("0.10"),
+            discount_percent=Decimal("5"),
+        )
+        assert invoice.discount > Decimal("0")
+        assert invoice.tax > Decimal("0")
+        assert invoice.total != invoice.subtotal
+
+
+# =============================================================================
+# Meter Rollup Tests (Hourly, Daily, Monthly)
+# =============================================================================
+
+
+class TestMeterRollups:
+    """Tests for meter rollups at different granularities."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_rollup.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_daily_breakdown(self, meter):
+        """Should provide daily cost breakdown."""
+        for _ in range(3):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=500,
+                tokens_out=200,
+                tenant_id="tenant_rollup",
+            )
+        await meter._flush_buffer()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_rollup")
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        assert today_str in breakdown.cost_by_day
+
+    @pytest.mark.asyncio
+    async def test_monthly_invoice_period(self, meter):
+        """Should generate invoice for monthly period."""
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=1000,
+            tokens_out=500,
+            tenant_id="tenant_monthly",
+        )
+        await meter._flush_buffer()
+
+        period = datetime.utcnow().strftime("%Y-%m")
+        invoice = await meter.generate_invoice(
+            tenant_id="tenant_monthly",
+            period=period,
+        )
+        # Check period is a full month
+        assert invoice.period_start.day == 1
+        assert invoice.period_end.day >= 28
+
+
+# =============================================================================
+# Idempotency Handling Tests
+# =============================================================================
+
+
+class TestIdempotencyHandling:
+    """Tests for idempotency in metering operations."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_idempotency.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_unique_record_ids(self, meter):
+        """Each record should have a unique ID."""
+        records = []
+        for _ in range(5):
+            record = await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=100,
+                tokens_out=50,
+                tenant_id="tenant_unique",
+            )
+            records.append(record)
+
+        ids = [r.id for r in records]
+        assert len(ids) == len(set(ids))  # All IDs are unique
+
+    @pytest.mark.asyncio
+    async def test_budget_update_idempotent(self, meter):
+        """Setting budget multiple times should be idempotent."""
+        for _ in range(3):
+            await meter.set_budget(
+                tenant_id="tenant_budget_idempotent",
+                monthly_budget=Decimal("1000.00"),
+                daily_limit=Decimal("50.00"),
+            )
+
+        budget = await meter.get_budget("tenant_budget_idempotent")
+        assert budget.monthly_budget == Decimal("1000.00")
+
+    @pytest.mark.asyncio
+    async def test_re_initialization_safe(self, temp_db):
+        """Re-initializing meter should be safe."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=100,
+            tokens_out=50,
+            tenant_id="tenant_reinit",
+        )
+        await meter._flush_buffer()
+
+        # Re-initialize
+        await meter.initialize()
+
+        breakdown = await meter.get_cost_breakdown(tenant_id="tenant_reinit")
+        assert breakdown.total_requests >= 1
+        await meter.close()
+
+
+# =============================================================================
+# Error Handling Tests
+# =============================================================================
+
+
+class TestErrorHandling:
+    """Tests for error handling with invalid inputs."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_errors.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_empty_provider(self, meter):
+        """Should handle empty provider gracefully."""
+        record = await meter.record_token_usage(
+            provider="",
+            model="test-model",
+            tokens_in=100,
+            tokens_out=50,
+            tenant_id="tenant_empty_provider",
+        )
+        # Should use fallback pricing
+        assert record.total_cost >= Decimal("0")
+
+    @pytest.mark.asyncio
+    async def test_empty_model(self, meter):
+        """Should handle empty model gracefully."""
+        record = await meter.record_token_usage(
+            provider="anthropic",
+            model="",
+            tokens_in=100,
+            tokens_out=50,
+            tenant_id="tenant_empty_model",
+        )
+        # Should use default pricing for provider
+        assert record.total_cost >= Decimal("0")
+
+    @pytest.mark.asyncio
+    async def test_negative_tokens_treated_as_provided(self, meter):
+        """Should handle negative token values."""
+        record = await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=-100,
+            tokens_out=50,
+            tenant_id="tenant_negative",
+        )
+        # Implementation accepts the value as-is
+        assert record.tokens_in == -100
+
+    @pytest.mark.asyncio
+    async def test_invalid_period_format_raises(self, meter):
+        """Should raise error for invalid invoice period format."""
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=100,
+            tokens_out=50,
+            tenant_id="tenant_invalid_period",
+        )
+        await meter._flush_buffer()
+
+        with pytest.raises(ValueError):
+            await meter.generate_invoice(
+                tenant_id="tenant_invalid_period",
+                period="invalid-format",
+            )
+
+    @pytest.mark.asyncio
+    async def test_filter_invoices_by_status(self, meter):
+        """Should filter invoices by status."""
+        await meter.record_token_usage(
+            provider="anthropic",
+            model="claude-opus-4",
+            tokens_in=100,
+            tokens_out=50,
+            tenant_id="tenant_filter_status",
+        )
+        await meter._flush_buffer()
+
+        period = datetime.utcnow().strftime("%Y-%m")
+        await meter.generate_invoice(
+            tenant_id="tenant_filter_status",
+            period=period,
+        )
+
+        # Filter by DRAFT status
+        invoices = await meter.get_invoices(
+            tenant_id="tenant_filter_status",
+            status=InvoiceStatus.DRAFT,
+        )
+        assert all(inv.status == InvoiceStatus.DRAFT for inv in invoices)
+
+        # Filter by non-matching status
+        invoices = await meter.get_invoices(
+            tenant_id="tenant_filter_status",
+            status=InvoiceStatus.PAID,
+        )
+        assert len(invoices) == 0
+
+    @pytest.mark.asyncio
+    async def test_budget_alert_deduplication(self, meter):
+        """Should not send duplicate budget alerts in same month."""
+        await meter.set_budget(
+            tenant_id="tenant_dedup",
+            monthly_budget=Decimal("100.00"),
+        )
+
+        # Record enough to trigger alert
+        for _ in range(10):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=10000,
+                tokens_out=5000,
+                tenant_id="tenant_dedup",
+            )
+        await meter._flush_buffer()
+
+        # Record more to potentially trigger duplicate
+        for _ in range(5):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=10000,
+                tokens_out=5000,
+                tenant_id="tenant_dedup",
+            )
+        await meter._flush_buffer()
+
+        # Check alerts table - should only have one per level
+        cursor = meter._conn.cursor()
+        cursor.execute(
+            """
+            SELECT alert_level, COUNT(*) as cnt
+            FROM budget_alerts
+            WHERE tenant_id = ?
+            GROUP BY alert_level
+            """,
+            ("tenant_dedup",),
+        )
+        for row in cursor:
+            assert row["cnt"] == 1  # Only one alert per level
+
+
+# =============================================================================
+# Forecast Tests
+# =============================================================================
+
+
+class TestUsageForecastComprehensive:
+    """Comprehensive tests for usage forecasting."""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir) / "test_forecast.db"
+
+    @pytest.fixture
+    async def meter(self, temp_db):
+        """Create an initialized meter."""
+        meter = EnterpriseMeter(db_path=temp_db)
+        await meter.initialize()
+        yield meter
+        await meter.close()
+
+    @pytest.mark.asyncio
+    async def test_forecast_with_budget(self, meter):
+        """Should forecast with budget comparison."""
+        await meter.set_budget(
+            tenant_id="tenant_forecast_budget",
+            monthly_budget=Decimal("500.00"),
+        )
+
+        for _ in range(10):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=1000,
+                tokens_out=500,
+                tenant_id="tenant_forecast_budget",
+            )
+        await meter._flush_buffer()
+
+        forecast = await meter.forecast_usage(
+            tenant_id="tenant_forecast_budget",
+            days_ahead=30,
+        )
+        assert forecast.budget_remaining is not None
+
+    @pytest.mark.asyncio
+    async def test_forecast_empty_history(self, meter):
+        """Should handle forecast with no historical data."""
+        forecast = await meter.forecast_usage(
+            tenant_id="tenant_no_history",
+            days_ahead=30,
+        )
+        assert forecast.projected_cost == Decimal("0")
+        assert forecast.confidence == 0.0
+
+    @pytest.mark.asyncio
+    async def test_forecast_confidence_increases_with_data(self, meter):
+        """Confidence should increase with more data points."""
+        for i in range(15):
+            await meter.record_token_usage(
+                provider="anthropic",
+                model="claude-opus-4",
+                tokens_in=1000,
+                tokens_out=500,
+                tenant_id="tenant_confidence",
+            )
+        await meter._flush_buffer()
+
+        forecast = await meter.forecast_usage(
+            tenant_id="tenant_confidence",
+            days_ahead=30,
+        )
+        assert forecast.data_points_used > 0

@@ -472,7 +472,7 @@ for pattern in security_patterns:
 Aragora has evolved through 21+ phases of self-improvement, with the nomic loop debating and implementing each feature. The codebase now includes:
 
 - **1000+ Python modules** across 50+ directories
-- **34,400+ tests** with exceptional coverage
+- **76,000+ tests** with exceptional coverage
 - **117 debate modules** with 9-round structured protocol
 - **15+ agent implementations** across 10 providers (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi, local models)
 - **65 HTTP handlers + 15 WebSocket streams**

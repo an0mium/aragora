@@ -438,8 +438,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Failed to query KM for similar memories (data): {e}")
             return []
-        except Exception as e:
-            logger.exception(f"Unexpected error querying KM for similar memories: {e}")
+        except (RuntimeError, AttributeError) as e:
+            logger.warning(f"Unexpected error querying KM for similar memories: {e}")
             return []
 
     def register_migrations(self, manager: SchemaManager) -> None:
@@ -1406,8 +1406,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 logger.error(f"Database error updating surprise score: {e}", exc_info=True)
                 cursor.execute("ROLLBACK")
                 raise
-            except Exception as e:
-                # Rollback on any exception, then re-raise unchanged
+            except (ValueError, TypeError, ArithmeticError, RuntimeError) as e:
+                # Rollback on non-database exceptions, then re-raise unchanged
                 logger.warning(
                     f"Non-database exception during surprise update, rolling back: {type(e).__name__}: {e}"
                 )

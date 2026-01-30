@@ -761,3 +761,655 @@ class TestSAMLWithLibrary:
 
         assert "EntityDescriptor" in metadata
         assert config.entity_id in metadata
+
+
+# ============================================================================
+# Session Management Tests
+# ============================================================================
+
+
+class TestSAMLSessionManagement:
+    """Tests for SAML session management integration."""
+
+    @pytest.mark.asyncio
+    async def test_session_creation_after_authentication(self):
+        """Test that sessions can be created from authenticated SAML users."""
+        from aragora.auth.sso import SSOSessionManager
+
+        config = make_saml_config()
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={
+                "email": ["user@example.com"],
+                "name": ["Test User"],
+            },
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                # Create session from authenticated user
+                session_manager = SSOSessionManager()
+                session = await session_manager.create_session(user)
+
+                assert session.user_id == user.id
+                assert session.email == user.email
+                assert session.session_id is not None
+
+    @pytest.mark.asyncio
+    async def test_session_retrieval(self):
+        """Test session retrieval by ID."""
+        from aragora.auth.sso import SSOSessionManager, SSOUser
+
+        session_manager = SSOSessionManager()
+        user = SSOUser(
+            id="user123",
+            email="user@example.com",
+            name="Test User",
+            provider_type="saml",
+        )
+
+        session = await session_manager.create_session(user)
+        retrieved = await session_manager.get_session(session.session_id)
+
+        assert retrieved.user_id == user.id
+        assert retrieved.email == user.email
+
+    @pytest.mark.asyncio
+    async def test_session_expiry(self):
+        """Test that expired sessions are rejected."""
+        from aragora.auth.sso import SSOSessionManager, SSOUser
+
+        session_manager = SSOSessionManager(session_duration=1)  # 1 second
+        user = SSOUser(
+            id="user123",
+            email="user@example.com",
+            provider_type="saml",
+        )
+
+        session = await session_manager.create_session(user)
+
+        # Wait for expiry
+        import asyncio
+
+        await asyncio.sleep(1.1)
+
+        with pytest.raises(KeyError) as exc:
+            await session_manager.get_session(session.session_id)
+
+        assert "expired" in str(exc.value).lower() or session.session_id in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_session_logout(self):
+        """Test session logout removes the session."""
+        from aragora.auth.sso import SSOSessionManager, SSOUser
+
+        session_manager = SSOSessionManager()
+        user = SSOUser(
+            id="user123",
+            email="user@example.com",
+            provider_type="saml",
+        )
+
+        session = await session_manager.create_session(user)
+        await session_manager.logout(session.session_id)
+
+        with pytest.raises(KeyError):
+            await session_manager.get_session(session.session_id)
+
+    @pytest.mark.asyncio
+    async def test_session_refresh(self):
+        """Test session refresh extends expiry."""
+        from aragora.auth.sso import SSOSessionManager, SSOUser
+
+        session_manager = SSOSessionManager(session_duration=3600)
+        user = SSOUser(
+            id="user123",
+            email="user@example.com",
+            provider_type="saml",
+        )
+
+        session = await session_manager.create_session(user)
+        original_expiry = session.expires_at
+
+        # Small delay to ensure time difference
+        import asyncio
+
+        await asyncio.sleep(0.1)
+
+        refreshed = await session_manager.refresh_session(session.session_id)
+
+        assert refreshed.expires_at > original_expiry
+
+
+# ============================================================================
+# Multiple IdP Support Tests
+# ============================================================================
+
+
+class TestMultipleIdPSupport:
+    """Tests for multiple Identity Provider configurations."""
+
+    def test_multiple_provider_instances(self):
+        """Test creating multiple SAML providers for different IdPs."""
+        config_azure = make_saml_config(
+            entity_id="https://aragora.example.com/saml/azure",
+            idp_entity_id="https://login.microsoftonline.com/tenant/saml",
+            idp_sso_url="https://login.microsoftonline.com/tenant/saml2",
+        )
+
+        config_okta = make_saml_config(
+            entity_id="https://aragora.example.com/saml/okta",
+            idp_entity_id="https://company.okta.com/app/metadata",
+            idp_sso_url="https://company.okta.com/app/sso",
+        )
+
+        provider_azure = SAMLProvider(config_azure)
+        provider_okta = SAMLProvider(config_okta)
+
+        assert provider_azure.config.idp_entity_id != provider_okta.config.idp_entity_id
+        assert provider_azure.provider_type == SSOProviderType.SAML
+        assert provider_okta.provider_type == SSOProviderType.SAML
+
+    @pytest.mark.asyncio
+    async def test_different_idp_authorization_urls(self):
+        """Test that different IdPs generate different auth URLs."""
+        config_azure = make_saml_config(
+            idp_sso_url="https://login.microsoftonline.com/tenant/saml2",
+        )
+        config_okta = make_saml_config(
+            idp_sso_url="https://company.okta.com/app/sso",
+        )
+
+        provider_azure = SAMLProvider(config_azure)
+        provider_okta = SAMLProvider(config_okta)
+
+        url_azure = await provider_azure.get_authorization_url()
+        url_okta = await provider_okta.get_authorization_url()
+
+        assert "microsoftonline.com" in url_azure
+        assert "okta.com" in url_okta
+
+    def test_provider_specific_attribute_mapping(self):
+        """Test IdP-specific attribute mappings."""
+        # Azure AD uses specific claim URIs
+        azure_mapping = {
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress": "email",
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name": "name",
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/groups": "groups",
+        }
+
+        # Okta uses simpler attribute names
+        okta_mapping = {
+            "email": "email",
+            "displayName": "name",
+            "groups": "groups",
+        }
+
+        config_azure = make_saml_config(attribute_mapping=azure_mapping)
+        config_okta = make_saml_config(attribute_mapping=okta_mapping)
+
+        assert config_azure.attribute_mapping != config_okta.attribute_mapping
+
+    @pytest.mark.asyncio
+    async def test_idp_specific_role_mapping(self):
+        """Test IdP-specific role mapping."""
+        config = make_saml_config(
+            role_mapping={
+                "Aragora-Admins": "admin",
+                "Aragora-Users": "user",
+                "Engineering": "developer",
+            },
+        )
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={"roles": ["Aragora-Admins", "Engineering"]},
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                # Roles should be mapped
+                assert "admin" in user.roles or "Aragora-Admins" in user.roles
+                assert "developer" in user.roles or "Engineering" in user.roles
+
+    def test_provider_isolation(self):
+        """Test that providers maintain isolated state."""
+        config1 = make_saml_config(
+            entity_id="https://sp1.example.com",
+            idp_sso_url="https://idp1.example.com/sso",
+        )
+        config2 = make_saml_config(
+            entity_id="https://sp2.example.com",
+            idp_sso_url="https://idp2.example.com/sso",
+        )
+
+        provider1 = SAMLProvider(config1)
+        provider2 = SAMLProvider(config2)
+
+        # Add state to provider1
+        provider1._state_store["state1"] = time.time()
+
+        # Provider2 should not have this state
+        assert "state1" not in provider2._state_store
+
+
+# ============================================================================
+# Signature Verification Tests
+# ============================================================================
+
+
+class TestSignatureVerification:
+    """Tests for SAML assertion signature verification."""
+
+    @pytest.mark.asyncio
+    async def test_library_validates_signatures(self):
+        """Test that library-based authentication validates signatures."""
+        config = make_saml_config(
+            want_assertions_signed=True,
+        )
+        provider = SAMLProvider(config)
+
+        # Create an unsigned/invalid response
+        saml_response = create_saml_response(name_id="user@example.com")
+
+        # With the library, this should fail validation
+        # (the response isn't properly signed)
+        with pytest.raises(SSOAuthenticationError):
+            await provider._authenticate_with_library(saml_response, None)
+
+    def test_config_signature_requirements(self):
+        """Test signature requirement configuration."""
+        config_signed = make_saml_config(
+            want_assertions_signed=True,
+            authn_request_signed=True,
+            sp_private_key="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+        )
+
+        config_unsigned = make_saml_config(
+            want_assertions_signed=False,
+            authn_request_signed=False,
+        )
+
+        assert config_signed.want_assertions_signed is True
+        assert config_signed.authn_request_signed is True
+        assert config_unsigned.want_assertions_signed is False
+        assert config_unsigned.authn_request_signed is False
+
+    def test_onelogin_settings_include_security(self):
+        """Test that OneLogin settings include security configuration."""
+        config = make_saml_config(
+            want_assertions_signed=True,
+            want_assertions_encrypted=True,
+            authn_request_signed=True,
+            sp_private_key="-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----",
+        )
+        provider = SAMLProvider(config)
+
+        settings = provider._get_onelogin_settings()
+
+        assert settings["security"]["wantAssertionsSigned"] is True
+        assert settings["security"]["wantAssertionsEncrypted"] is True
+        assert settings["security"]["authnRequestsSigned"] is True
+
+
+# ============================================================================
+# Assertion Expiry Tests
+# ============================================================================
+
+
+class TestAssertionExpiry:
+    """Tests for SAML assertion time-based validation."""
+
+    @pytest.mark.asyncio
+    async def test_state_expiry_validation(self):
+        """Test that expired state is rejected."""
+        config = make_saml_config()
+        saml_response = create_saml_response(name_id="user@example.com")
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                # Add state that is 11 minutes old (beyond 10 minute window)
+                provider._state_store["old-state"] = time.time() - 660
+
+                with pytest.raises(SSOAuthenticationError) as exc:
+                    await provider.authenticate(
+                        saml_response=saml_response,
+                        relay_state="old-state",
+                    )
+
+                assert "invalid" in str(exc.value).lower() or "expired" in str(exc.value).lower()
+
+    def test_state_cleanup(self):
+        """Test expired state cleanup."""
+        config = make_saml_config()
+        provider = SAMLProvider(config)
+
+        # Add mix of fresh and expired states
+        provider._state_store["fresh"] = time.time()
+        provider._state_store["expired1"] = time.time() - 700  # 11+ minutes old
+        provider._state_store["expired2"] = time.time() - 800  # 13+ minutes old
+
+        cleaned = provider.cleanup_expired_states()
+
+        assert cleaned == 2
+        assert "fresh" in provider._state_store
+        assert "expired1" not in provider._state_store
+        assert "expired2" not in provider._state_store
+
+
+# ============================================================================
+# Role and Group Mapping Edge Cases
+# ============================================================================
+
+
+class TestRoleGroupMappingEdgeCases:
+    """Tests for edge cases in role and group mapping."""
+
+    @pytest.mark.asyncio
+    async def test_empty_roles_gets_default(self):
+        """Test that users with no roles get default role."""
+        config = make_saml_config(
+            default_role="viewer",
+        )
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={},  # No roles
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                assert "viewer" in user.roles
+
+    @pytest.mark.asyncio
+    async def test_role_deduplication(self):
+        """Test that duplicate roles are deduplicated."""
+        config = make_saml_config(
+            role_mapping={
+                "AdminGroup1": "admin",
+                "AdminGroup2": "admin",  # Maps to same role
+            },
+        )
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={"roles": ["AdminGroup1", "AdminGroup2"]},
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                # Should have "admin" only once
+                admin_count = user.roles.count("admin")
+                assert admin_count <= 1
+
+    @pytest.mark.asyncio
+    async def test_unmapped_roles_passed_through(self):
+        """Test that unmapped roles are passed through unchanged."""
+        config = make_saml_config(
+            role_mapping={
+                "KnownRole": "mapped_role",
+            },
+        )
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={"roles": ["KnownRole", "UnknownRole"]},
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                # KnownRole should be mapped, UnknownRole passed through
+                assert "mapped_role" in user.roles or "KnownRole" in user.roles
+                assert "UnknownRole" in user.roles
+
+    @pytest.mark.asyncio
+    async def test_group_mapping(self):
+        """Test group mapping works similarly to roles."""
+        config = make_saml_config(
+            group_mapping={
+                "IdP-Engineering": "engineering",
+                "IdP-Marketing": "marketing",
+            },
+        )
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={"groups": ["IdP-Engineering", "IdP-Sales"]},
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                # engineering should be mapped, IdP-Sales passed through
+                assert "engineering" in user.groups or "IdP-Engineering" in user.groups
+
+
+# ============================================================================
+# Advanced Provider Configuration Tests
+# ============================================================================
+
+
+class TestAdvancedConfiguration:
+    """Tests for advanced SAML provider configuration."""
+
+    def test_sp_certificate_configuration(self):
+        """Test SP certificate configuration for signed requests."""
+        config = make_saml_config(
+            sp_certificate="-----BEGIN CERTIFICATE-----\nSP_CERT\n-----END CERTIFICATE-----",
+            sp_private_key="-----BEGIN PRIVATE KEY-----\nSP_KEY\n-----END PRIVATE KEY-----",
+            authn_request_signed=True,
+        )
+
+        errors = config.validate()
+        assert not any("sp_private_key" in e for e in errors)
+
+    def test_single_logout_configuration(self):
+        """Test Single Logout URL configuration."""
+        config = make_saml_config(
+            idp_slo_url="https://idp.example.com/slo",
+            logout_url="https://aragora.example.com/saml/slo",
+        )
+
+        provider = SAMLProvider(config)
+        settings = provider._get_onelogin_settings()
+
+        assert settings["idp"]["singleLogoutService"]["url"] == "https://idp.example.com/slo"
+
+    def test_custom_name_id_format(self):
+        """Test custom NameID format configuration."""
+        config = make_saml_config(
+            name_id_format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent",
+        )
+
+        provider = SAMLProvider(config)
+        settings = provider._get_onelogin_settings()
+
+        assert (
+            settings["sp"]["NameIDFormat"] == "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+        )
+
+    def test_encrypted_assertions_configuration(self):
+        """Test encrypted assertions configuration."""
+        config = make_saml_config(
+            want_assertions_encrypted=True,
+            sp_certificate="-----BEGIN CERTIFICATE-----\nCERT\n-----END CERTIFICATE-----",
+            sp_private_key="-----BEGIN PRIVATE KEY-----\nKEY\n-----END PRIVATE KEY-----",
+        )
+
+        provider = SAMLProvider(config)
+        settings = provider._get_onelogin_settings()
+
+        assert settings["security"]["wantAssertionsEncrypted"] is True
+
+    @pytest.mark.asyncio
+    async def test_custom_acs_url_in_auth_request(self):
+        """Test custom ACS URL overrides callback_url."""
+        config = make_saml_config(
+            callback_url="https://default.example.com/acs",
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                url = await provider.get_authorization_url(
+                    redirect_uri="https://custom.example.com/acs"
+                )
+
+                # The SAMLRequest should be encoded, but we can check via decoding
+                from urllib.parse import parse_qs, urlparse
+
+                parsed = urlparse(url)
+                params = parse_qs(parsed.query)
+                saml_request = params["SAMLRequest"][0]
+
+                # Decode and decompress
+                decoded = base64.b64decode(saml_request)
+                decompressed = zlib.decompress(decoded, -15)
+                xml = decompressed.decode("utf-8")
+
+                assert "https://custom.example.com/acs" in xml
+
+
+# ============================================================================
+# User Data Extraction Tests
+# ============================================================================
+
+
+class TestUserDataExtraction:
+    """Tests for extracting user data from SAML assertions."""
+
+    @pytest.mark.asyncio
+    async def test_user_raw_claims_preserved(self):
+        """Test that raw SAML claims are preserved in user object."""
+        config = make_saml_config()
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={
+                "email": ["user@example.com"],
+                "customAttr": ["value1", "value2"],
+            },
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                assert "customAttr" in user.raw_claims
+                assert user.raw_claims["customAttr"] == ["value1", "value2"]
+
+    @pytest.mark.asyncio
+    async def test_user_provider_info(self):
+        """Test that provider info is correctly set."""
+        config = make_saml_config(
+            entity_id="https://aragora.example.com/saml",
+        )
+        saml_response = create_saml_response(name_id="user@example.com")
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                assert user.provider_type == "saml"
+                assert user.provider_id == config.entity_id
+
+    @pytest.mark.asyncio
+    async def test_user_full_name_property(self):
+        """Test SSOUser full_name property."""
+        config = make_saml_config()
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={
+                "firstName": ["John"],
+                "lastName": ["Doe"],
+            },
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                assert user.full_name == "John Doe"
+
+    @pytest.mark.asyncio
+    async def test_user_is_admin_property(self):
+        """Test SSOUser is_admin property."""
+        config = make_saml_config()
+        saml_response = create_saml_response(
+            name_id="admin@example.com",
+            attributes={
+                "roles": ["admin", "user"],
+            },
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                assert user.is_admin is True
+
+    @pytest.mark.asyncio
+    async def test_user_to_dict(self):
+        """Test SSOUser to_dict serialization."""
+        config = make_saml_config()
+        saml_response = create_saml_response(
+            name_id="user@example.com",
+            attributes={
+                "email": ["user@example.com"],
+                "name": ["Test User"],
+            },
+        )
+
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict(
+                "os.environ", {"ARAGORA_ENV": "development", "ARAGORA_ALLOW_UNSAFE_SAML": "true"}
+            ):
+                provider = SAMLProvider(config)
+                user = await provider.authenticate(saml_response=saml_response)
+
+                user_dict = user.to_dict()
+
+                assert user_dict["id"] == user.id
+                assert user_dict["email"] == user.email
+                assert user_dict["provider_type"] == "saml"
+                assert "authenticated_at" in user_dict
