@@ -348,9 +348,9 @@ class BudgetAlertNotifier:
                 store = get_slack_workspace_store()
                 workspace = store.get(workspace_id)
                 if workspace and workspace.access_token:
-                    connector = SlackConnector(token=workspace.access_token)
-                    await connector.post_message(  # type: ignore[attr-defined]
-                        channel=channel_id,
+                    connector = SlackConnector(bot_token=workspace.access_token)
+                    await connector.send_message(
+                        channel_id=channel_id,
                         text=message["text"],
                         blocks=message.get("blocks"),
                     )
@@ -384,16 +384,16 @@ class BudgetAlertNotifier:
         else:
             # Try to import and use connector
             try:
-                from aragora.connectors.enterprise.collaboration.teams import TeamsConnector  # type: ignore[attr-defined]
+                from aragora.connectors.chat.teams import TeamsConnector
                 from aragora.storage.teams_workspace_store import get_teams_workspace_store
 
                 store = get_teams_workspace_store()
                 workspace = store.get(tenant_id)
                 if workspace and workspace.access_token:
-                    connector = TeamsConnector(token=workspace.access_token)
-                    await connector.post_message(
+                    connector = TeamsConnector(app_password=workspace.access_token)
+                    await connector.send_message(
                         channel_id=channel_id,
-                        content=message["text"],
+                        text=message["text"],
                     )
                 else:
                     raise ValueError(f"No Teams workspace found: {tenant_id}")

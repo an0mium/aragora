@@ -38,7 +38,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.connectors.calendar.google_calendar import (
@@ -47,7 +47,21 @@ if TYPE_CHECKING:
     from aragora.connectors.calendar.outlook_calendar import (
         OutlookCalendarConnector,
     )
-    from aragora.connectors.enterprise.communication.models import EmailMessage
+
+
+@runtime_checkable
+class EmailLike(Protocol):
+    """Protocol defining the minimal interface for email objects used in meeting detection.
+
+    This allows both full EmailMessage objects and lightweight email-like objects
+    to be used with the MeetingDetector.
+    """
+
+    id: str
+    subject: str
+    body_text: str
+    from_address: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -363,7 +377,7 @@ class MeetingDetector:
 
     async def detect_meeting(
         self,
-        email: EmailMessage,
+        email: EmailLike,
         check_calendar: bool = True,
     ) -> MeetingDetectionResult:
         """
@@ -820,7 +834,7 @@ class MeetingDetector:
 
     async def detect_batch(
         self,
-        emails: list[EmailMessage],
+        emails: list[EmailLike],
         check_calendar: bool = True,
     ) -> list[MeetingDetectionResult]:
         """
@@ -840,7 +854,7 @@ class MeetingDetector:
 
     async def get_upcoming_meetings_from_emails(
         self,
-        emails: list[EmailMessage],
+        emails: list[EmailLike],
         hours_ahead: int = 24,
     ) -> list[MeetingDetectionResult]:
         """
@@ -887,18 +901,21 @@ async def detect_meeting_quick(
     """
 
     class SimpleEmail:
-        def __init__(self, subject: str, body: str, sender: str):
-            self.id = f"quick_{hash((subject, body, sender))}"
-            self.subject = subject
-            self.body_text = body
-            self.from_address = sender
+        """Lightweight email implementation satisfying EmailLike protocol."""
 
-    email = SimpleEmail(subject, body, sender)
+        def __init__(self, subject: str, body: str, sender: str) -> None:
+            self.id: str = f"quick_{hash((subject, body, sender))}"
+            self.subject: str = subject
+            self.body_text: str = body
+            self.from_address: str = sender
+
+    email: EmailLike = SimpleEmail(subject, body, sender)
     detector = MeetingDetector()
-    return await detector.detect_meeting(email, check_calendar=False)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
+    return await detector.detect_meeting(email, check_calendar=False)
 
 
 __all__ = [
+    "EmailLike",
     "MeetingDetector",
     "MeetingDetectionResult",
     "MeetingType",

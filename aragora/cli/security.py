@@ -143,8 +143,10 @@ def cmd_security_status(args: argparse.Namespace) -> int:
         if len(all_keys) > 1:
             print(f"\n  Total keys: {len(all_keys)}")
             for key in all_keys:
-                marker = "* " if key.key_id == service.get_active_key_id() else "  "  # type: ignore[attr-defined]
-                print(f"    {marker}{key.key_id} v{key.version}")  # type: ignore[attr-defined]
+                key_id = key["key_id"]
+                version = key["version"]
+                marker = "* " if key_id == service.get_active_key_id() else "  "
+                print(f"    {marker}{key_id} v{version}")
 
         print()
         return 0

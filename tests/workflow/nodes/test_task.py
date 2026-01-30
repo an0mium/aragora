@@ -351,6 +351,7 @@ class TestHTTPExecution:
     @pytest.mark.asyncio
     async def test_http_timeout(self):
         """Test HTTP request timeout."""
+        import sys
         from aragora.workflow.nodes.task import TaskStep
 
         step = TaskStep(
@@ -364,20 +365,30 @@ class TestHTTPExecution:
         )
         ctx = self._make_context()
 
-        # Create an async context manager that raises on __aenter__
-        class TimeoutAsyncCM:
+        # Create mock aiohttp module with session that raises timeout on request
+        mock_aiohttp = MagicMock()
+
+        class RaisingRequestCM:
             async def __aenter__(self):
                 raise asyncio.TimeoutError()
 
             async def __aexit__(self, *args):
                 pass
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(return_value=TimeoutAsyncCM())
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        class MockSession:
+            async def __aenter__(self):
+                return self
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+            async def __aexit__(self, *args):
+                pass
+
+            def request(self, *args, **kwargs):
+                return RaisingRequestCM()
+
+        mock_aiohttp.ClientSession = MockSession
+        mock_aiohttp.ClientTimeout = MagicMock(return_value={})
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
             result = await step.execute(ctx)
 
         assert result["success"] is False
@@ -386,6 +397,7 @@ class TestHTTPExecution:
     @pytest.mark.asyncio
     async def test_http_connection_error(self):
         """Test HTTP connection error handling."""
+        import sys
         from aragora.workflow.nodes.task import TaskStep
 
         step = TaskStep(
@@ -398,20 +410,30 @@ class TestHTTPExecution:
         )
         ctx = self._make_context()
 
-        # Create an async context manager that raises on __aenter__
-        class ConnectionErrorAsyncCM:
+        # Create mock aiohttp module with session that raises connection error on request
+        mock_aiohttp = MagicMock()
+
+        class RaisingRequestCM:
             async def __aenter__(self):
                 raise ConnectionError("Connection refused")
 
             async def __aexit__(self, *args):
                 pass
 
-        mock_session = MagicMock()
-        mock_session.request = MagicMock(return_value=ConnectionErrorAsyncCM())
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
+        class MockSession:
+            async def __aenter__(self):
+                return self
 
-        with patch("aiohttp.ClientSession", return_value=mock_session):
+            async def __aexit__(self, *args):
+                pass
+
+            def request(self, *args, **kwargs):
+                return RaisingRequestCM()
+
+        mock_aiohttp.ClientSession = MockSession
+        mock_aiohttp.ClientTimeout = MagicMock(return_value={})
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
             result = await step.execute(ctx)
 
         assert result["success"] is False

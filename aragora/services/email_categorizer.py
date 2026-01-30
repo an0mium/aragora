@@ -33,11 +33,26 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
-    from aragora.connectors.enterprise.communication.models import EmailMessage
+
+
+@runtime_checkable
+class EmailLike(Protocol):
+    """Protocol for objects that can be categorized as emails.
+
+    This protocol defines the minimal interface needed for email categorization.
+    All attributes are optional at runtime (accessed via getattr with defaults),
+    but defining them here provides type safety.
+    """
+
+    id: str
+    subject: str
+    body: str
+    sender: str
+
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +328,7 @@ class EmailCategorizer:
 
     async def categorize_email(
         self,
-        email: EmailMessage,
+        email: EmailLike,
     ) -> CategorizationResult:
         """
         Categorize a single email.
@@ -412,7 +427,7 @@ class EmailCategorizer:
 
     async def categorize_batch(
         self,
-        emails: list[EmailMessage],
+        emails: list[EmailLike],
         concurrency: int = 10,
     ) -> list[CategorizationResult]:
         """
@@ -427,7 +442,7 @@ class EmailCategorizer:
         """
         semaphore = asyncio.Semaphore(concurrency)
 
-        async def categorize_with_limit(email: EmailMessage) -> CategorizationResult:
+        async def categorize_with_limit(email: EmailLike) -> CategorizationResult:
             async with semaphore:
                 return await self.categorize_email(email)
 
@@ -597,4 +612,4 @@ async def categorize_email_quick(
 
     email = SimpleEmail(subject, body, sender)
     categorizer = EmailCategorizer()
-    return await categorizer.categorize_email(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
+    return await categorizer.categorize_email(email)

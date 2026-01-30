@@ -66,9 +66,10 @@ else:
         # Simple fallback that doesn't provide true timeout context manager
         # but allows the code to run - actual timeout handled by wait_for
         from contextlib import asynccontextmanager
+        from typing import AsyncIterator
 
         @asynccontextmanager
-        async def _asyncio_timeout(delay: float):  # type: ignore[misc]
+        async def _asyncio_timeout(delay: float) -> AsyncIterator[None]:
             """No-op timeout context manager for Python < 3.11."""
             yield
 

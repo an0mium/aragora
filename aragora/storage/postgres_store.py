@@ -45,11 +45,41 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 import time
 from abc import ABC
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator, Callable, Optional
+
+# asyncio.timeout is available in Python 3.11+
+if sys.version_info >= (3, 11):
+    from asyncio import timeout as asyncio_timeout
+else:
+    # Fallback for older Python versions
+    from contextlib import asynccontextmanager as _acm
+
+    @_acm
+    async def asyncio_timeout(delay: float | None) -> AsyncGenerator[None, None]:
+        """Fallback timeout context manager for Python < 3.11."""
+        if delay is None:
+            yield
+            return
+
+        async def _timeout_task() -> None:
+            await asyncio.sleep(delay)
+            raise asyncio.TimeoutError()
+
+        task = asyncio.create_task(_timeout_task())
+        try:
+            yield
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +435,7 @@ async def acquire_connection_resilient(
             acquire_start = time.time()
 
             # asyncpg's acquire() supports timeout parameter
-            async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
+            async with asyncio_timeout(timeout):
                 async with pool.acquire() as conn:
                     # Track successful acquisition
                     wait_time = time.time() - acquire_start

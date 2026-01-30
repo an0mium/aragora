@@ -18,7 +18,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound_core import NodeType
 
 logger = logging.getLogger(__name__)
 
@@ -351,9 +354,21 @@ class KnowledgeChatBridge:
             # Create knowledge node
             from aragora.knowledge.mound_core import KnowledgeNode, ProvenanceChain, ProvenanceType
 
+            # Map custom node types to valid NodeType values
+            # Valid types: "fact", "claim", "memory", "evidence", "consensus", "entity"
+            valid_node_types: set[NodeType] = {
+                "fact",
+                "claim",
+                "memory",
+                "evidence",
+                "consensus",
+                "entity",
+            }
+            actual_node_type: NodeType = node_type if node_type in valid_node_types else "memory"
+
             node = KnowledgeNode(
                 content=content[:5000],  # Limit content size
-                node_type=node_type,  # type: ignore[arg-type]
+                node_type=actual_node_type,
                 confidence=0.7,
                 metadata={
                     "workspace_id": workspace_id,
@@ -362,6 +377,7 @@ class KnowledgeChatBridge:
                     "platform": platform,
                     "message_count": len(messages),
                     "source": f"{platform}:{channel_id}",
+                    "original_node_type": node_type,  # Preserve original type if different
                 },
                 provenance=ProvenanceChain(
                     source_type=ProvenanceType.USER,

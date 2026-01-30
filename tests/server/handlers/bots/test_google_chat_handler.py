@@ -132,6 +132,15 @@ def _make_mock_request(event: dict) -> MagicMock:
     return mock_request
 
 
+def _patch_google_chat_auth():
+    """Context manager to patch both credentials and token verification."""
+    return patch.multiple(
+        "aragora.server.handlers.bots.google_chat",
+        GOOGLE_CHAT_CREDENTIALS="test-creds",
+        _verify_google_chat_token=MagicMock(return_value=True),
+    )
+
+
 class TestGoogleChatWebhook:
     """Tests for Google Chat webhook event handling."""
 
@@ -151,9 +160,7 @@ class TestGoogleChatWebhook:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -170,9 +177,7 @@ class TestGoogleChatWebhook:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -192,9 +197,7 @@ class TestGoogleChatWebhook:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -216,9 +219,7 @@ class TestGoogleChatWebhook:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -235,9 +236,7 @@ class TestGoogleChatWebhook:
         }
         mock_request.rfile.read.return_value = b"not valid json"
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -251,9 +250,7 @@ class TestGoogleChatWebhook:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -282,6 +279,7 @@ class TestGoogleChatWebhook:
         mock_request.headers = {"Content-Length": str(len(body))}  # No Authorization
         mock_request.rfile.read.return_value = body
 
+        # Only patch credentials, not verification - we want to test auth failure
         with patch(
             "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
         ):
@@ -315,9 +313,7 @@ class TestGoogleChatSlashCommands:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -342,9 +338,7 @@ class TestGoogleChatSlashCommands:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -367,9 +361,7 @@ class TestGoogleChatSlashCommands:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -394,9 +386,7 @@ class TestGoogleChatSlashCommands:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None
@@ -473,9 +463,7 @@ class TestInputValidation:
 
         mock_request = _make_mock_request(event)
 
-        with patch(
-            "aragora.server.handlers.bots.google_chat.GOOGLE_CHAT_CREDENTIALS", "test-creds"
-        ):
+        with _patch_google_chat_auth():
             result = handler.handle_post("/api/v1/bots/google-chat/webhook", {}, mock_request)
 
         assert result is not None

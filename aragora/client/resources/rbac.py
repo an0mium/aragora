@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from ..client import AragoraClient
@@ -426,14 +426,16 @@ class RBACAPI:
             List of created RoleAssignment objects.
         """
         response = self._client._post("/api/v1/rbac/assignments/bulk", {"assignments": assignments})
-        return [RoleAssignment(**a) for a in response.get("assignments", [])]  # type: ignore[arg-type]
+        assignments_data = cast(list[dict[str, Any]], response.get("assignments", []))
+        return [RoleAssignment(**a) for a in assignments_data]
 
     async def bulk_assign_async(self, assignments: list[dict[str, str]]) -> list[RoleAssignment]:
         """Async version of bulk_assign()."""
         response = await self._client._post_async(
             "/api/v1/rbac/assignments/bulk", {"assignments": assignments}
         )
-        return [RoleAssignment(**a) for a in response.get("assignments", [])]  # type: ignore[arg-type]
+        assignments_data = cast(list[dict[str, Any]], response.get("assignments", []))
+        return [RoleAssignment(**a) for a in assignments_data]
 
     # -------------------------------------------------------------------------
     # User Permissions

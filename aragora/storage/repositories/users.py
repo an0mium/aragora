@@ -519,8 +519,15 @@ def get_user_repository(
 
     repo = getattr(store, "_user_repo", None)
     if repo is None:
+        # UserRepository requires a SQLite-style _transaction method
+        # PostgresUserStore uses async operations and doesn't have this method
+        transaction_fn: Callable[[], ContextManager[sqlite3.Cursor]] | None = getattr(
+            store, "_transaction", None
+        )
+        if transaction_fn is None:
+            return None
         repo = UserRepository(
-            store._transaction,  # type: ignore[union-attr]
+            transaction_fn,
             getattr(store, "_get_connection", None),
         )
     _user_repository = repo

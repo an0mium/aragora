@@ -64,6 +64,57 @@ GOOGLE_CHAT_PROJECT_ID = os.environ.get("GOOGLE_CHAT_PROJECT_ID")
 if not GOOGLE_CHAT_CREDENTIALS:
     logger.warning("GOOGLE_CHAT_CREDENTIALS not configured - Google Chat bot disabled")
 
+
+def _verify_google_chat_token(auth_header: str) -> bool:
+    """Verify Google Chat bearer token using Google's public keys.
+
+    Falls back to token presence check if google-auth isn't installed.
+
+    Args:
+        auth_header: The Authorization header value (e.g., "Bearer <token>")
+
+    Returns:
+        True if token is valid or verification is unavailable, False if invalid.
+    """
+    if not auth_header.startswith("Bearer "):
+        return False
+
+    token = auth_header[7:]  # Remove "Bearer " prefix
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+
+        # Verify the token against Google's public keys
+        # chat@system.gserviceaccount.com is the expected issuer for Google Chat
+        expected_audience = GOOGLE_CHAT_PROJECT_ID or "unknown"
+        id_info = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=expected_audience,
+        )
+
+        # Verify the token is from Google Chat
+        email = id_info.get("email", "")
+        if not email.endswith("@system.gserviceaccount.com"):
+            logger.warning(f"Google Chat token from unexpected email: {email}")
+            return False
+
+        return True
+
+    except ImportError:
+        # google-auth not installed - fall back to presence check
+        logger.debug("google-auth not installed, using token presence check only")
+        return True
+    except ValueError as e:
+        # Token verification failed
+        logger.warning(f"Google Chat token verification failed: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Unexpected error verifying Google Chat token: {e}")
+        return True  # Fail open on unexpected errors for availability
+
+
 # Input validation limits
 MAX_TOPIC_LENGTH = 500
 MAX_STATEMENT_LENGTH = 1000
@@ -196,17 +247,12 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 status=503,
             )
 
-        # Verify bearer token presence (Google Chat authentication)
+        # Verify bearer token (Google Chat authentication)
         auth_header = handler.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            logger.warning("Google Chat webhook missing bearer token")
-            self._audit_webhook_auth_failure("bearer_token", "missing")
-            return error_response("Missing authorization", 401)
-
-        # Note: Full JWT verification against Google's public keys would require
-        # additional dependencies (google-auth). For now, we verify the token is present
-        # and credentials are configured. Google's infrastructure ensures only
-        # legitimate requests reach our endpoint when using Cloud Run/App Engine.
+        if not _verify_google_chat_token(auth_header):
+            logger.warning("Google Chat webhook authentication failed")
+            self._audit_webhook_auth_failure("bearer_token", "invalid")
+            return error_response("Invalid authorization", 401)
 
         try:
             # Read and parse body

@@ -12,9 +12,21 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 from aragora.workflow.step import BaseStep, WorkflowContext
+
+
+class WebConnectorConfig(TypedDict, total=False):
+    """Configuration options for WebConnector initialization."""
+
+    default_confidence: float
+    timeout: int
+    max_content_length: int
+    rate_limit_delay: float
+    cache_dir: str
+    enable_circuit_breaker: bool
+
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +261,15 @@ class KnowledgePipelineStep(BaseStep):
         try:
             from aragora.connectors.web import WebConnector
 
-            connector = WebConnector(**connector_config)  # type: ignore[arg-type]
+            web_config = WebConnectorConfig(
+                default_confidence=connector_config.get("default_confidence", 0.6),
+                timeout=connector_config.get("timeout", 30),
+                max_content_length=connector_config.get("max_content_length", 10000),
+                rate_limit_delay=connector_config.get("rate_limit_delay", 1.0),
+                cache_dir=connector_config.get("cache_dir", ".web_cache"),
+                enable_circuit_breaker=connector_config.get("enable_circuit_breaker", True),
+            )
+            connector = WebConnector(**web_config)
             content = await connector.fetch(url)
 
             result = await self._pipeline.process_document(

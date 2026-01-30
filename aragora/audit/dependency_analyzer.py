@@ -23,11 +23,17 @@ import json
 import logging
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 logger = logging.getLogger(__name__)
 
@@ -495,11 +501,6 @@ class DependencyAnalyzer:
         project_name = ""
         project_version = ""
 
-        try:
-            import tomllib
-        except ImportError:
-            import tomli as tomllib  # type: ignore[import-not-found]  # Fallback for Python <3.11
-
         content = path.read_text()
         data = tomllib.loads(content)
 
@@ -581,11 +582,6 @@ class DependencyAnalyzer:
     ) -> dict[str, Dependency]:
         """Parse Pipfile."""
         dependencies: dict[str, Dependency] = {}
-
-        try:
-            import tomllib
-        except ImportError:
-            import tomli as tomllib  # type: ignore[import-not-found]  # Fallback for Python <3.11
 
         content = path.read_text()
         data = tomllib.loads(content)

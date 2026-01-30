@@ -444,7 +444,7 @@ class PostgresUserStore:
 
     def _row_to_user(self, row: Any) -> User:
         """Convert database row to User object."""
-        return User(  # type: ignore[call-arg]
+        return User(
             id=row["id"],
             email=row["email"],
             password_hash=row["password_hash"],
@@ -454,10 +454,17 @@ class PostgresUserStore:
             role=row["role"] or "member",
             is_active=bool(row["is_active"]),
             email_verified=bool(row["email_verified"]),
-            api_key=row["api_key"],
+            api_key_hash=row["api_key_hash"],
+            api_key_prefix=row["api_key_prefix"],
+            api_key_created_at=row["api_key_created_at"],
+            api_key_expires_at=row["api_key_expires_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             last_login_at=row["last_login_at"],
+            mfa_secret=row["mfa_secret"],
+            mfa_enabled=bool(row["mfa_enabled"]),
+            mfa_backup_codes=row["mfa_backup_codes"],
+            token_version=row["token_version"] or 1,
         )
 
     # =========================================================================

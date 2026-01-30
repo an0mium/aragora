@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Gas Town CLI (gt) - Multi-agent orchestration command line interface.
 
@@ -17,23 +16,26 @@ Usage via aragora CLI:
     aragora gt convoy list
     aragora gt bead list --status pending
 
-Note: This module uses Gas Town APIs that are still being developed.
-Type checking is disabled due to API signature mismatches.
 Bead list will show convoy associations when convoys are available.
 """
+
+from __future__ import annotations
 
 import argparse
 import asyncio
 import json
 import logging
+from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, TypeVar
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
 
-def _run_async(coro):
+def _run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously."""
     try:
         loop = asyncio.get_event_loop()
@@ -409,12 +411,13 @@ def cmd_bead_assign(args: argparse.Namespace) -> int:
 def cmd_agent_list(args: argparse.Namespace) -> int:
     """List agents with their roles."""
     try:
-        from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
+        from aragora.nomic.agent_roles import AgentHierarchy, AgentRole, RoleAssignment
 
         hierarchy = AgentHierarchy()
+        _run_async(hierarchy.initialize())
 
         # Filter by role if specified
-        role_filter = None
+        role_filter: AgentRole | None = None
         if args.role:
             try:
                 role_filter = AgentRole(args.role.lower())
@@ -423,14 +426,21 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
                 print(f"Valid: {', '.join(r.value for r in AgentRole)}")
                 return 1
 
-        agents = _run_async(hierarchy.list_agents(role=role_filter))  # type: ignore[attr-defined]
+        agents: list[RoleAssignment]
+        if role_filter is not None:
+            agents = _run_async(hierarchy.get_agents_by_role(role_filter))
+        else:
+            # Get all agents by iterating through all roles
+            agents = []
+            for role in AgentRole:
+                agents.extend(_run_async(hierarchy.get_agents_by_role(role)))
 
         if not agents:
             print("No agents found")
             return 0
 
         headers = ["Agent ID", "Role", "Supervised By", "Registered"]
-        rows = []
+        rows: list[list[str]] = []
         for a in agents:
             rows.append(
                 [
@@ -459,6 +469,7 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
         from aragora.nomic.agent_roles import AgentHierarchy, AgentRole
 
         hierarchy = AgentHierarchy()
+        _run_async(hierarchy.initialize())
 
         # Parse role
         try:
@@ -468,15 +479,25 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
             print(f"Valid: {', '.join(r.value for r in AgentRole)}")
             return 1
 
-        # Update role
-        success = _run_async(hierarchy.update_agent_role(args.agent_id, new_role))  # type: ignore[attr-defined]
-
-        if success:
-            print(f"Agent {args.agent_id} promoted to {new_role.value.upper()}")
-            return 0
-        else:
+        # Get the existing assignment
+        existing = _run_async(hierarchy.get_assignment(args.agent_id))
+        if not existing:
             print("Failed to promote agent (not found?)")
             return 1
+
+        # Preserve existing assignment properties while changing the role
+        _run_async(hierarchy.unregister_agent(args.agent_id))
+        _run_async(
+            hierarchy.register_agent(
+                agent_id=existing.agent_id,
+                role=new_role,
+                supervised_by=existing.supervised_by,
+                metadata=existing.metadata,
+            )
+        )
+
+        print(f"Agent {args.agent_id} promoted to {new_role.value.upper()}")
+        return 0
 
     except ImportError as e:
         print(f"Gas Town modules not available: {e}")

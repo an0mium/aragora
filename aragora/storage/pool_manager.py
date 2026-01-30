@@ -133,7 +133,7 @@ async def initialize_shared_pool(
         # Now create a fresh pool on the current event loop (with retry)
         from aragora.storage.postgres_store import get_postgres_pool
 
-        last_err = None
+        last_err: Exception | None = None
         for attempt in range(3):
             try:
                 _ps_mod._pool = None  # Ensure clean state for each attempt
@@ -152,7 +152,10 @@ async def initialize_shared_pool(
                 if attempt < 2:
                     await asyncio.sleep(2.0 * (attempt + 1))
         else:
-            raise last_err  # type: ignore[misc]
+            # last_err is guaranteed to be set here since we only reach the else
+            # branch if we never broke out of the loop (i.e., all attempts failed)
+            assert last_err is not None
+            raise last_err
         _pool_event_loop = current_loop
         _pool_config = {
             "dsn_hash": hash(effective_dsn) if effective_dsn else None,

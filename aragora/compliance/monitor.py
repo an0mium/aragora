@@ -290,10 +290,10 @@ class ComplianceMonitor:
         self._last_full_scan = datetime.now(timezone.utc)
 
         try:
-            from aragora.compliance.framework import get_compliance_framework  # type: ignore[attr-defined]
+            from aragora.compliance.framework import ComplianceFrameworkManager
 
-            framework = get_compliance_framework()
-            if not framework:
+            framework_manager = ComplianceFrameworkManager()
+            if not framework_manager:
                 return
 
             # This would scan actual system resources
@@ -317,14 +317,15 @@ class ComplianceMonitor:
             audit_log = get_audit_log()
             if audit_log:
                 # Verify recent entries have valid hash chain
-                verified = await audit_log.verify_chain(limit=100)  # type: ignore[attr-defined]
+                # verify_integrity returns (is_valid, list of error messages)
+                is_valid, _errors = audit_log.verify_integrity()
                 if self._last_status:
-                    self._last_status.audit_trail_verified = verified
+                    self._last_status.audit_trail_verified = is_valid
 
-                if not verified:
+                if not is_valid:
                     await self._alert_audit_tamper()
 
-                return verified
+                return is_valid
 
         except ImportError:
             logger.debug("Audit log not available for verification")

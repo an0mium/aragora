@@ -349,11 +349,12 @@ class VerticalSpecialistAgent(APIAgent):
 
         return response.content
 
-    async def critique(  # type: ignore[override]
+    async def critique(
         self,
         proposal: str,
         task: str,
         context: Optional[list[Message]] = None,
+        target_agent: Optional[str] = None,
     ) -> Critique:
         """
         Critique a proposal from the perspective of this vertical.
@@ -365,6 +366,7 @@ class VerticalSpecialistAgent(APIAgent):
             proposal: The proposal to critique
             task: The original task
             context: Previous messages
+            target_agent: Name of the agent whose proposal is being critiqued
 
         Returns:
             Critique with domain-specific issues and suggestions
@@ -372,8 +374,8 @@ class VerticalSpecialistAgent(APIAgent):
         # Check for compliance violations
         violations = await self.check_compliance(proposal)
 
-        issues = []
-        suggestions = []
+        issues: list[str] = []
+        suggestions: list[str] = []
 
         # Convert violations to critique issues
         for v in violations:
@@ -395,7 +397,7 @@ class VerticalSpecialistAgent(APIAgent):
 
         return Critique(
             agent=self.name,
-            target_agent="proposal",
+            target_agent=target_agent or "proposal",
             target_content=proposal[:200],
             issues=issues,
             suggestions=suggestions,
