@@ -193,21 +193,19 @@ class _TTLCache(Generic[T]):
         # Register for global management
         _register_cache(self._cache, self._stats, self._lock)
 
-    def get(self, key: str, update_stats: bool = True) -> tuple[bool, Optional[T]]:
+    def get(self, key: str) -> tuple[bool, Optional[T]]:
         """
         Get a value from the cache.
 
         Args:
             key: The cache key
-            update_stats: Whether to update hit/miss statistics (default True)
 
         Returns:
             Tuple of (found, value). If found is False, value is None.
         """
         with self._lock:
             if key not in self._cache:
-                if update_stats:
-                    self._stats.misses += 1
+                self._stats.misses += 1
                 return False, None
 
             entry = self._cache[key]
@@ -215,14 +213,12 @@ class _TTLCache(Generic[T]):
             if entry.is_expired():
                 del self._cache[key]
                 self._stats.size = len(self._cache)
-                if update_stats:
-                    self._stats.misses += 1
+                self._stats.misses += 1
                 return False, None
 
             # Move to end (most recently used)
             self._cache.move_to_end(key)
-            if update_stats:
-                self._stats.hits += 1
+            self._stats.hits += 1
             return True, entry.value
 
     def set(self, key: str, value: T) -> None:
@@ -333,20 +329,19 @@ def cached(
     def decorator(fn: F) -> F:
         cache = _TTLCache[Any](maxsize=maxsize, ttl_seconds=ttl_seconds)
 
-        # Get parameter names for positional argument mapping (at decoration time)
+        # Get parameter names for positional argument mapping (captured at decoration time)
         try:
             sig = inspect.signature(fn)
-            param_names: Optional[tuple[str, ...]] = tuple(sig.parameters.keys())
+            param_names = tuple(sig.parameters.keys())
         except (ValueError, TypeError):
             param_names = None
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Check for custom key args at call time
-            # This allows @cache_key to be applied as outer decorator
+            # Check for custom key args at call time (allows @cache_key to be applied after)
             key_args = getattr(wrapper, "_cache_key_args", None)
-            effective_params = param_names if key_args else None
-            cache_key = _make_cache_key(args, kwargs, key_args, effective_params)
+            effective_param_names = param_names if key_args else None
+            cache_key = _make_cache_key(args, kwargs, key_args, effective_param_names)
 
             found, value = cache.get(cache_key)
             if found:
@@ -414,32 +409,28 @@ def async_cached(
         cache = _TTLCache[Any](maxsize=maxsize, ttl_seconds=ttl_seconds)
         async_lock = asyncio.Lock()
 
-        # Get parameter names for positional argument mapping (at decoration time)
+        # Get parameter names for positional argument mapping (captured at decoration time)
         try:
             sig = inspect.signature(fn)
-            param_names: Optional[tuple[str, ...]] = tuple(sig.parameters.keys())
+            param_names = tuple(sig.parameters.keys())
         except (ValueError, TypeError):
             param_names = None
 
         @functools.wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Check for custom key args at call time
-            # This allows @cache_key to be applied as outer decorator
+            # Check for custom key args at call time (allows @cache_key to be applied after)
             key_args = getattr(wrapper, "_cache_key_args", None)
-            effective_params = param_names if key_args else None
-            cache_key = _make_cache_key(args, kwargs, key_args, effective_params)
+            effective_param_names = param_names if key_args else None
+            cache_key = _make_cache_key(args, kwargs, key_args, effective_param_names)
 
-            # Check cache without lock first (fast path, no stats update)
-            found, value = cache.get(cache_key, update_stats=False)
+            # Check cache without lock first (fast path)
+            found, value = cache.get(cache_key)
             if found:
-                # Record the hit now that we know it's a real hit
-                with cache._lock:
-                    cache._stats.hits += 1
                 return value
 
             # Slow path: acquire lock and check again
             async with async_lock:
-                # Double-check after acquiring lock (with stats update)
+                # Double-check after acquiring lock
                 found, value = cache.get(cache_key)
                 if found:
                     return value

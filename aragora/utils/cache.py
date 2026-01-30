@@ -191,7 +191,8 @@ class TTLCache(Generic[T]):
         with self._lock:
             now = time.time()
             return [
-                (k, v) for k, (cached_time, v) in self._cache.items()
+                (k, v)
+                for k, (cached_time, v) in self._cache.items()
                 if now - cached_time < self._ttl_seconds
             ]
 
