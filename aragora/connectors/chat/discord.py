@@ -461,7 +461,7 @@ class DiscordConnector(ChatPlatformConnector):
                 size=len(content),
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord upload_file error: {e}")
             return FileAttachment(
@@ -533,7 +533,7 @@ class DiscordConnector(ChatPlatformConnector):
                 size=0,
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
             logger.error(f"Discord download_file error: {e}")
             return FileAttachment(
@@ -867,7 +867,14 @@ class DiscordConnector(ChatPlatformConnector):
 
             return messages
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            httpx.TimeoutException,
+            OSError,
+            json.JSONDecodeError,
+            KeyError,
+            ValueError,
+        ) as e:
             self._record_failure(e)
             logger.error(f"Error getting Discord channel history: {e}")
             return []
