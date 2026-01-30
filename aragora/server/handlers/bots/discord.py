@@ -68,7 +68,7 @@ def _verify_discord_signature(
     except (ValueError, TypeError) as e:
         logger.warning(f"Invalid signature format: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, OSError, AttributeError) as e:
         logger.exception(f"Unexpected signature verification error: {e}")
         return False
 
@@ -206,7 +206,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                     },
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected Discord interaction error: {e}")
             return json_response(
                 {
@@ -383,7 +383,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                         )
                 except (ValueError, KeyError, TypeError) as e:
                     logger.warning(f"Failed to record vote due to data error: {e}")
-                except Exception as e:
+                except (RuntimeError, OSError, AttributeError) as e:
                     logger.exception(f"Unexpected error recording vote: {e}")
 
                 emoji = "thumbsup" if vote == "agree" else "thumbsdown"

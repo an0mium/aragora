@@ -54,7 +54,7 @@ async def _send_slack_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
                 logger.warning(f"Slack send failed: {response.status_code}")
                 return False
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Slack result send error: {e}")
         return False
 
@@ -104,7 +104,7 @@ async def _send_slack_receipt(origin: DebateOrigin, summary: str, receipt_url: s
                     return True
             return False
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Slack receipt post error: {e}")
         return False
 
@@ -136,6 +136,6 @@ async def _send_slack_error(origin: DebateOrigin, message: str) -> bool:
             response = await client.post(url, json=data, headers=headers)
             return response.is_success and response.json().get("ok", False)
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Slack error send failed: {e}")
         return False

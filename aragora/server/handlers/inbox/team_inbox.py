@@ -74,7 +74,9 @@ def _get_activity_store():
 
                 _activity_store = get_inbox_activity_store()
                 logger.info("[TeamInbox] Initialized inbox activity store")
-            except Exception as e:
+            except ImportError as e:
+                logger.warning(f"[TeamInbox] Activity store module not available: {e}")
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"[TeamInbox] Failed to init activity store: {e}")
         return _activity_store
 
@@ -102,7 +104,8 @@ def _log_activity(
                 metadata=metadata or {},
             )
             store.log_activity(activity)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
+            # Non-critical: activity logging failures shouldn't break the main operation
             logger.debug(f"[TeamInbox] Failed to log activity: {e}")
 
 

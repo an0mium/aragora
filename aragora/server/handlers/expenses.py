@@ -123,7 +123,7 @@ async def handle_upload_receipt(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
         logger.exception("Error processing receipt")
         return error_response(f"Failed to process receipt: {e}", status=500)
 
@@ -220,7 +220,7 @@ async def handle_create_expense(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
         logger.exception("Error creating expense")
         return error_response(f"Failed to create expense: {e}", status=500)
 
@@ -305,7 +305,7 @@ async def handle_list_expenses(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error listing expenses")
         return error_response(f"Failed to list expenses: {e}", status=500)
 
@@ -329,7 +329,7 @@ async def handle_get_expense(
 
         return success_response({"expense": expense.to_dict()})
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error getting expense")
         return error_response(f"Failed to get expense: {e}", status=500)
 
@@ -397,7 +397,7 @@ async def handle_update_expense(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
         logger.exception("Error updating expense")
         return error_response(f"Failed to update expense: {e}", status=500)
 
@@ -421,7 +421,7 @@ async def handle_delete_expense(
 
         return success_response({"message": "Expense deleted successfully"})
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error deleting expense")
         return error_response(f"Failed to delete expense: {e}", status=500)
 
@@ -455,7 +455,7 @@ async def handle_approve_expense(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error approving expense")
         return error_response(f"Failed to approve expense: {e}", status=500)
 
@@ -489,7 +489,7 @@ async def handle_reject_expense(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error rejecting expense")
         return error_response(f"Failed to reject expense: {e}", status=500)
 
@@ -515,7 +515,7 @@ async def handle_get_pending_approvals(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error getting pending approvals")
         return error_response(f"Failed to get pending approvals: {e}", status=500)
 
@@ -560,7 +560,7 @@ async def handle_categorize_expenses(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, ValueError, TypeError) as e:
         logger.exception("Error categorizing expenses")
         return error_response(f"Failed to categorize expenses: {e}", status=500)
 
@@ -604,7 +604,7 @@ async def handle_sync_to_qbo(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, ConnectionError, TimeoutError) as e:
         logger.exception("Error syncing to QBO")
         return error_response(f"Failed to sync to QBO: {e}", status=500)
 
@@ -656,7 +656,7 @@ async def handle_get_expense_stats(
 
         return success_response({"stats": stats_data})
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error getting expense stats")
         return error_response(f"Failed to get expense stats: {e}", status=500)
 
@@ -711,7 +711,7 @@ async def handle_export_expenses(
             }
         )
 
-    except Exception as e:
+    except (RuntimeError, OSError, IOError, LookupError) as e:
         logger.exception("Error exporting expenses")
         return error_response(f"Failed to export expenses: {e}", status=500)
 

@@ -238,7 +238,7 @@ class GraphQLHandler(BaseHandler):
         try:
             result = self._execute(query, variables, operation_name, ctx)
             return json_response(result, status=200 if "errors" not in result else 400)
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"GraphQL execution error: {e}")
             return json_response(
                 {
@@ -322,7 +322,7 @@ class GraphQLHandler(BaseHandler):
 
             return result
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.exception(f"Error executing operation: {e}")
             return {
                 "data": None,
@@ -384,7 +384,7 @@ class GraphQLHandler(BaseHandler):
                         )
                     data[field.alias or field_name] = resolved_data
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.exception(f"Error resolving field {field_name}: {e}")
                 errors.append(f"Error resolving '{field_name}': {e}")
                 data[field.alias or field_name] = None

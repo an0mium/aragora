@@ -145,7 +145,7 @@ class RedisStateManager:
             self._connected = True
             logger.info(f"Connected to Redis at {self._redis_url}")
             return True
-        except Exception as e:
+        except (ConnectionError, OSError, TimeoutError) as e:
             logger.warning(f"Failed to connect to Redis: {e}")
             self._connected = False
             return False
@@ -432,7 +432,7 @@ class RedisStateManager:
                 await self._redis.ping()
                 result["ping_ms"] = (time.time() - start) * 1000
                 result["active_debates"] = await self.get_active_debate_count()
-            except Exception as e:
+            except (ConnectionError, OSError, TimeoutError) as e:
                 result["error"] = str(e)
                 result["connected"] = False
 

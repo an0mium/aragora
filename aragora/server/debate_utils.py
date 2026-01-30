@@ -299,7 +299,7 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
                     ):
                         try:
                             task.cancel()
-                        except Exception as e:
+                        except (RuntimeError, ValueError, AttributeError) as e:
                             logger.debug(f"[watchdog] Task cancel failed for {debate_id}: {e}")
 
                 # Emit timeout event
@@ -320,7 +320,7 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
                                 loop_id=debate_id,
                             )
                         )
-                except Exception as e:
+                except (ValueError, TypeError, AttributeError, RuntimeError, ImportError) as e:
                     logger.debug(f"[watchdog] Event emission failed for {debate_id}: {e}")
 
             if stuck_debates:
@@ -329,7 +329,7 @@ async def watchdog_stuck_debates(check_interval: float = 60.0) -> None:
         except asyncio.CancelledError:
             logger.info("[watchdog] Stuck debate watchdog cancelled")
             break
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"[watchdog] Error in stuck debate watchdog: {e}")
             # Continue running despite errors
 

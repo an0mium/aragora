@@ -174,7 +174,7 @@ class ControlPlaneStreamServer:
             async for message in websocket:
                 await self._handle_message(websocket, message)
 
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.warning(f"WebSocket error: {e}")
         finally:
             await self._unregister_client(websocket)
@@ -241,7 +241,7 @@ class ControlPlaneStreamServer:
         """
         try:
             await websocket.send(message)
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.debug(f"Failed to send to client: {e}")
             await self._unregister_client(websocket)
 

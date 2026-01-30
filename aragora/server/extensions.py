@@ -12,6 +12,7 @@ for reduced memory footprint or feature isolation.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
@@ -196,7 +197,7 @@ def init_agent_fabric(
 
         return fabric, hook_manager
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, OSError) as e:
         logger.warning(f"[extensions] Failed to initialize Agent Fabric: {e}")
         return None, None
 
@@ -257,7 +258,7 @@ def init_gastown(storage_path: Path | None = None) -> tuple[Any | None, ...]:
 
         return coordinator, workspace_mgr, convoy_tracker, hook_runner, gastown_adapter
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, OSError) as e:
         logger.warning(f"[extensions] Failed to initialize Gastown: {e}")
         return None, None, None, None, None
 
@@ -331,7 +332,7 @@ def init_moltbot(storage_path: Path | None = None) -> tuple[Any | None, ...]:
 
         return inbox, gateway, voice, onboarding, moltbot_adapter
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, OSError) as e:
         logger.warning(f"[extensions] Failed to initialize Moltbot: {e}")
         return None, None, None, None, None
 
@@ -376,7 +377,7 @@ def init_computer_use() -> tuple[Any | None, Any | None]:
 
         return orchestrator, policy_checker
 
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, OSError) as e:
         logger.warning(f"[extensions] Failed to initialize Computer Use: {e}")
         return None, None
 
@@ -485,7 +486,7 @@ async def shutdown_extensions() -> None:
         try:
             await _extension_state.local_gateway.stop()
             logger.debug("[extensions] Moltbot gateway stopped")
-        except Exception as e:
+        except (OSError, RuntimeError, asyncio.CancelledError) as e:
             logger.warning(f"[extensions] Error stopping gateway: {e}")
 
     # Persist extension state
@@ -493,7 +494,7 @@ async def shutdown_extensions() -> None:
         try:
             await _extension_state.coordinator.persist_all()
             logger.debug("[extensions] Gastown state persisted")
-        except Exception as e:
+        except (OSError, RuntimeError, asyncio.CancelledError) as e:
             logger.warning(f"[extensions] Error persisting Gastown: {e}")
 
     logger.info("[extensions] Extensions shutdown complete")

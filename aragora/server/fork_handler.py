@@ -182,7 +182,7 @@ class ForkBridgeHandler:
                     try:
                         with self.active_loops_lock:
                             self.active_loops.pop(loop_id, None)
-                    except Exception as cleanup_err:
+                    except (RuntimeError, KeyError) as cleanup_err:
                         logger.error(f"Failed to cleanup fork '{loop_id}': {cleanup_err}")
                         return
 
@@ -193,7 +193,7 @@ class ForkBridgeHandler:
                         logger.warning(f"Fork debate '{loop_id}' failed: {t.exception()}")
                     else:
                         logger.info(f"Fork debate '{loop_id}' completed successfully")
-                except Exception as e:
+                except (RuntimeError, KeyError, TypeError) as e:
                     logger.error(f"Exception in callback for '{loop_id}': {e}")
 
             task_obj.add_done_callback(_on_task_done)
@@ -223,7 +223,7 @@ class ForkBridgeHandler:
             logger.error(f"Debate components not available: {e}")
             await self._send_error(ws, "Debate system not available")
             return False
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, KeyError, AttributeError) as e:
             # Cleanup on failure
             with self.active_loops_lock:
                 self.active_loops.pop(loop_id, None)
@@ -235,7 +235,7 @@ class ForkBridgeHandler:
         """Run the forked debate (initial messages are passed to Arena constructor)."""
         try:
             return await arena.run()
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
             logger.error(f"Fork debate {loop_id} failed: {type(e).__name__}: {e}")
             raise  # Re-raise so callback can detect it
 
@@ -248,7 +248,7 @@ class ForkBridgeHandler:
             else:
                 # Fall back to websockets style
                 await ws.send(json.dumps(data))
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError) as e:
             logger.error(f"Failed to send JSON message: {e}")
 
     async def _send_error(self, ws: Any, message: str) -> None:

@@ -140,7 +140,7 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
                     "confidence": result.confidence,
                     "rounds_used": result.rounds_used,
                 }
-            except Exception as e:
+            except (RuntimeError, ValueError, OSError, ImportError) as e:
                 logger.error(f"Auto-scheduled debate failed: {e}")
                 return None
 
@@ -151,7 +151,7 @@ async def init_pulse_scheduler(stream_emitter: Any | None = None) -> bool:
 
     except ImportError as e:
         logger.debug(f"Pulse scheduler autostart not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, AttributeError) as e:
         logger.warning(f"Failed to auto-start pulse scheduler: {e}")
     return False
 

@@ -214,7 +214,7 @@ class A2AHandler(BaseHandler):
         try:
             result = await server.handle_task(request)
             return json_response(result.to_dict())
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Task execution failed: {e}")
             return error_response(f"Task execution failed: {str(e)[:100]}", 500)
 
@@ -242,7 +242,7 @@ class A2AHandler(BaseHandler):
                     headers={},
                 )
             return error_response(f"Task not found or not cancellable: {task_id}", 404)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.error(f"Task cancellation failed: {e}")
             return error_response(f"Cancellation failed: {str(e)[:100]}", 500)
 

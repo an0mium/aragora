@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -240,7 +241,9 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
                 logger.info(
                     "[init] Shared pool not available for PostgresInsightStore, using SQLite"
                 )
-            except Exception as e:
+            except (OSError, ConnectionError, RuntimeError) as e:
+                # OSError: file/network issues, ConnectionError: DB connection,
+                # RuntimeError: pool/async issues - fallback to SQLite gracefully
                 logger.warning(f"[init] PostgresInsightStore failed, falling back: {e}")
     except ImportError:
         pass
@@ -264,12 +267,14 @@ def init_insight_store(nomic_dir: Path) -> Any | None:
             logger.info("[init] InsightStore KM adapter wired for bidirectional sync")
         except ImportError:
             logger.debug("[init] KM InsightsAdapter not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            # Adapter configuration or wiring errors - non-critical, store still works
             logger.warning(f"[init] InsightsAdapter wiring failed: {e}")
 
         logger.info("[init] SQLite InsightStore loaded/created for API access")
         return store
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors during store creation - server continues without insights
         logger.warning(f"[init] InsightStore initialization failed: {e}")
         return None
 
@@ -294,12 +299,14 @@ def init_elo_system(nomic_dir: Path) -> Any | None:
             logger.info("[init] EloSystem KM adapter wired for skill tracking")
         except ImportError:
             logger.debug("[init] KM EloAdapter not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            # Adapter configuration or wiring errors - non-critical, ELO still works
             logger.warning(f"[init] EloAdapter wiring failed: {e}")
 
         logger.info("[init] EloSystem loaded/created for leaderboard API")
         return system
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors during ELO DB creation - server continues without rankings
         logger.warning(f"[init] EloSystem initialization failed: {e}")
         return None
 
@@ -324,12 +331,14 @@ def init_flip_detector(nomic_dir: Path) -> Any | None:
             logger.info("[init] FlipDetector KM adapter wired for flip tracking")
         except ImportError:
             logger.debug("[init] KM InsightsAdapter not available for FlipDetector")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            # Adapter configuration or wiring errors - non-critical, detector still works
             logger.warning(f"[init] FlipDetector InsightsAdapter wiring failed: {e}")
 
         logger.info("[init] FlipDetector loaded/created for position reversal API")
         return detector
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors - server continues without flip detection
         logger.warning(f"[init] FlipDetector initialization failed: {e}")
         return None
 
@@ -355,7 +364,8 @@ def init_position_ledger(nomic_dir: Path) -> Any | None:
         ledger = PositionLedger(db_path=str(ledger_path))
         logger.info("[init] PositionLedger loaded for truth-grounded personas")
         return ledger
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors - server continues without position ledger
         logger.warning(f"[init] PositionLedger initialization failed: {e}")
         return None
 
@@ -370,7 +380,8 @@ def init_debate_embeddings(nomic_dir: Path) -> Any | None:
         db = DebateEmbeddingsDatabase(str(embeddings_path))
         logger.info("[init] DebateEmbeddings loaded for historical memory")
         return db
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors - server continues without embeddings
         logger.warning(f"[init] DebateEmbeddings initialization failed: {e}")
         return None
 
@@ -392,13 +403,15 @@ def init_consensus_memory() -> tuple[Any | None, Any | None]:
             logger.info("[init] ConsensusMemory KM adapter wired for bidirectional sync")
         except ImportError:
             logger.debug("[init] KM ConsensusAdapter not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            # Adapter configuration or wiring errors - non-critical, memory still works
             logger.warning(f"[init] ConsensusAdapter wiring failed: {e}")
 
         retriever = DissentRetriever(memory)
         logger.info("[init] DissentRetriever loaded for historical minority views")
         return memory, retriever
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error, TypeError, ValueError) as e:
+        # Storage or configuration errors - server continues without consensus memory
         logger.warning(f"[init] DissentRetriever initialization failed: {e}")
         return None, None
 
@@ -418,7 +431,8 @@ def init_moment_detector(
         )
         logger.info("[init] MomentDetector loaded for agent moments API")
         return detector
-    except Exception as e:
+    except (TypeError, ValueError, AttributeError) as e:
+        # Configuration errors with dependencies - server continues without moments
         logger.warning(f"[init] MomentDetector initialization failed: {e}")
         return None
 
@@ -433,7 +447,8 @@ def init_position_tracker(nomic_dir: Path) -> Any | None:
         tracker = PositionTracker(str(positions_path))
         logger.info("[init] PositionTracker loaded for agent positions")
         return tracker
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors - server continues without position tracking
         logger.warning(f"[init] PositionTracker initialization failed: {e}")
         return None
 
@@ -455,12 +470,14 @@ def init_continuum_memory(nomic_dir: Path) -> Any | None:
             logger.info("[init] ContinuumMemory KM adapter wired for bidirectional sync")
         except ImportError:
             logger.debug("[init] KM ContinuumAdapter not available")
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
+            # Adapter configuration or wiring errors - non-critical, memory still works
             logger.warning(f"[init] ContinuumAdapter wiring failed: {e}")
 
         logger.info("[init] ContinuumMemory loaded for multi-tier memory")
         return memory
-    except Exception as e:
+    except (OSError, PermissionError, sqlite3.Error) as e:
+        # File system or SQLite errors - server continues without continuum memory
         logger.warning(f"[init] ContinuumMemory initialization failed: {e}")
         return None
 
@@ -474,7 +491,8 @@ def init_verification_manager() -> Any | None:
         manager = FormalVerificationManager()
         logger.info("[init] FormalVerificationManager loaded")
         return manager
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
+        # Z3/Lean backend or configuration errors - server continues without verification
         logger.warning(f"[init] FormalVerificationManager initialization failed: {e}")
         return None
 
@@ -764,7 +782,8 @@ async def prewarm_caches(
             result["leaderboard_entries"] = await loop.run_in_executor(None, _fetch_leaderboard)
             logger.debug(f"[prewarm] Cached {result['leaderboard_entries']} leaderboard entries")
 
-        except Exception as e:
+        except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
+            # Cache or storage errors during prewarm - non-critical, cache will populate on demand
             logger.debug(f"[prewarm] Leaderboard cache failed: {e}")
 
     # Pre-warm agent profiles
@@ -786,7 +805,8 @@ async def prewarm_caches(
             result["agent_profiles"] = await loop.run_in_executor(None, _fetch_profiles)
             logger.debug(f"[prewarm] Cached {result['agent_profiles']} agent profiles")
 
-        except Exception as e:
+        except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
+            # Cache or storage errors during prewarm - non-critical, cache will populate on demand
             logger.debug(f"[prewarm] Agent profile cache failed: {e}")
 
     # Pre-warm consensus stats
@@ -804,7 +824,8 @@ async def prewarm_caches(
             result["consensus_stats"] = await loop.run_in_executor(None, _fetch_consensus_stats)
             logger.debug("[prewarm] Cached consensus stats")
 
-        except Exception as e:
+        except (OSError, sqlite3.Error, KeyError, AttributeError) as e:
+            # Cache or storage errors during prewarm - non-critical, cache will populate on demand
             logger.debug(f"[prewarm] Consensus stats cache failed: {e}")
 
     total = (
@@ -925,7 +946,8 @@ def init_handler_stores(nomic_dir: Path) -> dict:
         logger.info(f"[init] UserStore initialized ({store_type})")
     except ImportError as e:
         logger.debug(f"[init] UserStore unavailable: {e}")
-    except Exception as e:
+    except (OSError, PermissionError, ConnectionError, RuntimeError) as e:
+        # Connection or file system errors - try SQLite fallback
         logger.error(f"[init] UserStore initialization failed: {e}")
         # Try SQLite fallback
         try:
@@ -934,7 +956,8 @@ def init_handler_stores(nomic_dir: Path) -> dict:
             user_db_path = nomic_dir / "users.db"
             stores["user_store"] = UserStore(user_db_path)
             logger.warning(f"[init] UserStore fell back to SQLite at {user_db_path}")
-        except Exception as fallback_error:
+        except (OSError, PermissionError, sqlite3.Error) as fallback_error:
+            # SQLite fallback also failed - server continues without user store
             logger.error(f"[init] UserStore SQLite fallback failed: {fallback_error}")
 
     # UsageTracker for billing events
@@ -996,7 +1019,8 @@ async def init_postgres_stores() -> dict[str, bool]:
 
             pool = await get_postgres_pool()
             logger.info("[init] PostgreSQL connection pool created (standalone)")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+            # Connection errors - cannot proceed with PostgreSQL stores
             logger.error(f"[init] Failed to create PostgreSQL pool: {e}")
             return {"_connection": False}
 
@@ -1054,7 +1078,8 @@ async def init_postgres_stores() -> dict[str, bool]:
         except ImportError as e:
             logger.warning(f"[init] Could not import {class_name}: {e}")
             results[name] = False
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, AttributeError) as e:
+            # Connection, configuration, or schema errors - log and continue with other stores
             logger.error(f"[init] Failed to initialize {name}: {e}")
             results[name] = False
 
@@ -1124,7 +1149,8 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
     try:
         async with pool.acquire() as conn:
             await conn.fetchval("SELECT 1")
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        # Pool connection issues - skip upgrade, continue with existing stores
         logger.warning(f"[upgrade] Pool health check failed, skipping upgrade: {e}")
         return {}
 
@@ -1144,7 +1170,8 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         from aragora.server.handler_registry import UnifiedHandler
 
         UnifiedHandler.user_store = store
-    except Exception as e:
+    except (ImportError, OSError, ConnectionError, RuntimeError, AttributeError) as e:
+        # Import, connection, or wiring errors - continue with SQLite store
         logger.info(f"[upgrade] UserStore upgrade failed: {type(e).__name__}: {e}")
         results["user_store"] = "skipped"
 
@@ -1197,7 +1224,8 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
             logger.info(f"[upgrade] {name} upgraded to PostgreSQL")
         except ImportError:
             results[name] = "skipped"
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError, AttributeError) as e:
+            # Connection or wiring errors - continue with existing store
             logger.info(f"[upgrade] {name} upgrade failed: {type(e).__name__}: {e}")
             results[name] = "skipped"
 

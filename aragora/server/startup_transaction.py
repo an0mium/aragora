@@ -199,7 +199,9 @@ class StartupTransaction:
             result = await init_func()
             self.mark_initialized(component)
             return result
-        except Exception:
+        except (
+            Exception
+        ):  # Intentionally broad: startup transaction records all failures before re-raising
             self.mark_failed(component)
             raise
 
@@ -235,7 +237,9 @@ class StartupTransaction:
                     # Handle case where sync callable returns a coroutine
                     if asyncio.iscoroutine(result):
                         await result
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # Intentionally broad: cleanup must continue even if one cleanup fails
                 logger.exception(f"Cleanup failed for {component}: {e}")
 
         logger.info("Startup rollback complete")

@@ -164,7 +164,10 @@ class InboxCommandHandler:
                 if registry.has(GmailConnector):
                     self.gmail_connector = registry.resolve(GmailConnector)  # type: ignore[type-abstract]
                     logger.debug("Resolved GmailConnector from registry")
-            except Exception as e:
+            except ImportError as e:
+                logger.debug(f"GmailConnector module not available: {e}")
+            except (TypeError, RuntimeError) as e:
+                # TypeError: registry misconfiguration; RuntimeError: dependency issues
                 logger.debug(f"GmailConnector not available: {e}")
 
         # Try to get or create EmailPrioritizer
@@ -207,7 +210,8 @@ class InboxCommandHandler:
                 text=str(e),
                 content_type="application/json",
             )
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError) as e:
+            # Auth extraction failed due to malformed token or missing fields
             logger.warning(f"Auth extraction failed: {e}")
             context = AuthorizationContext(
                 user_id="anonymous",

@@ -50,7 +50,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         storage = DebateStorage(nomic_dir=nomic_dir)
         ctx["storage"] = storage
         logger.info("Initialized DebateStorage")
-    except Exception as e:
+    except (OSError, IOError, RuntimeError) as e:
         logger.warning(f"Failed to initialize DebateStorage: {e}")
         ctx["storage"] = None
 
@@ -60,7 +60,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
         ctx["elo_system"] = EloSystem()
         logger.info("Initialized EloSystem")
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to initialize EloSystem: {e}")
         ctx["elo_system"] = None
 
@@ -69,7 +69,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         from aragora.storage.user_store import get_user_store
 
         ctx["user_store"] = get_user_store()
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         logger.debug(f"User store not available: {e}")
         ctx["user_store"] = None
 
@@ -78,7 +78,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
         from aragora.rbac.checker import get_permission_checker
 
         ctx["rbac_checker"] = get_permission_checker()
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to initialize RBAC checker: {e}")
         ctx["rbac_checker"] = None
 
@@ -88,7 +88,7 @@ def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
 
         ctx["decision_service"] = get_decision_service()
         logger.info("Initialized DecisionService")
-    except Exception as e:
+    except (ImportError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to initialize DecisionService: {e}")
         ctx["decision_service"] = None
 
@@ -126,7 +126,7 @@ async def lifespan(app: FastAPI):
     if ctx.get("storage"):
         try:
             ctx["storage"].close()
-        except Exception as e:
+        except (OSError, IOError, RuntimeError) as e:
             logger.debug("Error closing storage during shutdown: %s", e)
 
 

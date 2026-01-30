@@ -243,7 +243,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in analytics summary: {e}")
             return error_response(safe_error_message(e, "analytics summary"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting analytics summary: {e}")
             return error_response(safe_error_message(e, "analytics summary"), 500)
 
@@ -308,7 +308,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in finding trends: {e}")
             return error_response(safe_error_message(e, "finding trends"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting finding trends: {e}")
             return error_response(safe_error_message(e, "finding trends"), 500)
 
@@ -362,7 +362,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in remediation metrics: {e}")
             return error_response(safe_error_message(e, "remediation metrics"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting remediation metrics: {e}")
             return error_response(safe_error_message(e, "remediation metrics"), 500)
 
@@ -419,7 +419,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in agent metrics: {e}")
             return error_response(safe_error_message(e, "agent metrics"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting agent metrics: {e}")
             return error_response(safe_error_message(e, "agent metrics"), 500)
 
@@ -470,7 +470,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in cost metrics: {e}")
             return error_response(safe_error_message(e, "cost metrics"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting cost metrics: {e}")
             return error_response(safe_error_message(e, "cost metrics"), 500)
 
@@ -527,7 +527,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in compliance scorecard: {e}")
             return error_response(safe_error_message(e, "compliance scorecard"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting compliance scorecard: {e}")
             return error_response(safe_error_message(e, "compliance scorecard"), 500)
 
@@ -582,7 +582,7 @@ class AnalyticsDashboardHandler(BaseHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error in risk heatmap: {e}")
             return error_response(safe_error_message(e, "risk heatmap"), 400)
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error getting risk heatmap: {e}")
             return error_response(safe_error_message(e, "risk heatmap"), 500)
 
@@ -643,7 +643,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting token usage: {e}")
             return error_response(safe_error_message(e, "token usage"), 500)
 
@@ -737,7 +737,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting token trends: {e}")
             return error_response(safe_error_message(e, "token trends"), 500)
 
@@ -857,7 +857,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Unexpected error getting provider breakdown: {e}")
             return error_response(safe_error_message(e, "provider breakdown"), 500)
 
@@ -882,7 +882,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             return json_response(summary)
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting flip summary: {e}")
             return error_response(safe_error_message(e, "flip summary"), 500)
 
@@ -936,7 +936,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             return json_response({"flips": formatted, "count": len(formatted)})
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting recent flips: {e}")
             return error_response(safe_error_message(e, "recent flips"), 500)
 
@@ -996,7 +996,7 @@ class AnalyticsDashboardHandler(BaseHandler):
 
             return json_response({"agents": formatted, "count": len(formatted)})
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting agent consistency: {e}")
             return error_response(safe_error_message(e, "agent consistency"), 500)
 
@@ -1114,7 +1114,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting flip trends: {e}")
             return error_response(safe_error_message(e, "flip trends"), 500)
 
@@ -1200,7 +1200,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation summary: {e}")
             return error_response(safe_error_message(e, "deliberation summary"), 500)
 
@@ -1301,7 +1301,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation by channel: {e}")
             return error_response(safe_error_message(e, "deliberation channels"), 500)
 
@@ -1384,7 +1384,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting consensus rates: {e}")
             return error_response(safe_error_message(e, "consensus rates"), 500)
 
@@ -1486,6 +1486,6 @@ class AnalyticsDashboardHandler(BaseHandler):
                 }
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, LookupError) as e:
             logger.exception(f"Error getting deliberation performance: {e}")
             return error_response(safe_error_message(e, "deliberation performance"), 500)

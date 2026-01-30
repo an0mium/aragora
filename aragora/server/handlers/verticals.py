@@ -201,7 +201,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, ValueError, TypeError) as e:
             logger.warning(f"Data error listing verticals: {e}")
             return error_response(safe_error_message(e, "list verticals"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected error listing verticals: {e}")
             return error_response(safe_error_message(e, "list verticals"), 500)
 
@@ -240,7 +240,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error getting vertical {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.exception(f"Unexpected error getting vertical {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical"), 500)
 
@@ -270,7 +270,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.exception(f"Unexpected error getting tools for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical tools"), 500)
 
@@ -315,7 +315,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.exception(f"Unexpected error getting compliance for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "get vertical compliance"), 500)
 
@@ -359,7 +359,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Data error suggesting vertical: {e}")
             return error_response(safe_error_message(e, "suggest vertical"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.exception(f"Unexpected error suggesting vertical: {e}")
             return error_response(safe_error_message(e, "suggest vertical"), 500)
 
@@ -451,7 +451,7 @@ class VerticalsHandler(SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Invalid data for debate creation in {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical debate"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected error creating debate for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical debate"), 500)
 
@@ -501,7 +501,7 @@ class VerticalsHandler(SecureHandler):
         except (KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error creating agent for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "create vertical agent"), 500)
 
@@ -635,6 +635,6 @@ class VerticalsHandler(SecureHandler):
         except (ValueError, KeyError, TypeError, AttributeError) as e:
             logger.warning(f"Data error updating config for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "update vertical config"), 400)
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.exception(f"Unexpected error updating config for {vertical_id}: {e}")
             return error_response(safe_error_message(e, "update vertical config"), 500)

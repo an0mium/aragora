@@ -514,7 +514,7 @@ class WebhookDeliveryManager:
             if recovered > 0:
                 logger.info(f"Recovered {recovered} pending webhook deliveries from database")
 
-        except Exception as e:
+        except (sqlite3.Error, OSError, KeyError, json.JSONDecodeError) as e:
             logger.error(f"Failed to recover pending deliveries: {e}")
 
     async def stop(self) -> None:
@@ -693,7 +693,7 @@ class WebhookDeliveryManager:
             delivery.last_error = "Timeout"
             self._metrics.failed_deliveries += 1
             return False
-        except Exception as e:
+        except (ConnectionError, OSError, RuntimeError, ValueError) as e:
             delivery.last_error = str(e)[:200]
             self._metrics.failed_deliveries += 1
             return False
@@ -850,7 +850,7 @@ class WebhookDeliveryManager:
                         else:
                             self._schedule_retry(delivery, url, secret)
 
-            except Exception as e:
+            except (RuntimeError, KeyError, asyncio.CancelledError) as e:
                 logger.error(f"Error processing retries: {e}")
 
             await asyncio.sleep(1.0)  # Check every second

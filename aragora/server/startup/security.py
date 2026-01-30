@@ -135,7 +135,7 @@ async def init_deployment_validation() -> dict:
     except ImportError as e:
         logger.debug(f"Deployment validator not available: {e}")
         return {"available": False, "error": str(e)}
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Deployment validation failed: {e}")
         return {"available": True, "error": str(e)}
 
@@ -220,7 +220,7 @@ def init_graphql_routes(app: Any) -> bool:
     except ImportError as e:
         logger.warning(f"GraphQL module not available: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to initialize GraphQL routes: {e}")
         return False
 
@@ -296,7 +296,7 @@ async def init_rbac_distributed_cache() -> bool:
 
     except ImportError as e:
         logger.debug(f"RBAC distributed cache not available: {e}")
-    except Exception as e:
+    except (ConnectionError, OSError, RuntimeError) as e:
         logger.warning(f"Failed to initialize RBAC distributed cache: {e}")
 
     return False
@@ -323,7 +323,7 @@ async def init_approval_gate_recovery() -> int:
     except ImportError as e:
         logger.debug(f"Approval gate recovery not available: {e}")
         return 0
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to recover pending approvals: {e}")
         return 0
 
@@ -397,7 +397,7 @@ async def init_access_review_scheduler() -> bool:
     except ImportError as e:
         logger.debug(f"Access review scheduler not available: {e}")
         return False
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to start access review scheduler: {e}")
         return False
 
@@ -464,7 +464,8 @@ async def init_key_rotation_scheduler() -> bool:
                             **details,
                         }
                     )
-            except Exception as e:
+            except (ImportError, ConnectionError, OSError, RuntimeError) as e:
+                # Broad catch intentional: alert delivery should never break key rotation
                 logger.warning(f"Failed to dispatch key rotation alert: {e}")
 
         scheduler.alert_callback = alert_callback
@@ -480,7 +481,7 @@ async def init_key_rotation_scheduler() -> bool:
             active_key_id = service.get_active_key_id()
             if active_key_id:
                 set_active_keys(master=1)
-        except Exception as e:
+        except (ImportError, RuntimeError, AttributeError) as e:
             logger.debug("Could not set initial key metrics: %s", e)
 
         # Get initial status for logging
@@ -501,7 +502,7 @@ async def init_key_rotation_scheduler() -> bool:
 
     except ImportError as e:
         logger.debug(f"Key rotation scheduler not available: {e}")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to start key rotation scheduler: {e}")
 
     return False
@@ -547,7 +548,7 @@ async def init_secrets_rotation_scheduler() -> bool:
 
     except ImportError as e:
         logger.debug(f"Secrets rotation scheduler not available: {e}")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Failed to start secrets rotation scheduler: {e}")
 
     return False
@@ -687,6 +688,6 @@ async def init_decision_router() -> bool:
         logger.info("DecisionRouter initialized with 8 platform response handlers")
         return True
 
-    except Exception as e:
+    except (ImportError, RuntimeError, AttributeError) as e:
         logger.warning(f"Failed to initialize DecisionRouter: {e}")
         return False

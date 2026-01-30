@@ -143,7 +143,7 @@ class MetricsHandler(BaseHandler):
                 content_type=content_type,
                 body=content.encode("utf-8"),
             )
-        except Exception as e:  # noqa: BLE001 - Catch all for graceful error handling
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError, AttributeError) as e:
             logger.error("Failed to get Prometheus metrics: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "get Prometheus metrics"), 500)
 
@@ -217,7 +217,7 @@ class MetricsHandler(BaseHandler):
                     logger.warning(f"Storage health check failed with database error: {e}")
                     checks["storage"] = {"status": "unhealthy", "error": str(e)}
                     status = "degraded"
-                except Exception as e:
+                except (RuntimeError, AttributeError, ValueError) as e:
                     logger.exception(f"Unexpected error in storage health check: {e}")
                     checks["storage"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"
@@ -234,7 +234,7 @@ class MetricsHandler(BaseHandler):
                     logger.warning(f"ELO system health check failed with database error: {e}")
                     checks["elo_system"] = {"status": "unhealthy", "error": str(e)}
                     status = "degraded"
-                except Exception as e:
+                except (RuntimeError, AttributeError, ValueError) as e:
                     logger.exception(f"Unexpected error in ELO system health check: {e}")
                     checks["elo_system"] = {"status": "unhealthy", "error": "Internal error"}
                     status = "degraded"

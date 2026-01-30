@@ -199,7 +199,7 @@ async def _start_slack_debate(
     except ImportError:
         logger.debug("DecisionRouter not available, using fallback")
         return await _fallback_start_debate(topic, channel_id, user_id, debate_id, thread_ts)
-    except Exception as e:
+    except (RuntimeError, ValueError, KeyError, AttributeError) as e:
         logger.error(f"DecisionRouter failed: {e}, using fallback")
         return await _fallback_start_debate(topic, channel_id, user_id, debate_id, thread_ts)
 
@@ -224,7 +224,7 @@ async def _fallback_start_debate(
             thread_id=thread_ts,
             metadata={"topic": topic},
         )
-    except Exception as e:
+    except (RuntimeError, KeyError, AttributeError, OSError) as e:
         logger.warning(f"Failed to register debate origin: {e}")
 
     # Try to enqueue via Redis queue
@@ -246,7 +246,7 @@ async def _fallback_start_debate(
         logger.info(f"Debate {debate_id} enqueued via Redis queue")
     except ImportError:
         logger.warning("Redis queue not available, debate will run inline")
-    except Exception as e:
+    except (RuntimeError, OSError, ConnectionError) as e:
         logger.warning(f"Failed to enqueue debate: {e}")
 
     # Track active debate
@@ -538,7 +538,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
 
         return json_response({"ok": True})
 
-    except Exception as e:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         logger.error(f"Slack events handler error: {e}")
         return error_response(str(e), 500)
 
@@ -705,7 +705,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
 
         return json_response({"ok": True})
 
-    except Exception as e:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         logger.error(f"Slack interactions handler error: {e}")
         return error_response(str(e), 500)
 
@@ -800,7 +800,7 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
                 }
             )
 
-    except Exception as e:
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, UnicodeDecodeError) as e:
         logger.error(f"Slack commands handler error: {e}")
         return json_response(
             {
@@ -980,7 +980,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                         return future.result(timeout=5)
                 else:
                     return loop.run_until_complete(self._get_status_sync(handler))
-            except Exception as e:
+            except (RuntimeError, asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error getting Slack status: {e}")
                 return error_response(f"Error: {str(e)}", 500)
 
@@ -1026,7 +1026,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                     return loop.run_until_complete(
                         self.handle_post(normalized_path, query_params, handler)
                     )
-            except Exception as e:
+            except (RuntimeError, asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error handling Slack POST: {e}")
                 return error_response(f"Error: {str(e)}", 500)
 
@@ -1068,7 +1068,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
                 if not verify_slack_signature(body, timestamp, signature, SLACK_SIGNING_SECRET):
                     return error_response("Invalid Slack signature", 401)
-            except Exception as e:
+            except (ValueError, KeyError, AttributeError, OSError) as e:
                 logger.warning(f"Slack signature verification error: {e}")
                 return error_response("Slack signature verification failed", 401)
 
@@ -1109,7 +1109,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 body = b""
 
             return verify_slack_signature(body, timestamp, signature, signing_secret)
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Signature verification error: {e}")
             return False
 
@@ -1173,7 +1173,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
             elo_store = get_elo_store()
             ratings = elo_store.get_all_ratings()
             agent_count = len(ratings)
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             agent_count = 0
             error_msg = str(e)
 
@@ -1226,7 +1226,7 @@ Need more help? Visit https://aragora.ai/docs/slack"""
                     "text": "*Available Agents (by ELO):*\n" + "\n".join(agent_lines),
                 }
             )
-        except Exception as e:
+        except (ImportError, AttributeError, RuntimeError) as e:
             logger.error(f"Error getting agents: {e}")
             return json_response(
                 {

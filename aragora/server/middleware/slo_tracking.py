@@ -146,7 +146,7 @@ def slo_context(operation: str, is_debate: bool = False):
 
     try:
         yield
-    except Exception:
+    except Exception:  # Intentionally broad: re-raises after recording SLO metrics
         success = False
         raise
     finally:
@@ -208,7 +208,7 @@ def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]
 
             try:
                 return await func(*args, **kwargs)
-            except Exception:
+            except Exception:  # Intentionally broad: re-raises after recording SLO metrics
                 success = False
                 raise
             finally:
@@ -251,7 +251,7 @@ def slo_middleware(handler_func: F) -> F:
         try:
             result = handler_func(self, *args, **kwargs)
             return result
-        except Exception:
+        except Exception:  # Intentionally broad: re-raises after recording SLO metrics
             success = False
             raise
         finally:

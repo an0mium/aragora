@@ -207,7 +207,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             # Always return 200 to acknowledge
             return json_response({"status": "ok"})
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError) as e:
             logger.exception(f"Unexpected WhatsApp webhook error: {e}")
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": str(e)[:100]})
@@ -327,7 +327,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.warning("httpx not available for WhatsApp messaging")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to send WhatsApp message: {e}")
 
     def _send_welcome(self, to_number: str) -> None:
@@ -422,7 +422,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 user_id=to_number,
                 metadata={"topic": topic, "contact_name": contact_name},
             )
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Failed to register debate origin: {e}")
 
         # Try DecisionRouter first (preferred)
@@ -475,7 +475,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to queue system")
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
 
         # Fallback to queue system
@@ -508,7 +508,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                     queue = await create_redis_queue()
                     await queue.enqueue(job)
                     logger.info(f"WhatsApp debate job enqueued: {job.job_id}")
-                except Exception as e:
+                except (RuntimeError, OSError, ConnectionError) as e:
                     logger.error(f"Failed to enqueue debate job: {e}")
                     self._send_message(
                         to_number, "Sorry, I couldn't start the debate. Please try again later."
@@ -531,7 +531,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             logger.warning("Queue system not available, using direct execution")
             # Fallback: run debate directly (blocking)
             return self._run_debate_direct(to_number, contact_name, topic, debate_id)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Failed to start debate: {e}")
             return debate_id
 
@@ -574,7 +574,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
                 asyncio.run(execute())
 
-            except Exception as e:
+            except (RuntimeError, ImportError, ValueError, AttributeError) as e:
                 logger.error(f"Direct debate execution failed: {e}")
                 self._send_message(to_number, f"Debate failed: {str(e)[:100]}")
 

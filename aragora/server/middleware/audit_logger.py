@@ -759,7 +759,9 @@ def audit_action(
                 event_severity = AuditSeverity.WARNING
                 raise
 
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # Intentionally broad: audit decorator logs all failures before re-raising
                 outcome = "error"
                 outcome_reason = str(e)[:200]
                 event_severity = AuditSeverity.ERROR
@@ -805,7 +807,9 @@ def audit_action(
                 event_severity = AuditSeverity.WARNING
                 raise
 
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # Intentionally broad: audit decorator logs all failures before re-raising
                 outcome = "error"
                 outcome_reason = str(e)[:200]
                 event_severity = AuditSeverity.ERROR

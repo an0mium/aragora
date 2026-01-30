@@ -57,7 +57,7 @@ async def _send_teams_result(origin: DebateOrigin, result: dict[str, Any]) -> bo
                 logger.warning(f"Teams send failed: {response.status_code}")
                 return False
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Teams result send error: {e}")
         return False
 
@@ -108,7 +108,7 @@ async def _send_teams_receipt(origin: DebateOrigin, summary: str, receipt_url: s
                 return True
             return False
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Teams receipt post error: {e}")
         return False
 
@@ -149,6 +149,6 @@ async def _send_teams_error(origin: DebateOrigin, message: str) -> bool:
             response = await client.post(webhook_url, json=card)
             return response.is_success
 
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         logger.error(f"Teams error send failed: {e}")
         return False

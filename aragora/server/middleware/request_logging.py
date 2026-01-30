@@ -316,7 +316,9 @@ def request_logging(
 
                 return response
 
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # Intentionally broad: logging decorator records all errors before re-raising
                 # Log error response
                 log_response(ctx, 500, error=str(e)[:200])
                 raise
@@ -353,7 +355,9 @@ def request_logging(
 
                 return response
 
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # Intentionally broad: logging decorator records all errors before re-raising
                 log_response(ctx, 500, error=str(e)[:200])
                 raise
 

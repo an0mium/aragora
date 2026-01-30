@@ -12,6 +12,7 @@ Key components:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -83,7 +84,7 @@ def _missing_required_env_vars(env_vars: str) -> list[str]:
 
         if get_api_key(*candidates, required=False):
             return []
-    except Exception:
+    except (ImportError, AttributeError, TypeError):
         if any(os.getenv(var) for var in candidates):
             return []
     return candidates
@@ -97,7 +98,7 @@ def _openrouter_key_available() -> bool:
         value = get_secret("OPENROUTER_API_KEY")
         if value and value.strip():
             return True
-    except Exception as e:
+    except (ImportError, AttributeError, KeyError, OSError) as e:
         logger.debug("Secrets module unavailable, falling back to env: %s", e)
     env_value = os.getenv("OPENROUTER_API_KEY")
     return bool(env_value and env_value.strip())
@@ -160,7 +161,7 @@ def parse_debate_request(data: dict) -> tuple[dict | None, str | None]:
         from aragora.agents.spec import AgentSpec
 
         AgentSpec.parse_list(agents_str, _warn=False)
-    except Exception as e:
+    except (ValueError, TypeError, ImportError) as e:
         return None, str(e)
     agent_count = len([s for s in agents_str.split(",") if s.strip()])
     if agent_count < 2:
@@ -217,7 +218,7 @@ async def fetch_trending_topic_async(category: str | None = None) -> Any | None:
         if topic:
             logger.info(f"Selected trending topic: {topic.topic}")
         return topic
-    except Exception as e:
+    except (ImportError, AttributeError, OSError, RuntimeError, ValueError) as e:
         logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
         return None
 
@@ -349,7 +350,7 @@ def execute_debate_thread(
             from aragora.server.state import get_state_manager
 
             get_state_manager().update_debate_agents(debate_id, actual_agents)
-        except Exception as e:
+        except (ImportError, AttributeError, KeyError, RuntimeError) as e:
             logger.debug(
                 "[debate] %s: unable to update active agent list: %s",
                 debate_id,
@@ -405,7 +406,7 @@ def execute_debate_thread(
                     role=role,
                     model=spec.model,  # Pass model from spec
                 )
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, ImportError, OSError) as e:
                 msg = _safe_error_message(e, "agent_init")
                 emitter.emit(
                     StreamEvent(
@@ -533,7 +534,15 @@ def execute_debate_thread(
                 "confidence": result.confidence,
             }
 
-    except Exception as e:
+    except (
+        ValueError,
+        TypeError,
+        RuntimeError,
+        OSError,
+        asyncio.TimeoutError,
+        KeyError,
+        AttributeError,
+    ) as e:
         import traceback
 
         safe_msg = _safe_error_message(e, "debate_execution")

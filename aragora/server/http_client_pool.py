@@ -344,7 +344,7 @@ class HTTPClientPool:
         try:
             yield client
             provider_metrics.requests_success += 1
-        except Exception as e:
+        except (OSError, TimeoutError, ConnectionError) as e:
             provider_metrics.requests_failed += 1
             if "429" in str(e) or "rate" in str(e).lower():
                 provider_metrics.rate_limits_hit += 1
@@ -403,7 +403,7 @@ class HTTPClientPool:
 
                     return response
 
-            except Exception as e:
+            except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
                 last_exception = e
                 if attempt < self.config.max_retries:
                     provider_metrics.requests_retried += 1
@@ -449,7 +449,7 @@ class HTTPClientPool:
                 if session and hasattr(session, "close"):
                     session.close()
                     logger.debug(f"Closed sync session for {provider}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Error closing sync session for {provider}: {e}")
 
         self._sync_sessions.clear()
@@ -471,7 +471,7 @@ class HTTPClientPool:
                 if client and hasattr(client, "aclose"):
                     await client.aclose()
                     logger.debug(f"Closed async client for {provider}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Error closing async client for {provider}: {e}")
 
         self._async_clients.clear()

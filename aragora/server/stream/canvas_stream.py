@@ -160,7 +160,7 @@ class CanvasStreamServer:
             async for message in websocket:
                 await self._handle_message(websocket, message)
 
-        except Exception as e:
+        except (ConnectionError, asyncio.CancelledError) as e:
             logger.warning(f"Canvas WebSocket error: {e}")
         finally:
             # Cleanup
@@ -265,7 +265,7 @@ class CanvasStreamServer:
             else:
                 logger.debug(f"Unknown message type: {msg_type}")
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             logger.error(f"Error handling message: {e}")
             await self._send_error(websocket, str(e))
 
@@ -470,7 +470,7 @@ class CanvasStreamServer:
         """Send a message to a client."""
         try:
             await websocket.send(json.dumps(message))
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.debug(f"Failed to send message: {e}")
 
     async def _send_error(self, websocket, error: str):
@@ -488,7 +488,7 @@ class CanvasStreamServer:
         """Send a canvas event to a client."""
         try:
             await websocket.send(json.dumps(event.to_dict()))
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.debug(f"Failed to send event: {e}")
 
     async def broadcast_to_canvas(self, canvas_id: str, message: dict[str, Any]):
@@ -513,7 +513,7 @@ class CanvasStreamServer:
         """Send a message string to a client."""
         try:
             await websocket.send(message)
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.debug(f"Failed to send to client: {e}")
 
     def get_connected_users(self, canvas_id: str) -> list[dict[str, Any]]:

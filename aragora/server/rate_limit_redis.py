@@ -135,7 +135,7 @@ class RedisRateLimiter:
             logger.warning("redis package not installed. Install with: pip install redis")
             self._available = False
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.warning(f"Failed to connect to Redis: {e}")
             self._available = False
             return None
@@ -273,7 +273,7 @@ class RedisRateLimiter:
                     key=key,
                 )
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Redis rate limit error: {e}")
             # Fallback: allow request on error
             return RateLimitResult(allowed=True, limit=0)
@@ -324,7 +324,7 @@ class RedisRateLimiter:
             current_count = results[1]
             return max(0, config.requests_per_minute - current_count)
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Redis get_remaining error: {e}")
             return 0
 
@@ -355,7 +355,7 @@ class RedisRateLimiter:
                 return deleted
             return 0
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Redis reset error: {e}")
             return 0
 
@@ -387,7 +387,7 @@ class RedisRateLimiter:
                 "configured_endpoints": list(self._endpoint_configs.keys()),
             }
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.error(f"Redis stats error: {e}")
             return {"available": False, "error": str(e)}
 
@@ -426,7 +426,7 @@ class RedisRateLimiter:
             try:
                 self._redis.close()
                 logger.info("Redis rate limiter connection closed")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError) as e:
                 logger.error(f"Error closing Redis connection: {e}")
             finally:
                 self._redis = None

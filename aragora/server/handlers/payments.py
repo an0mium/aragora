@@ -189,7 +189,7 @@ async def get_stripe_connector(request: web.Request) -> Any | None:
         except ImportError:
             logger.warning("Stripe connector not available")
             return None
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to initialize Stripe connector: {e}")
             return None
     return _stripe_connector
@@ -212,7 +212,7 @@ async def get_authnet_connector(request: web.Request) -> Any | None:
         except ImportError:
             logger.warning("Authorize.net connector not available")
             return None
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to initialize Authorize.net connector: {e}")
             return None
     return _authnet_connector
@@ -255,6 +255,7 @@ async def _resilient_stripe_call(operation: str, func, *args, **kwargs):
         _stripe_cb.record_success()
         return result
     except Exception as e:
+        # Intentionally broad: circuit breaker needs to catch all failures
         _stripe_cb.record_failure(e)
         logger.error(f"Stripe {operation} failed: {e}")
         raise
@@ -289,6 +290,7 @@ async def _resilient_authnet_call(operation: str, func, *args, **kwargs):
         _authnet_cb.record_success()
         return result
     except Exception as e:
+        # Intentionally broad: circuit breaker needs to catch all failures
         _authnet_cb.record_failure(e)
         logger.error(f"Authorize.net {operation} failed: {e}")
         raise

@@ -504,7 +504,7 @@ class DebateQueue:
                 item.status = ItemStatus.FAILED
                 item.error = "No debate executor configured"
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
             logger.error(f"Failed to process item {item.item_id}: {e}")
             item.status = ItemStatus.FAILED
             item.error = str(e)
@@ -592,7 +592,7 @@ class DebateQueue:
                         logger.info(f"Webhook sent for batch {batch.batch_id}")
         except ImportError:
             logger.warning("aiohttp not available for webhook")
-        except Exception as e:
+        except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError) as e:
             logger.error(f"Webhook error for batch {batch.batch_id}: {e}")
 
     def cleanup_old_batches(self, max_age_hours: int = 24) -> int:

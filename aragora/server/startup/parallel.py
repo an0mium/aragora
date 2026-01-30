@@ -139,7 +139,7 @@ async def _run_task(task: InitTask) -> InitTask:
     except asyncio.TimeoutError:
         task.error = TimeoutError(f"Task '{task.name}' timed out after {task.timeout}s")
         logger.error(f"[parallel_init] {task.name} timed out after {task.timeout}s")
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
         task.error = e
         logger.error(f"[parallel_init] {task.name} failed: {type(e).__name__}: {e}")
     finally:
@@ -392,7 +392,7 @@ class ParallelInitializer:
                 from aragora.storage.pool_manager import get_shared_pool
 
                 self._db_pool = get_shared_pool()
-            except Exception:
+            except (ImportError, RuntimeError, OSError):
                 pass
 
         return result
@@ -410,7 +410,7 @@ class ParallelInitializer:
                 from aragora.storage.redis_ha import get_cached_client
 
                 self._redis_client = get_cached_client()
-            except Exception:
+            except (ImportError, RuntimeError, OSError):
                 pass
 
         return result
@@ -481,7 +481,7 @@ class ParallelInitializer:
             self._results["agent_registry"] = result
         except ImportError:
             logger.debug("[parallel_init] AgentRegistry not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[parallel_init] AgentRegistry init failed: {e}")
             result["error"] = str(e)
 
@@ -621,7 +621,7 @@ class ParallelInitializer:
             result["enabled"] = True
         except ImportError:
             logger.debug("[parallel_init] Cache pre-warming not available")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning(f"[parallel_init] Cache pre-warming failed: {e}")
             result["error"] = str(e)
 
@@ -642,7 +642,7 @@ class ParallelInitializer:
                 async with self._db_pool.acquire() as conn:
                     await conn.fetchval("SELECT 1")
                 result["database"] = True
-            except Exception as e:
+            except (OSError, RuntimeError, TimeoutError) as e:
                 logger.warning(f"[parallel_init] Database health check failed: {e}")
 
         # Check Redis connectivity
@@ -650,7 +650,7 @@ class ParallelInitializer:
             try:
                 self._redis_client.ping()
                 result["redis"] = True
-            except Exception as e:
+            except (OSError, RuntimeError, TimeoutError) as e:
                 logger.warning(f"[parallel_init] Redis health check failed: {e}")
 
         result["overall"] = result["database"] or result["redis"] or True
@@ -732,7 +732,7 @@ async def cleanup_on_failure(results: dict[str, Any]) -> None:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         logger.debug(f"[parallel_init] Database pool cleanup error: {e}")
 
     # Close Redis connection
@@ -740,7 +740,7 @@ async def cleanup_on_failure(results: dict[str, Any]) -> None:
         from aragora.storage.redis_ha import close_cached_clients
 
         close_cached_clients()
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         logger.debug(f"[parallel_init] Redis cleanup error: {e}")
 
 

@@ -215,7 +215,8 @@ class QueryResolvers:
             data = _transform_debate(debate)
             return ResolverResult(data=data)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving debate {id}: {e}")
             return ResolverResult(errors=[f"Failed to resolve debate: {e}"])
 
@@ -280,7 +281,8 @@ class QueryResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving debates: {e}")
             return ResolverResult(errors=[f"Failed to resolve debates: {e}"])
 
@@ -340,7 +342,8 @@ class QueryResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error searching debates: {e}")
             return ResolverResult(errors=[f"Failed to search debates: {e}"])
 
@@ -370,7 +373,8 @@ class QueryResolvers:
             data = _transform_agent(rating, id)
             return ResolverResult(data=data)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving agent {id}: {e}")
             return ResolverResult(errors=[f"Failed to resolve agent: {e}"])
 
@@ -418,7 +422,8 @@ class QueryResolvers:
 
             return ResolverResult(data=agents)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving agents: {e}")
             return ResolverResult(errors=[f"Failed to resolve agents: {e}"])
 
@@ -452,7 +457,8 @@ class QueryResolvers:
             agents = [_transform_agent(agent) for agent in rankings]
             return ResolverResult(data=agents)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving leaderboard: {e}")
             return ResolverResult(errors=[f"Failed to resolve leaderboard: {e}"])
 
@@ -482,7 +488,8 @@ class QueryResolvers:
             data = _transform_task(task)
             return ResolverResult(data=data)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving task {id}: {e}")
             return ResolverResult(errors=[f"Failed to resolve task: {e}"])
 
@@ -543,7 +550,8 @@ class QueryResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving tasks: {e}")
             return ResolverResult(errors=[f"Failed to resolve tasks: {e}"])
 
@@ -633,7 +641,8 @@ class QueryResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving system health: {e}")
             return ResolverResult(errors=[f"Failed to resolve system health: {e}"])
 
@@ -678,7 +687,8 @@ class QueryResolvers:
 
             return ResolverResult(data=stats)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Data access or transformation errors
             logger.exception(f"Error resolving stats: {e}")
             return ResolverResult(errors=[f"Failed to resolve stats: {e}"])
 
@@ -775,7 +785,8 @@ class MutationResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Request building, routing, or response transformation errors
             logger.exception(f"Error starting debate: {e}")
             return ResolverResult(errors=[f"Failed to start debate: {e}"])
 
@@ -830,7 +841,8 @@ class MutationResolvers:
 
             return ResolverResult(data=vote_data)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
+            # Vote data access or storage errors
             logger.exception(f"Error submitting vote: {e}")
             return ResolverResult(errors=[f"Failed to submit vote: {e}"])
 
@@ -890,7 +902,8 @@ class MutationResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # State access, update, or transformation errors
             logger.exception(f"Error cancelling debate: {e}")
             return ResolverResult(errors=[f"Failed to cancel debate: {e}"])
 
@@ -954,7 +967,8 @@ class MutationResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Task creation, scheduling, or transformation errors
             logger.exception(f"Error submitting task: {e}")
             return ResolverResult(errors=[f"Failed to submit task: {e}"])
 
@@ -993,7 +1007,8 @@ class MutationResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Task access, cancellation, or transformation errors
             logger.exception(f"Error cancelling task: {e}")
             return ResolverResult(errors=[f"Failed to cancel task: {e}"])
 
@@ -1052,7 +1067,8 @@ class MutationResolvers:
                 }
             )
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Agent registration or data transformation errors
             logger.exception(f"Error registering agent: {e}")
             return ResolverResult(errors=[f"Failed to register agent: {e}"])
 
@@ -1081,7 +1097,8 @@ class MutationResolvers:
 
             return ResolverResult(data=True)
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError, RuntimeError) as e:
+            # Agent lookup or unregistration errors
             logger.exception(f"Error unregistering agent: {e}")
             return ResolverResult(errors=[f"Failed to unregister agent: {e}"])
 

@@ -78,16 +78,10 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound |
         if hasattr(mound, "config") and mound.config:
             config: MoundConfig = mound.config
             result["config"] = {
-                "enable_staleness_tracking": getattr(
-                    config, "enable_staleness_detection", False
-                ),
-                "enable_culture_accumulator": getattr(
-                    config, "enable_culture_accumulator", False
-                ),
+                "enable_staleness_tracking": getattr(config, "enable_staleness_detection", False),
+                "enable_culture_accumulator": getattr(config, "enable_culture_accumulator", False),
                 "enable_rlm_summaries": getattr(config, "enable_rlm_summaries", False),
-                "default_staleness_hours": getattr(
-                    config, "default_staleness_hours", None
-                ),
+                "default_staleness_hours": getattr(config, "default_staleness_hours", None),
             }
 
         return result, mound

@@ -47,7 +47,7 @@ async def _send_discord_result(origin: DebateOrigin, result: dict[str, Any]) -> 
                 logger.warning(f"Discord send failed: {response.status_code}")
                 return False
 
-    except Exception as e:
+    except (OSError, TimeoutError, httpx.HTTPError) as e:
         logger.error(f"Discord result send error: {e}")
         return False
 
@@ -78,7 +78,7 @@ async def _send_discord_receipt(origin: DebateOrigin, summary: str) -> bool:
                 return True
             return False
 
-    except Exception as e:
+    except (OSError, TimeoutError, httpx.HTTPError) as e:
         logger.error(f"Discord receipt post error: {e}")
         return False
 
@@ -106,7 +106,7 @@ async def _send_discord_error(origin: DebateOrigin, message: str) -> bool:
             response = await client.post(url, json=data, headers=headers)
             return response.is_success
 
-    except Exception as e:
+    except (OSError, TimeoutError, httpx.HTTPError) as e:
         logger.error(f"Discord error send failed: {e}")
         return False
 
@@ -144,7 +144,7 @@ async def _send_discord_voice(origin: DebateOrigin, result: dict[str, Any]) -> b
                     logger.warning(f"Discord voice send failed: {response.status_code}")
                     return False
 
-    except Exception as e:
+    except (OSError, TimeoutError, httpx.HTTPError) as e:
         logger.error(f"Discord voice send error: {e}")
         return False
     finally:

@@ -260,7 +260,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
         except ImportError as e:
             logger.debug(f"[AiohttpUnifiedServer] TTS integration not available: {e}")
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning(f"[AiohttpUnifiedServer] Failed to wire TTS integration: {e}")
 
     def _init_stores(self, nomic_dir: Path) -> None:
@@ -532,7 +532,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         except ImportError:
             # Billing module not available, skip check
             return None
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, ValueError, OSError) as e:
             logger.debug(f"Usage limit check failed: {e}")
             return None  # Fail open to not block debates
 
@@ -632,7 +632,7 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Parse JSON body
         try:
             data = await request.json()
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as e:
             logger.debug(f"Invalid JSON in request: {e}")
             return web.json_response(
                 {"error": "Invalid JSON"}, status=400, headers=self._cors_headers(origin)
@@ -924,7 +924,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
         # Delegate to voice handler
         try:
             await self._voice_handler.handle_websocket(request, ws, debate_id)
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
+            # WebSocket/network errors during voice streaming
             logger.error(f"[voice] WebSocket error for debate {debate_id}: {e}")
         finally:
             if not ws.closed:
@@ -1305,7 +1306,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
                         try:
                             await client.send_str(message)
                             sent_count += 1
-                        except Exception as e:
+                        except (OSError, ConnectionError, RuntimeError) as e:
+                            # WebSocket/network errors during send
                             logger.debug(
                                 "WebSocket client disconnected during broadcast: %s",
                                 type(e).__name__,
@@ -1322,7 +1324,8 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
 
             except queue.Empty:
                 await asyncio.sleep(0.01)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
+                # Network/serialization errors during event processing
                 logger.error(f"[ws] Drain loop error: {e}")
                 await asyncio.sleep(0.1)
 

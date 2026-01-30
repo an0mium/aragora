@@ -358,7 +358,9 @@ async def async_exception_handler(
 
     try:
         yield ctx
-    except Exception as exc:
+    except (
+        Exception
+    ) as exc:  # Intentionally broad: central handler maps all exceptions to HTTP status
         ctx.exception = exc
         ctx.error = build_error_response(exc, context, ctx.trace_id, default_status)
 
@@ -422,7 +424,9 @@ def handle_exceptions(
 
             try:
                 return func(*args, **kwargs)
-            except Exception as exc:
+            except (
+                Exception
+            ) as exc:  # Intentionally broad: central handler maps all exceptions to HTTP status
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 log_msg = (
                     f"[{trace_id}] Error in {context} "
@@ -473,7 +477,9 @@ def async_handle_exceptions(
 
             try:
                 return await func(*args, **kwargs)
-            except Exception as exc:
+            except (
+                Exception
+            ) as exc:  # Intentionally broad: central handler maps all exceptions to HTTP status
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 log_msg = (
                     f"[{trace_id}] Error in {context} "

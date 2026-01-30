@@ -104,13 +104,13 @@ async def route_debate_result(
                 if receipt and receipt_url:
                     try:
                         await post_receipt_to_channel(origin, receipt, receipt_url)
-                    except Exception as e:
+                    except (OSError, RuntimeError) as e:
                         logger.warning(f"Failed to post receipt for {debate_id}: {e}")
                 return True
             else:
                 logger.warning(f"Dock routing failed for {platform}: {send_result.error}")
                 # Fall through to legacy routing
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.warning(f"Dock routing error, falling back to legacy: {e}")
             # Fall through to legacy routing
 
@@ -147,12 +147,12 @@ async def route_debate_result(
             if receipt and receipt_url:
                 try:
                     await post_receipt_to_channel(origin, receipt, receipt_url)
-                except Exception as e:
+                except (OSError, RuntimeError) as e:
                     logger.warning(f"Failed to post receipt for {debate_id}: {e}")
 
         return success
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Failed to route result for {debate_id}: {e}")
         return False
 
@@ -195,7 +195,7 @@ async def post_receipt_to_channel(
             else:
                 logger.warning(f"Dock receipt routing failed: {send_result.error}")
                 # Fall through to legacy routing
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.warning(f"Dock receipt routing error, falling back: {e}")
             # Fall through to legacy routing
 
@@ -216,7 +216,7 @@ async def post_receipt_to_channel(
         else:
             logger.debug(f"Receipt posting not supported for {platform}")
             return False
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Receipt post error for {platform}: {e}")
         return False
 
@@ -260,7 +260,7 @@ async def send_error_to_channel(
             else:
                 logger.warning(f"Dock error routing failed: {send_result.error}")
                 # Fall through to legacy routing
-        except Exception as e:
+        except (ImportError, OSError, RuntimeError) as e:
             logger.warning(f"Dock error routing error, falling back: {e}")
             # Fall through to legacy routing
 
@@ -279,7 +279,7 @@ async def send_error_to_channel(
         else:
             logger.debug(f"Error notification not supported for {platform}")
             return False
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Failed to send error to {platform}: {e}")
         return False
 
@@ -353,10 +353,10 @@ async def route_result_to_all_sessions(
                 if success:
                     success_count += 1
                     logger.info(f"Routed result to session {session.session_id[:8]}")
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"Failed to route to session {session.session_id[:8]}: {e}")
 
-    except Exception as e:
+    except (OSError, RuntimeError, KeyError, AttributeError) as e:
         logger.debug(f"Multi-session routing failed: {e}")
 
     return success_count

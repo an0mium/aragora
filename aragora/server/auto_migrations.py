@@ -79,7 +79,7 @@ async def _run_postgresql_migrations() -> dict[str, Any]:
     except ImportError as e:
         logger.debug(f"PostgreSQL migrations not available: {e}")
         return {"skipped": True, "reason": "PostgreSQL not configured"}
-    except Exception as e:
+    except (RuntimeError, OSError, IOError) as e:
         logger.error(f"PostgreSQL migration failed: {e}")
         return {"error": str(e)}
 
@@ -119,7 +119,7 @@ async def _run_sqlite_migrations() -> dict[str, Any]:
     except ImportError as e:
         logger.debug(f"SQLite migrations not available: {e}")
         return {"skipped": True, "reason": "SQLite migrations not configured"}
-    except Exception as e:
+    except (RuntimeError, OSError, IOError) as e:
         logger.error(f"SQLite migration failed: {e}")
         return {"error": str(e)}
 
@@ -143,7 +143,7 @@ def check_migrations_pending() -> dict[str, Any]:
         runner = get_migration_runner()
         pending = runner.get_pending_migrations()
         result["postgresql_pending"] = len(pending)
-    except Exception as e:
+    except (ImportError, RuntimeError, OSError) as e:
         logger.debug("PostgreSQL migration check skipped: %s", e)
 
     try:
@@ -153,7 +153,7 @@ def check_migrations_pending() -> dict[str, Any]:
         statuses = runner.get_all_status()  # type: ignore[attr-defined]
         for status in statuses.values():
             result["sqlite_pending"] += len(status.pending)
-    except Exception as e:
+    except (ImportError, RuntimeError, OSError, AttributeError) as e:
         logger.debug("SQLite migration check skipped: %s", e)
 
     result["total_pending"] = result["postgresql_pending"] + result["sqlite_pending"]

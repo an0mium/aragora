@@ -703,7 +703,7 @@ def _run_handler_coroutine(coro: Any) -> Any:
             return future.result(timeout=60)
     except ImportError:
         pass
-    except Exception as e:
+    except (RuntimeError, OSError, TimeoutError) as e:
         logger.debug(f"[handler_registry] Main loop dispatch failed: {e}")
 
     # Fallback: create a local event loop (works for SQLite-only mode)
@@ -1236,7 +1236,7 @@ def validate_handler_instance(handler: Any, handler_name: str) -> list[str]:
         result = handler.can_handle("/api/test-path-validation")
         if not isinstance(result, bool):
             errors.append(f"{handler_name}: can_handle() returned non-bool: {type(result)}")
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
         errors.append(f"{handler_name}: can_handle() raised exception: {e}")
 
     return errors
@@ -1668,7 +1668,7 @@ class HandlerRegistryMixin:
                     )
                 else:
                     self._auth_context = None
-            except Exception as auth_err:
+            except (ImportError, AttributeError, KeyError, ValueError) as auth_err:
                 logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
                 self._auth_context = None
 
@@ -1719,7 +1719,16 @@ class HandlerRegistryMixin:
                 self.end_headers()
                 self.wfile.write(result.body)
                 return True
-        except Exception as e:
+        except (
+            RuntimeError,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            PermissionError,
+            LookupError,
+        ) as e:
             # Check for permission-related errors
             error_msg = str(e)
             if "AuthorizationContext" in error_msg or "Permission" in error_msg:

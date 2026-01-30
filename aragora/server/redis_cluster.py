@@ -239,10 +239,10 @@ class RedisClusterClient:
         except ImportError:
             logger.warning("redis package not installed for cluster detection")
             return False
-        except (ConnectionError, TimeoutError) as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Connection failed during cluster detection: {type(e).__name__}: {e}")
             return False
-        except Exception as e:
+        except (ValueError, RuntimeError) as e:
             # ResponseError indicates standalone mode, other errors logged for debugging
             logger.debug(f"Cluster detection result (standalone): {type(e).__name__}: {e}")
             return False
@@ -300,7 +300,7 @@ class RedisClusterClient:
         except ImportError:
             logger.error("redis package not installed. Install with: pip install 'redis>=4.5.0'")
             return None
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to connect to Redis: {e}")
             return None
 
@@ -342,7 +342,7 @@ class RedisClusterClient:
                 self._health_monitor.mark_success()
                 return result
 
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 last_error = e
                 self._health_monitor.mark_failure()
 
@@ -369,11 +369,11 @@ class RedisClusterClient:
             if self._client is not None:
                 try:
                     self._client.close()
-                except (ConnectionError, TimeoutError) as e:
+                except (ConnectionError, TimeoutError, OSError) as e:
                     logger.debug(
                         f"Error closing Redis client during reconnect: {type(e).__name__}: {e}"
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError) as e:
                     logger.warning(
                         f"Unexpected error closing Redis client: {type(e).__name__}: {e}"
                     )
@@ -605,7 +605,7 @@ class RedisClusterClient:
                 "info": info,
                 "node_count": len(nodes.strip().split("\n")) if isinstance(nodes, str) else 0,
             }
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             return {"mode": "cluster", "cluster": True, "error": str(e)}
 
     def get_slot_for_key(self, key: str) -> int:
@@ -647,10 +647,10 @@ class RedisClusterClient:
             if client is None:
                 return False
             return client.ping()
-        except (ConnectionError, TimeoutError) as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Redis ping failed: {type(e).__name__}: {e}")
             return False
-        except Exception as e:
+        except (RuntimeError, ValueError) as e:
             logger.warning(f"Unexpected error during Redis ping: {type(e).__name__}: {e}")
             return False
 
@@ -692,7 +692,7 @@ class RedisClusterClient:
                 stats["redis_version"] = info.get("redis_version", "unknown")
                 stats["connected_clients"] = info.get("connected_clients", 0)
                 stats["used_memory_human"] = info.get("used_memory_human", "unknown")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 stats["info_error"] = str(e)
 
         return stats
@@ -704,11 +704,11 @@ class RedisClusterClient:
                 try:
                     self._client.close()
                     logger.info("Redis cluster client closed")
-                except (ConnectionError, TimeoutError) as e:
+                except (ConnectionError, TimeoutError, OSError) as e:
                     logger.debug(
                         f"Connection error while closing Redis client: {type(e).__name__}: {e}"
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError) as e:
                     logger.error(f"Unexpected error closing Redis client: {type(e).__name__}: {e}")
                 finally:
                     self._client = None

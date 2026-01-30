@@ -22,7 +22,10 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
 from aragora.billing.auth import extract_user_from_request
 from aragora.storage.gmail_token_store import (
@@ -270,9 +273,11 @@ class GmailIngestHandler(SecureHandler):
         state = query_params.get("state", "")
 
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls())
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response({"url": url})
@@ -287,9 +292,11 @@ class GmailIngestHandler(SecureHandler):
         state = body.get("state", user_id)
 
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls())
             url = connector.get_oauth_url(redirect_uri, state)
 
             return json_response(
@@ -378,9 +385,11 @@ class GmailIngestHandler(SecureHandler):
         Gmail connections for users within their own org only.
         """
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls())
 
             success = await connector.authenticate(code=code, redirect_uri=redirect_uri)
 
@@ -480,7 +489,9 @@ class GmailIngestHandler(SecureHandler):
         This is intentional and should NOT be converted to async.
         """
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
             from aragora.server.stream.inbox_sync import (
                 emit_sync_complete,
                 emit_sync_error,
@@ -488,9 +499,12 @@ class GmailIngestHandler(SecureHandler):
                 emit_sync_start,
             )
 
-            connector = GmailConnector(  # type: ignore[abstract]
-                labels=labels,
-                max_results=max_messages,
+            connector = cast(
+                "GmailConnector",
+                GmailConnectorCls(
+                    labels=labels,
+                    max_results=max_messages,
+                ),
             )
 
             # Restore tokens
@@ -605,9 +619,11 @@ class GmailIngestHandler(SecureHandler):
         query = query_params.get("query", "")
 
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector(max_results=limit)  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls(max_results=limit))
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
@@ -645,9 +661,11 @@ class GmailIngestHandler(SecureHandler):
             return error_response("Not connected", 401)
 
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls())
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
@@ -674,9 +692,11 @@ class GmailIngestHandler(SecureHandler):
             return error_response("Query is required", 400)
 
         try:
-            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            from aragora.connectors.enterprise.communication.gmail import (
+                GmailConnector as GmailConnectorCls,
+            )
 
-            connector = GmailConnector(max_results=limit)  # type: ignore[abstract]
+            connector = cast("GmailConnector", GmailConnectorCls(max_results=limit))
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry

@@ -23,7 +23,7 @@ async def _create_and_link_session(
     try:
         session = await manager.create_session(platform, user_id, metadata)
         await manager.link_debate(session.session_id, debate_id)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, ConnectionError, TimeoutError) as e:
         logger.debug(f"Async session creation failed: {e}")
 
 
@@ -43,6 +43,6 @@ async def get_sessions_for_debate(debate_id: str) -> list:
         return await manager.find_sessions_for_debate(debate_id)
     except ImportError:
         return []
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, ConnectionError, TimeoutError) as e:
         logger.debug(f"Session lookup failed: {e}")
         return []

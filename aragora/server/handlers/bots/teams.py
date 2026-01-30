@@ -15,6 +15,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, Optional
@@ -124,7 +125,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.error(f"Failed to initialize Teams bot due to configuration error: {e}")
             self._bot = None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected error initializing Teams bot: {e}")
             self._bot = None
 
@@ -195,7 +196,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
                 logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
                 self._audit_webhook_auth_failure("auth_token", "invalid_token")
                 return error_response("Invalid authentication token", 401)
-            except Exception as auth_error:
+            except (RuntimeError, OSError, AttributeError) as auth_error:
                 logger.exception(f"Unexpected Teams auth error: {auth_error}")
                 self._audit_webhook_auth_failure("auth_token", "unexpected_error")
                 return error_response("Unauthorized", 401)
@@ -211,11 +212,11 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             except (ValueError, KeyError, TypeError) as e:
                 logger.warning(f"Data error processing Teams activity: {e}")
                 return error_response(str(e)[:100], 400)
-            except Exception as e:
+            except (RuntimeError, OSError, AttributeError) as e:
                 logger.exception(f"Unexpected error processing Teams activity: {e}")
                 return error_response("Internal processing error", 500)
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)
 
 

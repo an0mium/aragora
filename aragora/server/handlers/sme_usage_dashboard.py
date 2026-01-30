@@ -69,7 +69,7 @@ def _get_real_consensus_rate(
 
         # No data available, use default
         return default
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
         logger.warning(f"Failed to get consensus rate: {e}")
         return default
 
@@ -166,7 +166,7 @@ class SMEUsageDashboardHandler(SecureHandler):
 
         try:
             return UsageTracker()
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to get usage tracker: {e}")
             return None
 
@@ -286,7 +286,7 @@ class SMEUsageDashboardHandler(SecureHandler):
                     period_start=start_date,
                     period_end=end_date,
                 )
-            except Exception as e:
+            except (ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning(f"Failed to get usage summary: {e}")
 
         # Build summary response

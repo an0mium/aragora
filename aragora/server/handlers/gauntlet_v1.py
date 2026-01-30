@@ -16,8 +16,9 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, Optional, Protocol, cast, runtime_checkable
 
 from .base import (
     HandlerResult,
@@ -26,15 +27,82 @@ from .base import (
     json_response,
 )
 from .secure import SecureHandler
-from .utils.auth import ForbiddenError, UnauthorizedError
+from .utils.auth import ForbiddenError, UnauthorizedError, get_auth_context
 
 logger = logging.getLogger(__name__)
 
 
-class GauntletSecureHandler(SecureHandler):
-    """Base handler for Gauntlet v1 endpoints with RBAC protection."""
+@runtime_checkable
+class VersionedAPIHandler(Protocol):
+    """Protocol for versioned API handlers with body/path_params dispatch."""
+
+    def get_path_pattern(self) -> str:
+        """Return the URL path pattern for this handler."""
+        ...
+
+    def get_methods(self) -> list[str]:
+        """Return the HTTP methods this handler supports."""
+        ...
+
+    async def handle(
+        self,
+        body: Optional[dict[str, Any]],
+        path_params: Optional[dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> HandlerResult:
+        """Handle the request."""
+        ...
+
+
+class GauntletSecureHandler(ABC):
+    """Base handler for Gauntlet v1 endpoints with RBAC protection.
+
+    This is an ABC that implements the VersionedAPIHandler protocol,
+    which has a different dispatch pattern than BaseHandler.
+    It uses composition to access SecureHandler security features.
+    """
 
     RESOURCE_TYPE = "gauntlet"
+
+    def __init__(self, server_context: ServerContext) -> None:
+        """Initialize with server context."""
+        self.ctx = server_context
+        # Create a SecureHandler instance for security method access
+        self._secure_handler = SecureHandler(server_context)
+
+    @abstractmethod
+    def get_path_pattern(self) -> str:
+        """Return the URL path pattern for this handler. Override in subclasses."""
+        ...
+
+    def get_methods(self) -> list[str]:
+        """Return the HTTP methods this handler supports. Default is GET."""
+        return ["GET"]
+
+    @abstractmethod
+    async def handle(
+        self,
+        body: Optional[dict[str, Any]],
+        path_params: Optional[dict[str, str]] = None,
+        query_params: Optional[dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> HandlerResult:
+        """Handle the request. Override in subclasses."""
+        ...
+
+    async def get_auth_context(self, request: Any, require_auth: bool = True) -> Any:
+        """Get authentication context for the current request."""
+        return await get_auth_context(request, require_auth=require_auth)
+
+    def check_permission(
+        self,
+        auth_context: Any,
+        permission: str,
+        resource_id: str | None = None,
+    ) -> bool:
+        """Check if user has a specific permission."""
+        return self._secure_handler.check_permission(auth_context, permission, resource_id)
 
     async def check_gauntlet_permission(
         self,
@@ -111,7 +179,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schema/(?P<schema_type>[a-z-]+)"
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -172,7 +240,7 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/schemas"
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -221,7 +289,7 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates"
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -296,7 +364,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/templates/(?P<template_id>[a-z0-9-]+)"
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -367,7 +435,7 @@ class GauntletReceiptExportHandler(GauntletSecureHandler):
     def get_methods(self) -> list[str]:
         return ["POST"]
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -587,7 +655,7 @@ class GauntletHeatmapExportHandler(GauntletSecureHandler):
     def get_path_pattern(self) -> str:
         return r"/api/v1/gauntlet/(?P<gauntlet_id>[a-zA-Z0-9-]+)/heatmap/export"
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -710,7 +778,7 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
     def get_methods(self) -> list[str]:
         return ["POST"]
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         body: Optional[dict[str, Any]],
         path_params: Optional[dict[str, str]] = None,
@@ -752,7 +820,8 @@ class GauntletValidateReceiptHandler(GauntletSecureHandler):
 
 
 # Handler classes for registration
-GAUNTLET_V1_HANDLERS = [
+# These are concrete implementations of GauntletSecureHandler
+GAUNTLET_V1_HANDLERS: list[type[GauntletSecureHandler]] = [
     GauntletSchemaHandler,
     GauntletAllSchemasHandler,
     GauntletTemplatesListHandler,

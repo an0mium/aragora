@@ -135,6 +135,7 @@ class ShutdownSequence:
             return False
 
         except Exception as e:
+            # Broad catch intentional: shutdown must continue despite individual phase failures
             self._failed.append(phase.name)
             if phase.critical:
                 logger.warning(f"Shutdown phase failed: {phase.name}: {e}")
@@ -263,7 +264,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
 
         except ImportError:
             pass  # Cross-subscriber module not available
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
+            # Shutdown handler - log and continue
             logger.warning(f"KM adapter flush failed: {e}")
 
     sequence.add_phase(
@@ -439,7 +441,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
                 logger.debug("RBAC distributed cache stopped")
         except ImportError:
             pass  # RBAC module not available
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
+            # Shutdown handler - log and continue
             logger.debug(f"RBAC cache stop skipped: {e}")
 
     sequence.add_phase(
@@ -463,7 +466,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
                 logger.info("Gauntlet worker stopped")
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, OSError, asyncio.CancelledError) as e:
+            # Shutdown handler - log and continue
             logger.debug(f"Gauntlet worker stop skipped: {e}")
 
     sequence.add_phase(
@@ -512,7 +516,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await close_shared_pool()
         except ImportError:
             pass  # pool_manager not available
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
+            # Shutdown handler - log and continue
             logger.warning(f"Error closing shared pool: {e}")
 
         try:
@@ -521,7 +526,8 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
             await close_all_pools()
         except ImportError:
             pass
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
+            # Shutdown handler - log and continue
             logger.warning(f"Error closing connection factory pools: {e}")
 
         logger.info("PostgreSQL connection pools closed")

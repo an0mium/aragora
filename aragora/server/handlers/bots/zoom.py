@@ -17,6 +17,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, Optional
@@ -110,7 +111,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         except (ValueError, KeyError, TypeError) as e:
             logger.error(f"Failed to initialize Zoom bot due to configuration error: {e}")
             self._bot = None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.exception(f"Unexpected error initializing Zoom bot: {e}")
             self._bot = None
 
@@ -224,7 +225,7 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             result = await bot.handle_event(event)
             return json_response(result)
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             return self._handle_webhook_exception(e, "Zoom event", return_200_on_error=False)
 
 

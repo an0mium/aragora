@@ -133,7 +133,7 @@ async def handle_add_invoice(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error adding invoice")
         return error_response(f"Failed to add invoice: {e}", status=500)
 
@@ -196,7 +196,7 @@ async def handle_list_invoices(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error listing invoices")
         return error_response(f"Failed to list invoices: {e}", status=500)
 
@@ -222,7 +222,7 @@ async def handle_get_invoice(
 
         return success_response({"invoice": invoice.to_dict()})
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception(f"Error getting invoice {invoice_id}")
         return error_response(f"Failed to get invoice: {e}", status=500)
 
@@ -275,7 +275,7 @@ async def handle_record_payment(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception(f"Error recording payment for invoice {invoice_id}")
         return error_response(f"Failed to record payment: {e}", status=500)
 
@@ -341,7 +341,7 @@ async def handle_optimize_payments(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error optimizing payments")
         return error_response(f"Failed to optimize payments: {e}", status=500)
 
@@ -395,7 +395,7 @@ async def handle_batch_payments(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error creating batch payment")
         return error_response(f"Failed to create batch: {e}", status=500)
 
@@ -436,7 +436,7 @@ async def handle_get_forecast(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error generating forecast")
         return error_response(f"Failed to generate forecast: {e}", status=500)
 
@@ -464,7 +464,7 @@ async def handle_get_discounts(
             }
         )
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         logger.exception("Error getting discount opportunities")
         return error_response(f"Failed to get discounts: {e}", status=500)
 

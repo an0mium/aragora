@@ -194,7 +194,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         except ImportError as e:
             logger.error(f"Email reply loop module not available: {e}")
             return error_response("Email processing not available", 503)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"SendGrid webhook error: {e}")
             # Return 200 to prevent retries
             return json_response({"status": "error", "message": str(e)[:100]})
@@ -286,7 +286,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
         except ImportError as e:
             logger.error(f"Email reply loop module not available: {e}")
             return error_response("Email processing not available", 503)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
             logger.exception(f"SES webhook error: {e}")
             return json_response({"status": "error", "message": str(e)[:100]})
 
@@ -335,7 +335,7 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
                         for key, values in parsed.items():
                             if values:
                                 form_data[key] = values[0] if len(values) == 1 else values
-                except Exception as e:
+                except (ValueError, KeyError, TypeError, UnicodeDecodeError) as e:
                     logger.warning(f"Multipart parse error: {e}")
 
         elif "application/x-www-form-urlencoded" in content_type:

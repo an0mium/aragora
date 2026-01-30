@@ -98,7 +98,7 @@ def _get_tts_backend():
         logger.warning(f"[Voice] TTS backends not available: {e}")
         _tts_available = False
         return None
-    except Exception as e:
+    except (AttributeError, RuntimeError, OSError) as e:
         logger.error(f"[Voice] Failed to initialize TTS backend: {e}")
         _tts_available = False
         return None
@@ -321,7 +321,7 @@ class VoiceStreamHandler:
                     )
                     break
 
-        except Exception as e:
+        except (ConnectionError, RuntimeError, ValueError, OSError) as e:
             logger.error(f"[Voice] Session {session_id} error: {e}")
 
         finally:
@@ -333,7 +333,7 @@ class VoiceStreamHandler:
             if session.audio_buffer:
                 try:
                     await self._transcribe_buffer(session, ws, final=True)
-                except Exception as e:
+                except (ConnectorConfigError, ConnectorRateLimitError, RuntimeError, OSError) as e:
                     logger.warning(f"[Voice] Final transcription failed: {e}")
 
             # Remove session
@@ -473,7 +473,7 @@ class VoiceStreamHandler:
             if session.audio_buffer and len(session.audio_buffer) >= VOICE_CHUNK_SIZE_BYTES:
                 try:
                     await self._transcribe_buffer(session, ws)
-                except Exception as e:
+                except (ConnectorConfigError, ConnectorRateLimitError, RuntimeError, OSError) as e:
                     logger.warning(f"[Voice] Periodic transcription failed: {e}")
 
     async def _transcribe_buffer(
@@ -555,7 +555,7 @@ class VoiceStreamHandler:
                 }
             )
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             logger.error(f"[Voice] Transcription error: {e}")
             await ws.send_json(
                 {
@@ -702,7 +702,7 @@ class VoiceStreamHandler:
             except OSError as e:
                 logger.debug(f"[Voice] Failed to cleanup temp file: {e}")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, IOError) as e:
             logger.error(f"[Voice] TTS synthesis failed: {e}")
             await ws.send_json(
                 {
@@ -843,7 +843,7 @@ class VoiceStreamHandler:
                 try:
                     await self._synthesize_and_send(session, ws, message, agent_voice, agent_name)
                     sessions_sent += 1
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError, IOError, ConnectionError) as e:
                     logger.error(
                         f"[Voice] Failed to synthesize for session {session.session_id}: {e}"
                     )

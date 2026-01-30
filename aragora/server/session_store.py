@@ -620,7 +620,7 @@ class InMemorySessionStore(SessionStore):
         for cb in callbacks:
             try:
                 cb(event)
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 logger.warning(f"Event callback error: {e}")
 
     def subscribe_events(self, channel: str, callback) -> None:
@@ -1017,7 +1017,7 @@ class RedisSessionStore(SessionStore):
             pubsub.psubscribe(**{patterns[0]: self._handle_message})
             self._pubsub_thread = pubsub.run_in_thread(sleep_time=0.1)
             logger.info("Redis pub/sub listener started")
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.warning(f"Failed to start Redis pub/sub: {e}")
 
     def _handle_message(self, message: dict[str, Any]) -> None:
@@ -1050,9 +1050,9 @@ class RedisSessionStore(SessionStore):
             for cb in callbacks:
                 try:
                     cb(event)
-                except Exception as e:
+                except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(f"Pub/sub callback error: {e}")
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError, KeyError) as e:
             logger.warning(f"Failed to handle pub/sub message: {e}")
 
     # Debate session methods
@@ -1428,7 +1428,7 @@ def get_session_store(force_memory: bool = False) -> SessionStore:
                 _session_store = RedisSessionStore()
                 logger.info("Using Redis session store (distributed)")
                 return _session_store
-        except Exception as e:
+        except (ImportError, RuntimeError, ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Redis session store unavailable: {e}")
 
         # Check if distributed state is required (multi-instance or production)

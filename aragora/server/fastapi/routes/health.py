@@ -100,7 +100,7 @@ async def health_detailed(request: Request) -> dict[str, Any]:
                 "status": "healthy",
                 "debates_count": count,
             }
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError) as e:
             subsystems["storage"] = {"status": "unhealthy", "error": str(e)}
     else:
         subsystems["storage"] = {"status": "not_initialized"}
@@ -156,7 +156,7 @@ async def metrics_summary(request: Request) -> dict[str, Any]:
     if storage and hasattr(storage, "count_debates"):
         try:
             metrics["debates_total"] = storage.count_debates()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, ConnectionError) as e:
             logger.debug("Failed to retrieve debate count from storage: %s", e)
 
     return metrics

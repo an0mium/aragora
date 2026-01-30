@@ -104,7 +104,7 @@ class InboxSyncEmitter:
         for callback in self._event_callbacks:
             try:
                 callback(event)
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError) as e:
                 logger.error(f"[InboxSync] Callback error: {e}")
 
         async with self._lock:
@@ -120,7 +120,7 @@ class InboxSyncEmitter:
             try:
                 await websocket.send(message)
                 sent_count += 1
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError) as e:
                 logger.debug(f"[InboxSync] Failed to send to client: {e}")
                 dead_clients.append(websocket)
 

@@ -550,7 +550,15 @@ async def _recover_approval_request(request_id: str) -> OperationApprovalRequest
 
         return request
 
-    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError, json.JSONDecodeError) as e:
+    except (
+        TypeError,
+        ValueError,
+        KeyError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        json.JSONDecodeError,
+    ) as e:
         logger.warning(f"Failed to recover approval request {request_id}: {e}")
         return None
 

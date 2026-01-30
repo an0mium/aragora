@@ -50,7 +50,7 @@ def init_slo_webhooks() -> bool:
 
     except ImportError as e:
         logger.debug(f"SLO webhooks not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to initialize SLO webhooks: {e}")
 
     return False
@@ -77,7 +77,7 @@ def init_webhook_dispatcher() -> bool:
 
     except ImportError as e:
         logger.debug(f"Webhook dispatcher not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to initialize webhook dispatcher: {e}")
 
     return False
@@ -103,7 +103,7 @@ def init_gauntlet_run_recovery() -> int:
 
     except ImportError as e:
         logger.debug(f"Gauntlet run recovery not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to recover stale gauntlet runs: {e}")
 
     return 0
@@ -134,7 +134,7 @@ async def init_durable_job_queue_recovery() -> int:
 
     except ImportError as e:
         logger.debug(f"Durable job queue recovery not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to recover durable job queue: {e}")
 
     return 0
@@ -181,7 +181,7 @@ async def init_gauntlet_worker() -> bool:
 
     except ImportError as e:
         logger.debug(f"Gauntlet worker not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to start gauntlet worker: {e}")
 
     return False
@@ -264,7 +264,7 @@ async def init_notification_worker() -> bool:
 
     except ImportError as e:
         logger.debug(f"Notification worker dependencies not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to start notification worker: {e}")
 
     return False
@@ -296,7 +296,7 @@ def init_workflow_checkpoint_persistence() -> bool:
 
     except ImportError as e:
         logger.debug(f"KnowledgeMound not available for checkpoints: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to wire checkpoint persistence: {e}")
 
     return False
@@ -376,7 +376,7 @@ async def init_backup_scheduler() -> bool:
 
     except ImportError as e:
         logger.debug(f"Backup scheduler not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError, TypeError) as e:
         logger.warning(f"Failed to start backup scheduler: {e}")
 
     return False

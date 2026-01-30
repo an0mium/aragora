@@ -112,7 +112,7 @@ class DebateCommandHandler(BaseCommandHandler):
                 ephemeral=False,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError) as e:
             logger.exception("Failed to start debate")
             return CommandResult.error(f"Failed to start debate: {e!s}", ephemeral=True)
 
@@ -195,7 +195,7 @@ class StatusCommandHandler(BaseCommandHandler):
                 ephemeral=True,
             )
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.exception("Failed to get debate status")
             return CommandResult.error(f"Failed to get status: {e!s}", ephemeral=True)
 
@@ -227,7 +227,7 @@ class StatusCommandHandler(BaseCommandHandler):
             lines.append("\n\nUse `/status <id>` for details.")
             return CommandResult.ok("\n".join(lines), ephemeral=True)
 
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError, ImportError):
             return CommandResult.ok(
                 "Use `/status <debate-id>` to check a specific debate.",
                 ephemeral=True,
@@ -339,7 +339,7 @@ class HistoryCommandHandler(BaseCommandHandler):
             lines.append("\n\nUse `/status <id>` for full details.")
             return CommandResult.ok("\n".join(lines), ephemeral=True)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.exception("Failed to get history")
             return CommandResult.error(f"Failed to get history: {e!s}", ephemeral=True)
 
@@ -404,7 +404,7 @@ class ResultsCommandHandler(BaseCommandHandler):
 
             return CommandResult.ok(message, ephemeral=False)
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as e:
             logger.exception("Failed to get results")
             return CommandResult.error(f"Failed to get results: {e!s}", ephemeral=True)
 

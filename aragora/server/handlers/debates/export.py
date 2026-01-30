@@ -115,6 +115,18 @@ class _DebatesHandlerProtocol(Protocol):
         """Get debate storage instance."""
         ...
 
+    def _process_batch_export(self, job: BatchExportJob) -> Any:
+        """Process batch export items and emit progress events."""
+        ...
+
+    def _emit_export_event(self, job_id: str, event_type: str, data: dict[str, Any]) -> Any:
+        """Emit an event to all connected SSE clients."""
+        ...
+
+    def _generate_export_content(self, debate: dict[str, Any], format: str) -> str:
+        """Generate export content for a debate."""
+        ...
+
 
 class ExportOperationsMixin:
     """Mixin providing export formatting operations for DebatesHandler."""
@@ -162,7 +174,7 @@ class ExportOperationsMixin:
         _batch_export_events[job_id] = asyncio.Queue()
 
         # Start processing in background
-        asyncio.create_task(self._process_batch_export(job))  # type: ignore[attr-defined]
+        asyncio.create_task(self._process_batch_export(job))
 
         logger.info(f"Batch export {job_id} started with {len(items)} items")
 
@@ -179,12 +191,12 @@ class ExportOperationsMixin:
     async def _process_batch_export(self: _DebatesHandlerProtocol, job: BatchExportJob) -> None:
         """Process batch export items and emit progress events."""
         job.status = BatchExportStatus.PROCESSING
-        await self._emit_export_event(job.job_id, "started", job.to_dict())  # type: ignore[attr-defined]
+        await self._emit_export_event(job.job_id, "started", job.to_dict())
 
         storage = self.get_storage()
         if not storage:
             job.status = BatchExportStatus.FAILED
-            await self._emit_export_event(  # type: ignore[attr-defined]
+            await self._emit_export_event(
                 job.job_id,
                 "error",
                 {
@@ -224,7 +236,7 @@ class ExportOperationsMixin:
                     job.error_count += 1
                 else:
                     # Generate export content
-                    content = self._generate_export_content(debate, item.format)  # type: ignore[attr-defined]
+                    content = self._generate_export_content(debate, item.format)
                     item.result = content
                     item.status = BatchExportStatus.COMPLETED
                     job.success_count += 1
@@ -241,7 +253,7 @@ class ExportOperationsMixin:
             job.processed_count += 1
 
             # Emit progress event
-            await self._emit_export_event(  # type: ignore[attr-defined]
+            await self._emit_export_event(
                 job.job_id,
                 "progress",
                 {
@@ -261,7 +273,7 @@ class ExportOperationsMixin:
         job.status = BatchExportStatus.COMPLETED
         job.completed_at = time.time()
 
-        await self._emit_export_event(job.job_id, "completed", job.to_dict())  # type: ignore[attr-defined]
+        await self._emit_export_event(job.job_id, "completed", job.to_dict())
 
     def _generate_export_content(self: _DebatesHandlerProtocol, debate: dict, format: str) -> str:
         """Generate export content for a debate."""

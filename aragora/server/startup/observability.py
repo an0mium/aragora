@@ -49,7 +49,7 @@ def init_structured_logging() -> bool:
         return use_json
     except ImportError as e:
         logger.debug(f"Structured logging not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
         logger.warning(f"Failed to initialize structured logging: {e}")
     return False
 
@@ -89,7 +89,7 @@ async def init_opentelemetry() -> bool:
             logger.debug("OpenTelemetry tracing disabled (set OTEL_ENABLED=true to enable)")
     except ImportError as e:
         logger.debug(f"OpenTelemetry not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
         logger.warning(f"Failed to initialize OpenTelemetry: {e}")
     return False
 
@@ -137,7 +137,7 @@ async def init_otlp_exporter() -> bool:
 
     except ImportError as e:
         logger.debug(f"OTLP exporter not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError, RuntimeError, ConnectionError) as e:
         logger.warning(f"Failed to initialize OTLP exporter: {e}")
 
     return False
@@ -159,6 +159,6 @@ async def init_prometheus_metrics() -> bool:
             return True
     except ImportError as e:
         logger.debug(f"Prometheus metrics not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError, RuntimeError) as e:
         logger.warning(f"Failed to start metrics server: {e}")
     return False

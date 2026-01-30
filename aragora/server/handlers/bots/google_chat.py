@@ -15,6 +15,7 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from typing import Any, Coroutine, Optional
@@ -83,7 +84,7 @@ def get_google_chat_connector() -> Any | None:
         except ImportError as e:
             logger.warning(f"Google Chat connector module not available: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             logger.exception(f"Error initializing Google Chat connector: {e}")
             return None
     return _google_chat_connector
@@ -207,7 +208,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 logger.debug(f"Unhandled Google Chat event type: {event_type}")
                 return json_response({})
 
-        except Exception as e:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError) as e:
             logger.exception(f"Google Chat webhook error: {e}")
             return json_response({"text": f"Error: {str(e)[:100]}"})
 
@@ -340,7 +341,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         except ImportError:
             logger.warning("ConsensusStore not available")
             return self._card_response(body="Vote acknowledged")
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Vote recording failed: {e}")
             return self._card_response(body="Error recording vote")
 
@@ -373,7 +374,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 f"*Conclusion:*\n{final_answer[:500]}...",
             )
 
-        except Exception as e:
+        except (ImportError, RuntimeError, KeyError, AttributeError) as e:
             logger.error(f"View details failed: {e}")
             return self._card_response(body="Error fetching debate details")
 
@@ -644,7 +645,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.debug("DecisionRouter not available, falling back to direct execution")
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"DecisionRouter failed: {e}, falling back to direct execution")
 
         # Fallback to direct Arena execution
@@ -712,7 +713,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                 blocks=sections,
             )
 
-        except Exception as e:
+        except (RuntimeError, ImportError, ValueError, AttributeError, OSError) as e:
             logger.error(f"Async debate failed: {e}", exc_info=True)
             if connector:
                 await connector.send_message(
@@ -792,7 +793,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                         ),
                     )
 
-        except Exception as e:
+        except (RuntimeError, ImportError, ValueError, AttributeError, OSError) as e:
             logger.error(f"Async gauntlet failed: {e}", exc_info=True)
             if connector:
                 await connector.send_message(

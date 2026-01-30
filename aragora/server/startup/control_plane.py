@@ -51,7 +51,7 @@ async def init_control_plane_coordinator() -> Any | None:
     except ImportError as e:
         logger.debug(f"Control Plane not available: {e}")
         return None
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError, OSError) as e:
         # Redis may not be available - this is OK for local development
         logger.warning(f"Control Plane coordinator not started (Redis may be unavailable): {e}")
         return None
@@ -79,7 +79,7 @@ async def init_shared_control_plane_state() -> bool:
     except ImportError as e:
         logger.debug(f"Shared control plane state not available: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError, OSError) as e:
         logger.warning(f"Shared control plane state initialization failed: {e}")
         return False
 
@@ -145,7 +145,7 @@ async def init_witness_patrol() -> bool:
     except ImportError as e:
         logger.debug(f"Witness behavior not available: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.warning(f"Witness patrol initialization failed: {e}")
         return False
 
@@ -210,7 +210,7 @@ async def init_mayor_coordinator() -> bool:
     except ImportError as e:
         logger.debug(f"Mayor coordinator not available: {e}")
         return False
-    except Exception as e:
+    except (RuntimeError, ConnectionError, TimeoutError, OSError, ValueError) as e:
         logger.warning(f"Mayor coordinator initialization failed: {e}")
         return False
 
@@ -249,7 +249,7 @@ async def init_persistent_task_queue() -> int:
                     deleted = queue.delete_completed_tasks(older_than_hours=24)
                     if deleted > 0:
                         logger.debug(f"Cleaned up {deleted} old completed tasks")
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError) as e:
                     logger.warning(f"Task cleanup failed: {e}")
 
         asyncio.create_task(cleanup_loop())
@@ -263,7 +263,7 @@ async def init_persistent_task_queue() -> int:
 
     except ImportError as e:
         logger.debug(f"Persistent task queue not available: {e}")
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         logger.warning(f"Failed to initialize persistent task queue: {e}")
 
     return 0

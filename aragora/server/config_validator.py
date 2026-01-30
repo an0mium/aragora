@@ -273,7 +273,7 @@ class ConfigValidator:
             return True, None
         except ImportError:
             return True, None  # Module not available, not an error
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError) as e:
             return False, f"Database connectivity check failed: {e}"
 
     @classmethod
@@ -330,7 +330,7 @@ class ConfigValidator:
                 return False, f"Database connection timeout after {timeout_seconds}s"
             except asyncpg.PostgresError as e:
                 return False, f"Database connection failed: {e}"
-            except Exception as e:
+            except (ConnectionError, TimeoutError, OSError) as e:
                 return False, f"Database connectivity check failed: {e}"
             finally:
                 if conn:
@@ -351,7 +351,7 @@ class ConfigValidator:
             except RuntimeError:
                 # No running loop - create one
                 return asyncio.run(_test_connection())
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             return False, f"Failed to run connectivity test: {e}"
 
     @classmethod
@@ -375,7 +375,7 @@ class ConfigValidator:
             return True, None
         except ImportError:
             return True, None  # Redis not installed, not an error
-        except Exception as e:
+        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
             return False, f"Redis connectivity check failed: {e}"
 
     @classmethod
@@ -423,15 +423,7 @@ class ConfigValidator:
             return True, None
         except asyncio.TimeoutError:
             return False, f"Database connection timeout after {timeout_seconds}s"
-        except Exception as e:
-            # Import here to avoid circular imports and check if it's a postgres error
-            try:
-                import asyncpg as apg
-
-                if isinstance(e, apg.PostgresError):
-                    return False, f"Database connection failed: {e}"
-            except ImportError:
-                pass
+        except (ConnectionError, TimeoutError, OSError) as e:
             return False, f"Database connectivity check failed: {e}"
         finally:
             if conn:

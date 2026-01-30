@@ -273,7 +273,15 @@ class DebateFactory:
                 result.agents.append(agent)
                 logger.debug(f"Created agent {spec.provider} successfully")
 
-            except Exception as e:
+            except (
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                ImportError,
+                RuntimeError,
+                OSError,
+            ) as e:
                 error_msg = f"Failed to create agent {spec.provider}: {e}"
                 logger.error(error_msg)
                 result.failed.append((spec.provider, str(e)))
@@ -300,7 +308,7 @@ class DebateFactory:
                     loop_id=debate_id,
                 )
             )
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.warning(f"Failed to emit agent error event: {e}")
 
     def _get_persona_prompt(self, persona: str) -> str | None:
@@ -347,7 +355,7 @@ class DebateFactory:
                     )
                     prompt = f"You are a {traits_str} agent. {stored_persona.description}"
                     return prompt
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug(f"Failed to get persona from manager: {e}")
 
         # Fallback: use persona name as behavioral hint
@@ -404,7 +412,7 @@ class DebateFactory:
                     )
                     logger.debug(f"Applied persona params from manager for {persona}")
                     return
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug(f"Failed to get persona params: {e}")
 
     def create_arena(

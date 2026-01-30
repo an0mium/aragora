@@ -388,7 +388,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (ValueError, KeyError, TypeError) as e:
             logger.warning("Invalid data in nomic metrics: %s", e)
             return error_response(f"Invalid metrics data: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, OSError) as e:
             logger.exception("Unexpected error getting nomic metrics: %s", e)
             return error_response(f"Failed to get nomic metrics: {e}", 500)
 
@@ -553,7 +553,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
                         "convoy_count": len(report.convoy_checks),
                         "recommendations": report.recommendations[:5],  # Top 5
                     }
-            except Exception as e:
+            except (RuntimeError, OSError, AttributeError) as e:
                 logger.debug(f"Could not generate health report: {e}")
 
             return json_response(response)
@@ -567,7 +567,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
                     "error": "Witness module not available",
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
             logger.error(f"Failed to get witness status: {e}")
             return error_response(f"Failed to get witness status: {e}", 500)
 
@@ -617,7 +617,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
                     "error": "Mayor coordinator module not available",
                 }
             )
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError, KeyError, TypeError) as e:
             logger.error(f"Failed to get mayor info: {e}")
             return error_response(f"Failed to get mayor info: {e}", 500)
 
@@ -763,7 +763,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to start nomic loop due to file/process error: %s", e)
             return error_response(f"Failed to start nomic loop: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, subprocess.SubprocessError) as e:
             logger.exception("Unexpected error starting nomic loop: %s", e)
             return error_response(f"Failed to start nomic loop: {e}", 500)
 
@@ -841,7 +841,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to stop nomic loop due to file/process error: %s", e)
             return error_response(f"Failed to stop nomic loop: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, ProcessLookupError) as e:
             logger.exception("Unexpected error stopping nomic loop: %s", e)
             return error_response(f"Failed to stop nomic loop: {e}", 500)
 
@@ -902,7 +902,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to pause nomic loop due to file error: %s", e)
             return error_response(f"Failed to pause nomic loop: {e}", 500)
-        except Exception as e:
+        except RuntimeError as e:
             logger.exception("Unexpected error pausing nomic loop: %s", e)
             return error_response(f"Failed to pause nomic loop: {e}", 500)
 
@@ -960,7 +960,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to resume nomic loop due to file error: %s", e)
             return error_response(f"Failed to resume nomic loop: {e}", 500)
-        except Exception as e:
+        except RuntimeError as e:
             logger.exception("Unexpected error resuming nomic loop: %s", e)
             return error_response(f"Failed to resume nomic loop: {e}", 500)
 
@@ -1033,7 +1033,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to skip phase due to file error: %s", e)
             return error_response(f"Failed to skip phase: {e}", 500)
-        except Exception as e:
+        except RuntimeError as e:
             logger.exception("Unexpected error skipping phase: %s", e)
             return error_response(f"Failed to skip phase: {e}", 500)
 
@@ -1068,7 +1068,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to read proposals file: %s", e)
             return error_response(f"Failed to get proposals: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error getting proposals: %s", e)
             return error_response(f"Failed to get proposals: {e}", 500)
 
@@ -1135,7 +1135,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to write proposals file: %s", e)
             return error_response(f"Failed to approve proposal: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error approving proposal: %s", e)
             return error_response(f"Failed to approve proposal: {e}", 500)
 
@@ -1205,6 +1205,6 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
         except (OSError, PermissionError) as e:
             logger.error("Failed to write proposals file: %s", e)
             return error_response(f"Failed to reject proposal: {e}", 500)
-        except Exception as e:
+        except (RuntimeError, KeyError, TypeError) as e:
             logger.exception("Unexpected error rejecting proposal: %s", e)
             return error_response(f"Failed to reject proposal: {e}", 500)

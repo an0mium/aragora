@@ -41,7 +41,7 @@ def _get_job_store():
             from aragora.storage.job_queue_store import get_job_store
 
             _job_store = get_job_store()
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError) as e:
             logger.debug(f"Job store not available: {e}")
     return _job_store
 
@@ -100,7 +100,7 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(store.enqueue(job))
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ConnectionError) as e:
             logger.debug(f"Failed to persist transcription job: {e}")
 
 
@@ -141,7 +141,7 @@ def _get_job(job_id: str) -> Optional[dict[str, Any]]:
                 }
                 _transcription_jobs[job_id] = job_data
                 return job_data
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError, AttributeError) as e:
             logger.debug(f"Failed to load transcription job from store: {e}")
 
     return None
@@ -269,7 +269,7 @@ class TranscriptionHandler(BaseHandler):
         except (ImportError, AttributeError) as e:
             logger.warning(f"Transcription module not available: {e}")
             return error_response("Transcription service not fully configured", 503)
-        except Exception as e:
+        except (RuntimeError, KeyError) as e:
             logger.exception(f"Unexpected error getting transcription config: {e}")
             return error_response("Failed to get configuration", 500)
 
@@ -381,7 +381,7 @@ class TranscriptionHandler(BaseHandler):
         except (OSError, IOError) as e:
             logger.error(f"File I/O error during transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:
             logger.exception(f"Unexpected transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
@@ -465,7 +465,7 @@ class TranscriptionHandler(BaseHandler):
         except (OSError, IOError) as e:
             logger.error(f"File I/O error during video transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:
             logger.exception(f"Unexpected video transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
@@ -556,7 +556,7 @@ class TranscriptionHandler(BaseHandler):
         except (OSError, IOError) as e:
             logger.error(f"File I/O error during YouTube transcription: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
-        except Exception as e:
+        except (RuntimeError, AttributeError, ImportError) as e:
             logger.exception(f"Unexpected YouTube transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
@@ -601,7 +601,7 @@ class TranscriptionHandler(BaseHandler):
         except (KeyError, TypeError) as e:
             logger.warning(f"Invalid YouTube info request data: {e}")
             return error_response(safe_error_message(e, "video info"), 400)
-        except Exception as e:
+        except (AttributeError, ImportError, OSError) as e:
             logger.exception(f"Unexpected error getting YouTube info: {e}")
             return error_response(safe_error_message(e, "video info"), 500)
 
@@ -661,6 +661,6 @@ class TranscriptionHandler(BaseHandler):
         except (OSError, IOError) as e:
             logger.error(f"I/O error parsing multipart data: {e}")
             return None, "", {}
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.exception(f"Unexpected error parsing multipart data: {e}")
             return None, "", {}

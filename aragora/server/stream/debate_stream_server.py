@@ -196,7 +196,7 @@ class DebateStreamServer(ServerBase):
                 return auth_header[7:]
 
             return None
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
             logger.debug(f"Could not extract WebSocket token: {e}")
             return None
 
@@ -252,7 +252,7 @@ class DebateStreamServer(ServerBase):
                         return xff.split(",")[0].strip()
 
             return direct_ip
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError, IndexError) as e:
             logger.debug(f"Could not extract client IP: {e}")
             return "unknown"
 
@@ -454,7 +454,8 @@ class DebateStreamServer(ServerBase):
                 except asyncio.TimeoutError:
                     logger.warning("Client send timed out during broadcast, marking for disconnect")
                     disconnected.add(client)
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
+                    # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during broadcast: {e}")
                     disconnected.add(client)
 
@@ -511,7 +512,8 @@ class DebateStreamServer(ServerBase):
                         "Client send timed out during batch broadcast, marking for disconnect"
                     )
                     disconnected.add(client)
-                except Exception as e:
+                except (OSError, ConnectionError, RuntimeError) as e:
+                    # WebSocket/network errors during send
                     logger.debug(f"Client disconnected during batch broadcast: {e}")
                     disconnected.add(client)
 
@@ -689,7 +691,7 @@ class DebateStreamServer(ServerBase):
             elif hasattr(websocket, "request_headers"):
                 return websocket.request_headers.get("Origin", "")
             return ""
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError) as e:
             logger.debug(f"Could not extract origin header: {e}")
             return ""
 
@@ -1101,7 +1103,7 @@ class DebateStreamServer(ServerBase):
 
             logger.info(f"[wisdom] Stored submission {wisdom_id} for loop {loop_id}")
 
-        except Exception as e:
+        except (OSError, ValueError, AttributeError, KeyError) as e:
             logger.error(f"[wisdom] Failed to store submission: {e}")
             await websocket.send(
                 json.dumps(
@@ -1225,7 +1227,9 @@ class DebateStreamServer(ServerBase):
                             )
                         )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Broad catch needed for WebSocket handler robustness
+            # WebSocket handlers must catch all exceptions to ensure cleanup runs
+            # and to prevent server crashes from individual client errors
             error_name = type(e).__name__
             if "ConnectionClosed" not in error_name and "ConnectionClosedOK" not in error_name:
                 logger.error(
@@ -1288,7 +1292,7 @@ class DebateStreamServer(ServerBase):
                 for client in list(self.clients):
                     try:
                         close_tasks.append(client.close())
-                    except Exception as e:
+                    except (OSError, RuntimeError) as e:
                         logger.debug(f"Error closing WebSocket client: {e}")
                 if close_tasks:
                     await asyncio.gather(*close_tasks, return_exceptions=True)

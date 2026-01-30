@@ -114,7 +114,7 @@ async def _send_google_chat_result(origin: DebateOrigin, result: dict[str, Any])
     except ImportError as e:
         logger.warning(f"Google Chat connector not available: {e}")
         return False
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.error(f"Google Chat result send error: {e}")
         return False
 
@@ -144,6 +144,6 @@ async def _send_google_chat_receipt(origin: DebateOrigin, summary: str) -> bool:
 
     except ImportError:
         return False
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.error(f"Google Chat receipt post error: {e}")
         return False

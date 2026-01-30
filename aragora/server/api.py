@@ -266,7 +266,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
 
             self._send_json(fork_data)
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, ValueError, KeyError) as e:
             # Log error server-side but return generic message to client
             logger.error(f"Fork operation failed for {debate_id}: {type(e).__name__}: {e}")
             self.send_error(500, "Fork operation failed")
@@ -315,7 +315,7 @@ class DebateAPIHandler(BaseHTTPRequestHandler):
             self._add_cors_headers()
             self.end_headers()
             self.wfile.write(content)
-        except Exception as e:
+        except (OSError, IOError) as e:
             logger.error(f"File serving error: {type(e).__name__}: {e}")
             self.send_error(500, "Failed to read file")
 

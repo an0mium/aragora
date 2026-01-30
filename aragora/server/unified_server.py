@@ -603,7 +603,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                     ip_address=user_ctx.client_ip,
                 )
                 logger.debug(f"RBAC auth context created for user {user_ctx.user_id}")
-        except Exception as e:
+        except (ValueError, KeyError, AttributeError, TypeError) as e:
             logger.debug(f"RBAC context extraction failed: {e}")
 
         # Check permission
@@ -1037,7 +1037,7 @@ class UnifiedServer:
             logger.info("DecisionRouter initialized for unified routing")
         except ImportError as e:
             logger.debug(f"DecisionRouter not available: {e}")
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to initialize DecisionRouter: {e}")
 
     @property
@@ -1162,7 +1162,7 @@ class UnifiedServer:
                 upgrade_results = await upgrade_handler_stores(self.nomic_dir)
                 if upgrade_results:
                     logger.info(f"Store upgrades: {upgrade_results}")
-            except Exception as e:
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
                 logger.warning(f"Store upgrade failed (continuing with SQLite): {e}")
 
         # Wire Control Plane coordinator to handler
@@ -1368,7 +1368,7 @@ async def run_unified_server(
         logger.info("[server] Configuration validated successfully")
     except ValidatorConfigurationError:
         raise
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError, TypeError, ValueError) as e:
         logger.warning(f"[server] Config validation skipped: {e}")
 
     # Initialize storage from nomic directory

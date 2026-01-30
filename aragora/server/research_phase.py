@@ -176,7 +176,7 @@ Respond with just "yes" or "no".""",
             content_block = response.content[0]
             content = str(getattr(content_block, "text", "")).strip().lower()
             return content.startswith("yes")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"LLM classification failed: {e}")
             return self.is_current_event(question)
 
@@ -207,7 +207,7 @@ Respond with just "yes" or "no".""",
                     )
                 return results
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ValueError) as e:
             logger.warning(f"Brave search failed: {e}")
             return []
 
@@ -241,7 +241,7 @@ Respond with just "yes" or "no".""",
                     )
                 return results
 
-        except Exception as e:
+        except (httpx.HTTPError, OSError, ValueError) as e:
             logger.warning(f"Serper search failed: {e}")
             return []
 
@@ -349,7 +349,7 @@ Focus on facts and cite your sources.""",
                 query=question,
                 is_current_event=self.is_current_event(question),
             )
-        except Exception as e:
+        except (OSError, ConnectionError, ValueError, RuntimeError) as e:
             logger.warning(f"[claude_web_search] Failed: {e}")
             return ResearchResult(
                 query=question,
@@ -490,7 +490,7 @@ Focus on facts, not opinions. Include relevant dates and specifics.""",
             content_block = response.content[0]
             result.summary = str(getattr(content_block, "text", ""))
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"[research] Summary generation failed: {e}")
 
         return result
@@ -528,7 +528,7 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
                 is_current_event=False,
             )
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"[research] Claude knowledge fallback failed: {e}")
             return ResearchResult(
                 query=question,
@@ -598,6 +598,6 @@ async def research_for_debate(question: str) -> str:
             logger.info(f"[research] Prepared {len(context)} chars of research context")
         return context
 
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
         logger.warning(f"[research] Pre-debate research failed: {e}")
         return ""

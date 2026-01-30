@@ -28,7 +28,7 @@ def _get_config_value(name: str) -> str | None:
         return get_secret(name)
     except ImportError:
         return None
-    except Exception:  # noqa: BLE001 - Secret fetch fallback
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError):
         return None
 
 
@@ -334,7 +334,7 @@ async def validate_redis_connectivity(timeout_seconds: float = 5.0) -> tuple[boo
         return False, "redis package not installed - run: pip install redis"
     except asyncio.TimeoutError:
         return False, f"Redis connection timed out after {timeout_seconds}s"
-    except Exception as e:
+    except (ConnectionError, OSError, ValueError, RuntimeError) as e:
         return False, f"Redis connection failed: {e}"
 
 
@@ -380,7 +380,7 @@ async def validate_database_connectivity(timeout_seconds: float = 5.0) -> tuple[
             return False, f"PostgreSQL connection timed out after {timeout_seconds}s"
     except ImportError:
         return False, "asyncpg package not installed - run: pip install asyncpg"
-    except Exception as e:
+    except (ConnectionError, OSError, ValueError, RuntimeError) as e:
         return False, f"PostgreSQL connection failed: {e}"
 
 

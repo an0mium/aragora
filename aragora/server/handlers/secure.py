@@ -29,7 +29,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from typing import Any, Callable, TypeVar, ParamSpec
+from typing import Any, Awaitable, Callable, TypeVar
 
 from aragora.rbac.models import AuthorizationContext
 from aragora.rbac.decorators import PermissionDeniedError, RoleRequiredError
@@ -39,8 +39,12 @@ from .utils.auth import get_auth_context, UnauthorizedError, ForbiddenError
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
+# TypeVar for the handler return type - must include HandlerResult since
+# security errors return HandlerResult from the wrapper
 T = TypeVar("T")
+
+# Type alias for async handler functions that receive auth_context
+SecureHandlerFunc = Callable[..., Awaitable[T]]
 
 
 class SecureHandler(BaseHandler):
@@ -272,7 +276,7 @@ def secure_endpoint(
     audit: bool = False,
     audit_action: str | None = None,
     resource_id_param: str | None = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[SecureHandlerFunc[T]], SecureHandlerFunc[T | HandlerResult]]:
     """
     Decorator for secure endpoint methods.
 
@@ -301,14 +305,14 @@ def secure_endpoint(
                 return json_response({"created": True})
     """
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: SecureHandlerFunc[T]) -> SecureHandlerFunc[T | HandlerResult]:
         @functools.wraps(func)
         async def wrapper(
             self: SecureHandler,
             request: Any,
-            *args: P.args,
-            **kwargs: P.kwargs,
-        ) -> T:
+            *args: Any,
+            **kwargs: Any,
+        ) -> T | HandlerResult:
             from aragora.observability.metrics.security import (
                 record_auth_attempt,
                 track_rbac_evaluation,
@@ -330,15 +334,18 @@ def secure_endpoint(
 
                 # 2. Check permission if specified
                 if permission:
-                    resource_id = None
+                    resource_id: str | None = None
                     if resource_id_param:
-                        resource_id = kwargs.get(resource_id_param)
+                        resource_id_value = kwargs.get(resource_id_param)
+                        resource_id = (
+                            str(resource_id_value) if resource_id_value is not None else None
+                        )
 
                     with track_rbac_evaluation():
-                        self.check_permission(auth_context, permission, resource_id)  # type: ignore[arg-type]
+                        self.check_permission(auth_context, permission, resource_id)
 
                 # 3. Call the actual handler
-                result = await func(self, request, auth_context, *args, **kwargs)  # type: ignore[misc,arg-type]
+                result = await func(self, request, auth_context, *args, **kwargs)
 
                 # 4. Audit if requested
                 if audit:
@@ -362,13 +369,13 @@ def secure_endpoint(
                 PermissionDeniedError,
                 RoleRequiredError,
             ) as e:
-                return self.handle_security_error(e, request)  # type: ignore[return-value]
+                return self.handle_security_error(e, request)
 
             except Exception as e:
                 logger.exception(f"Error in secure endpoint {func.__name__}: {e}")
                 raise
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
@@ -376,7 +383,7 @@ def secure_endpoint(
 def audit_sensitive_access(
     resource_type: str,
     action: str = "access",
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[SecureHandlerFunc[T]], SecureHandlerFunc[T]]:
     """
     Decorator to audit access to sensitive data.
 
@@ -393,14 +400,14 @@ def audit_sensitive_access(
             ...
     """
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: SecureHandlerFunc[T]) -> SecureHandlerFunc[T]:
         @functools.wraps(func)
         async def wrapper(
             self: SecureHandler,
             request: Any,
             auth_context: AuthorizationContext,
-            *args: P.args,
-            **kwargs: P.kwargs,
+            *args: Any,
+            **kwargs: Any,
         ) -> T:
             from aragora.observability.metrics.security import record_secret_access
             from aragora.observability.security_audit import audit_secret_access
@@ -417,9 +424,9 @@ def audit_sensitive_access(
                 workspace_id=auth_context.workspace_id,
             )
 
-            return await func(self, request, auth_context, *args, **kwargs)  # type: ignore[misc,arg-type]
+            return await func(self, request, auth_context, *args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 

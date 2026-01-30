@@ -130,7 +130,7 @@ class AuthConfig:
                         f"revoked={stats['revoked_tokens_removed']} "
                         f"sessions={stats.get('sessions_removed', 0)}"
                     )
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, KeyError) as e:
                 _logger.warning(f"auth_cleanup_error error={e}")
 
     def stop_cleanup_thread(self) -> None:
@@ -708,7 +708,7 @@ def check_auth(
                         "Check JWT_DEBUG logs for details."
                     )
                     return False, -1
-            except Exception as e:
+            except (ValueError, RuntimeError, TypeError, ImportError) as e:
                 # Log the exception and reject - JWT tokens shouldn't fall through to HMAC
                 _logger.warning(
                     f"[JWT_AUTH] Token validation raised exception: {type(e).__name__}: {e}"

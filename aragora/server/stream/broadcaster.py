@@ -294,7 +294,7 @@ class DebateStateCache:
             except RuntimeError:
                 # No event loop running - skip TTS
                 pass
-            except Exception as e:
+            except (RuntimeError, TypeError, ValueError) as e:
                 logger.debug(f"TTS callback failed: {e}")
 
     def _handle_round_start(self, loop_id: str, event: StreamEvent) -> None:
@@ -574,7 +574,7 @@ class WebSocketBroadcaster:
         for client in clients:
             try:
                 await client.send(message)
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError) as e:
                 logger.debug(f"Client disconnected during broadcast: {e}")
                 disconnected.add(client)
 
@@ -600,7 +600,7 @@ class WebSocketBroadcaster:
         for client in clients:
             try:
                 await client.send(message)
-            except Exception as e:
+            except (ConnectionError, OSError, RuntimeError) as e:
                 logger.debug(f"Client disconnected during batch broadcast: {e}")
                 disconnected.add(client)
 

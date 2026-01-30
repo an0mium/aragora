@@ -335,7 +335,7 @@ class SyncEventEmitter:
         for sub in self._subscribers:
             try:
                 sub(event)
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError, AttributeError) as e:
                 logger.warning(f"[stream] Subscriber callback error: {e}")
 
     def subscribe(self, callback: Callable[[StreamEvent], None]) -> None:
@@ -410,7 +410,7 @@ class SyncEventEmitter:
                                 round=round_num,
                             )
                         )
-                    except Exception as e:
+                    except (TypeError, ValueError, KeyError, AttributeError) as e:
                         logger.warning(f"[telemetry] Redaction failed: {e}")
                         # On redaction failure, suppress the event for security
                         return False
@@ -437,7 +437,7 @@ class SyncEventEmitter:
                 )
             )
             return True
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError) as e:
             logger.error(f"[telemetry] broadcast_event failed: {e}")
             return False
 

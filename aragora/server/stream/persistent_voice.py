@@ -345,7 +345,7 @@ class PersistentVoiceManager:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (KeyError, RuntimeError) as e:
                 logger.error(f"Error in heartbeat monitor: {e}")
 
     # ==========================================================================
@@ -483,7 +483,7 @@ class PersistentVoiceManager:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (KeyError, RuntimeError) as e:
                 logger.error(f"Error in cleanup task: {e}")
 
     # ==========================================================================
@@ -515,7 +515,7 @@ class PersistentVoiceManager:
 
         except ImportError:
             logger.debug("Session store not available for persistence")
-        except Exception as e:
+        except (ValueError, KeyError, OSError) as e:
             logger.warning(f"Failed to persist session: {e}")
 
     async def _load_session(self, session_id: str) -> PersistentVoiceSession | None:
@@ -546,7 +546,7 @@ class PersistentVoiceManager:
 
         except ImportError:
             return None
-        except Exception as e:
+        except (ValueError, KeyError, OSError) as e:
             logger.warning(f"Failed to load session: {e}")
             return None
 
@@ -560,7 +560,7 @@ class PersistentVoiceManager:
 
         except ImportError:
             pass
-        except Exception as e:
+        except (ValueError, KeyError, OSError) as e:
             logger.warning(f"Failed to remove session: {e}")
 
     # ==========================================================================

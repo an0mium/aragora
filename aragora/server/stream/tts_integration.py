@@ -175,7 +175,7 @@ class TTSIntegration:
                     f"{sessions_sent} voice session(s) in {synthesis_duration:.2f}s"
                 )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TimeoutError) as e:
             logger.warning(f"[TTS Integration] Synthesis failed: {e}")
 
         finally:
@@ -255,7 +255,7 @@ class TTSIntegration:
         except ImportError:
             logger.debug("[TTS Integration] TTS backends not available")
             return None
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TimeoutError) as e:
             logger.warning(f"[TTS Integration] Chat synthesis failed: {e}")
             return None
 

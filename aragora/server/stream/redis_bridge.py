@@ -110,7 +110,7 @@ class RedisBroadcastBridge:
             logger.info(f"Redis broadcast bridge connected (instance={self._instance_id})")
             return True
 
-        except Exception as e:
+        except (ConnectionError, OSError, TimeoutError) as e:
             logger.warning(f"Failed to connect Redis bridge: {e}")
             self._connected = False
             return False
@@ -168,12 +168,12 @@ class RedisBroadcastBridge:
 
                 try:
                     await self._handle_message(message)
-                except Exception as e:
+                except (json.JSONDecodeError, KeyError, ValueError) as e:
                     logger.warning(f"Error handling Redis message: {e}")
 
         except asyncio.CancelledError:
             logger.debug("Redis bridge listener cancelled")
-        except Exception as e:
+        except (ConnectionError, OSError) as e:
             logger.error(f"Redis bridge listener error: {e}")
 
     async def _handle_message(self, message: dict) -> None:
@@ -291,7 +291,7 @@ class RedisBroadcastBridge:
         try:
             await self._redis.publish(channel, json.dumps(message))
             logger.debug(f"Published event to {channel}: {event_type}")
-        except Exception as e:
+        except (ConnectionError, OSError, TimeoutError) as e:
             logger.warning(f"Failed to publish Redis event: {e}")
 
     async def health_check(self) -> dict:
@@ -311,7 +311,7 @@ class RedisBroadcastBridge:
                 start = time.time()
                 await self._redis.ping()
                 result["ping_ms"] = (time.time() - start) * 1000
-            except Exception as e:
+            except (ConnectionError, OSError, TimeoutError) as e:
                 result["error"] = str(e)
                 result["connected"] = False
 

@@ -197,7 +197,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in Telegram update: {e}")
             return error_response("Invalid JSON payload", 400)
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError) as e:
             logger.exception(f"Unexpected Telegram webhook error: {e}")
             # Always return 200 to prevent Telegram from retrying
             return json_response({"ok": False, "error": str(e)[:100]})
@@ -324,7 +324,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             logger.warning("ConsensusStore not available for vote recording")
             self._answer_callback_query(callback_id, "Vote acknowledged")
             return json_response({"ok": True, "vote_recorded": False})
-        except Exception as e:
+        except (RuntimeError, ValueError, KeyError, AttributeError) as e:
             logger.error(f"Failed to record vote: {e}")
             self._answer_callback_query(callback_id, "Error recording vote")
             return json_response({"ok": False, "error": str(e)[:100]})
@@ -346,7 +346,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             with httpx.Client(timeout=10.0) as client:
                 client.post(url, json=data)
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to answer callback query: {e}")
 
     # Command implementations
@@ -461,7 +461,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
             except ImportError:
                 logger.debug("DecisionRouter not available, falling back to queue system")
                 return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
-            except Exception as e:
+            except (RuntimeError, ValueError, KeyError, AttributeError) as e:
                 logger.error(f"DecisionRouter failed: {e}, falling back to queue system")
                 return await self._fallback_queue_debate(chat_id, user_id, topic, debate_id)
 
@@ -492,7 +492,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
                 user_id=str(user_id),
                 metadata={"topic": topic},
             )
-        except Exception as e:
+        except (RuntimeError, KeyError, AttributeError, OSError) as e:
             logger.warning(f"Failed to register debate origin: {e}")
 
         try:
@@ -516,7 +516,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
         except ImportError:
             logger.warning("Queue system not available, using direct execution")
             return self._run_debate_direct(chat_id, user_id, topic, debate_id)
-        except Exception as e:
+        except (RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Failed to enqueue debate: {e}")
             return debate_id
 
@@ -557,7 +557,7 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
                 asyncio.run(execute())
 
-            except Exception as e:
+            except (RuntimeError, ImportError, ValueError, AttributeError) as e:
                 logger.error(f"Direct debate execution failed: {e}")
                 self._send_message(chat_id, f"Debate failed: {str(e)[:100]}")
 
@@ -619,5 +619,5 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
         except ImportError:
             logger.warning("httpx not available for Telegram messaging")
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to send Telegram message: {e}")

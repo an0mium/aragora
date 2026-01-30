@@ -51,7 +51,7 @@ async def _send_whatsapp_result(origin: DebateOrigin, result: dict[str, Any]) ->
                 logger.warning(f"WhatsApp send failed: {response.status_code}")
                 return False
 
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"WhatsApp result send error: {e}")
         return False
 
@@ -113,7 +113,7 @@ async def _send_whatsapp_voice(origin: DebateOrigin, result: dict[str, Any]) -> 
                 logger.warning(f"WhatsApp voice send failed: {send_response.status_code}")
                 return False
 
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"WhatsApp voice send error: {e}")
         return False
     finally:
