@@ -736,7 +736,7 @@ class CrossWorkspaceCoordinator:
         try:
             # Execute with timeout
             result = await asyncio.wait_for(
-                asyncio.get_event_loop().run_in_executor(None, handler, request),
+                asyncio.get_running_loop().run_in_executor(None, handler, request),
                 timeout=request.timeout_seconds,
             )
             return result

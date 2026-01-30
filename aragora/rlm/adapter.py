@@ -37,11 +37,9 @@ import asyncio
 import hashlib
 import logging
 import re
-import sys
 import time
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .exceptions import (
     RLMCircuitOpenError,
@@ -51,32 +49,13 @@ from .exceptions import (
 )
 from .types import AbstractionLevel, RLMResult
 
+# Use centralized timeout that fails loudly if unavailable
+from aragora.resilience import asyncio_timeout as _asyncio_timeout
+
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
 
     from .compressor import HierarchicalCompressor
-
-# Python 3.11+ has asyncio.timeout, earlier versions need a fallback
-if sys.version_info >= (3, 11):
-    _asyncio_timeout = asyncio.timeout
-else:
-    try:
-        from async_timeout import timeout as _asyncio_timeout
-    except ImportError:
-
-        @asynccontextmanager
-        async def _asyncio_timeout(delay: float | None) -> AsyncIterator[None]:
-            """Fallback timeout context manager using wait_for pattern."""
-            if delay is None:
-                yield
-                return
-            # Note: This is a simplified fallback; for full functionality,
-            # install async-timeout package
-            logger.warning(
-                "async-timeout not installed, timeout not enforced. "
-                "Install with: pip install async-timeout"
-            )
-            yield
 
 
 logger = logging.getLogger(__name__)

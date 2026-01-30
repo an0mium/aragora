@@ -135,4 +135,109 @@ async def run_git_command(args: list[str], cwd: Path, timeout: float = 30.0) -> 
         return False, str(e)
 
 
-__all__ = ["run_async", "run_command", "run_git_command"]
+def get_event_loop_safe() -> asyncio.AbstractEventLoop:
+    """Get event loop safely, handling the deprecation of asyncio.get_event_loop().
+
+    This function handles the Python 3.10+ deprecation of get_event_loop() which
+    emits a DeprecationWarning when called outside an async context.
+
+    Returns:
+        The running event loop if available, otherwise creates a new one.
+
+    Note:
+        In async code, prefer asyncio.get_running_loop() directly.
+        This function is mainly for sync code that needs to schedule work
+        on an event loop.
+    """
+    try:
+        # First try to get a running loop (we're in async context)
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - we're in sync context
+        # In Python 3.10+, get_event_loop() is deprecated when no loop is running
+        # Use get_event_loop() anyway as it still works and creates/returns a loop
+        # for the main thread, or use new_event_loop for other threads
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            return loop
+        except RuntimeError:
+            # No current event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
+
+
+def run_sync_in_async_context(func: Any, *args: Any, **kwargs: Any) -> asyncio.Future:
+    """Run a synchronous function in the executor from an async context.
+
+    This is the proper replacement for:
+        asyncio.get_event_loop().run_in_executor(None, func, *args)
+
+    Args:
+        func: Synchronous callable to run
+        *args: Positional arguments for func
+        **kwargs: Keyword arguments for func (will use functools.partial)
+
+    Returns:
+        Future that resolves to the function's return value
+
+    Raises:
+        RuntimeError: If not called from an async context
+    """
+    import functools
+
+    loop = asyncio.get_running_loop()  # Raises if not in async context
+    if kwargs:
+        func = functools.partial(func, **kwargs)
+    return loop.run_in_executor(None, func, *args)
+
+
+def schedule_background_task(coro: Coroutine[Any, Any, T]) -> None:
+    """Schedule a coroutine to run in the background (fire-and-forget).
+
+    Works from both sync and async contexts. In async context, uses create_task.
+    In sync context, schedules on the event loop.
+
+    Args:
+        coro: Coroutine to execute in background
+
+    Note:
+        The coroutine's result is ignored. Exceptions are logged but not raised.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(coro)
+        task.add_done_callback(_log_task_exception)
+    except RuntimeError:
+        # No running loop - need to handle differently
+        loop = get_event_loop_safe()
+        if loop.is_running():
+            loop.call_soon_threadsafe(lambda: loop.create_task(coro))
+        else:
+            # Run the coroutine blocking if no loop is available
+            try:
+                asyncio.run(coro)
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.warning(f"Background task failed: {e}")
+
+
+def _log_task_exception(task: asyncio.Task) -> None:
+    """Callback to log exceptions from background tasks."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error(f"Background task failed: {exc}", exc_info=exc)
+
+
+__all__ = [
+    "get_event_loop_safe",
+    "run_async",
+    "run_command",
+    "run_git_command",
+    "run_sync_in_async_context",
+    "schedule_background_task",
+]

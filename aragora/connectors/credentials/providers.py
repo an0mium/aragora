@@ -157,7 +157,7 @@ class AWSSecretsManagerProvider:
             return self._secret_cache
 
         # Fetch from AWS (run in thread pool for async compatibility)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         secret_value = await loop.run_in_executor(
             None,
             self._fetch_secret_sync,
@@ -273,7 +273,7 @@ class AWSSecretsManagerProvider:
         target[parts[-1]] = value
 
         # Push to AWS
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(
             None,
             self._update_secret_sync,

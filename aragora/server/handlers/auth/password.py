@@ -317,11 +317,8 @@ This is an automated message. Please do not reply.
 
     # Run email sending in background (don't block the response)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(send_email())
-        else:
-            loop.run_until_complete(send_email())
+        asyncio.get_running_loop()
+        asyncio.create_task(send_email())
     except RuntimeError:
         # No event loop - create one for this task
         asyncio.run(send_email())

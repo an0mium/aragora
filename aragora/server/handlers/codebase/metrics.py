@@ -138,7 +138,7 @@ async def handle_analyze_metrics(
                 )
 
                 # Run in thread pool to avoid blocking
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 report = await loop.run_in_executor(
                     None,
                     lambda: analyzer.analyze_repository(

@@ -19,11 +19,8 @@ import json
 import logging
 import os
 import secrets
-import sys
 import threading
 import time
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -41,23 +38,8 @@ from aragora.server.auth import auth_config
 # Centralized CORS configuration
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
 
-# Python 3.11+ has asyncio.timeout, earlier versions need async-timeout package
-if sys.version_info >= (3, 11):
-    _asyncio_timeout = asyncio.timeout
-else:
-    try:
-        from async_timeout import timeout as _asyncio_timeout
-    except ImportError:
-        # Fallback: no actual timeout enforcement if async-timeout not installed
-        @asynccontextmanager
-        async def _asyncio_timeout(delay: float | None) -> AsyncIterator[None]:
-            """Fallback timeout context manager (no actual timeout)."""
-            if delay is not None:
-                logger.warning(
-                    "async-timeout not installed, timeout not enforced. "
-                    "Install with: pip install async-timeout"
-                )
-            yield
+# Use centralized timeout implementation that fails loudly if unavailable
+from aragora.resilience import asyncio_timeout as _asyncio_timeout
 
 
 # Trusted proxies for X-Forwarded-For header validation
@@ -1294,12 +1276,11 @@ class DebateStreamServer(ServerBase):
 
     def _handle_drain_task_error(self, task: asyncio.Task) -> None:
         """Handle errors from the drain loop task."""
-        try:
-            exc = task.exception()
-            if exc is not None:
-                logger.error(f"Drain loop task failed with exception: {exc}")
-        except asyncio.CancelledError:
-            pass  # Task was cancelled, not an error
+        if task.cancelled():
+            return  # Task was cancelled, not an error
+        exc = task.exception()
+        if exc is not None:
+            logger.error(f"Drain loop task failed with exception: {exc}")
 
     async def graceful_shutdown(self) -> None:
         """Gracefully close all client connections and stop the server."""

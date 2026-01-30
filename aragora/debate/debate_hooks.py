@@ -528,9 +528,9 @@ class DebateHooks:
             return
 
         try:
-            import urllib.request
-            import json
             import threading
+
+            import httpx
 
             # Build Slack Block Kit message
             status_emoji = ":white_check_mark:" if result.consensus_reached else ":warning:"
@@ -601,18 +601,19 @@ class DebateHooks:
                 "blocks": blocks,
             }
 
+            webhook_url = self.slack_webhook_url
+
             def send_webhook():
                 """Send webhook in background thread."""
                 try:
-                    req = urllib.request.Request(
-                        self.slack_webhook_url,
-                        data=json.dumps(payload).encode("utf-8"),
+                    resp = httpx.post(
+                        webhook_url,
+                        json=payload,
                         headers={"Content-Type": "application/json"},
-                        method="POST",
+                        timeout=10.0,
                     )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
-                        if resp.status != 200:
-                            logger.debug(f"Slack webhook returned {resp.status}")
+                    if resp.status_code != 200:
+                        logger.debug(f"Slack webhook returned {resp.status_code}")
                 except Exception as e:
                     logger.debug(f"Slack webhook error: {e}")
 

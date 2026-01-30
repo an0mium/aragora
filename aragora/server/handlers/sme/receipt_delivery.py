@@ -617,8 +617,9 @@ class ReceiptDeliveryHandler(SecureHandler):
     def _send_test_to_webhook(self, webhook_url: str, message: str, org_id: str) -> dict[str, Any]:
         """Send test message to webhook."""
         try:
-            import json as json_lib
-            import urllib.request
+            import asyncio
+
+            import httpx
 
             payload = {
                 "type": "test_delivery",
@@ -627,17 +628,19 @@ class ReceiptDeliveryHandler(SecureHandler):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
-            req = urllib.request.Request(
-                webhook_url,
-                data=json_lib.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
+            async def send():
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    return await client.post(
+                        webhook_url,
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if response.status >= 200 and response.status < 300:
-                    return {"success": True, "status_code": response.status}
-                return {"success": False, "error": f"HTTP {response.status}"}
+            resp = asyncio.run(send())
+
+            if resp.status_code >= 200 and resp.status_code < 300:
+                return {"success": True, "status_code": resp.status_code}
+            return {"success": False, "error": f"HTTP {resp.status_code}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

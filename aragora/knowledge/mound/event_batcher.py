@@ -155,7 +155,13 @@ class EventBatcher:
             return
 
         self._running = True
-        self._loop = loop or asyncio.get_event_loop()
+        if loop is not None:
+            self._loop = loop
+        else:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self._loop = asyncio.new_event_loop()
 
         try:
             self._flush_task = self._loop.create_task(self._flush_loop())

@@ -49,6 +49,8 @@ from aragora.server.handlers.email import (
 )
 
 import aragora.server.handlers.email as email_module
+import aragora.server.handlers.email.storage as email_storage
+import aragora.server.handlers.email.categorization as email_categorization
 
 
 # ===========================================================================
@@ -59,19 +61,19 @@ import aragora.server.handlers.email as email_module
 @pytest.fixture(autouse=True)
 def _reset_global_state():
     """Reset module-level global singletons between tests."""
-    old_gmail = email_module._gmail_connector
-    old_prioritizer = email_module._prioritizer
-    old_context = email_module._context_service
-    old_categorizer = email_module._categorizer
-    old_store = email_module._email_store
+    old_gmail = email_storage._gmail_connector
+    old_prioritizer = email_storage._prioritizer
+    old_context = email_storage._context_service
+    old_categorizer = email_categorization._categorizer
+    old_store = email_storage._email_store
 
     yield
 
-    email_module._gmail_connector = old_gmail
-    email_module._prioritizer = old_prioritizer
-    email_module._context_service = old_context
-    email_module._categorizer = old_categorizer
-    email_module._email_store = old_store
+    email_storage._gmail_connector = old_gmail
+    email_storage._prioritizer = old_prioritizer
+    email_storage._context_service = old_context
+    email_categorization._categorizer = old_categorizer
+    email_storage._email_store = old_store
 
 
 @pytest.fixture
@@ -189,7 +191,7 @@ class TestHandlePrioritizeEmail:
 
     @pytest.mark.asyncio
     async def test_success(self, sample_email_data, mock_priority_result):
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.score_email = AsyncMock(return_value=mock_priority_result)
             mock_gp.return_value = mock_prioritizer
@@ -204,7 +206,7 @@ class TestHandlePrioritizeEmail:
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"score": 60}
 
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.score_email = AsyncMock(return_value=mock_result)
             mock_gp.return_value = mock_prioritizer
@@ -222,7 +224,7 @@ class TestHandlePrioritizeEmail:
         mock_result = MagicMock()
         mock_result.to_dict.return_value = {"score": 10}
 
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.score_email = AsyncMock(return_value=mock_result)
             mock_gp.return_value = mock_prioritizer
@@ -232,7 +234,7 @@ class TestHandlePrioritizeEmail:
 
     @pytest.mark.asyncio
     async def test_error_propagation(self):
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.score_email = AsyncMock(side_effect=RuntimeError("scoring exploded"))
             mock_gp.return_value = mock_prioritizer
@@ -261,7 +263,7 @@ class TestHandleRankInbox:
         mock_r2 = MagicMock()
         mock_r2.to_dict.return_value = {"email_id": "2", "score": 40}
 
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.rank_inbox = AsyncMock(return_value=[mock_r1, mock_r2])
             mock_gp.return_value = mock_prioritizer
@@ -274,7 +276,7 @@ class TestHandleRankInbox:
 
     @pytest.mark.asyncio
     async def test_empty_list(self):
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.rank_inbox = AsyncMock(return_value=[])
             mock_gp.return_value = mock_prioritizer
@@ -285,7 +287,7 @@ class TestHandleRankInbox:
 
     @pytest.mark.asyncio
     async def test_limit_passed_through(self):
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.rank_inbox = AsyncMock(return_value=[])
             mock_gp.return_value = mock_prioritizer
@@ -297,7 +299,7 @@ class TestHandleRankInbox:
 
     @pytest.mark.asyncio
     async def test_error(self):
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_gp:
+        with patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp:
             mock_prioritizer = MagicMock()
             mock_prioritizer.rank_inbox = AsyncMock(side_effect=Exception("rank failed"))
             mock_gp.return_value = mock_prioritizer
@@ -318,8 +320,8 @@ class TestHandleEmailFeedback:
     @pytest.mark.asyncio
     async def test_success_with_auth(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.get_prioritizer") as mock_gp,
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_prioritizer = MagicMock()
@@ -345,8 +347,8 @@ class TestHandleEmailFeedback:
     @pytest.mark.asyncio
     async def test_with_email_data_context(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.get_prioritizer") as mock_gp,
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_prioritizer = MagicMock()
@@ -449,7 +451,7 @@ class TestVIPManagement:
     @pytest.mark.asyncio
     async def test_add_vip_email(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_email_store", return_value=None),
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -470,7 +472,7 @@ class TestVIPManagement:
     @pytest.mark.asyncio
     async def test_add_vip_domain(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_email_store", return_value=None),
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -493,7 +495,7 @@ class TestVIPManagement:
             _user_configs["rm_user"] = {"vip_addresses": ["remove@me.com"]}
 
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_email_store", return_value=None),
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -539,7 +541,7 @@ class TestGmailOAuth:
     @pytest.mark.asyncio
     async def test_oauth_url_success(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -569,7 +571,7 @@ class TestGmailOAuth:
     @pytest.mark.asyncio
     async def test_oauth_callback_success(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -593,7 +595,7 @@ class TestGmailOAuth:
     @pytest.mark.asyncio
     async def test_oauth_callback_error(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -699,7 +701,7 @@ class TestFetchAndRankInbox:
 
         with (
             patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
-            patch("aragora.server.handlers.email.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
         ):
             mock_connector = MagicMock()
             mock_connector._access_token = "valid"
@@ -823,7 +825,7 @@ class TestCategorization:
     @pytest.mark.asyncio
     async def test_apply_category_label_success(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_categorizer") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
@@ -840,7 +842,7 @@ class TestCategorization:
     @pytest.mark.asyncio
     async def test_apply_category_label_invalid_category(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
             patch("aragora.server.handlers.email.get_categorizer") as mock_gc,
             patch(
                 "aragora.services.email_categorizer.EmailCategory",
@@ -869,8 +871,8 @@ class TestFeedbackBatch:
     @pytest.mark.asyncio
     async def test_success(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_prioritizer = MagicMock()
@@ -890,8 +892,8 @@ class TestFeedbackBatch:
     @pytest.mark.asyncio
     async def test_missing_fields_in_items(self, allowed_auth_context):
         with (
-            patch("aragora.server.handlers.email.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
+            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_prioritizer = MagicMock()

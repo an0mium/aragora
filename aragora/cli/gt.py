@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 def _run_async(coro: Coroutine[Any, Any, T]) -> T:
     """Run an async coroutine synchronously."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

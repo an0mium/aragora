@@ -91,11 +91,8 @@ class KnowledgeMoundHandlersMixin:
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(mound.store(request))
-                else:
-                    loop.run_until_complete(mound.store(request))
+                loop = asyncio.get_running_loop()
+                loop.create_task(mound.store(request))
             except RuntimeError:
                 pass  # No event loop available
             logger.info(f"Synced memory to Knowledge Mound (importance={importance:.2f})")

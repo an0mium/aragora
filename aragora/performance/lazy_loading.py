@@ -231,7 +231,7 @@ class AutoPrefetchBatcher:
 
             # If this is the first in batch, schedule batch execution
             if property_name not in self._batch_futures:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 future: asyncio.Future[None] = loop.create_future()
                 self._batch_futures[property_name] = future
 
@@ -337,7 +337,7 @@ class LazyValue(Generic[T]):
             raise RuntimeError("Loader in invalid state")
 
         self._loading = True
-        self._load_future = asyncio.get_event_loop().create_future()
+        self._load_future = asyncio.get_running_loop().create_future()
 
         try:
             # Detect N+1

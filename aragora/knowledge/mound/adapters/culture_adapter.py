@@ -189,14 +189,12 @@ class CultureAdapter:
 
             # Execute async
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't block, return None
-                    asyncio.create_task(do_store())
-                    return pattern_id  # Return expected ID
-                else:
-                    return loop.run_until_complete(do_store())
+                asyncio.get_running_loop()  # Check if loop running
+                # Loop is running, can't block
+                asyncio.create_task(do_store())
+                return pattern_id  # Return expected ID
             except RuntimeError:
+                # No running loop, create one
                 return asyncio.run(do_store())
 
         except ImportError as e:
@@ -279,16 +277,14 @@ class CultureAdapter:
                 ]
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Return cached if available
-                    cache_key = f"{workspace_id}:{pattern_types}:{min_confidence}"
-                    if cache_key in self._pattern_cache:
-                        return list(self._pattern_cache[cache_key].values())
-                    return []
-                else:
-                    return loop.run_until_complete(do_query())
+                asyncio.get_running_loop()  # Check if loop running
+                # Loop is running, return cached if available
+                cache_key = f"{workspace_id}:{pattern_types}:{min_confidence}"
+                if cache_key in self._pattern_cache:
+                    return list(self._pattern_cache[cache_key].values())
+                return []
             except RuntimeError:
+                # No running loop, create one
                 return asyncio.run(do_query())
 
         except Exception as e:
@@ -455,13 +451,12 @@ class CultureAdapter:
                 return result.node_id
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(do_store())
-                    return f"org_{pattern.id}"
-                else:
-                    return loop.run_until_complete(do_store())
+                asyncio.get_running_loop()  # Check if loop running
+                # Loop is running, can't block
+                asyncio.create_task(do_store())
+                return f"org_{pattern.id}"
             except RuntimeError:
+                # No running loop, create one
                 return asyncio.run(do_store())
 
         except Exception as e:

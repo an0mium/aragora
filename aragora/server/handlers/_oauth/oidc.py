@@ -10,6 +10,8 @@ import json
 import logging
 from urllib.parse import urlencode
 
+import httpx
+
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
@@ -23,7 +25,7 @@ class OIDCOAuthMixin:
 
     @handle_errors("OIDC OAuth start")
     @log_request("OIDC OAuth start")
-    def _handle_oidc_auth_start(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_oidc_auth_start(self, handler, query_params: dict) -> HandlerResult:
         """Redirect user to generic OIDC provider."""
         impl = _impl()
         oidc_issuer = impl._get_oidc_issuer()
@@ -49,7 +51,7 @@ class OIDCOAuthMixin:
         state = impl._generate_state(user_id=user_id, redirect_url=redirect_url)
 
         # Discover OIDC endpoints
-        discovery = self._get_oidc_discovery(oidc_issuer)
+        discovery = await self._get_oidc_discovery(oidc_issuer)
         auth_endpoint = discovery.get("authorization_endpoint")
 
         if not auth_endpoint:
@@ -73,7 +75,7 @@ class OIDCOAuthMixin:
 
     @handle_errors("OIDC OAuth callback")
     @log_request("OIDC OAuth callback")
-    def _handle_oidc_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_oidc_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle generic OIDC callback."""
         impl = _impl()
         error = _get_param(query_params, "error")
@@ -94,10 +96,10 @@ class OIDCOAuthMixin:
             return self._redirect_with_error("Missing authorization code")
 
         oidc_issuer = impl._get_oidc_issuer()
-        discovery = self._get_oidc_discovery(oidc_issuer)
+        discovery = await self._get_oidc_discovery(oidc_issuer)
 
         try:
-            token_data = self._exchange_oidc_code(code, discovery)
+            token_data = await self._exchange_oidc_code(code, discovery)
         except Exception as e:
             logger.error(f"OIDC token exchange failed: {e}")
             return self._redirect_with_error("Failed to exchange authorization code")
@@ -106,61 +108,53 @@ class OIDCOAuthMixin:
         id_token = token_data.get("id_token")
 
         try:
-            user_info = self._get_oidc_user_info(access_token, id_token, discovery)
+            user_info = await self._get_oidc_user_info(access_token, id_token, discovery)
         except Exception as e:
             logger.error(f"Failed to get OIDC user info: {e}")
             return self._redirect_with_error("Failed to get user info")
 
         return self._complete_oauth_flow(user_info, state_data)
 
-    def _get_oidc_discovery(self, issuer: str) -> dict:
+    async def _get_oidc_discovery(self, issuer: str) -> dict:
         """Fetch OIDC discovery document."""
-        import urllib.request
-
         discovery_url = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
 
         try:
-            req = urllib.request.Request(discovery_url)
-            with urllib.request.urlopen(req, timeout=10) as response:
-                return json.loads(response.read().decode())
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(discovery_url)
+                return response.json()
         except Exception as e:
             logger.error(f"OIDC discovery failed: {e}")
             return {}
 
-    def _exchange_oidc_code(self, code: str, discovery: dict) -> dict:
+    async def _exchange_oidc_code(self, code: str, discovery: dict) -> dict:
         """Exchange OIDC authorization code for tokens."""
-        import urllib.request
-
         impl = _impl()
         token_endpoint = discovery.get("token_endpoint")
         if not token_endpoint:
             raise ValueError("No token endpoint in OIDC discovery")
 
-        data = urlencode(
-            {
-                "code": code,
-                "client_id": impl._get_oidc_client_id(),
-                "client_secret": impl._get_oidc_client_secret(),
-                "redirect_uri": impl._get_oidc_redirect_uri(),
-                "grant_type": "authorization_code",
-            }
-        ).encode()
+        data = {
+            "code": code,
+            "client_id": impl._get_oidc_client_id(),
+            "client_secret": impl._get_oidc_client_secret(),
+            "redirect_uri": impl._get_oidc_redirect_uri(),
+            "grant_type": "authorization_code",
+        }
 
-        req = urllib.request.Request(
-            token_endpoint,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                token_endpoint,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            return response.json()
 
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode())
-
-    def _get_oidc_user_info(
+    async def _get_oidc_user_info(
         self, access_token: str, id_token: str, discovery: dict
     ) -> OAuthUserInfo:
         """Get user info from OIDC userinfo endpoint or id_token."""
         import base64
-        import urllib.request
 
         userinfo_endpoint = discovery.get("userinfo_endpoint")
         user_data = {}
@@ -168,12 +162,12 @@ class OIDCOAuthMixin:
         # Try userinfo endpoint first
         if userinfo_endpoint and access_token:
             try:
-                req = urllib.request.Request(
-                    userinfo_endpoint,
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    user_data = json.loads(response.read().decode())
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(
+                        userinfo_endpoint,
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    )
+                    user_data = response.json()
             except Exception as e:
                 logger.warning(f"OIDC userinfo failed, falling back to id_token: {e}")
 

@@ -361,7 +361,7 @@ class ElevenLabsBackend(TTSBackend):
                         f.write(chunk)
                 return output_path
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
@@ -509,7 +509,7 @@ class XTTSBackend(TTSBackend):
                     )
                 return output_path
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
@@ -722,7 +722,7 @@ class PollyBackend(TTSBackend):
                     f.write(stream.read())
                 return output_path
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():
@@ -782,7 +782,7 @@ class Pyttsx3Backend(TTSBackend):
                 engine.runAndWait()
                 return output_path
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, _generate)
 
             if result and result.exists():

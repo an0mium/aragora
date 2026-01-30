@@ -9,6 +9,7 @@ can be imported from a single location.
 import argparse
 import os
 
+import httpx
 
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
@@ -23,9 +24,6 @@ def cmd_agents(args: argparse.Namespace) -> None:
 
 def cmd_control_plane(args: argparse.Namespace) -> None:
     """Handle 'control-plane' command - show control plane status and management."""
-    import urllib.request
-    import json
-
     server_url = getattr(args, "server", DEFAULT_API_URL)
     subcommand = getattr(args, "subcommand", "status")
 
@@ -36,13 +34,13 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
     if subcommand in (None, "status"):
         # Get control plane metrics
         try:
-            req = urllib.request.Request(
+            resp = httpx.get(
                 f"{server_url}/api/v1/control-plane/metrics",
-                method="GET",
                 headers={"Accept": "application/json"},
+                timeout=5,
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
+            resp.raise_for_status()
+            data = resp.json()
 
             print("\nControl Plane Status: ONLINE")
             print("\nAgents:")
@@ -59,7 +57,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
             print(f"  Documents: {data.get('documents_processed_today', 0)}")
             print(f"  Audits:    {data.get('audits_completed_today', 0)}")
 
-        except (OSError, TimeoutError) as e:
+        except (httpx.HTTPError, OSError, TimeoutError) as e:
             print("\nControl Plane Status: OFFLINE")
             print(f"  Server not reachable at {server_url}")
             print(f"  Error: {e}")
@@ -68,13 +66,13 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
     elif subcommand == "agents":
         # List registered agents
         try:
-            req = urllib.request.Request(
+            resp = httpx.get(
                 f"{server_url}/api/v1/control-plane/agents",
-                method="GET",
                 headers={"Accept": "application/json"},
+                timeout=5,
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
+            resp.raise_for_status()
+            data = resp.json()
 
             agents = data.get("agents", [])
             print(f"\nRegistered Agents: {len(agents)}")
@@ -86,20 +84,20 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
                 print(f"      Type: {agent.get('type', 'unknown')}")
                 print(f"      Status: {status}")
 
-        except (OSError, TimeoutError) as e:
+        except (httpx.HTTPError, OSError, TimeoutError) as e:
             print(f"\nCannot reach control plane at {server_url}")
             print(f"  Error: {e}")
 
     elif subcommand == "channels":
         # List connected channels
         try:
-            req = urllib.request.Request(
+            resp = httpx.get(
                 f"{server_url}/api/v1/integrations/status",
-                method="GET",
                 headers={"Accept": "application/json"},
+                timeout=5,
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
+            resp.raise_for_status()
+            data = resp.json()
 
             print("\nConnected Channels:")
             print("-" * 40)
@@ -114,7 +112,7 @@ def cmd_control_plane(args: argparse.Namespace) -> None:
                 print("  No channels configured")
                 print("  Configure in: CLAUDE.md or via API")
 
-        except (OSError, TimeoutError) as e:
+        except (httpx.HTTPError, OSError, TimeoutError) as e:
             print(f"\nCannot reach control plane at {server_url}")
             print(f"  Error: {e}")
 

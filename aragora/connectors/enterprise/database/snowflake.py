@@ -244,7 +244,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
     async def _async_query(self, query: str, params: tuple | None = None) -> list[dict[str, Any]]:
         """Execute a query asynchronously via thread pool."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             self._executor,
             self._execute_query,

@@ -129,7 +129,7 @@ class RequestDeduplicator:
 
             # Mark as seen and create in-flight future
             self._seen[request_hash] = now
-            self._in_flight[request_hash] = asyncio.get_event_loop().create_future()
+            self._in_flight[request_hash] = asyncio.get_running_loop().create_future()
             return False, None
 
     async def complete(

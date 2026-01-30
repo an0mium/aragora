@@ -478,7 +478,7 @@ class LocalFineTuner:
 
     async def train_async(self, data: TrainingData) -> FineTuneResult:
         """Async wrapper for training."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.train, data)
 
     def load_trained_model(self, model_path: str) -> None:
@@ -592,7 +592,7 @@ class LocalFineTuner:
         top_p: float = 0.9,
     ) -> str:
         """Async wrapper for generation."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, lambda: self.generate(prompt, max_new_tokens, temperature, top_p)
         )

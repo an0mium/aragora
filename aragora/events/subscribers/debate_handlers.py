@@ -220,11 +220,8 @@ class DebateHandlersMixin:
                     logger.debug(f"Culture retrieval failed: {e}")
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(retrieve_culture())
-                else:
-                    loop.run_until_complete(retrieve_culture())
+                asyncio.get_running_loop()
+                asyncio.create_task(retrieve_culture())
             except RuntimeError:
                 # No event loop, skip async operation
                 pass

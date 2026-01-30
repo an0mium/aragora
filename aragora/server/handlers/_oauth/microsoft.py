@@ -6,9 +6,10 @@ Provides Microsoft OAuth (Azure AD) authentication methods for the OAuthHandler.
 
 from __future__ import annotations
 
-import json
 import logging
 from urllib.parse import urlencode
+
+import httpx
 
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
@@ -68,7 +69,7 @@ class MicrosoftOAuthMixin:
 
     @handle_errors("Microsoft OAuth callback")
     @log_request("Microsoft OAuth callback")
-    def _handle_microsoft_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_microsoft_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Microsoft OAuth callback."""
         impl = _impl()
 
@@ -91,7 +92,7 @@ class MicrosoftOAuthMixin:
             return self._redirect_with_error("Missing authorization code")
 
         try:
-            token_data = self._exchange_microsoft_code(code)
+            token_data = await self._exchange_microsoft_code(code)
         except Exception as e:
             logger.error(f"Microsoft token exchange failed: {e}")
             return self._redirect_with_error("Failed to exchange authorization code")
@@ -101,52 +102,45 @@ class MicrosoftOAuthMixin:
             return self._redirect_with_error("No access token received")
 
         try:
-            user_info = self._get_microsoft_user_info(access_token)
+            user_info = await self._get_microsoft_user_info(access_token)
         except Exception as e:
             logger.error(f"Failed to get Microsoft user info: {e}")
             return self._redirect_with_error("Failed to get user info")
 
         return self._complete_oauth_flow(user_info, state_data)
 
-    def _exchange_microsoft_code(self, code: str) -> dict:
+    async def _exchange_microsoft_code(self, code: str) -> dict:
         """Exchange Microsoft authorization code for access token."""
-        import urllib.request
-
         impl = _impl()
         tenant = impl._get_microsoft_tenant()
         token_url = impl.MICROSOFT_TOKEN_URL_TEMPLATE.format(tenant=tenant)
 
-        data = urlencode(
-            {
-                "code": code,
-                "client_id": impl._get_microsoft_client_id(),
-                "client_secret": impl._get_microsoft_client_secret(),
-                "redirect_uri": impl._get_microsoft_redirect_uri(),
-                "grant_type": "authorization_code",
-            }
-        ).encode()
+        data = {
+            "code": code,
+            "client_id": impl._get_microsoft_client_id(),
+            "client_secret": impl._get_microsoft_client_secret(),
+            "redirect_uri": impl._get_microsoft_redirect_uri(),
+            "grant_type": "authorization_code",
+        }
 
-        req = urllib.request.Request(
-            token_url,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                token_url,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            return response.json()
 
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode())
-
-    def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
+    async def _get_microsoft_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from Microsoft Graph API."""
-        import urllib.request
-
         impl = _impl()
-        req = urllib.request.Request(
-            impl.MICROSOFT_USERINFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
 
-        with urllib.request.urlopen(req, timeout=10) as response:
-            user_data = json.loads(response.read().decode())
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                impl.MICROSOFT_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            user_data = response.json()
 
         email = user_data.get("mail") or user_data.get("userPrincipalName", "")
         if not email or "@" not in email:

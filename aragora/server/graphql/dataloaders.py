@@ -76,13 +76,14 @@ class DataLoader(Generic[K, V]):
             return self._cache[key]
 
         # Create a future for this request
-        future: asyncio.Future[V | None] = asyncio.get_event_loop().create_future()
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[V | None] = loop.create_future()
         self._queue.append((key, future))
 
         # Schedule dispatch if not already scheduled
         if not self._dispatch_scheduled:
             self._dispatch_scheduled = True
-            asyncio.get_event_loop().call_soon(lambda: asyncio.create_task(self._dispatch()))
+            loop.call_soon(lambda: asyncio.create_task(self._dispatch()))
 
         return await future
 
@@ -133,7 +134,7 @@ class DataLoader(Generic[K, V]):
         # If there are more items, schedule another dispatch
         if self._queue:
             self._dispatch_scheduled = True
-            asyncio.get_event_loop().call_soon(lambda: asyncio.create_task(self._dispatch()))
+            asyncio.get_running_loop().call_soon(lambda: asyncio.create_task(self._dispatch()))
 
     def clear(self, key: K | None = None) -> None:
         """

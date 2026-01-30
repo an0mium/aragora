@@ -463,11 +463,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             # Run async in background
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(route_via_decision_router())
-                else:
-                    asyncio.run(route_via_decision_router())
+                asyncio.get_running_loop()
+                asyncio.create_task(route_via_decision_router())
                 return debate_id
             except RuntimeError:
                 asyncio.run(route_via_decision_router())
@@ -516,11 +513,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
 
             # Run async enqueue in background
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(enqueue_job())
-                else:
-                    asyncio.run(enqueue_job())
+                asyncio.get_running_loop()
+                asyncio.create_task(enqueue_job())
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(enqueue_job())

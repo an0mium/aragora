@@ -537,7 +537,7 @@ class TeamsWorkspaceStore:
             logger.error(f"Failed to get Teams workspace stats: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 
-    def refresh_workspace_token(
+    async def refresh_workspace_token(
         self,
         tenant_id: str,
         client_id: str,
@@ -553,9 +553,7 @@ class TeamsWorkspaceStore:
         Returns:
             Updated workspace with new tokens, or None on failure
         """
-        import json
-        import urllib.parse
-        import urllib.request
+        import httpx
 
         workspace = self.get(tenant_id)
         if not workspace:
@@ -569,24 +567,21 @@ class TeamsWorkspaceStore:
         try:
             # Exchange refresh token for new access token via Azure AD
             token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-            data = urllib.parse.urlencode(
-                {
-                    "grant_type": "refresh_token",
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "refresh_token": workspace.refresh_token,
-                    "scope": "https://graph.microsoft.com/.default offline_access",
-                }
-            ).encode()
+            data = {
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": workspace.refresh_token,
+                "scope": "https://graph.microsoft.com/.default offline_access",
+            }
 
-            request = urllib.request.Request(
-                token_url,
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-            with urllib.request.urlopen(request, timeout=30) as response:
-                result = json.loads(response.read().decode())
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    token_url,
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                result = resp.json()
 
             if "error" in result:
                 error = result.get("error", "unknown")
@@ -612,10 +607,10 @@ class TeamsWorkspaceStore:
 
             return None
 
-        except urllib.error.URLError as e:
+        except httpx.RequestError as e:
             logger.error(f"Network error refreshing Teams token for {tenant_id}: {e}")
             return None
-        except (json.JSONDecodeError, KeyError) as e:
+        except (ValueError, KeyError) as e:
             logger.error(f"Invalid response refreshing Teams token for {tenant_id}: {e}")
             return None
 

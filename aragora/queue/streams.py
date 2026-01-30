@@ -434,7 +434,7 @@ async def create_redis_queue(
 
     config = get_queue_config()
     url = redis_url or config.redis_url
-    name = consumer_name or f"worker-{socket.gethostname()}-{id(asyncio.get_event_loop())}"
+    name = consumer_name or f"worker-{socket.gethostname()}-{id(asyncio.get_running_loop())}"
 
     client = redis.from_url(url, decode_responses=False)
 

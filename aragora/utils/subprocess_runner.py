@@ -318,7 +318,7 @@ async def run_sandboxed(
     logger.debug(f"Running sandboxed: {shlex.join(cmd)}")
 
     # Run the command
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         result = await asyncio.wait_for(
             loop.run_in_executor(

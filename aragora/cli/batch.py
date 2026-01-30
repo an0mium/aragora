@@ -13,10 +13,10 @@ import asyncio
 import json
 import sys
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import httpx
 
 if TYPE_CHECKING:
     from aragora.core import DebateResult
@@ -163,18 +163,18 @@ def _batch_via_server(items: list[dict[str, Any]], args: argparse.Namespace) -> 
 
     # Submit batch
     try:
-        req = urllib.request.Request(
-            f"{server_url}/api/debates/batch",
-            data=json.dumps(batch_data).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
+        headers = {"Content-Type": "application/json"}
         if args.token:
-            req.add_header("Authorization", f"Bearer {args.token}")
+            headers["Authorization"] = f"Bearer {args.token}"
 
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode())
+        resp = httpx.post(
+            f"{server_url}/api/debates/batch",
+            json=batch_data,
+            headers=headers,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        result = resp.json()
 
         if not result.get("success"):
             print(f"Error: {result.get('error', 'Unknown error')}")
@@ -190,12 +190,12 @@ def _batch_via_server(items: list[dict[str, Any]], args: argparse.Namespace) -> 
             print("\nWaiting for completion...")
             _poll_batch_status(server_url, batch_id, args.token)
 
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode() if e.fp else ""
-        print(f"Server error ({e.code}): {error_body}")
+    except httpx.HTTPStatusError as e:
+        error_body = e.response.text
+        print(f"Server error ({e.response.status_code}): {error_body}")
         sys.exit(1)
-    except urllib.error.URLError as e:
-        print(f"Connection error: {e.reason}")
+    except httpx.RequestError as e:
+        print(f"Connection error: {e}")
         sys.exit(1)
 
 
@@ -204,17 +204,19 @@ def _poll_batch_status(server_url: str, batch_id: str, token: str | None = None)
     poll_interval = 5  # seconds
     max_polls = 360  # 30 minutes max
 
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
     for _ in range(max_polls):
         try:
-            req = urllib.request.Request(
+            resp = httpx.get(
                 f"{server_url}/api/debates/batch/{batch_id}/status",
-                method="GET",
+                headers=headers,
+                timeout=10,
             )
-            if token:
-                req.add_header("Authorization", f"Bearer {token}")
-
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                status = json.loads(resp.read().decode())
+            resp.raise_for_status()
+            status = resp.json()
 
             progress = status.get("progress_percent", 0)
             completed = status.get("completed", 0)

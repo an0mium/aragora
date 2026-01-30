@@ -514,13 +514,10 @@ class TelegramHandler(BotHandlerMixin, SecureHandler):
 
         # Run async routing
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Schedule as task and return preliminary ID
-                asyncio.create_task(route_debate())
-                return debate_id
-            else:
-                return asyncio.run(route_debate())
+            asyncio.get_running_loop()
+            # Schedule as task and return preliminary ID
+            asyncio.create_task(route_debate())
+            return debate_id
         except RuntimeError:
             return asyncio.run(route_debate())
 

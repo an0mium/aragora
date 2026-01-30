@@ -753,11 +753,8 @@ class HookHandlerRegistry:
 
                 # Run async delivery
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.create_task(deliver_all())
-                    else:
-                        loop.run_until_complete(deliver_all())
+                    asyncio.get_running_loop()
+                    asyncio.create_task(deliver_all())
                 except RuntimeError:
                     # No event loop, create one
                     asyncio.run(deliver_all())
@@ -819,11 +816,8 @@ class HookHandlerRegistry:
                             store.record_delivery(webhook.id, 500, success=False)
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        asyncio.create_task(deliver_all())
-                    else:
-                        loop.run_until_complete(deliver_all())
+                    asyncio.get_running_loop()
+                    asyncio.create_task(deliver_all())
                 except RuntimeError:
                     asyncio.run(deliver_all())
 

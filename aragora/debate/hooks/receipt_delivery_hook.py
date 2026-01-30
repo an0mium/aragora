@@ -454,8 +454,8 @@ class ReceiptDeliveryHook:
     ) -> DeliveryResult:
         """Send receipt to a webhook."""
         try:
-            import json
-            import urllib.request
+
+            import httpx
 
             payload = {
                 "type": "decision_receipt",
@@ -464,15 +464,14 @@ class ReceiptDeliveryHook:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
-            req = urllib.request.Request(
-                webhook_url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    webhook_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
 
-            with urllib.request.urlopen(req, timeout=10) as response:
-                if 200 <= response.status < 300:
+                if 200 <= response.status_code < 300:
                     return DeliveryResult(
                         channel_type="webhook",
                         channel_id=webhook_url,
@@ -484,7 +483,7 @@ class ReceiptDeliveryHook:
                     channel_id=webhook_url,
                     workspace_id=None,
                     success=False,
-                    error=f"HTTP {response.status}",
+                    error=f"HTTP {response.status_code}",
                 )
 
         except Exception as e:

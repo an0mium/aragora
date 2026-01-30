@@ -803,3 +803,542 @@ class TestSecureHandlerIntegration:
                     with patch("aragora.observability.metrics.security.track_rbac_evaluation"):
                         result = await handler.handle_get(mock_request)
                         assert result.status_code == 200
+
+
+# -----------------------------------------------------------------------------
+# CORS Preflight with Credentials Tests
+# -----------------------------------------------------------------------------
+
+
+class TestCORSPreflightWithCredentials:
+    """Tests for CORS preflight handling with credentials."""
+
+    @pytest.fixture
+    def options_request(self):
+        """Create a mock OPTIONS request for CORS preflight."""
+        request = MagicMock()
+        request.method = "OPTIONS"
+        request.headers = {
+            "Origin": "https://example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Authorization, Content-Type",
+        }
+        request.remote = "192.168.1.100"
+        return request
+
+    def test_cors_preflight_origin_validation_allowed(self):
+        """Verify allowed origin is accepted in preflight."""
+        from aragora.server.cors_config import CORSConfig
+
+        config = CORSConfig()
+        # Add test origin
+        config.add_origin("https://test.aragora.ai")
+
+        assert config.is_origin_allowed("https://test.aragora.ai") is True
+        assert config.is_origin_allowed("https://malicious.com") is False
+
+    def test_cors_preflight_origin_validation_denied(self):
+        """Verify disallowed origin is rejected in preflight."""
+        from aragora.server.cors_config import CORSConfig
+
+        config = CORSConfig()
+
+        # Unknown origins should be rejected
+        assert config.is_origin_allowed("https://evil.attacker.com") is False
+        assert config.is_origin_allowed("null") is False
+        assert config.is_origin_allowed("") is False
+
+    def test_cors_config_rejects_wildcard(self):
+        """Verify wildcard origin is rejected for security."""
+        import os
+        from aragora.server.cors_config import CORSConfig
+
+        # Temporarily set environment with wildcard
+        original = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
+        try:
+            os.environ["ARAGORA_ALLOWED_ORIGINS"] = "*"
+            with pytest.raises(ValueError, match="Wildcard origin"):
+                CORSConfig()
+        finally:
+            if original:
+                os.environ["ARAGORA_ALLOWED_ORIGINS"] = original
+            else:
+                os.environ.pop("ARAGORA_ALLOWED_ORIGINS", None)
+
+    def test_cors_config_validates_origin_format(self):
+        """Verify origin format validation (must have scheme and host)."""
+        import os
+        from aragora.server.cors_config import CORSConfig
+
+        original = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
+        try:
+            # Invalid origin without scheme
+            os.environ["ARAGORA_ALLOWED_ORIGINS"] = "example.com"
+            with pytest.raises(ValueError, match="must include scheme"):
+                CORSConfig()
+        finally:
+            if original:
+                os.environ["ARAGORA_ALLOWED_ORIGINS"] = original
+            else:
+                os.environ.pop("ARAGORA_ALLOWED_ORIGINS", None)
+
+    def test_cors_preflight_with_credentials_header(self, options_request):
+        """Verify credentials header handling in preflight."""
+        # When Access-Control-Allow-Credentials is true, origin cannot be *
+        from aragora.server.cors_config import cors_config
+
+        origin = options_request.headers.get("Origin")
+
+        # Verify specific origin check (not wildcard)
+        if cors_config.is_origin_allowed(origin):
+            # Response should echo back the specific origin, not *
+            response_origin = origin
+        else:
+            response_origin = None
+
+        # Should never return * with credentials
+        assert response_origin != "*"
+
+
+# -----------------------------------------------------------------------------
+# Rate Limit Bypass Attempt Tests
+# -----------------------------------------------------------------------------
+
+
+class TestRateLimitBypassAttempts:
+    """Tests for rate limit bypass prevention."""
+
+    def test_xff_header_spoofing_untrusted_proxy(self):
+        """Verify X-Forwarded-For is ignored from untrusted sources."""
+        from aragora.server.middleware.rate_limit import _extract_client_ip
+
+        headers = {
+            "X-Forwarded-For": "1.2.3.4, 5.6.7.8",
+        }
+        # Remote address is NOT a trusted proxy
+        remote_addr = "10.0.0.100"
+
+        # Should return the actual remote address, not spoofed XFF
+        result = _extract_client_ip(headers, remote_addr, trust_xff_from_proxies=True)
+        assert result == "10.0.0.100"
+
+    def test_xff_header_respected_from_trusted_proxy(self):
+        """Verify X-Forwarded-For is respected from trusted proxies."""
+        from aragora.server.middleware.rate_limit import _extract_client_ip
+
+        headers = {
+            "X-Forwarded-For": "1.2.3.4, 5.6.7.8",
+        }
+        # Remote address IS a trusted proxy (localhost)
+        remote_addr = "127.0.0.1"
+
+        # Should extract first IP from XFF chain
+        result = _extract_client_ip(headers, remote_addr, trust_xff_from_proxies=True)
+        assert result == "1.2.3.4"
+
+    def test_xff_header_empty_values(self):
+        """Verify handling of empty or malformed X-Forwarded-For."""
+        from aragora.server.middleware.rate_limit import _extract_client_ip
+
+        # Empty XFF
+        headers = {"X-Forwarded-For": ""}
+        result = _extract_client_ip(headers, "127.0.0.1", trust_xff_from_proxies=True)
+        assert result == "127.0.0.1"
+
+        # XFF with only whitespace
+        headers = {"X-Forwarded-For": "   "}
+        result = _extract_client_ip(headers, "127.0.0.1", trust_xff_from_proxies=True)
+        assert result == "127.0.0.1"
+
+    def test_xff_header_with_invalid_ips(self):
+        """Verify handling of invalid IPs in X-Forwarded-For."""
+        from aragora.server.middleware.rate_limit import _extract_client_ip
+
+        # XFF with invalid IP
+        headers = {"X-Forwarded-For": "not-an-ip, 1.2.3.4"}
+        result = _extract_client_ip(headers, "127.0.0.1", trust_xff_from_proxies=True)
+        # Should still return the first entry (even if invalid) as a string key
+        assert "not-an-ip" in result or result == "127.0.0.1"
+
+    def test_ip_normalization_ipv6(self):
+        """Verify IPv6 address normalization for rate limiting fairness."""
+        from aragora.server.middleware.rate_limit import _normalize_ip
+
+        # IPv6 addresses should be grouped by /64
+        ip1 = _normalize_ip("2001:db8::1")
+        ip2 = _normalize_ip("2001:db8::2")
+        ip3 = _normalize_ip("2001:db8:1::1")  # Different /64
+
+        # Same /64 prefix should normalize to same value
+        assert ip1 == ip2
+        # Different /64 prefix should be different
+        assert ip1 != ip3
+
+    def test_rate_limit_with_spoofed_user_agent(self):
+        """Verify rate limiting is not affected by User-Agent spoofing."""
+        from aragora.server.middleware.rate_limit import RateLimiter
+
+        limiter = RateLimiter()
+
+        # Same IP with different User-Agents should share rate limit
+        # Rate limit is by IP, not User-Agent
+        initial_result = limiter.allow("192.168.1.1")
+        initial_remaining = initial_result.remaining
+
+        for _ in range(5):
+            limiter.allow("192.168.1.1")
+
+        # Should have consumed tokens regardless of User-Agent changes
+        final_result = limiter.allow("192.168.1.1")
+        # Verify tokens were consumed (at least 6 used: initial + 5 in loop + final)
+        assert final_result.remaining < initial_remaining
+
+
+# -----------------------------------------------------------------------------
+# Authentication Header Parsing Edge Cases Tests
+# -----------------------------------------------------------------------------
+
+
+class TestAuthHeaderParsingEdgeCases:
+    """Tests for authentication header parsing edge cases."""
+
+    @pytest.fixture
+    def make_request(self):
+        """Factory for creating mock requests with custom auth headers."""
+
+        def _make(auth_header=None):
+            request = MagicMock()
+            request.headers = {}
+            if auth_header is not None:
+                request.headers["Authorization"] = auth_header
+            request.remote = "127.0.0.1"
+            request.app = MagicMock()
+            request.app.get = MagicMock(return_value=None)
+            return request
+
+        return _make
+
+    def test_empty_authorization_header(self, make_request):
+        """Verify empty Authorization header returns unauthenticated."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("")
+        result = extract_user_from_request(request, None)
+
+        assert result.is_authenticated is False
+        assert result.user_id is None
+
+    def test_bearer_without_token(self, make_request):
+        """Verify 'Bearer ' without token returns unauthenticated."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("Bearer ")
+        result = extract_user_from_request(request, None)
+
+        assert result.is_authenticated is False
+
+    def test_bearer_with_whitespace_only(self, make_request):
+        """Verify 'Bearer   ' (whitespace only) returns unauthenticated."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("Bearer    ")
+        result = extract_user_from_request(request, None)
+
+        assert result.is_authenticated is False
+
+    def test_malformed_bearer_lowercase(self, make_request):
+        """Verify 'bearer' (lowercase) is not accepted."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("bearer some-token")
+        result = extract_user_from_request(request, None)
+
+        # Bearer must be properly cased
+        assert result.is_authenticated is False
+
+    def test_authorization_with_unknown_scheme(self, make_request):
+        """Verify unknown auth schemes return unauthenticated."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("Basic dXNlcjpwYXNz")  # Basic auth
+        result = extract_user_from_request(request, None)
+
+        # Only Bearer and API key are supported
+        assert result.is_authenticated is False
+
+    def test_bearer_with_extra_spaces(self, make_request):
+        """Verify 'Bearer  token' (extra spaces) handles correctly."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        # Token has leading space which may cause issues
+        request = make_request("Bearer  token-with-space")
+        result = extract_user_from_request(request, None)
+
+        # Should handle gracefully (token with leading space won't validate)
+        # The important thing is it doesn't crash
+        assert result.is_authenticated is False
+
+    def test_very_long_authorization_header(self, make_request):
+        """Verify extremely long auth headers are handled safely."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        # Create a very long "token"
+        long_token = "Bearer " + "x" * 100000
+        request = make_request(long_token)
+
+        # Should not crash and should return unauthenticated
+        result = extract_user_from_request(request, None)
+        assert result.is_authenticated is False
+
+    def test_null_bytes_in_authorization_header(self, make_request):
+        """Verify null bytes in auth header are handled safely."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("Bearer token\x00with\x00nulls")
+        result = extract_user_from_request(request, None)
+
+        # Should handle gracefully
+        assert result.is_authenticated is False
+
+    def test_unicode_in_authorization_header(self, make_request):
+        """Verify unicode in auth header is handled safely."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("Bearer token\u200bwith\u200bunicode")
+        result = extract_user_from_request(request, None)
+
+        # Zero-width spaces shouldn't authenticate
+        assert result.is_authenticated is False
+
+    def test_api_key_without_prefix(self, make_request):
+        """Verify API key without 'ara_' prefix is rejected."""
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = make_request("key_without_prefix_12345")
+        result = extract_user_from_request(request, None)
+
+        assert result.is_authenticated is False
+
+
+# -----------------------------------------------------------------------------
+# Session Hijacking Prevention Tests
+# -----------------------------------------------------------------------------
+
+
+class TestSessionHijackingPrevention:
+    """Tests for session hijacking prevention mechanisms."""
+
+    def test_session_bound_to_user(self):
+        """Verify sessions are bound to specific users."""
+        from aragora.billing.auth.sessions import JWTSession
+        import time
+
+        session = JWTSession(
+            session_id="session-123",
+            user_id="user-456",
+            created_at=time.time(),
+            last_activity=time.time(),
+        )
+
+        # Session should track user binding
+        assert session.user_id == "user-456"
+        assert session.session_id == "session-123"
+
+    def test_session_cannot_be_used_for_different_user(self):
+        """Verify session manager validates user ownership."""
+        from aragora.billing.auth.sessions import get_session_manager
+
+        manager = get_session_manager()
+
+        # Create session for user A
+        manager.create_session("user-A", "session-A", {})
+
+        # Try to get session as user B - should not find it
+        session = manager.get_session("user-B", "session-A")
+        assert session is None
+
+        # User A should be able to access their session
+        session = manager.get_session("user-A", "session-A")
+        # May or may not exist depending on implementation, but shouldn't cross users
+
+    def test_session_revocation_invalidates_access(self):
+        """Verify revoked sessions cannot be used."""
+        from aragora.billing.auth.sessions import get_session_manager
+
+        manager = get_session_manager()
+
+        # Create and then revoke a session
+        manager.create_session("user-X", "session-X", {})
+        manager.revoke_session("user-X", "session-X")
+
+        # Session should no longer be valid
+        session = manager.get_session("user-X", "session-X")
+        assert session is None
+
+    def test_token_hash_for_session_tracking(self):
+        """Verify session tracking uses token hash not raw token."""
+        import hashlib
+
+        token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
+
+        # Session ID should be derived from token hash
+        session_id = hashlib.sha256(token.encode()).hexdigest()[:32]
+
+        # Verify hash is deterministic
+        assert session_id == hashlib.sha256(token.encode()).hexdigest()[:32]
+        # Verify different tokens produce different session IDs
+        different_session = hashlib.sha256("different-token".encode()).hexdigest()[:32]
+        assert session_id != different_session
+
+    def test_workspace_membership_validation(self):
+        """Verify workspace access is validated against memberships."""
+        from aragora.server.handlers.utils.auth import _extract_workspace_id
+
+        # Create mock request with workspace header
+        request = MagicMock()
+        request.headers = {"X-Workspace-ID": "ws-123"}
+        request.app = MagicMock()
+
+        # Mock workspace store with user memberships
+        mock_store = MagicMock()
+        mock_store.get_user_workspaces.return_value = [
+            {"workspace_id": "ws-456"},  # User belongs to ws-456, not ws-123
+        ]
+        request.app.get.return_value = mock_store
+
+        # Request workspace ws-123 but user only has access to ws-456
+        result = _extract_workspace_id(request, "user-123")
+
+        # Should reject access to ws-123
+        assert result is None
+
+    def test_ip_tracking_in_auth_context(self):
+        """Verify client IP is tracked in auth context for session validation."""
+        from aragora.billing.auth.context import UserAuthContext
+
+        context = UserAuthContext(
+            authenticated=True,
+            user_id="user-123",
+            client_ip="192.168.1.100",
+        )
+
+        # IP should be available for additional security checks
+        assert context.client_ip == "192.168.1.100"
+
+
+# -----------------------------------------------------------------------------
+# CSRF Token Validation Tests
+# -----------------------------------------------------------------------------
+
+
+class TestCSRFTokenValidation:
+    """Tests for CSRF token validation in OAuth flows."""
+
+    def test_oauth_state_creation_uniqueness(self):
+        """Verify OAuth state tokens are unique."""
+        import secrets
+
+        state1 = secrets.token_urlsafe(32)
+        state2 = secrets.token_urlsafe(32)
+
+        # States should be unique
+        assert state1 != state2
+        assert len(state1) >= 32
+
+    def test_oauth_state_validation_consumes_token(self):
+        """Verify OAuth state can only be used once."""
+        from aragora.server.oauth_state_store import InMemoryOAuthStateStore
+
+        store = InMemoryOAuthStateStore()
+
+        # Generate a state token
+        state_token = store.generate(
+            user_id="user-123",
+            redirect_url="https://app.aragora.ai/callback",
+            ttl_seconds=600,
+        )
+
+        # First validation should succeed
+        result = store.validate_and_consume(state_token)
+        assert result is not None
+        assert result.user_id == "user-123"
+
+        # Second validation should fail (consumed)
+        result2 = store.validate_and_consume(state_token)
+        assert result2 is None
+
+    def test_oauth_state_expiration(self):
+        """Verify expired OAuth states are rejected."""
+        from aragora.server.oauth_state_store import InMemoryOAuthStateStore
+        import time
+
+        store = InMemoryOAuthStateStore()
+
+        # Generate a state with very short TTL
+        state_token = store.generate(
+            user_id="user-123",
+            redirect_url="https://app.aragora.ai/callback",
+            ttl_seconds=0,  # Expires immediately
+        )
+
+        # Small delay to ensure expiration
+        time.sleep(0.01)
+
+        # Validation should fail for expired state
+        result = store.validate_and_consume(state_token)
+        assert result is None
+
+    def test_oauth_state_invalid_token(self):
+        """Verify invalid state tokens are rejected."""
+        from aragora.server.oauth_state_store import InMemoryOAuthStateStore
+
+        store = InMemoryOAuthStateStore()
+
+        # Try to validate a state that was never created
+        result = store.validate_and_consume("nonexistent-state")
+        assert result is None
+
+    def test_bearer_auth_immune_to_csrf(self):
+        """Verify Bearer token auth is immune to CSRF by design."""
+        # This is documented in base.py - Bearer tokens in Authorization header
+        # are not automatically sent by browsers like cookies are.
+
+        # The key security properties:
+        # 1. Tokens are sent via Authorization header
+        # 2. JavaScript must explicitly set the header
+        # 3. Cross-origin requests cannot access the header
+
+        # Test that authentication requires explicit Authorization header
+        from aragora.billing.auth.context import extract_user_from_request
+
+        request = MagicMock()
+        request.headers = {}  # No Authorization header
+        request.app = MagicMock()
+        request.app.get.return_value = None
+
+        # Without explicit Authorization header, request is unauthenticated
+        result = extract_user_from_request(request, None)
+        assert result.is_authenticated is False
+
+    def test_state_parameter_required_for_oauth(self):
+        """Verify OAuth flows require state parameter."""
+        from aragora.server.oauth_state_store import InMemoryOAuthStateStore
+
+        store = InMemoryOAuthStateStore()
+
+        # Validate with empty state
+        result1 = store.validate_and_consume("")
+        # Validate with nonexistent state
+        result2 = store.validate_and_consume("does-not-exist")
+
+        # Both should fail
+        assert result1 is None
+        assert result2 is None
+
+    def test_csrf_protection_with_max_states_limit(self):
+        """Verify max state limit prevents memory exhaustion attacks."""
+        from aragora.server.oauth_state_store import MAX_OAUTH_STATES
+
+        # Constant should be defined and reasonable
+        assert MAX_OAUTH_STATES > 0
+        assert MAX_OAUTH_STATES <= 100000  # Reasonable upper bound

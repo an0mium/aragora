@@ -518,10 +518,10 @@ class TrainingScheduler:
         if not job:
             raise ValueError(f"Job not found: {job_id}")
 
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
 
         while job.status not in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
-            if asyncio.get_event_loop().time() - start_time > timeout:
+            if asyncio.get_running_loop().time() - start_time > timeout:
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
 
             await asyncio.sleep(poll_interval)

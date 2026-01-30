@@ -1509,19 +1509,22 @@ def get_checkpoint_store(
 
             # Get pool synchronously if possible
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't await in sync context, skip Postgres
-                    logger.debug("Postgres pool requires async context, skipping")
-                else:
+                asyncio.get_running_loop()
+                # Can't await in sync context, skip Postgres
+                logger.debug("Postgres pool requires async context, skipping")
+            except RuntimeError:
+                # No running event loop - create one and run synchronously
+                try:
+                    loop = asyncio.new_event_loop()
                     pool: _PoolType = loop.run_until_complete(get_postgres_pool())
                     pg_store = PostgresCheckpointStore(pool)
                     loop.run_until_complete(pg_store.initialize())
                     logger.info("Using PostgresCheckpointStore for checkpoints")
+                    loop.close()
                     return _maybe_wrap_with_cache(pg_store)
-            except RuntimeError:
-                # No event loop
-                logger.debug("No event loop for Postgres initialization")
+                except RuntimeError:
+                    # No event loop
+                    logger.debug("No event loop for Postgres initialization")
         except Exception as e:
             logger.debug(f"Postgres checkpoint store not available: {e}")
 

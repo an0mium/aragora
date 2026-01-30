@@ -687,5 +687,17 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         """Get GitHub webhook secret from credentials."""
         import asyncio
 
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self.credentials.get_credential("GITHUB_WEBHOOK_SECRET"))
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, use asyncio.run
+            return asyncio.run(self.credentials.get_credential("GITHUB_WEBHOOK_SECRET"))
+        else:
+            # Loop is running, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.credentials.get_credential("GITHUB_WEBHOOK_SECRET")
+                )
+                return future.result()

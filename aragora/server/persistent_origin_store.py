@@ -234,7 +234,7 @@ class PersistentOriginStore:
         Path(self._sqlite_path).parent.mkdir(parents=True, exist_ok=True)
 
         # SQLite is synchronous, run in thread pool
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._create_sqlite_schema)
 
     def _create_sqlite_schema(self) -> None:
@@ -584,7 +584,7 @@ class PersistentOriginStore:
 
     async def _save_sqlite(self, origin: OriginRecord) -> None:
         """Save origin to SQLite."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._save_sqlite_sync, origin)
 
     def _save_sqlite_sync(self, origin: OriginRecord) -> None:
@@ -618,7 +618,7 @@ class PersistentOriginStore:
 
     async def _load_sqlite(self, origin_id: str) -> OriginRecord | None:
         """Load origin from SQLite."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._load_sqlite_sync, origin_id)
 
     def _load_sqlite_sync(self, origin_id: str) -> OriginRecord | None:
@@ -650,7 +650,7 @@ class PersistentOriginStore:
         self, origin_type: str | None, platform: str | None, limit: int
     ) -> list[OriginRecord]:
         """List pending origins from SQLite."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self._list_pending_sqlite_sync, origin_type, platform, limit
         )
@@ -707,7 +707,7 @@ class PersistentOriginStore:
 
     async def _cleanup_sqlite(self) -> int:
         """Remove expired records from SQLite."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._cleanup_sqlite_sync)
 
     def _cleanup_sqlite_sync(self) -> int:

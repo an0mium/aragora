@@ -122,14 +122,11 @@ class DeviceConnectorRegistry:
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Schedule initialization
-                    asyncio.create_task(connector.initialize())
-                else:
-                    loop.run_until_complete(connector.initialize())
+                asyncio.get_running_loop()
+                # Loop is running, schedule initialization
+                asyncio.create_task(connector.initialize())
             except RuntimeError:
-                # No event loop, create one
+                # No running event loop, use asyncio.run
                 asyncio.run(connector.initialize())
 
         return connector

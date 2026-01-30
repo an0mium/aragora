@@ -805,6 +805,739 @@ class TestSuspiciousActivityFlags:
         assert "test_flag" in stats["suspicious_flags"]
 
 
+class TestConcurrentRotationAttempts:
+    """Test concurrent rotation scenarios and race conditions."""
+
+    def test_two_concurrent_rotation_checks_same_token(self):
+        """Test two concurrent rotation checks on the same token.
+
+        Verifies that when two threads simultaneously check if rotation
+        is required for the same token, both get consistent results and
+        no data corruption occurs.
+        """
+        policy = RotationPolicy(max_uses=10)
+        manager = TokenRotationManager(policy=policy)
+
+        # Set up token at exactly the rotation threshold
+        for _ in range(9):
+            manager.record_usage(
+                user_id="user-123",
+                token_jti="shared-token",
+                ip_address="10.0.0.1",
+            )
+
+        results = []
+        errors = []
+
+        def check_and_record():
+            try:
+                # This will be the 10th use, triggering rotation
+                result = manager.record_usage(
+                    user_id="user-123",
+                    token_jti="shared-token",
+                    ip_address="10.0.0.1",
+                )
+                results.append(result)
+            except Exception as e:
+                errors.append(e)
+
+        # Start both threads simultaneously
+        threads = [threading.Thread(target=check_and_record) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0, f"Errors occurred: {errors}"
+        assert len(results) == 2
+
+        # At least one should require rotation (the one hitting threshold)
+        # Both may require rotation since use_count will be >= 10
+        rotation_required = [r for r in results if r.requires_rotation]
+        assert len(rotation_required) >= 1
+
+        # Verify token state is consistent
+        stats = manager.get_usage_stats("shared-token")
+        assert stats["use_count"] == 11  # 9 initial + 2 concurrent
+
+    def test_concurrent_rotation_trigger_with_callback(self):
+        """Test that rotation callback is invoked correctly during concurrent access."""
+        callback_invocations = []
+        callback_lock = threading.Lock()
+
+        def on_rotation(user_id, token_jti, reason):
+            with callback_lock:
+                callback_invocations.append((user_id, token_jti, reason))
+
+        policy = RotationPolicy(max_uses=5)
+        manager = TokenRotationManager(
+            policy=policy,
+            on_rotation_required=on_rotation,
+        )
+
+        results = []
+
+        def record_usage(worker_id):
+            for _ in range(3):
+                result = manager.record_usage(
+                    user_id="user-123",
+                    token_jti="token-concurrent",
+                    ip_address=f"10.0.0.{worker_id}",
+                )
+                results.append(result)
+
+        threads = [threading.Thread(target=record_usage, args=(i,)) for i in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Should have 9 results total
+        assert len(results) == 9
+
+        # Rotation should be required once we hit 5 uses
+        rotation_results = [r for r in results if r.requires_rotation]
+        assert len(rotation_results) >= 1
+
+    def test_race_condition_on_token_creation(self):
+        """Test race condition when two threads create the same token record."""
+        manager = TokenRotationManager(policy=RotationPolicy())
+        results = []
+        errors = []
+
+        def first_usage(worker_id):
+            try:
+                result = manager.record_usage(
+                    user_id="user-123",
+                    token_jti="new-token",
+                    ip_address=f"10.0.0.{worker_id}",
+                )
+                results.append(result)
+            except Exception as e:
+                errors.append(e)
+
+        # Both threads try to create the same token record simultaneously
+        threads = [threading.Thread(target=first_usage, args=(i,)) for i in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        assert len(results) == 10
+
+        # Verify only one record was created but with all usages counted
+        stats = manager.get_usage_stats("new-token")
+        assert stats is not None
+        assert stats["use_count"] == 10
+
+    def test_concurrent_clear_during_rotation_check(self):
+        """Test clearing a token while rotation check is in progress."""
+        manager = TokenRotationManager(policy=RotationPolicy(max_uses=100))
+        errors = []
+
+        # Pre-populate the token
+        for _ in range(50):
+            manager.record_usage(
+                user_id="user-123",
+                token_jti="token-to-clear",
+                ip_address="10.0.0.1",
+            )
+
+        def rotation_checker():
+            try:
+                for _ in range(100):
+                    manager.requires_rotation("user-123", "token-to-clear")
+                    time.sleep(0.001)
+            except Exception as e:
+                errors.append(e)
+
+        def token_clearer():
+            try:
+                for _ in range(100):
+                    manager.clear_token("token-to-clear")
+                    # Re-create for next iteration
+                    manager.record_usage(
+                        user_id="user-123",
+                        token_jti="token-to-clear",
+                        ip_address="10.0.0.1",
+                    )
+                    time.sleep(0.001)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=rotation_checker),
+            threading.Thread(target=token_clearer),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0, f"Errors occurred: {errors}"
+
+
+class TestReplayAttackPrevention:
+    """Test replay attack prevention scenarios."""
+
+    def test_old_token_usage_after_clear(self):
+        """Test that using a cleared token is properly handled.
+
+        Simulates replay attack where attacker tries to use old token
+        after it has been invalidated.
+        """
+        manager = TokenRotationManager(policy=RotationPolicy())
+
+        # Record legitimate usage
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="old-token",
+            ip_address="10.0.0.1",
+        )
+
+        # Token gets rotated/cleared (simulating rotation)
+        manager.clear_token("old-token")
+
+        # Verify old token has no usage record
+        stats = manager.get_usage_stats("old-token")
+        assert stats is None
+
+        # Attempt to use old token (replay attack)
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="old-token",
+            ip_address="10.0.0.2",  # Different IP - suspicious
+        )
+
+        # The manager creates a new record (it doesn't know this is an old token)
+        # This is expected behavior - actual replay prevention should happen
+        # at the JWT validation layer, not the rotation manager
+        stats = manager.get_usage_stats("old-token")
+        assert stats is not None
+        assert stats["use_count"] == 1  # Fresh record
+
+    def test_token_reuse_from_different_context(self):
+        """Test detecting token reuse from unexpected context.
+
+        Simulates replay attack where token is used from different
+        IP/user-agent than originally issued.
+        """
+        policy = RotationPolicy(
+            allow_ip_change=False,
+            bind_to_ip=True,
+        )
+        manager = TokenRotationManager(policy=policy)
+
+        # Original legitimate usage
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="sensitive-token",
+            ip_address="10.0.0.1",
+            user_agent="Chrome/100",
+        )
+
+        # Replay attempt from different IP
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="sensitive-token",
+            ip_address="192.168.1.100",  # Attacker's IP
+            user_agent="Firefox/90",  # Different user agent
+        )
+
+        # Should detect suspicious activity
+        assert result.requires_rotation is True
+        assert result.is_suspicious is True
+
+    def test_rapid_token_reuse_detection(self):
+        """Test detection of rapid token reuse (automated replay attacks)."""
+        policy = RotationPolicy(rapid_use_threshold=5)
+        manager = TokenRotationManager(policy=policy)
+
+        # Simulate rapid automated requests (replay attack script)
+        for _ in range(20):
+            manager.record_usage(
+                user_id="user-123",
+                token_jti="target-token",
+                ip_address="10.0.0.1",
+            )
+
+        # Check if suspicious activity was detected
+        is_suspicious = manager.is_suspicious("user-123", "target-token")
+        assert is_suspicious is True
+
+        stats = manager.get_usage_stats("target-token")
+        assert "rapid_use_detected" in stats["suspicious_flags"]
+
+    def test_concurrent_replay_attempts(self):
+        """Test handling of concurrent replay attempts from multiple sources."""
+        policy = RotationPolicy(max_ips_per_token=3)
+        manager = TokenRotationManager(policy=policy)
+
+        # Legitimate first use
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="stolen-token",
+            ip_address="10.0.0.1",
+        )
+
+        errors = []
+        results = []
+
+        def replay_attempt(attacker_ip):
+            try:
+                result = manager.record_usage(
+                    user_id="user-123",
+                    token_jti="stolen-token",
+                    ip_address=attacker_ip,
+                )
+                results.append((attacker_ip, result))
+            except Exception as e:
+                errors.append(e)
+
+        # Multiple attackers try to use the token concurrently
+        attacker_ips = [f"192.168.{i}.100" for i in range(10)]
+        threads = [threading.Thread(target=replay_attempt, args=(ip,)) for ip in attacker_ips]
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+
+        # Some should be flagged as suspicious due to max_ips_per_token
+        suspicious_results = [r for _, r in results if r.is_suspicious]
+        assert len(suspicious_results) > 0
+
+    def test_failed_validation_tracking_as_replay_indicator(self):
+        """Test that failed validations are tracked as potential replay indicator."""
+        manager = TokenRotationManager(policy=RotationPolicy(max_failed_validations=3))
+
+        # Create token record
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="token-001",
+            ip_address="10.0.0.1",
+        )
+
+        # Simulate failed validation attempts (e.g., signature verification failed)
+        # This could indicate someone trying to forge/replay the token
+        for _ in range(2):
+            revoke = manager.record_failed_validation("token-001")
+            assert revoke is False
+
+        # Third failure triggers revocation
+        revoke = manager.record_failed_validation("token-001")
+        assert revoke is True
+
+        # Token should be flagged as suspicious
+        is_suspicious = manager.is_suspicious("user-123", "token-001")
+        assert is_suspicious is True
+
+
+class TestTokenLifecycleStateMachine:
+    """Test token lifecycle state transitions and edge cases."""
+
+    def test_new_token_initial_state(self):
+        """Test initial state of a newly tracked token."""
+        manager = TokenRotationManager(policy=RotationPolicy())
+
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="fresh-token",
+            ip_address="10.0.0.1",
+        )
+
+        assert result.requires_rotation is False
+        assert result.is_suspicious is False
+        assert result.reason is None
+
+        stats = manager.get_usage_stats("fresh-token")
+        assert stats["use_count"] == 1
+        assert stats["suspicious_flags"] == []
+
+    def test_token_state_active_to_rotation_required(self):
+        """Test transition from active to rotation-required state."""
+        policy = RotationPolicy(max_uses=5)
+        manager = TokenRotationManager(policy=policy)
+
+        # Active state - uses 1-4
+        for i in range(4):
+            result = manager.record_usage(
+                user_id="user-123",
+                token_jti="token-lifecycle",
+                ip_address="10.0.0.1",
+            )
+            assert result.requires_rotation is False
+
+        # Check we get recommendation near threshold
+        assert len(result.recommendations) > 0
+
+        # Trigger rotation - use 5
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="token-lifecycle",
+            ip_address="10.0.0.1",
+        )
+
+        assert result.requires_rotation is True
+        assert result.reason == RotationReason.MAX_USES_EXCEEDED
+
+    def test_token_state_rotation_required_to_cleared(self):
+        """Test clearing a token that requires rotation."""
+        policy = RotationPolicy(max_uses=1)
+        manager = TokenRotationManager(policy=policy)
+
+        # Trigger rotation requirement
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="token-to-rotate",
+            ip_address="10.0.0.1",
+        )
+        assert result.requires_rotation is True
+
+        # Clear the token (simulating successful rotation)
+        manager.clear_token("token-to-rotate")
+
+        # Verify clean slate
+        assert manager.get_usage_stats("token-to-rotate") is None
+        assert manager._failed_validations.get("token-to-rotate") is None
+
+    def test_token_state_active_to_suspicious(self):
+        """Test transition from active to suspicious state."""
+        policy = RotationPolicy(max_ips_per_token=2)
+        manager = TokenRotationManager(policy=policy)
+
+        # Active state - first two IPs are fine
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="token-becoming-suspicious",
+            ip_address="10.0.0.1",
+        )
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="token-becoming-suspicious",
+            ip_address="10.0.0.2",
+        )
+
+        # Third IP triggers suspicious state
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="token-becoming-suspicious",
+            ip_address="10.0.0.3",
+        )
+
+        assert result.is_suspicious is True
+        assert result.requires_rotation is True
+        assert result.reason == RotationReason.SUSPICIOUS_ACTIVITY
+
+    def test_token_state_suspicious_persists(self):
+        """Test that suspicious state persists across checks."""
+        manager = TokenRotationManager(policy=RotationPolicy())
+
+        # Create token and mark as suspicious
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="already-suspicious",
+            ip_address="10.0.0.1",
+        )
+        manager._usage["already-suspicious"].suspicious_flags.append("external_flag")
+
+        # Multiple subsequent checks should all report suspicious
+        for _ in range(5):
+            result = manager.requires_rotation("user-123", "already-suspicious")
+            assert result.is_suspicious is True
+            assert result.requires_rotation is True
+
+    def test_token_state_idle_to_rotation_required(self):
+        """Test transition from idle to rotation-required due to inactivity."""
+        policy = RotationPolicy(idle_rotation_seconds=1, max_age_seconds=0)
+        manager = TokenRotationManager(policy=policy)
+
+        # Active usage
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="idle-token",
+            ip_address="10.0.0.1",
+        )
+        assert result.requires_rotation is False
+
+        # Wait for idle timeout
+        time.sleep(1.1)
+
+        # Check rotation requirement
+        result = manager.requires_rotation("user-123", "idle-token")
+        assert result.requires_rotation is True
+        assert result.reason == RotationReason.TIME_BASED
+        assert "idle" in result.details.lower()
+
+    def test_multiple_state_transitions_in_sequence(self):
+        """Test multiple state transitions in sequence."""
+        # Note: max_ips_per_token uses >= comparison, so with value of 4,
+        # the 4th IP will trigger suspicious activity
+        policy = RotationPolicy(
+            max_uses=20,  # Higher limit so we can test IP transitions first
+            max_ips_per_token=4,  # Will trigger at 4th IP (>= 4)
+        )
+        manager = TokenRotationManager(policy=policy)
+
+        # Phase 1: Normal usage from first IP
+        for _ in range(5):
+            result = manager.record_usage(
+                user_id="user-123",
+                token_jti="multi-transition",
+                ip_address="10.0.0.1",
+            )
+        assert result.requires_rotation is False
+
+        # Phase 2: IP diversity increases (still within limit)
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="multi-transition",
+            ip_address="10.0.0.2",
+        )
+        assert result.requires_rotation is False
+
+        # Phase 3: Third IP (still within limit since max is 4)
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="multi-transition",
+            ip_address="10.0.0.3",
+        )
+        assert result.requires_rotation is False
+
+        # Phase 4: Fourth IP triggers suspicious (reaches max_ips_per_token=4)
+        result = manager.record_usage(
+            user_id="user-123",
+            token_jti="multi-transition",
+            ip_address="10.0.0.4",  # 4th IP reaches limit
+        )
+        assert result.is_suspicious is True
+        assert result.requires_rotation is True
+        assert result.reason == RotationReason.SUSPICIOUS_ACTIVITY
+
+        # Phase 5: Clear and start fresh
+        manager.clear_token("multi-transition")
+        assert manager.get_usage_stats("multi-transition") is None
+
+
+class TestRotationDuringActiveSessions:
+    """Test rotation behavior during active sessions."""
+
+    def test_rotation_check_during_ongoing_session(self):
+        """Test checking rotation during an active session.
+
+        Simulates a long-running session where rotation checks happen
+        periodically while the session continues to use the token.
+        """
+        policy = RotationPolicy(max_uses=20)
+        manager = TokenRotationManager(policy=policy)
+
+        rotation_triggered_at = None
+
+        def session_activity():
+            nonlocal rotation_triggered_at
+            for i in range(25):
+                result = manager.record_usage(
+                    user_id="session-user",
+                    token_jti="session-token",
+                    ip_address="10.0.0.1",
+                )
+                if result.requires_rotation and rotation_triggered_at is None:
+                    rotation_triggered_at = i + 1
+                time.sleep(0.01)
+
+        session_thread = threading.Thread(target=session_activity)
+        session_thread.start()
+        session_thread.join()
+
+        # Rotation should have been triggered at use 20
+        assert rotation_triggered_at == 20
+
+    def test_concurrent_sessions_same_token(self):
+        """Test multiple concurrent sessions using the same token.
+
+        This can happen in legitimate scenarios (e.g., multiple tabs)
+        or attack scenarios (token theft).
+        """
+        policy = RotationPolicy(max_uses=50)
+        manager = TokenRotationManager(policy=policy)
+
+        session_results = {i: [] for i in range(3)}
+
+        def session(session_id):
+            for _ in range(20):
+                result = manager.record_usage(
+                    user_id="shared-user",
+                    token_jti="multi-session-token",
+                    ip_address="10.0.0.1",  # Same IP - legitimate multi-tab
+                )
+                session_results[session_id].append(result)
+                time.sleep(0.005)
+
+        threads = [threading.Thread(target=session, args=(i,)) for i in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # All sessions should complete without errors
+        total_uses = sum(len(results) for results in session_results.values())
+        assert total_uses == 60
+
+        # Verify final use count
+        stats = manager.get_usage_stats("multi-session-token")
+        assert stats["use_count"] == 60
+
+        # At least one result should require rotation (hit 50 uses)
+        all_results = [r for results in session_results.values() for r in results]
+        rotation_required = [r for r in all_results if r.requires_rotation]
+        assert len(rotation_required) >= 1
+
+    def test_session_continues_after_rotation_required(self):
+        """Test that session can continue (with warning) after rotation required.
+
+        The rotation manager doesn't block - it just reports when rotation
+        is needed. The actual enforcement is up to the caller.
+        """
+        policy = RotationPolicy(max_uses=5)
+        manager = TokenRotationManager(policy=policy)
+
+        results = []
+
+        # Continue using token even after rotation is required
+        for _ in range(10):
+            result = manager.record_usage(
+                user_id="stubborn-user",
+                token_jti="over-used-token",
+                ip_address="10.0.0.1",
+            )
+            results.append(result)
+
+        # First 4 should not require rotation
+        assert all(not r.requires_rotation for r in results[:4])
+
+        # Uses 5-10 should all require rotation
+        assert all(r.requires_rotation for r in results[4:])
+        assert all(r.reason == RotationReason.MAX_USES_EXCEEDED for r in results[4:])
+
+    def test_token_rotation_mid_session_with_clear(self):
+        """Test clearing a token during an active session.
+
+        Simulates token rotation where old token is invalidated
+        while session is still using it.
+        """
+        manager = TokenRotationManager(policy=RotationPolicy())
+
+        session_active = threading.Event()
+        clear_done = threading.Event()
+        post_clear_results = []
+
+        def active_session():
+            # Use token before clear
+            for _ in range(5):
+                manager.record_usage(
+                    user_id="user-123",
+                    token_jti="rotating-token",
+                    ip_address="10.0.0.1",
+                )
+
+            session_active.set()
+            clear_done.wait()  # Wait for clear to happen
+
+            # Continue using token after clear
+            for _ in range(5):
+                result = manager.record_usage(
+                    user_id="user-123",
+                    token_jti="rotating-token",
+                    ip_address="10.0.0.1",
+                )
+                post_clear_results.append(result)
+
+        def rotator():
+            session_active.wait()  # Wait for session to be active
+            manager.clear_token("rotating-token")
+            clear_done.set()
+
+        threads = [
+            threading.Thread(target=active_session),
+            threading.Thread(target=rotator),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # After clear, the token record was recreated fresh
+        stats = manager.get_usage_stats("rotating-token")
+        assert stats is not None
+        assert stats["use_count"] == 5  # Only post-clear uses
+
+    def test_ip_change_during_active_session(self):
+        """Test IP change during an active session (e.g., mobile network switch)."""
+        policy = RotationPolicy(
+            ip_change_requires_rotation=False,
+            allow_ip_change=True,
+            max_ips_per_token=5,
+        )
+        manager = TokenRotationManager(policy=policy)
+
+        # Session starts on one network
+        for _ in range(5):
+            result = manager.record_usage(
+                user_id="mobile-user",
+                token_jti="mobile-token",
+                ip_address="10.0.0.1",  # WiFi
+            )
+        assert result.requires_rotation is False
+
+        # User moves to mobile network
+        for _ in range(5):
+            result = manager.record_usage(
+                user_id="mobile-user",
+                token_jti="mobile-token",
+                ip_address="192.168.1.100",  # Mobile
+            )
+        assert result.requires_rotation is False
+
+        # Verify both IPs are tracked
+        stats = manager.get_usage_stats("mobile-token")
+        assert stats["unique_ips"] == 2
+
+    def test_session_with_intermittent_failures(self):
+        """Test session with intermittent validation failures."""
+        policy = RotationPolicy(max_failed_validations=5)
+        manager = TokenRotationManager(policy=policy)
+
+        # Start session
+        manager.record_usage(
+            user_id="user-123",
+            token_jti="flaky-token",
+            ip_address="10.0.0.1",
+        )
+
+        # Simulate intermittent failures (e.g., clock skew, network issues)
+        for i in range(4):
+            revoke = manager.record_failed_validation("flaky-token")
+            assert revoke is False
+
+            # Successful use between failures
+            manager.record_usage(
+                user_id="user-123",
+                token_jti="flaky-token",
+                ip_address="10.0.0.1",
+            )
+
+        # Final failure exceeds threshold
+        revoke = manager.record_failed_validation("flaky-token")
+        assert revoke is True
+
+        # Token should be flagged
+        is_suspicious = manager.is_suspicious("user-123", "flaky-token")
+        assert is_suspicious is True
+
+
 class TestCleanupBehavior:
     """Test automatic cleanup of stale records."""
 

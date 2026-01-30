@@ -397,7 +397,7 @@ class HybridMemorySearch:
             List of (id, content, score, tier, importance) tuples
         """
         # Run in executor to avoid blocking
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(
             None,
             self._keyword_index.search,

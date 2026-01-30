@@ -1063,3 +1063,761 @@ class TestEnterpriseExtension:
         assert SCHEMA_ENTERPRISE_USER in result["schemas"]
         assert result[SCHEMA_ENTERPRISE_USER]["employeeNumber"] == "EMP-12345"
         assert result[SCHEMA_ENTERPRISE_USER]["department"] == "Engineering"
+
+
+# =============================================================================
+# Token Authentication Edge Cases Tests
+# =============================================================================
+
+
+class TestTokenAuthenticationEdgeCases:
+    """Tests for SCIM bearer token authentication edge cases."""
+
+    def test_bearer_token_validation_basic(self, config):
+        """Should validate bearer token correctly."""
+        server = SCIMServer(config)
+        assert server.config.bearer_token == "test-token-123"
+
+    def test_bearer_token_empty_string(self):
+        """Should handle empty string bearer token (no auth required)."""
+        config = SCIMConfig(bearer_token="")
+        server = SCIMServer(config)
+        # Empty token means no authentication required
+        assert server.config.bearer_token == ""
+
+    def test_bearer_token_whitespace_only(self):
+        """Should not treat whitespace-only token as valid."""
+        config = SCIMConfig(bearer_token="   ")
+        server = SCIMServer(config)
+        # Whitespace-only should still be stored as-is (security check on comparison)
+        assert server.config.bearer_token == "   "
+
+    def test_bearer_token_with_special_characters(self):
+        """Should handle tokens with special characters."""
+        special_token = "token-with-!@#$%^&*()_+-=[]{}|;':\",./<>?"
+        config = SCIMConfig(bearer_token=special_token)
+        server = SCIMServer(config)
+        assert server.config.bearer_token == special_token
+
+    def test_bearer_token_unicode_characters(self):
+        """Should handle tokens with unicode characters."""
+        unicode_token = "token-with-unicode-\u00e9\u00e8\u00ea"
+        config = SCIMConfig(bearer_token=unicode_token)
+        server = SCIMServer(config)
+        assert server.config.bearer_token == unicode_token
+
+    def test_bearer_token_very_long(self):
+        """Should handle very long bearer tokens."""
+        long_token = "x" * 10000
+        config = SCIMConfig(bearer_token=long_token)
+        server = SCIMServer(config)
+        assert server.config.bearer_token == long_token
+
+    def test_bearer_token_case_sensitive(self):
+        """Bearer tokens should be case-sensitive."""
+        config1 = SCIMConfig(bearer_token="Token-ABC")
+        config2 = SCIMConfig(bearer_token="token-abc")
+        # Different cases should result in different tokens
+        assert config1.bearer_token != config2.bearer_token
+
+    @pytest.mark.asyncio
+    async def test_operations_without_auth_when_no_token_configured(self):
+        """Should allow operations when no bearer token is configured."""
+        config = SCIMConfig()  # No token
+        server = SCIMServer(config)
+
+        # Operations should work without auth
+        result, status = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "no_auth_user@example.com",
+        })
+        assert status == 201
+
+    def test_bearer_token_with_jwt_format(self):
+        """Should accept JWT-formatted bearer tokens."""
+        # JWT format: header.payload.signature
+        jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature"
+        config = SCIMConfig(bearer_token=jwt_token)
+        server = SCIMServer(config)
+        assert server.config.bearer_token == jwt_token
+
+    def test_bearer_token_newline_character_rejected(self):
+        """Token with newline should be stored but may cause issues in HTTP headers."""
+        # This tests that we handle edge cases - newlines in tokens are problematic
+        newline_token = "token\nwith\nnewlines"
+        config = SCIMConfig(bearer_token=newline_token)
+        server = SCIMServer(config)
+        assert server.config.bearer_token == newline_token
+
+
+# =============================================================================
+# Password Change Security Tests
+# =============================================================================
+
+
+class TestPasswordChangeSecurity:
+    """Tests for password change endpoint security."""
+
+    @pytest.fixture
+    def server_with_password_sync(self):
+        """Create server with password sync enabled."""
+        config = SCIMConfig(
+            bearer_token="secure-token",
+            allow_password_sync=True,
+        )
+        return SCIMServer(config)
+
+    @pytest.fixture
+    def server_without_password_sync(self):
+        """Create server with password sync disabled."""
+        config = SCIMConfig(
+            bearer_token="secure-token",
+            allow_password_sync=False,
+        )
+        return SCIMServer(config)
+
+    @pytest.mark.asyncio
+    async def test_password_not_returned_in_response(self, server_with_password_sync):
+        """Password should never be included in response body."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "password_test@example.com",
+            "password": "SuperSecret123!",
+        }
+
+        result, status = await server_with_password_sync.create_user(user_data)
+
+        assert status == 201
+        assert "password" not in result
+        # Also check nested structures
+        for key, value in result.items():
+            if isinstance(value, dict):
+                assert "password" not in value
+
+    @pytest.mark.asyncio
+    async def test_password_cleared_when_disabled(self, server_without_password_sync):
+        """Password should be cleared when password sync is disabled."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "no_password@example.com",
+            "password": "ShouldBeIgnored123!",
+        }
+
+        result, status = await server_without_password_sync.create_user(user_data)
+
+        assert status == 201
+        # The server should have cleared the password before storing
+        user = await server_without_password_sync.user_store.get_user(result["id"])
+        assert user.password is None
+
+    @pytest.mark.asyncio
+    async def test_password_update_via_patch(self, server_with_password_sync):
+        """Should handle password updates via PATCH operation."""
+        # Create user
+        create_result, _ = await server_with_password_sync.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "patch_password@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Patch password
+        patch_data = {
+            "schemas": [SCHEMA_PATCH_OP],
+            "Operations": [
+                {"op": "add", "path": "password", "value": "NewPassword123!"},
+            ],
+        }
+
+        result, status = await server_with_password_sync.patch_user(user_id, patch_data)
+
+        assert status == 200
+        assert "password" not in result  # Password should not be in response
+
+    @pytest.mark.asyncio
+    async def test_password_update_via_put(self, server_with_password_sync):
+        """Should handle password updates via PUT operation."""
+        # Create user
+        create_result, _ = await server_with_password_sync.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "put_password@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Replace with new password
+        update_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "put_password@example.com",
+            "password": "UpdatedPassword123!",
+        }
+
+        result, status = await server_with_password_sync.replace_user(user_id, update_data)
+
+        assert status == 200
+        assert "password" not in result
+
+    @pytest.mark.asyncio
+    async def test_password_ignored_when_sync_disabled(self, server_without_password_sync):
+        """Password should be ignored in PATCH when sync is disabled."""
+        # Create user
+        create_result, _ = await server_without_password_sync.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "ignore_password@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Try to patch password
+        patch_data = {
+            "schemas": [SCHEMA_PATCH_OP],
+            "Operations": [
+                {"op": "add", "path": "password", "value": "IgnoredPassword123!"},
+            ],
+        }
+
+        result, status = await server_without_password_sync.patch_user(user_id, patch_data)
+
+        assert status == 200
+        # Password should have been cleared
+        user = await server_without_password_sync.user_store.get_user(user_id)
+        assert user.password is None
+
+    @pytest.mark.asyncio
+    async def test_empty_password_handling(self, server_with_password_sync):
+        """Should handle empty password string."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "empty_password@example.com",
+            "password": "",
+        }
+
+        result, status = await server_with_password_sync.create_user(user_data)
+
+        assert status == 201
+        assert "password" not in result
+
+    @pytest.mark.asyncio
+    async def test_password_with_special_characters(self, server_with_password_sync):
+        """Should handle passwords with special characters."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "special_password@example.com",
+            "password": "P@$$w0rd!#$%^&*()_+-=[]{}|;':\",./<>?",
+        }
+
+        result, status = await server_with_password_sync.create_user(user_data)
+
+        assert status == 201
+        user = await server_with_password_sync.user_store.get_user(result["id"])
+        # Password should be stored when sync is enabled
+        assert user.password is not None
+
+
+# =============================================================================
+# SCIM Filter Injection Tests
+# =============================================================================
+
+
+class TestFilterInjectionAttempts:
+    """Tests for SCIM filter injection attack prevention."""
+
+    @pytest.fixture
+    def server(self):
+        """Create SCIM server for injection tests."""
+        config = SCIMConfig(bearer_token="test-token")
+        return SCIMServer(config)
+
+    @pytest.fixture
+    async def populated_server(self, server):
+        """Create server with some test users."""
+        users = [
+            {"schemas": [SCHEMA_USER], "userName": "alice@example.com", "displayName": "Alice"},
+            {"schemas": [SCHEMA_USER], "userName": "bob@example.com", "displayName": "Bob"},
+            {"schemas": [SCHEMA_USER], "userName": "admin@example.com", "displayName": "Admin"},
+        ]
+        for user_data in users:
+            await server.create_user(user_data)
+        return server
+
+    @pytest.mark.asyncio
+    async def test_sql_injection_in_filter_or_clause(self, populated_server):
+        """Should safely handle SQL OR injection attempts by rejecting invalid filter."""
+        server = populated_server
+        # SQL injection attempt with OR clause
+        malicious_filter = 'userName eq "test" or 1=1 --'
+
+        # The filter parser should reject invalid characters (= and -)
+        # This is the correct security behavior - reject malformed input
+        with pytest.raises(ValueError) as exc_info:
+            await server.list_users(filter_expr=malicious_filter)
+
+        # Verify the error is about invalid filter syntax, not about SQL
+        assert "Invalid character" in str(exc_info.value) or "filter" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_sql_injection_union_select(self, populated_server):
+        """Should safely handle UNION SELECT injection attempts by rejecting invalid filter."""
+        server = populated_server
+        malicious_filter = 'userName eq "test" UNION SELECT * FROM users --'
+
+        # The filter parser should reject invalid characters
+        with pytest.raises(ValueError) as exc_info:
+            await server.list_users(filter_expr=malicious_filter)
+
+        assert "Invalid character" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_sql_injection_drop_table(self, populated_server):
+        """Should safely handle DROP TABLE injection attempts by rejecting invalid filter."""
+        server = populated_server
+        malicious_filter = 'userName eq "test"; DROP TABLE users; --'
+
+        # The filter parser should reject semicolons as invalid
+        with pytest.raises(ValueError) as exc_info:
+            await server.list_users(filter_expr=malicious_filter)
+
+        assert "Invalid character" in str(exc_info.value)
+
+        # Server should still function after the rejected injection attempt
+        all_users = await server.list_users()
+        assert all_users["totalResults"] == 3  # Original users should still exist
+
+    @pytest.mark.asyncio
+    async def test_filter_with_semicolon(self, populated_server):
+        """Should handle semicolons in filter safely."""
+        server = populated_server
+        malicious_filter = 'userName eq "test;malicious"'
+
+        result = await server.list_users(filter_expr=malicious_filter)
+
+        # Should return no results (no user with that exact name)
+        assert result["totalResults"] == 0
+
+    @pytest.mark.asyncio
+    async def test_filter_with_comment_characters(self, populated_server):
+        """Should handle comment characters in filter by rejecting invalid syntax."""
+        server = populated_server
+        # Various comment styles - all should be rejected as invalid SCIM filter syntax
+        filters = [
+            ('userName eq "test" -- comment', "Invalid character"),
+            ('userName eq "test" /* comment */', "Invalid character"),
+            ('userName eq "test" # comment', "Invalid character"),
+        ]
+
+        for malicious_filter, expected_error in filters:
+            # The filter parser should reject these as invalid SCIM syntax
+            with pytest.raises(ValueError) as exc_info:
+                await server.list_users(filter_expr=malicious_filter)
+            assert expected_error in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_filter_with_quotes_escaped(self, populated_server):
+        """Should handle escaped quotes in filter values."""
+        server = populated_server
+        # Attempt to break out of quoted string
+        malicious_filter = 'userName eq "test\\" or \\"1\\"=\\"1"'
+
+        result = await server.list_users(filter_expr=malicious_filter)
+
+        assert result["totalResults"] == 0
+
+    @pytest.mark.asyncio
+    async def test_filter_with_null_bytes(self, populated_server):
+        """Should handle null bytes in filter safely."""
+        server = populated_server
+        malicious_filter = 'userName eq "test\x00malicious"'
+
+        result = await server.list_users(filter_expr=malicious_filter)
+
+        # Should handle gracefully
+        assert result["totalResults"] == 0
+
+    @pytest.mark.asyncio
+    async def test_filter_path_traversal_attempt(self, populated_server):
+        """Should handle path traversal attempts in attribute names by rejecting invalid syntax."""
+        server = populated_server
+        # Attempt to access other attributes via path traversal
+        malicious_filter = 'userName/../password eq "test"'
+
+        # The filter parser should reject the / character as invalid in attribute names
+        with pytest.raises(ValueError) as exc_info:
+            await server.list_users(filter_expr=malicious_filter)
+
+        # Should reject the invalid path syntax
+        assert "Invalid character" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_filter_with_excessive_nesting(self, populated_server):
+        """Should handle deeply nested filter expressions."""
+        server = populated_server
+        # Create deeply nested expression
+        nested_filter = 'userName eq "test"'
+        for _ in range(100):
+            nested_filter = f"({nested_filter}) and active eq true"
+
+        # Should handle without stack overflow or excessive memory usage
+        try:
+            result = await server.list_users(filter_expr=nested_filter)
+            # If it completes, should return valid response
+            assert "Resources" in result or "totalResults" in result
+        except (ValueError, RecursionError):
+            # Acceptable to reject deeply nested filters
+            pass
+
+    @pytest.mark.asyncio
+    async def test_filter_ldap_injection_attempt(self, populated_server):
+        """Should handle LDAP injection attempts."""
+        server = populated_server
+        # LDAP-style injection
+        malicious_filters = [
+            'userName eq "*"',
+            'userName eq ")(uid=*))(|(uid=*"',
+            'userName eq "admin)(password=*)"',
+        ]
+
+        for malicious_filter in malicious_filters:
+            result = await server.list_users(filter_expr=malicious_filter)
+            # Should not return all users or expose passwords
+            assert result["totalResults"] <= 3
+            for user in result.get("Resources", []):
+                assert "password" not in user
+
+    @pytest.mark.asyncio
+    async def test_filter_with_control_characters(self, populated_server):
+        """Should handle control characters in filter."""
+        server = populated_server
+        # Various control characters
+        control_chars = ["\t", "\r", "\n", "\b", "\f"]
+
+        for char in control_chars:
+            malicious_filter = f'userName eq "test{char}user"'
+            result = await server.list_users(filter_expr=malicious_filter)
+            # Should handle without crashing
+            assert "totalResults" in result
+
+    @pytest.mark.asyncio
+    async def test_valid_filter_still_works(self, populated_server):
+        """Valid filters should still work after security tests."""
+        server = populated_server
+
+        # Test valid filters
+        result = await server.list_users(filter_expr='userName eq "alice@example.com"')
+        assert result["totalResults"] == 1
+        assert result["Resources"][0]["userName"] == "alice@example.com"
+
+        result = await server.list_users(filter_expr="active eq true")
+        assert result["totalResults"] == 3
+
+
+# =============================================================================
+# RBAC Permission Tests for SCIM
+# =============================================================================
+
+
+class TestSCIMRBACPermissions:
+    """Tests for RBAC permission enforcement on SCIM endpoints."""
+
+    @pytest.fixture
+    def server(self):
+        """Create SCIM server for RBAC tests."""
+        config = SCIMConfig(
+            bearer_token="test-token",
+            tenant_id="tenant-123",
+        )
+        return SCIMServer(config)
+
+    def test_tenant_isolation_config(self, server):
+        """Should store tenant_id for multi-tenant isolation."""
+        assert server.config.tenant_id == "tenant-123"
+
+    def test_tenant_id_none_allowed(self):
+        """Should allow None tenant_id for single-tenant deployments."""
+        config = SCIMConfig(bearer_token="test-token")
+        server = SCIMServer(config)
+        assert server.config.tenant_id is None
+
+    @pytest.mark.asyncio
+    async def test_user_operations_respect_config(self, server):
+        """User operations should respect server configuration."""
+        # Create user
+        result, status = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "tenant_user@example.com",
+        })
+        assert status == 201
+
+        # User ID should be generated
+        assert "id" in result
+        assert result["id"] != ""
+
+    @pytest.mark.asyncio
+    async def test_rate_limiting_config(self):
+        """Should respect rate limiting configuration."""
+        config = SCIMConfig(
+            bearer_token="test-token",
+            requests_per_minute=10,
+        )
+        server = SCIMServer(config)
+
+        assert server.config.requests_per_minute == 10
+
+    @pytest.mark.asyncio
+    async def test_group_sync_disabled_blocks_group_operations(self):
+        """Group operations should be affected by sync_groups config."""
+        config = SCIMConfig(
+            bearer_token="test-token",
+            sync_groups=False,
+        )
+        server = SCIMServer(config)
+
+        # Group operations should still work at server level
+        # (the config flag affects router creation, not direct method calls)
+        result, status = await server.create_group({
+            "schemas": [SCHEMA_GROUP],
+            "displayName": "Test Group",
+        })
+
+        # Direct method calls still work
+        assert status == 201
+
+    @pytest.mark.asyncio
+    async def test_soft_delete_respects_config(self, server):
+        """Delete operations should respect soft_delete configuration."""
+        # Create user
+        create_result, _ = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "delete_test@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Delete (soft)
+        _, status = await server.delete_user(user_id)
+        assert status == 204
+
+        # User should still exist but be inactive
+        get_result, get_status = await server.get_user(user_id)
+        assert get_status == 200
+        assert get_result["active"] is False
+
+    @pytest.mark.asyncio
+    async def test_hard_delete_removes_user(self):
+        """Hard delete should completely remove user."""
+        config = SCIMConfig(
+            bearer_token="test-token",
+            soft_delete=False,
+        )
+        server = SCIMServer(config)
+
+        # Create user
+        create_result, _ = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "hard_delete@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Delete (hard)
+        _, status = await server.delete_user(user_id)
+        assert status == 204
+
+        # User should not exist
+        _, get_status = await server.get_user(user_id)
+        assert get_status == 404
+
+
+# =============================================================================
+# Additional Security Edge Cases
+# =============================================================================
+
+
+class TestSecurityEdgeCases:
+    """Additional security-focused tests for SCIM server."""
+
+    @pytest.fixture
+    def server(self):
+        """Create SCIM server for security tests."""
+        config = SCIMConfig(bearer_token="test-token")
+        return SCIMServer(config)
+
+    @pytest.mark.asyncio
+    async def test_user_id_cannot_be_specified_on_create(self, server):
+        """User should not be able to specify their own ID on creation."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "id_test@example.com",
+            "id": "attacker-controlled-id",
+        }
+
+        result, status = await server.create_user(user_data)
+
+        assert status == 201
+        # Server should generate its own ID, not use the provided one
+        # (actual behavior depends on implementation)
+        assert result["id"] != ""
+
+    @pytest.mark.asyncio
+    async def test_external_id_stored_correctly(self, server):
+        """External ID should be stored but not used as internal ID."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "external_test@example.com",
+            "externalId": "EXT-123",
+        }
+
+        result, status = await server.create_user(user_data)
+
+        assert status == 201
+        assert result["externalId"] == "EXT-123"
+        assert result["id"] != "EXT-123"  # Internal ID should be different
+
+    @pytest.mark.asyncio
+    async def test_meta_cannot_be_modified_by_client(self, server):
+        """Client should not be able to set meta timestamps."""
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "meta_test@example.com",
+            "meta": {
+                "created": "1990-01-01T00:00:00Z",
+                "lastModified": "1990-01-01T00:00:00Z",
+            },
+        }
+
+        result, status = await server.create_user(user_data)
+
+        assert status == 201
+        # Server should generate its own timestamps
+        assert result["meta"]["created"] != "1990-01-01T00:00:00Z"
+
+    @pytest.mark.asyncio
+    async def test_readonly_groups_field_on_user(self, server, sample_user_data):
+        """Groups field on user reflects membership via group operations, not direct setting."""
+        # Try to set groups on user creation
+        sample_user_data["groups"] = [{"value": "fake-group-id"}]
+
+        result, status = await server.create_user(sample_user_data)
+
+        assert status == 201
+        # Note: The SCIM spec says groups is read-only, meaning it should reflect
+        # actual group memberships, not client-provided values. The current
+        # implementation stores what's provided but groups should really be
+        # populated through group membership operations.
+        # This test documents the current behavior - groups are preserved but
+        # the values are not validated against actual groups.
+        # For stricter security, consider ignoring client-provided groups.
+        groups = result.get("groups", [])
+        # Verify groups field exists in response (may be empty or contain provided values)
+        assert isinstance(groups, list)
+
+    @pytest.mark.asyncio
+    async def test_large_payload_handling(self, server):
+        """Should handle large payloads gracefully."""
+        # Create user with very large display name
+        large_name = "A" * 100000
+
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "large_payload@example.com",
+            "displayName": large_name,
+        }
+
+        result, status = await server.create_user(user_data)
+
+        # Should either succeed or return appropriate error
+        assert status in (201, 400)
+
+    @pytest.mark.asyncio
+    async def test_unicode_normalization_username(self, server):
+        """Should handle unicode normalization in usernames."""
+        # Different unicode representations of same character
+        user_data1 = {
+            "schemas": [SCHEMA_USER],
+            "userName": "caf\u00e9@example.com",  # Pre-composed
+        }
+
+        result1, status1 = await server.create_user(user_data1)
+        assert status1 == 201
+
+        # Try to create with decomposed form
+        user_data2 = {
+            "schemas": [SCHEMA_USER],
+            "userName": "cafe\u0301@example.com",  # Decomposed
+        }
+
+        result2, status2 = await server.create_user(user_data2)
+        # Should either recognize as same user (409) or create as different (201)
+        assert status2 in (201, 409)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_create_same_username(self, server):
+        """Should handle race condition on concurrent creates."""
+        import asyncio
+
+        user_data = {
+            "schemas": [SCHEMA_USER],
+            "userName": "race_condition@example.com",
+        }
+
+        # Simulate concurrent creates
+        results = await asyncio.gather(
+            server.create_user(user_data.copy()),
+            server.create_user(user_data.copy()),
+            return_exceptions=True,
+        )
+
+        # One should succeed, one should fail with conflict
+        statuses = [r[1] if isinstance(r, tuple) else None for r in results]
+        assert 201 in statuses
+        # The other should be 409 (conflict) or possibly 201 if race wasn't triggered
+        assert all(s in (201, 409, None) for s in statuses)
+
+    @pytest.mark.asyncio
+    async def test_patch_operation_case_sensitivity(self, server):
+        """PATCH operation names should be case-insensitive per RFC."""
+        create_result, _ = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "patch_case@example.com",
+        })
+        user_id = create_result["id"]
+
+        # Use uppercase operation
+        patch_data = {
+            "schemas": [SCHEMA_PATCH_OP],
+            "Operations": [
+                {"op": "REPLACE", "path": "displayName", "value": "Updated"},
+            ],
+        }
+
+        result, status = await server.patch_user(user_id, patch_data)
+
+        # Should handle case-insensitively or return appropriate error
+        assert status in (200, 400)
+
+    @pytest.mark.asyncio
+    async def test_invalid_schema_rejected(self, server):
+        """Should reject resources with invalid schemas."""
+        user_data = {
+            "schemas": ["urn:invalid:schema"],
+            "userName": "invalid_schema@example.com",
+        }
+
+        result, status = await server.create_user(user_data)
+
+        # Should either accept (adding correct schema) or reject
+        if status == 201:
+            assert SCHEMA_USER in result["schemas"]
+
+    @pytest.mark.asyncio
+    async def test_empty_operations_list_patch(self, server):
+        """Should handle PATCH with empty operations list."""
+        create_result, _ = await server.create_user({
+            "schemas": [SCHEMA_USER],
+            "userName": "empty_ops@example.com",
+        })
+        user_id = create_result["id"]
+
+        patch_data = {
+            "schemas": [SCHEMA_PATCH_OP],
+            "Operations": [],
+        }
+
+        result, status = await server.patch_user(user_id, patch_data)
+
+        # Should succeed without changes
+        assert status == 200

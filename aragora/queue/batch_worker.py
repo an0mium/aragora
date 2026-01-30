@@ -213,7 +213,7 @@ class BatchExplainabilityWorker:
         self._tasks.discard(task)
         self._batch_semaphore.release()
 
-        if task.exception():
+        if not task.cancelled() and task.exception():
             logger.error(f"Batch task failed: {task.exception()}")
 
     async def _process_batch(self, job: Job) -> None:

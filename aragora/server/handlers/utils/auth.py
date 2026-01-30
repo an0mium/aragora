@@ -299,15 +299,14 @@ def get_user_from_handler(handler: Any) -> tuple[str, str]:
 
     # Try to get auth context asynchronously
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Can't await in sync context with running loop
-            # Fall back to header extraction with warning
-            logger.warning(
-                "get_user_from_handler called in async context - "
-                "consider using await get_auth_context() instead"
-            )
-            return _extract_user_from_headers(handler)
+        asyncio.get_running_loop()
+        # Can't await in sync context with running loop
+        # Fall back to header extraction with warning
+        logger.warning(
+            "get_user_from_handler called in async context - "
+            "consider using await get_auth_context() instead"
+        )
+        return _extract_user_from_headers(handler)
     except RuntimeError:
         pass
 

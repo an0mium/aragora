@@ -11,12 +11,11 @@ Usage:
 """
 
 import argparse
-import json
 import os
-import urllib.error
-import urllib.request
 from datetime import datetime
 from typing import Any
+
+import httpx
 
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
@@ -40,19 +39,16 @@ def api_request(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    body = json.dumps(data).encode() if data else None
-
-    req = urllib.request.Request(url, data=body, headers=headers, method=method)
-
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result: dict[str, Any] = json.loads(resp.read().decode())
-            return result
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode() if e.fp else ""
-        raise RuntimeError(f"API error ({e.code}): {error_body}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Connection error: {e.reason}")
+        resp = httpx.request(method, url, json=data, headers=headers, timeout=30)
+        resp.raise_for_status()
+        result: dict[str, Any] = resp.json()
+        return result
+    except httpx.HTTPStatusError as e:
+        error_body = e.response.text
+        raise RuntimeError(f"API error ({e.response.status_code}): {error_body}")
+    except httpx.RequestError as e:
+        raise RuntimeError(f"Connection error: {e}")
 
 
 def cmd_status(args: argparse.Namespace) -> int:

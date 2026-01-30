@@ -92,6 +92,10 @@ from .retry import (
 # Timeout patterns
 from .timeout import (
     TimeoutConfig,
+    asyncio_timeout,
+    is_timeout_available,
+    timeout_context,
+    timeout_context_sync,
     with_timeout,
     with_timeout_sync,
 )
@@ -158,6 +162,10 @@ __all__ = [
     "with_retry_sync",
     # Timeout patterns
     "TimeoutConfig",
+    "asyncio_timeout",
+    "is_timeout_available",
+    "timeout_context",
+    "timeout_context_sync",
     "with_timeout",
     "with_timeout_sync",
     # Circuit breaker v2

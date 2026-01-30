@@ -545,7 +545,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.add(
@@ -567,7 +567,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
         normalized_tier: MemoryTier = MemoryTier(tier) if isinstance(tier, str) else tier
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.add(
@@ -581,7 +581,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
     async def get_async(self, id: str) -> ContinuumMemoryEntry | None:
         """Async wrapper for get() - offloads blocking I/O to executor."""
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.get, id)
 
     async def retrieve_async(
@@ -594,7 +594,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         tier: str | MemoryTier | None = None,
     ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve() - offloads blocking I/O to executor."""
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.retrieve(
@@ -614,7 +614,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         agent_prediction_error: float | None = None,
     ) -> float:
         """Async wrapper for update_outcome() - offloads blocking I/O to executor."""
-        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.update_outcome(id, success, agent_prediction_error),

@@ -104,7 +104,7 @@ class DiscordIntegration:
 
     async def _check_rate_limit(self) -> None:
         """Simple rate limiting check."""
-        now = asyncio.get_event_loop().time()
+        now = asyncio.get_running_loop().time()
         # Remove requests older than 1 minute
         self._request_times = [t for t in self._request_times if now - t < 60]
         if len(self._request_times) >= self.config.rate_limit_per_minute:

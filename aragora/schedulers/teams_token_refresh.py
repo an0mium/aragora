@@ -320,7 +320,7 @@ class TeamsTokenRefreshScheduler:
 
         try:
             # Run the synchronous refresh in a thread pool
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None,
                 self.store.refresh_workspace_token,

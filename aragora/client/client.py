@@ -279,15 +279,9 @@ class AragoraClient:
 
     def _get(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous GET request with retry and rate limiting."""
-        import urllib.error
-        import urllib.parse
-        import urllib.request
+        import httpx
 
         url = urljoin(self.base_url, path)
-        if params:
-            url = f"{url}?{urllib.parse.urlencode(params)}"
-
-        req = urllib.request.Request(url, headers=self._get_headers(), method="GET")
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -297,42 +291,49 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
+                resp = httpx.get(
+                    url,
+                    params=params,
+                    headers=self._get_headers(),
+                    timeout=self.timeout,
+                )
+                if resp.status_code >= 400:
+                    # Check if we should retry
+                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
+                        if attempt < max_attempts - 1:
+                            delay = self.retry_config.get_delay(attempt)
+                            logger.debug(
+                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
+                            )
+                            time_module.sleep(delay)
+                            continue
+                    self._handle_httpx_error(resp)
+                return resp.json()
+            except httpx.HTTPError as e:
                 last_error = e
-                # Check if we should retry
-                if self.retry_config and e.code in self.retry_config.retry_statuses:
-                    if attempt < max_attempts - 1:
-                        delay = self.retry_config.get_delay(attempt)
-                        logger.debug(
-                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
-                        )
-                        time_module.sleep(delay)
-                        continue
-                self._handle_http_error(e)
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    time_module.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here, but handle gracefully
         if last_error:
-            self._handle_http_error(last_error)
+            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _post(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous POST request with retry and rate limiting."""
-        import urllib.error
-        import urllib.request
+        import httpx
 
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
             request_headers.update(headers)
 
-        req = urllib.request.Request(
-            url,
-            headers=request_headers,
-            method="POST",
-            data=json.dumps(data).encode(),
-        )
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -342,37 +343,45 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
+                resp = httpx.post(
+                    url,
+                    json=data,
+                    headers=request_headers,
+                    timeout=self.timeout,
+                )
+                if resp.status_code >= 400:
+                    # Check if we should retry
+                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
+                        if attempt < max_attempts - 1:
+                            delay = self.retry_config.get_delay(attempt)
+                            logger.debug(
+                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
+                            )
+                            time_module.sleep(delay)
+                            continue
+                    self._handle_httpx_error(resp)
+                return resp.json()
+            except httpx.HTTPError as e:
                 last_error = e
-                # Check if we should retry
-                if self.retry_config and e.code in self.retry_config.retry_statuses:
-                    if attempt < max_attempts - 1:
-                        delay = self.retry_config.get_delay(attempt)
-                        logger.debug(
-                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
-                        )
-                        time_module.sleep(delay)
-                        continue
-                self._handle_http_error(e)
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    time_module.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here, but handle gracefully
         if last_error:
-            self._handle_http_error(last_error)
+            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     def _delete(self, path: str, params: dict | None = None) -> dict:
         """Make a synchronous DELETE request with retry and rate limiting."""
-        import urllib.error
-        import urllib.parse
-        import urllib.request
+        import httpx
 
         url = urljoin(self.base_url, path)
-        if params:
-            url = f"{url}?{urllib.parse.urlencode(params)}"
-
-        req = urllib.request.Request(url, headers=self._get_headers(), method="DELETE")
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -382,24 +391,38 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
+                resp = httpx.delete(
+                    url,
+                    params=params,
+                    headers=self._get_headers(),
+                    timeout=self.timeout,
+                )
+                if resp.status_code >= 400:
+                    # Check if we should retry
+                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
+                        if attempt < max_attempts - 1:
+                            delay = self.retry_config.get_delay(attempt)
+                            logger.debug(
+                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
+                            )
+                            time_module.sleep(delay)
+                            continue
+                    self._handle_httpx_error(resp)
+                return resp.json()
+            except httpx.HTTPError as e:
                 last_error = e
-                # Check if we should retry
-                if self.retry_config and e.code in self.retry_config.retry_statuses:
-                    if attempt < max_attempts - 1:
-                        delay = self.retry_config.get_delay(attempt)
-                        logger.debug(
-                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
-                        )
-                        time_module.sleep(delay)
-                        continue
-                self._handle_http_error(e)
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    time_module.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here, but handle gracefully
         if last_error:
-            self._handle_http_error(last_error)
+            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _delete_async(self, path: str, params: dict | None = None) -> dict:
@@ -462,20 +485,13 @@ class AragoraClient:
 
     def _put(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous PUT request with retry and rate limiting."""
-        import urllib.error
-        import urllib.request
+        import httpx
 
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
             request_headers.update(headers)
 
-        req = urllib.request.Request(
-            url,
-            headers=request_headers,
-            method="PUT",
-            data=json.dumps(data).encode(),
-        )
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -485,24 +501,38 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
+                resp = httpx.put(
+                    url,
+                    json=data,
+                    headers=request_headers,
+                    timeout=self.timeout,
+                )
+                if resp.status_code >= 400:
+                    # Check if we should retry
+                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
+                        if attempt < max_attempts - 1:
+                            delay = self.retry_config.get_delay(attempt)
+                            logger.debug(
+                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
+                            )
+                            time_module.sleep(delay)
+                            continue
+                    self._handle_httpx_error(resp)
+                return resp.json()
+            except httpx.HTTPError as e:
                 last_error = e
-                # Check if we should retry
-                if self.retry_config and e.code in self.retry_config.retry_statuses:
-                    if attempt < max_attempts - 1:
-                        delay = self.retry_config.get_delay(attempt)
-                        logger.debug(
-                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
-                        )
-                        time_module.sleep(delay)
-                        continue
-                self._handle_http_error(e)
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    time_module.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here, but handle gracefully
         if last_error:
-            self._handle_http_error(last_error)
+            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _put_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -569,20 +599,13 @@ class AragoraClient:
 
     def _patch(self, path: str, data: dict, headers: dict | None = None) -> dict:
         """Make a synchronous PATCH request with retry and rate limiting."""
-        import urllib.error
-        import urllib.request
+        import httpx
 
         url = urljoin(self.base_url, path)
         request_headers = self._get_headers()
         if headers:
             request_headers.update(headers)
 
-        req = urllib.request.Request(
-            url,
-            headers=request_headers,
-            method="PATCH",
-            data=json.dumps(data).encode(),
-        )
         last_error: Exception | None = None
         max_attempts = (self.retry_config.max_retries + 1) if self.retry_config else 1
 
@@ -592,24 +615,38 @@ class AragoraClient:
                 self._rate_limiter.wait()
 
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return json.loads(resp.read().decode())
-            except urllib.error.HTTPError as e:
+                resp = httpx.patch(
+                    url,
+                    json=data,
+                    headers=request_headers,
+                    timeout=self.timeout,
+                )
+                if resp.status_code >= 400:
+                    # Check if we should retry
+                    if self.retry_config and resp.status_code in self.retry_config.retry_statuses:
+                        if attempt < max_attempts - 1:
+                            delay = self.retry_config.get_delay(attempt)
+                            logger.debug(
+                                f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {resp.status_code})"
+                            )
+                            time_module.sleep(delay)
+                            continue
+                    self._handle_httpx_error(resp)
+                return resp.json()
+            except httpx.HTTPError as e:
                 last_error = e
-                # Check if we should retry
-                if self.retry_config and e.code in self.retry_config.retry_statuses:
-                    if attempt < max_attempts - 1:
-                        delay = self.retry_config.get_delay(attempt)
-                        logger.debug(
-                            f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (HTTP {e.code})"
-                        )
-                        time_module.sleep(delay)
-                        continue
-                self._handle_http_error(e)
+                if self.retry_config and attempt < max_attempts - 1:
+                    delay = self.retry_config.get_delay(attempt)
+                    logger.debug(
+                        f"Retry {attempt + 1}/{max_attempts} after {delay:.2f}s (connection error)"
+                    )
+                    time_module.sleep(delay)
+                    continue
+                raise AragoraAPIError(str(e), "CONNECTION_ERROR", 0)
 
         # Should not reach here, but handle gracefully
         if last_error:
-            self._handle_http_error(last_error)
+            raise AragoraAPIError(str(last_error), "RETRY_EXHAUSTED", 0)
         raise AragoraAPIError("Request failed after retries", "RETRY_EXHAUSTED", 0)
 
     async def _patch_async(self, path: str, data: dict, headers: dict | None = None) -> dict:
@@ -688,6 +725,33 @@ class AragoraClient:
 
         # Map HTTP status codes to specific error classes
         status_code = getattr(e, "code", 500)
+        if status_code == 401:
+            raise AuthenticationError(error_msg)
+        elif status_code == 402:
+            raise QuotaExceededError(error_msg)
+        elif status_code == 404:
+            raise NotFoundError(error_msg)
+        elif status_code == 429:
+            raise RateLimitError(error_msg)
+        elif status_code == 400:
+            raise ValidationError(error_msg)
+        else:
+            raise AragoraAPIError(error_msg, error_code, status_code)
+
+    def _handle_httpx_error(self, resp: Any) -> NoReturn:
+        """Handle httpx response errors with specific error classes."""
+        try:
+            body = resp.json()
+            error_msg = body.get("error", resp.text)
+            error_code = body.get("code", "HTTP_ERROR")
+        except Exception as parse_err:
+            # Failed to parse error response body - use raw error
+            logger.debug(f"Could not parse HTTP error body: {parse_err}")
+            error_msg = resp.text
+            error_code = "HTTP_ERROR"
+
+        # Map HTTP status codes to specific error classes
+        status_code = resp.status_code
         if status_code == 401:
             raise AuthenticationError(error_msg)
         elif status_code == 402:

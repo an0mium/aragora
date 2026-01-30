@@ -164,22 +164,27 @@ def register_debate_origin(
             manager = get_debate_session_manager()
             # Try to create session synchronously
             try:
-                loop = asyncio.get_event_loop()
-                if not loop.is_running():
-                    session = loop.run_until_complete(
-                        manager.create_session(platform, user_id, metadata)
-                    )
-                    linked_session_id = session.session_id
-                    # Link debate to session
-                    loop.run_until_complete(manager.link_debate(session.session_id, debate_id))
-                else:
-                    # In async context, schedule tasks
-                    asyncio.create_task(
-                        _create_and_link_session(manager, platform, user_id, metadata, debate_id)
-                    )
+                # Check if we're in an async context
+                loop = asyncio.get_running_loop()
+                # In async context, schedule tasks
+                asyncio.create_task(
+                    _create_and_link_session(manager, platform, user_id, metadata, debate_id)
+                )
             except RuntimeError:
-                # No event loop available
-                pass
+                # No running event loop - create one for sync execution
+                try:
+                    loop = asyncio.new_event_loop()
+                    try:
+                        session = loop.run_until_complete(
+                            manager.create_session(platform, user_id, metadata)
+                        )
+                        linked_session_id = session.session_id
+                        # Link debate to session
+                        loop.run_until_complete(manager.link_debate(session.session_id, debate_id))
+                    finally:
+                        loop.close()
+                except RuntimeError:
+                    pass
         except ImportError:
             logger.debug("Session management not available")
         except (RuntimeError, OSError, ValueError) as e:
@@ -191,13 +196,19 @@ def register_debate_origin(
 
             manager = get_debate_session_manager()
             try:
-                loop = asyncio.get_event_loop()
-                if not loop.is_running():
-                    loop.run_until_complete(manager.link_debate(session_id, debate_id))
-                else:
-                    asyncio.create_task(manager.link_debate(session_id, debate_id))
+                # Check if we're in an async context
+                asyncio.get_running_loop()
+                asyncio.create_task(manager.link_debate(session_id, debate_id))
             except RuntimeError:
-                pass
+                # No running event loop - create one for sync execution
+                try:
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(manager.link_debate(session_id, debate_id))
+                    finally:
+                        loop.close()
+                except RuntimeError:
+                    pass
         except ImportError:
             pass
         except (RuntimeError, OSError, ValueError) as e:
@@ -220,13 +231,19 @@ def register_debate_origin(
     pg_store = _get_postgres_store_sync()
     if pg_store:
         try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                loop.run_until_complete(pg_store.save(origin))
-            else:
-                asyncio.create_task(pg_store.save(origin))
-        except (RuntimeError, OSError) as e:
-            logger.warning(f"PostgreSQL origin storage failed: {e}")
+            # Check if we're in an async context
+            asyncio.get_running_loop()
+            asyncio.create_task(pg_store.save(origin))
+        except RuntimeError:
+            # No running event loop - create one for sync execution
+            try:
+                loop = asyncio.new_event_loop()
+                try:
+                    loop.run_until_complete(pg_store.save(origin))
+                finally:
+                    loop.close()
+            except OSError as e:
+                logger.warning(f"PostgreSQL origin storage failed: {e}")
     else:
         # Fall back to SQLite for durability (always available)
         # Use async version when in running event loop to avoid blocking
@@ -304,14 +321,22 @@ def get_debate_origin(debate_id: str) -> DebateOrigin | None:
     pg_store = _get_postgres_store_sync()
     if pg_store:
         try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                origin = loop.run_until_complete(pg_store.get(debate_id))
-                if origin:
-                    _origin_store[debate_id] = origin  # Cache locally
-                    return origin
-        except (RuntimeError, OSError) as e:
-            logger.debug(f"PostgreSQL origin lookup failed: {e}")
+            # Check if we're in an async context - if so, can't block
+            asyncio.get_running_loop()
+            # In async context, caller should use get_debate_origin_async instead
+        except RuntimeError:
+            # No running event loop - create one for sync execution
+            try:
+                loop = asyncio.new_event_loop()
+                try:
+                    origin = loop.run_until_complete(pg_store.get(debate_id))
+                    if origin:
+                        _origin_store[debate_id] = origin  # Cache locally
+                        return origin
+                finally:
+                    loop.close()
+            except OSError as e:
+                logger.debug(f"PostgreSQL origin lookup failed: {e}")
     else:
         # Try SQLite fallback (sync - caller should use get_debate_origin_async if possible)
         try:
@@ -393,13 +418,19 @@ def mark_result_sent(debate_id: str) -> None:
         pg_store = _get_postgres_store_sync()
         if pg_store:
             try:
-                loop = asyncio.get_event_loop()
-                if not loop.is_running():
-                    loop.run_until_complete(pg_store.save(origin))
-                else:
-                    asyncio.create_task(pg_store.save(origin))
-            except (RuntimeError, OSError) as e:
-                logger.debug(f"PostgreSQL update failed: {e}")
+                # Check if we're in an async context
+                asyncio.get_running_loop()
+                asyncio.create_task(pg_store.save(origin))
+            except RuntimeError:
+                # No running event loop - create one for sync execution
+                try:
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(pg_store.save(origin))
+                    finally:
+                        loop.close()
+                except OSError as e:
+                    logger.debug(f"PostgreSQL update failed: {e}")
         else:
             # Update SQLite - use async when in running event loop
             try:
@@ -452,14 +483,22 @@ def cleanup_expired_origins() -> int:
     pg_store = _get_postgres_store_sync()
     if pg_store:
         try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                pg_cleaned = loop.run_until_complete(pg_store.cleanup_expired(ORIGIN_TTL_SECONDS))
-                if pg_cleaned > 0:
-                    logger.info(f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL")
-                    total_cleaned += pg_cleaned
-        except (RuntimeError, OSError) as e:
-            logger.warning(f"PostgreSQL cleanup failed: {e}")
+            # Check if we're in an async context - if so, can't block
+            asyncio.get_running_loop()
+            # In async context, caller should use an async cleanup method
+        except RuntimeError:
+            # No running event loop - create one for sync execution
+            try:
+                loop = asyncio.new_event_loop()
+                try:
+                    pg_cleaned = loop.run_until_complete(pg_store.cleanup_expired(ORIGIN_TTL_SECONDS))
+                    if pg_cleaned > 0:
+                        logger.info(f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL")
+                        total_cleaned += pg_cleaned
+                finally:
+                    loop.close()
+            except OSError as e:
+                logger.warning(f"PostgreSQL cleanup failed: {e}")
     else:
         # Clean up SQLite store (fallback)
         try:

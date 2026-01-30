@@ -284,12 +284,17 @@ class DataIsolationManager:
                 # Import here to avoid circular dependency
                 import asyncio
 
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Schedule for later if we're already in an async context
+                try:
+                    loop = asyncio.get_running_loop()
+                    # Already in an async context - can't run synchronously
                     pass
-                else:
-                    loop.run_until_complete(rbac.populate_context_permissions(ctx))
+                except RuntimeError:
+                    # No running loop - create one and run synchronously
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(rbac.populate_context_permissions(ctx))
+                    finally:
+                        loop.close()
             except (RuntimeError, AttributeError, ValueError, LookupError) as e:
                 logger.debug(f"Could not populate RBAC permissions: {e}")
 

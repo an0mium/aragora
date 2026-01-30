@@ -108,14 +108,9 @@ class CultureHandlersMixin:
 
             # Run async retrieval
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Create a task for later execution
-                    asyncio.create_task(retrieve_culture())
-                else:
-                    profile = loop.run_until_complete(retrieve_culture())
-                    if profile:
-                        self._store_debate_culture(debate_id, profile, domain)
+                asyncio.get_running_loop()
+                # Create a task for later execution
+                asyncio.create_task(retrieve_culture())
             except RuntimeError:
                 profile = asyncio.run(retrieve_culture())
                 if profile:

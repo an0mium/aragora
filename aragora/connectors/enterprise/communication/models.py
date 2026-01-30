@@ -316,7 +316,7 @@ class MessageFetchFailure:
     error_type: str = ""
     is_retryable: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.error_type:
             self.error_type = type(self.error).__name__
         # Determine if error is retryable based on type

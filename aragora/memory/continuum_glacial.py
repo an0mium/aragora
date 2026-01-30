@@ -89,7 +89,7 @@ class ContinuumGlacialMixin:
         min_importance: float = 0.3,
     ) -> list["ContinuumMemoryEntry"]:
         """Async wrapper for get_glacial_insights() for use in async contexts."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.get_glacial_insights(
@@ -145,7 +145,7 @@ class ContinuumGlacialMixin:
         limit: int = 20,
     ) -> list["ContinuumMemoryEntry"]:
         """Async wrapper for get_cross_session_patterns()."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.get_cross_session_patterns(

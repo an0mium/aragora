@@ -315,7 +315,7 @@ class ChatWebhookRouter:
         # Verify signature
         if not self.verify_webhook(platform, headers, body):
             logger.warning(f"Webhook verification failed for {platform}")
-            return error_dict("Invalid signature", code="UNAUTHORIZED", status=401)
+            return error_response("Invalid signature", code="UNAUTHORIZED", status=401)
 
         # Parse event
         event = self.parse_event(platform, headers, body)

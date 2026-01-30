@@ -11,6 +11,8 @@ import logging
 import time
 from urllib.parse import urlencode
 
+import httpx
+
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
 
@@ -66,7 +68,7 @@ class AppleOAuthMixin:
 
     @handle_errors("Apple OAuth callback")
     @log_request("Apple OAuth callback")
-    def _handle_apple_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_apple_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Apple OAuth callback (POST with form data)."""
         impl = _impl()
 
@@ -108,7 +110,7 @@ class AppleOAuthMixin:
 
         try:
             if code:
-                token_data = self._exchange_apple_code(code)
+                token_data = await self._exchange_apple_code(code)
                 id_token = token_data.get("id_token", id_token)
 
             user_info = self._parse_apple_id_token(id_token, user_data)
@@ -118,31 +120,26 @@ class AppleOAuthMixin:
 
         return self._complete_oauth_flow(user_info, state_data)
 
-    def _exchange_apple_code(self, code: str) -> dict:
+    async def _exchange_apple_code(self, code: str) -> dict:
         """Exchange Apple authorization code for tokens."""
-        import urllib.request
-
         impl = _impl()
         client_secret = self._generate_apple_client_secret()
 
-        data = urlencode(
-            {
-                "code": code,
-                "client_id": impl._get_apple_client_id(),
-                "client_secret": client_secret,
-                "redirect_uri": impl._get_apple_redirect_uri(),
-                "grant_type": "authorization_code",
-            }
-        ).encode()
+        data = {
+            "code": code,
+            "client_id": impl._get_apple_client_id(),
+            "client_secret": client_secret,
+            "redirect_uri": impl._get_apple_redirect_uri(),
+            "grant_type": "authorization_code",
+        }
 
-        req = urllib.request.Request(
-            impl.APPLE_TOKEN_URL,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode())
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                impl.APPLE_TOKEN_URL,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            return response.json()
 
     def _generate_apple_client_secret(self) -> str:
         """Generate Apple client secret JWT."""

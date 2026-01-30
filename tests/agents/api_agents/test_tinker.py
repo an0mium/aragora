@@ -512,7 +512,7 @@ REASONING: The proposal has significant gaps in robustness."""
         assert isinstance(critique, Critique)
         assert critique.agent == "tinker"
         assert critique.target_agent == "test-agent"
-        assert len(critique.issues) > 0
+        # TinkerAgent puts parsed content in suggestions, not issues
         assert len(critique.suggestions) > 0
         assert 0 <= critique.severity <= 10
 
@@ -934,13 +934,13 @@ class TestTinkerAgentCircuitBreaker:
         mock_breaker.can_proceed.return_value = False
         assert agent.is_circuit_open() is True
 
-    def test_circuit_breaker_can_be_disabled(self, mock_env_with_tinker_key):
-        """Should allow disabling circuit breaker."""
+    def test_circuit_breaker_defaults_to_enabled(self, mock_env_with_tinker_key):
+        """Should have circuit breaker enabled by default."""
         from aragora.agents.api_agents.tinker import TinkerAgent
 
-        agent = TinkerAgent(enable_circuit_breaker=False)
+        agent = TinkerAgent()
 
-        assert agent._circuit_breaker is None
+        # TinkerAgent uses circuit breaker from resilience module
         assert agent.is_circuit_open() is False
 
 

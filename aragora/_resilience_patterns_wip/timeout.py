@@ -34,22 +34,42 @@ P = ParamSpec("P")
 # Import asyncio.timeout for Python 3.11+, fallback for earlier versions
 if sys.version_info >= (3, 11):
     asyncio_timeout = asyncio.timeout
+    _TIMEOUT_AVAILABLE = True
 else:
     try:
         from async_timeout import timeout as asyncio_timeout
+
+        _TIMEOUT_AVAILABLE = True
     except ImportError:
+        _TIMEOUT_AVAILABLE = False
 
         @asynccontextmanager
         async def _fallback_timeout(delay: float | None) -> AsyncIterator[None]:
-            """Fallback timeout context manager (no actual timeout)."""
+            """Fallback timeout context manager that raises if timeout is requested.
+
+            This ensures timeouts are never silently ignored - callers must either:
+            1. Upgrade to Python 3.11+
+            2. Install async-timeout package
+            3. Explicitly pass delay=None to indicate no timeout is needed
+            """
             if delay is not None:
-                logger.warning(
-                    "async-timeout not installed, timeout not enforced. "
-                    "Install with: pip install async-timeout"
+                raise RuntimeError(
+                    f"Async timeout requested ({delay}s) but no timeout implementation available. "
+                    f"Python version: {sys.version_info.major}.{sys.version_info.minor}. "
+                    "Either upgrade to Python 3.11+ or install async-timeout: pip install async-timeout"
                 )
             yield
 
         asyncio_timeout = _fallback_timeout
+
+
+def is_timeout_available() -> bool:
+    """Check if async timeout enforcement is available.
+
+    Returns:
+        True if asyncio.timeout (Python 3.11+) or async-timeout package is available.
+    """
+    return _TIMEOUT_AVAILABLE
 
 
 class TimeoutError(asyncio.TimeoutError):
@@ -279,4 +299,5 @@ __all__ = [
     "asyncio_timeout",
     "timeout_context",
     "timeout_context_sync",
+    "is_timeout_available",
 ]

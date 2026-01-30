@@ -634,8 +634,11 @@ class TeamSelector:
                 # Get culture-based recommendations (sync wrapper for async call)
                 import asyncio
 
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop is not None and loop.is_running():
                     # Already in async context, can't block
                     # Use cached recommendations or skip
                     return 0.0

@@ -233,7 +233,7 @@ class WebhookDeliveryWorker:
         self._tasks.discard(task)
         self._semaphore.release()
 
-        if task.exception():
+        if not task.cancelled() and task.exception():
             logger.error(f"Delivery task failed: {task.exception()}")
 
     async def _process_delivery(self, job: Job) -> None:

@@ -410,14 +410,20 @@ class NotificationsHandler(SecureHandler):
             return email, telegram
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+                # Loop is running, execute in thread pool
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     email, telegram = pool.submit(_run_async_in_thread, get_integrations()).result()
-            else:
-                email, telegram = loop.run_until_complete(get_integrations())
+            except RuntimeError:
+                # No running loop, create a new one
+                loop = asyncio.new_event_loop()
+                try:
+                    email, telegram = loop.run_until_complete(get_integrations())
+                finally:
+                    loop.close()
         except Exception as e:
             logger.warning(f"Failed to get integrations for org {org_id}: {e}")
             email, telegram = None, None
@@ -496,14 +502,20 @@ class NotificationsHandler(SecureHandler):
             return await store.get_recipients(org_id)
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+                # Loop is running, execute in thread pool
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     recipients = pool.submit(_run_async_in_thread, get_org_recipients()).result()
-            else:
-                recipients = loop.run_until_complete(get_org_recipients())
+            except RuntimeError:
+                # No running loop, create a new one
+                loop = asyncio.new_event_loop()
+                try:
+                    recipients = loop.run_until_complete(get_org_recipients())
+                finally:
+                    loop.close()
         except Exception as e:
             logger.warning(f"Failed to get recipients for org {org_id}: {e}")
             return json_response({"recipients": [], "error": str(e)})
@@ -564,14 +576,20 @@ class NotificationsHandler(SecureHandler):
                     invalidate_org_integration_cache(org_id)
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # Loop is running, execute in thread pool
                         import concurrent.futures
 
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             pool.submit(_run_async_in_thread, save_config()).result()
-                    else:
-                        loop.run_until_complete(save_config())
+                    except RuntimeError:
+                        # No running loop, create a new one
+                        loop = asyncio.new_event_loop()
+                        try:
+                            loop.run_until_complete(save_config())
+                        finally:
+                            loop.close()
                 except Exception as e:
                     logger.error(f"Failed to save email config for org {org_id}: {e}")
                     return error_response(f"Failed to save configuration: {e}", 500)
@@ -651,14 +669,20 @@ class NotificationsHandler(SecureHandler):
                     invalidate_org_integration_cache(org_id)
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # Loop is running, execute in thread pool
                         import concurrent.futures
 
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             pool.submit(_run_async_in_thread, save_config()).result()
-                    else:
-                        loop.run_until_complete(save_config())
+                    except RuntimeError:
+                        # No running loop, create a new one
+                        loop = asyncio.new_event_loop()
+                        try:
+                            loop.run_until_complete(save_config())
+                        finally:
+                            loop.close()
                 except Exception as e:
                     logger.error(f"Failed to save telegram config for org {org_id}: {e}")
                     return error_response(f"Failed to save configuration: {e}", 500)
@@ -730,14 +754,20 @@ class NotificationsHandler(SecureHandler):
                 return await store.get_recipients(org_id)
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                try:
+                    loop = asyncio.get_running_loop()
+                    # Loop is running, execute in thread pool
                     import concurrent.futures
 
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         recipients = pool.submit(_run_async_in_thread, save_recipient()).result()
-                else:
-                    recipients = loop.run_until_complete(save_recipient())
+                except RuntimeError:
+                    # No running loop, create a new one
+                    loop = asyncio.new_event_loop()
+                    try:
+                        recipients = loop.run_until_complete(save_recipient())
+                    finally:
+                        loop.close()
             except Exception as e:
                 logger.error(f"Failed to add recipient for org {org_id}: {e}")
                 return error_response(f"Failed to add recipient: {e}", 500)
@@ -793,16 +823,22 @@ class NotificationsHandler(SecureHandler):
                 return removed, await store.get_recipients(org_id)
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                try:
+                    loop = asyncio.get_running_loop()
+                    # Loop is running, execute in thread pool
                     import concurrent.futures
 
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         removed, recipients = pool.submit(
                             _run_async_in_thread, remove_recipient()
                         ).result()
-                else:
-                    removed, recipients = loop.run_until_complete(remove_recipient())
+                except RuntimeError:
+                    # No running loop, create a new one
+                    loop = asyncio.new_event_loop()
+                    try:
+                        removed, recipients = loop.run_until_complete(remove_recipient())
+                    finally:
+                        loop.close()
             except Exception as e:
                 logger.error(f"Failed to remove recipient for org {org_id}: {e}")
                 return error_response(f"Failed to remove recipient: {e}", 500)
@@ -862,8 +898,8 @@ class NotificationsHandler(SecureHandler):
                         )
 
                     try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
+                        try:
+                            loop = asyncio.get_running_loop()
                             # Already in async context, run in thread with new loop
                             import concurrent.futures
 
@@ -871,8 +907,13 @@ class NotificationsHandler(SecureHandler):
                                 success = pool.submit(
                                     _run_async_in_thread, send_test_email()
                                 ).result()
-                        else:
-                            success = loop.run_until_complete(send_test_email())
+                        except RuntimeError:
+                            # No running loop, create a new one
+                            loop = asyncio.new_event_loop()
+                            try:
+                                success = loop.run_until_complete(send_test_email())
+                            finally:
+                                loop.close()
                         results["email"] = {
                             "success": success,
                             "recipient": email.recipients[0].email,
@@ -899,16 +940,22 @@ class NotificationsHandler(SecureHandler):
                     return await telegram._send_message(msg)
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # Loop is running, execute in thread pool
                         import concurrent.futures
 
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             success = pool.submit(
                                 _run_async_in_thread, send_test_telegram()
                             ).result()
-                    else:
-                        success = loop.run_until_complete(send_test_telegram())
+                    except RuntimeError:
+                        # No running loop, create a new one
+                        loop = asyncio.new_event_loop()
+                        try:
+                            success = loop.run_until_complete(send_test_telegram())
+                        finally:
+                            loop.close()
                     results["telegram"] = {"success": success}
                 except Exception as e:
                     results["telegram"] = {"success": False, "error": str(e)}
@@ -956,14 +1003,20 @@ class NotificationsHandler(SecureHandler):
                     return sent
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # Loop is running, execute in thread pool
                         import concurrent.futures
 
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             sent = pool.submit(_run_async_in_thread, send_emails()).result()
-                    else:
-                        sent = loop.run_until_complete(send_emails())
+                    except RuntimeError:
+                        # No running loop, create a new one
+                        loop = asyncio.new_event_loop()
+                        try:
+                            sent = loop.run_until_complete(send_emails())
+                        finally:
+                            loop.close()
                     results["email"] = {
                         "success": sent > 0,
                         "sent": sent,
@@ -991,14 +1044,20 @@ class NotificationsHandler(SecureHandler):
                     return await telegram._send_message(msg)
 
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # Loop is running, execute in thread pool
                         import concurrent.futures
 
                         with concurrent.futures.ThreadPoolExecutor() as pool:
                             success = pool.submit(_run_async_in_thread, send_telegram()).result()
-                    else:
-                        success = loop.run_until_complete(send_telegram())
+                    except RuntimeError:
+                        # No running loop, create a new one
+                        loop = asyncio.new_event_loop()
+                        try:
+                            success = loop.run_until_complete(send_telegram())
+                        finally:
+                            loop.close()
                     results["telegram"] = {"success": success}
                 except Exception as e:
                     results["telegram"] = {"success": False, "error": str(e)}

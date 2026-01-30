@@ -668,64 +668,82 @@ class PostgresStore:
     # =========================================================================
 
     async def get_stats_async(self, workspace_id: str) -> MoundStats:
-        """Get statistics about the Knowledge Mound."""
+        """Get statistics about the Knowledge Mound.
+
+        Optimized to use 2 queries instead of 8 by leveraging PostgreSQL's
+        CTEs for GROUP BY aggregations and combining results.
+        """
         async with self.connection() as conn:
-            total = await conn.fetchval(
-                "SELECT COUNT(*) FROM knowledge_nodes WHERE workspace_id = $1",
-                workspace_id,
-            )
-
-            by_type = {}
-            for row in await conn.fetch(
-                "SELECT node_type, COUNT(*) as count FROM knowledge_nodes WHERE workspace_id = $1 GROUP BY node_type",
-                workspace_id,
-            ):
-                by_type[row["node_type"]] = row["count"]
-
-            by_tier = {}
-            for row in await conn.fetch(
-                "SELECT tier, COUNT(*) as count FROM knowledge_nodes WHERE workspace_id = $1 GROUP BY tier",
-                workspace_id,
-            ):
-                by_tier[row["tier"]] = row["count"]
-
-            by_validation = {}
-            for row in await conn.fetch(
-                "SELECT validation_status, COUNT(*) as count FROM knowledge_nodes WHERE workspace_id = $1 GROUP BY validation_status",
-                workspace_id,
-            ):
-                by_validation[row["validation_status"]] = row["count"]
-
-            avg_confidence = (
-                await conn.fetchval(
-                    "SELECT AVG(confidence) FROM knowledge_nodes WHERE workspace_id = $1",
-                    workspace_id,
+            # Query 1: All node stats using CTEs for each GROUP BY dimension
+            # Uses LEFT JOINs with a dummy row to ensure we always get results
+            node_stats = await conn.fetchrow(
+                """
+                WITH base AS (
+                    SELECT node_type, tier, validation_status, confidence, staleness_score
+                    FROM knowledge_nodes
+                    WHERE workspace_id = $1
+                ),
+                totals AS (
+                    SELECT
+                        COUNT(*) as total,
+                        AVG(confidence) as avg_confidence,
+                        COUNT(*) FILTER (WHERE staleness_score > 0.5) as stale_count
+                    FROM base
+                ),
+                by_type AS (
+                    SELECT COALESCE(jsonb_object_agg(node_type, cnt), '{}'::jsonb) as data
+                    FROM (SELECT node_type, COUNT(*) as cnt FROM base WHERE node_type IS NOT NULL GROUP BY node_type) t
+                ),
+                by_tier AS (
+                    SELECT COALESCE(jsonb_object_agg(tier, cnt), '{}'::jsonb) as data
+                    FROM (SELECT tier, COUNT(*) as cnt FROM base WHERE tier IS NOT NULL GROUP BY tier) t
+                ),
+                by_validation AS (
+                    SELECT COALESCE(jsonb_object_agg(validation_status, cnt), '{}'::jsonb) as data
+                    FROM (SELECT validation_status, COUNT(*) as cnt FROM base WHERE validation_status IS NOT NULL GROUP BY validation_status) t
                 )
-                or 0.0
-            )
-
-            rel_count = await conn.fetchval("SELECT COUNT(*) FROM knowledge_relationships")
-
-            rel_by_type = {}
-            for row in await conn.fetch(
-                "SELECT relationship_type, COUNT(*) as count FROM knowledge_relationships GROUP BY relationship_type"
-            ):
-                rel_by_type[row["relationship_type"]] = row["count"]
-
-            stale_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM knowledge_nodes WHERE workspace_id = $1 AND staleness_score > 0.5",
+                SELECT
+                    (SELECT total FROM totals) as total,
+                    (SELECT avg_confidence FROM totals) as avg_confidence,
+                    (SELECT stale_count FROM totals) as stale_count,
+                    (SELECT data FROM by_type) as by_type,
+                    (SELECT data FROM by_tier) as by_tier,
+                    (SELECT data FROM by_validation) as by_validation
+                """,
                 workspace_id,
             )
+
+            # Query 2: Relationship stats (global, not workspace-scoped per original behavior)
+            rel_stats = await conn.fetchrow(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM knowledge_relationships) as total,
+                    COALESCE(
+                        (SELECT jsonb_object_agg(relationship_type, cnt)
+                         FROM (SELECT relationship_type, COUNT(*) as cnt
+                               FROM knowledge_relationships
+                               WHERE relationship_type IS NOT NULL
+                               GROUP BY relationship_type) t),
+                        '{}'::jsonb
+                    ) as by_type
+                """
+            )
+
+            # Parse JSON aggregations back to dicts (handle None safely)
+            by_type = dict(node_stats["by_type"]) if node_stats and node_stats["by_type"] else {}
+            by_tier = dict(node_stats["by_tier"]) if node_stats and node_stats["by_tier"] else {}
+            by_validation = dict(node_stats["by_validation"]) if node_stats and node_stats["by_validation"] else {}
+            rel_by_type = dict(rel_stats["by_type"]) if rel_stats and rel_stats["by_type"] else {}
 
             return MoundStats(
-                total_nodes=total or 0,
+                total_nodes=(node_stats["total"] if node_stats else 0) or 0,
                 nodes_by_type=by_type,
                 nodes_by_tier=by_tier,
                 nodes_by_validation=by_validation,
-                total_relationships=rel_count or 0,
+                total_relationships=(rel_stats["total"] if rel_stats else 0) or 0,
                 relationships_by_type=rel_by_type,
-                average_confidence=round(avg_confidence, 3),
-                stale_nodes_count=stale_count or 0,
+                average_confidence=round((node_stats["avg_confidence"] if node_stats else 0.0) or 0.0, 3),
+                stale_nodes_count=(node_stats["stale_count"] if node_stats else 0) or 0,
                 workspace_id=workspace_id,
             )
 

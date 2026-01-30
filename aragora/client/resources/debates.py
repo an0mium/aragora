@@ -206,8 +206,9 @@ class DebatesAPI:
         response = await self.create_async(task, agents, rounds, consensus, **kwargs)
         debate_id = response.debate_id
 
-        start = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start < timeout:
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        while loop.time() - start < timeout:
             debate = await self.get_async(debate_id)
             if debate.status in (DebateStatus.COMPLETED, DebateStatus.FAILED):
                 return debate
@@ -268,8 +269,9 @@ class DebatesAPI:
         """
         import asyncio
 
-        start = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start < timeout:
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        while loop.time() - start < timeout:
             debate = await self.get_async(debate_id)
             if debate.status in (DebateStatus.COMPLETED, DebateStatus.FAILED):
                 return debate

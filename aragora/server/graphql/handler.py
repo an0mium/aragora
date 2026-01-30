@@ -415,17 +415,14 @@ class GraphQLHandler(BaseHandler):
         # Determine if resolver is async
         if asyncio.iscoroutinefunction(resolver):
             # Run async resolver
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Create new event loop for sync context
-                    import concurrent.futures
+            import concurrent.futures
 
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, resolver(ctx, **args))
-                        return future.result(timeout=30)
-                else:
-                    return asyncio.run(resolver(ctx, **args))
+            try:
+                asyncio.get_running_loop()
+                # Create new event loop for sync context
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, resolver(ctx, **args))
+                    return future.result(timeout=30)
             except RuntimeError:
                 # No event loop exists
                 return asyncio.run(resolver(ctx, **args))

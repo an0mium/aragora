@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, AsyncGenerator, Optional, Protocol
+from typing import TYPE_CHECKING, AsyncGenerator, Protocol
 
 from aragora.core import Critique, Message
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    pass
 
 
 class _APIAgentProtocol(Protocol):

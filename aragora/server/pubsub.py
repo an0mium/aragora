@@ -97,7 +97,7 @@ class RedisPubSub:
             message = json.dumps(data)
 
             # Use run_in_executor for sync Redis client
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, lambda: client.publish(full_channel, message))
 
             logger.debug(f"Published to {full_channel}")
@@ -138,7 +138,7 @@ class RedisPubSub:
                 return False
 
             # Subscribe to pattern
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, lambda: self._pubsub.psubscribe(full_pattern))
 
             logger.info(f"Subscribed to pattern: {full_pattern}")
@@ -162,7 +162,7 @@ class RedisPubSub:
 
         if self._pubsub:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, lambda: self._pubsub.punsubscribe(full_pattern))
             except (ConnectionError, OSError) as e:
                 logger.debug(f"Unsubscribe failed: {e}")
@@ -232,7 +232,7 @@ class RedisPubSub:
         while self._running:
             try:
                 # Get message with timeout
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 message = await loop.run_in_executor(
                     None, lambda: self._pubsub.get_message(timeout=1.0)
                 )

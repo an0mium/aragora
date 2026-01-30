@@ -581,7 +581,7 @@ class SlackWorkspaceStore:
             logger.error(f"Failed to get stats: {e}")
             return {"total_workspaces": 0, "active_workspaces": 0}
 
-    def refresh_workspace_token(
+    async def refresh_workspace_token(
         self,
         workspace_id: str,
         client_id: str,
@@ -597,9 +597,7 @@ class SlackWorkspaceStore:
         Returns:
             Updated workspace with new tokens, or None on failure
         """
-        import urllib.request
-        import urllib.parse
-        import json
+        import httpx
 
         workspace = self.get(workspace_id)
         if not workspace:
@@ -612,23 +610,20 @@ class SlackWorkspaceStore:
 
         try:
             # Exchange refresh token for new access token
-            data = urllib.parse.urlencode(
-                {
-                    "grant_type": "refresh_token",
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "refresh_token": workspace.refresh_token,
-                }
-            ).encode()
+            data = {
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": workspace.refresh_token,
+            }
 
-            request = urllib.request.Request(
-                "https://slack.com/api/oauth.v2.access",
-                data=data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-            with urllib.request.urlopen(request, timeout=30) as response:
-                result = json.loads(response.read().decode())
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    "https://slack.com/api/oauth.v2.access",
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                result = resp.json()
 
             if not result.get("ok"):
                 error = result.get("error", "unknown")
@@ -658,10 +653,10 @@ class SlackWorkspaceStore:
 
             return None
 
-        except urllib.error.URLError as e:
+        except httpx.RequestError as e:
             logger.error(f"Network error refreshing token for {workspace_id}: {e}")
             return None
-        except (json.JSONDecodeError, KeyError) as e:
+        except (ValueError, KeyError) as e:
             logger.error(f"Invalid response refreshing token for {workspace_id}: {e}")
             return None
 

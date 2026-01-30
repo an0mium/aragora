@@ -187,7 +187,7 @@ class DataLoader(Generic[K, V]):
             )
 
         # Create future for this request
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future: asyncio.Future[V] = loop.create_future()
 
         # Add to queue and track max size
@@ -243,7 +243,7 @@ class DataLoader(Generic[K, V]):
 
         # If more items remain, schedule another batch with timeout
         if self._queue:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             self._batch_scheduled = True
             self._batch_timer = loop.call_later(
                 self._batch_timeout_ms / 1000.0,

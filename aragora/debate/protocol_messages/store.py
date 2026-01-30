@@ -307,13 +307,12 @@ class ProtocolMessageStore:
         import asyncio
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context, run synchronously
-                return self._query_sync_impl(filters)
-            return loop.run_until_complete(self.query(filters))
-        except RuntimeError:
+            asyncio.get_running_loop()
+            # We're in an async context, run synchronously
             return self._query_sync_impl(filters)
+        except RuntimeError:
+            # No running loop, use asyncio.run
+            return asyncio.run(self.query(filters))
 
     def _query_sync_impl(self, filters: QueryFilters | None = None) -> list[ProtocolMessage]:
         """Internal synchronous query implementation."""

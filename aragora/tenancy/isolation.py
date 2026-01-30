@@ -477,16 +477,21 @@ class TenantDataIsolation:
             key_id = f"tenant-{tenant_id}"
 
             # Run async method synchronously if needed
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                asyncio.get_running_loop()
                 # We're in an async context - need to use async call
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     future = pool.submit(asyncio.run, provider.get_encryption_key(key_id))
                     return future.result(timeout=10)
-            else:
-                return loop.run_until_complete(provider.get_encryption_key(key_id))
+            except RuntimeError:
+                # No running loop - create one and run synchronously
+                loop = asyncio.new_event_loop()
+                try:
+                    return loop.run_until_complete(provider.get_encryption_key(key_id))
+                finally:
+                    loop.close()
 
         except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, KeyError) as e:
             logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")

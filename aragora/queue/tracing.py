@@ -35,7 +35,6 @@ Usage — worker side::
 from __future__ import annotations
 
 import logging
-from contextvars import copy_context
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Awaitable, Callable, TypeVar

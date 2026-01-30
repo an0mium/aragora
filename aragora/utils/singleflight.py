@@ -37,10 +37,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Awaitable, Callable, Generic, TypeVar, cast
+from typing import Any, Awaitable, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 

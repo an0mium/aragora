@@ -177,7 +177,7 @@ class YouTubeFetcher:
             "extract_flat": False,
         }
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _extract() -> dict[str, Any]:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -255,7 +255,7 @@ class YouTubeFetcher:
             "no_warnings": True,
         }
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _download() -> None:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

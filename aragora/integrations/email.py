@@ -452,7 +452,7 @@ class EmailIntegration:
         msg.attach(MIMEText(html_body, "html"))
 
         # Run in thread pool to avoid blocking
-        await asyncio.get_event_loop().run_in_executor(
+        await asyncio.get_running_loop().run_in_executor(
             None,
             self._smtp_send,
             msg,
@@ -580,7 +580,7 @@ class EmailIntegration:
                 message["Body"]["Text"] = {"Data": text_body, "Charset": "UTF-8"}
 
             # Send email
-            response = await asyncio.get_event_loop().run_in_executor(
+            response = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: ses_client.send_email(
                     Source=f"{self.config.from_name} <{self.config.from_email}>",

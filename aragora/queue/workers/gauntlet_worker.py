@@ -144,7 +144,7 @@ class GauntletWorker:
         completed = [job_id for job_id, task in self._active_jobs.items() if task.done()]
         for job_id in completed:
             task = self._active_jobs.pop(job_id)
-            if task.exception():
+            if not task.cancelled() and task.exception():
                 logger.warning(f"[{self.worker_id}] Job {job_id} failed: {task.exception()}")
 
     async def _process_job(self, job: QueuedJob) -> None:

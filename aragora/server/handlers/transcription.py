@@ -91,12 +91,9 @@ def _save_job(job_id: str, job_data: dict[str, Any]) -> None:
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Schedule for later
-                    asyncio.ensure_future(store.enqueue(job))
-                else:
-                    loop.run_until_complete(store.enqueue(job))
+                asyncio.get_running_loop()
+                # Schedule for later
+                asyncio.ensure_future(store.enqueue(job))
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(store.enqueue(job))
@@ -117,18 +114,12 @@ def _get_job(job_id: str) -> Optional[dict[str, Any]]:
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't block, return None for now
-                    return None
-                job = loop.run_until_complete(store.get(job_id))
+                asyncio.get_running_loop()
+                # Can't block in running loop, return None for now
+                return None
             except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    job = loop.run_until_complete(store.get(job_id))
-                finally:
-                    loop.close()
+                # No running loop, create one
+                job = asyncio.run(store.get(job_id))
 
             if job:
                 # Cache in memory

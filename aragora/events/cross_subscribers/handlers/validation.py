@@ -445,11 +445,8 @@ class ValidationHandlersMixin:
 
             # Run async ingestion
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(ingest_consensus_with_enhancements(mound))
-                else:
-                    loop.run_until_complete(ingest_consensus_with_enhancements(mound))
+                asyncio.get_running_loop()
+                asyncio.create_task(ingest_consensus_with_enhancements(mound))
             except RuntimeError:
                 # No event loop, create one
                 asyncio.run(ingest_consensus_with_enhancements(mound))
@@ -634,11 +631,8 @@ class ValidationHandlersMixin:
 
             # Run async validation
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(process_validation_feedback())
-                else:
-                    loop.run_until_complete(process_validation_feedback())
+                asyncio.get_running_loop()
+                asyncio.create_task(process_validation_feedback())
             except RuntimeError:
                 asyncio.run(process_validation_feedback())
 

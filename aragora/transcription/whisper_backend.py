@@ -394,7 +394,7 @@ class FasterWhisperBackend(TranscriptionBackend):
         start_time = time.time()
 
         # Run in thread pool since faster-whisper is synchronous
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         segments_gen, info = await loop.run_in_executor(
             None,
             lambda: model.transcribe(

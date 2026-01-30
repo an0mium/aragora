@@ -257,17 +257,14 @@ class CanvasHandler(SecureHandler):
 
     def _run_async(self, coro):
         """Run an async coroutine synchronously."""
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Create a new event loop in a thread
-                import concurrent.futures
+        import concurrent.futures
 
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(asyncio.run, coro)
-                    return future.result(timeout=30)
-            else:
-                return loop.run_until_complete(coro)
+        try:
+            asyncio.get_running_loop()
+            # Create a new event loop in a thread
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result(timeout=30)
         except RuntimeError:
             # No event loop, create one
             return asyncio.run(coro)

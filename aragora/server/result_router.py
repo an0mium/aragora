@@ -78,11 +78,8 @@ def _on_post_debate(**kwargs: Any) -> None:
 
     # Route in background
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(_route_async(debate_id, result_dict))
-        else:
-            asyncio.run(_route_async(debate_id, result_dict))
+        asyncio.get_running_loop()
+        asyncio.create_task(_route_async(debate_id, result_dict))
     except RuntimeError:
         # No event loop available, try to run directly
         asyncio.run(_route_async(debate_id, result_dict))

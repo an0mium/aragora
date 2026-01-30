@@ -76,11 +76,11 @@ class RateLimiter:
         if self.rps <= 0:
             return
 
-        now = asyncio.get_event_loop().time()
+        now = asyncio.get_running_loop().time()
         elapsed = now - self._last_request
         if elapsed < self.min_interval:
             await asyncio.sleep(self.min_interval - elapsed)
-        self._last_request = asyncio.get_event_loop().time()
+        self._last_request = asyncio.get_running_loop().time()
 
 
 __all__ = [

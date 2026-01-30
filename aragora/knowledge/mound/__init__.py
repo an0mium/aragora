@@ -272,25 +272,28 @@ def get_knowledge_mound(
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't await in running loop; schedule initialization task once
-                    init_task = getattr(_knowledge_mound_instance, "_init_task", None)
-                    if init_task is None or getattr(init_task, "done", lambda: True)():
-                        setattr(
-                            _knowledge_mound_instance,
-                            "_init_task",
-                            loop.create_task(_knowledge_mound_instance.initialize()),
-                        )
-                        logger.debug(
-                            "[knowledge_mound] Initialization scheduled (event loop running)"
-                        )
-                else:
+                loop = asyncio.get_running_loop()
+                # Can't await in running loop; schedule initialization task once
+                init_task = getattr(_knowledge_mound_instance, "_init_task", None)
+                if init_task is None or getattr(init_task, "done", lambda: True)():
+                    setattr(
+                        _knowledge_mound_instance,
+                        "_init_task",
+                        loop.create_task(_knowledge_mound_instance.initialize()),
+                    )
+                    logger.debug(
+                        "[knowledge_mound] Initialization scheduled (event loop running)"
+                    )
+            except RuntimeError:
+                # No running event loop - create one and run synchronously
+                try:
+                    loop = asyncio.new_event_loop()
                     loop.run_until_complete(_knowledge_mound_instance.initialize())
                     logger.info("[knowledge_mound] Singleton initialized successfully")
-            except RuntimeError:
-                # No event loop available
-                logger.debug("[knowledge_mound] No event loop, deferring initialization")
+                    loop.close()
+                except RuntimeError:
+                    # No event loop available
+                    logger.debug("[knowledge_mound] No event loop, deferring initialization")
 
     return _knowledge_mound_instance
 

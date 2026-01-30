@@ -21,6 +21,13 @@ from .storage import (
     get_context_service,
     get_user_config,
     set_user_config,
+    _check_email_permission,
+    _user_configs,
+    _user_configs_lock,
+    _email_store,
+    _gmail_connector,
+    _prioritizer,
+    _context_service,
 )
 from .prioritization import (
     handle_prioritize_email,
@@ -33,6 +40,7 @@ from .categorization import (
     handle_categorize_batch,
     handle_feedback_batch,
     handle_apply_category_label,
+    _categorizer,
 )
 from .oauth import (
     handle_gmail_oauth_url,
@@ -58,6 +66,14 @@ __all__ = [
     "get_categorizer",
     "get_user_config",
     "set_user_config",
+    "_check_email_permission",
+    "_user_configs",
+    "_user_configs_lock",
+    "_email_store",
+    "_gmail_connector",
+    "_prioritizer",
+    "_context_service",
+    "_categorizer",
     # Prioritization handlers
     "handle_prioritize_email",
     "handle_rank_inbox",

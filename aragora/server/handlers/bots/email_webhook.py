@@ -185,11 +185,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(handle_email_reply(email_data))
-                else:
-                    loop.run_until_complete(handle_email_reply(email_data))
+                asyncio.get_running_loop()
+                asyncio.create_task(handle_email_reply(email_data))
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
 
@@ -277,11 +274,8 @@ class EmailWebhookHandler(BotHandlerMixin, SecureHandler):
             import asyncio
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(handle_email_reply(email_data))
-                else:
-                    loop.run_until_complete(handle_email_reply(email_data))
+                asyncio.get_running_loop()
+                asyncio.create_task(handle_email_reply(email_data))
             except RuntimeError:
                 asyncio.run(handle_email_reply(email_data))
 

@@ -432,14 +432,16 @@ async def _get_postgres_email_store() -> PostgresEmailReplyStore | None:
 def _get_postgres_email_store_sync() -> PostgresEmailReplyStore | None:
     """Synchronous wrapper for getting PostgreSQL email store."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Can't use run_until_complete in async context
-            return _postgres_email_store
-        return loop.run_until_complete(_get_postgres_email_store())
+        asyncio.get_running_loop()
+        # Can't use run_until_complete in async context
+        return _postgres_email_store
     except RuntimeError:
-        # No event loop
-        return None
+        # No running event loop - safe to use asyncio.run()
+        try:
+            return asyncio.run(_get_postgres_email_store())
+        except RuntimeError:
+            # No event loop available
+            return None
 
 
 def _store_email_origin_redis(origin: EmailReplyOrigin) -> None:
@@ -513,11 +515,13 @@ def register_email_origin(
     pg_store = _get_postgres_email_store_sync()
     if pg_store:
         try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                loop.run_until_complete(pg_store.save(origin))
-            else:
+            try:
+                asyncio.get_running_loop()
+                # Running in async context - schedule as task
                 asyncio.create_task(pg_store.save(origin))
+            except RuntimeError:
+                # Not in async context - run synchronously
+                asyncio.run(pg_store.save(origin))
         except Exception as e:
             logger.warning(f"PostgreSQL email origin storage failed: {e}")
     else:

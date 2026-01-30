@@ -260,7 +260,7 @@ class S3Connector(EnterpriseConnector):
         try:
             while True:
                 # List objects
-                response = await asyncio.get_event_loop().run_in_executor(
+                response = await asyncio.get_running_loop().run_in_executor(
                     None, lambda: client.list_objects_v2(**list_kwargs)
                 )
 
@@ -285,7 +285,7 @@ class S3Connector(EnterpriseConnector):
                         def get_object(k: str = key) -> dict[str, Any]:
                             return client.get_object(Bucket=self.bucket, Key=k)
 
-                        obj_response = await asyncio.get_event_loop().run_in_executor(
+                        obj_response = await asyncio.get_running_loop().run_in_executor(
                             None, get_object
                         )
                         body = obj_response["Body"].read()

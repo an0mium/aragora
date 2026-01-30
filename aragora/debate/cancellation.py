@@ -294,7 +294,7 @@ class CancellationScope:
 
         # Set up timeout if specified
         if self._timeout is not None:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             token = self._token  # Capture for closure
             timeout = self._timeout  # Capture for closure
             self._timeout_handle = loop.call_later(

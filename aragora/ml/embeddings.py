@@ -198,13 +198,13 @@ class LocalEmbeddingService:
     async def embed_async(self, text: str) -> list[float]:
         """Async version of embed."""
         async with self._lock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             return await loop.run_in_executor(None, self.embed, text)
 
     async def embed_batch_async(self, texts: Sequence[str]) -> list[list[float]]:
         """Async version of embed_batch."""
         async with self._lock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             return await loop.run_in_executor(None, self.embed_batch, texts)
 
     def similarity(self, embedding1: list[float], embedding2: list[float]) -> float:
@@ -284,7 +284,7 @@ class LocalEmbeddingService:
     ) -> list[SearchResult]:
         """Async version of search."""
         async with self._lock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 None, lambda: self.search(query, documents, top_k, threshold)
             )

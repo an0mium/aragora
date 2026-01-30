@@ -1068,7 +1068,9 @@ class DocumentParser:
                     "r:gz" if format == DocumentFormat.GZIP or content[:2] == b"\x1f\x8b" else "r"
                 )
                 try:
-                    with tarfile.open(fileobj=cast(IO[bytes], io.BytesIO(content)), mode=mode) as tf:
+                    with tarfile.open(
+                        name="", fileobj=cast(IO[bytes], io.BytesIO(content)), mode=mode
+                    ) as tf:
                         for member in tf.getmembers():
                             if member.isfile():
                                 ext = Path(member.name).suffix.lower()

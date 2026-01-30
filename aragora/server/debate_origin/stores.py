@@ -294,11 +294,12 @@ async def _get_postgres_store() -> PostgresOriginStore | None:
 def _get_postgres_store_sync() -> PostgresOriginStore | None:
     """Synchronous wrapper for getting PostgreSQL store."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Can't use run_until_complete in async context
-            return _postgres_store
-        return loop.run_until_complete(_get_postgres_store())
+        asyncio.get_running_loop()
+        # Can't use run_until_complete in async context
+        return _postgres_store
     except RuntimeError:
-        # No event loop
-        return None
+        # No running event loop, try to run async getter
+        try:
+            return asyncio.run(_get_postgres_store())
+        except RuntimeError:
+            return None

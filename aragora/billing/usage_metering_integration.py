@@ -347,7 +347,7 @@ class MeteredUsageTracker:
 
         # Record to new metering system (async wrapper)
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if loop.is_running():
                 asyncio.create_task(
                     self._record_debate_async(
@@ -459,7 +459,7 @@ class MeteredUsageTracker:
 
         # Record to new metering system
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if loop.is_running():
                 asyncio.create_task(
                     record_agent_tokens(

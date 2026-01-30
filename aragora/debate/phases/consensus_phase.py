@@ -370,8 +370,8 @@ class ConsensusPhase:
                 # Use asyncio.create_task for async hook in sync method
                 import asyncio
 
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                try:
+                    asyncio.get_running_loop()
                     asyncio.create_task(
                         ctx.hook_manager.trigger(
                             "post_consensus",
@@ -380,6 +380,8 @@ class ConsensusPhase:
                             consensus_reached=ctx.result.consensus_reached,
                         )
                     )
+                except RuntimeError:
+                    pass  # No running loop, skip async hook
             except Exception as e:
                 logger.debug(f"POST_CONSENSUS hook failed: {e}")
 

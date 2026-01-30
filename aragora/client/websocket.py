@@ -441,7 +441,7 @@ class DebateStream:
             consensus = await stream.once("consensus")
             print(f"Consensus: {consensus.data}")
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future: asyncio.Future[DebateEvent] = loop.create_future()
 
         def handler(event: DebateEvent) -> None:

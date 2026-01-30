@@ -969,18 +969,17 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         # Status endpoint - GET only
         if normalized_path in ["/api/v1/bots/slack/status", "/api/v1/bots/slack/status/"]:
             import asyncio
+            import concurrent.futures
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        future = pool.submit(asyncio.run, self._get_status_sync(handler))
-                        return future.result(timeout=5)
-                else:
-                    return loop.run_until_complete(self._get_status_sync(handler))
-            except (RuntimeError, asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
+                asyncio.get_running_loop()
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, self._get_status_sync(handler))
+                    return future.result(timeout=5)
+            except RuntimeError:
+                # No running loop, create one
+                return asyncio.run(self._get_status_sync(handler))
+            except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error getting Slack status: {e}")
                 return error_response(f"Error: {str(e)}", 500)
 
@@ -1010,23 +1009,22 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
             # Handle the POST request
             import asyncio
+            import concurrent.futures
 
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        future = pool.submit(
-                            asyncio.run,
-                            self.handle_post(normalized_path, query_params, handler),
-                        )
-                        return future.result(timeout=30)
-                else:
-                    return loop.run_until_complete(
-                        self.handle_post(normalized_path, query_params, handler)
+                asyncio.get_running_loop()
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(
+                        asyncio.run,
+                        self.handle_post(normalized_path, query_params, handler),
                     )
-            except (RuntimeError, asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
+                    return future.result(timeout=30)
+            except RuntimeError:
+                # No running loop, create one
+                return asyncio.run(
+                    self.handle_post(normalized_path, query_params, handler)
+                )
+            except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error handling Slack POST: {e}")
                 return error_response(f"Error: {str(e)}", 500)
 
