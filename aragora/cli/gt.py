@@ -19,6 +19,7 @@ Usage via aragora CLI:
 
 Note: This module uses Gas Town APIs that are still being developed.
 Type checking is disabled due to API signature mismatches.
+Bead list will show convoy associations when convoys are available.
 """
 
 import argparse
@@ -332,6 +333,15 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
                 return 1
             convoy_map = {bead_id: convoy.id for bead_id in convoy.bead_ids}
             beads = [b for b in beads if b.id in convoy_map]
+        else:
+            try:
+                _, manager = _init_convoy_manager(bead_store)
+                convoys = _run_async(manager.list_convoys())
+                for convoy in convoys:
+                    for bead_id in convoy.bead_ids:
+                        convoy_map.setdefault(bead_id, convoy.id)
+            except Exception as e:
+                logger.debug("Unable to load convoys for bead list: %s", e)
 
         if not beads:
             print("No beads found")
