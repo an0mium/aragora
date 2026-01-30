@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
 from aragora.resilience import with_timeout
 
@@ -46,6 +47,18 @@ def _get_bridge():
     return _bridge
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/chat/knowledge/search",
+    summary="Search knowledge from chat context",
+    description="Search for relevant knowledge based on query and workspace/channel context.",
+    tags=["Knowledge", "Chat"],
+    responses={
+        "200": {"description": "Search results returned"},
+        "401": {"description": "Unauthorized"},
+        "500": {"description": "Search failed"},
+    },
+)
 @require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_search(
@@ -118,6 +131,18 @@ async def handle_knowledge_search(
         }
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/chat/knowledge/inject",
+    summary="Inject knowledge into conversation",
+    description="Get relevant knowledge items to inject into an ongoing conversation.",
+    tags=["Knowledge", "Chat"],
+    responses={
+        "200": {"description": "Knowledge context returned"},
+        "401": {"description": "Unauthorized"},
+        "500": {"description": "Injection failed"},
+    },
+)
 @require_permission("knowledge:read")
 @with_timeout(15.0)
 async def handle_knowledge_inject(
@@ -164,6 +189,19 @@ async def handle_knowledge_inject(
         }
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/chat/knowledge/store",
+    summary="Store chat as knowledge",
+    description="Store chat messages as persistent knowledge for future retrieval.",
+    tags=["Knowledge", "Chat"],
+    responses={
+        "200": {"description": "Chat stored as knowledge"},
+        "400": {"description": "At least 2 messages required"},
+        "401": {"description": "Unauthorized"},
+        "500": {"description": "Storage failed"},
+    },
+)
 @require_permission("knowledge:update")
 @with_timeout(20.0)
 async def handle_store_chat_knowledge(
@@ -227,6 +265,21 @@ async def handle_store_chat_knowledge(
         }
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/chat/knowledge/channel/{channel_id}/summary",
+    summary="Get channel knowledge summary",
+    description="Get a summary of knowledge related to a specific channel.",
+    tags=["Knowledge", "Chat"],
+    parameters=[
+        {"name": "channel_id", "in": "path", "required": True, "schema": {"type": "string"}}
+    ],
+    responses={
+        "200": {"description": "Channel knowledge summary"},
+        "401": {"description": "Unauthorized"},
+        "500": {"description": "Summary failed"},
+    },
+)
 @require_permission("knowledge:read")
 async def handle_channel_knowledge_summary(
     channel_id: str,

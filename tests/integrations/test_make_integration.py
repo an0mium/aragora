@@ -46,7 +46,7 @@ class TestMakeWebhook:
         webhook = MakeWebhook(
             id="wh1",
             module_type="watch_debates",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             workspace_id="ws-1",
         )
         assert webhook.matches_event({"workspace_id": "ws-1"}) is True
@@ -55,7 +55,7 @@ class TestMakeWebhook:
         webhook = MakeWebhook(
             id="wh1",
             module_type="watch_debates",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             workspace_id="ws-1",
         )
         assert webhook.matches_event({"workspace_id": "ws-2"}) is False
@@ -64,7 +64,7 @@ class TestMakeWebhook:
         webhook = MakeWebhook(
             id="wh1",
             module_type="watch_debates",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             event_filter={"status": "completed"},
         )
         assert webhook.matches_event({"status": "completed"}) is True
@@ -150,22 +150,26 @@ class TestMakeIntegration:
         assert webhook.module_type == "watch_debates"
 
     def test_register_webhook_invalid_connection(self, integration):
-        result = integration.register_webhook("bad", "watch_debates", "url")
+        result = integration.register_webhook(
+            "bad", "watch_debates", "https://test.webhook.com/hook"
+        )
         assert result is None
 
     def test_register_webhook_invalid_module(self, integration_with_connection):
         integ, conn = integration_with_connection
-        result = integ.register_webhook(conn.id, "nonexistent_module", "url")
+        result = integ.register_webhook(
+            conn.id, "nonexistent_module", "https://test.webhook.com/hook"
+        )
         assert result is None
 
     def test_register_webhook_non_trigger(self, integration_with_connection):
         integ, conn = integration_with_connection
-        result = integ.register_webhook(conn.id, "create_debate", "url")
+        result = integ.register_webhook(conn.id, "create_debate", "https://test.webhook.com/hook")
         assert result is None
 
     def test_unregister_webhook(self, integration_with_connection):
         integ, conn = integration_with_connection
-        webhook = integ.register_webhook(conn.id, "watch_debates", "url")
+        webhook = integ.register_webhook(conn.id, "watch_debates", "https://test.webhook.com/hook")
         assert integ.unregister_webhook(conn.id, webhook.id) is True
 
     def test_unregister_webhook_not_found(self, integration_with_connection):
@@ -177,8 +181,8 @@ class TestMakeIntegration:
 
     def test_list_webhooks(self, integration_with_connection):
         integ, conn = integration_with_connection
-        integ.register_webhook(conn.id, "watch_debates", "url1")
-        integ.register_webhook(conn.id, "watch_consensus", "url2")
+        integ.register_webhook(conn.id, "watch_debates", "https://test.webhook.com/hook1")
+        integ.register_webhook(conn.id, "watch_consensus", "https://test.webhook.com/hook2")
         webhooks = integ.list_webhooks(conn.id)
         assert len(webhooks) == 2
 
@@ -250,7 +254,7 @@ class TestMakeIntegration:
     @pytest.mark.asyncio
     async def test_trigger_webhooks_no_match(self, integration_with_connection):
         integ, conn = integration_with_connection
-        integ.register_webhook(conn.id, "watch_consensus", "url")
+        integ.register_webhook(conn.id, "watch_consensus", "https://test.webhook.com/hook")
         count = await integ.trigger_webhooks("watch_debates", {})
         assert count == 0
 

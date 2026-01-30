@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
@@ -33,6 +34,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/api-key",
+    summary="Generate API key",
+    description="Generate a new API key for programmatic access. Key is shown only once.",
+    tags=["Authentication", "API Keys"],
+    responses={
+        "200": {"description": "API key generated successfully"},
+        "401": {"description": "Unauthorized"},
+        "403": {"description": "API access not available for tier"},
+        "404": {"description": "User not found"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=3, limiter_name="auth_api_key_gen")
 @handle_errors("generate API key")
 def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -97,6 +112,19 @@ def handle_generate_api_key(handler_instance: "AuthHandler", handler) -> Handler
     )
 
 
+@api_endpoint(
+    method="DELETE",
+    path="/api/auth/api-key",
+    summary="Revoke API key",
+    description="Revoke the current user's API key. Immediately invalidates the key.",
+    tags=["Authentication", "API Keys"],
+    responses={
+        "200": {"description": "API key revoked successfully"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key")
 @handle_errors("revoke API key")
 def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -141,6 +169,19 @@ def handle_revoke_api_key(handler_instance: "AuthHandler", handler) -> HandlerRe
     return json_response({"message": "API key revoked"})
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/auth/api-keys",
+    summary="List API keys",
+    description="List API keys for the current user. Only prefix and metadata are shown.",
+    tags=["Authentication", "API Keys"],
+    responses={
+        "200": {"description": "List of API keys returned"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=10, limiter_name="auth_list_api_keys")
 @handle_errors("list API keys")
 def handle_list_api_keys(handler_instance: "AuthHandler", handler) -> HandlerResult:

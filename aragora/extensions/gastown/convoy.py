@@ -15,6 +15,7 @@ from typing import Any
 
 from aragora.nomic.stores import BeadStore as NomicBeadStore
 from aragora.nomic.stores import ConvoyManager as NomicConvoyManager
+from aragora.nomic.stores import ConvoyStatus as NomicConvoyStatus
 from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
 from aragora.workspace.convoy import (
     Convoy as WorkspaceConvoy,
@@ -37,6 +38,7 @@ __all__ = [
     "ConvoyTracker",
     "NomicBeadStore",
     "NomicConvoyManager",
+    "NomicConvoyStatus",
 ]
 
 

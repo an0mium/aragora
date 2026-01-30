@@ -31,6 +31,7 @@ from .convoy_store import (
     ConvoyStore,
 )
 from .specs import BeadSpec, ConvoySpec
+from .protocols import BeadRecord, ConvoyRecord
 from aragora.nomic.beads import create_bead_store, get_bead_store, reset_bead_store
 from aragora.nomic.convoys import get_convoy_manager, reset_convoy_manager
 
@@ -50,6 +51,9 @@ __all__ = [
     "ConvoyStatus",
     "ConvoyStore",
     "ConvoySpec",
+    # Cross-layer protocols
+    "BeadRecord",
+    "ConvoyRecord",
     # Store helpers
     "create_bead_store",
     "get_bead_store",

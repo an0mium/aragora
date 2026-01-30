@@ -1,0 +1,203 @@
+"""
+Storage and initialization utilities for email handlers.
+
+Provides thread-safe lazy initialization of:
+- Email persistent store
+- Gmail connector
+- Email prioritizer
+- Cross-channel context service
+- User config cache
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+
+def _check_email_permission(
+    auth_context: Any | None, permission_key: str
+) -> Optional[dict[str, Any]]:
+    """
+    Check RBAC permission for email operations.
+
+    Args:
+        auth_context: Optional AuthorizationContext from request
+        permission_key: Permission like "email:read" or "email:write"
+
+    Returns:
+        None if allowed, error dict with success=False if denied
+    """
+    # Fail closed for write-sensitive operations if RBAC is unavailable.
+    if not RBAC_AVAILABLE or auth_context is None:
+        if permission_key in {"email:write", "email:oauth"}:
+            return {
+                "success": False,
+                "error": "Permission denied: RBAC unavailable",
+            }
+        return None  # Read-only paths degrade gracefully
+
+    try:
+        decision = check_permission(auth_context, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: permission={permission_key} "
+                f"user={getattr(auth_context, 'user_id', 'unknown')} "
+                f"reason={decision.reason}"
+            )
+            return {
+                "success": False,
+                "error": f"Permission denied: {decision.reason}",
+            }
+    except Exception as e:
+        logger.warning(f"RBAC check failed for {permission_key}: {e}")
+        return None  # Fail open
+
+    return None
+
+
+# =============================================================================
+# Persistent Storage
+# =============================================================================
+
+_email_store = None
+_email_store_lock = threading.Lock()
+
+
+def get_email_store():
+    """Get or create the email store (lazy init, thread-safe)."""
+    global _email_store
+    if _email_store is not None:
+        return _email_store
+
+    with _email_store_lock:
+        if _email_store is None:
+            try:
+                from aragora.storage.email_store import get_email_store as _get_store
+
+                _email_store = _get_store()
+                logger.info("[EmailHandler] Initialized persistent email store")
+            except Exception as e:
+                logger.warning(f"[EmailHandler] Failed to init email store: {e}")
+        return _email_store
+
+
+def _load_config_from_store(user_id: str, workspace_id: str = "default") -> dict[str, Any]:
+    """Load config from persistent store into memory cache."""
+    store = get_email_store()
+    if store:
+        try:
+            config = store.get_user_config(user_id, workspace_id)
+            if config:
+                return config
+        except Exception as e:
+            logger.warning(f"[EmailHandler] Failed to load config from store: {e}")
+    return {}
+
+
+def _save_config_to_store(
+    user_id: str, config: dict[str, Any], workspace_id: str = "default"
+) -> None:
+    """Save config to persistent store."""
+    store = get_email_store()
+    if store:
+        try:
+            store.save_user_config(user_id, workspace_id, config)
+        except Exception as e:
+            logger.warning(f"[EmailHandler] Failed to save config to store: {e}")
+
+
+# Global instances (initialized lazily) with thread-safe access
+_gmail_connector: Any | None = None
+_gmail_connector_lock = threading.Lock()
+_prioritizer: Any | None = None
+_prioritizer_lock = threading.Lock()
+_context_service: Any | None = None
+_context_service_lock = threading.Lock()
+_user_configs: dict[str, dict[str, Any]] = {}
+_user_configs_lock = threading.Lock()
+
+
+def get_gmail_connector(user_id: str = "default"):
+    """Get or create Gmail connector for a user (thread-safe)."""
+    global _gmail_connector
+    if _gmail_connector is not None:
+        return _gmail_connector
+
+    with _gmail_connector_lock:
+        # Double-check after acquiring lock
+        if _gmail_connector is None:
+            from aragora.connectors.enterprise.communication.gmail import GmailConnector
+
+            _gmail_connector = GmailConnector()
+        return _gmail_connector
+
+
+def get_prioritizer(user_id: str = "default"):
+    """Get or create email prioritizer for a user (thread-safe)."""
+    global _prioritizer
+    if _prioritizer is not None:
+        return _prioritizer
+
+    with _prioritizer_lock:
+        # Double-check after acquiring lock
+        if _prioritizer is None:
+            from aragora.services.email_prioritization import (
+                EmailPrioritizer,
+                EmailPrioritizationConfig,
+            )
+
+            # Load user config if available (thread-safe access)
+            with _user_configs_lock:
+                config_data = _user_configs.get(user_id, {}).copy()
+
+            config = EmailPrioritizationConfig(
+                vip_domains=set(config_data.get("vip_domains", [])),
+                vip_addresses=set(config_data.get("vip_addresses", [])),
+                internal_domains=set(config_data.get("internal_domains", [])),
+                auto_archive_senders=set(config_data.get("auto_archive_senders", [])),
+            )
+
+            _prioritizer = EmailPrioritizer(
+                gmail_connector=get_gmail_connector(user_id),
+                config=config,
+            )
+        return _prioritizer
+
+
+def get_context_service():
+    """Get or create cross-channel context service (thread-safe)."""
+    global _context_service
+    if _context_service is not None:
+        return _context_service
+
+    with _context_service_lock:
+        # Double-check after acquiring lock
+        if _context_service is None:
+            from aragora.services.cross_channel_context import CrossChannelContextService
+
+            _context_service = CrossChannelContextService()
+        return _context_service
+
+
+def get_user_config(user_id: str) -> dict[str, Any]:
+    """Get user config from cache (thread-safe)."""
+    with _user_configs_lock:
+        return _user_configs.get(user_id, {}).copy()
+
+
+def set_user_config(user_id: str, config: dict[str, Any]) -> None:
+    """Set user config in cache (thread-safe)."""
+    with _user_configs_lock:
+        _user_configs[user_id] = config.copy()

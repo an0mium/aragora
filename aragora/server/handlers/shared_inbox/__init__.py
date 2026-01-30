@@ -8,21 +8,23 @@ This package contains modular components for shared inbox management:
 All public APIs are re-exported from this package for backward compatibility.
 """
 
-# Re-export everything from the handler module for backward compatibility
-# This allows existing code using `from aragora.server.handlers.shared_inbox import X`
-# to continue working after the module was split into a package.
-from aragora.server.handlers._shared_inbox_handler import (
-    # Classes
-    SharedInboxHandler,
+# Import models from the dedicated models module
+from aragora.server.handlers.shared_inbox.models import (
     MessageStatus,
-    RuleConditionField,
-    RuleConditionOperator,
+    RuleAction,
     RuleActionType,
     RuleCondition,
-    RuleAction,
+    RuleConditionField,
+    RuleConditionOperator,
     RoutingRule,
-    SharedInboxMessage,
     SharedInbox,
+    SharedInboxMessage,
+)
+
+# Import handler and functions from the handler module
+from aragora.server.handlers._shared_inbox_handler import (
+    # Handler class
+    SharedInboxHandler,
     # Handler functions
     handle_create_shared_inbox,
     handle_list_shared_inboxes,

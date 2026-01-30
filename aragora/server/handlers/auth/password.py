@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import get_client_ip, rate_limit
 from .validation import validate_email, validate_password
 
@@ -38,6 +39,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/password/change",
+    summary="Change password",
+    description="Change the current user's password. Requires current password verification.",
+    tags=["Authentication", "Password"],
+    responses={
+        "200": {"description": "Password changed successfully"},
+        "400": {"description": "Missing or invalid password"},
+        "401": {"description": "Current password incorrect or unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=3, limiter_name="auth_change_password")
 @handle_errors("change password")
 def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -102,6 +117,18 @@ def handle_change_password(handler_instance: "AuthHandler", handler) -> HandlerR
     )
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/password/forgot",
+    summary="Request password reset",
+    description="Request a password reset email. Always returns success to prevent enumeration.",
+    tags=["Authentication", "Password"],
+    responses={
+        "200": {"description": "Reset email sent if account exists"},
+        "400": {"description": "Invalid email format"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=3, limiter_name="auth_forgot_password")
 @handle_errors("forgot password")
 @log_request("forgot password")
@@ -300,6 +327,19 @@ This is an automated message. Please do not reply.
         asyncio.run(send_email())
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/password/reset",
+    summary="Reset password with token",
+    description="Reset password using a reset token from email. Token is single-use.",
+    tags=["Authentication", "Password"],
+    responses={
+        "200": {"description": "Password reset successful"},
+        "400": {"description": "Invalid token, password, or token already used"},
+        "404": {"description": "User not found"},
+        "503": {"description": "Service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=5, limiter_name="auth_reset_password")
 @handle_errors("reset password")
 @log_request("reset password")

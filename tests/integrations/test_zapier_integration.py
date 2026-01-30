@@ -40,7 +40,10 @@ def integration_with_app(integration):
 class TestZapierTrigger:
     def test_matches_event_no_filters(self):
         trigger = ZapierTrigger(
-            id="t1", trigger_type="debate_completed", webhook_url="url", api_key="key"
+            id="t1",
+            trigger_type="debate_completed",
+            webhook_url="https://test.webhook.com/hook",
+            api_key="key",
         )
         assert trigger.matches_event({"type": "debate"}) is True
 
@@ -48,7 +51,7 @@ class TestZapierTrigger:
         trigger = ZapierTrigger(
             id="t1",
             trigger_type="debate_completed",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             api_key="key",
             workspace_id="ws-1",
         )
@@ -59,7 +62,7 @@ class TestZapierTrigger:
         trigger = ZapierTrigger(
             id="t1",
             trigger_type="debate_completed",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             api_key="key",
             debate_tags=["urgent", "security"],
         )
@@ -71,7 +74,7 @@ class TestZapierTrigger:
         trigger = ZapierTrigger(
             id="t1",
             trigger_type="consensus_reached",
-            webhook_url="url",
+            webhook_url="https://test.webhook.com/hook",
             api_key="key",
             min_confidence=0.8,
         )
@@ -163,7 +166,7 @@ class TestZapierIntegration:
         trigger = integ.subscribe_trigger(
             app.id,
             "consensus_reached",
-            "url",
+            "https://test.webhook.com/hook",
             workspace_id="ws-1",
             debate_tags=["urgent"],
             min_confidence=0.8,
@@ -173,17 +176,23 @@ class TestZapierIntegration:
         assert trigger.min_confidence == 0.8
 
     def test_subscribe_trigger_invalid_app(self, integration):
-        result = integration.subscribe_trigger("bad", "debate_completed", "url")
+        result = integration.subscribe_trigger(
+            "bad", "debate_completed", "https://test.webhook.com/hook"
+        )
         assert result is None
 
     def test_subscribe_trigger_invalid_type(self, integration_with_app):
         integ, app = integration_with_app
-        result = integ.subscribe_trigger(app.id, "nonexistent_trigger", "url")
+        result = integ.subscribe_trigger(
+            app.id, "nonexistent_trigger", "https://test.webhook.com/hook"
+        )
         assert result is None
 
     def test_unsubscribe_trigger(self, integration_with_app):
         integ, app = integration_with_app
-        trigger = integ.subscribe_trigger(app.id, "debate_completed", "url")
+        trigger = integ.subscribe_trigger(
+            app.id, "debate_completed", "https://test.webhook.com/hook"
+        )
         assert integ.unsubscribe_trigger(app.id, trigger.id) is True
 
     def test_unsubscribe_trigger_not_found(self, integration_with_app):
@@ -195,8 +204,8 @@ class TestZapierIntegration:
 
     def test_list_triggers(self, integration_with_app):
         integ, app = integration_with_app
-        integ.subscribe_trigger(app.id, "debate_completed", "url1")
-        integ.subscribe_trigger(app.id, "consensus_reached", "url2")
+        integ.subscribe_trigger(app.id, "debate_completed", "https://test.webhook.com/hook1")
+        integ.subscribe_trigger(app.id, "consensus_reached", "https://test.webhook.com/hook2")
         assert len(integ.list_triggers(app.id)) == 2
 
     def test_list_triggers_bad_app(self, integration):
@@ -216,7 +225,7 @@ class TestZapierIntegration:
     @pytest.mark.asyncio
     async def test_fire_trigger_no_match(self, integration_with_app):
         integ, app = integration_with_app
-        integ.subscribe_trigger(app.id, "consensus_reached", "url")
+        integ.subscribe_trigger(app.id, "consensus_reached", "https://test.webhook.com/hook")
         count = await integ.fire_trigger("debate_completed", {})
         assert count == 0
 
@@ -224,14 +233,17 @@ class TestZapierIntegration:
     async def test_fire_trigger_inactive_app(self, integration_with_app):
         integ, app = integration_with_app
         app.active = False
-        integ.subscribe_trigger(app.id, "debate_completed", "url")
+        integ.subscribe_trigger(app.id, "debate_completed", "https://test.webhook.com/hook")
         count = await integ.fire_trigger("debate_completed", {})
         assert count == 0
 
     def test_format_trigger_payload(self, integration_with_app):
         integ, app = integration_with_app
         trigger = ZapierTrigger(
-            id="t1", trigger_type="debate_completed", webhook_url="url", api_key="key"
+            id="t1",
+            trigger_type="debate_completed",
+            webhook_url="https://test.webhook.com/hook",
+            api_key="key",
         )
         payload = integ._format_trigger_payload(trigger, {"id": "e1", "timestamp": 12345})
         # Zapier expects a list

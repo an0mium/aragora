@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
@@ -23,6 +24,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/auth/sessions",
+    summary="List active sessions",
+    description="List all active sessions for the current user with device and activity metadata.",
+    tags=["Authentication", "Sessions"],
+    responses={
+        "200": {"description": "List of active sessions returned"},
+        "401": {"description": "Unauthorized"},
+    },
+)
 @rate_limit(requests_per_minute=30, limiter_name="auth_sessions")
 @handle_errors("list sessions")
 def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerResult:
@@ -74,6 +86,22 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
     )
 
 
+@api_endpoint(
+    method="DELETE",
+    path="/api/auth/sessions/{session_id}",
+    summary="Revoke a session",
+    description="Revoke a specific session by ID. Cannot revoke current session.",
+    tags=["Authentication", "Sessions"],
+    parameters=[
+        {"name": "session_id", "in": "path", "required": True, "schema": {"type": "string"}}
+    ],
+    responses={
+        "200": {"description": "Session revoked successfully"},
+        "400": {"description": "Invalid session ID or cannot revoke current session"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "Session not found"},
+    },
+)
 @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_session")
 @handle_errors("revoke session")
 def handle_revoke_session(

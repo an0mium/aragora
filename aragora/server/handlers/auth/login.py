@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from aragora.auth.lockout import get_lockout_tracker
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import get_client_ip, rate_limit
 from .validation import validate_email, validate_password
 
@@ -35,6 +36,19 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/register",
+    summary="Register a new user account",
+    description="Create a new user account with email, password, and optional organization.",
+    tags=["Authentication"],
+    responses={
+        "201": {"description": "User created successfully"},
+        "400": {"description": "Invalid request body or validation error"},
+        "409": {"description": "Email already registered"},
+        "503": {"description": "User service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=2, limiter_name="auth_register")
 @handle_errors("user registration")
 @log_request("user registration")
@@ -126,6 +140,20 @@ def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
     )
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/login",
+    summary="Authenticate user and obtain tokens",
+    description="Authenticate with email and password. Returns JWT tokens or MFA challenge if enabled.",
+    tags=["Authentication"],
+    responses={
+        "200": {"description": "Login successful, tokens returned"},
+        "400": {"description": "Invalid request body"},
+        "401": {"description": "Invalid credentials or account disabled"},
+        "429": {"description": "Account locked due to too many failed attempts"},
+        "503": {"description": "Authentication service unavailable"},
+    },
+)
 @rate_limit(requests_per_minute=3, limiter_name="auth_login")
 @handle_errors("user login")
 @log_request("user login")

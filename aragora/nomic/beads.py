@@ -198,6 +198,37 @@ class Bead:
         """Check if bead can be retried."""
         return self.status == BeadStatus.FAILED and self.attempt_count < self.max_attempts
 
+    # BeadRecord protocol properties (cross-layer compatibility)
+    @property
+    def bead_id(self) -> str:
+        """Protocol: bead identifier."""
+        return self.id
+
+    @property
+    def bead_convoy_id(self) -> str | None:
+        """Protocol: convoy ID (beads don't track this; convoys track bead_ids)."""
+        return None  # Inverse relationship - lookup convoy.bead_ids
+
+    @property
+    def bead_status_value(self) -> str:
+        """Protocol: status enum value."""
+        return self.status.value
+
+    @property
+    def bead_content(self) -> str:
+        """Protocol: bead content (maps to description)."""
+        return self.description
+
+    @property
+    def bead_created_at(self) -> datetime:
+        """Protocol: creation timestamp."""
+        return self.created_at
+
+    @property
+    def bead_metadata(self) -> dict[str, Any]:
+        """Protocol: metadata dictionary."""
+        return self.metadata
+
 
 @dataclass
 class BeadEvent:

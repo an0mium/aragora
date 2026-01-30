@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from aragora.billing.jwt_auth import extract_user_from_request
 
 from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
+from ..openapi_decorator import api_endpoint
 from ..utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
@@ -38,6 +39,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa/setup",
+    summary="Initialize MFA setup",
+    description="Generate MFA secret and provisioning URI for authenticator app setup.",
+    tags=["Authentication", "MFA"],
+    responses={
+        "200": {"description": "MFA secret and provisioning URI returned"},
+        "400": {"description": "MFA already enabled"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+)
 @rate_limit(requests_per_minute=5, limiter_name="mfa_setup")
 @handle_errors("MFA setup")
 @log_request("MFA setup")
@@ -82,6 +97,20 @@ def handle_mfa_setup(handler_instance: "AuthHandler", handler) -> HandlerResult:
     )
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa/enable",
+    summary="Enable MFA",
+    description="Enable MFA after verifying setup code from authenticator app.",
+    tags=["Authentication", "MFA"],
+    responses={
+        "200": {"description": "MFA enabled, backup codes returned"},
+        "400": {"description": "Invalid verification code or MFA not set up"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+)
 @rate_limit(requests_per_minute=5, limiter_name="mfa_enable")
 @handle_errors("MFA enable")
 @log_request("MFA enable")
@@ -156,6 +185,20 @@ def handle_mfa_enable(handler_instance: "AuthHandler", handler) -> HandlerResult
     )
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa/disable",
+    summary="Disable MFA",
+    description="Disable MFA for the user. Requires MFA code or password verification.",
+    tags=["Authentication", "MFA"],
+    responses={
+        "200": {"description": "MFA disabled successfully"},
+        "400": {"description": "Invalid code/password or MFA not enabled"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+)
 @rate_limit(requests_per_minute=5, limiter_name="mfa_disable")
 @handle_errors("MFA disable")
 @log_request("MFA disable")
@@ -222,6 +265,20 @@ def handle_mfa_disable(handler_instance: "AuthHandler", handler) -> HandlerResul
     return json_response({"message": "MFA disabled successfully"})
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa/verify",
+    summary="Verify MFA code during login",
+    description="Complete login by verifying MFA code. Accepts TOTP code or backup code.",
+    tags=["Authentication", "MFA"],
+    responses={
+        "200": {"description": "MFA verified, tokens returned"},
+        "400": {"description": "Invalid MFA code"},
+        "401": {"description": "Invalid or expired pending token"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+)
 @rate_limit(requests_per_minute=10, limiter_name="mfa_verify")
 @handle_errors("MFA verify")
 @log_request("MFA verify")
@@ -334,6 +391,20 @@ def handle_mfa_verify(handler_instance: "AuthHandler", handler) -> HandlerResult
     return error_response("Invalid MFA code", 400)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/auth/mfa/backup-codes",
+    summary="Regenerate MFA backup codes",
+    description="Generate new backup codes. Requires current MFA code for verification.",
+    tags=["Authentication", "MFA"],
+    responses={
+        "200": {"description": "New backup codes generated"},
+        "400": {"description": "Invalid MFA code or MFA not enabled"},
+        "401": {"description": "Unauthorized"},
+        "404": {"description": "User not found"},
+        "503": {"description": "MFA not available"},
+    },
+)
 @rate_limit(requests_per_minute=3, limiter_name="mfa_backup")
 @handle_errors("MFA backup codes")
 @log_request("MFA backup codes")

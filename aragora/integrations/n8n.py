@@ -30,6 +30,14 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
+
+def _validate_webhook_url(url: str) -> tuple[bool, str]:
+    """Validate webhook URL for SSRF protection (deferred import to avoid circular deps)."""
+    from aragora.server.handlers.utils.url_security import validate_webhook_url
+
+    return validate_webhook_url(url, allow_localhost=False)
+
+
 # =============================================================================
 # n8n Data Models
 # =============================================================================
@@ -262,6 +270,12 @@ class N8nIntegration(BaseIntegration):
         webhook_url = kwargs.get("webhook_url")
         if not webhook_url:
             logger.warning("No webhook URL provided for n8n message")
+            return False
+
+        # SSRF protection: validate URL before making request
+        is_valid, error = _validate_webhook_url(webhook_url)
+        if not is_valid:
+            logger.warning(f"n8n webhook URL blocked by SSRF protection: {error}")
             return False
 
         session = await self._get_session()

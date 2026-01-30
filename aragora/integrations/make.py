@@ -32,6 +32,14 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
+
+def _validate_webhook_url(url: str) -> tuple[bool, str]:
+    """Validate webhook URL for SSRF protection (deferred import to avoid circular deps)."""
+    from aragora.server.handlers.utils.url_security import validate_webhook_url
+
+    return validate_webhook_url(url, allow_localhost=False)
+
+
 # =============================================================================
 # Make Data Models
 # =============================================================================
@@ -179,6 +187,12 @@ class MakeIntegration(BaseIntegration):
             logger.warning("No webhook URL provided for Make message")
             return False
 
+        # SSRF protection: validate URL before making request
+        is_valid, error = _validate_webhook_url(webhook_url)
+        if not is_valid:
+            logger.warning(f"Make webhook URL blocked by SSRF protection: {error}")
+            return False
+
         session = await self._get_session()
         try:
             async with session.post(
@@ -279,6 +293,12 @@ class MakeIntegration(BaseIntegration):
 
         if module_config.get("type") != "trigger":
             logger.warning(f"Module {module_type} is not a trigger")
+            return None
+
+        # SSRF protection: validate URL before storing
+        is_valid, error = _validate_webhook_url(webhook_url)
+        if not is_valid:
+            logger.warning(f"Webhook URL blocked by SSRF protection: {error}")
             return None
 
         webhook_id = f"webhook_{secrets.token_hex(8)}"

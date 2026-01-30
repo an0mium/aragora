@@ -32,6 +32,14 @@ from aragora.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
 
+
+def _validate_webhook_url(url: str) -> tuple[bool, str]:
+    """Validate webhook URL for SSRF protection (deferred import to avoid circular deps)."""
+    from aragora.server.handlers.utils.url_security import validate_webhook_url
+
+    return validate_webhook_url(url, allow_localhost=False)
+
+
 # =============================================================================
 # Zapier Data Models
 # =============================================================================
@@ -153,6 +161,12 @@ class ZapierIntegration(BaseIntegration):
             logger.warning("No webhook URL provided for Zapier message")
             return False
 
+        # SSRF protection: validate URL before making request
+        is_valid, error = _validate_webhook_url(webhook_url)
+        if not is_valid:
+            logger.warning(f"Zapier webhook URL blocked by SSRF protection: {error}")
+            return False
+
         session = await self._get_session()
         try:
             async with session.post(
@@ -252,6 +266,12 @@ class ZapierIntegration(BaseIntegration):
 
         if trigger_type not in self.TRIGGER_TYPES:
             logger.warning(f"Invalid trigger type: {trigger_type}")
+            return None
+
+        # SSRF protection: validate URL before storing
+        is_valid, error = _validate_webhook_url(webhook_url)
+        if not is_valid:
+            logger.warning(f"Zapier webhook URL blocked by SSRF protection: {error}")
             return None
 
         trigger_id = f"trigger_{secrets.token_hex(8)}"
@@ -354,6 +374,12 @@ class ZapierIntegration(BaseIntegration):
         Returns:
             True if successful, False otherwise
         """
+        # SSRF protection: defense in depth - re-validate URL before request
+        is_valid, error = _validate_webhook_url(trigger.webhook_url)
+        if not is_valid:
+            logger.warning(f"Zapier trigger {trigger.id} URL blocked by SSRF protection: {error}")
+            return False
+
         # Format payload for Zapier
         payload = self._format_trigger_payload(trigger, event_data)
 

@@ -10,8 +10,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aragora.server.handlers.utils.url_security import validate_webhook_url
-
 from ..base import (
     Skill,
     SkillCapability,
@@ -21,6 +19,13 @@ from ..base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_webhook_url(url: str) -> tuple[bool, str]:
+    """Validate webhook URL for SSRF protection (deferred import to avoid circular deps)."""
+    from aragora.server.handlers.utils.url_security import validate_webhook_url
+
+    return validate_webhook_url(url, allow_localhost=False)
 
 
 class EvidenceFetchSkill(Skill):
@@ -135,7 +140,7 @@ class EvidenceFetchSkill(Skill):
     async def _fetch_url(self, url: str) -> dict[str, Any]:
         """Fetch and extract content from a URL."""
         # SSRF protection: validate URL before fetching
-        is_valid, error = validate_webhook_url(url, allow_localhost=False)
+        is_valid, error = _validate_webhook_url(url)
         if not is_valid:
             logger.warning(f"Evidence fetch URL blocked by SSRF protection: {error}")
             return {"url": url, "error": f"URL blocked: {error}"}
