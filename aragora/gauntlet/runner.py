@@ -39,9 +39,9 @@ try:
     SANDBOX_AVAILABLE = True
 except ImportError:
     SANDBOX_AVAILABLE = False
-    SandboxExecutor = None  # type: ignore[misc,assignment]
-    SandboxConfig = None  # type: ignore[misc,assignment]
-    ExecutionMode = None  # type: ignore[misc,assignment]
+    SandboxExecutor: Any = None
+    SandboxConfig: Any = None
+    ExecutionMode: Any = None
     create_strict_policy = None
 
 logger = logging.getLogger(__name__)

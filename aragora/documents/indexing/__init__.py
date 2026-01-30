@@ -6,6 +6,8 @@ with BM25 + vector hybrid search.
 """
 
 # Weaviate store requires weaviate (optional dependency)
+from typing import Any
+
 try:
     from aragora.documents.indexing.weaviate_store import (
         WeaviateStore,
@@ -15,10 +17,10 @@ try:
         WEAVIATE_AVAILABLE,
     )
 except ImportError:
-    WeaviateStore = None  # type: ignore[misc, assignment]
-    WeaviateConfig = None  # type: ignore[misc, assignment]
-    SearchResult = None  # type: ignore[misc, assignment]
-    get_weaviate_store = None  # type: ignore[misc, assignment]
+    WeaviateStore: Any = None
+    WeaviateConfig: Any = None
+    SearchResult: Any = None
+    get_weaviate_store: Any = None
     WEAVIATE_AVAILABLE = False
 from aragora.documents.indexing.hybrid_search import (
     HybridSearcher,

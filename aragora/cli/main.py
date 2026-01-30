@@ -87,8 +87,8 @@ def parse_agents(agents_str: str) -> list[AgentSpec]:
 async def run_debate(
     task: str,
     agents_str: str,
-    rounds: int = 8,  # 9-round format (0-8) default
-    consensus: str = "judge",  # Judge-based consensus default
+    rounds: int = DEFAULT_ROUNDS,  # 9-round format (0-8) default
+    consensus: str = DEFAULT_CONSENSUS,  # Judge-based consensus default
     context: str = "",
     learn: bool = True,
     db_path: str = "agora_memory.db",
@@ -1003,6 +1003,62 @@ def cmd_improve(args: argparse.Namespace) -> None:
         print_tree(tree)
 
 
+def cmd_context(args: argparse.Namespace) -> None:
+    """Handle 'context' command - build codebase context for RLM."""
+    from aragora.rlm.codebase_context import CodebaseContextBuilder
+
+    root = Path(args.path or ".").resolve()
+    include_tests: bool | None = None
+    if args.include_tests:
+        include_tests = True
+    elif args.exclude_tests:
+        include_tests = False
+
+    builder = CodebaseContextBuilder(
+        root_path=root,
+        max_context_bytes=args.max_bytes or 0,
+        include_tests=include_tests,
+        full_corpus=args.full_corpus,
+    )
+
+    async def _run() -> None:
+        index = await builder.build_index()
+        print("\n" + "=" * 60)
+        print("📚 CODEBASE CONTEXT")
+        print("=" * 60)
+        print(f"Root: {index.root_path}")
+        print(
+            f"Files: {index.total_files} | Lines: {index.total_lines} | "
+            f"Bytes: {index.total_bytes} | ~Tokens: {index.total_tokens_estimate}"
+        )
+        print(f"Index build time: {index.build_time_seconds:.2f}s")
+
+        if args.rlm:
+            print("\n🔍 Building RLM context (TRUE RLM preferred)...")
+            context = await builder.build_rlm_context()
+            if context is None:
+                print("⚠️  RLM context unavailable (missing RLM package or disabled).")
+            else:
+                print("✅ RLM context ready.")
+
+        if args.summary_out or args.preview:
+            context = await builder.build_debate_context()
+            if args.summary_out:
+                output_path = Path(args.summary_out).resolve()
+                output_path.write_text(context, encoding="utf-8")
+                print(f"\n📝 Context summary written to: {output_path}")
+            if args.preview:
+                print("\n📄 Context preview (first 40 lines):")
+                for line in context.splitlines()[:40]:
+                    print(line)
+                if len(context.splitlines()) > 40:
+                    print("... (truncated)")
+
+        print()
+
+    asyncio.run(_run())
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     """Handle 'serve' command - run live debate server."""
     import asyncio
@@ -1692,6 +1748,53 @@ Examples:
         "--analyze", "-a", action="store_true", help="Analyze codebase structure"
     )
     improve_parser.set_defaults(func=cmd_improve)
+
+    # Context command (codebase context builder)
+    context_parser = subparsers.add_parser(
+        "context",
+        help="Build codebase context for RLM-powered analysis",
+        description=(
+            "Indexes the codebase and optionally builds a TRUE RLM context "
+            "for deep codebase analysis (up to 10M tokens)."
+        ),
+    )
+    context_parser.add_argument("--path", "-p", help="Path to codebase (default: current dir)")
+    context_parser.add_argument(
+        "--rlm",
+        action="store_true",
+        help="Build TRUE RLM context (REPL-based) when available",
+    )
+    context_parser.add_argument(
+        "--full-corpus",
+        action="store_true",
+        help="Include full-corpus RLM summary (expensive)",
+    )
+    context_parser.add_argument(
+        "--max-bytes",
+        type=int,
+        help="Max context bytes (overrides env, supports 10M tokens ~40MB)",
+    )
+    tests_group = context_parser.add_mutually_exclusive_group()
+    tests_group.add_argument(
+        "--include-tests",
+        action="store_true",
+        help="Include test files in the index",
+    )
+    tests_group.add_argument(
+        "--exclude-tests",
+        action="store_true",
+        help="Exclude test files from the index",
+    )
+    context_parser.add_argument(
+        "--summary-out",
+        help="Write the debate context summary to a file",
+    )
+    context_parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Print a short preview of the context summary",
+    )
+    context_parser.set_defaults(func=cmd_context)
 
     # Serve command (live debate server)
     serve_parser = subparsers.add_parser(

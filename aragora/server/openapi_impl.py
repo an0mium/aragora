@@ -272,6 +272,27 @@ TAG_INFERENCE_RULES: list[tuple[str, str]] = [
     ("redoc", "System"),
     ("health", "System"),
     ("ready", "System"),
+    ("system", "System"),
+    ("modes", "System"),
+    ("config", "System"),
+    ("settings", "System"),
+    # History & matches
+    ("history", "Insights"),
+    ("matches", "Debates"),
+    ("match", "Debates"),
+    # Gateway & onboarding
+    ("gateway", "Gateway"),
+    ("onboarding", "Onboarding"),
+    # Sessions
+    ("sessions", "Sessions"),
+    ("session", "Sessions"),
+    # Import/export
+    ("import", "Documents"),
+    ("export", "Documents"),
+    # Sponsors & organizations
+    ("sponsors", "Partners"),
+    ("organizations", "Admin"),
+    ("organization", "Admin"),
 ]
 
 # Non-API paths that need tag inference (e.g. /healthz, /readyz, /audio)

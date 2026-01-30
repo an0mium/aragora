@@ -315,6 +315,17 @@ Receives updates including:
         "get": {
             "tags": ["Bots - Telegram"],
             "summary": "Get Telegram integration status",
+            "description": """Returns the status of the Telegram bot integration.
+
+**Response includes:**
+- Connection status (webhook configured and active)
+- Bot username for verification
+- Number of active chats/groups
+
+**Use cases:**
+- Verify bot is properly configured
+- Monitor active conversations
+- Debug connectivity issues""",
             "operationId": "getTelegramStatus",
             "responses": {
                 "200": _ok_response(
@@ -399,6 +410,17 @@ Receives notifications for:
         "get": {
             "tags": ["Bots - WhatsApp"],
             "summary": "Get WhatsApp integration status",
+            "description": """Returns the status of the WhatsApp Business API integration.
+
+**Response includes:**
+- Connection status to WhatsApp Cloud API
+- Registered phone number
+- Number of active conversations
+
+**Use cases:**
+- Verify WhatsApp Business setup
+- Monitor conversation volume
+- Check API connectivity""",
             "operationId": "getWhatsAppStatus",
             "responses": {
                 "200": _ok_response(
@@ -463,6 +485,16 @@ Handles:
         "get": {
             "tags": ["Bots - Google Chat"],
             "summary": "Get Google Chat integration status",
+            "description": """Returns the status of the Google Chat bot integration.
+
+**Response includes:**
+- Connection status
+- Number of Google Workspace spaces where bot is installed
+
+**Use cases:**
+- Verify bot deployment
+- Monitor workspace adoption
+- Debug integration issues""",
             "operationId": "getGoogleChatStatus",
             "responses": {
                 "200": _ok_response(
@@ -515,6 +547,16 @@ Handles events including:
         "get": {
             "tags": ["Bots - Zoom"],
             "summary": "Get Zoom integration status",
+            "description": """Returns the status of the Zoom app integration.
+
+**Response includes:**
+- Connection status to Zoom API
+- Associated Zoom account ID
+
+**Use cases:**
+- Verify Zoom app installation
+- Check OAuth token validity
+- Debug meeting integration issues""",
             "operationId": "getZoomStatus",
             "responses": {
                 "200": _ok_response(
@@ -598,6 +640,17 @@ Handles notification types:
         "get": {
             "tags": ["Bots - Email"],
             "summary": "Get email integration status",
+            "description": """Returns the status of email integrations (SendGrid, AWS SES).
+
+**Response includes:**
+- SendGrid Inbound Parse connection status
+- AWS SES connection status
+- Total emails processed
+
+**Use cases:**
+- Verify email webhook configuration
+- Monitor email processing volume
+- Debug delivery issues""",
             "operationId": "getEmailStatus",
             "responses": {
                 "200": _ok_response(

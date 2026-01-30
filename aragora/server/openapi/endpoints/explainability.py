@@ -167,6 +167,18 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get explainability batch status",
+            "description": """Check the processing status of an explainability batch job.
+
+**Status values:**
+- pending: Batch queued for processing
+- processing: Batch is being generated
+- completed: All explanations ready
+- failed: Batch processing failed
+
+**Use cases:**
+- Poll for batch completion
+- Monitor processing progress
+- Handle async explanation generation""",
             "operationId": "getExplainabilityBatchStatus",
             "parameters": [
                 {
@@ -186,6 +198,14 @@ EXPLAINABILITY_ENDPOINTS = {
         "get": {
             "tags": ["Explainability"],
             "summary": "Get explainability batch results",
+            "description": """Retrieve the generated explanations for a completed batch.
+
+**Response includes:**
+- Individual explanation for each debate in the batch
+- Evidence chains (if requested during batch creation)
+- Counterfactual scenarios (if requested)
+
+**Note:** Only available after batch status is 'completed'.""",
             "operationId": "getExplainabilityBatchResults",
             "parameters": [
                 {

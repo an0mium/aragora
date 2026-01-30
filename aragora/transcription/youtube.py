@@ -181,7 +181,8 @@ class YouTubeFetcher:
 
         def _extract() -> dict[str, Any]:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                return ydl.extract_info(url, download=False)  # type: ignore[no-any-return]
+                result: dict[str, Any] = ydl.extract_info(url, download=False)
+                return result
 
         try:
             info = await loop.run_in_executor(None, _extract)

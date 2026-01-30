@@ -89,6 +89,18 @@ DEVICES_ENDPOINTS = {
         "get": {
             "tags": ["Devices"],
             "summary": "Get device details",
+            "description": """Retrieve detailed information about a specific registered device.
+
+**Response includes:**
+- Device type (alexa, google_home, apple_homekit, custom)
+- Device name and capabilities
+- Connection status and metadata
+- Last seen timestamp
+
+**Use cases:**
+- Check device configuration
+- Verify device capabilities
+- Debug connection issues""",
             "operationId": "getDevice",
             "parameters": [
                 {
@@ -117,6 +129,14 @@ DEVICES_ENDPOINTS = {
         "delete": {
             "tags": ["Devices"],
             "summary": "Unregister a device",
+            "description": """Remove a device from Aragora integration.
+
+**Actions:**
+- Revokes the device authentication token
+- Removes device from registered devices list
+- Cleans up any device-specific data
+
+**Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.""",
             "operationId": "unregisterDevice",
             "parameters": [
                 {

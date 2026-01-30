@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import Any, TYPE_CHECKING, Optional
 
 # Import QuestionClassifier for LLM-based classification
 try:
     from aragora.server.question_classifier import QuestionClassifier, QuestionClassification
 except ImportError:
-    QuestionClassifier = None  # type: ignore[misc,assignment]
-    QuestionClassification = None  # type: ignore[misc,assignment]
+    QuestionClassifier: Any = None
+    QuestionClassification: Any = None
 
 if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
@@ -41,8 +41,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    AbstractionLevel = None  # type: ignore[misc,assignment]
-    RLMContextAdapter = None  # type: ignore[misc,assignment]
+    AbstractionLevel: Any = None
+    RLMContextAdapter: Any = None
 
 logger = logging.getLogger(__name__)
 

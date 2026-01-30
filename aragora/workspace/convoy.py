@@ -18,8 +18,8 @@ from typing import Any
 
 from datetime import datetime, timezone
 
-from aragora.nomic.beads import BeadStore as NomicBeadStore
-from aragora.nomic.convoys import (
+from aragora.nomic.stores import (
+    BeadStore as NomicBeadStore,
     Convoy as NomicConvoy,
     ConvoyManager as NomicConvoyManager,
     ConvoyStatus as NomicConvoyStatus,

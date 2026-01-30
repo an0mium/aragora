@@ -18,7 +18,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from aragora.nomic.beads import (
+from aragora.nomic.stores import (
     Bead as NomicBead,
     BeadStatus as NomicBeadStatus,
     BeadStore as NomicBeadStore,

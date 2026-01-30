@@ -492,6 +492,105 @@ async def init_key_rotation_scheduler() -> bool:
     return False
 
 
+async def init_secrets_rotation_scheduler() -> bool:
+    """Initialize the secrets rotation scheduler for automated API key management.
+
+    Starts the scheduler that automatically rotates API keys, JWT secrets,
+    and other credentials based on configured intervals. Integrates with
+    AWS Secrets Manager when available.
+
+    Environment Variables:
+        ARAGORA_SECRETS_ROTATION_ENABLED: Set to "true" to enable
+        ARAGORA_SECRETS_ROTATION_INTERVAL_DAYS: Days between rotations (default: 90)
+
+    Returns:
+        True if scheduler was started, False otherwise
+    """
+    import os
+
+    env = os.environ.get("ARAGORA_ENV", "development")
+    default_enabled = "true" if env == "production" else "false"
+    enabled = os.environ.get("ARAGORA_SECRETS_ROTATION_ENABLED", default_enabled).lower() == "true"
+
+    if not enabled:
+        logger.debug(
+            "Secrets rotation scheduler disabled "
+            "(set ARAGORA_SECRETS_ROTATION_ENABLED=true to enable)"
+        )
+        return False
+
+    try:
+        from aragora.scheduler.secrets_rotation_scheduler import (
+            get_secrets_rotation_scheduler,
+        )
+
+        scheduler = get_secrets_rotation_scheduler()
+        await scheduler.start()
+
+        logger.info("Secrets rotation scheduler started")
+        return True
+
+    except ImportError as e:
+        logger.debug(f"Secrets rotation scheduler not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to start secrets rotation scheduler: {e}")
+
+    return False
+
+
+def validate_required_secrets() -> dict:
+    """Validate that required secrets are available at startup.
+
+    In production, checks that critical secrets come from AWS Secrets Manager
+    rather than environment variables. In development, just checks they exist.
+
+    Returns:
+        Dict with validation results: {valid: bool, errors: list, warnings: list}
+    """
+    import os
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    env = os.environ.get("ARAGORA_ENV", "development")
+    is_production = env in ("production", "staging")
+
+    # Required secrets for any environment (at least one AI provider)
+    ai_keys = [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "OPENROUTER_API_KEY",
+    ]
+    has_any_ai_key = any(os.environ.get(k) for k in ai_keys)
+    if not has_any_ai_key:
+        errors.append(
+            "No AI provider API key found (need at least one of: " + ", ".join(ai_keys) + ")"
+        )
+
+    # Production-only requirements
+    if is_production:
+        critical_secrets = [
+            "ARAGORA_JWT_SECRET",
+            "ARAGORA_ENCRYPTION_KEY",
+        ]
+        for secret in critical_secrets:
+            if not os.environ.get(secret):
+                errors.append(f"Missing critical production secret: {secret}")
+
+        # Check if Secrets Manager is configured
+        use_sm = os.environ.get("ARAGORA_USE_SECRETS_MANAGER", "").lower() == "true"
+        if not use_sm:
+            warnings.append(
+                "ARAGORA_USE_SECRETS_MANAGER not enabled. "
+                "Production deployments should use AWS Secrets Manager."
+            )
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+    }
+
+
 async def init_decision_router() -> bool:
     """Initialize the DecisionRouter with platform response handlers.
 

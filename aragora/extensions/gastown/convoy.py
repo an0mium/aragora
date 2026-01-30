@@ -13,8 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from aragora.nomic.beads import BeadStore as NomicBeadStore
-from aragora.nomic.convoys import ConvoyManager as NomicConvoyManager
+from aragora.nomic.stores import BeadStore as NomicBeadStore
+from aragora.nomic.stores import ConvoyManager as NomicConvoyManager
 from aragora.workspace.convoy import (
     Convoy as WorkspaceConvoy,
     ConvoyStatus as WorkspaceConvoyStatus,

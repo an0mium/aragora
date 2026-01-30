@@ -30,7 +30,7 @@ try:
     HAS_AUDIT = True
 except ImportError:
     HAS_AUDIT = False
-    log_policy_decision = None  # type: ignore[assignment]  # Optional module fallback
+    log_policy_decision: Any = None
 
 # Prometheus metrics (optional)
 try:
@@ -41,7 +41,7 @@ try:
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
-    prometheus_record_policy = None  # type: ignore[assignment]  # Optional module fallback
+    prometheus_record_policy: Any = None
 
 
 class ControlPlanePolicyManager:

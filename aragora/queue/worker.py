@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, cast
 
 if TYPE_CHECKING:
     from aragora.agents.base import AgentType
-    from aragora.core import Agent
 
 from aragora.exceptions import InfrastructureError
 from aragora.queue.base import Job, JobQueue
@@ -324,7 +323,7 @@ async def create_default_executor() -> DebateExecutor:
 
         # Run debate
         start_time = time.time()
-        arena = Arena(env, agents=cast("list[Agent]", agents), protocol=protocol)  # type: ignore[redundant-cast]
+        arena = Arena(env, agents=agents, protocol=protocol)
         result = await arena.run()
 
         duration = time.time() - start_time

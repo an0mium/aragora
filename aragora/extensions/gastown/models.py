@@ -17,7 +17,7 @@ class ConvoyStatus(Enum):
 
     Gastown uses a richer lifecycle than workspace (which has
     CREATED/ASSIGNING/EXECUTING/MERGING/DONE/FAILED/CANCELLED).
-    Both delegate to ``aragora.nomic.convoys`` as the canonical backend.
+    Both delegate to ``aragora.nomic.stores`` as the canonical backend.
     Use ``to_workspace_status()`` / ``from_workspace_status()`` for
     cross-layer interoperability.
     """

@@ -20,8 +20,8 @@ try:
     HAS_TRACE_SUPPORT = True
 except ImportError:
     HAS_TRACE_SUPPORT = False
-    DebateTrace = None  # type: ignore[misc,assignment]
-    EventType = None  # type: ignore[misc,assignment]
+    DebateTrace: Any = None
+    EventType: Any = None
 
 
 @dataclass

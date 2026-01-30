@@ -552,6 +552,15 @@ class BackupManager:
         backup_path = Path(backup_meta.backup_path)
         target = Path(target_path)
 
+        # SECURITY: Prevent path traversal attacks (CWE-22)
+        resolved_target = target.resolve()
+        allowed_root = self.backup_dir.resolve().parent
+        if not resolved_target.is_relative_to(allowed_root):
+            raise ValueError(
+                f"Path traversal not allowed: target must be within "
+                f"{allowed_root}, got {resolved_target}"
+            )
+
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
 

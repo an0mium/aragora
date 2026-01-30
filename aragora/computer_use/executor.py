@@ -27,7 +27,7 @@ import base64
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from aragora.computer_use.actions import (
     Action,
@@ -257,23 +257,23 @@ class PlaywrightActionExecutor:
                 case ActionType.SCREENSHOT:
                     return await self._execute_screenshot(action)
                 case ActionType.CLICK:
-                    return await self._execute_click(action)  # type: ignore[arg-type]
+                    return await self._execute_click(cast(ClickAction, action))
                 case ActionType.DOUBLE_CLICK:
-                    return await self._execute_double_click(action)  # type: ignore[arg-type]
+                    return await self._execute_double_click(cast(ClickAction, action))
                 case ActionType.RIGHT_CLICK:
-                    return await self._execute_right_click(action)  # type: ignore[arg-type]
+                    return await self._execute_right_click(cast(ClickAction, action))
                 case ActionType.TYPE:
-                    return await self._execute_type(action)  # type: ignore[arg-type]
+                    return await self._execute_type(cast(TypeAction, action))
                 case ActionType.KEY:
-                    return await self._execute_key(action)  # type: ignore[arg-type]
+                    return await self._execute_key(cast(KeyAction, action))
                 case ActionType.SCROLL:
-                    return await self._execute_scroll(action)  # type: ignore[arg-type]
+                    return await self._execute_scroll(cast(ScrollAction, action))
                 case ActionType.MOVE:
-                    return await self._execute_move(action)  # type: ignore[arg-type]
+                    return await self._execute_move(cast(MoveAction, action))
                 case ActionType.DRAG:
-                    return await self._execute_drag(action)  # type: ignore[arg-type]
+                    return await self._execute_drag(cast(DragAction, action))
                 case ActionType.WAIT:
-                    return await self._execute_wait(action)  # type: ignore[arg-type]
+                    return await self._execute_wait(cast(WaitAction, action))
                 case _:
                     return ActionResult(
                         action_id=action.action_id,

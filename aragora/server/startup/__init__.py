@@ -74,6 +74,8 @@ from aragora.server.startup.security import (
     init_graphql_routes,
     init_key_rotation_scheduler,
     init_rbac_distributed_cache,
+    init_secrets_rotation_scheduler,
+    validate_required_secrets,
 )
 from aragora.server.startup.database import (  # noqa: F401
     close_postgres_pool,
@@ -380,8 +382,20 @@ async def run_startup_sequence(
     # Initialize DecisionRouter with platform response handlers
     status["decision_router"] = await init_decision_router()
 
+    # Validate required secrets before starting more components
+    secrets_validation = validate_required_secrets()
+    status["secrets_validation"] = secrets_validation
+    if not secrets_validation["valid"]:
+        for error in secrets_validation["errors"]:
+            logger.error(f"Secrets validation: {error}")
+    for warning in secrets_validation.get("warnings", []):
+        logger.warning(f"Secrets validation: {warning}")
+
     # Initialize key rotation scheduler for automated encryption key management
     status["key_rotation_scheduler"] = await init_key_rotation_scheduler()
+
+    # Initialize secrets rotation scheduler for automated API key management
+    status["secrets_rotation_scheduler"] = await init_secrets_rotation_scheduler()
 
     # Initialize access review scheduler for SOC 2 CC6.1/CC6.2 compliance
     status["access_review_scheduler"] = await init_access_review_scheduler()

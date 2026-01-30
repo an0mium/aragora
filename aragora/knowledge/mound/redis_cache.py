@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from datetime import datetime
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -34,6 +35,7 @@ class RedisCache:
     - aragora:km:{workspace}:query:{hash} -> JSON(QueryResult)
     - aragora:km:{workspace}:culture -> JSON(CultureProfile)
     - aragora:km:staleness:pending -> ZSET(node_id, staleness_score)
+    - aragora:km:_entry_tracker -> ZSET(cache_key, access_timestamp) [LRU tracking]
     """
 
     def __init__(
@@ -42,6 +44,7 @@ class RedisCache:
         default_ttl: int = 300,  # 5 minutes
         culture_ttl: int = 3600,  # 1 hour
         prefix: str = "aragora:km",
+        max_entries: int = 10_000,
     ):
         """
         Initialize Redis cache.
@@ -51,11 +54,13 @@ class RedisCache:
             default_ttl: Default TTL for cached items in seconds
             culture_ttl: TTL for culture patterns in seconds
             prefix: Key prefix for all cached items
+            max_entries: Maximum number of cached entries before LRU eviction
         """
         self._url = url
         self._default_ttl = default_ttl
         self._culture_ttl = culture_ttl
         self._prefix = prefix
+        self._max_entries = max_entries
         self._client: Any | None = None
         self._connected = False
 
@@ -111,10 +116,12 @@ class RedisCache:
             try:
                 from aragora.knowledge.mound.types import KnowledgeItem
 
+                await self._touch_entry(key)
                 return KnowledgeItem.from_dict(json.loads(data))
             except Exception as e:
                 logger.warning(f"Failed to deserialize cached node: {e}")
                 await self._client.delete(key)
+                await self._untrack_entry(key)
 
         return None
 
@@ -130,7 +137,9 @@ class RedisCache:
         key = f"{self._prefix}:node:{node_id}"
         data = json.dumps(node.to_dict())
 
+        await self._enforce_max_entries()
         await self._client.setex(key, ttl or self._default_ttl, data)
+        await self._track_entry(key)
 
     async def invalidate_node(self, node_id: str) -> None:
         """Invalidate a cached node."""
@@ -138,6 +147,7 @@ class RedisCache:
 
         key = f"{self._prefix}:node:{node_id}"
         await self._client.delete(key)
+        await self._untrack_entry(key)
 
     async def invalidate_nodes(self, node_ids: list[str]) -> None:
         """Invalidate multiple cached nodes."""
@@ -148,6 +158,7 @@ class RedisCache:
 
         keys = [f"{self._prefix}:node:{nid}" for nid in node_ids]
         await self._client.delete(*keys)
+        await self._untrack_entries(keys)
 
     # =========================================================================
     # Query Caching
@@ -165,6 +176,7 @@ class RedisCache:
                 from aragora.knowledge.mound.types import QueryResult, KnowledgeItem
 
                 parsed = json.loads(data)
+                await self._touch_entry(key)
                 return QueryResult(
                     items=[KnowledgeItem.from_dict(i) for i in parsed["items"]],
                     total_count=parsed["total_count"],
@@ -175,6 +187,7 @@ class RedisCache:
             except Exception as e:
                 logger.warning(f"Failed to deserialize cached query: {e}")
                 await self._client.delete(key)
+                await self._untrack_entry(key)
 
         return None
 
@@ -190,8 +203,10 @@ class RedisCache:
         key = f"{self._prefix}:query:{self._hash_key(cache_key)}"
         data = json.dumps(result.to_dict())
 
+        await self._enforce_max_entries()
         # Shorter TTL for queries (1 minute default)
         await self._client.setex(key, ttl or 60, data)
+        await self._track_entry(key)
 
     async def invalidate_queries(self, workspace_id: str) -> None:
         """Invalidate all cached queries for a workspace."""
@@ -205,6 +220,7 @@ class RedisCache:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
             if keys:
                 await self._client.delete(*keys)
+                await self._untrack_entries(keys)
             if cursor == 0:
                 break
 
@@ -249,6 +265,7 @@ class RedisCache:
                         for p in pattern_list
                     ]
 
+                await self._touch_entry(key)
                 return CultureProfile(
                     workspace_id=parsed["workspace_id"],
                     patterns=patterns,
@@ -259,6 +276,7 @@ class RedisCache:
             except Exception as e:
                 logger.warning(f"Failed to deserialize cached culture: {e}")
                 await self._client.delete(key)
+                await self._untrack_entry(key)
 
         return None
 
@@ -301,7 +319,9 @@ class RedisCache:
             }
         )
 
+        await self._enforce_max_entries()
         await self._client.setex(key, ttl or self._culture_ttl, data)
+        await self._track_entry(key)
 
     async def invalidate_culture(self, workspace_id: str) -> None:
         """Invalidate cached culture profile."""
@@ -309,6 +329,7 @@ class RedisCache:
 
         key = f"{self._prefix}:{workspace_id}:culture"
         await self._client.delete(key)
+        await self._untrack_entry(key)
 
     # =========================================================================
     # Staleness Tracking
@@ -384,6 +405,7 @@ class RedisCache:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
             if keys:
                 deleted += await self._client.delete(*keys)
+                await self._untrack_entries(keys)
             if cursor == 0:
                 break
 
@@ -447,6 +469,85 @@ class RedisCache:
             self._unsubscribe()
             self._unsubscribe = None
             logger.info("Redis cache unsubscribed from invalidation bus")
+
+    # =========================================================================
+    # LRU Entry Tracking
+    # =========================================================================
+
+    @property
+    def _tracker_key(self) -> str:
+        """Key for the sorted set tracking all cached entries."""
+        return f"{self._prefix}:_entry_tracker"
+
+    async def _track_entry(self, cache_key: str) -> None:
+        """Register a cache key in the LRU tracker with current timestamp."""
+        await self._client.zadd(self._tracker_key, {cache_key: time.time()})
+
+    async def _touch_entry(self, cache_key: str) -> None:
+        """Update access time for a cache key (LRU refresh)."""
+        score = await self._client.zscore(self._tracker_key, cache_key)
+        if score is not None:
+            await self._client.zadd(self._tracker_key, {cache_key: time.time()})
+
+    async def _untrack_entry(self, cache_key: str) -> None:
+        """Remove a cache key from the LRU tracker."""
+        await self._client.zrem(self._tracker_key, cache_key)
+
+    async def _untrack_entries(self, cache_keys: list[str]) -> None:
+        """Remove multiple cache keys from the LRU tracker."""
+        if cache_keys:
+            await self._client.zrem(self._tracker_key, *cache_keys)
+
+    async def _enforce_max_entries(self) -> int:
+        """Evict oldest entries if cache exceeds max_entries.
+
+        Returns:
+            Number of entries evicted.
+        """
+        count = await self._client.zcard(self._tracker_key)
+        if count < self._max_entries:
+            return 0
+
+        overage = count - self._max_entries + 1  # +1 to make room for the new entry
+        # Get the oldest entries (lowest scores = oldest access times)
+        victims = await self._client.zrange(self._tracker_key, 0, overage - 1)
+
+        if not victims:
+            return 0
+
+        # Delete the actual cache keys
+        await self._client.delete(*victims)
+        # Remove from tracker
+        await self._client.zremrangebyrank(self._tracker_key, 0, overage - 1)
+
+        logger.debug(
+            f"LRU eviction: removed {len(victims)} entries (max_entries={self._max_entries})"
+        )
+        return len(victims)
+
+    async def get_entry_count(self) -> int:
+        """Get the current number of tracked cache entries."""
+        self._ensure_connected()
+        return await self._client.zcard(self._tracker_key)
+
+    async def get_memory_stats(self) -> dict[str, Any]:
+        """Get cache memory statistics including entry count and limits.
+
+        Returns:
+            Dict with entry_count, max_entries, utilization, and memory info.
+        """
+        self._ensure_connected()
+
+        entry_count = await self._client.zcard(self._tracker_key)
+        info = await self._client.info("memory")
+
+        return {
+            "entry_count": entry_count,
+            "max_entries": self._max_entries,
+            "utilization": entry_count / self._max_entries if self._max_entries > 0 else 0,
+            "used_memory": info.get("used_memory_human", "unknown"),
+            "used_memory_bytes": info.get("used_memory", 0),
+        }
 
     # =========================================================================
     # Helpers

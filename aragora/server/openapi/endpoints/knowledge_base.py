@@ -126,6 +126,13 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge"],
             "summary": "Get fact",
+            "description": """Retrieve a specific knowledge fact by ID.
+
+**Response includes:**
+- Fact statement and confidence score
+- Associated topics and evidence
+- Creation and update timestamps
+- Supersession history (if applicable)""",
             "operationId": "getKnowledgeFact",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -140,6 +147,15 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "put": {
             "tags": ["Knowledge"],
             "summary": "Update fact",
+            "description": """Update an existing knowledge fact.
+
+**Updatable fields:**
+- statement: The fact text
+- confidence: Confidence score (0.0-1.0)
+- topics: Associated topic tags
+- metadata: Custom metadata
+
+**Note:** Updates create an audit trail. Consider superseding instead of updating for significant changes.""",
             "operationId": "updateKnowledgeFact",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -158,6 +174,14 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "delete": {
             "tags": ["Knowledge"],
             "summary": "Delete fact",
+            "description": """Delete a knowledge fact from the knowledge base.
+
+**Behavior:**
+- Soft delete by default (fact marked as deleted)
+- Related evidence links are preserved for audit
+- Supersession chains are maintained
+
+**Note:** Deleted facts can be restored by admin if needed.""",
             "operationId": "deleteKnowledgeFact",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -174,6 +198,14 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge"],
             "summary": "Verify fact",
+            "description": """Trigger verification of a knowledge fact against evidence.
+
+**Verification process:**
+- Cross-references fact against source documents
+- Checks for conflicting facts in the knowledge base
+- Updates confidence score based on evidence strength
+
+**Async:** Returns immediately; verification runs in background.""",
             "operationId": "verifyKnowledgeFact",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -189,6 +221,17 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge"],
             "summary": "List contradictions",
+            "description": """Find facts that contradict the specified fact.
+
+**Detection methods:**
+- Semantic similarity with opposite polarity
+- Explicit contradiction links
+- Temporal inconsistencies
+
+**Use cases:**
+- Identify knowledge conflicts
+- Resolve contradictory information
+- Audit knowledge quality""",
             "operationId": "listKnowledgeContradictions",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -204,6 +247,13 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "get": {
             "tags": ["Knowledge"],
             "summary": "List relations",
+            "description": """Get all facts related to the specified fact.
+
+**Relation types:**
+- supports: Evidence supporting this fact
+- contradicts: Conflicting facts
+- supersedes: Facts that replace this one
+- derived_from: Source facts used to derive this one""",
             "operationId": "listKnowledgeRelations",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -217,6 +267,15 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge"],
             "summary": "Add relation",
+            "description": """Create a relation between this fact and another fact.
+
+**Required fields:**
+- target_fact_id: ID of the related fact
+- relation_type: Type of relation (supports, contradicts, etc.)
+
+**Optional fields:**
+- confidence: Confidence in the relation (0.0-1.0)
+- evidence: Supporting evidence for the relation""",
             "operationId": "addKnowledgeRelation",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "parameters": [
@@ -236,6 +295,14 @@ KNOWLEDGE_BASE_ENDPOINTS = {
         "post": {
             "tags": ["Knowledge"],
             "summary": "Add relation between facts",
+            "description": """Create a relation between two facts by specifying both IDs.
+
+**Required fields:**
+- source_fact_id: ID of the source fact
+- target_fact_id: ID of the target fact
+- relation_type: Type of relation
+
+**Alternative to:** POST /api/v1/knowledge/facts/{fact_id}/relations""",
             "operationId": "addKnowledgeRelationBetweenFacts",
             "security": AUTH_REQUIREMENTS["required"]["security"],
             "requestBody": {
