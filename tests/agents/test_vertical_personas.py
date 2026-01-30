@@ -837,7 +837,9 @@ class TestRecommendTeamAdditional:
     def test_recommend_team_low_complexity_more_models(self):
         """Test LOW complexity allows more model options."""
         manager = VerticalPersonaManager()
-        rec = manager.recommend_team(Vertical.SOFTWARE, "code_review", TaskComplexity.LOW, team_size=5)
+        rec = manager.recommend_team(
+            Vertical.SOFTWARE, "code_review", TaskComplexity.LOW, team_size=5
+        )
 
         # LOW complexity for SOFTWARE allows claude, gpt4, deepseek
         assert len(rec.models) >= 1
@@ -985,12 +987,15 @@ class TestDetectVerticalFromTaskAdditional:
     def test_database_keyword_detects_software(self):
         """Database keyword maps to SOFTWARE."""
         manager = VerticalPersonaManager()
-        assert manager.detect_vertical_from_task("Optimize the database schema") is Vertical.SOFTWARE
+        assert (
+            manager.detect_vertical_from_task("Optimize the database schema") is Vertical.SOFTWARE
+        )
 
     def test_hipaa_keyword_detects_healthcare(self):
-        """HIPAA keyword maps to HEALTHCARE."""
+        """HIPAA keyword without 'compliance' maps to HEALTHCARE."""
         manager = VerticalPersonaManager()
-        assert manager.detect_vertical_from_task("Ensure HIPAA compliance") is Vertical.HEALTHCARE
+        # Use a phrase without 'compliance' which is also a LEGAL keyword
+        assert manager.detect_vertical_from_task("HIPAA audit requirements") is Vertical.HEALTHCARE
 
     def test_gaap_keyword_detects_accounting(self):
         """GAAP keyword maps to ACCOUNTING."""
@@ -1005,7 +1010,10 @@ class TestDetectVerticalFromTaskAdditional:
     def test_refactor_keyword_detects_software(self):
         """Refactor keyword maps to SOFTWARE."""
         manager = VerticalPersonaManager()
-        assert manager.detect_vertical_from_task("Refactor the authentication module") is Vertical.SOFTWARE
+        assert (
+            manager.detect_vertical_from_task("Refactor the authentication module")
+            is Vertical.SOFTWARE
+        )
 
     def test_patient_keyword_detects_healthcare(self):
         """Patient keyword maps to HEALTHCARE."""
@@ -1015,7 +1023,10 @@ class TestDetectVerticalFromTaskAdditional:
     def test_tax_keyword_detects_accounting(self):
         """Tax keyword maps to ACCOUNTING."""
         manager = VerticalPersonaManager()
-        assert manager.detect_vertical_from_task("Review tax returns for compliance") is Vertical.ACCOUNTING
+        assert (
+            manager.detect_vertical_from_task("Review tax returns for compliance")
+            is Vertical.ACCOUNTING
+        )
 
     def test_mixed_keywords_tiebreaker(self):
         """When keywords tie, first match wins."""

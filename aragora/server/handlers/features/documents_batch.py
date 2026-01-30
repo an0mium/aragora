@@ -114,7 +114,9 @@ class DocumentBatchHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 5:
                 doc_id = parts[3]
-                max_tokens = int(query_params.get("max_tokens", ["4096"])[0])
+                max_tokens = safe_query_int(
+                    query_params, "max_tokens", default=4096, min_val=1, max_val=128000
+                )
                 model = query_params.get("model", ["gpt-4"])[0]
                 return self._get_document_context(doc_id, max_tokens, model)
 

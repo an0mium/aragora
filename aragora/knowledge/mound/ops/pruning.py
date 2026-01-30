@@ -13,7 +13,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
+
+
+class _StalenessDetectorProtocol(Protocol):
+    """Protocol for staleness detector used by pruning operations."""
+
+    async def get_stale_nodes(
+        self, workspace_id: str, threshold: float, limit: int
+    ) -> list[Any]: ...
+
 
 if TYPE_CHECKING:
     pass
@@ -113,6 +122,28 @@ class PruningOperationsMixin:
 
     # Type stubs for mixin - actual implementation provided by composed class
     # Uses adapter methods from KnowledgeMoundCore
+    # These attributes/methods are expected from the composed class:
+    from typing import Any
+
+    _staleness_detector: Any
+
+    async def _archive_node_with_reason(
+        self, node_id: str, workspace_id: str, reason: str
+    ) -> None: ...
+
+    async def _delete_node(self, node_id: str) -> None: ...
+
+    async def _get_node(self, node_id: str) -> Any: ...
+
+    async def _update_node(self, node_id: str, updates: dict[str, Any]) -> None: ...
+
+    async def _get_prune_history(self, workspace_id: str, limit: int, since: Any) -> list[Any]: ...
+
+    async def _restore_archived_node(self, node_id: str, workspace_id: str) -> bool: ...
+
+    async def _get_nodes_for_workspace(self, workspace_id: str, limit: int) -> list[Any]: ...
+
+    async def _save_prune_history(self, history: "PruneHistory") -> None: ...
 
     async def get_prunable_items(
         self,
