@@ -110,6 +110,11 @@ class ContextPhase:
 
         # Determine how many agents will participate
         use_kilocode = self.kilocode_available and not self.skip_kilocode
+        self._log(
+            "  [context] kilocode_available="
+            f"{self.kilocode_available} skip_kilocode={self.skip_kilocode} "
+            f"factory={'yes' if self.kilocode_agent_factory else 'no'}"
+        )
         agents_count = 2  # Claude + Codex always
         if use_kilocode:
             agents_count = 4  # + Gemini + Grok via Kilo Code

@@ -202,7 +202,7 @@ class RotationHandler(ABC):
                 },
             )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, RotationError) as e:
             logger.exception(f"Rotation failed for {secret_id}: {e}")
             return RotationResult(
                 status=RotationStatus.FAILED,
@@ -251,7 +251,7 @@ class RotationHandler(ABC):
                     error_message="Revocation failed",
                 )
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, RotationError) as e:
             logger.exception(f"Revocation error for {secret_id}: {e}")
             return RotationResult(
                 status=RotationStatus.FAILED,

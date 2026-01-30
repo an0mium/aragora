@@ -1108,7 +1108,15 @@ class DecisionRouter:
 
             return result
 
-        except Exception as e:
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            TimeoutError,
+        ) as e:
             logger.error(f"Decision routing failed: {e}", exc_info=True)
             if span:
                 span.set_attribute("decision.error", str(e)[:200])
@@ -1438,7 +1446,7 @@ class DecisionRouter:
                 consensus_reached=True,
                 agent_contributions=[{"agent": agent_name, "response": response}],
             )
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error(f"Quick response failed: {e}")
             if span:
                 span.set_attribute("quick.error", str(e)[:200])
@@ -1455,7 +1463,7 @@ class DecisionRouter:
             if span_ctx:
                 try:
                     span_ctx.__exit__(None, None, None)
-                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
+                except (AttributeError, RuntimeError, TypeError) as e:
                     logger.debug(f"Trace span cleanup error: {e}")
 
     async def _gather_knowledge_context(
@@ -1526,7 +1534,7 @@ class DecisionRouter:
         except ImportError:
             logger.debug("Knowledge pipeline not available for context gathering")
             return "", []
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.warning(f"Failed to gather knowledge context: {e}")
             return "", []
 
@@ -1547,7 +1555,7 @@ class DecisionRouter:
         except ImportError as e:
             logger.warning(f"TTS bridge not available: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             logger.error(f"Failed to initialize TTS bridge: {e}")
             return None
 
@@ -1584,10 +1592,10 @@ class DecisionRouter:
                 # Clean up temp file
                 try:
                     audio_path.unlink()
-                except Exception as e:  # noqa: BLE001 - Tracing cleanup must not raise
-                    logger.debug(f"Trace span cleanup error: {e}")
+                except (OSError, PermissionError) as e:
+                    logger.debug(f"Failed to cleanup temp audio file: {e}")
                 return audio_bytes
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.error(f"Voice synthesis failed: {e}")
 
         return None
@@ -1613,7 +1621,7 @@ class DecisionRouter:
                 if handler:
                     await handler(result, channel)
 
-            except Exception as e:
+            except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
                 logger.error(f"Failed to deliver to {channel.platform}: {e}")
 
     async def _deliver_voice_response(
@@ -1647,7 +1655,7 @@ class DecisionRouter:
             if voice_handler:
                 try:
                     await voice_handler(result, channel, audio_bytes)
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError, TypeError, ConnectionError) as e:
                     logger.error(f"Voice delivery failed for {channel.platform}: {e}")
 
         return audio_bytes

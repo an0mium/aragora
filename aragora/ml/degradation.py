@@ -584,15 +584,15 @@ class MLFallbackService:
                 if self._embedding_service is None:
                     from aragora.ml.embeddings import LocalEmbeddingService
 
-                    self._embedding_service = LocalEmbeddingService()  # type: ignore[assignment]
+                    self._embedding_service = LocalEmbeddingService()
 
-                emb1 = await self._embedding_service.embed(text1)  # type: ignore[attr-defined]
-                emb2 = await self._embedding_service.embed(text2)  # type: ignore[attr-defined]
+                emb1 = self._embedding_service.embed(text1)
+                emb2 = self._embedding_service.embed(text2)
 
                 # Cosine similarity
-                dot = sum(a * b for a, b in zip(emb1.embedding, emb2.embedding))
-                norm1 = math.sqrt(sum(a * a for a in emb1.embedding))
-                norm2 = math.sqrt(sum(b * b for b in emb2.embedding))
+                dot = sum(a * b for a, b in zip(emb1, emb2))
+                norm1 = math.sqrt(sum(a * a for a in emb1))
+                norm2 = math.sqrt(sum(b * b for b in emb2))
                 similarity = dot / (norm1 * norm2) if norm1 and norm2 else 0.0
 
                 latency = (time.perf_counter() - start) * 1000
@@ -636,11 +636,11 @@ class MLFallbackService:
                 if self._consensus_predictor is None:
                     from aragora.ml.consensus_predictor import ConsensusPredictor
 
-                    self._consensus_predictor = ConsensusPredictor()  # type: ignore[assignment]
+                    self._consensus_predictor = ConsensusPredictor()
 
-                # Try ML prediction
-                prediction = self._consensus_predictor.predict(  # type: ignore[attr-defined]
-                    [{"text": r} for r in responses],
+                # Try ML prediction - predict expects Sequence[tuple[str, str]] (agent_id, text)
+                prediction = self._consensus_predictor.predict(
+                    [("agent", r) for r in responses],
                     task,
                 )
 
@@ -679,14 +679,14 @@ class MLFallbackService:
                 if self._quality_scorer is None:
                     from aragora.ml.quality_scorer import QualityScorer
 
-                    self._quality_scorer = QualityScorer()  # type: ignore[assignment]
+                    self._quality_scorer = QualityScorer()
 
-                score = self._quality_scorer.score(text)  # type: ignore[attr-defined]
+                quality_result = self._quality_scorer.score(text)
 
                 latency = (time.perf_counter() - start) * 1000
                 self._manager.record_success(MLFeature.QUALITY_SCORING, latency)
 
-                return score
+                return quality_result.overall
 
             except Exception as e:
                 self._manager.record_error(MLFeature.QUALITY_SCORING, e)

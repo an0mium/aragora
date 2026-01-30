@@ -420,7 +420,7 @@ class DefaultBotEventHandler(BotEventHandler):
         try:
             result = await self._registry.execute(ctx)
             await self.client.send_result(ctx, result)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError, AttributeError) as e:
             await self.on_error(e, {"command": ctx.args, "user": ctx.user_id})
             await self.client.send_message(
                 ctx.channel_id,

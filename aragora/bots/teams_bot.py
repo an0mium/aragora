@@ -249,7 +249,7 @@ class AragoraTeamsBot:
                         vote=vote,
                         source="teams",
                     )
-            except Exception as e:
+            except (ImportError, OSError, ValueError, RuntimeError, TypeError) as e:
                 logger.warning(f"Failed to record vote: {e}")
 
             emoji = "thumbsup" if vote == "agree" else "thumbsdown"

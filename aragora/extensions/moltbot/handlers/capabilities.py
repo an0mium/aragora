@@ -25,15 +25,15 @@ from aragora.server.handlers.base import (
 from .types import serialize_enum
 
 if TYPE_CHECKING:
-    from aragora.extensions.moltbot.capabilities import CapabilityMatcher
+    from aragora.extensions.moltbot.protocols import CapabilityMatcherProtocol
 
 logger = logging.getLogger(__name__)
 
 # Global capability matcher instance
-_matcher: Optional["CapabilityMatcher"] = None
+_matcher: Optional["CapabilityMatcherProtocol"] = None
 
 
-def get_capability_matcher() -> "CapabilityMatcher":
+def get_capability_matcher() -> "CapabilityMatcherProtocol":
     """Get or create the capability matcher instance."""
     global _matcher
     if _matcher is None:
@@ -148,7 +148,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
         category = query_params.get("category")
 
         matcher = get_capability_matcher()
-        capabilities = await matcher.list_capabilities(category=category)  # type: ignore[attr-defined]
+        capabilities = await matcher.list_capabilities(category=category)
 
         return json_response(
             {
@@ -164,14 +164,14 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        capability = await matcher.get_capability(capability_name)  # type: ignore[attr-defined]
+        capability = await matcher.get_capability(capability_name)
 
         if not capability:
             return error_response("Capability not found", 404)
 
         result = self._serialize_capability(capability)
         # Include additional metadata
-        result["dependents"] = await matcher.get_dependents(capability_name)  # type: ignore[attr-defined]
+        result["dependents"] = await matcher.get_dependents(capability_name)
 
         return json_response({"capability": result})
 
@@ -182,7 +182,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        caps = await matcher.get_device_capabilities(device_id)  # type: ignore[attr-defined]
+        caps = await matcher.get_device_capabilities(device_id)
 
         if not caps:
             return error_response("Device not found or no capabilities detected", 404)
@@ -207,7 +207,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return error_response("capability is required", 400)
 
         matcher = get_capability_matcher()
-        result = await matcher.check_capability(device_id, capability_name)  # type: ignore[attr-defined]
+        result = await matcher.check_capability(device_id, capability_name)
 
         return json_response(
             {
@@ -229,7 +229,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
         tenant_id = query_params.get("tenant_id")
 
         matcher = get_capability_matcher()
-        matrix = await matcher.get_capability_matrix(tenant_id=tenant_id)  # type: ignore[attr-defined]
+        matrix = await matcher.get_capability_matrix(tenant_id=tenant_id)
 
         return json_response(
             {
@@ -269,7 +269,7 @@ class MoltbotCapabilitiesHandler(BaseHandler):
             return err
 
         matcher = get_capability_matcher()
-        capabilities = await matcher.list_capabilities(category=category)  # type: ignore[attr-defined]
+        capabilities = await matcher.list_capabilities(category=category)
 
         return json_response(
             {

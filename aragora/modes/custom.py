@@ -171,7 +171,7 @@ class CustomModeLoader:
                 try:
                     mode = self.load_from_yaml(yaml_file)
                     modes.append(mode)
-                except Exception as e:
+                except (yaml.YAMLError, OSError, ValueError, PermissionError, KeyError) as e:
                     # Log but don't fail on individual file errors
                     logger.warning(f"Failed to load {yaml_file}: {e}")
 
@@ -179,7 +179,7 @@ class CustomModeLoader:
                 try:
                     mode = self.load_from_yaml(yml_file)
                     modes.append(mode)
-                except Exception as e:
+                except (yaml.YAMLError, OSError, ValueError, PermissionError, KeyError) as e:
                     logger.warning(f"Failed to load {yml_file}: {e}")
 
         return modes

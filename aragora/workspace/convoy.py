@@ -25,6 +25,12 @@ from aragora.nomic.stores import (
     ConvoyStatus as NomicConvoyStatus,
 )
 from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.nomic.stores.adapters.workspace import (
+    nomic_convoy_to_workspace,
+    resolve_workspace_convoy_status,
+    workspace_convoy_metadata,
+    workspace_convoy_status_to_nomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,33 +117,12 @@ class ConvoyTracker:
             self._nomic_initialized = True
 
     def _to_nomic_status(self, status: ConvoyStatus) -> NomicConvoyStatus:
-        return {
-            ConvoyStatus.CREATED: NomicConvoyStatus.PENDING,
-            ConvoyStatus.ASSIGNING: NomicConvoyStatus.ACTIVE,
-            ConvoyStatus.EXECUTING: NomicConvoyStatus.ACTIVE,
-            ConvoyStatus.MERGING: NomicConvoyStatus.ACTIVE,
-            ConvoyStatus.DONE: NomicConvoyStatus.COMPLETED,
-            ConvoyStatus.FAILED: NomicConvoyStatus.FAILED,
-            ConvoyStatus.CANCELLED: NomicConvoyStatus.CANCELLED,
-        }.get(status, NomicConvoyStatus.PENDING)
+        return workspace_convoy_status_to_nomic(status)
 
     def _from_nomic_status(
         self, status: NomicConvoyStatus, metadata: dict[str, Any]
     ) -> ConvoyStatus:
-        stored = metadata.get("workspace_status")
-        if isinstance(stored, str):
-            try:
-                return ConvoyStatus(stored)
-            except ValueError:
-                pass
-        return {
-            NomicConvoyStatus.PENDING: ConvoyStatus.CREATED,
-            NomicConvoyStatus.ACTIVE: ConvoyStatus.EXECUTING,
-            NomicConvoyStatus.COMPLETED: ConvoyStatus.DONE,
-            NomicConvoyStatus.FAILED: ConvoyStatus.FAILED,
-            NomicConvoyStatus.CANCELLED: ConvoyStatus.CANCELLED,
-            NomicConvoyStatus.PARTIAL: ConvoyStatus.EXECUTING,
-        }.get(status, ConvoyStatus.CREATED)
+        return resolve_workspace_convoy_status(status, metadata, ConvoyStatus)
 
     def _to_nomic_metadata(
         self,
@@ -150,41 +135,22 @@ class ConvoyTracker:
         error: str | None = None,
         extra_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        metadata: dict[str, Any] = dict(extra_metadata or {})
-        metadata.update(
-            {
-                "workspace_id": workspace_id,
-                "rig_id": rig_id,
-                "workspace_name": name,
-                "workspace_description": description,
-                "workspace_status": status.value,
-            }
+        return workspace_convoy_metadata(
+            workspace_id=workspace_id,
+            rig_id=rig_id,
+            name=name,
+            description=description,
+            status=status,
+            merge_result=merge_result,
+            error=error,
+            extra_metadata=extra_metadata,
         )
-        if merge_result is not None:
-            metadata["merge_result"] = merge_result
-        if error:
-            metadata["error"] = error
-        return metadata
 
     def _from_nomic_convoy(self, convoy: NomicConvoy) -> Convoy:
-        metadata = convoy.metadata or {}
-        status = self._from_nomic_status(convoy.status, metadata)
-        return Convoy(
-            convoy_id=convoy.id,
-            workspace_id=metadata.get("workspace_id", ""),
-            rig_id=metadata.get("rig_id", ""),
-            name=metadata.get("workspace_name", convoy.title),
-            description=metadata.get("workspace_description", convoy.description),
-            status=status,
-            bead_ids=list(convoy.bead_ids),
-            assigned_agents=list(convoy.assigned_to),
-            created_at=convoy.created_at.timestamp(),
-            updated_at=convoy.updated_at.timestamp(),
-            started_at=convoy.started_at.timestamp() if convoy.started_at else None,
-            completed_at=convoy.completed_at.timestamp() if convoy.completed_at else None,
-            merge_result=metadata.get("merge_result"),
-            error=convoy.error_message or metadata.get("error"),
-            metadata=metadata if isinstance(metadata, dict) else {},
+        return nomic_convoy_to_workspace(
+            convoy,
+            convoy_cls=Convoy,
+            status_cls=ConvoyStatus,
         )
 
     async def create_convoy(

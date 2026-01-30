@@ -13,7 +13,6 @@ import json
 import logging
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -22,9 +21,15 @@ from aragora.nomic.stores import (
     Bead as NomicBead,
     BeadStatus as NomicBeadStatus,
     BeadStore as NomicBeadStore,
-    BeadType as NomicBeadType,
 )
 from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.nomic.stores.adapters.workspace import (
+    nomic_bead_to_workspace,
+    workspace_bead_metadata,
+    workspace_bead_status_to_nomic,
+    workspace_bead_to_nomic,
+    resolve_workspace_bead_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,91 +128,19 @@ class BeadManager:
             self._nomic_initialized = True
 
     def _to_nomic_status(self, status: BeadStatus) -> NomicBeadStatus:
-        return {
-            BeadStatus.PENDING: NomicBeadStatus.PENDING,
-            BeadStatus.ASSIGNED: NomicBeadStatus.CLAIMED,
-            BeadStatus.RUNNING: NomicBeadStatus.RUNNING,
-            BeadStatus.DONE: NomicBeadStatus.COMPLETED,
-            BeadStatus.FAILED: NomicBeadStatus.FAILED,
-            BeadStatus.SKIPPED: NomicBeadStatus.CANCELLED,
-        }.get(status, NomicBeadStatus.PENDING)
+        return workspace_bead_status_to_nomic(status)
 
     def _from_nomic_status(self, status: NomicBeadStatus, metadata: dict[str, Any]) -> BeadStatus:
-        stored = metadata.get("workspace_status")
-        if isinstance(stored, str):
-            try:
-                return BeadStatus(stored)
-            except ValueError:
-                pass
-        return {
-            NomicBeadStatus.PENDING: BeadStatus.PENDING,
-            NomicBeadStatus.CLAIMED: BeadStatus.ASSIGNED,
-            NomicBeadStatus.RUNNING: BeadStatus.RUNNING,
-            NomicBeadStatus.COMPLETED: BeadStatus.DONE,
-            NomicBeadStatus.FAILED: BeadStatus.FAILED,
-            NomicBeadStatus.CANCELLED: BeadStatus.SKIPPED,
-            NomicBeadStatus.BLOCKED: BeadStatus.PENDING,
-        }.get(status, BeadStatus.PENDING)
+        return resolve_workspace_bead_status(status, metadata, BeadStatus)
 
     def _workspace_metadata(self, bead: Bead) -> dict[str, Any]:
-        return {
-            "workspace_id": bead.workspace_id,
-            "convoy_id": bead.convoy_id,
-            "payload": bead.payload,
-            "result": bead.result,
-            "git_ref": bead.git_ref,
-            "started_at": bead.started_at,
-            "completed_at": bead.completed_at,
-            "workspace_status": bead.status.value,
-            "metadata": bead.metadata,
-        }
+        return workspace_bead_metadata(bead)
 
     def _to_nomic_bead(self, bead: Bead) -> NomicBead:
-        created_at = datetime.fromtimestamp(bead.created_at, tz=timezone.utc)
-        updated_at = datetime.fromtimestamp(bead.updated_at, tz=timezone.utc)
-        completed_at = (
-            datetime.fromtimestamp(bead.completed_at, tz=timezone.utc)
-            if bead.completed_at
-            else None
-        )
-        return NomicBead(
-            id=bead.bead_id,
-            bead_type=NomicBeadType.TASK,
-            status=self._to_nomic_status(bead.status),
-            title=bead.title,
-            description=bead.description,
-            created_at=created_at,
-            updated_at=updated_at,
-            claimed_by=bead.assigned_agent,
-            claimed_at=None,
-            completed_at=completed_at,
-            parent_id=None,
-            dependencies=list(bead.depends_on),
-            metadata=self._workspace_metadata(bead),
-        )
+        return workspace_bead_to_nomic(bead)
 
     def _from_nomic_bead(self, bead: NomicBead) -> Bead:
-        metadata = bead.metadata or {}
-        status = self._from_nomic_status(bead.status, metadata)
-        return Bead(
-            bead_id=bead.id,
-            convoy_id=metadata.get("convoy_id", ""),
-            workspace_id=metadata.get("workspace_id", ""),
-            title=bead.title,
-            description=bead.description,
-            status=status,
-            assigned_agent=bead.claimed_by,
-            payload=metadata.get("payload", {}),
-            result=metadata.get("result"),
-            error=bead.error_message,
-            created_at=bead.created_at.timestamp(),
-            updated_at=bead.updated_at.timestamp(),
-            started_at=metadata.get("started_at"),
-            completed_at=metadata.get("completed_at"),
-            git_ref=metadata.get("git_ref"),
-            depends_on=list(bead.dependencies),
-            metadata=metadata.get("metadata", {}),
-        )
+        return nomic_bead_to_workspace(bead, bead_cls=Bead, status_cls=BeadStatus)
 
     async def create_bead(
         self,

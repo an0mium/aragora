@@ -196,8 +196,8 @@ class ImpersonationManager:
         if self._audit_callback:
             try:
                 self._audit_callback(entry)
-            except Exception as e:
-                # Catch all exceptions to ensure callback errors don't block impersonation
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+                # Catch callback errors to ensure they don't block impersonation
                 logger.error(f"Failed to persist audit entry via callback: {type(e).__name__}: {e}")
 
         # Always log to structured logger
@@ -217,8 +217,8 @@ class ImpersonationManager:
                     session.admin_email,
                     session.reason,
                 )
-            except Exception as e:
-                # Catch all exceptions to ensure notification errors don't block impersonation
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
+                # Catch notification errors to ensure they don't block impersonation
                 logger.error(f"Failed to notify target user: {type(e).__name__}: {e}")
 
     def start_impersonation(

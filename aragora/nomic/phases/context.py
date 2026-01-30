@@ -102,6 +102,11 @@ class ContextPhase:
         skip_codex = os.environ.get("NOMIC_CONTEXT_SKIP_CODEX", "0") == "1"
         skip_claude = os.environ.get("NOMIC_CONTEXT_SKIP_CLAUDE", "0") == "1"
         use_kilocode = self.kilocode_available and not self.skip_kilocode
+        self._log(
+            "  [context] kilocode_available="
+            f"{self.kilocode_available} skip_kilocode={self.skip_kilocode} "
+            f"factory={'yes' if self.kilocode_agent_factory else 'no'}"
+        )
         agents_count = 0
         if self.claude and not skip_claude:
             agents_count += 1

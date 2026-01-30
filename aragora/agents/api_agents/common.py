@@ -116,7 +116,7 @@ async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
     try:
         await connector.close()
         logger.debug("Old TCP connector closed successfully")
-    except Exception as e:  # noqa: BLE001
+    except (OSError, RuntimeError, asyncio.CancelledError) as e:
         logger.debug(f"Error closing old connector: {e}")
 
 
@@ -167,7 +167,7 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                         task.add_done_callback(_pool_state.pending_close_tasks.discard)
                     # If no running loop, connector will be garbage collected
                     # This is safe because we're creating a new one for the new loop
-                except Exception as e:  # noqa: BLE001 - Cleanup errors should not propagate
+                except (OSError, RuntimeError, asyncio.CancelledError) as e:
                     logger.debug(f"Error scheduling connector close: {e}")
 
             per_host, total = _get_connection_limits()

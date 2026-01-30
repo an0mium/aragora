@@ -614,17 +614,23 @@ from aragora.nomic.convoy_executor import GastownConvoyExecutor
 # Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
 KILOCODE_AVAILABLE = False
 try:
-    import subprocess
+    import shutil
 
-    result = subprocess.run(["which", "kilocode"], capture_output=True, text=True)
-    KILOCODE_AVAILABLE = result.returncode == 0
+    KILOCODE_AVAILABLE = shutil.which("kilocode") is not None
 except Exception:
     pass
 
 # Skip KiloCode agents during context gathering phase (agentic codebase exploration)
-# KiloCode's agentic exploration consistently times out (>30 min for Gemini/Grok)
-# Gemini/Grok still participate in debates via direct API calls
-SKIP_KILOCODE_CONTEXT_GATHERING = True
+# KiloCode's agentic exploration can be slow; Gemini/Grok still participate in debates via direct API calls.
+# Allow override via env to enable Gemini/Grok exploration in context.
+_skip_kilocode_env = os.environ.get("NOMIC_SKIP_KILOCODE_CONTEXT_GATHERING")
+if _skip_kilocode_env is None:
+    _skip_kilocode_env = os.environ.get("NOMIC_SKIP_KILOCODE_CONTEXT")
+SKIP_KILOCODE_CONTEXT_GATHERING = (
+    str(_skip_kilocode_env).strip().lower() in {"1", "true", "yes", "on"}
+    if _skip_kilocode_env is not None
+    else True
+)
 
 # Genesis module for fractal debates with agent evolution
 GENESIS_AVAILABLE = False

@@ -11,9 +11,51 @@ Provides tools for executing and managing Aragora workflows:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class WorkflowExecutionStatus:
+    """Status of a workflow execution."""
+
+    status: str
+    progress: float
+    current_node: str | None
+    started_at: str | None
+    completed_at: str | None
+    error: str | None = None
+
+
+class AsyncWorkflowEngine(Protocol):
+    """Protocol for async workflow engine methods used by MCP tools."""
+
+    async def start_async(
+        self,
+        template: Any,
+        inputs: dict[str, Any],
+    ) -> str:
+        """Start async execution and return execution ID."""
+        ...
+
+    async def run(
+        self,
+        template: Any,
+        inputs: dict[str, Any],
+        timeout: int,
+    ) -> Any:
+        """Run workflow synchronously."""
+        ...
+
+    async def get_status(self, execution_id: str) -> WorkflowExecutionStatus | None:
+        """Get execution status."""
+        ...
+
+    async def cancel(self, execution_id: str, reason: str = "") -> bool:
+        """Cancel workflow execution."""
+        ...
 
 
 async def run_workflow_tool(
@@ -37,8 +79,10 @@ async def run_workflow_tool(
     import json as json_module
 
     try:
+        from typing import cast
+
         from aragora.workflow.engine import WorkflowEngine
-        from aragora.workflow.patterns import get_workflow_template  # type: ignore[attr-defined]
+        from aragora.workflow.templates import get_template
 
         # Parse inputs
         workflow_inputs = {}
@@ -49,16 +93,16 @@ async def run_workflow_tool(
                 return {"error": "Invalid JSON in inputs parameter"}
 
         # Get template
-        template_def = get_workflow_template(template)
+        template_def = get_template(template)
         if not template_def:
             return {"error": f"Workflow template '{template}' not found"}
 
-        # Create engine and run
-        engine = WorkflowEngine()
+        # Create engine and run - cast to protocol for extended methods
+        engine = cast(AsyncWorkflowEngine, WorkflowEngine())
 
         if async_execution:
             # Start async execution
-            execution_id = await engine.start_async(  # type: ignore[attr-defined]
+            execution_id = await engine.start_async(
                 template=template_def,
                 inputs=workflow_inputs,
             )
@@ -70,7 +114,7 @@ async def run_workflow_tool(
             }
         else:
             # Synchronous execution
-            result = await engine.run(  # type: ignore[attr-defined]
+            result = await engine.run(
                 template=template_def,
                 inputs=workflow_inputs,
                 timeout=timeout_seconds,
@@ -104,10 +148,13 @@ async def get_workflow_status_tool(
         Dict with workflow status and progress
     """
     try:
+        from typing import cast
+
         from aragora.workflow.engine import WorkflowEngine
 
-        engine = WorkflowEngine()
-        status = await engine.get_status(execution_id)  # type: ignore[attr-defined]
+        # Cast to protocol for extended methods
+        engine = cast(AsyncWorkflowEngine, WorkflowEngine())
+        status = await engine.get_status(execution_id)
 
         if not status:
             return {"error": f"Execution {execution_id} not found"}
@@ -143,18 +190,22 @@ async def list_workflow_templates_tool(
         Dict with list of templates
     """
     try:
-        from aragora.workflow.patterns import list_workflow_templates  # type: ignore[attr-defined]
+        from aragora.workflow.templates import list_templates
 
-        templates = list_workflow_templates(category if category != "all" else None)
+        templates = list_templates(category if category != "all" else None)
 
         return {
             "templates": [
                 {
-                    "name": t.name,
-                    "description": t.description,
-                    "category": t.category,
-                    "inputs": list(t.inputs.keys()) if t.inputs else [],
-                    "outputs": list(t.outputs.keys()) if t.outputs else [],
+                    "name": t["name"],
+                    "description": t["description"],
+                    "category": t["category"],
+                    "inputs": list(t.get("inputs", {}).keys())
+                    if isinstance(t.get("inputs"), dict)
+                    else t.get("inputs", []),
+                    "outputs": list(t.get("outputs", {}).keys())
+                    if isinstance(t.get("outputs"), dict)
+                    else t.get("outputs", []),
                 }
                 for t in templates
             ],
@@ -213,10 +264,13 @@ async def cancel_workflow_tool(
         Dict with cancellation result
     """
     try:
+        from typing import cast
+
         from aragora.workflow.engine import WorkflowEngine
 
-        engine = WorkflowEngine()
-        success = await engine.cancel(execution_id, reason=reason)  # type: ignore[attr-defined]
+        # Cast to protocol for extended methods
+        engine = cast(AsyncWorkflowEngine, WorkflowEngine())
+        success = await engine.cancel(execution_id, reason=reason)
 
         return {
             "execution_id": execution_id,

@@ -10,8 +10,11 @@ Adapter chain:
     Gastown BeadManager   -> Workspace BeadManager   -> Nomic BeadStore
 """
 
-from aragora.workspace.bead import BeadManager as WorkspaceBeadAdapter
-from aragora.workspace.convoy import ConvoyTracker as WorkspaceConvoyAdapter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.workspace.bead import BeadManager as WorkspaceBeadAdapter
+    from aragora.workspace.convoy import ConvoyTracker as WorkspaceConvoyAdapter
 
 __all__ = [
     "WorkspaceBeadAdapter",

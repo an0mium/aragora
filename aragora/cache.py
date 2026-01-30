@@ -210,7 +210,7 @@ def get_all_cache_stats() -> dict[str, CacheStats]:
             try:
                 stats_dict = cache.stats
                 result[name] = CacheStats.from_dict(stats_dict)
-            except Exception as e:
+            except (AttributeError, KeyError, TypeError, ValueError) as e:
                 logger.warning(f"Failed to get stats for cache {name}: {e}")
         return result
 
@@ -260,7 +260,7 @@ def _auto_register_global_caches() -> None:
     try:
         register_cache("method", get_method_cache())
         register_cache("query", get_query_cache())
-    except Exception as e:
+    except (ImportError, AttributeError, RuntimeError) as e:
         logger.debug(f"Failed to auto-register global caches: {e}")
 
 

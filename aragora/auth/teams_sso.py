@@ -342,8 +342,8 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for OBO flow")
             return None
-        except Exception as e:
-            # Catch all exceptions including network errors for graceful degradation
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError) as e:
+            # Catch network and parsing errors for graceful degradation
             logger.error(f"OBO token exchange error: {type(e).__name__}: {e}")
             return None
 
@@ -378,8 +378,8 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for Graph API")
             return None
-        except Exception as e:
-            # Catch all exceptions including network errors for graceful degradation
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError) as e:
+            # Catch network and parsing errors for graceful degradation
             logger.error(f"Graph API error: {type(e).__name__}: {e}")
             return None
 

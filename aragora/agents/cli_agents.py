@@ -385,7 +385,15 @@ class CLIAgent(CritiqueMixin, Agent):
                 return response_extractor(result)
             return result
 
-        except Exception as e:
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            TimeoutError,
+            UnicodeDecodeError,
+            CLISubprocessError,
+            AgentCircuitOpenError,
+        ) as e:
             if self._is_fallback_error(e):
                 fallback = self._get_fallback_agent()
                 if fallback:
@@ -400,7 +408,7 @@ class CLIAgent(CritiqueMixin, Agent):
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_success()
                         return result
-                    except Exception as fallback_error:
+                    except (OSError, RuntimeError, ValueError, TimeoutError) as fallback_error:
                         # Fallback also failed - record as failure
                         if self._circuit_breaker is not None:
                             self._circuit_breaker.record_failure()

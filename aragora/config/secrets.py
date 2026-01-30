@@ -290,7 +290,7 @@ class SecretManager:
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
             return None
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning(f"Failed to initialize AWS client ({region}): {e}")
             return None
 
@@ -321,7 +321,7 @@ class SecretManager:
             except json.JSONDecodeError:
                 logger.error("Failed to parse secrets JSON from AWS (region=%s)", region)
                 return {}
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                 last_error = e
                 if type(e).__name__ == "ClientError" and hasattr(e, "response"):
                     error_code = e.response.get("Error", {}).get("Code", "")

@@ -362,5 +362,27 @@ Do not advocate - analyze impartially."""
 
         return summary
 
+    def format_role_assignments_for_log(self) -> str:
+        """Format current role assignments as a log-friendly string.
+
+        Returns:
+            Comma-separated string of agent name: role pairs
+        """
+        if not self.current_role_assignments:
+            return ""
+        return ", ".join(
+            f"{name}: {assign.role.value}" for name, assign in self.current_role_assignments.items()
+        )
+
+    def log_role_assignments(self, round_num: int) -> None:
+        """Log current role assignments if any exist.
+
+        Args:
+            round_num: Current round number for log context
+        """
+        if self.current_role_assignments:
+            roles_str = self.format_role_assignments_for_log()
+            logger.debug(f"role_assignments round={round_num} roles={roles_str}")
+
 
 __all__ = ["RolesManager"]

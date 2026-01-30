@@ -360,7 +360,7 @@ class AgentPerformanceMonitor:
                 json.dump(data, f, indent=2)
             logger.info(f"perf_saved path={filepath} metrics={len(self.metrics)}")
             return filepath
-        except Exception as e:
+        except (OSError, IOError, TypeError, ValueError) as e:
             logger.error(f"perf_save_error error={e}")
             return None
 

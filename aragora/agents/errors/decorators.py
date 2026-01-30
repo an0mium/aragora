@@ -363,7 +363,14 @@ def handle_agent_errors(
                         raise action.error from e
                     raise
 
-                except Exception as e:
+                except (
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                    LookupError,
+                ) as e:
                     action = _handle_unexpected_error(e, ctx)
                     logger.error(
                         f"[{agent_name}] Unexpected error (attempt {attempt}): {action.error}",
@@ -547,7 +554,7 @@ def handle_stream_errors(
             except AgentError:
                 raise
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, UnicodeDecodeError) as e:
                 raise AgentStreamError(
                     f"Unexpected stream error: {sanitize_error(str(e))}",
                     agent_name=agent_name,

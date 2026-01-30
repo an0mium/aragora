@@ -488,7 +488,7 @@ class TenantDataIsolation:
             else:
                 return loop.run_until_complete(provider.get_encryption_key(key_id))
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, KeyError) as e:
             logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
             return None
 
@@ -566,7 +566,7 @@ class TenantDataIsolation:
             key_id = f"tenant-{tenant_id}"
             return await provider.get_encryption_key(key_id)
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, KeyError) as e:
             logger.warning(f"KMS key retrieval failed for tenant {tenant_id}: {e}")
             return None
 

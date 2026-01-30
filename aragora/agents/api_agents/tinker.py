@@ -171,7 +171,7 @@ class TinkerAgent(APIAgent):
 
             return response.strip()
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TimeoutError) as e:
             logger.error("Tinker API error for %s: %s", self.name, e)
 
             # Circuit breaker handling
@@ -208,7 +208,7 @@ class TinkerAgent(APIAgent):
             ):
                 yield chunk
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TimeoutError) as e:
             logger.error("Tinker streaming error for %s: %s", self.name, e)
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
