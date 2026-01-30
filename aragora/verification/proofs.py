@@ -159,13 +159,81 @@ def _validate_code_safety(code: str) -> tuple[bool, str]:
     """
     Check code for dangerous patterns that could enable sandbox escape.
 
+    Uses both string pattern matching (for quick rejection) and AST analysis
+    (for structural validation) to catch bypass attempts.
+
     Returns:
         Tuple of (is_safe, error_message)
     """
+    # Reject oversized code to prevent memory-based attacks
+    if len(code) > MAX_CODE_SIZE:
+        return False, f"Code exceeds maximum size ({MAX_CODE_SIZE} bytes)"
+
+    # String pattern matching (catches obfuscation and non-code patterns)
     code_lower = code.lower()
     for pattern in DANGEROUS_PATTERNS:
         if pattern.lower() in code_lower:
             return False, f"Dangerous pattern detected: '{pattern}' is not allowed"
+
+    # AST-based structural validation (catches patterns that string matching misses)
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return False, f"Syntax error in code: {e}"
+
+    for node in ast.walk(tree):
+        # Block all import statements
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            module = ""
+            if isinstance(node, ast.Import):
+                module = node.names[0].name if node.names else ""
+            elif node.module:
+                module = node.module
+            return False, f"Import statements are not allowed: {module}"
+
+        # Block dangerous function calls by name
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            dangerous_calls = {
+                "eval",
+                "exec",
+                "compile",
+                "open",
+                "__import__",
+                "getattr",
+                "setattr",
+                "delattr",
+                "hasattr",
+                "globals",
+                "locals",
+                "vars",
+                "dir",
+                "breakpoint",
+                "input",
+                "memoryview",
+                "type",
+                "classmethod",
+                "staticmethod",
+                "property",
+                "super",
+                "object",
+            }
+            if node.func.id in dangerous_calls:
+                return False, f"Call to '{node.func.id}' is not allowed"
+
+        # Block access to underscore-prefixed attributes
+        if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            return False, f"Access to private/dunder attribute '{node.attr}' is not allowed"
+
+        # Block subscript access with dangerous string keys
+        if isinstance(node, ast.Subscript):
+            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                if node.slice.value.startswith("__") and node.slice.value.endswith("__"):
+                    return False, f"Subscript access to '{node.slice.value}' is not allowed"
+
+        # Block global/nonlocal statements (could manipulate scope)
+        if isinstance(node, (ast.Global, ast.Nonlocal)):
+            return False, "Global/nonlocal statements are not allowed"
+
     return True, ""
 
 

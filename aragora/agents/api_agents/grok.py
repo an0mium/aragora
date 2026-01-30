@@ -15,7 +15,7 @@ from aragora.agents.registry import AgentRegistry
     agent_type="API",
     env_vars="XAI_API_KEY or GROK_API_KEY",
 )
-class GrokAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
+class GrokAgent(OpenAICompatibleMixin, APIAgent):
     """Agent that uses xAI's Grok API (OpenAI-compatible).
 
     Uses the xAI API at https://api.x.ai/v1 with models like grok-3.

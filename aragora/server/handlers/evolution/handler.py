@@ -25,7 +25,6 @@ from ..base import (
     json_response,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
-from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 

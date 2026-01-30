@@ -91,6 +91,8 @@ class CoordinatorConfig:
     parallel_sync: bool = True  # Sync adapters in parallel
     timeout_seconds: float = 60.0  # Timeout per adapter sync
     enable_metrics: bool = True
+    check_circuit_breaker: bool = True
+    skip_open_circuits: bool = True
 
 
 class BidirectionalCoordinator:

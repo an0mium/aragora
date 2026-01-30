@@ -806,11 +806,11 @@ class InvoiceHandler(BaseHandler):
     async def handle_post(
         self,
         path: str,
-        data: Any = None,
+        query_params: Optional[dict[str, Any]] = None,
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests."""
-        data = data or {}
+        data: dict[str, Any] = query_params or {}
 
         if path == "/api/v1/accounting/invoices/upload":
             return await handle_upload_invoice(data)
