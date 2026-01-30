@@ -14010,7 +14010,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get explainability batch status */
+        /**
+         * Get explainability batch status
+         * @description Check the processing status of an explainability batch job.
+         *
+         *     **Status values:**
+         *     - pending: Batch queued for processing
+         *     - processing: Batch is being generated
+         *     - completed: All explanations ready
+         *     - failed: Batch processing failed
+         *
+         *     **Use cases:**
+         *     - Poll for batch completion
+         *     - Monitor processing progress
+         *     - Handle async explanation generation
+         */
         get: operations["getExplainabilityBatchStatus"];
         put?: never;
         post?: never;
@@ -14027,7 +14041,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get explainability batch results */
+        /**
+         * Get explainability batch results
+         * @description Retrieve the generated explanations for a completed batch.
+         *
+         *     **Response includes:**
+         *     - Individual explanation for each debate in the batch
+         *     - Evidence chains (if requested during batch creation)
+         *     - Counterfactual scenarios (if requested)
+         *
+         *     **Note:** Only available after batch status is 'completed'.
+         */
         get: operations["getExplainabilityBatchResults"];
         put?: never;
         post?: never;
@@ -16148,12 +16172,42 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get fact */
+        /**
+         * Get fact
+         * @description Retrieve a specific knowledge fact by ID.
+         *
+         *     **Response includes:**
+         *     - Fact statement and confidence score
+         *     - Associated topics and evidence
+         *     - Creation and update timestamps
+         *     - Supersession history (if applicable)
+         */
         get: operations["getKnowledgeFact"];
-        /** Update fact */
+        /**
+         * Update fact
+         * @description Update an existing knowledge fact.
+         *
+         *     **Updatable fields:**
+         *     - statement: The fact text
+         *     - confidence: Confidence score (0.0-1.0)
+         *     - topics: Associated topic tags
+         *     - metadata: Custom metadata
+         *
+         *     **Note:** Updates create an audit trail. Consider superseding instead of updating for significant changes.
+         */
         put: operations["updateKnowledgeFact"];
         post?: never;
-        /** Delete fact */
+        /**
+         * Delete fact
+         * @description Delete a knowledge fact from the knowledge base.
+         *
+         *     **Behavior:**
+         *     - Soft delete by default (fact marked as deleted)
+         *     - Related evidence links are preserved for audit
+         *     - Supersession chains are maintained
+         *
+         *     **Note:** Deleted facts can be restored by admin if needed.
+         */
         delete: operations["deleteKnowledgeFact"];
         options?: never;
         head?: never;
@@ -16169,7 +16223,17 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Verify fact */
+        /**
+         * Verify fact
+         * @description Trigger verification of a knowledge fact against evidence.
+         *
+         *     **Verification process:**
+         *     - Cross-references fact against source documents
+         *     - Checks for conflicting facts in the knowledge base
+         *     - Updates confidence score based on evidence strength
+         *
+         *     **Async:** Returns immediately; verification runs in background.
+         */
         post: operations["verifyKnowledgeFact"];
         delete?: never;
         options?: never;
@@ -16184,7 +16248,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List contradictions */
+        /**
+         * List contradictions
+         * @description Find facts that contradict the specified fact.
+         *
+         *     **Detection methods:**
+         *     - Semantic similarity with opposite polarity
+         *     - Explicit contradiction links
+         *     - Temporal inconsistencies
+         *
+         *     **Use cases:**
+         *     - Identify knowledge conflicts
+         *     - Resolve contradictory information
+         *     - Audit knowledge quality
+         */
         get: operations["listKnowledgeContradictions"];
         put?: never;
         post?: never;
@@ -16201,10 +16278,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List relations */
+        /**
+         * List relations
+         * @description Get all facts related to the specified fact.
+         *
+         *     **Relation types:**
+         *     - supports: Evidence supporting this fact
+         *     - contradicts: Conflicting facts
+         *     - supersedes: Facts that replace this one
+         *     - derived_from: Source facts used to derive this one
+         */
         get: operations["listKnowledgeRelations"];
         put?: never;
-        /** Add relation */
+        /**
+         * Add relation
+         * @description Create a relation between this fact and another fact.
+         *
+         *     **Required fields:**
+         *     - target_fact_id: ID of the related fact
+         *     - relation_type: Type of relation (supports, contradicts, etc.)
+         *
+         *     **Optional fields:**
+         *     - confidence: Confidence in the relation (0.0-1.0)
+         *     - evidence: Supporting evidence for the relation
+         */
         post: operations["addKnowledgeRelation"];
         delete?: never;
         options?: never;
@@ -16221,7 +16318,17 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add relation between facts */
+        /**
+         * Add relation between facts
+         * @description Create a relation between two facts by specifying both IDs.
+         *
+         *     **Required fields:**
+         *     - source_fact_id: ID of the source fact
+         *     - target_fact_id: ID of the target fact
+         *     - relation_type: Type of relation
+         *
+         *     **Alternative to:** POST /api/v1/knowledge/facts/{fact_id}/relations
+         */
         post: operations["addKnowledgeRelationBetweenFacts"];
         delete?: never;
         options?: never;
@@ -17379,6 +17486,893 @@ export interface paths {
         get: operations["getIntegrationStats"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/slack/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Slack OAuth installation
+         * @deprecated
+         * @description Redirects to Slack OAuth authorization page to install the app in a workspace. Requires connectors.authorize permission.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description URL to redirect after OAuth completes */
+                    redirect_url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to Slack OAuth */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Slack OAuth installation
+         * @description Redirects to Slack OAuth authorization page to install the app in a workspace. Requires connectors.authorize permission.
+         */
+        get: operations["installSlackIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/slack/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Slack OAuth callback
+         * @deprecated
+         * @description Handles the OAuth callback from Slack after user authorization. Exchanges code for access token and stores workspace credentials.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description OAuth authorization code from Slack */
+                    code: string;
+                    /** @description OAuth state parameter for CSRF protection */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to success page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Slack OAuth callback
+         * @description Handles the OAuth callback from Slack after user authorization. Exchanges code for access token and stores workspace credentials.
+         */
+        get: operations["slackOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/slack/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handle Slack app uninstall webhook
+         * @deprecated
+         * @description Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Uninstall acknowledged */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handle Slack app uninstall webhook
+         * @description Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.
+         */
+        post: operations["slackUninstallWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/slack/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Slack OAuth permissions
+         * @deprecated
+         * @description Returns a detailed preview of OAuth scopes and permissions that will be requested.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OAuth scope preview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            scopes?: Record<string, never>[];
+                            /** Format: uri */
+                            install_url?: string;
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Slack OAuth permissions
+         * @description Returns a detailed preview of OAuth scopes and permissions that will be requested.
+         */
+        get: operations["previewSlackOAuth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/slack/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List connected Slack workspaces
+         * @deprecated
+         * @description Returns all Slack workspaces connected to the current organization.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of connected workspaces */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            workspaces?: {
+                                workspace_id?: string;
+                                workspace_name?: string;
+                                connected_at?: number;
+                                status?: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/slack/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List connected Slack workspaces
+         * @description Returns all Slack workspaces connected to the current organization.
+         */
+        get: operations["listSlackWorkspaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/discord/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Discord OAuth installation
+         * @deprecated
+         * @description Redirects to Discord OAuth authorization page to add the bot to a server.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to Discord OAuth */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/discord/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Discord OAuth installation
+         * @description Redirects to Discord OAuth authorization page to add the bot to a server.
+         */
+        get: operations["installDiscordIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/discord/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Discord OAuth callback
+         * @deprecated
+         * @description Handles the OAuth callback from Discord after user authorization.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description OAuth authorization code */
+                    code: string;
+                    /** @description OAuth state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to success page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/discord/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Discord OAuth callback
+         * @description Handles the OAuth callback from Discord after user authorization.
+         */
+        get: operations["discordOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/discord/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handle Discord bot removal
+         * @deprecated
+         * @description Called when bot is removed from a Discord server.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Uninstall acknowledged */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/discord/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handle Discord bot removal
+         * @description Called when bot is removed from a Discord server.
+         */
+        post: operations["discordUninstallWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/teams/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Microsoft Teams installation
+         * @deprecated
+         * @description Redirects to Microsoft OAuth authorization page to install the Teams app.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to Microsoft OAuth */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/teams/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start Microsoft Teams installation
+         * @description Redirects to Microsoft OAuth authorization page to install the Teams app.
+         */
+        get: operations["installTeamsIntegration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/teams/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Teams OAuth callback
+         * @deprecated
+         * @description Handles the OAuth callback from Microsoft after user authorization.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description OAuth authorization code */
+                    code: string;
+                    /** @description OAuth state parameter */
+                    state: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to success page */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad request - Invalid input or malformed JSON */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/teams/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Handle Teams OAuth callback
+         * @description Handles the OAuth callback from Microsoft after user authorization.
+         */
+        get: operations["teamsOAuthCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/teams/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Teams OAuth token
+         * @deprecated
+         * @description Refresh the OAuth token for a Teams integration.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Token refreshed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized - Authentication required or token invalid */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Internal server error - Unexpected error occurred */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/teams/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Teams OAuth token
+         * @description Refresh the OAuth token for a Teams integration.
+         */
+        post: operations["refreshTeamsToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19977,7 +20971,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Telegram integration status */
+        /**
+         * Get Telegram integration status
+         * @description Returns the status of the Telegram bot integration.
+         *
+         *     **Response includes:**
+         *     - Connection status (webhook configured and active)
+         *     - Bot username for verification
+         *     - Number of active chats/groups
+         *
+         *     **Use cases:**
+         *     - Verify bot is properly configured
+         *     - Monitor active conversations
+         *     - Debug connectivity issues
+         */
         get: operations["getTelegramStatus"];
         put?: never;
         post?: never;
@@ -20025,7 +21032,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get WhatsApp integration status */
+        /**
+         * Get WhatsApp integration status
+         * @description Returns the status of the WhatsApp Business API integration.
+         *
+         *     **Response includes:**
+         *     - Connection status to WhatsApp Cloud API
+         *     - Registered phone number
+         *     - Number of active conversations
+         *
+         *     **Use cases:**
+         *     - Verify WhatsApp Business setup
+         *     - Monitor conversation volume
+         *     - Check API connectivity
+         */
         get: operations["getWhatsAppStatus"];
         put?: never;
         post?: never;
@@ -20068,7 +21088,19 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Google Chat integration status */
+        /**
+         * Get Google Chat integration status
+         * @description Returns the status of the Google Chat bot integration.
+         *
+         *     **Response includes:**
+         *     - Connection status
+         *     - Number of Google Workspace spaces where bot is installed
+         *
+         *     **Use cases:**
+         *     - Verify bot deployment
+         *     - Monitor workspace adoption
+         *     - Debug integration issues
+         */
         get: operations["getGoogleChatStatus"];
         put?: never;
         post?: never;
@@ -20112,7 +21144,19 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Zoom integration status */
+        /**
+         * Get Zoom integration status
+         * @description Returns the status of the Zoom app integration.
+         *
+         *     **Response includes:**
+         *     - Connection status to Zoom API
+         *     - Associated Zoom account ID
+         *
+         *     **Use cases:**
+         *     - Verify Zoom app installation
+         *     - Check OAuth token validity
+         *     - Debug meeting integration issues
+         */
         get: operations["getZoomStatus"];
         put?: never;
         post?: never;
@@ -21119,6 +22163,18 @@ export interface paths {
         /**
          * Get device details
          * @deprecated
+         * @description Retrieve detailed information about a specific registered device.
+         *
+         *     **Response includes:**
+         *     - Device type (alexa, google_home, apple_homekit, custom)
+         *     - Device name and capabilities
+         *     - Connection status and metadata
+         *     - Last seen timestamp
+         *
+         *     **Use cases:**
+         *     - Check device configuration
+         *     - Verify device capabilities
+         *     - Debug connection issues
          */
         get: {
             parameters: {
@@ -21163,6 +22219,14 @@ export interface paths {
         /**
          * Unregister a device
          * @deprecated
+         * @description Remove a device from Aragora integration.
+         *
+         *     **Actions:**
+         *     - Revokes the device authentication token
+         *     - Removes device from registered devices list
+         *     - Cleans up any device-specific data
+         *
+         *     **Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.
          */
         delete: {
             parameters: {
@@ -21209,11 +22273,35 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get device details */
+        /**
+         * Get device details
+         * @description Retrieve detailed information about a specific registered device.
+         *
+         *     **Response includes:**
+         *     - Device type (alexa, google_home, apple_homekit, custom)
+         *     - Device name and capabilities
+         *     - Connection status and metadata
+         *     - Last seen timestamp
+         *
+         *     **Use cases:**
+         *     - Check device configuration
+         *     - Verify device capabilities
+         *     - Debug connection issues
+         */
         get: operations["getDevice"];
         put?: never;
         post?: never;
-        /** Unregister a device */
+        /**
+         * Unregister a device
+         * @description Remove a device from Aragora integration.
+         *
+         *     **Actions:**
+         *     - Revokes the device authentication token
+         *     - Removes device from registered devices list
+         *     - Cleans up any device-specific data
+         *
+         *     **Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.
+         */
         delete: operations["unregisterDevice"];
         options?: never;
         head?: never;
@@ -21453,6 +22541,330 @@ export interface paths {
          */
         post: operations["handleGoogleWebhook"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List computer use actions
+         * @description List recent computer use actions with statistics. Returns aggregated action counts by type (click, type, screenshot, scroll, key) across all completed tasks.
+         */
+        get: operations["listComputerUseActions"];
+        put?: never;
+        /**
+         * Execute a computer use action
+         * @description Execute a single computer use action (click, type, screenshot, scroll, key). The action is validated against the active policy before execution.
+         */
+        post: operations["createComputerUseAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/actions/{action_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get action details
+         * @description Get detailed information about a specific computer use action, including its parameters, result, and associated task.
+         */
+        get: operations["getComputerUseAction"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an action record
+         * @description Delete a computer use action record. Only completed or failed actions can be deleted.
+         */
+        delete: operations["deleteComputerUseAction"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List computer use policies
+         * @description List all active computer use policies. Policies define which actions are allowed, blocked domains, and execution constraints.
+         */
+        get: operations["listComputerUsePolicies"];
+        put?: never;
+        /**
+         * Create a computer use policy
+         * @description Create a new computer use policy that defines allowed actions, blocked domains, and execution constraints for computer use tasks.
+         */
+        post: operations["createComputerUsePolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get policy details
+         * @description Get detailed information about a specific computer use policy, including its allowed actions, blocked domains, and constraints.
+         */
+        get: operations["getComputerUsePolicy"];
+        /**
+         * Update a computer use policy
+         * @description Replace the configuration of an existing computer use policy.
+         */
+        put: operations["updateComputerUsePolicy"];
+        post?: never;
+        /**
+         * Delete a computer use policy
+         * @description Delete a computer use policy. The default policy cannot be deleted.
+         */
+        delete: operations["deleteComputerUsePolicy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List computer use tasks
+         * @description List recent computer use tasks. Tasks represent high-level goals that are decomposed into individual actions by the orchestrator.
+         */
+        get: operations["listComputerUseTasks"];
+        put?: never;
+        /**
+         * Create a computer use task
+         * @description Create and run a computer use task. The orchestrator will decompose the goal into individual actions and execute them step by step.
+         */
+        post: operations["createComputerUseTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/computer-use/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get task details
+         * @description Get detailed information about a specific computer use task, including its goal, status, steps executed, and result.
+         */
+        get: operations["getComputerUseTask"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a task record
+         * @description Delete a computer use task record. Only completed, failed, or cancelled tasks can be deleted. Running tasks must be cancelled first.
+         */
+        delete: operations["deleteComputerUseTask"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List gateway channels
+         * @description List all available gateway channels and their current status.
+         */
+        get: operations["listGatewayChannels"];
+        put?: never;
+        /**
+         * Create gateway channel
+         * @description Register a new gateway channel for device communication.
+         */
+        post: operations["createGatewayChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List registered devices
+         * @description List all devices registered with the gateway. Supports filtering by status and device type.
+         */
+        get: operations["listGatewayDevices"];
+        put?: never;
+        /**
+         * Register a device
+         * @description Register a new device with the gateway. The device name is required; a device_id will be generated if not supplied.
+         */
+        post: operations["registerGatewayDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/devices/{device_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get device details
+         * @description Retrieve full details for a specific registered device, including allowed channels and metadata.
+         */
+        get: operations["getGatewayDevice"];
+        /**
+         * Update device
+         * @description Update the configuration of an existing registered device.
+         */
+        put: operations["updateGatewayDevice"];
+        post?: never;
+        /**
+         * Unregister device
+         * @description Remove a device from the gateway registry. This is irreversible.
+         */
+        delete: operations["deleteGatewayDevice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List routed messages
+         * @description List messages that have been routed through the gateway. Supports filtering by channel and status.
+         */
+        get: operations["listGatewayMessages"];
+        put?: never;
+        /**
+         * Route a message
+         * @description Submit a message to the gateway for routing to the appropriate agent based on configured rules.
+         */
+        post: operations["routeGatewayMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/messages/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get message details
+         * @description Retrieve the full details and routing information for a specific message.
+         */
+        get: operations["getGatewayMessage"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a message
+         * @description Delete a routed message from the gateway message log.
+         */
+        delete: operations["deleteGatewayMessage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List routing rules
+         * @description List all routing rules configured in the gateway, including statistics.
+         */
+        get: operations["listGatewayRoutingRules"];
+        put?: never;
+        /**
+         * Create routing rule
+         * @description Create a new routing rule that maps message patterns on a channel to a specific agent.
+         */
+        post: operations["createGatewayRoutingRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gateway/routing/{route_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get routing rule
+         * @description Retrieve details for a specific routing rule.
+         */
+        get: operations["getGatewayRoutingRule"];
+        /**
+         * Update routing rule
+         * @description Update an existing routing rule configuration.
+         */
+        put: operations["updateGatewayRoutingRule"];
+        post?: never;
+        /**
+         * Delete routing rule
+         * @description Remove a routing rule from the gateway. Messages will no longer match this rule.
+         */
+        delete: operations["deleteGatewayRoutingRule"];
         options?: never;
         head?: never;
         patch?: never;
@@ -21796,7 +23208,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -21848,7 +23278,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -21900,7 +23348,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -21952,7 +23418,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22004,7 +23488,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22056,7 +23558,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22108,7 +23628,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22160,7 +23698,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22212,7 +23768,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22264,7 +23838,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22316,7 +23908,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22368,7 +23978,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22420,7 +24048,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -22472,7 +24118,25 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         /** Autogenerated placeholder (spec pending) */
@@ -34627,6 +36291,58 @@ export interface paths {
         trace?: never;
     };
     "/api/v1/rlm/stream/modes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rlm/codebase/health": {
         parameters: {
             query?: never;
             header?: never;
@@ -49491,6 +51207,182 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/scim/v2/Users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/scim/v2/Groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Autogenerated placeholder (spec pending) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** Autogenerated placeholder (spec pending) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Autogenerated placeholder (spec pending) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/accounting/expenses/upload": {
@@ -68052,6 +69944,453 @@ export interface operations {
             };
         };
     };
+    installSlackIntegration: {
+        parameters: {
+            query?: {
+                /** @description URL to redirect after OAuth completes */
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Slack OAuth */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    slackOAuthCallback: {
+        parameters: {
+            query: {
+                /** @description OAuth authorization code from Slack */
+                code: string;
+                /** @description OAuth state parameter for CSRF protection */
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success page */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    slackUninstallWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uninstall acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    previewSlackOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth scope preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        scopes?: Record<string, never>[];
+                        /** Format: uri */
+                        install_url?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSlackWorkspaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of connected workspaces */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        workspaces?: {
+                            workspace_id?: string;
+                            workspace_name?: string;
+                            connected_at?: number;
+                            status?: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    installDiscordIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Discord OAuth */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    discordOAuthCallback: {
+        parameters: {
+            query: {
+                /** @description OAuth authorization code */
+                code: string;
+                /** @description OAuth state parameter */
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success page */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    discordUninstallWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uninstall acknowledged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    installTeamsIntegration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to Microsoft OAuth */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    teamsOAuthCallback: {
+        parameters: {
+            query: {
+                /** @description OAuth authorization code */
+                code: string;
+                /** @description OAuth state parameter */
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to success page */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    refreshTeamsToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Token refreshed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getWitnessStatus: {
         parameters: {
             query?: never;
@@ -72170,6 +74509,2142 @@ export interface operations {
                         scene?: Record<string, never>;
                         session?: Record<string, never>;
                     };
+                };
+            };
+        };
+    };
+    listComputerUseActions: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of actions to return (default: 20) */
+                limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
+                /** @description Filter by action type */
+                action_type?: "click" | "type" | "screenshot" | "scroll" | "key";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of computer use actions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        actions?: {
+                            action_id?: string;
+                            /** @enum {string} */
+                            action_type?: "click" | "type" | "screenshot" | "scroll" | "key";
+                            task_id?: string;
+                            success?: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createComputerUseAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The type of action to perform
+                     * @enum {string}
+                     */
+                    action_type: "click" | "type" | "screenshot" | "scroll" | "key";
+                    /** @description Action-specific parameters (e.g., coordinates for click, text for type) */
+                    parameters?: {
+                        /** @description X coordinate (for click) */
+                        x?: number;
+                        /** @description Y coordinate (for click) */
+                        y?: number;
+                        /** @description Text to type (for type action) */
+                        text?: string;
+                        /** @description Key to press (for key action) */
+                        key?: string;
+                        /**
+                         * @description Scroll direction (for scroll action)
+                         * @enum {string}
+                         */
+                        direction?: "up" | "down";
+                        /** @description Scroll amount (for scroll action) */
+                        amount?: number;
+                    };
+                    /** @description Associated task ID (optional) */
+                    task_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Action executed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action_id?: string;
+                        action_type?: string;
+                        success?: boolean;
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getComputerUseAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Action ID */
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action_id?: string;
+                        /** @enum {string} */
+                        action_type?: "click" | "type" | "screenshot" | "scroll" | "key";
+                        task_id?: string;
+                        parameters?: Record<string, never>;
+                        success?: boolean;
+                        result?: Record<string, never>;
+                        /** Format: date-time */
+                        created_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteComputerUseAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Action ID */
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Action deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted?: boolean;
+                        action_id?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listComputerUsePolicies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of policies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policies?: {
+                            id?: string;
+                            name?: string;
+                            description?: string;
+                            allowed_actions?: string[];
+                            blocked_domains?: string[];
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createComputerUsePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Policy name */
+                    name: string;
+                    /** @description Policy description */
+                    description?: string;
+                    /** @description List of allowed action types */
+                    allowed_actions?: ("click" | "type" | "screenshot" | "scroll" | "key")[];
+                    /** @description List of domains to block */
+                    blocked_domains?: string[];
+                    /**
+                     * @description Maximum number of steps per task
+                     * @default 20
+                     */
+                    max_steps?: number;
+                    /**
+                     * @description Timeout in seconds for task execution
+                     * @default 300
+                     */
+                    timeout_seconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Policy created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policy_id?: string;
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getComputerUsePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Policy ID */
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Policy details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        name?: string;
+                        description?: string;
+                        allowed_actions?: string[];
+                        blocked_domains?: string[];
+                        max_steps?: number;
+                        timeout_seconds?: number;
+                        /** Format: date-time */
+                        created_at?: string;
+                        /** Format: date-time */
+                        updated_at?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateComputerUsePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Policy ID */
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Policy name */
+                    name?: string;
+                    /** @description Policy description */
+                    description?: string;
+                    /** @description List of allowed action types */
+                    allowed_actions?: ("click" | "type" | "screenshot" | "scroll" | "key")[];
+                    /** @description List of domains to block */
+                    blocked_domains?: string[];
+                    /** @description Maximum number of steps per task */
+                    max_steps?: number;
+                    /** @description Timeout in seconds for task execution */
+                    timeout_seconds?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Policy updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        policy_id?: string;
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteComputerUsePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Policy ID */
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Policy deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted?: boolean;
+                        policy_id?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listComputerUseTasks: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of tasks to return (default: 20) */
+                limit?: number;
+                /** @description Filter by task status */
+                status?: "pending" | "running" | "completed" | "failed" | "cancelled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of tasks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks?: {
+                            task_id?: string;
+                            goal?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "running" | "completed" | "failed" | "cancelled";
+                            max_steps?: number;
+                            dry_run?: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            result?: {
+                                success?: boolean;
+                                message?: string;
+                                steps_taken?: number;
+                            } | null;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createComputerUseTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The goal to accomplish via computer use */
+                    goal: string;
+                    /**
+                     * @description Maximum number of steps to execute (default: 10)
+                     * @default 10
+                     */
+                    max_steps?: number;
+                    /**
+                     * @description If true, simulate execution without performing actions
+                     * @default false
+                     */
+                    dry_run?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Task created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task_id?: string;
+                        /** @enum {string} */
+                        status?: "pending" | "running" | "completed" | "failed";
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too many requests - Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getComputerUseTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task?: {
+                            task_id?: string;
+                            goal?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "running" | "completed" | "failed" | "cancelled";
+                            max_steps?: number;
+                            dry_run?: boolean;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            cancelled_at?: string | null;
+                            steps?: {
+                                action?: string;
+                                success?: boolean;
+                            }[];
+                            result?: {
+                                success?: boolean;
+                                message?: string;
+                                steps_taken?: number;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteComputerUseTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted?: boolean;
+                        task_id?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGatewayChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of gateway channels */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channels?: {
+                            /** @description Channel name */
+                            name?: string;
+                            /**
+                             * @description Channel availability status
+                             * @enum {string}
+                             */
+                            status?: "available" | "unavailable";
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGatewayChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Channel name */
+                    name: string;
+                    /** @description Communication protocol (e.g. mqtt, http, websocket) */
+                    protocol?: string;
+                    /** @description Additional channel configuration */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Channel created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channel?: {
+                            /** @description Channel name */
+                            name?: string;
+                            /**
+                             * @description Channel availability status
+                             * @enum {string}
+                             */
+                            status?: "available" | "unavailable";
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGatewayDevices: {
+        parameters: {
+            query?: {
+                /** @description Filter devices by status */
+                status?: "online" | "offline" | "degraded" | "unknown";
+                /** @description Filter devices by type */
+                type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of registered devices */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        devices?: {
+                            /** @description Unique device identifier */
+                            device_id?: string;
+                            /** @description Human-readable device name */
+                            name?: string;
+                            /** @description Device type classification */
+                            device_type?: string;
+                            /** @description List of device capabilities */
+                            capabilities?: string[];
+                            /**
+                             * @description Current device status
+                             * @enum {string}
+                             */
+                            status?: "online" | "offline" | "degraded" | "unknown";
+                            /**
+                             * Format: date-time
+                             * @description Timestamp when device was registered
+                             */
+                            paired_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Timestamp of last device heartbeat
+                             */
+                            last_seen?: string;
+                            /** @description Channels the device is allowed to communicate on */
+                            allowed_channels?: string[];
+                            /** @description Arbitrary key-value metadata */
+                            metadata?: Record<string, never>;
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    registerGatewayDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Optional explicit device ID */
+                    device_id?: string;
+                    /** @description Human-readable device name */
+                    name: string;
+                    /**
+                     * @description Device type classification
+                     * @default unknown
+                     */
+                    device_type?: string;
+                    /** @description Device capabilities */
+                    capabilities?: string[];
+                    /** @description Channels the device may communicate on */
+                    allowed_channels?: string[];
+                    /** @description Arbitrary key-value metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Device registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device_id?: string;
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGatewayDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique device identifier */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device?: {
+                            /** @description Unique device identifier */
+                            device_id?: string;
+                            /** @description Human-readable device name */
+                            name?: string;
+                            /** @description Device type classification */
+                            device_type?: string;
+                            /** @description List of device capabilities */
+                            capabilities?: string[];
+                            /**
+                             * @description Current device status
+                             * @enum {string}
+                             */
+                            status?: "online" | "offline" | "degraded" | "unknown";
+                            /**
+                             * Format: date-time
+                             * @description Timestamp when device was registered
+                             */
+                            paired_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Timestamp of last device heartbeat
+                             */
+                            last_seen?: string;
+                            /** @description Channels the device is allowed to communicate on */
+                            allowed_channels?: string[];
+                            /** @description Arbitrary key-value metadata */
+                            metadata?: Record<string, never>;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateGatewayDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique device identifier */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Updated device name */
+                    name?: string;
+                    /** @description Updated device type */
+                    device_type?: string;
+                    /** @description Updated capabilities list */
+                    capabilities?: string[];
+                    /** @description Updated allowed channels */
+                    allowed_channels?: string[];
+                    /** @description Updated metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Device updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        device?: {
+                            /** @description Unique device identifier */
+                            device_id?: string;
+                            /** @description Human-readable device name */
+                            name?: string;
+                            /** @description Device type classification */
+                            device_type?: string;
+                            /** @description List of device capabilities */
+                            capabilities?: string[];
+                            /**
+                             * @description Current device status
+                             * @enum {string}
+                             */
+                            status?: "online" | "offline" | "degraded" | "unknown";
+                            /**
+                             * Format: date-time
+                             * @description Timestamp when device was registered
+                             */
+                            paired_at?: string;
+                            /**
+                             * Format: date-time
+                             * @description Timestamp of last device heartbeat
+                             */
+                            last_seen?: string;
+                            /** @description Channels the device is allowed to communicate on */
+                            allowed_channels?: string[];
+                            /** @description Arbitrary key-value metadata */
+                            metadata?: Record<string, never>;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteGatewayDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique device identifier */
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Device unregistered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGatewayMessages: {
+        parameters: {
+            query?: {
+                /** @description Filter by channel name */
+                channel?: string;
+                /** @description Filter by delivery status */
+                status?: "pending" | "routed" | "delivered" | "failed";
+                /** @description Maximum number of results (default: 20, max: 100) */
+                limit?: number;
+                /** @description Pagination offset */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of routed messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        messages?: {
+                            /** @description Unique message identifier */
+                            message_id?: string;
+                            /** @description Channel the message was routed through */
+                            channel?: string;
+                            /** @description Message content */
+                            content?: string;
+                            /** @description ID of the agent that handled the message */
+                            agent_id?: string;
+                            /** @description ID of the routing rule that matched */
+                            rule_id?: string;
+                            /**
+                             * Format: date-time
+                             * @description Timestamp when message was routed
+                             */
+                            routed_at?: string;
+                            /**
+                             * @description Message delivery status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "routed" | "delivered" | "failed";
+                        }[];
+                        total?: number;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    routeGatewayMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Target channel for routing */
+                    channel: string;
+                    /** @description Message content to route */
+                    content: string;
+                    /** @description Additional message metadata */
+                    metadata?: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description Message routed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        routed?: boolean;
+                        /** @description Agent the message was routed to */
+                        agent_id?: string;
+                        /** @description Routing rule that matched */
+                        rule_id?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGatewayMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique message identifier */
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: {
+                            /** @description Unique message identifier */
+                            message_id?: string;
+                            /** @description Channel the message was routed through */
+                            channel?: string;
+                            /** @description Message content */
+                            content?: string;
+                            /** @description ID of the agent that handled the message */
+                            agent_id?: string;
+                            /** @description ID of the routing rule that matched */
+                            rule_id?: string;
+                            /**
+                             * Format: date-time
+                             * @description Timestamp when message was routed
+                             */
+                            routed_at?: string;
+                            /**
+                             * @description Message delivery status
+                             * @enum {string}
+                             */
+                            status?: "pending" | "routed" | "delivered" | "failed";
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteGatewayMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique message identifier */
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listGatewayRoutingRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of routing rules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rules?: {
+                            /** @description Unique route rule identifier */
+                            id?: string;
+                            /** @description Target channel for routing */
+                            channel?: string;
+                            /** @description Message pattern to match */
+                            pattern?: string;
+                            /** @description Agent to route matched messages to */
+                            agent_id?: string;
+                            /** @description Rule evaluation priority (lower is higher) */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        }[];
+                        total?: number;
+                        /** @description Aggregate routing statistics */
+                        stats?: {
+                            total_rules?: number;
+                            messages_routed?: number;
+                            routing_errors?: number;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createGatewayRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Channel to apply the rule to */
+                    channel: string;
+                    /** @description Message matching pattern (regex supported) */
+                    pattern: string;
+                    /** @description Target agent for matched messages */
+                    agent_id: string;
+                    /**
+                     * @description Rule evaluation priority (lower is higher)
+                     * @default 100
+                     */
+                    priority?: number;
+                    /**
+                     * @description Whether the rule is active
+                     * @default true
+                     */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Routing rule created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule?: {
+                            /** @description Unique route rule identifier */
+                            id?: string;
+                            /** @description Target channel for routing */
+                            channel?: string;
+                            /** @description Message pattern to match */
+                            pattern?: string;
+                            /** @description Agent to route matched messages to */
+                            agent_id?: string;
+                            /** @description Rule evaluation priority (lower is higher) */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getGatewayRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique routing rule identifier */
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Routing rule details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule?: {
+                            /** @description Unique route rule identifier */
+                            id?: string;
+                            /** @description Target channel for routing */
+                            channel?: string;
+                            /** @description Message pattern to match */
+                            pattern?: string;
+                            /** @description Agent to route matched messages to */
+                            agent_id?: string;
+                            /** @description Rule evaluation priority (lower is higher) */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateGatewayRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique routing rule identifier */
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Updated target channel */
+                    channel?: string;
+                    /** @description Updated message matching pattern */
+                    pattern?: string;
+                    /** @description Updated target agent */
+                    agent_id?: string;
+                    /** @description Updated priority */
+                    priority?: number;
+                    /** @description Updated active status */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Routing rule updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule?: {
+                            /** @description Unique route rule identifier */
+                            id?: string;
+                            /** @description Target channel for routing */
+                            channel?: string;
+                            /** @description Message pattern to match */
+                            pattern?: string;
+                            /** @description Agent to route matched messages to */
+                            agent_id?: string;
+                            /** @description Rule evaluation priority (lower is higher) */
+                            priority?: number;
+                            /** @description Whether the rule is active */
+                            enabled?: boolean;
+                        };
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteGatewayRoutingRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique routing rule identifier */
+                route_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Routing rule deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        message?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
