@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional, cast
 
 from aragora.core import Agent
 from aragora.debate.consensus import (
@@ -556,8 +556,8 @@ class GauntletOrchestrator:
                         continue
 
                     if task_name == "redteam" and result:
-                        redteam_result = result
-                        new_findings = self._redteam_to_findings(result)
+                        redteam_result = cast(RedTeamResult, result)
+                        new_findings = self._redteam_to_findings(redteam_result)
                         all_findings.extend(new_findings)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
@@ -565,13 +565,13 @@ class GauntletOrchestrator:
                             2,
                             3,
                             progress_pct,
-                            f"Red-team complete: {result.total_attacks} attacks, {len(new_findings)} findings",
+                            f"Red-team complete: {redteam_result.total_attacks} attacks, {len(new_findings)} findings",
                             current_task="redteam",
                         )
 
                     elif task_name == "probing" and result:
-                        probe_report = result
-                        new_findings = self._probe_to_findings(result)
+                        probe_report = cast(VulnerabilityReport, result)
+                        new_findings = self._probe_to_findings(probe_report)
                         all_findings.extend(new_findings)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
@@ -579,13 +579,13 @@ class GauntletOrchestrator:
                             2,
                             3,
                             progress_pct,
-                            f"Probing complete: {result.vulnerabilities_found} vulnerabilities",
+                            f"Probing complete: {probe_report.vulnerabilities_found} vulnerabilities",
                             current_task="probing",
                         )
 
                     elif task_name == "deep_audit" and result:
-                        audit_verdict = result
-                        findings, dissents, tensions = self._audit_to_findings(result)
+                        audit_verdict = cast(DeepAuditVerdict, result)
+                        findings, dissents, tensions = self._audit_to_findings(audit_verdict)
                         all_findings.extend(findings)
                         dissenting_views.extend(dissents)
                         unresolved_tensions.extend(tensions)
@@ -600,7 +600,7 @@ class GauntletOrchestrator:
                         )
 
                     elif task_name == "verification" and result:
-                        verified, unverified = result
+                        verified, unverified = cast(tuple[list[VerifiedClaim], list[str]], result)
                         verified_claims.extend(verified)
                         unverified_claims.extend(unverified)
                         self._emit_progress(
@@ -614,14 +614,15 @@ class GauntletOrchestrator:
 
                     elif task_name == "persona" and result:
                         # Persona findings are already Finding objects
-                        all_findings.extend(result)
+                        persona_findings = cast(list[Finding], result)
+                        all_findings.extend(persona_findings)
                         self._findings_count = len(all_findings)
                         self._emit_progress(
                             "Stress Testing",
                             2,
                             3,
                             progress_pct,
-                            f"Persona attacks complete: {len(result)} findings",
+                            f"Persona attacks complete: {len(persona_findings)} findings",
                             current_task="persona",
                         )
 
