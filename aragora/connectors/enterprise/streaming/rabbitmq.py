@@ -456,11 +456,12 @@ class RabbitMQConnector(EnterpriseConnector):
                 ),
             )
 
-            # Get exchange
+            # Get exchange - channel is guaranteed to be set after connect
+            assert self._channel is not None
             if self.config.exchange:
-                exchange = await self._channel.get_exchange(self.config.exchange)  # type: ignore[attr-defined]
+                exchange = await self._channel.get_exchange(self.config.exchange)
             else:
-                exchange = self._channel.default_exchange  # type: ignore[attr-defined]
+                exchange = self._channel.default_exchange
 
             # Publish
             await exchange.publish(
