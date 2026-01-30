@@ -188,7 +188,7 @@ PERFORMANCE_PATTERNS = [
 
 # Maintainability patterns
 MAINTAINABILITY_PATTERNS = [
-    (r"except:\s*\n\s*pass", "Bare except with pass - hides errors", FindingSeverity.MEDIUM),
+    (r"except:\s*$", "Bare except clause - catches all exceptions", FindingSeverity.MEDIUM),
     (r"except\s+Exception:", "Catching broad Exception", FindingSeverity.LOW),
     (r"#\s*TODO", "TODO comment found", FindingSeverity.INFO),
     (r"#\s*FIXME", "FIXME comment found", FindingSeverity.LOW),
