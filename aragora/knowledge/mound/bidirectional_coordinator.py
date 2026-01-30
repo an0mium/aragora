@@ -231,6 +231,33 @@ class BidirectionalCoordinator:
             return True
         return False
 
+    def _check_adapter_circuit(self, adapter_name: str) -> tuple[bool, str]:
+        """Check if an adapter's circuit breaker allows requests.
+
+        Args:
+            adapter_name: Name of the adapter to check.
+
+        Returns:
+            Tuple of (can_proceed, reason). can_proceed is True if request
+            is allowed, False if circuit is open.
+        """
+        if not self.config.check_circuit_breaker:
+            return True, "Circuit breaker checking disabled"
+
+        try:
+            from aragora.knowledge.mound.resilience import (
+                get_adapter_circuit_breaker,
+            )
+
+            circuit = get_adapter_circuit_breaker(adapter_name)
+            if circuit.can_proceed():
+                return True, "Circuit closed"
+            remaining = circuit.cooldown_remaining()
+            return False, f"Circuit open for {adapter_name}, retry in {remaining:.1f}s"
+        except Exception as e:
+            logger.debug(f"Circuit breaker check failed for {adapter_name}: {e}")
+            return True, "Circuit check failed, allowing request"
+
     async def _sync_adapter_forward(
         self,
         registration: AdapterRegistration,
@@ -252,6 +279,14 @@ class BidirectionalCoordinator:
             direction="forward",
             success=False,
         )
+
+        # Check circuit breaker before calling adapter
+        can_proceed, reason = self._check_adapter_circuit(registration.name)
+        if not can_proceed and self.config.skip_open_circuits:
+            result.errors.append(f"Skipped: {reason}")
+            result.duration_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"Skipping forward sync for {registration.name}: {reason}")
+            return result
 
         try:
             adapter = registration.adapter
@@ -322,6 +357,14 @@ class BidirectionalCoordinator:
 
         if not registration.reverse_method:
             result.errors.append(f"No reverse method for {registration.name}")
+            return result
+
+        # Check circuit breaker before calling adapter
+        can_proceed, reason = self._check_adapter_circuit(registration.name)
+        if not can_proceed and self.config.skip_open_circuits:
+            result.errors.append(f"Skipped: {reason}")
+            result.duration_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"Skipping reverse sync for {registration.name}: {reason}")
             return result
 
         try:

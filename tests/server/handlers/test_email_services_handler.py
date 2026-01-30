@@ -42,6 +42,22 @@ from aragora.server.handlers.email_services import (
 
 
 # ===========================================================================
+# Test Helpers
+# ===========================================================================
+
+
+def unwrap_response(body: dict) -> dict:
+    """Unwrap success_response format if present.
+
+    The success_response function wraps data in {"success": True, "data": {...}}.
+    This helper extracts the data for easier assertions.
+    """
+    if isinstance(body, dict) and "data" in body and "success" in body:
+        return body["data"]
+    return body
+
+
+# ===========================================================================
 # Test Fixtures and Mocks
 # ===========================================================================
 
@@ -248,8 +264,10 @@ class MockAuthContext:
 
     user_id: str = "test_user"
     tenant_id: str = "test_tenant"
-    roles: List[str] = field(default_factory=lambda: ["admin"])
-    permissions: List[str] = field(default_factory=lambda: ["email:read", "email:create", "email:update", "email:delete"])
+    roles: list[str] = field(default_factory=lambda: ["admin"])
+    permissions: list[str] = field(
+        default_factory=lambda: ["email:read", "email:create", "email:update", "email:delete"]
+    )
 
 
 @dataclass
@@ -787,7 +805,9 @@ class TestGetSnoozedEmails:
             auth_context=mock_auth_context,
         )
 
-        result = await handle_get_snoozed_emails(user_id="test_user", auth_context=mock_auth_context)
+        result = await handle_get_snoozed_emails(
+            user_id="test_user", auth_context=mock_auth_context
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -811,7 +831,9 @@ class TestProcessDueSnoozes:
             auth_context=mock_auth_context,
         )
 
-        result = await handle_process_due_snoozes(user_id="test_user", auth_context=mock_auth_context)
+        result = await handle_process_due_snoozes(
+            user_id="test_user", auth_context=mock_auth_context
+        )
 
         assert result.status_code == 200
         body = json.loads(result.body)

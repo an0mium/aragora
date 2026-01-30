@@ -77,8 +77,8 @@ class EvolutionHandler(BaseHandler):
         if not normalized.startswith("/api/evolution/"):
             return None
 
-        # Require authentication
-        user, err = self.require_auth_or_error(handler)
+        # Require authentication and evolution:read permission
+        user, err = self.require_permission_or_error(handler, "evolution:read")
         if err:
             return err
 
