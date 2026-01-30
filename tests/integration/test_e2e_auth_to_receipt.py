@@ -120,7 +120,7 @@ class TestFullAuthToReceiptFlow:
 
         decoded = decode_jwt(tokens.access_token)
         assert decoded is not None
-        assert decoded["sub"] == "user-123"
+        assert decoded.sub == "user-123"
 
     @pytest.mark.asyncio
     async def test_gauntlet_receipt_generation(self, mock_debate_result):
@@ -141,9 +141,9 @@ class TestFullAuthToReceiptFlow:
             confidence=mock_debate_result.confidence,
             robustness_score=0.95,
             consensus_proof=ConsensusProof(
+                reached=True,
+                confidence=0.75,
                 method="majority_vote",
-                threshold=0.66,
-                achieved_score=0.75,
                 supporting_agents=["claude", "gpt-4", "gemini"],
                 dissenting_agents=["mistral"],
             ),
@@ -199,7 +199,7 @@ class TestAuthenticationEnforcement:
 
         # Verify token can be decoded
         decoded = decode_jwt(tokens.access_token)
-        assert decoded["sub"] == user.id
+        assert decoded.sub == user.id
 
     @pytest.mark.asyncio
     async def test_refresh_token_extends_session(self, mock_user_store):
@@ -228,9 +228,9 @@ class TestOrganizationIsolation:
         )
 
         decoded = decode_jwt(tokens.access_token)
-        # Should have tenant/org info
+        # Should have user info
         assert decoded is not None
-        assert "sub" in decoded
+        assert decoded.sub == "user-123"
 
     @pytest.mark.asyncio
     async def test_different_org_tokens_are_distinct(self):
@@ -241,16 +241,16 @@ class TestOrganizationIsolation:
         ctx_org_a = AuthorizationContext(
             user_id="user-123",
             org_id="org-a",
-            roles=["viewer"],
-            permissions=["receipts.read"],
+            roles={"viewer"},
+            permissions={"receipts.read"},
         )
 
         # Create context for org B
         ctx_org_b = AuthorizationContext(
             user_id="user-456",
             org_id="org-b",
-            roles=["viewer"],
-            permissions=["receipts.read"],
+            roles={"viewer"},
+            permissions={"receipts.read"},
         )
 
         # These should have different org contexts
