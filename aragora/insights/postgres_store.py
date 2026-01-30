@@ -346,34 +346,50 @@ class PostgresInsightStore(PostgresStore):
                     ],
                 )
 
-            # Update pattern clusters
+            # Update pattern clusters (batch operation using UNNEST)
             if insights.pattern_insights:
-                for insight in insights.pattern_insights:
-                    now = datetime.now(timezone.utc)
-                    category = insight.metadata.get("category", "general")
-                    avg_severity = insight.metadata.get("avg_severity", 0.5)
+                now = datetime.now(timezone.utc)
+                debate_id_json = json.dumps([insights.debate_id])
 
-                    await conn.execute(
-                        """
-                        INSERT INTO pattern_clusters
-                        (category, pattern_text, occurrence_count, avg_severity,
-                         debate_ids, first_seen, last_seen)
-                        VALUES ($1, $2, 1, $3, $4, $5, $5)
-                        ON CONFLICT (category, pattern_text) DO UPDATE SET
-                            occurrence_count = pattern_clusters.occurrence_count + 1,
-                            avg_severity = (pattern_clusters.avg_severity *
-                                pattern_clusters.occurrence_count + $3) /
-                                (pattern_clusters.occurrence_count + 1),
-                            debate_ids = pattern_clusters.debate_ids || $6::jsonb,
-                            last_seen = $5
-                        """,
+                # Prepare batch data
+                categories = []
+                pattern_texts = []
+                severities = []
+                for insight in insights.pattern_insights:
+                    categories.append(insight.metadata.get("category", "general"))
+                    pattern_texts.append(insight.title)
+                    severities.append(insight.metadata.get("avg_severity", 0.5))
+
+                # Single query using UNNEST for batch upsert
+                await conn.execute(
+                    """
+                    INSERT INTO pattern_clusters
+                    (category, pattern_text, occurrence_count, avg_severity,
+                     debate_ids, first_seen, last_seen)
+                    SELECT
                         category,
-                        insight.title,
+                        pattern_text,
+                        1,
                         avg_severity,
-                        json.dumps([insights.debate_id]),
-                        now,
-                        json.dumps([insights.debate_id]),
-                    )
+                        $4::jsonb,
+                        $5,
+                        $5
+                    FROM UNNEST($1::text[], $2::text[], $3::float8[])
+                        AS t(category, pattern_text, avg_severity)
+                    ON CONFLICT (category, pattern_text) DO UPDATE SET
+                        occurrence_count = pattern_clusters.occurrence_count + 1,
+                        avg_severity = (pattern_clusters.avg_severity *
+                            pattern_clusters.occurrence_count + EXCLUDED.avg_severity) /
+                            (pattern_clusters.occurrence_count + 1),
+                        debate_ids = pattern_clusters.debate_ids || EXCLUDED.debate_ids,
+                        last_seen = EXCLUDED.last_seen
+                    """,
+                    categories,
+                    pattern_texts,
+                    severities,
+                    debate_id_json,
+                    now,
+                )
 
         # Sync high-confidence insights to Knowledge Mound (batch operation)
         if self._km_adapter:
@@ -571,7 +587,12 @@ class PostgresInsightStore(PostgresStore):
             ]
 
     async def get_recent_insights(self, limit: int = 20) -> list[Insight]:
-        """Get most recent insights across all debates."""
+        """Get most recent insights across all debates (cached for performance)."""
+        cache_key = f"recent_insights:{limit}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
         async with self.connection() as conn:
             rows = await conn.fetch(
                 """
@@ -583,7 +604,9 @@ class PostgresInsightStore(PostgresStore):
                 """,
                 limit,
             )
-            return [self._row_to_insight(row) for row in rows]
+            result = [self._row_to_insight(row) for row in rows]
+            self._set_cached(cache_key, result)
+            return result
 
     async def get_stats(self) -> dict:
         """Get overall statistics about stored insights.
