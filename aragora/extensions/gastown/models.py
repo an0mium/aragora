@@ -247,6 +247,57 @@ class Convoy:
     tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # ConvoyRecord protocol properties (cross-layer compatibility)
+    @property
+    def convoy_id(self) -> str:
+        """Protocol: convoy identifier."""
+        return self.id
+
+    @property
+    def convoy_title(self) -> str:
+        """Protocol: convoy title."""
+        return self.title
+
+    @property
+    def convoy_description(self) -> str:
+        """Protocol: convoy description."""
+        return self.description
+
+    @property
+    def convoy_bead_ids(self) -> list[str]:
+        """Protocol: bead IDs (gastown tracks artifacts, not beads)."""
+        return []  # Gastown doesn't track beads directly
+
+    @property
+    def convoy_status_value(self) -> str:
+        """Protocol: status enum value."""
+        return self.status.value
+
+    @property
+    def convoy_created_at(self) -> datetime:
+        """Protocol: creation timestamp."""
+        return self.created_at
+
+    @property
+    def convoy_updated_at(self) -> datetime:
+        """Protocol: last update timestamp."""
+        return self.updated_at
+
+    @property
+    def convoy_assigned_agents(self) -> list[str]:
+        """Protocol: assigned agent IDs."""
+        return self.assigned_agents
+
+    @property
+    def convoy_error(self) -> str | None:
+        """Protocol: error message if failed."""
+        return self.error
+
+    @property
+    def convoy_metadata(self) -> dict[str, Any]:
+        """Protocol: metadata dictionary."""
+        return self.metadata
+
 
 @dataclass
 class Hook:
