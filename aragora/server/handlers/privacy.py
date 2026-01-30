@@ -143,7 +143,7 @@ class PrivacyHandler(SecureHandler):
 
     def _collect_user_data(self, user_store: Any, user: Any) -> dict[str, Any]:
         """Collect all data associated with a user."""
-        data = {}
+        data: dict[str, Any] = {}
 
         # Profile information
         data["profile"] = {
@@ -187,7 +187,7 @@ class PrivacyHandler(SecureHandler):
         # OAuth provider links
         oauth_providers = user_store.get_user_oauth_providers(user.id)
         if oauth_providers:
-            data["oauth_providers"] = [  # type: ignore[assignment]
+            data["oauth_providers"] = [
                 {
                     "provider": p["provider"],
                     "linked_at": p.get("linked_at"),
@@ -207,7 +207,7 @@ class PrivacyHandler(SecureHandler):
             limit=1000,
         )
         if audit_entries:
-            data["audit_log"] = [  # type: ignore[assignment]
+            data["audit_log"] = [
                 {
                     "timestamp": e["timestamp"],
                     "action": e["action"],

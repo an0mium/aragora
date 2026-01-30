@@ -26,6 +26,8 @@ from aragora.connectors.enterprise.base import (
 )
 from aragora.reasoning.provenance import SourceType
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 
@@ -305,7 +307,14 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                         visibility=data.get("visibility", "private"),
                         web_url=data.get("webUrl", ""),
                     )
-                except Exception as e:
+                except (
+                    httpx.HTTPStatusError,
+                    httpx.TimeoutException,
+                    httpx.ConnectError,
+                    KeyError,
+                    ValueError,
+                    OSError,
+                ) as e:
                     logger.warning(f"[{self.name}] Failed to fetch team {team_id}: {e}")
         else:
             # List all teams
@@ -438,7 +447,13 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                     attachments=reply.get("attachments", []),
                     web_url=reply.get("webUrl", ""),
                 )
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            KeyError,
+            OSError,
+        ) as e:
             logger.debug(f"[{self.name}] Failed to get replies for {message_id}: {e}")
 
     async def _get_channel_files(
@@ -468,7 +483,13 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                             download_url=item.get("@microsoft.graph.downloadUrl", ""),
                             web_url=item.get("webUrl", ""),
                         )
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            KeyError,
+            OSError,
+        ) as e:
             logger.warning(f"[{self.name}] Failed to get files for channel {channel_id}: {e}")
 
     def _parse_datetime(self, value: str | None) -> datetime | None:
@@ -579,7 +600,14 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
                         if items_yielded % batch_size == 0:
                             await asyncio.sleep(0)
 
-                except Exception as e:
+                except (
+                    httpx.HTTPStatusError,
+                    httpx.TimeoutException,
+                    httpx.ConnectError,
+                    KeyError,
+                    ValueError,
+                    OSError,
+                ) as e:
                     logger.error(
                         f"[{self.name}] Failed to sync messages for {channel.display_name}: {e}"
                     )
@@ -611,7 +639,13 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
                             items_yielded += 1
 
-                    except Exception as e:
+                    except (
+                        httpx.HTTPStatusError,
+                        httpx.TimeoutException,
+                        httpx.ConnectError,
+                        KeyError,
+                        OSError,
+                    ) as e:
                         logger.error(
                             f"[{self.name}] Failed to sync files for {channel.display_name}: {e}"
                         )
@@ -682,7 +716,14 @@ class TeamsEnterpriseConnector(EnterpriseConnector):
 
             return results
 
-        except Exception as e:
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            KeyError,
+            ValueError,
+            OSError,
+        ) as e:
             logger.error(f"[{self.name}] Search failed: {e}")
             return []
 

@@ -419,6 +419,9 @@ aragora doctor
 
 # Export for training
 aragora export --format jsonl > training_data.jsonl
+
+# Build codebase context (RLM-ready)
+aragora context --preview --rlm
 ```
 
 ## Debate Protocol (Stress-Test Engine)

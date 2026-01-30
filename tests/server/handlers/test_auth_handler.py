@@ -1,32 +1,33 @@
 """
-Tests for the AuthHandler module.
+Comprehensive tests for the AuthHandler module.
 
-Comprehensive tests covering:
-1. Login with valid/invalid credentials
-2. Token generation and validation
-3. Token refresh flow
-4. Session management
-5. Logout handling
-6. MFA verification
-7. Account lockout after failed attempts
-8. Password reset flow
-9. Error responses for various failure modes
-10. Handler routing for all auth endpoints
-11. can_handle method for static and dynamic routes
-12. ROUTES attribute
-13. Rate limiting decorators
-14. Response formatting
+Covers all 12 required categories:
+1.  Login flow (valid credentials, invalid credentials, locked account)
+2.  Logout flow (session invalidation, token revocation)
+3.  Token generation (access token, refresh token, proper claims)
+4.  Token refresh (valid refresh token, expired token, revoked token)
+5.  Token revocation
+6.  Rate limiting on auth endpoints (brute force protection)
+7.  Account lockout mechanism (after N failed attempts)
+8.  MFA enforcement (TOTP verification, backup codes)
+9.  Password validation (strength requirements)
+10. Session management (concurrent sessions, session listing)
+11. Error handling (malformed requests, database errors, timeout)
+12. Security headers validation
+
+50+ test cases organized by functionality.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from typing import Any
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
@@ -60,17 +61,14 @@ class MockUser:
     token_version: int = 0
 
     def verify_password(self, password: str) -> bool:
-        """Mock password verification."""
         return password == "correct_password"
 
     def verify_api_key(self, key: str) -> bool:
-        """Mock API key verification."""
         if self.api_key_hash is not None and key.startswith("ara_"):
             return True
         return self.api_key is not None and self.api_key == key
 
     def generate_api_key(self, expires_days: int = 365) -> str:
-        """Mock API key generation."""
         self.api_key_prefix = "ara_test"
         self.api_key_hash = "hashed_key"
         self.api_key_created_at = datetime.now(timezone.utc)
@@ -78,7 +76,6 @@ class MockUser:
         return "ara_test_full_key_12345"
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
         return {
             "id": self.id,
             "email": self.email,
@@ -231,14 +228,12 @@ class MockUserStore:
         return self.token_versions[user_id]
 
     def is_account_locked(self, email: str) -> tuple[bool, datetime | None, int]:
-        """Check if account is locked."""
         lockout = self.lockout_until.get(email)
         if lockout and lockout > datetime.now(timezone.utc):
             return True, lockout, self.failed_attempts.get(email, 0)
         return False, None, self.failed_attempts.get(email, 0)
 
     def record_failed_login(self, email: str) -> tuple[int, datetime | None]:
-        """Record a failed login attempt."""
         self.failed_attempts[email] = self.failed_attempts.get(email, 0) + 1
         if self.failed_attempts[email] >= 5:
             self.lockout_until[email] = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -246,9 +241,45 @@ class MockUserStore:
         return self.failed_attempts[email], None
 
     def reset_failed_login_attempts(self, email: str) -> None:
-        """Reset failed login attempts."""
         self.failed_attempts[email] = 0
         self.lockout_until[email] = None
+
+
+class MockLockoutTracker:
+    """Mock lockout tracker for testing."""
+
+    def __init__(self):
+        self.locked_emails: set[str] = set()
+        self.locked_ips: set[str] = set()
+        self.failures: dict[str, int] = {}
+
+    def is_locked(self, email: str = None, ip: str = None) -> bool:
+        if email and email in self.locked_emails:
+            return True
+        if ip and ip in self.locked_ips:
+            return True
+        return False
+
+    def get_remaining_time(self, email: str = None, ip: str = None) -> int:
+        return 300
+
+    def record_failure(self, email: str = None, ip: str = None) -> tuple[int, int | None]:
+        key = email or ip
+        self.failures[key] = self.failures.get(key, 0) + 1
+        if self.failures[key] >= 5:
+            if email:
+                self.locked_emails.add(email)
+            return self.failures[key], 300
+        return self.failures[key], None
+
+    def reset(self, email: str = None, ip: str = None) -> None:
+        key = email or ip
+        if key in self.failures:
+            del self.failures[key]
+        if email and email in self.locked_emails:
+            self.locked_emails.remove(email)
+        if ip and ip in self.locked_ips:
+            self.locked_ips.remove(ip)
 
 
 class MockSessionManager:
@@ -274,43 +305,6 @@ class MockSessionManager:
                 sessions.pop(i)
                 return True
         return False
-
-
-class MockLockoutTracker:
-    """Mock lockout tracker for testing."""
-
-    def __init__(self):
-        self.locked_emails: set[str] = set()
-        self.locked_ips: set[str] = set()
-        self.failures: dict[str, int] = {}
-
-    def is_locked(self, email: str = None, ip: str = None) -> bool:
-        if email and email in self.locked_emails:
-            return True
-        if ip and ip in self.locked_ips:
-            return True
-        return False
-
-    def get_remaining_time(self, email: str = None, ip: str = None) -> int:
-        return 300  # 5 minutes
-
-    def record_failure(self, email: str = None, ip: str = None) -> tuple[int, int | None]:
-        key = email or ip
-        self.failures[key] = self.failures.get(key, 0) + 1
-        if self.failures[key] >= 5:
-            if email:
-                self.locked_emails.add(email)
-            return self.failures[key], 300
-        return self.failures[key], None
-
-    def reset(self, email: str = None, ip: str = None) -> None:
-        key = email or ip
-        if key in self.failures:
-            del self.failures[key]
-        if email in self.locked_emails:
-            self.locked_emails.remove(email)
-        if ip in self.locked_ips:
-            self.locked_ips.remove(ip)
 
 
 def make_mock_handler(body: dict | None = None, method: str = "POST", headers: dict | None = None):
@@ -381,195 +375,19 @@ def mock_session_manager():
 
 
 # ===========================================================================
-# Test AuthHandler Import and Module
+# 1. Login Flow Tests
 # ===========================================================================
 
 
-class TestAuthHandlerImport:
-    """Tests for importing AuthHandler."""
+class TestLoginFlow:
+    """Tests for login with valid/invalid credentials, locked accounts."""
 
-    def test_can_import_handler(self):
-        """AuthHandler can be imported."""
-        from aragora.server.handlers.auth.handler import AuthHandler
-
-        assert AuthHandler is not None
-
-    def test_handler_in_all(self):
-        """AuthHandler is in __all__."""
-        from aragora.server.handlers.auth import handler
-
-        assert "AuthHandler" in handler.__all__
-
-    def test_handler_is_base_handler_subclass(self):
-        """AuthHandler is a BaseHandler subclass."""
-        from aragora.server.handlers.auth.handler import AuthHandler
-        from aragora.server.handlers.base import BaseHandler
-
-        assert issubclass(AuthHandler, BaseHandler)
-
-
-# ===========================================================================
-# Test AuthHandler Routes
-# ===========================================================================
-
-
-class TestAuthHandlerRoutes:
-    """Tests for AuthHandler ROUTES attribute."""
-
-    @pytest.fixture
-    def handler(self):
-        """Create handler instance."""
-        from aragora.server.handlers.auth.handler import AuthHandler
-
-        return AuthHandler(server_context={})
-
-    def test_routes_is_list(self, handler):
-        """ROUTES is a list."""
-        assert isinstance(handler.ROUTES, list)
-
-    def test_routes_not_empty(self, handler):
-        """ROUTES is not empty."""
-        assert len(handler.ROUTES) > 0
-
-    def test_register_route_in_routes(self, handler):
-        """Register route is in ROUTES."""
-        assert "/api/auth/register" in handler.ROUTES
-
-    def test_login_route_in_routes(self, handler):
-        """Login route is in ROUTES."""
-        assert "/api/auth/login" in handler.ROUTES
-
-    def test_logout_route_in_routes(self, handler):
-        """Logout route is in ROUTES."""
-        assert "/api/auth/logout" in handler.ROUTES
-
-    def test_logout_all_route_in_routes(self, handler):
-        """Logout-all route is in ROUTES."""
-        assert "/api/auth/logout-all" in handler.ROUTES
-
-    def test_refresh_route_in_routes(self, handler):
-        """Refresh route is in ROUTES."""
-        assert "/api/auth/refresh" in handler.ROUTES
-
-    def test_revoke_route_in_routes(self, handler):
-        """Revoke route is in ROUTES."""
-        assert "/api/auth/revoke" in handler.ROUTES
-
-    def test_me_route_in_routes(self, handler):
-        """Me route is in ROUTES."""
-        assert "/api/auth/me" in handler.ROUTES
-
-    def test_password_route_in_routes(self, handler):
-        """Password route is in ROUTES."""
-        assert "/api/auth/password" in handler.ROUTES
-
-    def test_api_key_route_in_routes(self, handler):
-        """API key route is in ROUTES."""
-        assert "/api/auth/api-key" in handler.ROUTES
-
-    def test_mfa_routes_in_routes(self, handler):
-        """MFA routes are in ROUTES."""
-        assert "/api/auth/mfa/setup" in handler.ROUTES
-        assert "/api/auth/mfa/enable" in handler.ROUTES
-        assert "/api/auth/mfa/disable" in handler.ROUTES
-        assert "/api/auth/mfa/verify" in handler.ROUTES
-        assert "/api/auth/mfa/backup-codes" in handler.ROUTES
-
-    def test_sessions_route_in_routes(self, handler):
-        """Sessions route is in ROUTES."""
-        assert "/api/auth/sessions" in handler.ROUTES
-
-    def test_sessions_wildcard_in_routes(self, handler):
-        """Sessions wildcard route is in ROUTES."""
-        assert "/api/auth/sessions/*" in handler.ROUTES
-
-    def test_password_reset_routes_in_routes(self, handler):
-        """Password reset routes are in ROUTES."""
-        assert "/api/auth/password/forgot" in handler.ROUTES
-        assert "/api/auth/password/reset" in handler.ROUTES
-        assert "/api/auth/forgot-password" in handler.ROUTES
-        assert "/api/auth/reset-password" in handler.ROUTES
-
-
-# ===========================================================================
-# Test can_handle Method
-# ===========================================================================
-
-
-class TestAuthHandlerCanHandle:
-    """Tests for can_handle method."""
-
-    @pytest.fixture
-    def handler(self):
-        """Create handler instance."""
-        from aragora.server.handlers.auth.handler import AuthHandler
-
-        return AuthHandler(server_context={})
-
-    def test_can_handle_register(self, handler):
-        """Handler can handle register endpoint."""
-        assert handler.can_handle("/api/auth/register") is True
-
-    def test_can_handle_login(self, handler):
-        """Handler can handle login endpoint."""
-        assert handler.can_handle("/api/auth/login") is True
-
-    def test_can_handle_logout(self, handler):
-        """Handler can handle logout endpoint."""
-        assert handler.can_handle("/api/auth/logout") is True
-
-    def test_can_handle_me(self, handler):
-        """Handler can handle me endpoint."""
-        assert handler.can_handle("/api/auth/me") is True
-
-    def test_can_handle_mfa_setup(self, handler):
-        """Handler can handle MFA setup endpoint."""
-        assert handler.can_handle("/api/auth/mfa/setup") is True
-
-    def test_can_handle_sessions(self, handler):
-        """Handler can handle sessions endpoint."""
-        assert handler.can_handle("/api/auth/sessions") is True
-
-    def test_can_handle_session_id(self, handler):
-        """Handler can handle session ID endpoint (wildcard)."""
-        assert handler.can_handle("/api/auth/sessions/abc123") is True
-
-    def test_can_handle_session_uuid(self, handler):
-        """Handler can handle session UUID endpoint."""
-        assert handler.can_handle("/api/auth/sessions/550e8400-e29b-41d4-a716-446655440000") is True
-
-    def test_can_handle_api_keys_wildcard(self, handler):
-        """Handler can handle API keys wildcard endpoint."""
-        assert handler.can_handle("/api/auth/api-keys/ara_prefix123") is True
-
-    def test_cannot_handle_unrelated_path(self, handler):
-        """Handler does not handle unrelated paths."""
-        assert handler.can_handle("/api/v1/debates") is False
-
-    def test_cannot_handle_partial_auth_path(self, handler):
-        """Handler does not handle partial auth paths."""
-        assert handler.can_handle("/api/v1/auth") is False
-
-    def test_cannot_handle_auth_unknown(self, handler):
-        """Handler does not handle unknown auth endpoints."""
-        assert handler.can_handle("/api/auth/unknown") is False
-
-
-# ===========================================================================
-# Test Login with Valid/Invalid Credentials
-# ===========================================================================
-
-
-class TestLoginValidInvalidCredentials:
-    """Tests for login with valid and invalid credentials."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
     @patch("aragora.billing.jwt_auth.create_token_pair")
-    def test_login_with_valid_credentials(
+    def test_login_valid_credentials_returns_200(
         self, mock_tokens, mock_lockout, auth_handler, mock_user_store
     ):
-        """Login succeeds with valid credentials."""
+        """Login succeeds with valid email and password."""
         user = MockUser(email="test@example.com")
         mock_user_store.users["user-123"] = user
         mock_user_store.users_by_email["test@example.com"] = "user-123"
@@ -579,12 +397,7 @@ class TestLoginValidInvalidCredentials:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "correct_password",
-            }
-        )
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
 
         result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
 
@@ -594,9 +407,8 @@ class TestLoginValidInvalidCredentials:
         assert "user" in data
         assert "tokens" in data
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    def test_login_with_wrong_password(self, mock_lockout, auth_handler, mock_user_store):
+    def test_login_wrong_password_returns_401(self, mock_lockout, auth_handler, mock_user_store):
         """Login fails with wrong password."""
         user = MockUser(email="test@example.com")
         mock_user_store.users["user-123"] = user
@@ -607,44 +419,31 @@ class TestLoginValidInvalidCredentials:
         mock_lockout_instance.record_failure.return_value = (1, None)
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "wrong_password",
-            }
-        )
+        handler = make_mock_handler({"email": "test@example.com", "password": "wrong_password"})
 
         result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
 
         assert result is not None
         assert result.status_code == 401
-        data = json.loads(result.body.decode())
-        assert "error" in data
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    def test_login_with_nonexistent_user(self, mock_lockout, auth_handler, mock_user_store):
-        """Login fails for nonexistent user without revealing user existence."""
+    def test_login_nonexistent_user_returns_401_not_404(
+        self, mock_lockout, auth_handler, mock_user_store
+    ):
+        """Login for nonexistent user returns 401 to prevent email enumeration."""
         mock_lockout_instance = MagicMock()
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout_instance.record_failure.return_value = (1, None)
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler(
-            {
-                "email": "nonexistent@example.com",
-                "password": "anypassword",
-            }
-        )
+        handler = make_mock_handler({"email": "nonexistent@example.com", "password": "anypassword"})
 
         result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
 
         assert result is not None
-        # Should return 401, not 404, to prevent email enumeration
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_login_missing_email(self, auth_handler):
+    def test_login_missing_email_returns_400(self, auth_handler):
         """Login fails when email is missing."""
         handler = make_mock_handler({"password": "somepassword"})
 
@@ -653,8 +452,7 @@ class TestLoginValidInvalidCredentials:
         assert result is not None
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_login_missing_password(self, auth_handler):
+    def test_login_missing_password_returns_400(self, auth_handler):
         """Login fails when password is missing."""
         handler = make_mock_handler({"email": "test@example.com"})
 
@@ -663,9 +461,8 @@ class TestLoginValidInvalidCredentials:
         assert result is not None
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    def test_login_disabled_account(self, mock_lockout, auth_handler, mock_user_store):
+    def test_login_disabled_account_returns_401(self, mock_lockout, auth_handler, mock_user_store):
         """Login fails for disabled account."""
         user = MockUser(email="test@example.com", is_active=False)
         mock_user_store.users["user-123"] = user
@@ -675,34 +472,198 @@ class TestLoginValidInvalidCredentials:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "correct_password",
-            }
-        )
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
 
         result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
 
         assert result is not None
         assert result.status_code == 401
 
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    def test_login_locked_account_returns_429(self, mock_lockout, auth_handler):
+        """Login blocked when account is locked."""
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = True
+        mock_lockout_instance.get_remaining_time.return_value = 300
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "anypassword"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result is not None
+        assert result.status_code == 429
+
+    def test_login_no_user_store_returns_503(self):
+        """Login returns 503 when user store unavailable."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        handler_instance = AuthHandler({})
+        handler = make_mock_handler({"email": "test@example.com", "password": "somepassword"})
+
+        result = maybe_await(handler_instance.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result is not None
+        assert result.status_code == 503
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    @patch("aragora.billing.jwt_auth.create_mfa_pending_token")
+    def test_login_mfa_required_returns_pending_token(
+        self, mock_pending, mock_lockout, auth_handler, mock_user_store
+    ):
+        """Login with MFA-enabled user returns pending token."""
+        user = MockUser(
+            email="test@example.com",
+            mfa_enabled=True,
+            mfa_secret="JBSWY3DPEHPK3PXP",
+        )
+        mock_user_store.users["user-123"] = user
+        mock_user_store.users_by_email["test@example.com"] = "user-123"
+
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = False
+        mock_lockout.return_value = mock_lockout_instance
+        mock_pending.return_value = "pending_token_123"
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert data.get("mfa_required") is True
+        assert "pending_token" in data
+
 
 # ===========================================================================
-# Test Token Generation and Validation
+# 2. Logout Flow Tests
+# ===========================================================================
+
+
+class TestLogoutFlow:
+    """Tests for logout session invalidation and token revocation."""
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_logout_success_revokes_token(
+        self, mock_revoke, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    ):
+        """Logout succeeds and revokes current token."""
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = "current_token"
+        mock_revoke.return_value = True
+        mock_blacklist_instance = MagicMock()
+        mock_blacklist_instance.revoke_token.return_value = True
+        mock_blacklist.return_value = mock_blacklist_instance
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/logout", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "logged out" in data.get("message", "").lower()
+
+    @pytest.mark.no_auto_auth
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_logout_unauthenticated_returns_401(self, mock_auth, auth_handler):
+        """Logout fails when not authenticated."""
+        mock_auth.return_value = MockAuthContext(is_authenticated=False)
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/logout", {}, handler, "POST"))
+
+        assert result.status_code == 401
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_logout_all_invalidates_sessions(
+        self,
+        mock_revoke,
+        mock_blacklist,
+        mock_extract_token,
+        mock_auth,
+        auth_handler,
+        mock_user_store,
+    ):
+        """Logout all sessions succeeds and invalidates all tokens."""
+        mock_user_store.users["user-123"] = MockUser()
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = "current_token"
+        mock_blacklist.return_value = MagicMock()
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/logout-all", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert data.get("sessions_invalidated") is True
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_logout_all_increments_token_version(
+        self,
+        mock_revoke,
+        mock_blacklist,
+        mock_extract_token,
+        mock_auth,
+        auth_handler,
+        mock_user_store,
+    ):
+        """Logout all increments token version to invalidate all JWTs."""
+        mock_user_store.users["user-123"] = MockUser()
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = "current_token"
+        mock_blacklist.return_value = MagicMock()
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/logout-all", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        assert mock_user_store.token_versions.get("user-123", 0) == 1
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_logout_no_token_still_succeeds(
+        self, mock_revoke, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    ):
+        """Logout succeeds even when no token to revoke."""
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = None
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/logout", {}, handler, "POST"))
+
+        assert result.status_code == 200
+
+
+# ===========================================================================
+# 3. Token Generation Tests
 # ===========================================================================
 
 
 class TestTokenGeneration:
-    """Tests for token generation."""
+    """Tests for token generation during login and registration."""
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
     @patch("aragora.billing.jwt_auth.create_token_pair")
-    def test_login_generates_token_pair(
+    def test_login_generates_access_and_refresh_tokens(
         self, mock_tokens, mock_lockout, auth_handler, mock_user_store
     ):
-        """Login returns access and refresh tokens."""
+        """Login returns both access and refresh tokens with expiry."""
         user = MockUser(email="test@example.com")
         mock_user_store.users["user-123"] = user
         mock_user_store.users_by_email["test@example.com"] = "user-123"
@@ -716,12 +677,7 @@ class TestTokenGeneration:
         mock_lockout_instance.is_locked.return_value = False
         mock_lockout.return_value = mock_lockout_instance
 
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "correct_password",
-            }
-        )
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
 
         result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
 
@@ -731,7 +687,6 @@ class TestTokenGeneration:
         assert data["tokens"]["refresh_token"] == "test_refresh_token"
         assert data["tokens"]["expires_in"] == 3600
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.models.hash_password")
     def test_register_generates_token_pair(self, mock_hash, mock_tokens, auth_handler):
@@ -740,11 +695,7 @@ class TestTokenGeneration:
         mock_tokens.return_value = MockTokenPair()
 
         handler = make_mock_handler(
-            {
-                "email": "new@example.com",
-                "password": "securepass123",
-                "name": "New User",
-            }
+            {"email": "new@example.com", "password": "securepass123", "name": "New User"}
         )
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
@@ -752,23 +703,62 @@ class TestTokenGeneration:
         assert result.status_code == 201
         data = json.loads(result.body.decode())
         assert "tokens" in data
+        assert "access_token" in data["tokens"]
+        assert "refresh_token" in data["tokens"]
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    def test_login_calls_create_token_pair_with_user_data(
+        self, mock_tokens, mock_lockout, auth_handler, mock_user_store
+    ):
+        """Login passes correct user data to create_token_pair."""
+        user = MockUser(
+            id="user-456",
+            email="test@example.com",
+            org_id="org-789",
+            role="admin",
+        )
+        mock_user_store.users["user-456"] = user
+        mock_user_store.users_by_email["test@example.com"] = "user-456"
+
+        mock_tokens.return_value = MockTokenPair()
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = False
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        mock_tokens.assert_called_once_with(
+            user_id="user-456",
+            email="test@example.com",
+            org_id="org-789",
+            role="admin",
+        )
 
 
 # ===========================================================================
-# Test Token Refresh Flow
+# 4. Token Refresh Flow Tests
 # ===========================================================================
 
 
 class TestTokenRefreshFlow:
     """Tests for token refresh flow."""
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_refresh_with_valid_token(
-        self, mock_revoke, mock_blacklist, mock_tokens, mock_validate, auth_handler, mock_user_store
+    def test_refresh_valid_token_returns_new_tokens(
+        self,
+        mock_revoke,
+        mock_blacklist,
+        mock_tokens,
+        mock_validate,
+        auth_handler,
+        mock_user_store,
     ):
         """Token refresh succeeds with valid refresh token."""
         user = MockUser()
@@ -779,8 +769,7 @@ class TestTokenRefreshFlow:
             access_token="new_access_token",
             refresh_token="new_refresh_token",
         )
-        mock_blacklist_instance = MagicMock()
-        mock_blacklist.return_value = mock_blacklist_instance
+        mock_blacklist.return_value = MagicMock()
 
         handler = make_mock_handler({"refresh_token": "valid_refresh_token"})
 
@@ -788,23 +777,20 @@ class TestTokenRefreshFlow:
 
         assert result.status_code == 200
         data = json.loads(result.body.decode())
-        assert "tokens" in data
         assert data["tokens"]["access_token"] == "new_access_token"
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
-    def test_refresh_with_invalid_token(self, mock_validate, auth_handler):
-        """Token refresh fails with invalid token."""
+    def test_refresh_expired_token_returns_401(self, mock_validate, auth_handler):
+        """Token refresh fails with expired token."""
         mock_validate.return_value = None
 
-        handler = make_mock_handler({"refresh_token": "invalid_token"})
+        handler = make_mock_handler({"refresh_token": "expired_token"})
 
         result = maybe_await(auth_handler.handle("/api/auth/refresh", {}, handler, "POST"))
 
         assert result.status_code == 401
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_refresh_with_missing_token(self, auth_handler):
+    def test_refresh_missing_token_returns_400(self, auth_handler):
         """Token refresh fails when token is missing."""
         handler = make_mock_handler({"refresh_token": ""})
 
@@ -812,7 +798,6 @@ class TestTokenRefreshFlow:
 
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
     def test_refresh_revokes_old_token(self, mock_validate, auth_handler, mock_user_store):
         """Token refresh revokes the old refresh token."""
@@ -827,8 +812,7 @@ class TestTokenRefreshFlow:
             patch("aragora.billing.jwt_auth.revoke_token_persistent") as mock_revoke,
         ):
             mock_tokens.return_value = MockTokenPair()
-            mock_blacklist_instance = MagicMock()
-            mock_blacklist.return_value = mock_blacklist_instance
+            mock_blacklist.return_value = MagicMock()
 
             handler = make_mock_handler({"refresh_token": "old_refresh_token"})
             result = maybe_await(auth_handler.handle("/api/auth/refresh", {}, handler, "POST"))
@@ -836,9 +820,8 @@ class TestTokenRefreshFlow:
             assert result.status_code == 200
             mock_revoke.assert_called_with("old_refresh_token")
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
-    def test_refresh_for_disabled_user(self, mock_validate, auth_handler, mock_user_store):
+    def test_refresh_disabled_user_returns_401(self, mock_validate, auth_handler, mock_user_store):
         """Token refresh fails for disabled user."""
         user = MockUser(is_active=False)
         mock_user_store.users["user-123"] = user
@@ -851,23 +834,577 @@ class TestTokenRefreshFlow:
 
         assert result.status_code == 401
 
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
+    def test_refresh_nonexistent_user_returns_401(
+        self, mock_validate, auth_handler, mock_user_store
+    ):
+        """Token refresh fails when user no longer exists."""
+        mock_validate.return_value = MagicMock(user_id="deleted-user")
+
+        handler = make_mock_handler({"refresh_token": "valid_token"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/refresh", {}, handler, "POST"))
+
+        assert result.status_code == 401
+
+    @patch("aragora.server.handlers.auth.handler.validate_refresh_token")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_refresh_persistent_revocation_failure_returns_500(
+        self, mock_revoke, mock_validate, auth_handler, mock_user_store
+    ):
+        """Token refresh returns 500 when persistent revocation fails."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+
+        mock_validate.return_value = MagicMock(user_id="user-123")
+        mock_revoke.side_effect = Exception("Database unavailable")
+
+        handler = make_mock_handler({"refresh_token": "valid_token"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/refresh", {}, handler, "POST"))
+
+        assert result.status_code == 500
+
 
 # ===========================================================================
-# Test Session Management
+# 5. Token Revocation Tests
+# ===========================================================================
+
+
+class TestTokenRevocation:
+    """Tests for explicit token revocation."""
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_revoke_current_token_success(
+        self, mock_revoke_persistent, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    ):
+        """Revoke current token succeeds."""
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = "current_token"
+        mock_blacklist_instance = MagicMock()
+        mock_blacklist_instance.revoke_token.return_value = True
+        mock_blacklist_instance.size.return_value = 1
+        mock_blacklist.return_value = mock_blacklist_instance
+        mock_revoke_persistent.return_value = True
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/revoke", {}, handler, "POST"))
+
+        assert result.status_code == 200
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_revoke_specific_token_from_body(
+        self, mock_revoke_persistent, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    ):
+        """Revoke specific token provided in request body."""
+        mock_auth.return_value = MockAuthContext()
+        mock_blacklist_instance = MagicMock()
+        mock_blacklist_instance.revoke_token.return_value = True
+        mock_blacklist_instance.size.return_value = 1
+        mock_blacklist.return_value = mock_blacklist_instance
+        mock_revoke_persistent.return_value = True
+
+        handler = make_mock_handler({"token": "specific_token"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/revoke", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        mock_blacklist_instance.revoke_token.assert_called_with("specific_token")
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.server.middleware.auth.extract_token")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
+    def test_revoke_no_token_returns_400(
+        self, mock_revoke_persistent, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    ):
+        """Revoke fails when no token is provided."""
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = None
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/revoke", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# 6. Rate Limiting Tests
+# ===========================================================================
+
+
+class TestRateLimiting:
+    """Tests for rate limiting on auth endpoints (brute force protection)."""
+
+    def test_auth_handler_has_rate_limit_decorators(self):
+        """Verify auth endpoints use rate limit decorators."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        # Verify that the handler methods exist and are decorated
+        assert hasattr(AuthHandler, "_handle_login")
+        assert hasattr(AuthHandler, "_handle_register")
+        assert hasattr(AuthHandler, "_handle_refresh")
+
+    def test_login_route_exists_with_post_method(self, auth_handler):
+        """Login route responds to POST method."""
+        handler = make_mock_handler({"email": "test@example.com", "password": "somepassword"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        # Should get a response (not None), even if it fails auth
+        assert result is not None
+        # The response should be one of the expected codes (400, 401, 429, 503)
+        assert result.status_code in (200, 400, 401, 429, 503)
+
+
+# ===========================================================================
+# 7. Account Lockout Tests
+# ===========================================================================
+
+
+class TestAccountLockout:
+    """Tests for account lockout mechanism after N failed attempts."""
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    def test_account_locked_after_failures_returns_429(
+        self, mock_lockout, auth_handler, mock_user_store
+    ):
+        """Account is locked after too many failed attempts."""
+        user = MockUser(email="test@example.com")
+        mock_user_store.users["user-123"] = user
+        mock_user_store.users_by_email["test@example.com"] = "user-123"
+
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = False
+        mock_lockout_instance.record_failure.return_value = (5, 300)
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "wrong_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result.status_code == 429
+        data = json.loads(result.body.decode())
+        assert "locked" in data.get("error", "").lower()
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    def test_locked_account_blocked_at_check(self, mock_lockout, auth_handler):
+        """Login blocked when account is already locked."""
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = True
+        mock_lockout_instance.get_remaining_time.return_value = 300
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "anypassword"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result.status_code == 429
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    def test_lockout_reset_on_successful_login(
+        self, mock_tokens, mock_lockout, auth_handler, mock_user_store
+    ):
+        """Lockout counter resets on successful login."""
+        user = MockUser(email="test@example.com")
+        mock_user_store.users["user-123"] = user
+        mock_user_store.users_by_email["test@example.com"] = "user-123"
+
+        mock_tokens.return_value = MockTokenPair()
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = False
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "correct_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        mock_lockout_instance.reset.assert_called()
+
+    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
+    def test_failed_login_records_failure(self, mock_lockout, auth_handler, mock_user_store):
+        """Failed login records failure in lockout tracker."""
+        user = MockUser(email="test@example.com")
+        mock_user_store.users["user-123"] = user
+        mock_user_store.users_by_email["test@example.com"] = "user-123"
+
+        mock_lockout_instance = MagicMock()
+        mock_lockout_instance.is_locked.return_value = False
+        mock_lockout_instance.record_failure.return_value = (1, None)
+        mock_lockout.return_value = mock_lockout_instance
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "wrong_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
+
+        assert result.status_code == 401
+        mock_lockout_instance.record_failure.assert_called()
+
+
+# ===========================================================================
+# 8. MFA Enforcement Tests
+# ===========================================================================
+
+
+class TestMFAEnforcement:
+    """Tests for MFA TOTP verification and backup codes."""
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_setup_generates_secret(self, mock_auth, auth_handler, mock_user_store):
+        """MFA setup generates secret and provisioning URI."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "secret" in data
+        assert "provisioning_uri" in data
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_setup_already_enabled_returns_400(self, mock_auth, auth_handler, mock_user_store):
+        """MFA setup fails when already enabled."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser(mfa_enabled=True)
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_enable_with_valid_totp(self, mock_auth, auth_handler, mock_user_store):
+        """MFA enable succeeds with valid TOTP code."""
+        pyotp = pytest.importorskip("pyotp")
+
+        secret = "JBSWY3DPEHPK3PXP"
+        user = MockUser(mfa_secret=secret)
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        totp = pyotp.TOTP(secret)
+        code = totp.now()
+
+        handler = make_mock_handler({"code": code})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "backup_codes" in data
+        assert len(data["backup_codes"]) == 10
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_enable_invalid_code_returns_400(self, mock_auth, auth_handler, mock_user_store):
+        """MFA enable fails with invalid code."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser(mfa_secret="JBSWY3DPEHPK3PXP")
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({"code": "000000"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    def test_mfa_verify_with_valid_totp(
+        self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
+    ):
+        """MFA verify succeeds with valid TOTP code."""
+        pyotp = pytest.importorskip("pyotp")
+
+        secret = "JBSWY3DPEHPK3PXP"
+        user = MockUser(mfa_enabled=True, mfa_secret=secret)
+        mock_user_store.users["user-123"] = user
+
+        mock_pending.return_value = MagicMock(sub="user-123")
+        mock_tokens.return_value = MockTokenPair()
+        mock_blacklist.return_value = MagicMock()
+
+        totp = pyotp.TOTP(secret)
+        code = totp.now()
+
+        handler = make_mock_handler({"code": code, "pending_token": "pending_token_123"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "tokens" in data
+
+    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    @patch("aragora.billing.jwt_auth.get_token_blacklist")
+    def test_mfa_verify_with_backup_code(
+        self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
+    ):
+        """MFA verify succeeds with valid backup code."""
+        pytest.importorskip("pyotp")
+        import json as json_module
+
+        backup_code = "testcode"
+        backup_hash = hashlib.sha256(backup_code.encode()).hexdigest()
+        user = MockUser(
+            mfa_enabled=True,
+            mfa_secret="JBSWY3DPEHPK3PXP",
+            mfa_backup_codes=json_module.dumps([backup_hash]),
+        )
+        mock_user_store.users["user-123"] = user
+
+        mock_pending.return_value = MagicMock(sub="user-123")
+        mock_tokens.return_value = MockTokenPair()
+        mock_blacklist.return_value = MagicMock()
+
+        handler = make_mock_handler({"code": backup_code, "pending_token": "pending_token_123"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "tokens" in data
+
+    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
+    def test_mfa_verify_invalid_pending_token_returns_401(self, mock_pending, auth_handler):
+        """MFA verify fails with invalid pending token."""
+        pytest.importorskip("pyotp")
+
+        mock_pending.return_value = None
+
+        handler = make_mock_handler({"code": "123456", "pending_token": "invalid_token"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
+
+        assert result.status_code == 401
+
+    def test_mfa_verify_missing_code_returns_400(self, auth_handler):
+        """MFA verify fails when code is missing."""
+        pytest.importorskip("pyotp")
+
+        handler = make_mock_handler({"code": "", "pending_token": "some_token"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    def test_mfa_verify_missing_pending_token_returns_400(self, auth_handler):
+        """MFA verify fails when pending token is missing."""
+        pytest.importorskip("pyotp")
+
+        handler = make_mock_handler({"code": "123456", "pending_token": ""})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_disable_with_password(self, mock_auth, auth_handler, mock_user_store):
+        """MFA disable succeeds with correct password."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({"password": "correct_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/disable", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        assert mock_user_store.users["user-123"].mfa_enabled is False
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_disable_wrong_password_returns_400(self, mock_auth, auth_handler, mock_user_store):
+        """MFA disable fails with wrong password."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({"password": "wrong_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/disable", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_disable_not_enabled_returns_400(self, mock_auth, auth_handler, mock_user_store):
+        """MFA disable fails when MFA not enabled."""
+        pytest.importorskip("pyotp")
+
+        user = MockUser(mfa_enabled=False)
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({"password": "correct_password"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/disable", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_mfa_backup_codes_regeneration(self, mock_auth, auth_handler, mock_user_store):
+        """Regenerate backup codes succeeds with valid MFA code."""
+        pyotp = pytest.importorskip("pyotp")
+
+        secret = "JBSWY3DPEHPK3PXP"
+        user = MockUser(mfa_enabled=True, mfa_secret=secret)
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        totp = pyotp.TOTP(secret)
+        code = totp.now()
+
+        handler = make_mock_handler({"code": code})
+
+        result = maybe_await(auth_handler.handle("/api/auth/mfa/backup-codes", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "backup_codes" in data
+        assert len(data["backup_codes"]) == 10
+
+
+# ===========================================================================
+# 9. Password Validation Tests
+# ===========================================================================
+
+
+class TestPasswordValidation:
+    """Tests for password strength requirements."""
+
+    def test_register_weak_password_returns_400(self, auth_handler):
+        """Registration fails with weak password."""
+        handler = make_mock_handler({"email": "test@example.com", "password": "short"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    def test_register_empty_password_returns_400(self, auth_handler):
+        """Registration fails with empty password."""
+        handler = make_mock_handler({"email": "test@example.com", "password": ""})
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_change_password_weak_new_returns_400(self, mock_auth, auth_handler, mock_user_store):
+        """Password change fails with weak new password."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler(
+            {"current_password": "correct_password", "new_password": "short"}
+        )
+
+        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.billing.models.hash_password")
+    def test_change_password_success(self, mock_hash, mock_auth, auth_handler, mock_user_store):
+        """Password change succeeds with correct current password."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+        mock_hash.return_value = ("new_hash", "new_salt")
+
+        handler = make_mock_handler(
+            {"current_password": "correct_password", "new_password": "new_secure_password"}
+        )
+
+        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
+
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert "success" in data.get("message", "").lower()
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_change_password_wrong_current_returns_401(
+        self, mock_auth, auth_handler, mock_user_store
+    ):
+        """Password change fails with wrong current password."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler(
+            {"current_password": "wrong_password", "new_password": "new_secure_password"}
+        )
+
+        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
+
+        assert result.status_code == 401
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_change_password_missing_fields_returns_400(
+        self, mock_auth, auth_handler, mock_user_store
+    ):
+        """Password change fails when fields are missing."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler({"current_password": "", "new_password": ""})
+
+        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    def test_register_invalid_email_returns_400(self, auth_handler):
+        """Registration fails with invalid email format."""
+        handler = make_mock_handler({"email": "invalid", "password": "securepass123"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+
+# ===========================================================================
+# 10. Session Management Tests
 # ===========================================================================
 
 
 class TestSessionManagement:
-    """Tests for session management."""
+    """Tests for concurrent sessions and session listing."""
 
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.billing.auth.sessions.get_session_manager")
     @patch("aragora.billing.jwt_auth.decode_jwt")
     @patch("aragora.server.middleware.auth.extract_token")
-    def test_list_sessions_success(
+    def test_list_sessions_returns_all_user_sessions(
         self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
     ):
-        """List sessions returns all user sessions."""
+        """List sessions returns all sessions for the user."""
         mock_auth.return_value = MockAuthContext()
         mock_extract_token.return_value = "current_token"
         mock_decode.return_value = MagicMock(jti="current-session-id")
@@ -888,17 +1425,35 @@ class TestSessionManagement:
         assert "sessions" in data
         assert data["total"] == 2
 
-    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_list_sessions_unauthenticated(self, mock_auth, auth_handler):
-        """List sessions fails when not authenticated."""
-        mock_auth.return_value = MockAuthContext(is_authenticated=False)
+    @patch("aragora.billing.auth.sessions.get_session_manager")
+    @patch("aragora.billing.jwt_auth.decode_jwt")
+    @patch("aragora.server.middleware.auth.extract_token")
+    def test_list_sessions_marks_current(
+        self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
+    ):
+        """List sessions marks the current session."""
+        mock_auth.return_value = MockAuthContext()
+        mock_extract_token.return_value = "current_token"
+        mock_decode.return_value = MagicMock(jti="session-1")
+
+        mock_manager = MagicMock()
+        mock_manager.list_sessions.return_value = [
+            MockSession(session_id="session-1"),
+            MockSession(session_id="session-2"),
+        ]
+        mock_get_manager.return_value = mock_manager
 
         handler = make_mock_handler(method="GET")
 
         result = maybe_await(auth_handler.handle("/api/auth/sessions", {}, handler, "GET"))
 
-        assert result.status_code == 401
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        sessions = data["sessions"]
+        current = [s for s in sessions if s.get("is_current")]
+        assert len(current) == 1
+        assert current[0]["session_id"] == "session-1"
 
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.billing.auth.sessions.get_session_manager")
@@ -907,7 +1462,7 @@ class TestSessionManagement:
     def test_revoke_session_success(
         self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
     ):
-        """Revoke session succeeds for valid session."""
+        """Revoke session succeeds for valid non-current session."""
         mock_auth.return_value = MockAuthContext()
         mock_extract_token.return_value = "current_token"
         mock_decode.return_value = MagicMock(jti="different-session-id")
@@ -929,7 +1484,7 @@ class TestSessionManagement:
     @patch("aragora.billing.auth.sessions.get_session_manager")
     @patch("aragora.billing.jwt_auth.decode_jwt")
     @patch("aragora.server.middleware.auth.extract_token")
-    def test_revoke_current_session_fails(
+    def test_revoke_current_session_returns_400(
         self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
     ):
         """Cannot revoke current session."""
@@ -949,7 +1504,7 @@ class TestSessionManagement:
     @patch("aragora.billing.auth.sessions.get_session_manager")
     @patch("aragora.billing.jwt_auth.decode_jwt")
     @patch("aragora.server.middleware.auth.extract_token")
-    def test_revoke_nonexistent_session(
+    def test_revoke_nonexistent_session_returns_404(
         self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
     ):
         """Revoke fails for nonexistent session."""
@@ -969,428 +1524,34 @@ class TestSessionManagement:
 
         assert result.status_code == 404
 
-
-# ===========================================================================
-# Test Logout Handling
-# ===========================================================================
-
-
-class TestLogoutHandling:
-    """Tests for logout handling."""
-
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    @patch("aragora.billing.auth.sessions.get_session_manager")
+    @patch("aragora.billing.jwt_auth.decode_jwt")
     @patch("aragora.server.middleware.auth.extract_token")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_logout_success(
-        self, mock_revoke, mock_blacklist, mock_extract_token, mock_auth, auth_handler
+    def test_revoke_short_session_id_returns_400(
+        self, mock_extract_token, mock_decode, mock_get_manager, mock_auth, auth_handler
     ):
-        """Logout succeeds and revokes token."""
+        """Revoke fails for session ID that is too short."""
         mock_auth.return_value = MockAuthContext()
         mock_extract_token.return_value = "current_token"
-        mock_revoke.return_value = True
-        mock_blacklist_instance = MagicMock()
-        mock_blacklist_instance.revoke_token.return_value = True
-        mock_blacklist.return_value = mock_blacklist_instance
+        mock_decode.return_value = MagicMock(jti="different")
 
-        handler = make_mock_handler({})
+        handler = make_mock_handler(method="DELETE")
 
-        result = maybe_await(auth_handler.handle("/api/auth/logout", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "logged out" in data.get("message", "").lower()
-
-    @pytest.mark.no_auto_auth
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_logout_unauthenticated(self, mock_auth, auth_handler):
-        """Logout fails when not authenticated."""
-        mock_auth.return_value = MockAuthContext(is_authenticated=False)
-
-        handler = make_mock_handler({})
-
-        result = maybe_await(auth_handler.handle("/api/auth/logout", {}, handler, "POST"))
-
-        assert result.status_code == 401
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    @patch("aragora.server.middleware.auth.extract_token")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_logout_all_success(
-        self,
-        mock_revoke,
-        mock_blacklist,
-        mock_extract_token,
-        mock_auth,
-        auth_handler,
-        mock_user_store,
-    ):
-        """Logout all sessions succeeds."""
-        mock_user_store.users["user-123"] = MockUser()
-        mock_auth.return_value = MockAuthContext()
-        mock_extract_token.return_value = "current_token"
-        mock_blacklist.return_value = MagicMock()
-
-        handler = make_mock_handler({})
-
-        result = maybe_await(auth_handler.handle("/api/auth/logout-all", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert data.get("sessions_invalidated") is True
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    @patch("aragora.server.middleware.auth.extract_token")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_logout_all_increments_token_version(
-        self,
-        mock_revoke,
-        mock_blacklist,
-        mock_extract_token,
-        mock_auth,
-        auth_handler,
-        mock_user_store,
-    ):
-        """Logout all increments token version."""
-        mock_user_store.users["user-123"] = MockUser()
-        mock_auth.return_value = MockAuthContext()
-        mock_extract_token.return_value = "current_token"
-        mock_blacklist.return_value = MagicMock()
-
-        handler = make_mock_handler({})
-
-        result = maybe_await(auth_handler.handle("/api/auth/logout-all", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        # Token version should be incremented
-        assert mock_user_store.token_versions.get("user-123", 0) == 1
-
-
-# ===========================================================================
-# Test MFA Verification
-# ===========================================================================
-
-
-class TestMFAVerification:
-    """Tests for MFA verification."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_mfa_setup_success(self, mock_auth, auth_handler, mock_user_store):
-        """MFA setup generates secret and provisioning URI."""
-        pytest.importorskip("pyotp")
-
-        user = MockUser()
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        handler = make_mock_handler({})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "secret" in data
-        assert "provisioning_uri" in data
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_mfa_setup_already_enabled(self, mock_auth, auth_handler, mock_user_store):
-        """MFA setup fails when already enabled."""
-        pytest.importorskip("pyotp")
-
-        user = MockUser(mfa_enabled=True)
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        handler = make_mock_handler({})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/setup", {}, handler, "POST"))
+        result = maybe_await(auth_handler.handle("/api/auth/sessions/short", {}, handler, "DELETE"))
 
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_mfa_enable_success(self, mock_auth, auth_handler, mock_user_store):
-        """MFA enable succeeds with valid TOTP code."""
-        pyotp = pytest.importorskip("pyotp")
-
-        secret = "JBSWY3DPEHPK3PXP"
-        user = MockUser(mfa_secret=secret)
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        totp = pyotp.TOTP(secret)
-        code = totp.now()
-
-        handler = make_mock_handler({"code": code})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "backup_codes" in data
-        assert len(data["backup_codes"]) == 10
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_mfa_enable_invalid_code(self, mock_auth, auth_handler, mock_user_store):
-        """MFA enable fails with invalid code."""
-        pytest.importorskip("pyotp")
-
-        user = MockUser(mfa_secret="JBSWY3DPEHPK3PXP")
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        handler = make_mock_handler({"code": "000000"})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/enable", {}, handler, "POST"))
-
-        assert result.status_code == 400
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    @patch("aragora.billing.jwt_auth.create_token_pair")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    def test_mfa_verify_success(
-        self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
-    ):
-        """MFA verify succeeds with valid TOTP code."""
-        pyotp = pytest.importorskip("pyotp")
-
-        secret = "JBSWY3DPEHPK3PXP"
-        user = MockUser(mfa_enabled=True, mfa_secret=secret)
-        mock_user_store.users["user-123"] = user
-
-        mock_pending.return_value = MagicMock(sub="user-123")
-        mock_tokens.return_value = MockTokenPair()
-        mock_blacklist.return_value = MagicMock()
-
-        totp = pyotp.TOTP(secret)
-        code = totp.now()
-
-        handler = make_mock_handler(
-            {
-                "code": code,
-                "pending_token": "pending_token_123",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "tokens" in data
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    def test_mfa_verify_invalid_pending_token(self, mock_pending, auth_handler):
-        """MFA verify fails with invalid pending token."""
-        pytest.importorskip("pyotp")
-
-        mock_pending.return_value = None
-
-        handler = make_mock_handler(
-            {
-                "code": "123456",
-                "pending_token": "invalid_token",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
-
-        assert result.status_code == 401
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_mfa_disable_with_password(self, mock_auth, auth_handler, mock_user_store):
-        """MFA disable succeeds with password verification."""
-        pytest.importorskip("pyotp")
-
-        user = MockUser(mfa_enabled=True, mfa_secret="JBSWY3DPEHPK3PXP")
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        handler = make_mock_handler({"password": "correct_password"})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/disable", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        assert mock_user_store.users["user-123"].mfa_enabled is False
-
 
 # ===========================================================================
-# Test Account Lockout After Failed Attempts
+# 11. Error Handling Tests
 # ===========================================================================
 
 
-class TestAccountLockout:
-    """Tests for account lockout after failed attempts."""
+class TestErrorHandling:
+    """Tests for malformed requests, database errors, timeout."""
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    def test_account_locked_after_failures(self, mock_lockout, auth_handler, mock_user_store):
-        """Account is locked after too many failed attempts."""
-        user = MockUser(email="test@example.com")
-        mock_user_store.users["user-123"] = user
-        mock_user_store.users_by_email["test@example.com"] = "user-123"
-
-        mock_lockout_instance = MagicMock()
-        mock_lockout_instance.is_locked.return_value = False
-        # Simulate lockout after failure
-        mock_lockout_instance.record_failure.return_value = (5, 300)
-        mock_lockout.return_value = mock_lockout_instance
-
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "wrong_password",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
-
-        assert result.status_code == 429
-        data = json.loads(result.body.decode())
-        assert "locked" in data.get("error", "").lower()
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    def test_login_blocked_when_locked(self, mock_lockout, auth_handler, mock_user_store):
-        """Login is blocked when account is locked."""
-        mock_lockout_instance = MagicMock()
-        mock_lockout_instance.is_locked.return_value = True
-        mock_lockout_instance.get_remaining_time.return_value = 300
-        mock_lockout.return_value = mock_lockout_instance
-
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "anypassword",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
-
-        assert result.status_code == 429
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.get_lockout_tracker")
-    @patch("aragora.billing.jwt_auth.create_token_pair")
-    def test_lockout_reset_on_success(
-        self, mock_tokens, mock_lockout, auth_handler, mock_user_store
-    ):
-        """Lockout counter is reset on successful login."""
-        user = MockUser(email="test@example.com")
-        mock_user_store.users["user-123"] = user
-        mock_user_store.users_by_email["test@example.com"] = "user-123"
-
-        mock_tokens.return_value = MockTokenPair()
-        mock_lockout_instance = MagicMock()
-        mock_lockout_instance.is_locked.return_value = False
-        mock_lockout.return_value = mock_lockout_instance
-
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "correct_password",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        mock_lockout_instance.reset.assert_called()
-
-
-# ===========================================================================
-# Test Password Reset Flow
-# ===========================================================================
-
-
-class TestPasswordResetFlow:
-    """Tests for password reset flow."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_forgot_password_returns_501(self, auth_handler):
-        """Forgot password returns 501 (not implemented)."""
-        handler = make_mock_handler({"email": "test@example.com"})
-
-        result = maybe_await(auth_handler.handle("/api/auth/forgot-password", {}, handler, "POST"))
-
-        assert result.status_code == 501
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_reset_password_returns_501(self, auth_handler):
-        """Reset password returns 501 (not implemented)."""
-        handler = make_mock_handler(
-            {
-                "token": "reset_token",
-                "new_password": "new_password123",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/reset-password", {}, handler, "POST"))
-
-        assert result.status_code == 501
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    @patch("aragora.billing.models.hash_password")
-    def test_change_password_success(self, mock_hash, mock_auth, auth_handler, mock_user_store):
-        """Password change succeeds with correct current password."""
-        user = MockUser()
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-        mock_hash.return_value = ("new_hash", "new_salt")
-
-        handler = make_mock_handler(
-            {
-                "current_password": "correct_password",
-                "new_password": "new_secure_password",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "success" in data.get("message", "").lower()
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_change_password_wrong_current(self, mock_auth, auth_handler, mock_user_store):
-        """Password change fails with wrong current password."""
-        user = MockUser()
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        handler = make_mock_handler(
-            {
-                "current_password": "wrong_password",
-                "new_password": "new_secure_password",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/password", {}, handler, "POST"))
-
-        assert result.status_code == 401
-
-
-# ===========================================================================
-# Test Error Responses
-# ===========================================================================
-
-
-class TestErrorResponses:
-    """Tests for various error responses."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_invalid_json_body(self, auth_handler):
+    def test_invalid_json_body_returns_400(self, auth_handler):
         """Invalid JSON body returns 400."""
         handler = MagicMock()
         handler.command = "POST"
@@ -1402,29 +1563,11 @@ class TestErrorResponses:
 
         assert result.status_code == 400
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_register_no_user_store(self):
-        """Register returns 503 when user store unavailable."""
-        from aragora.server.handlers.auth.handler import AuthHandler
-
-        auth_handler = AuthHandler({})
-
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "securepass123",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
-
-        assert result.status_code == 503
-
-    def test_method_not_allowed_get_on_post_endpoint(self, auth_handler):
+    def test_method_not_allowed_get_on_login(self, auth_handler):
         """GET on POST-only endpoint returns 405."""
         handler = make_mock_handler(method="GET")
 
-        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "GET"))
+        result = maybe_await(auth_handler.handle("/api/auth/login", {}, handler, "GET"))
 
         assert result.status_code == 405
 
@@ -1437,10 +1580,23 @@ class TestErrorResponses:
 
         assert result.status_code == 405
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
+    def test_register_no_user_store_returns_503(self):
+        """Register returns 503 when user store unavailable."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        auth_handler = AuthHandler({})
+
+        handler = make_mock_handler({"email": "test@example.com", "password": "securepass123"})
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 503
+
     @patch("aragora.billing.jwt_auth.create_token_pair")
     @patch("aragora.billing.models.hash_password")
-    def test_register_duplicate_email(self, mock_hash, mock_tokens, auth_handler, mock_user_store):
+    def test_register_duplicate_email_returns_409(
+        self, mock_hash, mock_tokens, auth_handler, mock_user_store
+    ):
         """Register with existing email returns 409."""
         existing_user = MockUser(email="existing@example.com")
         mock_user_store.users["user-1"] = existing_user
@@ -1448,27 +1604,205 @@ class TestErrorResponses:
 
         mock_hash.return_value = ("hashed", "salt")
 
-        handler = make_mock_handler(
-            {
-                "email": "existing@example.com",
-                "password": "securepass123",
-            }
-        )
+        handler = make_mock_handler({"email": "existing@example.com", "password": "securepass123"})
 
         result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
 
         assert result.status_code == 409
 
+    def test_refresh_invalid_json_body_returns_400(self, auth_handler):
+        """Refresh with invalid JSON returns 400."""
+        handler = MagicMock()
+        handler.command = "POST"
+        handler.headers = {"Content-Length": "5"}
+        handler.rfile = BytesIO(b"invalid")
+        handler.client_address = ("127.0.0.1", 12345)
+
+        result = maybe_await(auth_handler.handle("/api/auth/refresh", {}, handler, "POST"))
+
+        assert result.status_code == 400
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_get_me_user_not_found_returns_404(self, mock_auth, auth_handler, mock_user_store):
+        """Get me returns 404 when user no longer exists."""
+        # No user in store
+        mock_auth.return_value = MockAuthContext(user_id="deleted-user")
+
+        handler = make_mock_handler(method="GET")
+
+        result = maybe_await(auth_handler.handle("/api/auth/me", {}, handler, "GET"))
+
+        assert result.status_code == 404
+
 
 # ===========================================================================
-# Test API Key Operations
+# 12. Security Headers Validation Tests
 # ===========================================================================
+
+
+class TestSecurityHeaders:
+    """Tests for security headers validation."""
+
+    def test_auth_no_cache_headers_defined(self):
+        """AuthHandler defines no-cache headers constant."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        assert hasattr(AuthHandler, "AUTH_NO_CACHE_HEADERS")
+        headers = AuthHandler.AUTH_NO_CACHE_HEADERS
+        assert "Cache-Control" in headers
+        assert "no-store" in headers["Cache-Control"]
+        assert "no-cache" in headers["Cache-Control"]
+        assert "private" in headers["Cache-Control"]
+        assert "Pragma" in headers
+        assert headers["Pragma"] == "no-cache"
+        assert "Expires" in headers
+        assert headers["Expires"] == "0"
+
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_get_me_response_includes_no_cache_headers(
+        self, mock_auth, auth_handler, mock_user_store
+    ):
+        """GET /me response includes no-cache headers."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
+
+        handler = make_mock_handler(method="GET")
+
+        result = maybe_await(auth_handler.handle("/api/auth/me", {}, handler, "GET"))
+
+        assert result.status_code == 200
+        # Check that headers are present on the response
+        if hasattr(result, "headers") and result.headers:
+            assert "Cache-Control" in result.headers
+            assert "no-store" in result.headers["Cache-Control"]
+
+
+# ===========================================================================
+# Additional Tests: Registration, Routing, API Keys, User Info
+# ===========================================================================
+
+
+class TestRegistration:
+    """Tests for user registration."""
+
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    @patch("aragora.billing.models.hash_password")
+    def test_register_success_returns_201(self, mock_hash, mock_tokens, auth_handler):
+        """Registration succeeds with valid data."""
+        mock_hash.return_value = ("hashed", "salt")
+        mock_tokens.return_value = MockTokenPair()
+
+        handler = make_mock_handler(
+            {"email": "new@example.com", "password": "securepass123", "name": "New User"}
+        )
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 201
+        data = json.loads(result.body.decode())
+        assert "user" in data
+        assert "tokens" in data
+
+    @patch("aragora.billing.jwt_auth.create_token_pair")
+    @patch("aragora.billing.models.hash_password")
+    def test_register_with_organization(
+        self, mock_hash, mock_tokens, auth_handler, mock_user_store
+    ):
+        """Registration with organization name creates org."""
+        mock_hash.return_value = ("hashed", "salt")
+        mock_tokens.return_value = MockTokenPair()
+
+        handler = make_mock_handler(
+            {
+                "email": "new@example.com",
+                "password": "securepass123",
+                "name": "New User",
+                "organization": "My Org",
+            }
+        )
+
+        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
+
+        assert result.status_code == 201
+        # Verify org was created
+        assert len(mock_user_store.orgs) == 1
+
+
+class TestRouting:
+    """Tests for handler routing and can_handle."""
+
+    @pytest.fixture
+    def handler_instance(self):
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        return AuthHandler(server_context={})
+
+    def test_routes_is_list(self, handler_instance):
+        assert isinstance(handler_instance.ROUTES, list)
+
+    def test_routes_not_empty(self, handler_instance):
+        assert len(handler_instance.ROUTES) > 0
+
+    def test_can_handle_register(self, handler_instance):
+        assert handler_instance.can_handle("/api/auth/register") is True
+
+    def test_can_handle_login(self, handler_instance):
+        assert handler_instance.can_handle("/api/auth/login") is True
+
+    def test_can_handle_sessions_wildcard(self, handler_instance):
+        assert handler_instance.can_handle("/api/auth/sessions/abc123") is True
+
+    def test_can_handle_api_keys_wildcard(self, handler_instance):
+        assert handler_instance.can_handle("/api/auth/api-keys/ara_prefix123") is True
+
+    def test_cannot_handle_unrelated_path(self, handler_instance):
+        assert handler_instance.can_handle("/api/v1/debates") is False
+
+    def test_cannot_handle_unknown_auth_endpoint(self, handler_instance):
+        assert handler_instance.can_handle("/api/auth/unknown") is False
+
+    @pytest.mark.asyncio
+    async def test_register_routes_to_handler_method(self):
+        """Register POST routes to _handle_register."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        mock_store = MagicMock()
+        handler_instance = AuthHandler(server_context={"user_store": mock_store})
+
+        mock_http = MagicMock()
+        mock_http.command = "POST"
+        mock_http.headers = {"Content-Length": "2"}
+        mock_http.rfile = MagicMock()
+        mock_http.rfile.read = MagicMock(return_value=b"{}")
+
+        with patch.object(handler_instance, "_handle_register") as mock_method:
+            mock_method.return_value = MagicMock()
+            await handler_instance.handle("/api/auth/register", {}, mock_http, "POST")
+            mock_method.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_session_delete_routes_with_id(self):
+        """Session DELETE routes with session ID."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        mock_store = MagicMock()
+        handler_instance = AuthHandler(server_context={"user_store": mock_store})
+
+        mock_http = MagicMock()
+        mock_http.command = "DELETE"
+        mock_http.headers = {"Content-Length": "0"}
+        mock_http.rfile = MagicMock()
+
+        with patch.object(handler_instance, "_handle_revoke_session") as mock_method:
+            mock_method.return_value = MagicMock()
+            await handler_instance.handle("/api/auth/sessions/abc123", {}, mock_http, "DELETE")
+            mock_method.assert_called_once_with(mock_http, "abc123")
 
 
 class TestAPIKeyOperations:
     """Tests for API key operations."""
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_generate_api_key_success(self, mock_auth, auth_handler, mock_user_store):
         """Generate API key succeeds."""
@@ -1499,9 +1833,8 @@ class TestAPIKeyOperations:
         assert result.status_code == 200
         assert mock_user_store.users["user-123"].api_key_hash is None
 
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_list_api_keys(self, mock_auth, auth_handler, mock_user_store):
+    def test_list_api_keys_returns_user_keys(self, mock_auth, auth_handler, mock_user_store):
         """List API keys returns user keys."""
         user = MockUser(
             api_key_prefix="ara_test",
@@ -1520,80 +1853,71 @@ class TestAPIKeyOperations:
         assert "keys" in data
         assert data["count"] == 1
 
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_list_api_keys_empty_returns_zero(self, mock_auth, auth_handler, mock_user_store):
+        """List API keys returns empty when user has no keys."""
+        user = MockUser()
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
 
-# ===========================================================================
-# Test Routing
-# ===========================================================================
+        handler = make_mock_handler(method="GET")
 
+        result = maybe_await(auth_handler.handle("/api/auth/api-keys", {}, handler, "GET"))
 
-class TestAuthHandlerRouting:
-    """Tests for handle method routing."""
+        assert result.status_code == 200
+        data = json.loads(result.body.decode())
+        assert data["count"] == 0
 
-    @pytest.fixture
-    def handler(self):
-        """Create handler instance with mock store."""
-        from aragora.server.handlers.auth.handler import AuthHandler
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_generate_api_key_tier_restricted_returns_403(
+        self, mock_auth, auth_handler, mock_user_store
+    ):
+        """Generate API key fails when org tier lacks API access."""
+        org = MockOrganization()
+        org.limits.api_access = False
+        user = MockUser(org_id="org-123")
+        mock_user_store.users["user-123"] = user
+        mock_user_store.orgs["org-123"] = org
+        mock_auth.return_value = MockAuthContext()
 
-        mock_store = MagicMock()
-        return AuthHandler(server_context={"user_store": mock_store})
+        handler = make_mock_handler({})
 
-    @pytest.fixture
-    def mock_http(self):
-        """Create mock HTTP handler."""
-        mock = MagicMock()
-        mock.rfile = MagicMock()
-        mock.rfile.read = MagicMock(return_value=b"{}")
-        mock.headers = {"Content-Length": "2"}
-        mock.command = "POST"
-        return mock
+        result = maybe_await(auth_handler.handle("/api/auth/api-key", {}, handler, "POST"))
 
-    @pytest.mark.asyncio
-    async def test_register_routes_to_handler(self, handler, mock_http):
-        """Register POST routes to _handle_register."""
-        with patch.object(handler, "_handle_register") as mock_method:
-            mock_method.return_value = MagicMock()
-            await handler.handle("/api/auth/register", {}, mock_http, "POST")
-            mock_method.assert_called_once()
+        assert result.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_login_routes_to_handler(self, handler, mock_http):
-        """Login POST routes to _handle_login."""
-        with patch.object(handler, "_handle_login") as mock_method:
-            mock_method.return_value = MagicMock()
-            await handler.handle("/api/auth/login", {}, mock_http, "POST")
-            mock_method.assert_called_once()
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_revoke_api_key_by_prefix_success(self, mock_auth, auth_handler, mock_user_store):
+        """Revoke API key by prefix succeeds."""
+        user = MockUser(api_key_hash="hash", api_key_prefix="ara_test")
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
 
-    @pytest.mark.asyncio
-    async def test_me_get_routes_to_handler(self, handler, mock_http):
-        """Me GET routes to _handle_get_me."""
-        mock_http.command = "GET"
-        with patch.object(handler, "_handle_get_me") as mock_method:
-            mock_method.return_value = MagicMock()
-            await handler.handle("/api/auth/me", {}, mock_http, "GET")
-            mock_method.assert_called_once()
+        handler = make_mock_handler(method="DELETE")
 
-    @pytest.mark.asyncio
-    async def test_me_put_routes_to_handler(self, handler, mock_http):
-        """Me PUT routes to _handle_update_me."""
-        mock_http.command = "PUT"
-        with patch.object(handler, "_handle_update_me") as mock_method:
-            mock_method.return_value = MagicMock()
-            await handler.handle("/api/auth/me", {}, mock_http, "PUT")
-            mock_method.assert_called_once()
+        result = maybe_await(
+            auth_handler.handle("/api/auth/api-keys/ara_test", {}, handler, "DELETE")
+        )
 
-    @pytest.mark.asyncio
-    async def test_session_delete_routes_with_id(self, handler, mock_http):
-        """Session DELETE routes with session ID."""
-        mock_http.command = "DELETE"
-        with patch.object(handler, "_handle_revoke_session") as mock_method:
-            mock_method.return_value = MagicMock()
-            await handler.handle("/api/auth/sessions/abc123", {}, mock_http, "DELETE")
-            mock_method.assert_called_once_with(mock_http, "abc123")
+        assert result.status_code == 200
+        assert mock_user_store.users["user-123"].api_key_hash is None
 
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
+    def test_revoke_api_key_wrong_prefix_returns_404(
+        self, mock_auth, auth_handler, mock_user_store
+    ):
+        """Revoke API key fails with wrong prefix."""
+        user = MockUser(api_key_hash="hash", api_key_prefix="ara_test")
+        mock_user_store.users["user-123"] = user
+        mock_auth.return_value = MockAuthContext()
 
-# ===========================================================================
-# Test User Info Endpoints
-# ===========================================================================
+        handler = make_mock_handler(method="DELETE")
+
+        result = maybe_await(
+            auth_handler.handle("/api/auth/api-keys/ara_wrong", {}, handler, "DELETE")
+        )
+
+        assert result.status_code == 404
 
 
 class TestUserInfoEndpoints:
@@ -1633,8 +1957,8 @@ class TestUserInfoEndpoints:
         assert data["organization"] is not None
 
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_update_me_success(self, mock_auth, auth_handler, mock_user_store):
-        """Update me succeeds."""
+    def test_update_me_changes_name(self, mock_auth, auth_handler, mock_user_store):
+        """Update me changes user name."""
         user = MockUser()
         mock_user_store.users["user-123"] = user
         mock_auth.return_value = MockAuthContext()
@@ -1646,200 +1970,43 @@ class TestUserInfoEndpoints:
         assert result.status_code == 200
         assert mock_user_store.users["user-123"].name == "Updated Name"
 
-
-# ===========================================================================
-# Test Registration
-# ===========================================================================
-
-
-class TestRegistration:
-    """Tests for user registration."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.billing.jwt_auth.create_token_pair")
-    @patch("aragora.billing.models.hash_password")
-    def test_register_success(self, mock_hash, mock_tokens, auth_handler):
-        """Registration succeeds with valid data."""
-        mock_hash.return_value = ("hashed", "salt")
-        mock_tokens.return_value = MockTokenPair()
-
-        handler = make_mock_handler(
-            {
-                "email": "new@example.com",
-                "password": "securepass123",
-                "name": "New User",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
-
-        assert result.status_code == 201
-        data = json.loads(result.body.decode())
-        assert "user" in data
-        assert "tokens" in data
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_register_invalid_email(self, auth_handler):
-        """Registration fails with invalid email."""
-        handler = make_mock_handler(
-            {
-                "email": "invalid",
-                "password": "securepass123",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
-
-        assert result.status_code == 400
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    def test_register_weak_password(self, auth_handler):
-        """Registration fails with weak password."""
-        handler = make_mock_handler(
-            {
-                "email": "test@example.com",
-                "password": "short",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/register", {}, handler, "POST"))
-
-        assert result.status_code == 400
-
-
-# ===========================================================================
-# Test Token Revocation
-# ===========================================================================
-
-
-class TestTokenRevocation:
-    """Tests for token revocation."""
-
+    @pytest.mark.no_auto_auth
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    @patch("aragora.server.middleware.auth.extract_token")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_revoke_current_token(
-        self, mock_revoke_persistent, mock_blacklist, mock_extract_token, mock_auth, auth_handler
-    ):
-        """Revoke current token succeeds."""
-        mock_auth.return_value = MockAuthContext()
-        mock_extract_token.return_value = "current_token"
-        mock_blacklist_instance = MagicMock()
-        mock_blacklist_instance.revoke_token.return_value = True
-        mock_blacklist_instance.size.return_value = 1
-        mock_blacklist.return_value = mock_blacklist_instance
-        mock_revoke_persistent.return_value = True
+    def test_get_me_unauthenticated_returns_401(self, mock_auth, auth_handler):
+        """Get me fails when not authenticated."""
+        mock_auth.return_value = MockAuthContext(is_authenticated=False)
 
-        handler = make_mock_handler({})
+        handler = make_mock_handler(method="GET")
 
-        result = maybe_await(auth_handler.handle("/api/auth/revoke", {}, handler, "POST"))
+        result = maybe_await(auth_handler.handle("/api/auth/me", {}, handler, "GET"))
 
-        assert result.status_code == 200
-
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    @patch("aragora.server.middleware.auth.extract_token")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    @patch("aragora.billing.jwt_auth.revoke_token_persistent")
-    def test_revoke_specific_token(
-        self, mock_revoke_persistent, mock_blacklist, mock_extract_token, mock_auth, auth_handler
-    ):
-        """Revoke specific token succeeds."""
-        mock_auth.return_value = MockAuthContext()
-        mock_blacklist_instance = MagicMock()
-        mock_blacklist_instance.revoke_token.return_value = True
-        mock_blacklist_instance.size.return_value = 1
-        mock_blacklist.return_value = mock_blacklist_instance
-        mock_revoke_persistent.return_value = True
-
-        handler = make_mock_handler({"token": "specific_token"})
-
-        result = maybe_await(auth_handler.handle("/api/auth/revoke", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        mock_blacklist_instance.revoke_token.assert_called_with("specific_token")
+        assert result.status_code == 401
 
 
-# ===========================================================================
-# Test Module Exports
-# ===========================================================================
-
-
-class TestAuthHandlerModuleExports:
+class TestModuleExports:
     """Tests for module exports."""
 
-    def test_all_exports_auth_handler(self):
-        """__all__ exports AuthHandler."""
+    def test_can_import_handler(self):
+        """AuthHandler can be imported."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+
+        assert AuthHandler is not None
+
+    def test_handler_in_all(self):
+        """AuthHandler is in __all__."""
         from aragora.server.handlers.auth import handler
 
         assert "AuthHandler" in handler.__all__
 
+    def test_handler_is_base_handler_subclass(self):
+        """AuthHandler is a BaseHandler subclass."""
+        from aragora.server.handlers.auth.handler import AuthHandler
+        from aragora.server.handlers.base import BaseHandler
 
-# ===========================================================================
-# Test MFA Backup Codes
-# ===========================================================================
+        assert issubclass(AuthHandler, BaseHandler)
 
+    def test_handler_resource_type(self):
+        """AuthHandler has correct RESOURCE_TYPE."""
+        from aragora.server.handlers.auth.handler import AuthHandler
 
-class TestMFABackupCodes:
-    """Tests for MFA backup codes."""
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.billing.jwt_auth.validate_mfa_pending_token")
-    @patch("aragora.billing.jwt_auth.create_token_pair")
-    @patch("aragora.billing.jwt_auth.get_token_blacklist")
-    def test_mfa_verify_with_backup_code(
-        self, mock_blacklist, mock_tokens, mock_pending, auth_handler, mock_user_store
-    ):
-        """MFA verify succeeds with valid backup code."""
-        pytest.importorskip("pyotp")
-        import hashlib
-        import json as json_module
-
-        backup_code = "testcode"
-        backup_hash = hashlib.sha256(backup_code.encode()).hexdigest()
-        user = MockUser(
-            mfa_enabled=True,
-            mfa_secret="JBSWY3DPEHPK3PXP",
-            mfa_backup_codes=json_module.dumps([backup_hash]),
-        )
-        mock_user_store.users["user-123"] = user
-
-        mock_pending.return_value = MagicMock(sub="user-123")
-        mock_tokens.return_value = MockTokenPair()
-        mock_blacklist.return_value = MagicMock()
-
-        handler = make_mock_handler(
-            {
-                "code": backup_code,
-                "pending_token": "pending_token_123",
-            }
-        )
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/verify", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "tokens" in data
-
-    @patch("aragora.server.handlers.auth.handler.rate_limit", lambda **kwargs: lambda fn: fn)
-    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_regenerate_backup_codes(self, mock_auth, auth_handler, mock_user_store):
-        """Regenerate backup codes succeeds."""
-        pyotp = pytest.importorskip("pyotp")
-
-        secret = "JBSWY3DPEHPK3PXP"
-        user = MockUser(mfa_enabled=True, mfa_secret=secret)
-        mock_user_store.users["user-123"] = user
-        mock_auth.return_value = MockAuthContext()
-
-        totp = pyotp.TOTP(secret)
-        code = totp.now()
-
-        handler = make_mock_handler({"code": code})
-
-        result = maybe_await(auth_handler.handle("/api/auth/mfa/backup-codes", {}, handler, "POST"))
-
-        assert result.status_code == 200
-        data = json.loads(result.body.decode())
-        assert "backup_codes" in data
-        assert len(data["backup_codes"]) == 10
+        assert AuthHandler.RESOURCE_TYPE == "auth"

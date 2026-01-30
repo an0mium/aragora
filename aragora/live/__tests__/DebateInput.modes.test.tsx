@@ -36,7 +36,7 @@ jest.mock('../src/context/AuthContext', () => ({
 // Mock config
 jest.mock('../src/config', () => ({
   DEFAULT_AGENTS: 'claude,gemini,gpt4',
-  DEFAULT_ROUNDS: 8,  // 9-round format default
+  DEFAULT_ROUNDS: 9,  // 9-round format default
   DEFAULT_CONSENSUS: 'judge',
   AGENT_DISPLAY_NAMES: {
     claude: 'Claude',

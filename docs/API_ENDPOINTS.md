@@ -75,6 +75,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Repository](#repository)
 - [Reviews](#reviews)
 - [RLMContext](#rlmcontext)
+- [SCIM](#scim)
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
 - [Skill Marketplace](#skill-marketplace)
@@ -2485,6 +2486,32 @@ GET /api/v1/rlm/stream
 ### `GET` `/api/v1/rlm/stream/modes`
 
 GET /api/v1/rlm/stream/modes
+
+### `GET` `/api/v1/rlm/codebase/health`
+
+GET /api/v1/rlm/codebase/health
+
+---
+
+## SCIM
+
+HTTP request handler for SCIM 2.0 provisioning endpoints.
+
+### `GET` `/scim/v2/Users`
+
+Extract resource ID from path like /scim/v2/Users/{id}
+
+### `GET` `/scim/v2/Users/*`
+
+GET /scim/v2/Users/*
+
+### `GET` `/scim/v2/Groups`
+
+GET /scim/v2/Groups
+
+### `GET` `/scim/v2/Groups/*`
+
+GET /scim/v2/Groups/*
 
 ---
 

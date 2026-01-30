@@ -336,7 +336,7 @@ target-version = ["py310", "py311", "py312"]
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing
+select = ["E", "F", "W", "T201", "BLE001", "UP006", "UP007", "G004"]  # T201 = print, BLE001 = blind except, UP006/UP007 = modern typing, G004 = no f-string in logger
 ignore = ["E402", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
@@ -349,12 +349,14 @@ ignore = ["E402", "E501"]
 "aragora/training/tinker_client.py" = ["T201", "BLE001"]
 "aragora/debate/breakpoints.py" = ["T201", "BLE001"]
 "aragora/nomic/gates.py" = ["T201", "BLE001"]
-"scripts/*" = ["T201", "F401", "F841", "BLE001"]
-"tests/*" = ["T201", "F401", "F841", "BLE001"]
+"scripts/*" = ["T201", "F401", "F841", "BLE001", "G004"]
+"tests/*" = ["T201", "F401", "F841", "BLE001", "G004"]
 "examples/*" = ["T201", "BLE001"]
 # BLE001: Ignore bare exception handlers in all modules (to be fixed incrementally)
 # 4,673 existing violations documented - 87 fixed in Phase 30 (auth, storage modules)
-"aragora/*" = ["BLE001"]
+# G004: Ignore f-string in logger calls for existing code (11,271 violations, ruff cannot auto-fix)
+# New code should use lazy % formatting: logger.info("msg %s", var) instead of logger.info(f"msg {var}")
+"aragora/*" = ["BLE001", "G004"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

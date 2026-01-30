@@ -178,7 +178,7 @@ class DiscordConnector(ChatPlatformConnector):
             else:
                 return SendMessageResponse(success=False, error=error or "Unknown error")
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord send_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
@@ -230,7 +230,7 @@ class DiscordConnector(ChatPlatformConnector):
             else:
                 return SendMessageResponse(success=False, error=error or "Unknown error")
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord update_message error: {e}")
             return SendMessageResponse(success=False, error=str(e))
@@ -256,7 +256,7 @@ class DiscordConnector(ChatPlatformConnector):
             result: bool = success
             return result
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
             logger.error(f"Discord delete_message error: {e}")
             return False
@@ -284,7 +284,7 @@ class DiscordConnector(ChatPlatformConnector):
             result: bool = success
             return result
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             logger.debug(f"Discord typing indicator error: {e}")
             return False
 
@@ -398,7 +398,7 @@ class DiscordConnector(ChatPlatformConnector):
             else:
                 return SendMessageResponse(success=False, error=error or "Unknown error")
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, KeyError, ValueError) as e:
             self._record_failure(e)
             logger.error(f"Discord interaction response error: {e}")
             return SendMessageResponse(success=False, error=str(e))

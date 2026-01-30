@@ -68,12 +68,12 @@ def setup_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(APIError)
     async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
         """Handle custom API errors."""
-        content = {
+        content: dict[str, Any] = {
             "error": exc.message,
             "code": exc.code,
         }
         if exc.details:
-            content["details"] = exc.details  # type: ignore[assignment]
+            content["details"] = exc.details
 
         headers = {}
         if isinstance(exc, RateLimitError):

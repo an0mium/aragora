@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 _ml_limiter = RateLimiter(requests_per_minute=60)
 
 # Lazy load ML components
-_ml_components = {}
+_ml_components: dict[str, Any] = {}
 
 
 def _get_ml_component(name: str):
@@ -60,19 +60,19 @@ def _get_ml_component(name: str):
             elif name == "scorer":
                 from aragora.ml import get_quality_scorer
 
-                _ml_components[name] = get_quality_scorer()  # type: ignore[assignment]
+                _ml_components[name] = get_quality_scorer()
             elif name == "predictor":
                 from aragora.ml import get_consensus_predictor
 
-                _ml_components[name] = get_consensus_predictor()  # type: ignore[assignment]
+                _ml_components[name] = get_consensus_predictor()
             elif name == "embeddings":
                 from aragora.ml import get_embedding_service
 
-                _ml_components[name] = get_embedding_service()  # type: ignore[assignment]
+                _ml_components[name] = get_embedding_service()
             elif name == "exporter":
                 from aragora.debate.ml_integration import get_training_exporter
 
-                _ml_components[name] = get_training_exporter()  # type: ignore[assignment]
+                _ml_components[name] = get_training_exporter()
         except ImportError as e:
             logger.warning(f"ML component {name} not available: {e}")
             _ml_components[name] = None

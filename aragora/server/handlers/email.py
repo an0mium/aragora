@@ -959,7 +959,7 @@ async def handle_gmail_status(
         connector = get_gmail_connector(user_id)
         is_authenticated = connector._access_token is not None
 
-        result = {
+        result: dict[str, Any] = {
             "success": True,
             "authenticated": is_authenticated,
         }
@@ -972,15 +972,15 @@ async def handle_gmail_status(
             except (KeyError, AttributeError) as e:
                 logger.debug(f"Failed to extract user info fields: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
+                result["error"] = "Token expired or invalid"
             except (ConnectionError, TimeoutError) as e:
                 logger.warning(f"Network error checking Gmail status: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
+                result["error"] = "Token expired or invalid"
             except Exception as e:
                 logger.warning(f"Unexpected error checking Gmail status: {e}")
                 result["authenticated"] = False
-                result["error"] = "Token expired or invalid"  # type: ignore[assignment]
+                result["error"] = "Token expired or invalid"
 
         return result
 
@@ -1344,12 +1344,12 @@ async def handle_remove_vip(
                 _user_configs[user_id] = _load_config_from_store(user_id, workspace_id)
 
             config = _user_configs[user_id]
-            removed = {"email": None, "domain": None}
+            removed: dict[str, str | None] = {"email": None, "domain": None}
 
             if email and "vip_addresses" in config:
                 if email in config["vip_addresses"]:
                     config["vip_addresses"].remove(email)
-                    removed["email"] = email  # type: ignore[assignment]
+                    removed["email"] = email
                     # Also remove from dedicated VIP table
                     store = get_email_store()
                     if store:
@@ -1361,7 +1361,7 @@ async def handle_remove_vip(
             if domain and "vip_domains" in config:
                 if domain in config["vip_domains"]:
                     config["vip_domains"].remove(domain)
-                    removed["domain"] = domain  # type: ignore[assignment]
+                    removed["domain"] = domain
 
             # Persist to store
             _save_config_to_store(user_id, config, workspace_id)

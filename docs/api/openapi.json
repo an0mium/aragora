@@ -19210,6 +19210,7 @@
           "Explainability"
         ],
         "summary": "Get explainability batch status",
+        "description": "Check the processing status of an explainability batch job.\n\n**Status values:**\n- pending: Batch queued for processing\n- processing: Batch is being generated\n- completed: All explanations ready\n- failed: Batch processing failed\n\n**Use cases:**\n- Poll for batch completion\n- Monitor processing progress\n- Handle async explanation generation",
         "operationId": "getExplainabilityBatchStatus",
         "parameters": [
           {
@@ -19263,6 +19264,7 @@
           "Explainability"
         ],
         "summary": "Get explainability batch results",
+        "description": "Retrieve the generated explanations for a completed batch.\n\n**Response includes:**\n- Individual explanation for each debate in the batch\n- Evidence chains (if requested during batch creation)\n- Counterfactual scenarios (if requested)\n\n**Note:** Only available after batch status is 'completed'.",
         "operationId": "getExplainabilityBatchResults",
         "parameters": [
           {
@@ -27567,6 +27569,7 @@
           "Knowledge"
         ],
         "summary": "Get fact",
+        "description": "Retrieve a specific knowledge fact by ID.\n\n**Response includes:**\n- Fact statement and confidence score\n- Associated topics and evidence\n- Creation and update timestamps\n- Supersession history (if applicable)",
         "operationId": "getKnowledgeFact",
         "security": [
           {
@@ -27644,6 +27647,7 @@
           "Knowledge"
         ],
         "summary": "Update fact",
+        "description": "Update an existing knowledge fact.\n\n**Updatable fields:**\n- statement: The fact text\n- confidence: Confidence score (0.0-1.0)\n- topics: Associated topic tags\n- metadata: Custom metadata\n\n**Note:** Updates create an audit trail. Consider superseding instead of updating for significant changes.",
         "operationId": "updateKnowledgeFact",
         "security": [
           {
@@ -27731,6 +27735,7 @@
           "Knowledge"
         ],
         "summary": "Delete fact",
+        "description": "Delete a knowledge fact from the knowledge base.\n\n**Behavior:**\n- Soft delete by default (fact marked as deleted)\n- Related evidence links are preserved for audit\n- Supersession chains are maintained\n\n**Note:** Deleted facts can be restored by admin if needed.",
         "operationId": "deleteKnowledgeFact",
         "security": [
           {
@@ -27803,6 +27808,7 @@
           "Knowledge"
         ],
         "summary": "Verify fact",
+        "description": "Trigger verification of a knowledge fact against evidence.\n\n**Verification process:**\n- Cross-references fact against source documents\n- Checks for conflicting facts in the knowledge base\n- Updates confidence score based on evidence strength\n\n**Async:** Returns immediately; verification runs in background.",
         "operationId": "verifyKnowledgeFact",
         "security": [
           {
@@ -27853,6 +27859,7 @@
           "Knowledge"
         ],
         "summary": "List contradictions",
+        "description": "Find facts that contradict the specified fact.\n\n**Detection methods:**\n- Semantic similarity with opposite polarity\n- Explicit contradiction links\n- Temporal inconsistencies\n\n**Use cases:**\n- Identify knowledge conflicts\n- Resolve contradictory information\n- Audit knowledge quality",
         "operationId": "listKnowledgeContradictions",
         "security": [
           {
@@ -27910,6 +27917,7 @@
           "Knowledge"
         ],
         "summary": "List relations",
+        "description": "Get all facts related to the specified fact.\n\n**Relation types:**\n- supports: Evidence supporting this fact\n- contradicts: Conflicting facts\n- supersedes: Facts that replace this one\n- derived_from: Source facts used to derive this one",
         "operationId": "listKnowledgeRelations",
         "security": [
           {
@@ -27965,6 +27973,7 @@
           "Knowledge"
         ],
         "summary": "Add relation",
+        "description": "Create a relation between this fact and another fact.\n\n**Required fields:**\n- target_fact_id: ID of the related fact\n- relation_type: Type of relation (supports, contradicts, etc.)\n\n**Optional fields:**\n- confidence: Confidence in the relation (0.0-1.0)\n- evidence: Supporting evidence for the relation",
         "operationId": "addKnowledgeRelation",
         "security": [
           {
@@ -28025,6 +28034,7 @@
           "Knowledge"
         ],
         "summary": "Add relation between facts",
+        "description": "Create a relation between two facts by specifying both IDs.\n\n**Required fields:**\n- source_fact_id: ID of the source fact\n- target_fact_id: ID of the target fact\n- relation_type: Type of relation\n\n**Alternative to:** POST /api/v1/knowledge/facts/{fact_id}/relations",
         "operationId": "addKnowledgeRelationBetweenFacts",
         "security": [
           {
@@ -43560,6 +43570,7 @@
           "Bots - Telegram"
         ],
         "summary": "Get Telegram integration status",
+        "description": "Returns the status of the Telegram bot integration.\n\n**Response includes:**\n- Connection status (webhook configured and active)\n- Bot username for verification\n- Number of active chats/groups\n\n**Use cases:**\n- Verify bot is properly configured\n- Monitor active conversations\n- Debug connectivity issues",
         "operationId": "getTelegramStatus",
         "responses": {
           "200": {
@@ -43704,6 +43715,7 @@
           "Bots - WhatsApp"
         ],
         "summary": "Get WhatsApp integration status",
+        "description": "Returns the status of the WhatsApp Business API integration.\n\n**Response includes:**\n- Connection status to WhatsApp Cloud API\n- Registered phone number\n- Number of active conversations\n\n**Use cases:**\n- Verify WhatsApp Business setup\n- Monitor conversation volume\n- Check API connectivity",
         "operationId": "getWhatsAppStatus",
         "responses": {
           "200": {
@@ -43829,6 +43841,7 @@
           "Bots - Google Chat"
         ],
         "summary": "Get Google Chat integration status",
+        "description": "Returns the status of the Google Chat bot integration.\n\n**Response includes:**\n- Connection status\n- Number of Google Workspace spaces where bot is installed\n\n**Use cases:**\n- Verify bot deployment\n- Monitor workspace adoption\n- Debug integration issues",
         "operationId": "getGoogleChatStatus",
         "responses": {
           "200": {
@@ -43927,6 +43940,7 @@
           "Bots - Zoom"
         ],
         "summary": "Get Zoom integration status",
+        "description": "Returns the status of the Zoom app integration.\n\n**Response includes:**\n- Connection status to Zoom API\n- Associated Zoom account ID\n\n**Use cases:**\n- Verify Zoom app installation\n- Check OAuth token validity\n- Debug meeting integration issues",
         "operationId": "getZoomStatus",
         "responses": {
           "200": {
@@ -45959,6 +45973,7 @@
           "Devices"
         ],
         "summary": "Get device details",
+        "description": "Retrieve detailed information about a specific registered device.\n\n**Response includes:**\n- Device type (alexa, google_home, apple_homekit, custom)\n- Device name and capabilities\n- Connection status and metadata\n- Last seen timestamp\n\n**Use cases:**\n- Check device configuration\n- Verify device capabilities\n- Debug connection issues",
         "parameters": [
           {
             "name": "device_id",
@@ -46038,6 +46053,7 @@
           "Devices"
         ],
         "summary": "Unregister a device",
+        "description": "Remove a device from Aragora integration.\n\n**Actions:**\n- Revokes the device authentication token\n- Removes device from registered devices list\n- Cleans up any device-specific data\n\n**Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.",
         "parameters": [
           {
             "name": "device_id",
@@ -46101,6 +46117,7 @@
           "Devices"
         ],
         "summary": "Get device details",
+        "description": "Retrieve detailed information about a specific registered device.\n\n**Response includes:**\n- Device type (alexa, google_home, apple_homekit, custom)\n- Device name and capabilities\n- Connection status and metadata\n- Last seen timestamp\n\n**Use cases:**\n- Check device configuration\n- Verify device capabilities\n- Debug connection issues",
         "operationId": "getDevice",
         "parameters": [
           {
@@ -46180,6 +46197,7 @@
           "Devices"
         ],
         "summary": "Unregister a device",
+        "description": "Remove a device from Aragora integration.\n\n**Actions:**\n- Revokes the device authentication token\n- Removes device from registered devices list\n- Cleans up any device-specific data\n\n**Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.",
         "operationId": "unregisterDevice",
         "parameters": [
           {
@@ -52842,6 +52860,34 @@
       }
     },
     "/api/v1/rlm/stream/modes": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/api/v1/rlm/codebase/health": {
       "delete": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -59695,6 +59741,114 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": false
+      }
+    },
+    "/scim/v2/Users": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "patch": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "put": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/scim/v2/Groups": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "patch": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "put": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
       }
     },
     "/api/v1/accounting/expenses/upload": {

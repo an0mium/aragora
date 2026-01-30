@@ -19210,6 +19210,7 @@
           "Explainability"
         ],
         "summary": "Get explainability batch status",
+        "description": "Check the processing status of an explainability batch job.\n\n**Status values:**\n- pending: Batch queued for processing\n- processing: Batch is being generated\n- completed: All explanations ready\n- failed: Batch processing failed\n\n**Use cases:**\n- Poll for batch completion\n- Monitor processing progress\n- Handle async explanation generation",
         "operationId": "getExplainabilityBatchStatus",
         "parameters": [
           {
@@ -19263,6 +19264,7 @@
           "Explainability"
         ],
         "summary": "Get explainability batch results",
+        "description": "Retrieve the generated explanations for a completed batch.\n\n**Response includes:**\n- Individual explanation for each debate in the batch\n- Evidence chains (if requested during batch creation)\n- Counterfactual scenarios (if requested)\n\n**Note:** Only available after batch status is 'completed'.",
         "operationId": "getExplainabilityBatchResults",
         "parameters": [
           {
@@ -27567,6 +27569,7 @@
           "Knowledge"
         ],
         "summary": "Get fact",
+        "description": "Retrieve a specific knowledge fact by ID.\n\n**Response includes:**\n- Fact statement and confidence score\n- Associated topics and evidence\n- Creation and update timestamps\n- Supersession history (if applicable)",
         "operationId": "getKnowledgeFact",
         "security": [
           {
@@ -27644,6 +27647,7 @@
           "Knowledge"
         ],
         "summary": "Update fact",
+        "description": "Update an existing knowledge fact.\n\n**Updatable fields:**\n- statement: The fact text\n- confidence: Confidence score (0.0-1.0)\n- topics: Associated topic tags\n- metadata: Custom metadata\n\n**Note:** Updates create an audit trail. Consider superseding instead of updating for significant changes.",
         "operationId": "updateKnowledgeFact",
         "security": [
           {
@@ -27731,6 +27735,7 @@
           "Knowledge"
         ],
         "summary": "Delete fact",
+        "description": "Delete a knowledge fact from the knowledge base.\n\n**Behavior:**\n- Soft delete by default (fact marked as deleted)\n- Related evidence links are preserved for audit\n- Supersession chains are maintained\n\n**Note:** Deleted facts can be restored by admin if needed.",
         "operationId": "deleteKnowledgeFact",
         "security": [
           {
@@ -27803,6 +27808,7 @@
           "Knowledge"
         ],
         "summary": "Verify fact",
+        "description": "Trigger verification of a knowledge fact against evidence.\n\n**Verification process:**\n- Cross-references fact against source documents\n- Checks for conflicting facts in the knowledge base\n- Updates confidence score based on evidence strength\n\n**Async:** Returns immediately; verification runs in background.",
         "operationId": "verifyKnowledgeFact",
         "security": [
           {
@@ -27853,6 +27859,7 @@
           "Knowledge"
         ],
         "summary": "List contradictions",
+        "description": "Find facts that contradict the specified fact.\n\n**Detection methods:**\n- Semantic similarity with opposite polarity\n- Explicit contradiction links\n- Temporal inconsistencies\n\n**Use cases:**\n- Identify knowledge conflicts\n- Resolve contradictory information\n- Audit knowledge quality",
         "operationId": "listKnowledgeContradictions",
         "security": [
           {
@@ -27910,6 +27917,7 @@
           "Knowledge"
         ],
         "summary": "List relations",
+        "description": "Get all facts related to the specified fact.\n\n**Relation types:**\n- supports: Evidence supporting this fact\n- contradicts: Conflicting facts\n- supersedes: Facts that replace this one\n- derived_from: Source facts used to derive this one",
         "operationId": "listKnowledgeRelations",
         "security": [
           {
@@ -27965,6 +27973,7 @@
           "Knowledge"
         ],
         "summary": "Add relation",
+        "description": "Create a relation between this fact and another fact.\n\n**Required fields:**\n- target_fact_id: ID of the related fact\n- relation_type: Type of relation (supports, contradicts, etc.)\n\n**Optional fields:**\n- confidence: Confidence in the relation (0.0-1.0)\n- evidence: Supporting evidence for the relation",
         "operationId": "addKnowledgeRelation",
         "security": [
           {
@@ -28025,6 +28034,7 @@
           "Knowledge"
         ],
         "summary": "Add relation between facts",
+        "description": "Create a relation between two facts by specifying both IDs.\n\n**Required fields:**\n- source_fact_id: ID of the source fact\n- target_fact_id: ID of the target fact\n- relation_type: Type of relation\n\n**Alternative to:** POST /api/v1/knowledge/facts/{fact_id}/relations",
         "operationId": "addKnowledgeRelationBetweenFacts",
         "security": [
           {
@@ -34435,6 +34445,1904 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/slack/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Slack OAuth installation",
+        "description": "Redirects to Slack OAuth authorization page to install the app in a workspace. Requires connectors.authorize permission.",
+        "parameters": [
+          {
+            "name": "redirect_url",
+            "in": "query",
+            "description": "URL to redirect after OAuth completes",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to Slack OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/slack/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Slack OAuth installation",
+        "description": "Redirects to Slack OAuth authorization page to install the app in a workspace. Requires connectors.authorize permission.",
+        "operationId": "installSlackIntegration",
+        "parameters": [
+          {
+            "name": "redirect_url",
+            "in": "query",
+            "description": "URL to redirect after OAuth completes",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to Slack OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/slack/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Slack OAuth callback",
+        "description": "Handles the OAuth callback from Slack after user authorization. Exchanges code for access token and stores workspace credentials.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code from Slack",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter for CSRF protection",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/slack/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Slack OAuth callback",
+        "description": "Handles the OAuth callback from Slack after user authorization. Exchanges code for access token and stores workspace credentials.",
+        "operationId": "slackOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code from Slack",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter for CSRF protection",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/slack/uninstall": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Slack app uninstall webhook",
+        "description": "Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.",
+        "responses": {
+          "200": {
+            "description": "Uninstall acknowledged"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/slack/uninstall": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Slack app uninstall webhook",
+        "description": "Called by Slack when app is uninstalled from a workspace. Verified via Slack signature.",
+        "operationId": "slackUninstallWebhook",
+        "responses": {
+          "200": {
+            "description": "Uninstall acknowledged"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/slack/preview": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Preview Slack OAuth permissions",
+        "description": "Returns a detailed preview of OAuth scopes and permissions that will be requested.",
+        "responses": {
+          "200": {
+            "description": "OAuth scope preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "install_url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/slack/preview": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Preview Slack OAuth permissions",
+        "description": "Returns a detailed preview of OAuth scopes and permissions that will be requested.",
+        "operationId": "previewSlackOAuth",
+        "responses": {
+          "200": {
+            "description": "OAuth scope preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "install_url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/slack/workspaces": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List connected Slack workspaces",
+        "description": "Returns all Slack workspaces connected to the current organization.",
+        "responses": {
+          "200": {
+            "description": "List of connected workspaces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "workspace_id": {
+                            "type": "string"
+                          },
+                          "workspace_name": {
+                            "type": "string"
+                          },
+                          "connected_at": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/slack/workspaces": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List connected Slack workspaces",
+        "description": "Returns all Slack workspaces connected to the current organization.",
+        "operationId": "listSlackWorkspaces",
+        "responses": {
+          "200": {
+            "description": "List of connected workspaces",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "workspace_id": {
+                            "type": "string"
+                          },
+                          "workspace_name": {
+                            "type": "string"
+                          },
+                          "connected_at": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/discord/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Discord OAuth installation",
+        "description": "Redirects to Discord OAuth authorization page to add the bot to a server.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Discord OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/discord/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Discord OAuth installation",
+        "description": "Redirects to Discord OAuth authorization page to add the bot to a server.",
+        "operationId": "installDiscordIntegration",
+        "responses": {
+          "302": {
+            "description": "Redirect to Discord OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/discord/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Discord OAuth callback",
+        "description": "Handles the OAuth callback from Discord after user authorization.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/discord/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Discord OAuth callback",
+        "description": "Handles the OAuth callback from Discord after user authorization.",
+        "operationId": "discordOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/discord/uninstall": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Discord bot removal",
+        "description": "Called when bot is removed from a Discord server.",
+        "responses": {
+          "200": {
+            "description": "Uninstall acknowledged"
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/discord/uninstall": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Discord bot removal",
+        "description": "Called when bot is removed from a Discord server.",
+        "operationId": "discordUninstallWebhook",
+        "responses": {
+          "200": {
+            "description": "Uninstall acknowledged"
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/teams/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Microsoft Teams installation",
+        "description": "Redirects to Microsoft OAuth authorization page to install the Teams app.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Microsoft OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/teams/install": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Start Microsoft Teams installation",
+        "description": "Redirects to Microsoft OAuth authorization page to install the Teams app.",
+        "operationId": "installTeamsIntegration",
+        "responses": {
+          "302": {
+            "description": "Redirect to Microsoft OAuth"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/teams/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Teams OAuth callback",
+        "description": "Handles the OAuth callback from Microsoft after user authorization.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/teams/callback": {
+      "get": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Handle Teams OAuth callback",
+        "description": "Handles the OAuth callback from Microsoft after user authorization.",
+        "operationId": "teamsOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "description": "OAuth authorization code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "OAuth state parameter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to success page"
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/integrations/teams/refresh": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Refresh Teams OAuth token",
+        "description": "Refresh the OAuth token for a Teams integration.",
+        "responses": {
+          "200": {
+            "description": "Token refreshed"
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true
+      }
+    },
+    "/api/v1/integrations/teams/refresh": {
+      "post": {
+        "tags": [
+          "Integrations",
+          "OAuth"
+        ],
+        "summary": "Refresh Teams OAuth token",
+        "description": "Refresh the OAuth token for a Teams integration.",
+        "operationId": "refreshTeamsToken",
+        "responses": {
+          "200": {
+            "description": "Token refreshed"
           },
           "401": {
             "description": "Unauthorized - Authentication required or token invalid",
@@ -41662,6 +43570,7 @@
           "Bots - Telegram"
         ],
         "summary": "Get Telegram integration status",
+        "description": "Returns the status of the Telegram bot integration.\n\n**Response includes:**\n- Connection status (webhook configured and active)\n- Bot username for verification\n- Number of active chats/groups\n\n**Use cases:**\n- Verify bot is properly configured\n- Monitor active conversations\n- Debug connectivity issues",
         "operationId": "getTelegramStatus",
         "responses": {
           "200": {
@@ -41806,6 +43715,7 @@
           "Bots - WhatsApp"
         ],
         "summary": "Get WhatsApp integration status",
+        "description": "Returns the status of the WhatsApp Business API integration.\n\n**Response includes:**\n- Connection status to WhatsApp Cloud API\n- Registered phone number\n- Number of active conversations\n\n**Use cases:**\n- Verify WhatsApp Business setup\n- Monitor conversation volume\n- Check API connectivity",
         "operationId": "getWhatsAppStatus",
         "responses": {
           "200": {
@@ -41931,6 +43841,7 @@
           "Bots - Google Chat"
         ],
         "summary": "Get Google Chat integration status",
+        "description": "Returns the status of the Google Chat bot integration.\n\n**Response includes:**\n- Connection status\n- Number of Google Workspace spaces where bot is installed\n\n**Use cases:**\n- Verify bot deployment\n- Monitor workspace adoption\n- Debug integration issues",
         "operationId": "getGoogleChatStatus",
         "responses": {
           "200": {
@@ -42029,6 +43940,7 @@
           "Bots - Zoom"
         ],
         "summary": "Get Zoom integration status",
+        "description": "Returns the status of the Zoom app integration.\n\n**Response includes:**\n- Connection status to Zoom API\n- Associated Zoom account ID\n\n**Use cases:**\n- Verify Zoom app installation\n- Check OAuth token validity\n- Debug meeting integration issues",
         "operationId": "getZoomStatus",
         "responses": {
           "200": {
@@ -44061,6 +45973,7 @@
           "Devices"
         ],
         "summary": "Get device details",
+        "description": "Retrieve detailed information about a specific registered device.\n\n**Response includes:**\n- Device type (alexa, google_home, apple_homekit, custom)\n- Device name and capabilities\n- Connection status and metadata\n- Last seen timestamp\n\n**Use cases:**\n- Check device configuration\n- Verify device capabilities\n- Debug connection issues",
         "parameters": [
           {
             "name": "device_id",
@@ -44140,6 +46053,7 @@
           "Devices"
         ],
         "summary": "Unregister a device",
+        "description": "Remove a device from Aragora integration.\n\n**Actions:**\n- Revokes the device authentication token\n- Removes device from registered devices list\n- Cleans up any device-specific data\n\n**Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.",
         "parameters": [
           {
             "name": "device_id",
@@ -44203,6 +46117,7 @@
           "Devices"
         ],
         "summary": "Get device details",
+        "description": "Retrieve detailed information about a specific registered device.\n\n**Response includes:**\n- Device type (alexa, google_home, apple_homekit, custom)\n- Device name and capabilities\n- Connection status and metadata\n- Last seen timestamp\n\n**Use cases:**\n- Check device configuration\n- Verify device capabilities\n- Debug connection issues",
         "operationId": "getDevice",
         "parameters": [
           {
@@ -44282,6 +46197,7 @@
           "Devices"
         ],
         "summary": "Unregister a device",
+        "description": "Remove a device from Aragora integration.\n\n**Actions:**\n- Revokes the device authentication token\n- Removes device from registered devices list\n- Cleans up any device-specific data\n\n**Note:** This action cannot be undone. The device will need to be re-registered to use Aragora again.",
         "operationId": "unregisterDevice",
         "parameters": [
           {
@@ -44817,6 +46733,19 @@
       }
     },
     "/api/v1/debates/batch": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44845,6 +46774,19 @@
       }
     },
     "/api/v1/debates/batch/{param}/status": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44873,6 +46815,19 @@
       }
     },
     "/api/v1/debates/queue/status": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44901,6 +46856,19 @@
       }
     },
     "/api/v1/debates/export/batch": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44929,6 +46897,19 @@
       }
     },
     "/api/v1/debates/export/batch/{param}/status": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44957,6 +46938,19 @@
       }
     },
     "/api/v1/debates/export/batch/{param}/results": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -44985,6 +46979,19 @@
       }
     },
     "/api/v1/debates/export/batch/{param}/stream": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45013,6 +47020,19 @@
       }
     },
     "/api/v1/debates/slug": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45041,6 +47061,19 @@
       }
     },
     "/api/v1/debates/{param}/export": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45069,6 +47102,19 @@
       }
     },
     "/api/v1/debates/{param}/followup": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45097,6 +47143,19 @@
       }
     },
     "/api/v1/debates/{param}/followups": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45125,6 +47184,19 @@
       }
     },
     "/api/v1/debates/{param}/forks": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45153,6 +47225,19 @@
       }
     },
     "/api/v1/debates/{param}/verification-report": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -45181,6 +47266,19 @@
       }
     },
     "/api/v1/debates/{param}/cancel": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Debates"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
       "patch": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -50762,6 +52860,34 @@
       }
     },
     "/api/v1/rlm/stream/modes": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/api/v1/rlm/codebase/health": {
       "delete": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -57615,6 +59741,114 @@
         },
         "x-autogenerated": true,
         "x-method-inferred": false
+      }
+    },
+    "/scim/v2/Users": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "patch": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "put": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      }
+    },
+    "/scim/v2/Groups": {
+      "delete": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "patch": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "post": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
+      },
+      "put": {
+        "summary": "Autogenerated placeholder (spec pending)",
+        "tags": [
+          "Undocumented"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-autogenerated": true,
+        "x-method-inferred": true
       }
     },
     "/api/v1/accounting/expenses/upload": {
