@@ -19,7 +19,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import sqlite3
@@ -33,6 +32,9 @@ from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from asyncpg import Pool
+
+
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -625,7 +627,7 @@ class PostgresJobQueueStore(JobStoreBackend):
 
     def _run_sync(self, coro: Any) -> Any:
         """Run async coroutine synchronously."""
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return run_async(coro)
 
     async def enqueue(self, job: QueuedJob) -> None:
         """Add a job to the queue."""

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol
 from aragora.audit.unified import audit_data
 
 if TYPE_CHECKING:
-    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+    pass
 
 
 class VoteRecordingStore(Protocol):
@@ -159,7 +159,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
     @rate_limit(requests_per_minute=60)
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> "MaybeAsyncHandlerResult":
+    ) -> HandlerResult | None:
         """Route Google Chat GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/google-chat/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -891,13 +891,13 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
 _google_chat_handler: Optional["GoogleChatHandler"] = None
 
 
-def get_google_chat_handler(server_context: dict | None = None) -> "GoogleChatHandler":
+def get_google_chat_handler(server_context: dict[str, Any] | None = None) -> "GoogleChatHandler":
     """Get or create the Google Chat handler instance."""
     global _google_chat_handler
     if _google_chat_handler is None:
         if server_context is None:
             server_context = {}
-        _google_chat_handler = GoogleChatHandler(server_context)  # type: ignore[arg-type]
+        _google_chat_handler = GoogleChatHandler(server_context)
     return _google_chat_handler
 
 

@@ -32,6 +32,7 @@ from .relationships import (
     AgentRelationship,
     RelationshipTracker,
 )
+from aragora.ranking.relationships import RelationshipMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,8 @@ class GroundedPersona:
     overall_calibration: float = 0.5
     domain_calibrations: dict[str, DomainCalibration] = field(default_factory=dict)
     # Relationships
-    rivals: list[tuple[str, float]] = field(default_factory=list)
-    allies: list[tuple[str, float]] = field(default_factory=list)
+    rivals: list[RelationshipMetrics] = field(default_factory=list)
+    allies: list[RelationshipMetrics] = field(default_factory=list)
     influences: list[tuple[str, float]] = field(default_factory=list)
     influenced_by: list[tuple[str, float]] = field(default_factory=list)
     # Meta
@@ -162,8 +163,8 @@ class PersonaSynthesizer:
         # Relationships
         if self.relationship_tracker:
             try:
-                persona.rivals = self.relationship_tracker.get_rivals(agent_name)  # type: ignore[assignment]
-                persona.allies = self.relationship_tracker.get_allies(agent_name)  # type: ignore[assignment]
+                persona.rivals = self.relationship_tracker.get_rivals(agent_name)
+                persona.allies = self.relationship_tracker.get_allies(agent_name)
                 influence = self.relationship_tracker.get_influence_network(agent_name)
                 persona.influences = influence.get("influences", [])
                 persona.influenced_by = influence.get("influenced_by", [])
@@ -251,6 +252,10 @@ class PersonaSynthesizer:
 
         return "\n".join(lines)
 
+    def _get_other_agent(self, metrics: RelationshipMetrics, reference_agent: str) -> str:
+        """Get the other agent from a RelationshipMetrics."""
+        return metrics.agent_b if metrics.agent_a == reference_agent else metrics.agent_a
+
     def _format_relationship_section(
         self,
         persona: GroundedPersona,
@@ -283,11 +288,21 @@ class PersonaSynthesizer:
 
         # General rivals/allies
         if persona.rivals:
-            rival_str = ", ".join([f"{r[0]} ({r[1]:.2f})" for r in persona.rivals[:3]])
+            rival_str = ", ".join(
+                [
+                    f"{self._get_other_agent(r, persona.agent_name)} ({r.rivalry_score:.2f})"
+                    for r in persona.rivals[:3]
+                ]
+            )
             lines.append(f"- Rivals: {rival_str}")
 
         if persona.allies:
-            ally_str = ", ".join([f"{a[0]} ({a[1]:.2f})" for a in persona.allies[:3]])
+            ally_str = ", ".join(
+                [
+                    f"{self._get_other_agent(a, persona.agent_name)} ({a.alliance_score:.2f})"
+                    for a in persona.allies[:3]
+                ]
+            )
             lines.append(f"- Allies: {ally_str}")
 
         return "\n".join(lines) if len(lines) > 1 else ""

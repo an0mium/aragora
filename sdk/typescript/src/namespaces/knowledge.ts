@@ -91,6 +91,76 @@ interface KnowledgeClientInterface {
 }
 
 /**
+ * Options for listing facts.
+ */
+export interface ListFactsOptions {
+  /** Filter by workspace ID */
+  workspace_id?: string;
+  /** Filter by topic */
+  topic?: string;
+  /** Minimum confidence score */
+  min_confidence?: number;
+  /** Filter by validation status */
+  status?: string;
+  /** Include superseded facts */
+  include_superseded?: boolean;
+  /** Maximum results */
+  limit?: number;
+  /** Offset for pagination */
+  offset?: number;
+}
+
+/**
+ * Options for creating a fact.
+ */
+export interface CreateFactOptions {
+  /** The fact statement */
+  statement: string;
+  /** Workspace ID (defaults to 'default') */
+  workspace_id?: string;
+  /** Confidence score (0-1) */
+  confidence?: number;
+  /** Associated topics */
+  topics?: string[];
+  /** Evidence IDs supporting this fact */
+  evidence_ids?: string[];
+  /** Source document references */
+  source_documents?: string[];
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for updating a fact.
+ */
+export interface UpdateFactOptions {
+  /** Updated confidence score */
+  confidence?: number;
+  /** Updated validation status */
+  validation_status?: string;
+  /** Updated evidence IDs */
+  evidence_ids?: string[];
+  /** Updated topics */
+  topics?: string[];
+  /** Updated metadata */
+  metadata?: Record<string, unknown>;
+  /** ID of fact that supersedes this one */
+  superseded_by?: string;
+}
+
+/**
+ * Options for listing fact relations.
+ */
+export interface ListRelationsOptions {
+  /** Filter by relation type */
+  relation_type?: string;
+  /** Include relations where this fact is the source */
+  as_source?: boolean;
+  /** Include relations where this fact is the target */
+  as_target?: boolean;
+}
+
+/**
  * Knowledge API namespace.
  *
  * Provides methods for managing knowledge:
@@ -129,6 +199,157 @@ export class KnowledgeAPI {
   async search(query: string, options?: KnowledgeSearchOptions): Promise<{ results: KnowledgeSearchResult[] }> {
     return this.client.searchKnowledge(query, options);
   }
+
+  // =========================================================================
+  // Natural Language Query
+  // =========================================================================
+
+  /**
+   * Run a natural-language query against the knowledge base.
+   */
+  async query(prompt: string): Promise<{ answer: string; sources: unknown[]; confidence: number }> {
+    return this.client.request('POST', '/api/v1/knowledge/query', { json: { prompt } });
+  }
+
+  // =========================================================================
+  // Fact CRUD Operations
+  // =========================================================================
+
+  /**
+   * List facts with filtering options.
+   */
+  async listFacts(options?: ListFactsOptions): Promise<{ facts: unknown[]; total: number }> {
+    const params: Record<string, unknown> = {
+      min_confidence: options?.min_confidence ?? 0.0,
+      include_superseded: options?.include_superseded ?? false,
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+    if (options?.workspace_id) params.workspace_id = options.workspace_id;
+    if (options?.topic) params.topic = options.topic;
+    if (options?.status) params.status = options.status;
+    return this.client.request('GET', '/api/v1/knowledge/facts', { params });
+  }
+
+  /**
+   * Get a single fact by ID.
+   */
+  async getFact(factId: string): Promise<{ fact: unknown }> {
+    return this.client.request('GET', `/api/v1/knowledge/facts/${factId}`);
+  }
+
+  /**
+   * Create a new fact.
+   */
+  async createFact(options: CreateFactOptions): Promise<{ id: string; created_at: string }> {
+    const payload: Record<string, unknown> = {
+      statement: options.statement,
+      workspace_id: options.workspace_id ?? 'default',
+      confidence: options.confidence ?? 0.5,
+    };
+    if (options.topics !== undefined) payload.topics = options.topics;
+    if (options.evidence_ids !== undefined) payload.evidence_ids = options.evidence_ids;
+    if (options.source_documents !== undefined) payload.source_documents = options.source_documents;
+    if (options.metadata !== undefined) payload.metadata = options.metadata;
+    return this.client.request('POST', '/api/v1/knowledge/facts', { json: payload });
+  }
+
+  /**
+   * Update an existing fact.
+   */
+  async updateFact(factId: string, options: UpdateFactOptions): Promise<{ fact: unknown }> {
+    const payload: Record<string, unknown> = {};
+    if (options.confidence !== undefined) payload.confidence = options.confidence;
+    if (options.validation_status !== undefined) payload.validation_status = options.validation_status;
+    if (options.evidence_ids !== undefined) payload.evidence_ids = options.evidence_ids;
+    if (options.topics !== undefined) payload.topics = options.topics;
+    if (options.metadata !== undefined) payload.metadata = options.metadata;
+    if (options.superseded_by !== undefined) payload.superseded_by = options.superseded_by;
+    return this.client.request('PUT', `/api/v1/knowledge/facts/${factId}`, { json: payload });
+  }
+
+  /**
+   * Delete a fact by ID.
+   */
+  async deleteFact(factId: string): Promise<{ deleted: boolean }> {
+    return this.client.request('DELETE', `/api/v1/knowledge/facts/${factId}`);
+  }
+
+  /**
+   * Verify a fact using agents.
+   */
+  async verifyFact(factId: string): Promise<{ verified: boolean; confidence: number; evidence: unknown[] }> {
+    return this.client.request('POST', `/api/v1/knowledge/facts/${factId}/verify`);
+  }
+
+  /**
+   * Get contradictions for a specific fact.
+   */
+  async getFactContradictions(factId: string): Promise<{ contradictions: unknown[] }> {
+    return this.client.request('GET', `/api/v1/knowledge/facts/${factId}/contradictions`);
+  }
+
+  /**
+   * List relations for a specific fact.
+   */
+  async listFactRelations(factId: string, options?: ListRelationsOptions): Promise<{ relations: unknown[] }> {
+    const params: Record<string, unknown> = {
+      as_source: options?.as_source ?? true,
+      as_target: options?.as_target ?? true,
+    };
+    if (options?.relation_type) params.type = options.relation_type;
+    return this.client.request('GET', `/api/v1/knowledge/facts/${factId}/relations`, { params });
+  }
+
+  /**
+   * Add a relation from a fact to another fact.
+   */
+  async addFactRelation(factId: string, targetFactId: string, relationType: string): Promise<{ relation_id: string }> {
+    return this.client.request('POST', `/api/v1/knowledge/facts/${factId}/relations`, {
+      json: { target_fact_id: targetFactId, relation_type: relationType },
+    });
+  }
+
+  /**
+   * Add a relation between two facts with additional options.
+   */
+  async addRelationBetweenFacts(
+    sourceFactId: string,
+    targetFactId: string,
+    relationType: string,
+    options?: { confidence?: number; metadata?: Record<string, unknown> }
+  ): Promise<{ relation_id: string }> {
+    const payload: Record<string, unknown> = {
+      source_fact_id: sourceFactId,
+      target_fact_id: targetFactId,
+      relation_type: relationType,
+      confidence: options?.confidence ?? 0.7,
+    };
+    if (options?.metadata !== undefined) payload.metadata = options.metadata;
+    return this.client.request('POST', '/api/v1/knowledge/facts/relations', { json: payload });
+  }
+
+  // =========================================================================
+  // Knowledge Mound Node Operations (Additional)
+  // =========================================================================
+
+  /**
+   * Get a specific knowledge node by ID.
+   */
+  async getNode(nodeId: string): Promise<{ node: unknown }> {
+    return this.client.request('GET', `/api/knowledge/mound/nodes/${nodeId}`);
+  }
+
+  /**
+   * Get relationships for a specific knowledge node.
+   */
+  async getNodeRelationships(nodeId: string): Promise<{ relationships: unknown[] }> {
+    return this.client.request('GET', `/api/knowledge/mound/nodes/${nodeId}/relationships`);
+  }
+
+  // =========================================================================
+  // Knowledge Entry Operations (Legacy)
+  // =========================================================================
 
   /**
    * Add a new knowledge entry.
@@ -174,6 +395,68 @@ export class KnowledgeAPI {
     errors?: Array<{ index: number; error: string }>;
   }> {
     return this.client.bulkImportKnowledge(entries);
+  }
+
+  /**
+   * Bulk export knowledge entries.
+   */
+  async bulkExport(options?: { workspace_id?: string; format?: 'json' | 'csv'; include_metadata?: boolean }): Promise<{
+    entries: unknown[];
+    total: number;
+    format: string;
+  }> {
+    return this.client.request('GET', '/api/v1/knowledge/export', { params: options });
+  }
+
+  // =========================================================================
+  // Validation & Refresh
+  // =========================================================================
+
+  /**
+   * Validate knowledge entries against current sources.
+   */
+  async validate(options?: { workspace_id?: string; node_ids?: string[] }): Promise<{
+    validated: number;
+    invalid: number;
+    results: unknown[];
+  }> {
+    return this.client.request('POST', '/api/v1/knowledge/validate', { json: options });
+  }
+
+  /**
+   * Refresh knowledge from external sources.
+   */
+  async refresh(options?: { workspace_id?: string; source_types?: string[] }): Promise<{
+    refreshed: number;
+    updated: number;
+    errors: unknown[];
+  }> {
+    return this.client.request('POST', '/api/v1/knowledge/refresh', { json: options });
+  }
+
+  // =========================================================================
+  // Sources & Embeddings
+  // =========================================================================
+
+  /**
+   * Get sources for a knowledge entry.
+   */
+  async getSources(entryId: string): Promise<{ sources: unknown[] }> {
+    return this.client.request('GET', `/api/v1/knowledge/entries/${entryId}/sources`);
+  }
+
+  /**
+   * Get embeddings for a knowledge entry.
+   */
+  async getEmbeddings(entryId: string): Promise<{ embeddings: number[]; model: string }> {
+    return this.client.request('GET', `/api/v1/knowledge/entries/${entryId}/embeddings`);
+  }
+
+  /**
+   * Generate embeddings for text.
+   */
+  async generateEmbeddings(text: string, options?: { model?: string }): Promise<{ embeddings: number[]; model: string }> {
+    return this.client.request('POST', '/api/v1/knowledge/embeddings', { json: { text, ...options } });
   }
 
   /**

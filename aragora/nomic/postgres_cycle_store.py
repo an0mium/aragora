@@ -10,13 +10,13 @@ Provides PostgreSQL-backed storage for NomicCycleRecord with:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
 
 from aragora.nomic.cycle_record import NomicCycleRecord
 from aragora.storage.postgres_store import PostgresStore
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -86,47 +86,43 @@ class PostgresCycleLearningStore(PostgresStore):
 
     def save_cycle(self, record: NomicCycleRecord) -> None:
         """Save a cycle record (sync wrapper)."""
-        asyncio.get_event_loop().run_until_complete(self.save_cycle_async(record))
+        run_async(self.save_cycle_async(record))
 
     def load_cycle(self, cycle_id: str) -> NomicCycleRecord | None:
         """Load a specific cycle by ID (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.load_cycle_async(cycle_id))
+        return run_async(self.load_cycle_async(cycle_id))
 
     def get_recent_cycles(self, n: int = 10) -> list[NomicCycleRecord]:
         """Get the N most recent cycles (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_recent_cycles_async(n))
+        return run_async(self.get_recent_cycles_async(n))
 
     def get_successful_cycles(self, n: int = 10) -> list[NomicCycleRecord]:
         """Get the N most recent successful cycles (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_successful_cycles_async(n))
+        return run_async(self.get_successful_cycles_async(n))
 
     def query_by_topic(self, topic: str, limit: int = 10) -> list[NomicCycleRecord]:
         """Find cycles that addressed similar topics (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.query_by_topic_async(topic, limit))
+        return run_async(self.query_by_topic_async(topic, limit))
 
     def get_agent_trajectory(self, agent_name: str, n: int = 20) -> list[dict[str, Any]]:
         """Get performance trajectory for an agent (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_agent_trajectory_async(agent_name, n)
-        )
+        return run_async(self.get_agent_trajectory_async(agent_name, n))
 
     def get_pattern_statistics(self) -> dict[str, dict[str, Any]]:
         """Aggregate pattern success statistics (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_pattern_statistics_async())
+        return run_async(self.get_pattern_statistics_async())
 
     def get_surprise_summary(self, n: int = 50) -> dict[str, list[dict[str, Any]]]:
         """Get summary of surprise events (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_surprise_summary_async(n))
+        return run_async(self.get_surprise_summary_async(n))
 
     def cleanup_old_cycles(self, keep_count: int = 100) -> int:
         """Remove old cycles (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.cleanup_old_cycles_async(keep_count)
-        )
+        return run_async(self.cleanup_old_cycles_async(keep_count))
 
     def get_cycle_count(self) -> int:
         """Get total number of stored cycles (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_cycle_count_async())
+        return run_async(self.get_cycle_count_async())
 
     # =========================================================================
     # Async implementations

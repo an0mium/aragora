@@ -331,7 +331,7 @@ class DeliveryPersistence:
         )
         return cursor.fetchall()
 
-    def _row_to_delivery(self, row: sqlite3.Row) -> tuple:
+    def _row_to_delivery(self, row: sqlite3.Row) -> tuple[WebhookDelivery, str | None, str | None]:
         """Convert database row to (WebhookDelivery, url, secret) tuple."""
         metadata = json.loads(row["metadata"]) if row["metadata"] else {}
 
@@ -493,7 +493,7 @@ class WebhookDeliveryManager:
             recovered = 0
 
             for row in rows:
-                delivery, url, secret = self._persistence._row_to_delivery(row)  # type: ignore[arg-type]
+                delivery, url, secret = self._persistence._row_to_delivery(row)
 
                 # Store URL/secret for retries
                 self._delivery_urls[delivery.delivery_id] = url or ""
@@ -899,7 +899,7 @@ class WebhookDeliveryManager:
             rows = self._persistence.load_dead_letter_queue(limit)
             result = []
             for row in rows:
-                delivery, _, _ = self._persistence._row_to_delivery(row)  # type: ignore[arg-type]
+                delivery, _, _ = self._persistence._row_to_delivery(row)
                 result.append(delivery)
                 # Update in-memory cache
                 self._dead_letter_queue[delivery.delivery_id] = delivery

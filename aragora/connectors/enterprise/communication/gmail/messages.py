@@ -19,13 +19,17 @@ from aragora.connectors.enterprise.base import SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
 
 from ..models import (
+    BatchFetchResult,
     EmailAttachment,
     EmailMessage,
     EmailThread,
+    MessageFetchFailure,
 )
 
 if TYPE_CHECKING:
     import httpx
+
+    from . import GmailConnector
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +124,60 @@ class GmailMessagesMixin(GmailBaseMethods):
         message_ids: list[str],
         format: str = "full",
         max_concurrent: int = 10,
+        strict: bool = False,
     ) -> list[EmailMessage]:
         """
         Get multiple messages by IDs in parallel.
 
         Fetches messages concurrently to avoid N+1 query patterns.
-        Failed fetches are logged and skipped (partial results returned).
+        For detailed failure information, use get_messages_batch() instead.
+
+        Args:
+            message_ids: List of message IDs to fetch
+            format: "full", "metadata", or "minimal"
+            max_concurrent: Maximum concurrent requests (default 10)
+            strict: If True, raises an exception when any message fails to fetch.
+                   If False (default), returns partial results and logs failures.
+
+        Returns:
+            List of EmailMessage objects (may be shorter than input if some fail
+            and strict=False)
+
+        Raises:
+            RuntimeError: If strict=True and any message fails to fetch.
+                         The exception message includes details about all failures.
+        """
+        result = await self.get_messages_batch(
+            message_ids=message_ids,
+            format=format,
+            max_concurrent=max_concurrent,
+        )
+
+        if strict and result.failures:
+            failed_summary = ", ".join(
+                f"{f.message_id} ({f.error_type})" for f in result.failures[:5]
+            )
+            if len(result.failures) > 5:
+                failed_summary += f" and {len(result.failures) - 5} more"
+            raise RuntimeError(
+                f"Failed to fetch {result.failure_count} of {result.total_requested} "
+                f"messages: {failed_summary}"
+            )
+
+        return result.messages
+
+    async def get_messages_batch(
+        self,
+        message_ids: list[str],
+        format: str = "full",
+        max_concurrent: int = 10,
+    ) -> BatchFetchResult:
+        """
+        Get multiple messages by IDs in parallel with detailed failure tracking.
+
+        Fetches messages concurrently to avoid N+1 query patterns.
+        Returns a BatchFetchResult containing both successful messages and
+        detailed information about any failures.
 
         Args:
             message_ids: List of message IDs to fetch
@@ -133,27 +185,85 @@ class GmailMessagesMixin(GmailBaseMethods):
             max_concurrent: Maximum concurrent requests (default 10)
 
         Returns:
-            List of EmailMessage objects (may be shorter than input if some fail)
+            BatchFetchResult containing:
+            - messages: List of successfully fetched EmailMessage objects
+            - failures: List of MessageFetchFailure with error details
+            - Computed properties: is_complete, is_partial, is_total_failure,
+              failed_ids, retryable_ids, success_count, failure_count
         """
         if not message_ids:
-            return []
+            return BatchFetchResult(
+                messages=[],
+                failures=[],
+                total_requested=0,
+            )
 
         # Use semaphore to limit concurrent requests
         semaphore = asyncio.Semaphore(max_concurrent)
+        messages: list[EmailMessage] = []
+        failures: list[MessageFetchFailure] = []
 
-        async def fetch_one(msg_id: str) -> EmailMessage | None:
+        async def fetch_one(msg_id: str) -> tuple[EmailMessage | None, MessageFetchFailure | None]:
             async with semaphore:
                 try:
-                    return await self.get_message(msg_id, format=format)
-                except (OSError, ValueError, KeyError, RuntimeError) as e:
-                    logger.warning(f"[Gmail] Failed to fetch message {msg_id}: {e}")
-                    return None
+                    msg = await self.get_message(msg_id, format=format)
+                    return msg, None
+                except Exception as e:
+                    # Log with appropriate level based on error type
+                    error_type = type(e).__name__
+                    error_msg = str(e)
+
+                    # Determine if this is a retryable error
+                    is_retryable = any(
+                        x in error_msg.lower()
+                        for x in ["timeout", "connection", "429", "503", "502", "rate"]
+                    )
+
+                    if is_retryable:
+                        logger.warning(
+                            f"[Gmail] Retryable error fetching message {msg_id}: "
+                            f"{error_type}: {error_msg}"
+                        )
+                    else:
+                        logger.error(
+                            f"[Gmail] Failed to fetch message {msg_id}: {error_type}: {error_msg}"
+                        )
+
+                    failure = MessageFetchFailure(
+                        message_id=msg_id,
+                        error=e,
+                        error_type=error_type,
+                        is_retryable=is_retryable,
+                    )
+                    return None, failure
 
         # Fetch all messages in parallel
-        results = await asyncio.gather(*[fetch_one(msg_id) for msg_id in message_ids])
+        results = await asyncio.gather(
+            *[fetch_one(msg_id) for msg_id in message_ids],
+            return_exceptions=False,
+        )
 
-        # Filter out None (failed fetches) and return
-        return [msg for msg in results if msg is not None]
+        # Separate successes and failures
+        for msg, failure in results:
+            if msg is not None:
+                messages.append(msg)
+            elif failure is not None:
+                failures.append(failure)
+
+        # Log summary if there were failures
+        if failures:
+            retryable_count = sum(1 for f in failures if f.is_retryable)
+            logger.warning(
+                f"[Gmail] Batch fetch completed with {len(failures)} failures "
+                f"out of {len(message_ids)} requests "
+                f"({retryable_count} retryable, {len(failures) - retryable_count} permanent)"
+            )
+
+        return BatchFetchResult(
+            messages=messages,
+            failures=failures,
+            total_requested=len(message_ids),
+        )
 
     def _parse_message(self, data: dict[str, Any]) -> EmailMessage:
         """Parse Gmail API message response into EmailMessage."""
@@ -769,7 +879,12 @@ class GmailMessagesMixin(GmailBaseMethods):
             try:
                 from aragora.services.email_prioritization import EmailPrioritizer
 
-                prioritizer = EmailPrioritizer(gmail_connector=self)  # type: ignore[arg-type]
+                # Cast self to GmailConnector for type safety
+                # (self is a mixin that's part of the full connector)
+                from typing import cast
+
+                gmail_connector = cast("GmailConnector", self)
+                prioritizer = EmailPrioritizer(gmail_connector=gmail_connector)
             except ImportError:
                 logger.warning("[Gmail] EmailPrioritizer not available, skipping prioritization")
                 # Return messages without prioritization

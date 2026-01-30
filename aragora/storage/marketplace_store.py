@@ -6,7 +6,6 @@ Provides durable storage for community workflow templates, ratings, and reviews.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -17,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.storage.base_store import SQLiteStore
+from aragora.utils.async_utils import run_async
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -959,7 +959,7 @@ class PostgresMarketplaceStore:
         tags: list[str] | None = None,
     ) -> StoredTemplate:
         """Create a new template (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.create_template_async(
                 name,
                 description,
@@ -1047,7 +1047,7 @@ class PostgresMarketplaceStore:
 
     def get_template(self, template_id: str) -> StoredTemplate | None:
         """Get a template by ID (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_template_async(template_id))
+        return run_async(self.get_template_async(template_id))
 
     async def get_template_async(self, template_id: str) -> StoredTemplate | None:
         """Get a template by ID asynchronously."""
@@ -1078,9 +1078,7 @@ class PostgresMarketplaceStore:
         offset: int = 0,
     ) -> tuple[list[StoredTemplate], int]:
         """List templates (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_templates_async(category, search, sort_by, limit, offset)
-        )
+        return run_async(self.list_templates_async(category, search, sort_by, limit, offset))
 
     async def list_templates_async(
         self,
@@ -1148,7 +1146,7 @@ class PostgresMarketplaceStore:
 
     def get_featured(self, limit: int = 10) -> list[StoredTemplate]:
         """Get featured templates (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_featured_async(limit))
+        return run_async(self.get_featured_async(limit))
 
     async def get_featured_async(self, limit: int = 10) -> list[StoredTemplate]:
         """Get featured templates asynchronously."""
@@ -1172,7 +1170,7 @@ class PostgresMarketplaceStore:
 
     def get_trending(self, limit: int = 10) -> list[StoredTemplate]:
         """Get trending templates (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_trending_async(limit))
+        return run_async(self.get_trending_async(limit))
 
     async def get_trending_async(self, limit: int = 10) -> list[StoredTemplate]:
         """Get trending templates asynchronously."""
@@ -1196,7 +1194,7 @@ class PostgresMarketplaceStore:
 
     def increment_download(self, template_id: str) -> None:
         """Increment download count (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.increment_download_async(template_id))
+        run_async(self.increment_download_async(template_id))
 
     async def increment_download_async(self, template_id: str) -> None:
         """Increment download count asynchronously."""
@@ -1208,7 +1206,7 @@ class PostgresMarketplaceStore:
 
     def set_featured(self, template_id: str, featured: bool) -> None:
         """Set featured status (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.set_featured_async(template_id, featured))
+        run_async(self.set_featured_async(template_id, featured))
 
     async def set_featured_async(self, template_id: str, featured: bool) -> None:
         """Set featured status asynchronously."""
@@ -1221,7 +1219,7 @@ class PostgresMarketplaceStore:
 
     def set_trending(self, template_id: str, trending: bool) -> None:
         """Set trending status (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.set_trending_async(template_id, trending))
+        run_async(self.set_trending_async(template_id, trending))
 
     async def set_trending_async(self, template_id: str, trending: bool) -> None:
         """Set trending status asynchronously."""
@@ -1238,9 +1236,7 @@ class PostgresMarketplaceStore:
 
     def rate_template(self, template_id: str, user_id: str, rating: int) -> tuple[float, int]:
         """Rate a template (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.rate_template_async(template_id, user_id, rating)
-        )
+        return run_async(self.rate_template_async(template_id, user_id, rating))
 
     async def rate_template_async(
         self, template_id: str, user_id: str, rating: int
@@ -1331,7 +1327,7 @@ class PostgresMarketplaceStore:
         content: str,
     ) -> StoredReview:
         """Create a review (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
+        return run_async(
             self.create_review_async(template_id, user_id, user_name, rating, title, content)
         )
 
@@ -1393,9 +1389,7 @@ class PostgresMarketplaceStore:
         self, template_id: str, limit: int = 20, offset: int = 0
     ) -> list[StoredReview]:
         """List reviews (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_reviews_async(template_id, limit, offset)
-        )
+        return run_async(self.list_reviews_async(template_id, limit, offset))
 
     async def list_reviews_async(
         self, template_id: str, limit: int = 20, offset: int = 0
@@ -1424,7 +1418,7 @@ class PostgresMarketplaceStore:
 
     def list_categories(self) -> list[dict[str, Any]]:
         """List categories (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_categories_async())
+        return run_async(self.list_categories_async())
 
     async def list_categories_async(self) -> list[dict[str, Any]]:
         """List categories asynchronously."""

@@ -184,10 +184,10 @@ class ContinuumMemoryEntry:
         return self.updated_at
 
 
-class AwaitableList(list):
+class AwaitableList(list[ContinuumMemoryEntry]):
     """List wrapper that can be awaited for async compatibility."""
 
-    def __await__(self) -> "Generator[Any, None, AwaitableList]":
+    def __await__(self) -> Generator[Any, None, "AwaitableList"]:
         async def _wrap() -> "AwaitableList":
             return self
 
@@ -223,11 +223,11 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         cms.consolidate()
     """
 
-    SCHEMA_NAME = "continuum_memory"
-    SCHEMA_VERSION = CONTINUUM_SCHEMA_VERSION
+    SCHEMA_NAME: str = "continuum_memory"
+    SCHEMA_VERSION: int = CONTINUUM_SCHEMA_VERSION
 
     # Type annotations for lazy-initialized attributes (HybridMemorySearch is lazy-imported)
-    _hybrid_search: Any | None = None
+    _hybrid_search: Optional[Any] = None
 
     INITIAL_SCHEMA = """
         -- Main continuum memory table

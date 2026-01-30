@@ -9,7 +9,6 @@ Provides pluggable backends for persisting revoked JWT tokens:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import sqlite3
@@ -21,6 +20,9 @@ from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from asyncpg import Pool
+
+
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +355,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def add(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.add_async(token_jti, expires_at))
+        run_async(self.add_async(token_jti, expires_at))
 
     async def add_async(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist asynchronously."""
@@ -371,7 +373,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def contains(self, token_jti: str) -> bool:
         """Check if token is blacklisted (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.contains_async(token_jti))
+        return run_async(self.contains_async(token_jti))
 
     async def contains_async(self, token_jti: str) -> bool:
         """Check if token is blacklisted asynchronously."""
@@ -385,7 +387,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def cleanup_expired(self) -> int:
         """Remove expired tokens (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.cleanup_expired_async())
+        return run_async(self.cleanup_expired_async())
 
     async def cleanup_expired_async(self) -> int:
         """Remove expired tokens asynchronously."""
@@ -411,7 +413,7 @@ class PostgresBlacklist(BlacklistBackend):
 
     def size(self) -> int:
         """Get current blacklist size (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.size_async())
+        return run_async(self.size_async())
 
     async def size_async(self) -> int:
         """Get current blacklist size asynchronously."""

@@ -38,6 +38,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from asyncpg import Pool
 
+
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 # Token configuration
@@ -299,11 +302,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
         self._initialized = True
 
     def store_token(self, email: str, token_hash: str, expires_at: float) -> None:
-        import asyncio
-
-        asyncio.get_event_loop().run_until_complete(
-            self._store_token_async(email, token_hash, expires_at)
-        )
+        run_async(self._store_token_async(email, token_hash, expires_at))
 
     async def _store_token_async(self, email: str, token_hash: str, expires_at: float) -> None:
         async with self._pool.acquire() as conn:
@@ -318,9 +317,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             )
 
     def get_token_data(self, token_hash: str) -> ResetTokenData | None:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(self._get_token_data_async(token_hash))
+        return run_async(self._get_token_data_async(token_hash))
 
     async def _get_token_data_async(self, token_hash: str) -> ResetTokenData | None:
         async with self._pool.acquire() as conn:
@@ -338,9 +335,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             )
 
     def mark_used(self, token_hash: str) -> bool:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(self._mark_used_async(token_hash))
+        return run_async(self._mark_used_async(token_hash))
 
     async def _mark_used_async(self, token_hash: str) -> bool:
         async with self._pool.acquire() as conn:
@@ -351,9 +346,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             return result.endswith("1")
 
     def delete_token(self, token_hash: str) -> bool:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(self._delete_token_async(token_hash))
+        return run_async(self._delete_token_async(token_hash))
 
     async def _delete_token_async(self, token_hash: str) -> bool:
         async with self._pool.acquire() as conn:
@@ -363,11 +356,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             return result.endswith("1")
 
     def count_recent_requests(self, email: str, window_seconds: int) -> int:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(
-            self._count_recent_requests_async(email, window_seconds)
-        )
+        return run_async(self._count_recent_requests_async(email, window_seconds))
 
     async def _count_recent_requests_async(self, email: str, window_seconds: int) -> int:
         async with self._pool.acquire() as conn:
@@ -380,9 +369,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
             return row["cnt"] if row else 0
 
     def cleanup_expired(self) -> int:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(self._cleanup_expired_async())
+        return run_async(self._cleanup_expired_async())
 
     async def _cleanup_expired_async(self) -> int:
         async with self._pool.acquire() as conn:
@@ -395,11 +382,7 @@ class PostgresPasswordResetStore(PasswordResetBackend):
                 return 0
 
     def delete_tokens_for_email(self, email: str) -> int:
-        import asyncio
-
-        return asyncio.get_event_loop().run_until_complete(
-            self._delete_tokens_for_email_async(email)
-        )
+        return run_async(self._delete_tokens_for_email_async(email))
 
     async def _delete_tokens_for_email_async(self, email: str) -> int:
         async with self._pool.acquire() as conn:

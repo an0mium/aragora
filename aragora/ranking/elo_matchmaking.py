@@ -200,24 +200,41 @@ def _sync_to_km(
         return
 
     try:
+        from aragora.ranking.elo import MatchResult
+
         # Store match result for skill history tracking
-        elo_system._km_adapter.store_match(  # type: ignore[call-arg]
-            match_id=debate_id,
-            participants=participants,
+        match_result = MatchResult(
+            debate_id=debate_id,
             winner=winner,
+            participants=participants,
             domain=domain,
-            elo_changes=elo_changes,
+            scores={name: elo_changes.get(name, 0.0) for name in participants},
         )
+        elo_system._km_adapter.store_match(match_result)
+
         # Store updated ratings
         for agent_name, elo_change in elo_changes.items():
             agent_rating = ratings.get(agent_name)
             if agent_rating:
-                new_elo = agent_rating.elo + elo_change
-                elo_system._km_adapter.store_rating(  # type: ignore[call-arg]
+                updated_rating = AgentRating(
                     agent_name=agent_name,
-                    elo=new_elo,
-                    domain=domain,
+                    elo=agent_rating.elo + elo_change,
+                    domain_elos=agent_rating.domain_elos,
+                    wins=agent_rating.wins,
+                    losses=agent_rating.losses,
+                    draws=agent_rating.draws,
+                    debates_count=agent_rating.debates_count,
+                    critiques_accepted=agent_rating.critiques_accepted,
+                    critiques_total=agent_rating.critiques_total,
+                    calibration_correct=agent_rating.calibration_correct,
+                    calibration_total=agent_rating.calibration_total,
+                    calibration_brier_sum=agent_rating.calibration_brier_sum,
+                    updated_at=agent_rating.updated_at,
+                )
+                elo_system._km_adapter.store_rating(
+                    updated_rating,
                     debate_id=debate_id,
+                    reason="match_update",
                 )
         logger.debug(f"ELO changes synced to Knowledge Mound: {debate_id}")
     except Exception as e:

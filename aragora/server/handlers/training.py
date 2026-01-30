@@ -28,6 +28,7 @@ from .base import (
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_float, safe_query_int
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -685,11 +686,7 @@ class TrainingHandler(BaseHandler):
             return error_response("Training pipeline not available", 503)
 
         try:
-            import asyncio
-
-            status = asyncio.get_event_loop().run_until_complete(
-                pipeline.get_training_status(job_id)
-            )
+            status = run_async(pipeline.get_training_status(job_id))
             return json_response(status)
         except ValueError as e:
             return error_response(str(e), 404)
@@ -740,11 +737,7 @@ class TrainingHandler(BaseHandler):
             return error_response("Training pipeline not available", 503)
 
         try:
-            import asyncio
-
-            examples = asyncio.get_event_loop().run_until_complete(
-                pipeline.export_training_data(job_id)
-            )
+            examples = run_async(pipeline.export_training_data(job_id))
             return json_response(
                 {
                     "success": True,
@@ -775,11 +768,7 @@ class TrainingHandler(BaseHandler):
             return error_response("Training pipeline not available", 503)
 
         try:
-            import asyncio
-
-            training_job_id = asyncio.get_event_loop().run_until_complete(
-                pipeline.start_training(job_id)
-            )
+            training_job_id = run_async(pipeline.start_training(job_id))
             return json_response(
                 {
                     "success": True,
@@ -825,11 +814,7 @@ class TrainingHandler(BaseHandler):
             final_loss = safe_query_float(body, "final_loss", default=0.0, max_val=100.0)
             checkpoint_path = body.get("checkpoint_path", "")
 
-            import asyncio
-
-            asyncio.get_event_loop().run_until_complete(
-                pipeline.complete_training(job_id, final_loss, checkpoint_path)
-            )
+            run_async(pipeline.complete_training(job_id, final_loss, checkpoint_path))
 
             return json_response(
                 {

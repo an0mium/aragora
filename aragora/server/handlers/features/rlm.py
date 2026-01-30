@@ -249,14 +249,24 @@ class RLMHandler(BaseHandler):
 
         return result
 
-    async def _get_debate_result(self, debate_id: str) -> Any | None:
-        """Fetch debate result from storage."""
+    async def _get_debate_result(self, debate_id: str) -> dict[str, Any] | None:
+        """Fetch debate result from storage.
+
+        Attempts to retrieve debate data from the available storage backend.
+        Falls back gracefully if storage is not configured.
+        """
         try:
+            from aragora.storage.postgres_store import get_postgres_pool
             from aragora.server.postgres_storage import PostgresDebateStorage
 
-            store = PostgresDebateStorage()
+            pool = await get_postgres_pool()
+            if pool is None:
+                logger.warning(f"No database pool available for debate {debate_id}")
+                return None
+
+            store = PostgresDebateStorage(pool)
             await store.initialize()
-            return await store.get_debate(debate_id)
+            return await store.get_by_id_async(debate_id)
         except ImportError:
             logger.warning(f"PostgresDebateStorage not available for debate {debate_id}")
             return None
@@ -530,9 +540,9 @@ class RLMHandler(BaseHandler):
         from aragora.rlm.bridge import AragoraRLM, KnowledgeMoundAdapter
 
         try:
-            from aragora.knowledge.mound import KnowledgeMound, MoundConfig
+            from aragora.knowledge.mound import get_knowledge_mound
 
-            mound = KnowledgeMound(config=MoundConfig())
+            mound = get_knowledge_mound(workspace_id=workspace_id)
         except ImportError:
             return {
                 "answer": "Knowledge Mound not available",

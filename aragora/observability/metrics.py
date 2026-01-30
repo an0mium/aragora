@@ -122,6 +122,15 @@ WORKFLOW_TEMPLATES_CREATED: Any = None
 WORKFLOW_TEMPLATE_EXECUTIONS: Any = None
 WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
 
+# Backup metrics
+BACKUP_DURATION: Any = None
+BACKUP_SIZE: Any = None
+BACKUP_SUCCESS: Any = None
+LAST_BACKUP_TIMESTAMP: Any = None
+BACKUP_VERIFICATION_DURATION: Any = None
+BACKUP_VERIFICATION_SUCCESS: Any = None
+BACKUP_RESTORE_SUCCESS: Any = None
+
 # =============================================================================
 # Submodule Imports - Delegate to specialized metrics modules
 # =============================================================================

@@ -36,7 +36,7 @@ import logging
 import secrets
 import zipfile
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Awaitable, Optional
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -94,14 +94,14 @@ class ReceiptsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         method: str,
         path: str,
         body: Optional[dict[str, Any]] = None,
         query_params: Optional[dict[str, str]] = None,
         headers: Optional[dict[str, str]] = None,
-    ) -> HandlerResult:
+    ) -> Awaitable[HandlerResult]:
         """Route request to appropriate handler method."""
         query_params = query_params or {}
         body = body or {}
@@ -411,7 +411,7 @@ class ReceiptsHandler(BaseHandler):
             elif export_format == "sarif":
                 from aragora.gauntlet.api.export import export_receipt, ReceiptExportFormat
 
-                sarif_content = export_receipt(decision_receipt, ReceiptExportFormat.SARIF)  # type: ignore[arg-type]
+                sarif_content = export_receipt(decision_receipt, format=ReceiptExportFormat.SARIF)
                 body = (
                     sarif_content.encode("utf-8")
                     if isinstance(sarif_content, str)

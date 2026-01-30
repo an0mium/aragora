@@ -19,7 +19,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 from aragora.workflow.types import (
@@ -339,7 +339,7 @@ class WorkflowEngine:
                     definition,
                     context,
                     checkpoint.current_step,
-                    checkpoint.completed_steps,  # type: ignore[arg-type]
+                    set(checkpoint.completed_steps),
                 ),
                 timeout=self._config.total_timeout_seconds,
             )
@@ -389,7 +389,7 @@ class WorkflowEngine:
         definition: WorkflowDefinition,
         context: WorkflowContext,
         start_step: str,
-        completed_steps: set,
+        completed_steps: set[str],
     ) -> Any:
         """Execute workflow starting from a specific step."""
         current_step_id = start_step
@@ -618,7 +618,9 @@ class WorkflowEngine:
         try:
             # Create step instance with config
             # Step classes are registered dynamically and may have various signatures
-            step = step_class(name=step_def.name, config=step_def.config)  # type: ignore[call-arg]
+            # Use cast to assert the class has the expected constructor signature
+            step_constructor = cast(type[WorkflowStep], step_class)
+            step = step_constructor(name=step_def.name, config=step_def.config)
             self._step_instances[cache_key] = step
             return step
         except Exception as e:

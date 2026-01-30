@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 # LangChain imports with fallback
@@ -90,11 +92,8 @@ class AragoraRetriever(BaseRetriever):
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> list[Document]:
         """Retrieve documents synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(
-            self._aget_relevant_documents(query, run_manager=None)
-        )
+        return run_async(self._aget_relevant_documents(query, run_manager=None))
 
     async def _aget_relevant_documents(
         self,

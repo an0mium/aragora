@@ -134,7 +134,8 @@ class TestMetaLearnerBridge:
         assert len(mock_mound.nodes) == 1
 
         node = mock_mound.nodes[result]
-        assert node.node_type == "pattern"
+        # Patterns are stored as "fact" node_type since "pattern" is not a valid NodeType
+        assert node.node_type == "fact"
         assert "cycle 5" in node.content.lower()
 
 
@@ -263,7 +264,8 @@ class TestPatternBridge:
 
         assert node_id is not None
         node = mock_mound.nodes[node_id]
-        assert node.node_type == "pattern"
+        # Patterns are stored as "fact" node_type since "pattern" is not a valid NodeType
+        assert node.node_type == "fact"
         assert "consensus" in node.content.lower()
 
     @pytest.mark.asyncio

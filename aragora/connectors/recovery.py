@@ -37,7 +37,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, cast
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
@@ -394,7 +394,7 @@ def with_recovery(
             return await strategy.execute(operation, func.__name__)
 
         # Attach strategy for configuration
-        wrapper._recovery_strategy = strategy  # type: ignore[attr-defined]  # Dynamic attribute
+        cast(Any, wrapper)._recovery_strategy = strategy
         return wrapper
 
     return decorator

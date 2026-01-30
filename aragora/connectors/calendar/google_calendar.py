@@ -704,20 +704,34 @@ class GoogleCalendarConnector(EnterpriseConnector):
             await self._session.close()
             self._session = None
 
-    async def sync(  # type: ignore[override]
+    async def sync(
         self,
-        state: SyncState | None = None,
         full_sync: bool = False,
+        batch_size: int = 100,
+        max_items: int | None = None,
     ) -> dict[str, Any]:
         """
         Sync events from calendars.
 
         For inbox integration, we primarily use get_events() and get_free_busy()
-        directly rather than full sync.
+        directly rather than full sync. For Knowledge Mound integration, use sync_items().
+
+        Args:
+            full_sync: If True, ignore cursor and sync all events
+            batch_size: Maximum events per request (not used in this implementation)
+            max_items: Maximum items to sync (limits the 1-week lookback)
+
+        Returns:
+            Dict with events list
         """
         # Get upcoming events from all calendars
         calendar_ids = self.calendar_ids or ["primary"]
         events = await self.get_upcoming_events(hours=168, calendar_ids=calendar_ids)  # 1 week
+
+        # Apply max_items limit if specified
+        if max_items is not None and len(events) > max_items:
+            events = events[:max_items]
+
         return {"events": [e.to_dict() for e in events]}
 
     async def sync_items(

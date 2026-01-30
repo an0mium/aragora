@@ -602,4 +602,301 @@ export class AgentsAPI {
   async compareAgents(agent1: string, agent2: string): Promise<AgentComparison> {
     return this.client.compareAgents([agent1, agent2]);
   }
+
+  // ===========================================================================
+  // Agent Registration (matching Python SDK control_plane)
+  // ===========================================================================
+
+  /**
+   * Register a new agent with the system.
+   *
+   * @param agentId - Unique agent identifier
+   * @param options - Registration options
+   * @returns Registered agent info
+   *
+   * @example
+   * ```typescript
+   * const agent = await client.agents.register('my-agent', {
+   *   capabilities: ['debate', 'analysis'],
+   *   model: 'gpt-4',
+   *   provider: 'openai'
+   * });
+   * ```
+   */
+  async register(
+    agentId: string,
+    options: {
+      capabilities?: string[];
+      model?: string;
+      provider?: string;
+      metadata?: Record<string, unknown>;
+    } = {}
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/control-plane/agents',
+      {
+        body: {
+          agent_id: agentId,
+          capabilities: options.capabilities || [],
+          model: options.model || 'unknown',
+          provider: options.provider || 'unknown',
+          metadata: options.metadata || {},
+        },
+      }
+    );
+  }
+
+  /**
+   * Unregister an agent from the system.
+   *
+   * @param agentId - Agent ID to unregister
+   * @returns Unregistration result
+   */
+  async unregister(agentId: string): Promise<{ success: boolean; message: string }> {
+    return this.client.request<{ success: boolean; message: string }>(
+      'DELETE',
+      `/api/v1/control-plane/agents/${encodeURIComponent(agentId)}`
+    );
+  }
+
+  // ===========================================================================
+  // Agent Statistics & Analytics
+  // ===========================================================================
+
+  /**
+   * Get aggregate statistics for all agents.
+   *
+   * @returns Statistics including total agents, average ELO, etc.
+   */
+  async getStats(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/agents/stats'
+    );
+  }
+
+  // ===========================================================================
+  // Agent Calibration
+  // ===========================================================================
+
+  /**
+   * Trigger calibration for an agent.
+   *
+   * @param name - Agent name
+   * @param options - Calibration options
+   * @returns Calibration result
+   */
+  async calibrate(
+    name: string,
+    options: {
+      domains?: string[];
+      sampleSize?: number;
+    } = {}
+  ): Promise<AgentCalibration> {
+    return this.client.request<AgentCalibration>(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/calibrate`,
+      {
+        body: {
+          domains: options.domains,
+          sample_size: options.sampleSize,
+        },
+      }
+    );
+  }
+
+  // ===========================================================================
+  // Agent Rankings & ELO
+  // ===========================================================================
+
+  /**
+   * Get agent rankings.
+   *
+   * @param options - Ranking filter options
+   * @returns List of agent rankings
+   */
+  async getRankings(options: {
+    limit?: number;
+    offset?: number;
+    domain?: string;
+    minDebates?: number;
+    sortBy?: 'elo' | 'wins' | 'win_rate' | 'recent_activity';
+    order?: 'asc' | 'desc';
+  } = {}): Promise<{ rankings: Array<{ agent: string; elo: number; rank: number }> }> {
+    const params: Record<string, unknown> = {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      sort_by: options.sortBy ?? 'elo',
+      order: options.order ?? 'desc',
+    };
+    if (options.domain) {
+      params.domain = options.domain;
+    }
+    if (options.minDebates !== undefined) {
+      params.min_debates = options.minDebates;
+    }
+    return this.client.request<{ rankings: Array<{ agent: string; elo: number; rank: number }> }>(
+      'GET',
+      '/api/v1/rankings',
+      { params }
+    );
+  }
+
+  /**
+   * Update an agent's ELO rating.
+   *
+   * @param name - Agent name
+   * @param eloChange - ELO points to add (can be negative)
+   * @param options - Update options
+   * @returns Updated ELO info
+   */
+  async updateElo(
+    name: string,
+    eloChange: number,
+    options: {
+      debateId?: string;
+      reason?: string;
+    } = {}
+  ): Promise<{ agent: string; elo: number; previous_elo: number; change: number }> {
+    return this.client.request<{ agent: string; elo: number; previous_elo: number; change: number }>(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/elo`,
+      {
+        body: {
+          elo_change: eloChange,
+          debate_id: options.debateId,
+          reason: options.reason,
+        },
+      }
+    );
+  }
+
+  // ===========================================================================
+  // Agent Enable/Disable
+  // ===========================================================================
+
+  /**
+   * Enable an agent for participation in debates.
+   *
+   * @param name - Agent name
+   * @returns Enable result
+   */
+  async enable(name: string): Promise<{ success: boolean; agent: string; enabled: boolean }> {
+    return this.client.request<{ success: boolean; agent: string; enabled: boolean }>(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/enable`
+    );
+  }
+
+  /**
+   * Disable an agent from participating in debates.
+   *
+   * @param name - Agent name
+   * @param reason - Optional reason for disabling
+   * @returns Disable result
+   */
+  async disable(
+    name: string,
+    reason?: string
+  ): Promise<{ success: boolean; agent: string; enabled: boolean }> {
+    return this.client.request<{ success: boolean; agent: string; enabled: boolean }>(
+      'POST',
+      `/api/v1/agents/${encodeURIComponent(name)}/disable`,
+      {
+        body: reason ? { reason } : undefined,
+      }
+    );
+  }
+
+  // ===========================================================================
+  // Agent Quota Management
+  // ===========================================================================
+
+  /**
+   * Get quota information for an agent.
+   *
+   * @param name - Agent name
+   * @returns Quota details
+   */
+  async getQuota(name: string): Promise<{
+    agent: string;
+    debates_limit: number;
+    debates_used: number;
+    tokens_limit: number;
+    tokens_used: number;
+    reset_at: string;
+  }> {
+    return this.client.request<{
+      agent: string;
+      debates_limit: number;
+      debates_used: number;
+      tokens_limit: number;
+      tokens_used: number;
+      reset_at: string;
+    }>(
+      'GET',
+      `/api/v1/agents/${encodeURIComponent(name)}/quota`
+    );
+  }
+
+  /**
+   * Set quota limits for an agent.
+   *
+   * @param name - Agent name
+   * @param quota - Quota settings
+   * @returns Updated quota info
+   */
+  async setQuota(
+    name: string,
+    quota: {
+      debatesLimit?: number;
+      tokensLimit?: number;
+    }
+  ): Promise<{
+    agent: string;
+    debates_limit: number;
+    tokens_limit: number;
+    updated_at: string;
+  }> {
+    return this.client.request<{
+      agent: string;
+      debates_limit: number;
+      tokens_limit: number;
+      updated_at: string;
+    }>(
+      'PUT',
+      `/api/v1/agents/${encodeURIComponent(name)}/quota`,
+      {
+        body: {
+          debates_limit: quota.debatesLimit,
+          tokens_limit: quota.tokensLimit,
+        },
+      }
+    );
+  }
+
+  // ===========================================================================
+  // Agent Heartbeat (for long-running agents)
+  // ===========================================================================
+
+  /**
+   * Send a heartbeat for an agent to indicate it's still active.
+   *
+   * @param agentId - Agent ID
+   * @param status - Optional status update
+   * @returns Heartbeat acknowledgment
+   */
+  async heartbeat(
+    agentId: string,
+    status?: string
+  ): Promise<{ acknowledged: boolean; timestamp: string }> {
+    return this.client.request<{ acknowledged: boolean; timestamp: string }>(
+      'POST',
+      `/api/v1/control-plane/agents/${encodeURIComponent(agentId)}/heartbeat`,
+      {
+        body: status ? { status } : undefined,
+      }
+    );
+  }
 }

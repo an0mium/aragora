@@ -29,8 +29,9 @@ from .base import (
     require_auth,
     safe_error_message,
 )
-from aragora.server.http_utils import run_async, safe_int
+from aragora.server.http_utils import safe_int
 from aragora.server.validation.query_params import safe_query_int
+from aragora.utils.async_utils import run_async
 from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
@@ -480,9 +481,7 @@ class RLMContextHandler(BaseHandler):
 
         try:
             # Run compression asynchronously
-            context = asyncio.get_event_loop().run_until_complete(
-                compressor.compress(content, source_type=source_type)
-            )
+            context = run_async(compressor.compress(content, source_type=source_type))
 
             # Generate context ID from content hash
             content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -609,7 +608,7 @@ class RLMContextHandler(BaseHandler):
         try:
             # Run query asynchronously
             if refine:
-                result = asyncio.get_event_loop().run_until_complete(
+                result = run_async(
                     rlm.query_with_refinement(
                         query,
                         context,
@@ -618,9 +617,7 @@ class RLMContextHandler(BaseHandler):
                     )
                 )
             else:
-                result = asyncio.get_event_loop().run_until_complete(
-                    rlm.query(query, context, strategy)
-                )
+                result = run_async(rlm.query(query, context, strategy))
 
             logger.info(
                 "rlm_query context_id=%s strategy=%s refine=%s confidence=%.2f",
@@ -1011,7 +1008,7 @@ class RLMContextHandler(BaseHandler):
                         )
 
             # Run async collection
-            asyncio.get_event_loop().run_until_complete(collect_chunks())
+            run_async(collect_chunks())
 
             logger.info(
                 "rlm_stream context_id=%s mode=%s chunks=%d",

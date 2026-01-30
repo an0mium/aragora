@@ -22,7 +22,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -37,6 +36,9 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from asyncpg import Pool
+
+
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -734,7 +736,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         self, region_id: str, workspace_id: str | None = None
     ) -> FederatedRegionConfig | None:
         """Get a federated region by ID (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.get(region_id, workspace_id))
+        return run_async(self.get(region_id, workspace_id))
 
     async def save(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration."""
@@ -791,7 +793,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
 
     def save_sync(self, region: FederatedRegionConfig) -> None:
         """Save a federated region configuration (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.save(region))
+        run_async(self.save(region))
 
     async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region."""
@@ -806,7 +808,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
 
     def delete_sync(self, region_id: str, workspace_id: str | None = None) -> bool:
         """Delete a federated region (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete(region_id, workspace_id))
+        return run_async(self.delete(region_id, workspace_id))
 
     async def list_all(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions."""
@@ -830,7 +832,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
 
     def list_all_sync(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List all federated regions (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_all(workspace_id))
+        return run_async(self.list_all(workspace_id))
 
     async def list_enabled(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions."""
@@ -856,7 +858,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
 
     def list_enabled_sync(self, workspace_id: str | None = None) -> list[FederatedRegionConfig]:
         """List enabled federated regions (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_enabled(workspace_id))
+        return run_async(self.list_enabled(workspace_id))
 
     async def update_sync_status(
         self,
@@ -930,9 +932,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         workspace_id: str | None = None,
     ) -> None:
         """Update sync status (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(
-            self.update_sync_status(region_id, direction, nodes_synced, error, workspace_id)
-        )
+        run_async(self.update_sync_status(region_id, direction, nodes_synced, error, workspace_id))
 
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""

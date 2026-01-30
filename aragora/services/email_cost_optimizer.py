@@ -51,6 +51,9 @@ if TYPE_CHECKING:
         EmailPriorityResult,
     )
 
+
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 
@@ -354,7 +357,7 @@ class CostOptimizedPrioritizer:
         Returns tier number (1, 2, or 3)
         """
         # Check if we can afford higher tiers
-        if not asyncio.get_event_loop().run_until_complete(self._check_budget()):
+        if not run_async(self._check_budget()):
             return 1  # Budget exceeded, use free tier only
 
         # If tier 1 gave high confidence, stop there
@@ -368,7 +371,7 @@ class CostOptimizedPrioritizer:
                     return False
                 return True
 
-        can_use_tier_3 = asyncio.get_event_loop().run_until_complete(check_tier_3())
+        can_use_tier_3 = run_async(check_tier_3())
 
         # For bulk/newsletter emails, stick to tier 1
         if self.config.force_tier_1_for_bulk and tier_1_result:

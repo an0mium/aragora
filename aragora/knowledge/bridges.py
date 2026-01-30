@@ -1,12 +1,12 @@
 """
 Knowledge Mound Integration Bridges.
 
-Connects stranded features to the unified KnowledgeMoundProtocol:
-- MetaLearner → pattern nodes (hyperparameter adjustments, efficiency metrics)
-- Evidence Collector → evidence nodes (external data, citations)
-- Pattern Extractor → pattern nodes (detected patterns from debates)
+Connects stranded features to the unified KnowledgeMound:
+- MetaLearner -> pattern nodes (hyperparameter adjustments, efficiency metrics)
+- Evidence Collector -> evidence nodes (external data, citations)
+- Pattern Extractor -> pattern nodes (detected patterns from debates)
 
-These bridges enable the KnowledgeMoundProtocol to serve as the central
+These bridges enable the KnowledgeMound to serve as the central
 knowledge repository that captures insights from all Aragora systems.
 
 Usage:
@@ -16,7 +16,7 @@ Usage:
         PatternBridge,
     )
 
-    # Connect MetaLearner to KnowledgeMoundProtocol
+    # Connect MetaLearner to KnowledgeMound
     meta_bridge = MetaLearnerBridge(mound)
     meta_bridge.capture_adjustment(metrics, adjustments)
 
@@ -67,7 +67,7 @@ __all__ = [
 
 class MetaLearnerBridge:
     """
-    Bridge between MetaLearner and KnowledgeMoundProtocol.
+    Bridge between MetaLearner and KnowledgeMound.
 
     Captures meta-learning patterns as KnowledgeNodes, enabling:
     - Historical tracking of hyperparameter adjustments
@@ -81,12 +81,12 @@ class MetaLearnerBridge:
     - provenance: Links to the MetaLearner and cycle
     """
 
-    def __init__(self, mound: "KnowledgeMoundProtocol"):
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
         """
         Initialize MetaLearner bridge.
 
         Args:
-            mound: KnowledgeMoundProtocol to store patterns in
+            mound: KnowledgeMound instance to store patterns in
         """
         self.mound = mound
 
@@ -239,12 +239,12 @@ class EvidenceBridge:
     This connects the evidence system to the unified knowledge store.
     """
 
-    def __init__(self, mound: "KnowledgeMoundProtocol"):
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
         """
         Initialize Evidence bridge.
 
         Args:
-            mound: KnowledgeMoundProtocol to store evidence in
+            mound: KnowledgeMound instance to store evidence in
         """
         self.mound = mound
 
@@ -382,12 +382,12 @@ class PatternBridge:
     This enables patterns to be queried and used across the system.
     """
 
-    def __init__(self, mound: "KnowledgeMoundProtocol"):
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
         """
         Initialize Pattern bridge.
 
         Args:
-            mound: KnowledgeMoundProtocol to store patterns in
+            mound: KnowledgeMound instance to store patterns in
         """
         self.mound = mound
 
@@ -539,12 +539,12 @@ class KnowledgeBridgeHub:
         hub.patterns.store_pattern(...)
     """
 
-    def __init__(self, mound: "KnowledgeMoundProtocol"):
+    def __init__(self, mound: KnowledgeMoundProtocol) -> None:
         """
         Initialize the bridge hub.
 
         Args:
-            mound: KnowledgeMoundProtocol to connect bridges to
+            mound: KnowledgeMound instance to connect bridges to
         """
         self.mound = mound
         self._meta_learner: MetaLearnerBridge | None = None

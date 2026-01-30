@@ -556,7 +556,8 @@ class TestParameterValidation:
 class TestRateLimiting:
     """Tests for rate limiting behavior."""
 
-    def test_rate_limit_exceeded_returns_429(self, mock_server_context):
+    @pytest.mark.asyncio
+    async def test_rate_limit_exceeded_returns_429(self, mock_server_context):
         """Test rate limit exceeded returns 429 error."""
         from aragora.server.handlers.analytics_metrics import (
             AnalyticsMetricsHandler,
@@ -569,7 +570,7 @@ class TestRateLimiting:
 
         with patch.object(_analytics_metrics_limiter, "is_allowed", return_value=False):
             with patch.object(handler, "get_auth_context", return_value=MagicMock()):
-                raw_result = handler.handle(
+                raw_result = await handler.handle(
                     "/api/analytics/debates/overview",
                     {},
                     mock_http_handler,
@@ -578,7 +579,8 @@ class TestRateLimiting:
         assert raw_result is not None
         assert raw_result.status_code == 429
 
-    def test_rate_limit_allowed_proceeds(self, mock_server_context, mock_storage):
+    @pytest.mark.asyncio
+    async def test_rate_limit_allowed_proceeds(self, mock_server_context, mock_storage):
         """Test within rate limit proceeds to handler logic."""
         from aragora.server.handlers.analytics_metrics import (
             AnalyticsMetricsHandler,
@@ -597,7 +599,7 @@ class TestRateLimiting:
             with patch.object(handler, "get_auth_context", return_value=mock_auth_ctx):
                 with patch.object(handler, "check_permission", return_value=None):
                     with patch.object(handler, "get_storage", return_value=mock_storage):
-                        raw_result = handler.handle(
+                        raw_result = await handler.handle(
                             "/api/analytics/debates/overview",
                             {},
                             mock_http_handler,
@@ -610,7 +612,8 @@ class TestRateLimiting:
 class TestAuthentication:
     """Tests for authentication and authorization."""
 
-    def test_unauthenticated_returns_401(self, mock_server_context):
+    @pytest.mark.asyncio
+    async def test_unauthenticated_returns_401(self, mock_server_context):
         """Test unauthenticated request returns 401."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
         from aragora.server.handlers.secure import UnauthorizedError
@@ -620,7 +623,7 @@ class TestAuthentication:
         mock_http_handler.client_address = ("127.0.0.1", 12345)
 
         with patch.object(handler, "get_auth_context", side_effect=UnauthorizedError()):
-            raw_result = handler.handle(
+            raw_result = await handler.handle(
                 "/api/analytics/debates/overview",
                 {},
                 mock_http_handler,
@@ -629,7 +632,8 @@ class TestAuthentication:
         assert raw_result is not None
         assert raw_result.status_code == 401
 
-    def test_permission_denied_returns_403(self, mock_server_context):
+    @pytest.mark.asyncio
+    async def test_permission_denied_returns_403(self, mock_server_context):
         """Test permission denied returns 403."""
         from aragora.server.handlers.analytics_metrics import AnalyticsMetricsHandler
         from aragora.server.handlers.secure import ForbiddenError
@@ -644,7 +648,7 @@ class TestAuthentication:
             with patch.object(
                 handler, "check_permission", side_effect=ForbiddenError("Permission denied")
             ):
-                raw_result = handler.handle(
+                raw_result = await handler.handle(
                     "/api/analytics/debates/overview",
                     {},
                     mock_http_handler,

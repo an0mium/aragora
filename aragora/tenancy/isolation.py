@@ -24,7 +24,7 @@ import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar, cast
 
 from aragora.tenancy.context import (
     TenantNotSetError,
@@ -651,7 +651,7 @@ class IsolatedResource:
         isolation = self._isolation
         validate = self.validate_on_access
 
-        def new_init(self, *args, **kwargs):
+        def new_init(self: Any, *args: Any, **kwargs: Any) -> None:
             original_init(self, *args, **kwargs)
 
             # Auto-set tenant if not provided
@@ -664,11 +664,13 @@ class IsolatedResource:
             if validate:
                 isolation.validate_ownership(self, tenant_field)
 
-        cls.__init__ = new_init  # type: ignore[method-assign]
+        cls.__init__ = cast(Any, new_init)
         return cls
 
 
-def ensure_tenant_scope(func: Callable[..., T]) -> Callable[..., T]:
+def ensure_tenant_scope(
+    func: Callable[..., T] | Callable[..., Awaitable[T]],
+) -> Callable[..., T] | Callable[..., Awaitable[T]]:
     """
     Decorator that ensures function runs in tenant scope.
 
@@ -677,18 +679,18 @@ def ensure_tenant_scope(func: Callable[..., T]) -> Callable[..., T]:
     from functools import wraps
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> T:
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
             raise TenantNotSetError(f"Function {func.__name__} requires tenant scope")
-        return func(*args, **kwargs)
+        return cast(T, func(*args, **kwargs))
 
     @wraps(func)
-    async def async_wrapper(*args, **kwargs):
+    async def async_wrapper(*args: Any, **kwargs: Any) -> T:
         tenant_id = get_current_tenant_id()
         if tenant_id is None:
             raise TenantNotSetError(f"Function {func.__name__} requires tenant scope")
-        return await func(*args, **kwargs)  # type: ignore[misc]
+        return await cast(Awaitable[T], func(*args, **kwargs))
 
     import asyncio
 

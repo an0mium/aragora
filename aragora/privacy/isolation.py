@@ -670,10 +670,10 @@ class DataIsolationManager:
 
         # Use workspace's encryption key
         try:
-            from aragora.security.encryption import encrypt_data  # type: ignore[attr-defined]
+            from aragora.security.encryption import encrypt_data
 
             return encrypt_data(data, workspace.encryption_key_id)
-        except ImportError:
+        except (ImportError, AttributeError):
             logger.warning("Encryption module not available")
             return data
 
@@ -697,10 +697,10 @@ class DataIsolationManager:
             return data
 
         try:
-            from aragora.security.encryption import decrypt_data  # type: ignore[attr-defined]
+            from aragora.security.encryption import decrypt_data
 
             return decrypt_data(data, workspace.encryption_key_id)
-        except ImportError:
+        except (ImportError, AttributeError):
             logger.warning("Encryption module not available")
             return data
 

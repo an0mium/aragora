@@ -382,8 +382,8 @@ class PulseDebateScheduler:
             return []
 
         try:
-            return self._km_adapter.search_past_debates(  # type: ignore[call-arg]
-                query=topic,
+            return self._km_adapter.search_past_debates(
+                topic_text=topic,
                 limit=limit,
             )
         except (AttributeError, TypeError, ValueError, RuntimeError) as e:
@@ -668,14 +668,14 @@ class PulseDebateScheduler:
                 )
 
                 # Sync to Knowledge Mound if adapter configured
-                if self._km_adapter:
+                if self._km_adapter is not None:
                     try:
                         # Store scheduled debate record
                         self._km_adapter.store_scheduled_debate(record)
 
                         # Store debate outcome if consensus was reached
                         if consensus_reached:
-                            self._km_adapter.store_debate_outcome(  # type: ignore[attr-defined]
+                            self._km_adapter.store_debate_outcome(
                                 debate_id=debate_id,
                                 topic=topic.topic,
                                 platform=topic.platform,

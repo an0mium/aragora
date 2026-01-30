@@ -28,6 +28,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 # LangChain imports with fallback
@@ -159,11 +162,8 @@ class AragoraDebateTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the debate synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(
-            self._arun(task, agents, max_rounds, None)
-        )
+        return run_async(self._arun(task, agents, max_rounds, None))
 
     async def _arun(
         self,
@@ -265,9 +265,8 @@ class AragoraKnowledgeTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the query synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(self._arun(query, limit, None))
+        return run_async(self._arun(query, limit, None))
 
     async def _arun(
         self,
@@ -364,9 +363,8 @@ class AragoraDecisionTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Run the decision synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(self._arun(question, options, None))
+        return run_async(self._arun(question, options, None))
 
     async def _arun(
         self,

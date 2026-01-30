@@ -565,7 +565,7 @@ class TestLoginSuccess:
 
         # Patch at the handler module level since it imports get_lockout_tracker directly
         with patch(
-            "aragora.server.handlers.auth.handler.get_lockout_tracker",
+            "aragora.server.handlers.auth.login.get_lockout_tracker",
             return_value=mock_lockout_tracker,
         ):
             with patch("aragora.billing.jwt_auth.create_token_pair", return_value=mock_tokens):
@@ -722,7 +722,7 @@ class TestLoginFailure:
         )
 
         with patch(
-            "aragora.server.handlers.auth.handler.get_lockout_tracker",
+            "aragora.server.handlers.auth.login.get_lockout_tracker",
             return_value=locked_tracker,
         ):
             result = auth_handler._handle_login(request)
@@ -2437,7 +2437,7 @@ class TestDatabaseLockout:
         )
 
         with patch(
-            "aragora.server.handlers.auth.handler.get_lockout_tracker",
+            "aragora.server.handlers.auth.login.get_lockout_tracker",
             return_value=mock_lockout_tracker,
         ):
             result = auth_handler._handle_login(request)
@@ -2461,7 +2461,7 @@ class TestDatabaseLockout:
         )
 
         with patch(
-            "aragora.server.handlers.auth.handler.get_lockout_tracker",
+            "aragora.server.handlers.auth.login.get_lockout_tracker",
             return_value=mock_lockout_tracker,
         ):
             auth_handler._handle_login(request)
@@ -3126,7 +3126,7 @@ class TestAdditionalSecurityEdgeCases:
         )
 
         with patch(
-            "aragora.server.handlers.auth.handler.get_lockout_tracker",
+            "aragora.server.handlers.auth.login.get_lockout_tracker",
             return_value=mock_lockout_tracker,
         ):
             with patch("aragora.billing.jwt_auth.create_token_pair", return_value=mock_tokens):

@@ -10,6 +10,7 @@ Provides a single entry point for:
 import asyncio
 import os
 import re
+import signal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -1265,7 +1266,6 @@ class UnifiedServer:
 
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
-        import signal
 
         def signal_handler(signum, frame):
             signame = signal.Signals(signum).name

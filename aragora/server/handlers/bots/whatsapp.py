@@ -120,7 +120,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         return json_response(status)
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route WhatsApp GET requests with RBAC for status endpoint."""
@@ -525,7 +525,7 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
                 # No event loop, create one
                 asyncio.run(enqueue_job())
 
-            return job.job_id  # type: ignore[attr-defined]
+            return job.job_id
 
         except ImportError:
             logger.warning("Queue system not available, using direct execution")

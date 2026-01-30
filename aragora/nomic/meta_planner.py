@@ -22,7 +22,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,9 @@ class MetaPlanner:
             agents = []
             for agent_type in self.config.agents:
                 try:
-                    agent = create_agent(agent_type)  # type: ignore[arg-type]
+                    from aragora.agents.base import AgentType
+
+                    agent = create_agent(cast(AgentType, agent_type))
                     agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Could not create agent {agent_type}: {e}")

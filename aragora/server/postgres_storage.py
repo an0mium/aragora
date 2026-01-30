@@ -7,7 +7,6 @@ URL slugs for sharing (e.g., rate-limiter-2026-01-01).
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -16,6 +15,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from aragora.storage.postgres_store import PostgresStore
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -133,17 +133,15 @@ class PostgresDebateStorage(PostgresStore):
 
     def generate_slug(self, task: str) -> str:
         """Generate URL-friendly slug (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.generate_slug_async(task))
+        return run_async(self.generate_slug_async(task))
 
     def save(self, artifact: "DebateArtifact") -> str:
         """Save artifact and return permalink slug (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.save_async(artifact))
+        return run_async(self.save_async(artifact))
 
     def save_dict(self, debate_data: dict, org_id: str | None = None) -> str:
         """Save debate data directly (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.save_dict_async(debate_data, org_id)
-        )
+        return run_async(self.save_dict_async(debate_data, org_id))
 
     def store(self, debate_data: dict, org_id: str | None = None) -> str:
         """Store debate metadata (sync wrapper)."""
@@ -157,9 +155,7 @@ class PostgresDebateStorage(PostgresStore):
         verify_ownership: bool = False,
     ) -> dict | None:
         """Get debate by slug (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_by_slug_async(slug, org_id, verify_ownership)
-        )
+        return run_async(self.get_by_slug_async(slug, org_id, verify_ownership))
 
     def get_by_id(
         self,
@@ -168,13 +164,11 @@ class PostgresDebateStorage(PostgresStore):
         verify_ownership: bool = False,
     ) -> dict | None:
         """Get debate by ID (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_by_id_async(debate_id, org_id, verify_ownership)
-        )
+        return run_async(self.get_by_id_async(debate_id, org_id, verify_ownership))
 
     def list_recent(self, limit: int = 20, org_id: str | None = None) -> list[DebateMetadata]:
         """List recent debates (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_recent_async(limit, org_id))
+        return run_async(self.list_recent_async(limit, org_id))
 
     def search(
         self,
@@ -184,9 +178,7 @@ class PostgresDebateStorage(PostgresStore):
         org_id: str | None = None,
     ) -> tuple[list[DebateMetadata], int]:
         """Search debates (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.search_async(query, limit, offset, org_id)
-        )
+        return run_async(self.search_async(query, limit, offset, org_id))
 
     def delete(
         self,
@@ -195,9 +187,7 @@ class PostgresDebateStorage(PostgresStore):
         require_ownership: bool = False,
     ) -> bool:
         """Delete debate by slug (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.delete_async(slug, org_id, require_ownership)
-        )
+        return run_async(self.delete_async(slug, org_id, require_ownership))
 
     def update_audio(
         self,
@@ -206,23 +196,19 @@ class PostgresDebateStorage(PostgresStore):
         duration_seconds: int | None = None,
     ) -> bool:
         """Update audio information (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.update_audio_async(debate_id, audio_path, duration_seconds)
-        )
+        return run_async(self.update_audio_async(debate_id, audio_path, duration_seconds))
 
     def get_audio_info(self, debate_id: str) -> dict | None:
         """Get audio information (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_audio_info_async(debate_id))
+        return run_async(self.get_audio_info_async(debate_id))
 
     def is_public(self, debate_id: str) -> bool:
         """Check if debate is public (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.is_public_async(debate_id))
+        return run_async(self.is_public_async(debate_id))
 
     def set_public(self, debate_id: str, is_public: bool, org_id: str | None = None) -> bool:
         """Set debate public status (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.set_public_async(debate_id, is_public, org_id)
-        )
+        return run_async(self.set_public_async(debate_id, is_public, org_id))
 
     # Alias methods for interface compatibility
     def get(self, debate_id: str) -> dict | None:
@@ -243,7 +229,7 @@ class PostgresDebateStorage(PostgresStore):
 
     def get_debates_batch(self, debate_ids: list[str]) -> dict[str, dict | None]:
         """Get multiple debates by ID in a single query (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get_debates_batch_async(debate_ids))
+        return run_async(self.get_debates_batch_async(debate_ids))
 
     # =========================================================================
     # Async implementations

@@ -153,9 +153,11 @@ class DocumentConnector(Connector):
 
         return None
 
-    def _get_reliability(self, format: DocumentFormat) -> float:
+    def _get_reliability(self, format: DocumentFormat | None) -> float:
         """Get reliability score for a document format."""
-        return self._reliability_scores.get(format.value if format else "unknown", 0.5)
+        if format is None:
+            return 0.60
+        return self._reliability_scores.get(format.value, 0.60)
 
     async def connect(self) -> bool:
         """Connect to document sources (always succeeds)."""
@@ -165,21 +167,23 @@ class DocumentConnector(Connector):
         """Disconnect and clear cached documents."""
         self._parsed_docs.clear()
 
-    async def search(  # type: ignore[override]
+    async def search(
         self,
         query: str,
         limit: int = 5,
-    ) -> list[dict[str, Any]]:
+        **kwargs: Any,
+    ) -> list[Evidence]:
         """Search across all parsed documents.
 
         Args:
             query: Search query
             limit: Maximum results to return
+            **kwargs: Additional search parameters
 
         Returns:
-            List of matching evidence results
+            List of matching Evidence objects
         """
-        results = []
+        results: list[tuple[Evidence, float]] = []  # (Evidence, relevance score)
         query_lower = query.lower()
         query_terms = query_lower.split()
 
@@ -194,26 +198,26 @@ class DocumentConnector(Connector):
                     continue
 
                 relevance = term_matches / len(query_terms)
+                confidence = self._get_reliability(doc.format)
 
-                results.append(
-                    {
-                        "id": f"{doc_id}_chunk_{i}",
-                        "title": f"{doc.title or doc.filename} (Section {i + 1})",
-                        "content": chunk.content,
-                        "url": doc.metadata.get("source_path", ""),
-                        "source": "document",
+                evidence = Evidence(
+                    id=f"{doc_id}_chunk_{i}",
+                    source_type=SourceType.DOCUMENT,
+                    source_id=doc_id,
+                    content=chunk.content,
+                    title=f"{doc.title or doc.filename} (Section {i + 1})",
+                    url=doc.metadata.get("source_path", ""),
+                    confidence=confidence,
+                    metadata={
+                        "doc_id": doc_id,
+                        "chunk_index": i,
+                        "page": chunk.page,
+                        "section": chunk.section,
+                        "filename": doc.filename,
                         "format": doc.format.value if doc.format else "unknown",
-                        "relevance": relevance,
-                        "reliability": self._get_reliability(doc.format),
-                        "metadata": {
-                            "doc_id": doc_id,
-                            "chunk_index": i,
-                            "page": chunk.page,
-                            "section": chunk.section,
-                            "filename": doc.filename,
-                        },
-                    }
+                    },
                 )
+                results.append((evidence, relevance))
 
             # Search in tables
             for j, table in enumerate(doc.tables):
@@ -235,34 +239,35 @@ class DocumentConnector(Connector):
                     continue
 
                 relevance = term_matches / len(query_terms)
+                confidence = (
+                    self._get_reliability(doc.format) + 0.05
+                )  # Tables are higher reliability
 
                 # Format table as text
                 table_content = self._format_table(table_data, table_headers)
 
-                results.append(
-                    {
-                        "id": f"{doc_id}_table_{j}",
-                        "title": f"{doc.title or doc.filename} (Table {j + 1})",
-                        "content": table_content,
-                        "url": doc.metadata.get("source_path", ""),
-                        "source": "document_table",
+                evidence = Evidence(
+                    id=f"{doc_id}_table_{j}",
+                    source_type=SourceType.DOCUMENT,
+                    source_id=doc_id,
+                    content=table_content,
+                    title=f"{doc.title or doc.filename} (Table {j + 1})",
+                    url=doc.metadata.get("source_path", ""),
+                    confidence=confidence,
+                    metadata={
+                        "doc_id": doc_id,
+                        "table_index": j,
+                        "page": table_page,
+                        "caption": table_caption,
+                        "filename": doc.filename,
                         "format": doc.format.value if doc.format else "unknown",
-                        "relevance": relevance,
-                        "reliability": self._get_reliability(doc.format)
-                        + 0.05,  # Tables are higher reliability
-                        "metadata": {
-                            "doc_id": doc_id,
-                            "table_index": j,
-                            "page": table_page,
-                            "caption": table_caption,
-                            "filename": doc.filename,
-                        },
-                    }
+                    },
                 )
+                results.append((evidence, relevance))
 
         # Sort by relevance and limit
-        results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
-        return results[:limit]
+        results.sort(key=lambda x: x[1], reverse=True)
+        return [evidence for evidence, _ in results[:limit]]
 
     async def parse_file(
         self,
@@ -394,12 +399,6 @@ class DocumentConnector(Connector):
         hasher.update(content)
         hasher.update(filename.encode())
         return hasher.hexdigest()[:16]
-
-    def _get_reliability(self, format: DocumentFormat | None) -> float:  # type: ignore[no-redef]
-        """Get reliability score for document format."""
-        if format is None:
-            return 0.60
-        return self._reliability_scores.get(format.value, 0.60)
 
     def _format_table(
         self,

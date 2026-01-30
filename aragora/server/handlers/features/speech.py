@@ -28,6 +28,7 @@ from ..base import (
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.rbac.decorators import require_permission
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ class SpeechHandler(BaseHandler):
 
         # Run transcription asynchronously
         try:
-            result = asyncio.get_event_loop().run_until_complete(
+            result = run_async(
                 self._do_transcription(file_content, filename, language, prompt, provider)
             )
         except RuntimeError:
@@ -208,7 +209,7 @@ class SpeechHandler(BaseHandler):
                         return await resp.read(), None
 
             try:
-                content, error = asyncio.get_event_loop().run_until_complete(fetch_audio())
+                content, error = run_async(fetch_audio())
             except RuntimeError:
                 content, error = asyncio.run(fetch_audio())
 
@@ -229,7 +230,7 @@ class SpeechHandler(BaseHandler):
 
         # Run transcription
         try:
-            result = asyncio.get_event_loop().run_until_complete(
+            result = run_async(
                 self._do_transcription(content, filename, language, prompt, provider)
             )
         except RuntimeError:

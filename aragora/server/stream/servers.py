@@ -177,7 +177,7 @@ WS_MAX_CONNECTIONS_PER_IP = int(os.getenv("ARAGORA_WS_MAX_PER_IP", "10"))
 # =============================================================================
 
 
-class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[misc,override]
+class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
     """
     Unified server using aiohttp to handle both HTTP API and WebSocket on a single port.
 
@@ -1435,7 +1435,10 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):  # type: ignore[
             register_payment_routes(app)
             logger.info("Registered payment routes")
         if INTEGRATIONS_HANDLER_AVAILABLE:
-            integrations_handler = IntegrationsHandler({})  # type: ignore[arg-type]
+            from aragora.server.handlers.base import ServerContext
+
+            server_context: ServerContext = {}
+            integrations_handler = IntegrationsHandler(server_context)
             register_integration_routes(app, integrations_handler)
             logger.info("Registered integration status routes")
 

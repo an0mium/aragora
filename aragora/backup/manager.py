@@ -1244,7 +1244,7 @@ class BackupManager:
             return
 
         try:
-            from aragora.observability.metrics import (  # type: ignore[attr-defined]
+            from aragora.observability.metrics import (
                 BACKUP_DURATION,
                 BACKUP_SIZE,
                 BACKUP_SUCCESS,
@@ -1266,7 +1266,7 @@ class BackupManager:
             return
 
         try:
-            from aragora.observability.metrics import (  # type: ignore[attr-defined]
+            from aragora.observability.metrics import (
                 BACKUP_VERIFICATION_DURATION,
                 BACKUP_VERIFICATION_SUCCESS,
             )
@@ -1283,7 +1283,7 @@ class BackupManager:
             return
 
         try:
-            from aragora.observability.metrics import BACKUP_RESTORE_SUCCESS  # type: ignore[attr-defined]
+            from aragora.observability.metrics import BACKUP_RESTORE_SUCCESS
 
             BACKUP_RESTORE_SUCCESS.labels(success=str(success).lower()).inc()
 

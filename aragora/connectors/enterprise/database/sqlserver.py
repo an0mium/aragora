@@ -22,6 +22,7 @@ from aragora.connectors.enterprise.base import (
     SyncItem,
     SyncState,
 )
+from aragora.connectors.base import ConnectorHealth
 from aragora.connectors.enterprise.database.cdc import (
     CDCSourceType,
     CDCStreamManager,
@@ -253,7 +254,7 @@ class SQLServerConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: SyncState | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync_items(self, state: SyncState, batch_size: int = 100) -> AsyncIterator[SyncItem]:
         """
         Sync items from SQL Server tables.
 
@@ -262,7 +263,7 @@ class SQLServerConnector(EnterpriseConnector):
         pool = await self._get_pool()
 
         tables = self.tables or await self._discover_tables()
-        last_sync = state.last_sync_at if state else None
+        last_sync = state.last_sync_at
 
         for table in tables:
             # Validate identifiers to prevent SQL injection
@@ -698,8 +699,9 @@ class SQLServerConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> dict[str, Any]:  # type: ignore[override]
+    async def health_check(self, timeout: float = 5.0) -> ConnectorHealth:
         """Check SQL Server connection health."""
+        start_time = datetime.now(timezone.utc)
         try:
             pool = await self._get_pool()
             async with pool.acquire() as conn:
@@ -707,17 +709,31 @@ class SQLServerConnector(EnterpriseConnector):
                     await cursor.execute("SELECT 1")
                     await cursor.fetchone()
 
-            return {
-                "healthy": True,
-                "database": self.database,
-                "schema": self.schema,
-                "host": self.host,
-                "cdc_enabled": self.use_cdc,
-                "change_tracking_enabled": self.use_change_tracking,
-            }
+            latency_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            return ConnectorHealth(
+                name=self.name,
+                is_available=True,
+                is_configured=True,
+                is_healthy=True,
+                latency_ms=latency_ms,
+                last_check=datetime.now(timezone.utc),
+                metadata={
+                    "database": self.database,
+                    "schema": self.schema,
+                    "host": self.host,
+                    "cdc_enabled": self.use_cdc,
+                    "change_tracking_enabled": self.use_change_tracking,
+                },
+            )
         except (OSError, ConnectionError, asyncio.TimeoutError, RuntimeError) as e:
-            return {
-                "healthy": False,
-                "error": str(e),
-                "database": self.database,
-            }
+            return ConnectorHealth(
+                name=self.name,
+                is_available=False,
+                is_configured=True,
+                is_healthy=False,
+                error=str(e),
+                last_check=datetime.now(timezone.utc),
+                metadata={
+                    "database": self.database,
+                },
+            )

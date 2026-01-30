@@ -24,6 +24,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 # LangChain imports with fallback
@@ -117,9 +120,8 @@ class AragoraDebateChain(Chain):
         run_manager: CallbackManagerForChainRun | None = None,
     ) -> dict[str, Any]:
         """Run the chain synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(self._acall(inputs, None))
+        return run_async(self._acall(inputs, None))
 
     async def _acall(
         self,
@@ -255,9 +257,8 @@ class AragoraResearchDebateChain(Chain):
         run_manager: CallbackManagerForChainRun | None = None,
     ) -> dict[str, Any]:
         """Run the chain synchronously."""
-        import asyncio
 
-        return asyncio.get_event_loop().run_until_complete(self._acall(inputs, None))
+        return run_async(self._acall(inputs, None))
 
     async def _acall(
         self,

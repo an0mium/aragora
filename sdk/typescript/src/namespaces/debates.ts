@@ -334,6 +334,10 @@ interface DebatesClientInterface {
 export class DebatesAPI {
   constructor(private client: DebatesClientInterface) {}
 
+  // ===========================================================================
+  // Core CRUD Operations
+  // ===========================================================================
+
   /**
    * List all debates with optional filtering and pagination.
    */
@@ -370,10 +374,50 @@ export class DebatesAPI {
   }
 
   /**
+   * Delete a debate.
+   *
+   * @param debateId - The debate ID to delete
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.delete('debate-123');
+   * if (result.success) {
+   *   console.log('Debate deleted');
+   * }
+   * ```
+   */
+  async delete(debateId: string): Promise<{ success: boolean }> {
+    return this.client.request('DELETE', `/api/v1/debates/${debateId}`);
+  }
+
+  /**
    * Get all messages from a debate.
    */
   async getMessages(debateId: string): Promise<{ messages: Message[] }> {
     return this.client.getDebateMessages(debateId);
+  }
+
+  /**
+   * Add a message to a debate.
+   *
+   * @param debateId - The debate ID
+   * @param content - Message content
+   * @param role - Message role (user, system, etc.)
+   *
+   * @example
+   * ```typescript
+   * const message = await client.debates.addMessage('debate-123', 'What about security?', 'user');
+   * console.log(`Message added: ${message.id}`);
+   * ```
+   */
+  async addMessage(
+    debateId: string,
+    content: string,
+    role: string = 'user'
+  ): Promise<Message> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/messages`, {
+      body: { content, role },
+    });
   }
 
   /**
@@ -398,10 +442,95 @@ export class DebatesAPI {
   }
 
   /**
+   * Add evidence to a debate.
+   *
+   * @param debateId - The debate ID
+   * @param evidence - Evidence content
+   * @param source - Optional source of the evidence
+   * @param metadata - Optional additional metadata
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.addEvidence('debate-123', 'Studies show...', 'research-paper');
+   * console.log(`Evidence added: ${result.evidence_id}`);
+   * ```
+   */
+  async addEvidence(
+    debateId: string,
+    evidence: string,
+    source?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<{ evidence_id: string; success: boolean }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/evidence`, {
+      body: { evidence, source, metadata },
+    });
+  }
+
+  /**
+   * Get consensus information for a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const consensus = await client.debates.getConsensus('debate-123');
+   * if (consensus.reached) {
+   *   console.log(`Consensus: ${consensus.conclusion}`);
+   * }
+   * ```
+   */
+  async getConsensus(debateId: string): Promise<{
+    reached: boolean;
+    conclusion: string | null;
+    confidence: number;
+    dissent: string[];
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/consensus`);
+  }
+
+  /**
    * Fork a debate from a specific point.
    */
   async fork(debateId: string, options?: { branch_point?: number }): Promise<{ debate_id: string }> {
     return this.client.forkDebate(debateId, options);
+  }
+
+  /**
+   * Clone a debate (create a copy with fresh state).
+   *
+   * @param debateId - The debate ID to clone
+   * @param options - Optional clone options
+   *
+   * @example
+   * ```typescript
+   * const cloned = await client.debates.clone('debate-123', { preserveAgents: true });
+   * console.log(`Cloned debate: ${cloned.debate_id}`);
+   * ```
+   */
+  async clone(
+    debateId: string,
+    options?: { preserveAgents?: boolean; preserveContext?: boolean }
+  ): Promise<{ debate_id: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/clone`, {
+      body: options,
+    });
+  }
+
+  /**
+   * Archive a debate.
+   *
+   * @param debateId - The debate ID to archive
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.archive('debate-123');
+   * if (result.success) {
+   *   console.log('Debate archived');
+   * }
+   * ```
+   */
+  async archive(debateId: string): Promise<{ success: boolean }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/archive`);
   }
 
   /**
@@ -699,6 +828,66 @@ export class DebatesAPI {
   // ===========================================================================
 
   /**
+   * Start a debate.
+   *
+   * @param debateId - The debate ID to start
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.start('debate-123');
+   * console.log(`Debate started: ${result.status}`);
+   * ```
+   */
+  async start(debateId: string): Promise<{ success: boolean; status: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/start`);
+  }
+
+  /**
+   * Stop a running debate.
+   *
+   * @param debateId - The debate ID to stop
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.stop('debate-123');
+   * console.log(`Debate stopped: ${result.status}`);
+   * ```
+   */
+  async stop(debateId: string): Promise<{ success: boolean; status: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/stop`);
+  }
+
+  /**
+   * Pause a running debate.
+   *
+   * @param debateId - The debate ID to pause
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.pause('debate-123');
+   * console.log(`Debate paused: ${result.status}`);
+   * ```
+   */
+  async pause(debateId: string): Promise<{ success: boolean; status: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/pause`);
+  }
+
+  /**
+   * Resume a paused debate.
+   *
+   * @param debateId - The debate ID to resume
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.resume('debate-123');
+   * console.log(`Debate resumed: ${result.status}`);
+   * ```
+   */
+  async resume(debateId: string): Promise<{ success: boolean; status: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/resume`);
+  }
+
+  /**
    * Cancel a running debate.
    *
    * @param debateId - The debate ID to cancel
@@ -713,6 +902,159 @@ export class DebatesAPI {
    */
   async cancel(debateId: string): Promise<{ success: boolean; status: string }> {
     return this.client.request('POST', `/api/v1/debates/${debateId}/cancel`);
+  }
+
+  // ===========================================================================
+  // Rounds, Agents, and Votes
+  // ===========================================================================
+
+  /**
+   * Get rounds from a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const rounds = await client.debates.getRounds('debate-123');
+   * console.log(`${rounds.length} rounds completed`);
+   * for (const round of rounds) {
+   *   console.log(`Round ${round.number}: ${round.proposals.length} proposals`);
+   * }
+   * ```
+   */
+  async getRounds(debateId: string): Promise<Array<{
+    number: number;
+    proposals: Array<{ agent: string; content: string }>;
+    critiques: Array<{ agent: string; target: string; content: string }>;
+    status: string;
+    started_at: string;
+    ended_at?: string;
+  }>> {
+    const response = await this.client.request<{ rounds: Array<{
+      number: number;
+      proposals: Array<{ agent: string; content: string }>;
+      critiques: Array<{ agent: string; target: string; content: string }>;
+      status: string;
+      started_at: string;
+      ended_at?: string;
+    }> }>('GET', `/api/v1/debates/${debateId}/rounds`);
+    return response.rounds;
+  }
+
+  /**
+   * Get agents participating in a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const agents = await client.debates.getAgents('debate-123');
+   * for (const agent of agents) {
+   *   console.log(`${agent.name}: ${agent.role} (ELO: ${agent.elo})`);
+   * }
+   * ```
+   */
+  async getAgents(debateId: string): Promise<Array<{
+    name: string;
+    role: string;
+    model: string;
+    elo?: number;
+    contributions: number;
+  }>> {
+    const response = await this.client.request<{ agents: Array<{
+      name: string;
+      role: string;
+      model: string;
+      elo?: number;
+      contributions: number;
+    }> }>('GET', `/api/v1/debates/${debateId}/agents`);
+    return response.agents;
+  }
+
+  /**
+   * Get votes from a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const votes = await client.debates.getVotes('debate-123');
+   * console.log(`${votes.length} votes cast`);
+   * for (const vote of votes) {
+   *   console.log(`${vote.agent} voted for: ${vote.position}`);
+   * }
+   * ```
+   */
+  async getVotes(debateId: string): Promise<Array<{
+    agent: string;
+    position: string;
+    confidence: number;
+    round: number;
+    reasoning?: string;
+  }>> {
+    const response = await this.client.request<{ votes: Array<{
+      agent: string;
+      position: string;
+      confidence: number;
+      round: number;
+      reasoning?: string;
+    }> }>('GET', `/api/v1/debates/${debateId}/votes`);
+    return response.votes;
+  }
+
+  /**
+   * Add user input to a debate.
+   *
+   * @param debateId - The debate ID
+   * @param input - User input content
+   * @param inputType - Type of input (suggestion, vote, question, etc.)
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.addUserInput('debate-123', 'Consider the scalability aspect', 'suggestion');
+   * console.log(`Input added: ${result.input_id}`);
+   * ```
+   */
+  async addUserInput(
+    debateId: string,
+    input: string,
+    inputType: 'suggestion' | 'vote' | 'question' | 'context' = 'suggestion'
+  ): Promise<{ input_id: string; success: boolean }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/user-input`, {
+      body: { input, type: inputType },
+    });
+  }
+
+  /**
+   * Get the timeline of events in a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const timeline = await client.debates.getTimeline('debate-123');
+   * for (const event of timeline) {
+   *   console.log(`${event.timestamp}: ${event.type} - ${event.description}`);
+   * }
+   * ```
+   */
+  async getTimeline(debateId: string): Promise<Array<{
+    timestamp: string;
+    type: string;
+    agent?: string;
+    description: string;
+    round?: number;
+    metadata?: Record<string, unknown>;
+  }>> {
+    const response = await this.client.request<{ timeline: Array<{
+      timestamp: string;
+      type: string;
+      agent?: string;
+      description: string;
+      round?: number;
+      metadata?: Record<string, unknown>;
+    }> }>('GET', `/api/v1/debates/${debateId}/timeline`);
+    return response.timeline;
   }
 
   // ===========================================================================

@@ -20,7 +20,8 @@ from aragora.training.specialist_models import (
 )
 
 if TYPE_CHECKING:
-    from aragora.agents.base import BaseAgent  # type: ignore[attr-defined]
+    from aragora.agents.api_agents.tinker import TinkerAgent
+    from aragora.agents.api_agents.openrouter import OpenRouterAgent
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class AgentConfig:
 class SpecialistAgentInfo:
     """Information about a created specialist agent."""
 
-    agent: "BaseAgent"
+    agent: TinkerAgent | OpenRouterAgent
     specialist_model: SpecialistModel | None
     is_specialist: bool
     vertical: Vertical
@@ -178,14 +179,13 @@ Adapt your approach based on the specific task requirements.""",
         # Import here to avoid circular dependency
         from aragora.agents.api_agents.tinker import TinkerAgent
 
-        # Get the vertical-specific prompt
-        system_prompt = self._get_system_prompt(config)
+        # Get the vertical-specific prompt (reserved for future use)
+        _system_prompt = self._get_system_prompt(config)
 
         # Create agent with specialist adapter
-        agent = TinkerAgent(  # type: ignore[abstract,call-arg]
-            base_model=specialist.base_model,
-            adapter_name=specialist.adapter_name,
-            system_prompt=system_prompt,
+        agent = TinkerAgent(
+            model=specialist.base_model,
+            adapter=specialist.adapter_name,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
         )

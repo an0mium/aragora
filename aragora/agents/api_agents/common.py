@@ -36,16 +36,16 @@ from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error
 try:
     from aragora.observability.tracing import build_trace_headers
 
-    TRACING_AVAILABLE = True
+    TRACING_AVAILABLE: bool = True
 except ImportError:
-    TRACING_AVAILABLE = False
+    TRACING_AVAILABLE: bool = False
 
     def build_trace_headers() -> dict[str, str]:
         """Fallback when tracing module not available."""
         return {}
 
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Connection Pool Configuration

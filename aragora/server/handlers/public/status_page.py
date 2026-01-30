@@ -30,6 +30,9 @@ from ..base import (
     json_response,
 )
 
+
+from aragora.utils.async_utils import run_async
+
 logger = logging.getLogger(__name__)
 
 # Server start time for uptime calculation
@@ -216,7 +219,6 @@ class StatusPageHandler(BaseHandler):
         try:
             if db_backend in ("postgres", "postgresql"):
                 # PostgreSQL health check
-                import asyncio
 
                 try:
                     from aragora.storage.postgres import get_postgres_pool
@@ -227,7 +229,7 @@ class StatusPageHandler(BaseHandler):
                         message="PostgreSQL driver not installed",
                     )
 
-                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                pool = run_async(get_postgres_pool())
                 if pool:
                     response_time = (time.perf_counter() - start) * 1000
                     return ComponentHealth(

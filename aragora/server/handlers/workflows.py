@@ -55,7 +55,7 @@ except ImportError:
 
 # Metrics imports
 try:
-    from aragora.observability.metrics import record_rbac_check
+    from aragora.observability.metrics import record_rbac_check, track_handler
 
     METRICS_AVAILABLE = True
 except ImportError:
@@ -63,6 +63,14 @@ except ImportError:
 
     def record_rbac_check(*args, **kwargs):
         pass
+
+    def track_handler(*args, **kwargs):
+        """Fallback decorator when metrics not available."""
+
+        def decorator(fn):
+            return fn
+
+        return decorator
 
 
 logger = logging.getLogger(__name__)
@@ -1061,6 +1069,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 return context.org_id
         return get_string_param(query_params, "tenant_id", "default")
 
+    @track_handler("workflows/main", method="GET")
     def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
         """Handle GET requests."""
         if not self.can_handle(path):

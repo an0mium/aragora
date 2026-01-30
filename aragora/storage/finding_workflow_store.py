@@ -22,7 +22,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -37,6 +36,9 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from asyncpg import Pool
+
+
+from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
@@ -713,7 +715,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def get_sync(self, finding_id: str) -> dict[str, Any] | None:
         """Get workflow data for a finding (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.get(finding_id))
+        return run_async(self.get(finding_id))
 
     async def save(self, data: dict[str, Any]) -> None:
         """Save workflow data for a finding."""
@@ -759,7 +761,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def save_sync(self, data: dict[str, Any]) -> None:
         """Save workflow data for a finding (sync wrapper)."""
-        asyncio.get_event_loop().run_until_complete(self.save(data))
+        run_async(self.save(data))
 
     async def delete(self, finding_id: str) -> bool:
         """Delete workflow data for a finding."""
@@ -772,7 +774,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def delete_sync(self, finding_id: str) -> bool:
         """Delete workflow data for a finding (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.delete(finding_id))
+        return run_async(self.delete(finding_id))
 
     async def list_all(self) -> list[dict[str, Any]]:
         """List all workflow data."""
@@ -788,7 +790,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def list_all_sync(self) -> list[dict[str, Any]]:
         """List all workflow data (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_all())
+        return run_async(self.list_all())
 
     async def list_by_assignee(self, user_id: str) -> list[dict[str, Any]]:
         """List all workflows assigned to a user."""
@@ -805,7 +807,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def list_by_assignee_sync(self, user_id: str) -> list[dict[str, Any]]:
         """List all workflows assigned to a user (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_by_assignee(user_id))
+        return run_async(self.list_by_assignee(user_id))
 
     async def list_overdue(self) -> list[dict[str, Any]]:
         """List all overdue findings."""
@@ -827,7 +829,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def list_overdue_sync(self) -> list[dict[str, Any]]:
         """List all overdue findings (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_overdue())
+        return run_async(self.list_overdue())
 
     async def list_by_state(self, state: str) -> list[dict[str, Any]]:
         """List all findings in a specific state."""
@@ -844,7 +846,7 @@ class PostgresFindingWorkflowStore(FindingWorkflowStoreBackend):
 
     def list_by_state_sync(self, state: str) -> list[dict[str, Any]]:
         """List all findings in a specific state (sync wrapper)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_by_state(state))
+        return run_async(self.list_by_state(state))
 
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""

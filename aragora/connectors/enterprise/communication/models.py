@@ -301,6 +301,109 @@ class GmailSyncState:
 
 
 @dataclass
+class MessageFetchFailure:
+    """Details about a failed message fetch operation.
+
+    Attributes:
+        message_id: The ID of the message that failed to fetch.
+        error: The exception that caused the failure.
+        error_type: The type name of the exception for easier classification.
+        is_retryable: Whether the error suggests a retry might succeed.
+    """
+
+    message_id: str
+    error: Exception
+    error_type: str = ""
+    is_retryable: bool = False
+
+    def __post_init__(self):
+        if not self.error_type:
+            self.error_type = type(self.error).__name__
+        # Determine if error is retryable based on type
+        if not self.is_retryable:
+            error_msg = str(self.error).lower()
+            self.is_retryable = any(
+                x in error_msg for x in ["timeout", "connection", "429", "503", "502"]
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for API responses."""
+        return {
+            "message_id": self.message_id,
+            "error": str(self.error),
+            "error_type": self.error_type,
+            "is_retryable": self.is_retryable,
+        }
+
+
+@dataclass
+class BatchFetchResult:
+    """Result of a batch message fetch operation.
+
+    Contains both successfully fetched messages and details about failures,
+    allowing callers to handle partial results appropriately.
+
+    Attributes:
+        messages: List of successfully fetched EmailMessage objects.
+        failures: List of MessageFetchFailure objects for failed fetches.
+        total_requested: Total number of message IDs requested.
+    """
+
+    messages: list["EmailMessage"] = field(default_factory=list)
+    failures: list[MessageFetchFailure] = field(default_factory=list)
+    total_requested: int = 0
+
+    @property
+    def success_count(self) -> int:
+        """Number of successfully fetched messages."""
+        return len(self.messages)
+
+    @property
+    def failure_count(self) -> int:
+        """Number of failed fetches."""
+        return len(self.failures)
+
+    @property
+    def is_complete(self) -> bool:
+        """Whether all requested messages were fetched successfully."""
+        return self.failure_count == 0
+
+    @property
+    def is_partial(self) -> bool:
+        """Whether some but not all messages were fetched."""
+        return 0 < self.success_count < self.total_requested
+
+    @property
+    def is_total_failure(self) -> bool:
+        """Whether all fetches failed."""
+        return self.success_count == 0 and self.total_requested > 0
+
+    @property
+    def failed_ids(self) -> list[str]:
+        """List of message IDs that failed to fetch."""
+        return [f.message_id for f in self.failures]
+
+    @property
+    def retryable_ids(self) -> list[str]:
+        """List of message IDs that failed with retryable errors."""
+        return [f.message_id for f in self.failures if f.is_retryable]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for API responses."""
+        return {
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
+            "total_requested": self.total_requested,
+            "is_complete": self.is_complete,
+            "is_partial": self.is_partial,
+            "is_total_failure": self.is_total_failure,
+            "failed_ids": self.failed_ids,
+            "retryable_ids": self.retryable_ids,
+            "failures": [f.to_dict() for f in self.failures],
+        }
+
+
+@dataclass
 class OutlookFolder:
     """An Outlook mail folder."""
 

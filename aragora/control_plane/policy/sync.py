@@ -223,7 +223,7 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_sla_policy(self, policy) -> ControlPlanePolicy | None:
+    def _convert_sla_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Convert SLA compliance policy."""
         max_execution = None
         max_queue = None
@@ -267,7 +267,7 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_task_restriction_policy(self, policy) -> ControlPlanePolicy | None:
+    def _convert_task_restriction_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Convert task restriction compliance policy."""
         task_types: list[str] = []
         capabilities: list[str] = []
@@ -301,7 +301,7 @@ class PolicyStoreSync:
             metadata={"source": "compliance_store", "framework_id": policy.framework_id},
         )
 
-    def _convert_generic_policy(self, policy) -> ControlPlanePolicy | None:
+    def _convert_generic_policy(self, policy: Any) -> ControlPlanePolicy | None:
         """Convert a generic compliance policy with basic mapping."""
         # Only convert if the policy has rules with control-plane-relevant metadata
         has_relevant_rules = False

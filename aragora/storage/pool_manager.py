@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from asyncpg import Pool
 
+
 logger = logging.getLogger(__name__)
 
 # Global pool state
@@ -162,7 +163,7 @@ async def initialize_shared_pool(
 
         # Apply nest_asyncio to allow nested run_until_complete() calls.
         # This is required because PostgreSQL store sync wrappers use
-        # asyncio.get_event_loop().run_until_complete() which needs to work
+        # run_async() which needs to work
         # from within handler coroutines running on this event loop.
         try:
             import nest_asyncio

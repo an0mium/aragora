@@ -61,11 +61,16 @@ class KMAdapterMixin:
             return []
 
         try:
-            return self._km_adapter.get_agent_skill_history(  # type: ignore[call-arg]
+            # The adapter's get_agent_skill_history method may have different signatures
+            # depending on the adapter implementation, so we attempt to call with known parameters
+            result = self._km_adapter.get_agent_skill_history(
                 agent_name=agent_name,
                 domain=domain,
                 limit=limit,
             )
+            if isinstance(result, list):
+                return result
+            return []
         except (AttributeError, TypeError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for agent skill history: {e}")
             return []

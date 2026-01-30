@@ -19,7 +19,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -30,6 +29,8 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
+
+from aragora.utils.async_utils import run_async
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -1129,9 +1130,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def get_sync(self, integration_type: str, user_id: str = "default") -> IntegrationConfig | None:
         """Get integration configuration (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_async(integration_type, user_id)
-        )
+        return run_async(self.get_async(integration_type, user_id))
 
     async def save(self, config: IntegrationConfig) -> None:
         """Save integration configuration (async)."""
@@ -1188,7 +1187,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def save_sync(self, config: IntegrationConfig) -> None:
         """Save integration configuration (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.save_async(config))
+        run_async(self.save_async(config))
 
     async def delete(self, integration_type: str, user_id: str = "default") -> bool:
         """Delete integration configuration (async)."""
@@ -1209,9 +1208,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def delete_sync(self, integration_type: str, user_id: str = "default") -> bool:
         """Delete integration configuration (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.delete_async(integration_type, user_id)
-        )
+        return run_async(self.delete_async(integration_type, user_id))
 
     async def list_for_user(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user (async)."""
@@ -1241,7 +1238,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def list_for_user_sync(self, user_id: str = "default") -> list[IntegrationConfig]:
         """List all integrations for a user (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_for_user_async(user_id))
+        return run_async(self.list_for_user_async(user_id))
 
     async def list_all(self) -> list[IntegrationConfig]:
         """List all integrations (async)."""
@@ -1270,7 +1267,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def list_all_sync(self) -> list[IntegrationConfig]:
         """List all integrations (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(self.list_all_async())
+        return run_async(self.list_all_async())
 
     async def get_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -1304,9 +1301,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         self, email: str, platform: str, user_id: str = "default"
     ) -> UserIdMapping | None:
         """Get user ID mapping (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.get_user_mapping_async(email, platform, user_id)
-        )
+        return run_async(self.get_user_mapping_async(email, platform, user_id))
 
     async def save_user_mapping(self, mapping: UserIdMapping) -> None:
         """Save user ID mapping (async)."""
@@ -1339,7 +1334,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def save_user_mapping_sync(self, mapping: UserIdMapping) -> None:
         """Save user ID mapping (sync wrapper for async)."""
-        asyncio.get_event_loop().run_until_complete(self.save_user_mapping_async(mapping))
+        run_async(self.save_user_mapping_async(mapping))
 
     async def delete_user_mapping(
         self, email: str, platform: str, user_id: str = "default"
@@ -1364,9 +1359,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
 
     def delete_user_mapping_sync(self, email: str, platform: str, user_id: str = "default") -> bool:
         """Delete user ID mapping (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.delete_user_mapping_async(email, platform, user_id)
-        )
+        return run_async(self.delete_user_mapping_async(email, platform, user_id))
 
     async def list_user_mappings(
         self, platform: str | None = None, user_id: str = "default"
@@ -1406,9 +1399,7 @@ class PostgresIntegrationStore(IntegrationStoreBackend):
         self, platform: str | None = None, user_id: str = "default"
     ) -> list[UserIdMapping]:
         """List user ID mappings (sync wrapper for async)."""
-        return asyncio.get_event_loop().run_until_complete(
-            self.list_user_mappings_async(platform, user_id)
-        )
+        return run_async(self.list_user_mappings_async(platform, user_id))
 
     async def close(self) -> None:
         """Close is a no-op for pool-based stores (pool managed externally)."""

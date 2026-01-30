@@ -296,7 +296,7 @@ class TestUnifiedInboxHandler:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(request, "/api/v1/inbox/accounts", "GET")
+        result = await handler.handle_request(request, "/api/v1/inbox/accounts", "GET")
 
         assert result is not None
         # Result should indicate success with empty accounts
@@ -310,7 +310,7 @@ class TestUnifiedInboxHandler:
         request.tenant_id = "test_tenant_stats"
         request.query = {}
 
-        result = await handler.handle(request, "/api/v1/inbox/stats", "GET")
+        result = await handler.handle_request(request, "/api/v1/inbox/stats", "GET")
 
         assert result is not None
 
@@ -322,7 +322,7 @@ class TestUnifiedInboxHandler:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(request, "/api/v1/inbox/unknown", "GET")
+        result = await handler.handle_request(request, "/api/v1/inbox/unknown", "GET")
 
         assert result is not None
         # Should return 404
@@ -336,7 +336,7 @@ class TestUnifiedInboxHandler:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"provider": "invalid"})
 
-        result = await handler.handle(request, "/api/v1/inbox/connect", "POST")
+        result = await handler.handle_request(request, "/api/v1/inbox/connect", "POST")
 
         # Should return error for invalid provider
         assert result is not None
@@ -355,7 +355,7 @@ class TestUnifiedInboxHandler:
             }
         )
 
-        result = await handler.handle(request, "/api/v1/inbox/bulk-action", "POST")
+        result = await handler.handle_request(request, "/api/v1/inbox/bulk-action", "POST")
 
         # Should return error for invalid action
         assert result is not None
@@ -370,7 +370,7 @@ class TestUnifiedInboxHandler:
         request.query = {}
         request.args = {}
 
-        result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+        result = await handler.handle_request(request, "/api/v1/inbox/oauth/gmail", "GET")
 
         # Should return 400 error for missing redirect_uri
         assert result.status_code == 400
@@ -392,7 +392,7 @@ class TestUnifiedInboxHandler:
             os.environ,
             {"GMAIL_CLIENT_ID": "test_client_id", "GMAIL_CLIENT_SECRET": "test_secret"},
         ):
-            result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+            result = await handler.handle_request(request, "/api/v1/inbox/oauth/gmail", "GET")
 
             # Should succeed when configured
             assert result.status_code == 200
@@ -416,7 +416,7 @@ class TestUnifiedInboxHandler:
         request.query = {}
         request.args = {}
 
-        result = await handler.handle(request, "/api/v1/inbox/oauth/outlook", "GET")
+        result = await handler.handle_request(request, "/api/v1/inbox/oauth/outlook", "GET")
 
         # Should return 400 error for missing redirect_uri
         assert result.status_code == 400
@@ -438,7 +438,7 @@ class TestUnifiedInboxHandler:
             os.environ,
             {"OUTLOOK_CLIENT_ID": "test_client_id", "OUTLOOK_CLIENT_SECRET": "test_secret"},
         ):
-            result = await handler.handle(request, "/api/v1/inbox/oauth/outlook", "GET")
+            result = await handler.handle_request(request, "/api/v1/inbox/oauth/outlook", "GET")
 
             # Should succeed when configured
             assert result.status_code == 200
@@ -471,7 +471,7 @@ class TestUnifiedInboxHandler:
             if not k.startswith("GMAIL_") and not k.startswith("GOOGLE_")
         }
         with patch.dict(os.environ, env_without_gmail, clear=True):
-            result = await handler.handle(request, "/api/v1/inbox/oauth/gmail", "GET")
+            result = await handler.handle_request(request, "/api/v1/inbox/oauth/gmail", "GET")
 
             # Should return 503 error when not configured
             assert result.status_code == 503
