@@ -19,8 +19,33 @@ from aragora.server.unified_server import run_unified_server
 DEFAULT_BIND_HOST = os.environ.get("ARAGORA_BIND_HOST", "127.0.0.1")
 
 
+def _configure_logging() -> None:
+    """Configure structured logging for the server.
+
+    Uses JSON format in production (ARAGORA_ENV=production or ARAGORA_LOG_FORMAT=json),
+    text format otherwise for easier local development.
+    """
+    from aragora.server.middleware.structured_logging import configure_structured_logging
+
+    env = os.environ.get("ARAGORA_ENV", "development")
+    log_format = os.environ.get("ARAGORA_LOG_FORMAT", "")
+    log_level = os.environ.get("ARAGORA_LOG_LEVEL", "INFO")
+
+    # Use JSON format in production or if explicitly set
+    use_json = log_format == "json" or (not log_format and env == "production")
+
+    configure_structured_logging(
+        level=log_level,
+        json_output=use_json,
+        service_name="aragora",
+    )
+
+
 def _run_worker(http_port: int, ws_port: int, host: str, static_dir, nomic_dir):
     """Run a single server worker process."""
+    # Configure logging for this worker process
+    _configure_logging()
+
     asyncio.run(
         run_unified_server(
             http_port=http_port,
@@ -71,6 +96,9 @@ Production deployment with multiple workers:
         args.http_port = args.api_port
 
     workers = max(1, args.workers)
+
+    # Configure logging before starting server
+    _configure_logging()
 
     if workers == 1:
         # Single worker mode - run directly

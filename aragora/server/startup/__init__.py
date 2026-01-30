@@ -30,6 +30,7 @@ from aragora.server.startup.observability import (
     init_opentelemetry,
     init_otlp_exporter,
     init_prometheus_metrics,
+    init_structured_logging,
 )
 from aragora.server.startup.background import (
     init_background_tasks,
@@ -276,12 +277,16 @@ async def run_startup_sequence(
 
     import time as time_mod
 
+    # Initialize structured logging early (before other components log)
+    structured_logging = init_structured_logging()
+
     status: dict[str, Any] = {
         "_startup_start_time": time_mod.time(),  # For duration calculation
         "backend_connectivity": connectivity,
         "storage_backend": storage_backend,
         "migrations": migration_results,
         "schema_validation": schema_validation,
+        "structured_logging": structured_logging,
         "redis_ha": {"enabled": False, "mode": "standalone", "healthy": False},
         "error_monitoring": False,
         "opentelemetry": False,

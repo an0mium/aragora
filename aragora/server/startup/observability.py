@@ -6,8 +6,52 @@ OTLP exporter, and Prometheus metrics initialization.
 """
 
 import logging
+import os
 
 logger = logging.getLogger(__name__)
+
+
+def init_structured_logging() -> bool:
+    """Initialize structured JSON logging.
+
+    Uses JSON format in production (ARAGORA_ENV=production or ARAGORA_LOG_FORMAT=json),
+    text format otherwise for easier local development.
+
+    Environment Variables:
+        ARAGORA_ENV: Environment name (production, staging, development)
+        ARAGORA_LOG_FORMAT: Log format (json or text)
+        ARAGORA_LOG_LEVEL: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+    Returns:
+        True if JSON logging was enabled, False for text logging
+    """
+    try:
+        from aragora.server.middleware.structured_logging import configure_structured_logging
+
+        env = os.environ.get("ARAGORA_ENV", "development")
+        log_format = os.environ.get("ARAGORA_LOG_FORMAT", "")
+        log_level = os.environ.get("ARAGORA_LOG_LEVEL", "INFO")
+
+        # Use JSON format in production or if explicitly set
+        use_json = log_format == "json" or (not log_format and env == "production")
+
+        configure_structured_logging(
+            level=log_level,
+            json_output=use_json,
+            service_name="aragora",
+        )
+
+        if use_json:
+            logger.info("Structured JSON logging enabled")
+        else:
+            logger.debug("Text logging enabled (set ARAGORA_LOG_FORMAT=json for JSON)")
+
+        return use_json
+    except ImportError as e:
+        logger.debug(f"Structured logging not available: {e}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize structured logging: {e}")
+    return False
 
 
 async def init_error_monitoring() -> bool:

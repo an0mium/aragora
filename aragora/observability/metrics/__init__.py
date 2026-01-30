@@ -218,6 +218,44 @@ from aragora.observability.metrics.consensus import (  # noqa: F401, E402
     record_consensus_agreement_ratio,
 )
 
+# TTS metrics (new Phase 1 submodule)
+from aragora.observability.metrics.tts import (  # noqa: F401, E402
+    init_tts_metrics,
+    record_tts_synthesis as record_tts_synthesis_v2,
+    record_tts_latency as record_tts_latency_v2,
+    track_tts_synthesis,
+    TTS_SYNTHESIS_TOTAL,
+    TTS_SYNTHESIS_LATENCY,
+)
+
+# Cache metrics (new Phase 1 submodule)
+from aragora.observability.metrics.cache import (  # noqa: F401, E402
+    init_cache_metrics,
+    record_cache_hit as record_cache_hit_v2,
+    record_cache_miss as record_cache_miss_v2,
+    record_knowledge_cache_hit as record_knowledge_cache_hit_v2,
+    record_knowledge_cache_miss as record_knowledge_cache_miss_v2,
+    record_rlm_cache_hit as record_rlm_cache_hit_v2,
+    record_rlm_cache_miss as record_rlm_cache_miss_v2,
+    CACHE_HITS,
+    CACHE_MISSES,
+    KNOWLEDGE_CACHE_HITS,
+    KNOWLEDGE_CACHE_MISSES,
+    RLM_CACHE_HITS,
+    RLM_CACHE_MISSES,
+)
+
+# Convergence metrics (new Phase 1 submodule)
+from aragora.observability.metrics.convergence import (  # noqa: F401, E402
+    init_convergence_metrics,
+    record_convergence_check as record_convergence_check_v2,
+    record_process_evaluation_bonus as record_process_evaluation_bonus_v2,
+    record_rlm_ready_quorum as record_rlm_ready_quorum_v2,
+    CONVERGENCE_CHECKS_TOTAL,
+    PROCESS_EVALUATION_BONUSES,
+    RLM_READY_QUORUM_EVENTS,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup

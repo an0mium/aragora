@@ -126,6 +126,21 @@ WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
 # Submodule Imports - Delegate to specialized metrics modules
 # =============================================================================
 
+# TTS metrics
+from aragora.observability.metrics.tts import (  # noqa: E402
+    init_tts_metrics,
+)
+
+# Cache metrics
+from aragora.observability.metrics.cache import (  # noqa: E402
+    init_cache_metrics,
+)
+
+# Convergence metrics
+from aragora.observability.metrics.convergence import (  # noqa: E402
+    init_convergence_metrics,
+)
+
 # Task Queue metrics
 from aragora.observability.metrics.task_queue import (  # noqa: E402
     init_task_queue_metrics,
@@ -495,7 +510,6 @@ def _init_metrics() -> bool:
 
         # Initialize internal core metrics (not in submodules)
         _init_debate_metrics_internal()
-        _init_cache_metrics_internal()
         _init_cross_functional_metrics_internal()
         _init_phase9_metrics_internal()
         _init_slow_debate_metrics_internal()
@@ -503,7 +517,12 @@ def _init_metrics() -> bool:
         _init_gauntlet_metrics_internal()
         _init_workflow_metrics_internal()
 
-        # Initialize submodule metrics
+        # Initialize submodule metrics (new Phase 1 submodules)
+        init_tts_metrics()
+        init_cache_metrics()
+        init_convergence_metrics()
+
+        # Initialize other submodule metrics
         init_task_queue_metrics()
         init_governance_metrics()
         init_user_mapping_metrics()
@@ -568,40 +587,15 @@ def _init_debate_metrics_internal() -> None:
     )
 
 
-def _init_cache_metrics_internal() -> None:
-    """Initialize cache metrics."""
-    global CACHE_HITS, CACHE_MISSES
-    from prometheus_client import Counter
-
-    CACHE_HITS = Counter(
-        "aragora_cache_hits_total",
-        "Cache hit count",
-        ["cache_name"],
-    )
-
-    CACHE_MISSES = Counter(
-        "aragora_cache_misses_total",
-        "Cache miss count",
-        ["cache_name"],
-    )
-
-
 def _init_cross_functional_metrics_internal() -> None:
-    """Initialize cross-functional feature metrics."""
-    global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
+    """Initialize cross-functional feature metrics.
+
+    Note: Cache metrics (CACHE_HITS, CACHE_MISSES, KNOWLEDGE_CACHE_*,
+    RLM_CACHE_*) are now initialized by aragora.observability.metrics.cache.
+    """
     global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
     global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
     from prometheus_client import Counter
-
-    KNOWLEDGE_CACHE_HITS = Counter(
-        "aragora_knowledge_cache_hits_total",
-        "Knowledge query cache hits",
-    )
-
-    KNOWLEDGE_CACHE_MISSES = Counter(
-        "aragora_knowledge_cache_misses_total",
-        "Knowledge query cache misses",
-    )
 
     MEMORY_COORDINATOR_WRITES = Counter(
         "aragora_memory_coordinator_writes_total",
@@ -633,8 +627,11 @@ def _init_cross_functional_metrics_internal() -> None:
 
 
 def _init_phase9_metrics_internal() -> None:
-    """Initialize Phase 9 Cross-Pollination metrics."""
-    global RLM_CACHE_HITS, RLM_CACHE_MISSES
+    """Initialize Phase 9 Cross-Pollination metrics.
+
+    Note: RLM_CACHE_HITS and RLM_CACHE_MISSES are now initialized by
+    aragora.observability.metrics.cache.
+    """
     global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
     global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
     global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
@@ -645,9 +642,6 @@ def _init_phase9_metrics_internal() -> None:
     global RLM_SELECTION_RECOMMENDATIONS, CALIBRATION_COST_CALCULATIONS
     global BUDGET_FILTERING_EVENTS
     from prometheus_client import Counter, Histogram
-
-    RLM_CACHE_HITS = Counter("aragora_rlm_cache_hits_total", "RLM compression cache hits")
-    RLM_CACHE_MISSES = Counter("aragora_rlm_cache_misses_total", "RLM compression cache misses")
 
     CALIBRATION_ADJUSTMENTS = Counter(
         "aragora_calibration_adjustments_total",
@@ -783,45 +777,19 @@ def _init_slow_debate_metrics_internal() -> None:
 
 
 def _init_feature_metrics_internal() -> None:
-    """Initialize new feature metrics (TTS, convergence, vote bonuses)."""
-    global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
-    global CONVERGENCE_CHECKS_TOTAL, EVIDENCE_CITATION_BONUSES
-    global PROCESS_EVALUATION_BONUSES, RLM_READY_QUORUM_EVENTS
-    from prometheus_client import Counter, Histogram
+    """Initialize remaining feature metrics.
 
-    TTS_SYNTHESIS_TOTAL = Counter(
-        "aragora_tts_synthesis_total",
-        "Total TTS synthesis operations",
-        ["voice", "platform"],
-    )
-
-    TTS_SYNTHESIS_LATENCY = Histogram(
-        "aragora_tts_synthesis_latency_seconds",
-        "TTS synthesis latency in seconds",
-        buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
-    )
-
-    CONVERGENCE_CHECKS_TOTAL = Counter(
-        "aragora_convergence_checks_total",
-        "Total convergence check events",
-        ["status", "blocked"],
-    )
+    Note: TTS metrics are now initialized by aragora.observability.metrics.tts.
+    Note: Convergence metrics (CONVERGENCE_CHECKS_TOTAL, PROCESS_EVALUATION_BONUSES,
+    RLM_READY_QUORUM_EVENTS) are now initialized by aragora.observability.metrics.convergence.
+    """
+    global EVIDENCE_CITATION_BONUSES
+    from prometheus_client import Counter
 
     EVIDENCE_CITATION_BONUSES = Counter(
         "aragora_evidence_citation_bonuses_total",
         "Evidence citation vote bonuses applied",
         ["agent"],
-    )
-
-    PROCESS_EVALUATION_BONUSES = Counter(
-        "aragora_process_evaluation_bonuses_total",
-        "Process evaluation vote bonuses applied",
-        ["agent"],
-    )
-
-    RLM_READY_QUORUM_EVENTS = Counter(
-        "aragora_rlm_ready_quorum_total",
-        "RLM ready signal quorum events",
     )
 
 
