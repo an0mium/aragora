@@ -664,7 +664,7 @@ class TestTimeoutCalculation:
             id="test",
             description="Test",
             files=["file.py"],
-            complexity="unknown",  # type: ignore
+            complexity="unknown",  # type: ignore[arg-type]
         )
         with patch.dict(os.environ, {"IMPL_COMPLEXITY_TIMEOUT": "1"}):
             timeout = executor._get_task_timeout(task)

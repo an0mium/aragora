@@ -738,10 +738,10 @@ class TestValidateResolution:
     def test_resolution_rejects_non_integer(self):
         """Reject non-integer resolution values."""
         with pytest.raises(ValueError, match="must be integers"):
-            _validate_resolution(1920.5, 1080)  # type: ignore
+            _validate_resolution(1920.5, 1080)  # type: ignore[arg-type]
 
         with pytest.raises(ValueError, match="must be integers"):
-            _validate_resolution("1920", 1080)  # type: ignore
+            _validate_resolution("1920", 1080)  # type: ignore[arg-type]
 
 
 # =============================================================================
@@ -774,9 +774,9 @@ class TestValidateBitrate:
 
     def test_bitrate_rejects_non_integer(self):
         """Return default for non-integer bitrate."""
-        assert _validate_bitrate("192") == DEFAULT_AUDIO_BITRATE  # type: ignore
-        assert _validate_bitrate(192.5) == DEFAULT_AUDIO_BITRATE  # type: ignore
-        assert _validate_bitrate(None) == DEFAULT_AUDIO_BITRATE  # type: ignore
+        assert _validate_bitrate("192") == DEFAULT_AUDIO_BITRATE  # type: ignore[arg-type]
+        assert _validate_bitrate(192.5) == DEFAULT_AUDIO_BITRATE  # type: ignore[arg-type]
+        assert _validate_bitrate(None) == DEFAULT_AUDIO_BITRATE  # type: ignore[arg-type]
 
 
 # =============================================================================

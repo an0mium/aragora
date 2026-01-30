@@ -78,7 +78,7 @@ class RateLimitAgent(MockAPIAgent):
         if self._call_count <= self._rate_limit_count:
             # Simulate rate limit error (429)
             error = Exception("Rate limit exceeded")
-            error.status_code = 429  # type: ignore
+            error.status_code = 429  # type: ignore[attr-defined]
             raise error
         return f"Response after {self._call_count} attempts"
 

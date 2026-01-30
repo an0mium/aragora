@@ -1165,8 +1165,8 @@ class TestEdgeCases:
             id="none-test",
             task="None values test",
             messages=[],
-            final_answer=None,  # type: ignore
-            confidence=None,  # type: ignore
+            final_answer=None,  # type: ignore[arg-type]
+            confidence=None,  # type: ignore[arg-type]
             consensus_reached=False,
             rounds_used=0,
             duration_seconds=0,

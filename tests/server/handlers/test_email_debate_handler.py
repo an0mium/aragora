@@ -140,9 +140,26 @@ def mock_handler():
 
 
 @pytest.fixture
-def email_handler():
+def server_context():
+    """Create minimal server context for handler testing."""
+    from unittest.mock import MagicMock
+
+    return {
+        "storage": MagicMock(),
+        "user_store": MagicMock(),
+        "elo_system": MagicMock(),
+        "debate_embeddings": None,
+        "critique_store": None,
+        "nomic_dir": None,
+    }
+
+
+@pytest.fixture
+def email_handler(
+    server_context,
+):
     """Create EmailDebateHandler instance."""
-    return EmailDebateHandler()
+    return EmailDebateHandler(server_context)
 
 
 def make_handler_with_body(body: dict) -> MagicMock:

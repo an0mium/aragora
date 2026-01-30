@@ -88,8 +88,8 @@ class MockSSOProviderType:
 
     value: str = "oidc"
 
-    SAML: "MockSSOProviderType" = None  # type: ignore
-    OIDC: "MockSSOProviderType" = None  # type: ignore
+    SAML: "MockSSOProviderType" = None  # type: ignore[assignment]
+    OIDC: "MockSSOProviderType" = None  # type: ignore[assignment]
 
 
 # Initialize enum-like values

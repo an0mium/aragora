@@ -100,7 +100,7 @@ class TestLegalStatus:
     @pytest.mark.asyncio
     async def test_status_not_configured(self):
         """Test status when DocuSign is not configured."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
         mock_request.tenant_id = "test_tenant"
 
@@ -118,7 +118,7 @@ class TestLegalStatus:
     @pytest.mark.asyncio
     async def test_status_import_error(self):
         """Test status when DocuSign connector not installed."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         with patch(
@@ -136,7 +136,7 @@ class TestLegalEnvelopes:
     @pytest.mark.asyncio
     async def test_list_envelopes_not_configured(self):
         """Test list envelopes when not configured."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         with patch(
@@ -151,7 +151,7 @@ class TestLegalEnvelopes:
     @pytest.mark.asyncio
     async def test_create_envelope_missing_subject(self):
         """Test create envelope requires email_subject."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         mock_connector = MagicMock()
@@ -173,7 +173,7 @@ class TestLegalEnvelopes:
     @pytest.mark.asyncio
     async def test_create_envelope_missing_recipients(self):
         """Test create envelope requires recipients."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         mock_connector = MagicMock()
@@ -195,7 +195,7 @@ class TestLegalEnvelopes:
     @pytest.mark.asyncio
     async def test_create_envelope_missing_documents(self):
         """Test create envelope requires documents."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         mock_connector = MagicMock()
@@ -220,7 +220,7 @@ class TestLegalEnvelopes:
     @pytest.mark.asyncio
     async def test_get_envelope_not_found(self):
         """Test get envelope returns 404 when not found."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         mock_connector = MagicMock()
@@ -243,7 +243,7 @@ class TestLegalVoid:
     @pytest.mark.asyncio
     async def test_void_envelope_not_configured(self):
         """Test void envelope when not configured."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         with patch(
@@ -262,7 +262,7 @@ class TestLegalWebhook:
     @pytest.mark.asyncio
     async def test_webhook_handler(self):
         """Test DocuSign webhook handling."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -278,7 +278,7 @@ class TestLegalWebhook:
     @pytest.mark.asyncio
     async def test_webhook_invalid_payload(self):
         """Test webhook with invalid payload."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         with patch.object(handler, "_get_json_body", new_callable=AsyncMock) as mock_body:
@@ -295,7 +295,7 @@ class TestLegalTemplates:
     @pytest.mark.asyncio
     async def test_list_templates(self):
         """Test list templates returns placeholder."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
 
         result = await handler._handle_list_templates(mock_request, "test_tenant")
@@ -343,7 +343,7 @@ class TestLegalUtilities:
 
     def test_get_tenant_id_from_request(self):
         """Test tenant ID extraction from request."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
         mock_request.tenant_id = "test_tenant"
 
@@ -352,7 +352,7 @@ class TestLegalUtilities:
 
     def test_get_tenant_id_default(self):
         """Test tenant ID defaults to 'default'."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock(spec=[])  # No tenant_id attribute
 
         result = handler._get_tenant_id(mock_request)
@@ -360,7 +360,7 @@ class TestLegalUtilities:
 
     def test_get_query_params_from_query(self):
         """Test query params extraction from request.query."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
         mock_request.query = {"status": "completed", "limit": "10"}
 
@@ -371,7 +371,7 @@ class TestLegalUtilities:
     @pytest.mark.asyncio
     async def test_get_json_body_callable(self):
         """Test JSON body extraction when json is callable."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
         mock_request.json = AsyncMock(return_value={"test": "data"})
 
@@ -381,7 +381,7 @@ class TestLegalUtilities:
     @pytest.mark.asyncio
     async def test_get_json_body_attribute(self):
         """Test JSON body extraction when json is attribute."""
-        handler = LegalHandler()
+        handler = LegalHandler({"storage": None, "user_store": None, "elo_system": None})
         mock_request = MagicMock()
         mock_request.json = {"test": "data"}
 

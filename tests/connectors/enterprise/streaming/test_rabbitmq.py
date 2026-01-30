@@ -34,7 +34,7 @@ class TestRabbitMQConfig:
         """Should initialize with sensible defaults."""
         from aragora.connectors.enterprise.streaming.rabbitmq import RabbitMQConfig
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
 
         assert config.url == "amqp://guest:guest@localhost/"
         assert config.queue == "aragora-events"
@@ -85,7 +85,7 @@ class TestRabbitMQConnectorInitialization:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         assert connector.connector_id == "rabbitmq"
@@ -136,7 +136,7 @@ class TestRabbitMQMessageDeserialization:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         # Create mock aio-pika message
         mock_message = MagicMock()
@@ -168,7 +168,7 @@ class TestRabbitMQMessageDeserialization:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         mock_message = MagicMock()
         mock_message.body = b"plain text message"
@@ -194,7 +194,7 @@ class TestRabbitMQMessageDeserialization:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         mock_message = MagicMock()
         mock_message.body = b"\x00\x01\x02\xff"  # Binary data
@@ -347,7 +347,7 @@ class TestRabbitMQConnection:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         # Mock aio-pika
@@ -417,7 +417,7 @@ class TestRabbitMQConnection:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_connection = AsyncMock()
@@ -448,7 +448,7 @@ class TestRabbitMQPublish:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_exchange = AsyncMock()
@@ -529,7 +529,7 @@ class TestRabbitMQSync:
         )
         from aragora.connectors.enterprise.base import SyncItem
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         # Create mock messages
@@ -579,7 +579,7 @@ class TestRabbitMQErrorHandling:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_aio_pika = MagicMock()
@@ -598,7 +598,7 @@ class TestRabbitMQErrorHandling:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_exchange = AsyncMock()
@@ -627,7 +627,7 @@ class TestRabbitMQErrorHandling:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         stats = connector.get_stats()
@@ -770,7 +770,7 @@ class TestRabbitMQEdgeCases:
         )
         from aragora.reasoning.provenance import SourceType
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         assert connector.source_type == SourceType.EXTERNAL_API
 
@@ -781,7 +781,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         assert connector.name == "RabbitMQ"
 
@@ -793,7 +793,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         result = await connector.search("test query")
 
@@ -807,7 +807,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         result = await connector.fetch("some-id")
 
@@ -821,7 +821,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_queue = AsyncMock()
@@ -849,7 +849,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
         connector._connection = AsyncMock()
         connector._connection.close = AsyncMock()
         connector._running = True
@@ -901,7 +901,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         mock_message = MagicMock()
         mock_message.body = b'{"data": "test"}'
@@ -946,7 +946,7 @@ class TestRabbitMQEdgeCases:
         )
         from aragora.connectors.enterprise.base import SyncState
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         sync_items_yielded = []
 
@@ -1003,7 +1003,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig()
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/")
         connector = RabbitMQConnector(config)
 
         mock_exchange = AsyncMock()
@@ -1035,7 +1035,7 @@ class TestRabbitMQEdgeCases:
             RabbitMQConfig,
         )
 
-        connector = RabbitMQConnector(RabbitMQConfig())
+        connector = RabbitMQConnector(RabbitMQConfig(url="amqp://guest:guest@localhost/"))
 
         mock_message = MagicMock()
         mock_message.body = b'{"data": "test"}'

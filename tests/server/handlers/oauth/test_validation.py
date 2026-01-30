@@ -347,7 +347,7 @@ class TestErrorHandling:
         ):
             # Should not raise, just return False
             try:
-                result = _validate_redirect_url(None)  # type: ignore
+                result = _validate_redirect_url(None)  # type: ignore[arg-type]
                 assert result is False
             except (TypeError, AttributeError):
                 # Some implementations may raise TypeError for None

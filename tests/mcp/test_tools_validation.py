@@ -77,7 +77,7 @@ class TestGauntletValidation:
     @pytest.mark.asyncio
     async def test_none_content_returns_error(self):
         """None content returns error."""
-        result = await run_gauntlet_tool(content=None)  # type: ignore
+        result = await run_gauntlet_tool(content=None)  # type: ignore[arg-type]
         assert "error" in result
 
 
@@ -141,7 +141,7 @@ class TestDebateToolValidation:
     @pytest.mark.asyncio
     async def test_run_debate_none_question(self):
         """run_debate_tool handles None question."""
-        result = await run_debate_tool(question=None)  # type: ignore
+        result = await run_debate_tool(question=None)  # type: ignore[arg-type]
         assert "error" in result
 
     @pytest.mark.asyncio

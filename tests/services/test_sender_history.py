@@ -484,9 +484,6 @@ class TestDomainReputation:
     """Test domain-level reputation."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Service bug: references 'total_interactions' column but table has 'total_emails'"
-    )
     async def test_get_domain_reputation(self, service, user_id):
         """Should aggregate reputation by domain."""
         # Add multiple senders from same domain

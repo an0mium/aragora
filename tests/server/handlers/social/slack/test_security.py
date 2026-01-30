@@ -345,7 +345,7 @@ class TestSignatureVerifierMixin:
             verifier.verify_signature(
                 mock_handler,
                 body="test",
-                signing_secret=None,  # type: ignore
+                signing_secret=None,  # type: ignore[arg-type]
             )
 
             # Should convert None to empty string

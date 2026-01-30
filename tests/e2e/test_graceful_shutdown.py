@@ -33,7 +33,7 @@ class TestShutdownWaitsForDebates:
         def get_debates() -> dict[str, Any]:
             return debates
 
-        get_debates.debates = debates  # type: ignore
+        get_debates.debates = debates  # type: ignore[attr-defined]
         return get_debates
 
     @pytest.mark.asyncio

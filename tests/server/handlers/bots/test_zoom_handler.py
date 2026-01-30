@@ -50,9 +50,26 @@ class MockHandler:
 
 
 @pytest.fixture
-def handler():
+def server_context():
+    """Create minimal server context for handler testing."""
+    from unittest.mock import MagicMock
+
+    return {
+        "storage": MagicMock(),
+        "user_store": MagicMock(),
+        "elo_system": MagicMock(),
+        "debate_embeddings": None,
+        "critique_store": None,
+        "nomic_dir": None,
+    }
+
+
+@pytest.fixture
+def handler(
+    server_context,
+):
     """Create a ZoomHandler instance."""
-    return ZoomHandler()
+    return ZoomHandler(server_context)
 
 
 @pytest.fixture

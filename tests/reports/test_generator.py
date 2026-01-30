@@ -587,7 +587,7 @@ class TestAuditReportGenerator:
         with pytest.raises(ValueError, match="Unsupported format"):
             await generator.generate(
                 session,
-                format="invalid",  # type: ignore
+                format="invalid",  # type: ignore[arg-type]
                 template=ReportTemplate.DETAILED_FINDINGS,
             )
 

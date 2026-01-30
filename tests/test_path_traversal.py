@@ -42,7 +42,7 @@ class TestDocumentIdValidation:
     def test_rejects_empty(self) -> None:
         """Empty IDs are rejected."""
         assert _validate_doc_id("") is False
-        assert _validate_doc_id(None) is False  # type: ignore
+        assert _validate_doc_id(None) is False  # type: ignore[arg-type]
 
     def test_rejects_path_traversal(self) -> None:
         """Path traversal attempts are rejected."""

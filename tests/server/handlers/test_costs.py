@@ -44,6 +44,21 @@ from aragora.server.handlers.costs import (
 # =============================================================================
 
 
+@pytest.fixture
+def server_context():
+    """Create minimal server context for handler testing."""
+    from unittest.mock import MagicMock
+
+    return {
+        "storage": MagicMock(),
+        "user_store": MagicMock(),
+        "elo_system": MagicMock(),
+        "debate_embeddings": None,
+        "critique_store": None,
+        "nomic_dir": None,
+    }
+
+
 class TestCostEntry:
     """Tests for CostEntry dataclass."""
 

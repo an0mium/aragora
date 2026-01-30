@@ -208,7 +208,7 @@ class TestValidateToken:
         from aragora.server.middleware.auth import validate_token
 
         assert validate_token("") is False
-        assert validate_token(None) is False  # type: ignore
+        assert validate_token(None) is False  # type: ignore[arg-type]
 
     def test_validate_valid_token(self):
         """Should accept valid token."""

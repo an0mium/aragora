@@ -498,7 +498,7 @@ class TestErrorHandling:
                     last_error = e
                     await asyncio.sleep(0.05 * (attempt + 1))  # Backoff
 
-            raise last_error  # type: ignore
+            raise last_error  # type: ignore[misc]
 
         # Should succeed after retries
         result = await retry_wrapper(lambda: flaky_step(2))

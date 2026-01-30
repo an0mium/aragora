@@ -156,7 +156,7 @@ class TestTournamentManagerValidation:
     def test_validate_non_numeric_score(self, manager):
         """Non-numeric score should raise ValidationError."""
         with pytest.raises(ValidationError, match="must be a number"):
-            manager._validate_score("high")  # type: ignore
+            manager._validate_score("high")  # type: ignore[arg-type]
 
     def test_validate_valid_score(self, manager):
         """Valid scores should be normalized to float."""

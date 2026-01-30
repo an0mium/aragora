@@ -92,9 +92,26 @@ def mock_handler():
 
 
 @pytest.fixture
-def slo_handler():
+def server_context():
+    """Create minimal server context for handler testing."""
+    from unittest.mock import MagicMock
+
+    return {
+        "storage": MagicMock(),
+        "user_store": MagicMock(),
+        "elo_system": MagicMock(),
+        "debate_embeddings": None,
+        "critique_store": None,
+        "nomic_dir": None,
+    }
+
+
+@pytest.fixture
+def slo_handler(
+    server_context,
+):
     """Create SLOHandler instance."""
-    return SLOHandler()
+    return SLOHandler(server_context)
 
 
 @pytest.fixture

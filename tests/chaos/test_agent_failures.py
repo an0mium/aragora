@@ -68,7 +68,7 @@ class ChaosAgent:
 
         # Simulate malformed response
         if random.random() < self.malformed_rate:
-            return None  # type: ignore
+            return None  # type: ignore[return-value]
 
         return f"Response from {self.name}: {prompt[:50]}..."
 

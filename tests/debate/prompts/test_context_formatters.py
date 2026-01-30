@@ -187,7 +187,7 @@ class TestFormatEvidenceForPrompt:
     def test_handles_missing_reliability(self):
         """Test handling of missing reliability score."""
         snippet = MockEvidenceSnippet()
-        snippet.reliability_score = None  # type: ignore
+        snippet.reliability_score = None  # type: ignore[assignment]
         result = format_evidence_for_prompt([snippet])
 
         assert "50%" in result  # default fallback
