@@ -108,7 +108,7 @@ test = [
     # Transcription and media
     "yt-dlp>=2024.1,<2027.0",  # YouTube transcription tests
     "tiktoken>=0.5,<1.0",  # Token counter tests
-    "openai>=1.0,<2.0",  # Whisper backend tests
+    "openai>=2.0,<3.0",  # Whisper backend tests (v2 required for RLM compatibility)
     # Integrations
     "twilio>=8.0,<10.0",  # Twilio voice tests
     "mcp>=1.0,<2.0",  # MCP server tests
@@ -214,10 +214,8 @@ rlm = [
     # Official RLM library from arXiv:2512.24601 (MIT license)
     # Enables recursive language models for infinite context processing
     # Source: https://github.com/alexzhang13/rlm
-    # NOTE: Currently conflicts with our pytest<9.0 and openai<2.0 constraints.
-    # The aragora.rlm module works without this package (graceful fallback).
-    # To use official RLM: pip install git+https://github.com/alexzhang13/rlm.git@v1.0.0
-    # "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
+    # The aragora.rlm module also works without this package (graceful fallback via HierarchicalCompressor).
+    "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
 ]
 control-plane = [
     "redis>=5.0.0,<8.0",
@@ -241,7 +239,6 @@ browser = [
     "playwright>=1.40,<2.0",
 ]
 all = [
-    # Note: 'rlm' excluded due to dependency conflicts (requires pytest>=9, openai>=2)
     # Expanded inline to avoid self-referential extras during locking.
     "pytest>=7.0,<10.0",
     "pytest-asyncio>=0.21,<2.0",
@@ -264,7 +261,7 @@ all = [
     "asyncpg>=0.29.0,<1.0",
     "yt-dlp>=2024.1,<2027.0",
     "tiktoken>=0.5,<1.0",
-    "openai>=1.0,<2.0",
+    "openai>=2.0,<3.0",
     "twilio>=8.0,<10.0",
     "mcp>=1.0,<2.0",
     "langchain>=0.1,<1.0",

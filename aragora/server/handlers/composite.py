@@ -330,7 +330,7 @@ class CompositeHandler(BaseHandler):
     def _get_circuit_breaker_state(self, agent_id: str) -> dict[str, Any]:
         """Get circuit breaker state for an agent."""
         try:
-            from aragora.resilience_patterns.circuit_breaker import get_all_circuit_breakers
+            from aragora.resilience.circuit_breaker_v2 import get_all_circuit_breakers
 
             all_breakers = get_all_circuit_breakers()
             # Look for a circuit breaker matching this agent_id
