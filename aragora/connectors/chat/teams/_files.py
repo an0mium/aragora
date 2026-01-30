@@ -12,15 +12,14 @@ import json
 import logging
 from typing import Any
 
-from ..models import FileAttachment
+from aragora.connectors.chat.models import FileAttachment
 
-from ._constants import (
-    HTTPX_AVAILABLE,
-    _classify_teams_error,
-)
+import aragora.connectors.chat.teams._constants as _tc
 
-if HTTPX_AVAILABLE:
+try:
     import httpx
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class TeamsFilesMixin:
         Returns:
             FileAttachment with file ID and URL
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return FileAttachment(
                 id="",
                 filename=filename,
@@ -208,7 +207,7 @@ class TeamsFilesMixin:
                 )
 
         except httpx.TimeoutException as e:
-            classified = _classify_teams_error(f"Timeout: {e}")
+            classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams file upload timeout: {e}")
             self._record_failure(classified)
             return FileAttachment(
@@ -220,7 +219,7 @@ class TeamsFilesMixin:
                 metadata={"error": str(e)},
             )
         except httpx.ConnectError as e:
-            classified = _classify_teams_error(f"Connection error: {e}")
+            classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams file upload connection error: {e}")
             self._record_failure(classified)
             return FileAttachment(
@@ -239,7 +238,7 @@ class TeamsFilesMixin:
             json.JSONDecodeError,
             OSError,
         ) as e:
-            classified = _classify_teams_error(str(e))
+            classified = _tc._classify_teams_error(str(e))
             logger.error(f"Teams file upload error: {e}")
             self._record_failure(classified)
             return FileAttachment(
@@ -269,7 +268,7 @@ class TeamsFilesMixin:
         Returns:
             FileAttachment with content populated
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return FileAttachment(
                 id=file_id,
                 filename="",
@@ -350,7 +349,7 @@ class TeamsFilesMixin:
                 )
 
         except httpx.TimeoutException as e:
-            classified = _classify_teams_error(f"Timeout: {e}")
+            classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams file download timeout: {e}")
             self._record_failure(classified)
             return FileAttachment(
@@ -361,7 +360,7 @@ class TeamsFilesMixin:
                 metadata={"error": str(e)},
             )
         except httpx.ConnectError as e:
-            classified = _classify_teams_error(f"Connection error: {e}")
+            classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams file download connection error: {e}")
             self._record_failure(classified)
             return FileAttachment(
@@ -379,7 +378,7 @@ class TeamsFilesMixin:
             json.JSONDecodeError,
             OSError,
         ) as e:
-            classified = _classify_teams_error(str(e))
+            classified = _tc._classify_teams_error(str(e))
             logger.error(f"Teams file download error: {e}")
             self._record_failure(classified)
             return FileAttachment(

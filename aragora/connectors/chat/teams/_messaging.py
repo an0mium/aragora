@@ -17,20 +17,18 @@ from aragora.connectors.exceptions import (
     ConnectorTimeoutError,
 )
 
-from ..models import (
+from aragora.connectors.chat.models import (
     BotCommand,
     SendMessageResponse,
     UserInteraction,
 )
 
-from ._constants import (
-    BOT_FRAMEWORK_API_BASE,
-    HTTPX_AVAILABLE,
-    _classify_teams_error,
-)
+import aragora.connectors.chat.teams._constants as _tc
 
-if HTTPX_AVAILABLE:
+try:
     import httpx
+except ImportError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +51,7 @@ class TeamsMessagingMixin:
 
         Includes circuit breaker protection for fault tolerance.
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return SendMessageResponse(
                 success=False,
                 error="httpx not available",
@@ -66,7 +64,7 @@ class TeamsMessagingMixin:
 
         try:
             token = await self._get_access_token()
-            base_url = service_url or BOT_FRAMEWORK_API_BASE
+            base_url = service_url or _tc.BOT_FRAMEWORK_API_BASE
             conv_id = conversation_id or channel_id
 
             # Build activity payload
@@ -118,12 +116,12 @@ class TeamsMessagingMixin:
                 )
 
         except httpx.TimeoutException as e:
-            classified = _classify_teams_error(f"Timeout: {e}")
+            classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams send_message timeout: {e}")
             self._record_failure(classified)
             raise ConnectorTimeoutError(str(e), connector_name="teams") from e
         except httpx.ConnectError as e:
-            classified = _classify_teams_error(f"Connection error: {e}")
+            classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams send_message connection error: {e}")
             self._record_failure(classified)
             raise ConnectorNetworkError(str(e), connector_name="teams") from e
@@ -135,7 +133,7 @@ class TeamsMessagingMixin:
             json.JSONDecodeError,
             OSError,
         ) as e:
-            classified = _classify_teams_error(str(e))
+            classified = _tc._classify_teams_error(str(e))
             logger.error(f"Teams send_message error: {e}")
             self._record_failure(classified)
             return SendMessageResponse(
@@ -157,7 +155,7 @@ class TeamsMessagingMixin:
 
         Includes circuit breaker protection for fault tolerance.
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
 
         # Check circuit breaker before making request
@@ -167,7 +165,7 @@ class TeamsMessagingMixin:
 
         try:
             token = await self._get_access_token()
-            base_url = service_url or BOT_FRAMEWORK_API_BASE
+            base_url = service_url or _tc.BOT_FRAMEWORK_API_BASE
 
             activity: dict[str, Any] = {
                 "type": "message",
@@ -212,12 +210,12 @@ class TeamsMessagingMixin:
                 )
 
         except httpx.TimeoutException as e:
-            classified = _classify_teams_error(f"Timeout: {e}")
+            classified = _tc._classify_teams_error(f"Timeout: {e}")
             logger.error(f"Teams update_message timeout: {e}")
             self._record_failure(classified)
             raise ConnectorTimeoutError(str(e), connector_name="teams") from e
         except httpx.ConnectError as e:
-            classified = _classify_teams_error(f"Connection error: {e}")
+            classified = _tc._classify_teams_error(f"Connection error: {e}")
             logger.error(f"Teams update_message connection error: {e}")
             self._record_failure(classified)
             raise ConnectorNetworkError(str(e), connector_name="teams") from e
@@ -229,7 +227,7 @@ class TeamsMessagingMixin:
             json.JSONDecodeError,
             OSError,
         ) as e:
-            classified = _classify_teams_error(str(e))
+            classified = _tc._classify_teams_error(str(e))
             logger.error(f"Teams update_message error: {e}")
             self._record_failure(classified)
             return SendMessageResponse(success=False, error=str(e))
@@ -246,12 +244,12 @@ class TeamsMessagingMixin:
 
         Uses _http_request for retry logic and circuit breaker protection.
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return False
 
         try:
             token = await self._get_access_token()
-            base_url = service_url or BOT_FRAMEWORK_API_BASE
+            base_url = service_url or _tc.BOT_FRAMEWORK_API_BASE
 
             # Use _http_request which handles circuit breaker, retries, and backoff
             success, _, error = await self._http_request(
@@ -286,12 +284,12 @@ class TeamsMessagingMixin:
 
         Uses _http_request for retry logic and circuit breaker protection.
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return False
 
         try:
             token = await self._get_access_token()
-            base_url = service_url or BOT_FRAMEWORK_API_BASE
+            base_url = service_url or _tc.BOT_FRAMEWORK_API_BASE
 
             # Use _http_request which handles circuit breaker, retries, and backoff
             success, _, error = await self._http_request(
@@ -397,7 +395,7 @@ class TeamsMessagingMixin:
 
         Uses _http_request for retry logic and circuit breaker protection.
         """
-        if not HTTPX_AVAILABLE:
+        if not _tc.HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
 
         try:
