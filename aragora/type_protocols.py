@@ -336,6 +336,28 @@ class EloSystemProtocol(Protocol):
         """Get ratings for multiple agents in a single call."""
         ...
 
+    def update_voting_accuracy(
+        self,
+        agent_name: str,
+        voted_for_consensus: bool,
+        domain: str = "general",
+        debate_id: str | None = None,
+        apply_elo_bonus: bool = True,
+        bonus_k_factor: float = 4.0,
+    ) -> float:
+        """Update an agent's voting accuracy and optionally apply ELO bonus."""
+        ...
+
+    def apply_learning_bonus(
+        self,
+        agent_name: str,
+        domain: str = "general",
+        debate_id: str | None = None,
+        bonus_factor: float = 0.5,
+    ) -> float:
+        """Apply ELO bonus based on agent's learning efficiency."""
+        ...
+
 
 @runtime_checkable
 class CalibrationTrackerProtocol(Protocol):

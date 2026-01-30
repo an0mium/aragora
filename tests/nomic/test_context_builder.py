@@ -148,3 +148,22 @@ class TestNomicContextBuilder:
             module_path="aragora.debate.protocol",
         )
         assert f.module_path == "aragora.debate.protocol"
+
+    @pytest.mark.asyncio
+    async def test_build_index_prefers_manifest(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ARAGORA_CONTEXT_USE_MANIFEST", "1")
+
+        context_dir = tmp_path / ".nomic" / "context"
+        context_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = context_dir / "codebase_manifest.tsv"
+        manifest_path.write_text(
+            "# Aragora codebase manifest\n"
+            "# format=path\\tlines\\tbytes\\textension\\tmodule\n"
+            "aragora/example.py\t10\t100\t.py\taragora.example\n",
+            encoding="utf-8",
+        )
+
+        builder = NomicContextBuilder(aragora_path=tmp_path)
+        index = await builder.build_index()
+        assert index.total_files == 1
+        assert index.get_file("aragora/example.py") is not None

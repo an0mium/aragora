@@ -142,7 +142,10 @@ class ConvoyTracker:
             "rig_id",
             "merge_result",
         }
-        user_metadata: dict[str, Any] = dict(metadata.get("metadata") or {})  # type: ignore[call-overload]
+        raw_user_metadata = metadata.get("metadata")
+        user_metadata: dict[str, Any] = (
+            dict(raw_user_metadata) if isinstance(raw_user_metadata, dict) else {}
+        )
         for key, value in metadata.items():
             if key in reserved_keys:
                 continue
@@ -165,7 +168,7 @@ class ConvoyTracker:
             current_agent=metadata.get("current_agent"),
             handoff_count=int(metadata.get("handoff_count", 0)),
             artifacts=list(metadata.get("artifacts", [])),
-            result=metadata.get("result") or {},  # type: ignore[arg-type]
+            result=dict(metadata.get("result") or {}),
             error=metadata.get("error"),
             priority=int(metadata.get("priority", 0)),
             tags=list(metadata.get("tags", [])),

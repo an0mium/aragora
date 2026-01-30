@@ -22,14 +22,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 import yaml
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -370,7 +370,7 @@ CATEGORY_INFO = {
 # =============================================================================
 
 
-class MarketplaceHandler(BaseHandler):
+class MarketplaceHandler:
     """Handler for marketplace API endpoints."""
 
     ROUTES = [
@@ -386,9 +386,11 @@ class MarketplaceHandler(BaseHandler):
         "/api/v1/marketplace/demo",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    ctx: ServerContext
+
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        self.ctx = server_context if server_context is not None else cast(ServerContext, {})
         # Pre-load templates
         _load_templates()
 
@@ -405,7 +407,7 @@ class MarketplaceHandler(BaseHandler):
         return False
 
     @require_permission("marketplace:read")
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)

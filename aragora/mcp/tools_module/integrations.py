@@ -281,9 +281,9 @@ async def get_integration_events_tool(
             from aragora.integrations.make import get_make_integration
 
             make = get_make_integration()
-            modules = make.MODULE_TYPES
-            triggers = {k: v for k, v in modules.items() if v.get("type") == "trigger"}  # type: ignore[attr-defined]
-            actions = {k: v for k, v in modules.items() if v.get("type") == "action"}  # type: ignore[attr-defined]
+            modules: dict[str, dict[str, Any]] = make.MODULE_TYPES
+            triggers = {k: v for k, v in modules.items() if v.get("type") == "trigger"}
+            actions = {k: v for k, v in modules.items() if v.get("type") == "action"}
             return {
                 "platform": "make",
                 "trigger_modules": triggers,

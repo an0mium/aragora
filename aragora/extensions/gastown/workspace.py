@@ -189,7 +189,7 @@ class WorkspaceManager:
         self,
         workspace_id: str,
         config: WorkspaceConfig | None = None,
-        status: str | None = None,
+        status: Literal["active", "archived", "suspended"] | None = None,
     ) -> Workspace | None:
         """Update a workspace."""
         async with self._lock:
@@ -200,7 +200,7 @@ class WorkspaceManager:
             if config:
                 workspace.config = config
             if status:
-                workspace.status = status  # type: ignore[assignment]
+                workspace.status = status
             workspace.updated_at = datetime.utcnow()
 
             return workspace
@@ -339,7 +339,7 @@ class WorkspaceManager:
         self,
         rig_id: str,
         config: RigConfig | None = None,
-        status: str | None = None,
+        status: Literal["active", "paused", "archived"] | None = None,
     ) -> Rig | None:
         """Update a rig."""
         async with self._lock:
@@ -350,7 +350,7 @@ class WorkspaceManager:
             if config:
                 rig.config = config
             if status:
-                rig.status = status  # type: ignore[assignment]
+                rig.status = status
             rig.updated_at = datetime.utcnow()
             self._rigs[rig_id] = rig
 

@@ -71,6 +71,7 @@ TRENDING_TIMEOUT = float(os.getenv("ARAGORA_TRENDING_TIMEOUT", "5.0"))
 KNOWLEDGE_MOUND_TIMEOUT = float(os.getenv("ARAGORA_KNOWLEDGE_MOUND_TIMEOUT", "10.0"))
 BELIEF_CRUX_TIMEOUT = float(os.getenv("ARAGORA_BELIEF_CRUX_TIMEOUT", "5.0"))
 THREAT_INTEL_TIMEOUT = float(os.getenv("ARAGORA_THREAT_INTEL_TIMEOUT", "10.0"))
+CODEBASE_CONTEXT_TIMEOUT = float(os.getenv("ARAGORA_CODEBASE_CONTEXT_TIMEOUT", "60.0"))
 
 # Cache size limits to prevent unbounded memory growth
 # These can be configured via environment variables for different deployment scenarios
@@ -282,6 +283,7 @@ class ContextGatherer:
         # Belief guidance configuration for crux injection
         self._enable_belief_guidance = enable_belief_guidance
         self._belief_analyzer = None
+        self._codebase_context_builder = None
         if self._enable_belief_guidance:
             try:
                 from aragora.debate.phases.belief_analysis import DebateBeliefAnalyzer
@@ -459,6 +461,12 @@ class ContextGatherer:
             )
 
             if result:
+                trimmed = result.strip()
+                if "Key Sources" not in trimmed and len(trimmed) < 200:
+                    logger.info(
+                        "[research] Claude web search returned low-signal summary; ignoring"
+                    )
+                    return None
                 logger.info(f"[research] Claude web search complete: {len(result)} chars")
                 return result
             else:
@@ -645,6 +653,11 @@ class ContextGatherer:
                     )
                     aragora_context_parts.append(f"### {doc_name}\n{compressed}")
 
+            # Optional: add a deep codebase map using TRUE RLM when available
+            codebase_context = await self._gather_codebase_context()
+            if codebase_context:
+                aragora_context_parts.insert(0, codebase_context)
+
             # Also include CLAUDE.md for project overview
             claude_md = self._project_root / "CLAUDE.md"
             content = await loop.run_in_executor(None, lambda: _read_file_sync(claude_md))
@@ -676,6 +689,51 @@ class ContextGatherer:
             logger.warning(f"Unexpected error loading Aragora context: {e}")
 
         return None
+
+    async def _gather_codebase_context(self) -> str | None:
+        """Build a deep codebase context map using TRUE RLM when available."""
+        use_env = os.getenv("ARAGORA_CONTEXT_USE_CODEBASE") or os.getenv(
+            "NOMIC_CONTEXT_USE_CODEBASE"
+        )
+        if use_env is None:
+            use_codebase = True
+        else:
+            use_codebase = use_env.strip().lower() in {"1", "true", "yes", "on"}
+        if not use_codebase:
+            return None
+
+        try:
+            from aragora.rlm.codebase_context import CodebaseContextBuilder
+        except Exception as exc:
+            logger.debug(f"Codebase context unavailable: {exc}")
+            return None
+
+        if self._codebase_context_builder is None:
+            try:
+                self._codebase_context_builder = CodebaseContextBuilder(
+                    root_path=self._project_root,
+                    knowledge_mound=self._knowledge_mound,
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to initialize codebase context builder: {exc}")
+                return None
+
+        try:
+            context = await asyncio.wait_for(
+                self._codebase_context_builder.build_debate_context(),
+                timeout=CODEBASE_CONTEXT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Codebase context build timed out")
+            return None
+        except Exception as exc:
+            logger.warning(f"Codebase context build failed: {exc}")
+            return None
+
+        if not context:
+            return None
+
+        return "## ARAGORA CODEBASE MAP\n" + context
 
     async def gather_evidence_context(self, task: str) -> str | None:
         """

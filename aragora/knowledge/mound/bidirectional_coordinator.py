@@ -388,7 +388,7 @@ class BidirectionalCoordinator:
             return
 
         try:
-            from aragora.observability.metrics import record_km_adapter_sync  # type: ignore[attr-defined]
+            from aragora.observability.metrics.km import record_km_adapter_sync
 
             record_km_adapter_sync(adapter_name, direction, success)
         except ImportError:
@@ -470,12 +470,14 @@ class BidirectionalCoordinator:
         if self.config.parallel_sync:
             # Sync all adapters in parallel
             tasks = [self._sync_adapter_reverse(reg, km_items) for reg in enabled]
-            results = await asyncio.gather(*tasks, return_exceptions=True)  # type: ignore[assignment]
+            raw_gather_results: list[SyncResult | BaseException] = await asyncio.gather(
+                *tasks, return_exceptions=True
+            )
 
             # Handle exceptions
-            final_results = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
+            final_results: list[SyncResult] = []
+            for i, result in enumerate(raw_gather_results):
+                if isinstance(result, BaseException):
                     final_results.append(
                         SyncResult(
                             adapter_name=enabled[i].name,

@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
     success_response,
@@ -66,7 +66,7 @@ async def get_docusign_connector(tenant_id: str):
 # =============================================================================
 
 
-class LegalHandler(BaseHandler):
+class LegalHandler:
     """Handler for legal e-signature API endpoints."""
 
     ROUTES = [
@@ -81,16 +81,18 @@ class LegalHandler(BaseHandler):
         "/api/v1/legal/templates",
     ]
 
+    ctx: ServerContext
+
     def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        self.ctx = cast(ServerContext, server_context or {})
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/legal")
 
     @require_permission("legal:read")
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)

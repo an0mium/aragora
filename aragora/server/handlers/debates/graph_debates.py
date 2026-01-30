@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 from aragora.config import DEFAULT_ROUNDS
+from aragora.agents.base import AgentType
 from ..base import (
+    MaybeAsyncHandlerResult,
     SAFE_AGENT_PATTERN,
     HandlerResult,
     error_response,
@@ -74,9 +76,9 @@ class GraphDebatesHandler(SecureHandler):
             "/api/graph-debates"
         )
 
-    def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler: Any
-    ) -> HandlerResult | None:
+    def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> MaybeAsyncHandlerResult:
         """Route GET requests through the async handler."""
         return self.handle_get(handler, path, query_params)
 
@@ -338,7 +340,7 @@ class GraphDebatesHandler(SecureHandler):
             for name in agent_names or ["claude", "gpt4"]:
                 try:
                     # Cast to AgentType - validation already done in handle_post
-                    agent = create_agent(model_type=name, name=name)  # type: ignore[arg-type]
+                    agent = create_agent(model_type=cast(AgentType, name), name=name)
                     agents.append(agent)
                 except Exception as e:
                     logger.warning(f"Failed to create agent {name}: {e}")

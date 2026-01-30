@@ -27,7 +27,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional, TypeVar, cast
 
 # Python 3.11+ has asyncio.timeout, earlier versions need async-timeout
 if sys.version_info >= (3, 11):
@@ -38,9 +38,12 @@ else:
     except ImportError:
         # Fallback: create a simple context manager that doesn't timeout
         @asynccontextmanager
-        async def asyncio_timeout(delay: float):  # type: ignore[misc]
+        async def _fallback_timeout(delay: float) -> AsyncIterator[None]:
             """Fallback timeout context manager (no-op)."""
+            _ = delay  # unused, but matches signature
             yield
+
+        asyncio_timeout = _fallback_timeout
 
 
 logger = logging.getLogger(__name__)
@@ -1833,8 +1836,8 @@ def with_timeout(
                 if fallback is not None:
                     result = fallback(*args, **kwargs)
                     if asyncio.iscoroutine(result):
-                        return await result
-                    return result  # type: ignore[return-value]  # Fallback return type varies
+                        return cast(T, await result)
+                    return cast(T, result)
                 raise
 
         return wrapper

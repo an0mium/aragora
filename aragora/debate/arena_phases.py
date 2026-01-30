@@ -30,12 +30,13 @@ from aragora.reasoning.evidence_grounding import EvidenceGrounder
 from aragora.debate.phase_executor import PhaseConfig, PhaseExecutor
 
 # Optional genesis import for evolution
+_PopulationManager: Optional[type[Any]] = None
 try:
     from aragora.genesis.breeding import PopulationManager
 
+    _PopulationManager = PopulationManager
     GENESIS_AVAILABLE = True
 except ImportError:
-    PopulationManager: Optional[type[Any]] = None  # type: ignore[no-redef]
     GENESIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -230,10 +231,10 @@ def init_phases(arena: "Arena") -> None:
     # Auto-initialize PopulationManager for genome evolution when auto_evolve is enabled
     if arena.auto_evolve and arena.population_manager is None and GENESIS_AVAILABLE:
         try:
-            arena.population_manager = PopulationManager()
+            arena.population_manager = _PopulationManager()
             logger.info("population_manager auto-initialized for genome evolution")
         except Exception as e:
-            logger.warning(f"Failed to initialize PopulationManager: {e}")
+            logger.warning(f"Failed to initialize _PopulationManager: {e}")
             arena.population_manager = None
 
     # Phase 0: Context Initialization
@@ -373,7 +374,7 @@ def init_phases(arena: "Arena") -> None:
         calibration_tracker=arena.calibration_tracker,
         recorder=arena.recorder,
         hooks=arena.hooks,
-        user_votes=arena.user_votes,  # type: ignore[arg-type]
+        user_votes=list(arena.user_votes),
         vote_with_agent=arena.autonomic.vote,
         with_timeout=arena.autonomic.with_timeout,
         select_judge=arena._select_judge,

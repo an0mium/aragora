@@ -969,16 +969,14 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         event_bus = get_event_bus()
         await event_bus.emit(
             "user_input",
-            {  # type: ignore[arg-type]
-                "debate_id": debate_id,
-                "source": "email",
-                "user_id": email_data.from_email,
-                "user_name": email_data.from_name or email_data.from_email,
-                "content": content,
-                "metadata": {
-                    "message_id": email_data.message_id,
-                    "subject": email_data.subject,
-                },
+            debate_id=debate_id,
+            source="email",
+            user_id=email_data.from_email,
+            user_name=email_data.from_name or email_data.from_email,
+            content=content,
+            metadata={
+                "message_id": email_data.message_id,
+                "subject": email_data.subject,
             },
         )
         logger.info(f"Email reply routed to debate {debate_id}")
@@ -991,7 +989,12 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
 
     # Alternative: Try queue-based submission
     try:
-        from aragora.queue import create_user_input_job  # type: ignore[attr-defined]
+        import aragora.queue as queue_module
+
+        # create_user_input_job is an optional extension that may not be present
+        create_user_input_job = getattr(queue_module, "create_user_input_job", None)
+        if create_user_input_job is None:
+            raise ImportError("create_user_input_job not available")
 
         job = create_user_input_job(
             debate_id=debate_id,
@@ -1001,7 +1004,7 @@ async def process_inbound_email(email_data: InboundEmail) -> bool:
         )
 
         # Fire and forget
-        async def enqueue():
+        async def enqueue() -> None:
             from aragora.queue import create_redis_queue
 
             q = await create_redis_queue()

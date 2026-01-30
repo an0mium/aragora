@@ -89,17 +89,29 @@ class RedisStreamsQueue(JobQueue):
 
         self._initialized = True
 
-    async def enqueue(self, job: Job, priority: int = 0) -> str:  # type: ignore[override]
+    async def enqueue(
+        self,
+        job: Job,
+        priority: int = 0,
+        queue_name: str | None = None,
+        delay_seconds: float = 0,
+    ) -> str:
         """
         Add a job to the queue.
 
         Args:
             job: The job to enqueue
             priority: Job priority (stored in job, not used for ordering in streams)
+            queue_name: Optional queue name (unused, streams use single stream)
+            delay_seconds: Delay before job becomes available (unused in streams)
 
         Returns:
             The job ID
         """
+        # Note: queue_name and delay_seconds are accepted for interface compatibility
+        # but not implemented in Redis Streams queue (single stream model)
+        _ = queue_name  # Unused
+        _ = delay_seconds  # Unused
         await self._ensure_initialized()
 
         job.priority = priority
@@ -123,7 +135,12 @@ class RedisStreamsQueue(JobQueue):
         logger.debug(f"Enqueued job {job.id}")
         return job.id
 
-    async def dequeue(self, worker_id: str, timeout_ms: int = 5000) -> Job | None:  # type: ignore[override]
+    async def dequeue(
+        self,
+        worker_id: str,
+        timeout_ms: int = 5000,
+        queue_name: str | None = None,
+    ) -> Job | None:
         """
         Get the next job from the queue.
 
@@ -132,10 +149,14 @@ class RedisStreamsQueue(JobQueue):
         Args:
             worker_id: ID of the worker requesting work
             timeout_ms: How long to block waiting for a job
+            queue_name: Optional queue name (unused, streams use single stream)
 
         Returns:
             A job if available, None otherwise
         """
+        # Note: queue_name is accepted for interface compatibility
+        # but not implemented in Redis Streams queue (single stream model)
+        _ = queue_name  # Unused
         await self._ensure_initialized()
 
         try:

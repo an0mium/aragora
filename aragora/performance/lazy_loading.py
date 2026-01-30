@@ -59,6 +59,7 @@ from typing import (
     Generic,
     Optional,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -326,7 +327,8 @@ class LazyValue(Generic[T]):
         """Get the value, loading if necessary."""
         if self._loaded:
             _lazy_load_stats.prefetch_hits += 1
-            return self._value  # type: ignore[return-value]  # Value exists when _loaded is True
+            # _value is guaranteed to be T (not None) when _loaded is True
+            return cast(T, self._value)
 
         # Handle concurrent loads
         if self._loading:
@@ -394,7 +396,8 @@ class LazyDescriptor(Generic[T]):
         self._name = func.__name__
         self._prefetch_key = prefetch_key or self._name
         self._cache: weakref.WeakKeyDictionary[Any, LazyValue[T]] = weakref.WeakKeyDictionary()
-        functools.update_wrapper(self, func)  # type: ignore[arg-type]
+        # Cast func to the expected wrapper type for update_wrapper
+        functools.update_wrapper(cast(Callable[..., Any], self), cast(Callable[..., Any], func))
 
     def __get__(self, obj: Any, objtype: Any = None) -> LazyValue[T] | "LazyDescriptor[T]":
         """Get LazyValue for the object."""

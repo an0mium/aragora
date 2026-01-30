@@ -454,24 +454,26 @@ class AnalyticsPhase:
             return
 
         try:
-            # Try to import belief analyzer
+            # Try to import belief network
             try:
-                from aragora.reasoning.belief import BeliefPropagationAnalyzer
+                from aragora.reasoning.belief import BeliefNetwork, BeliefPropagationAnalyzer
 
-                analyzer = BeliefPropagationAnalyzer()  # type: ignore[call-arg]
+                network = BeliefNetwork()
             except ImportError:
                 return
 
             # Add claims from grounded verdict
             for claim in result.grounded_verdict.claims[:20]:
                 claim_id = getattr(claim, "claim_id", str(hash(claim.statement[:50])))
-                analyzer.add_claim(  # type: ignore[call-arg,attr-defined]
+                network.add_claim(
                     claim_id=claim_id,
                     statement=claim.statement,
-                    prior=getattr(claim, "confidence", 0.5),
+                    author=getattr(claim, "author", "unknown"),
+                    initial_confidence=getattr(claim, "confidence", 0.5),
                 )
 
-            # Identify cruxes (top_k=5 roughly corresponds to 0.6 threshold)
+            # Create analyzer and identify cruxes (top_k=5 roughly corresponds to 0.6 threshold)
+            analyzer = BeliefPropagationAnalyzer(network)
             cruxes = analyzer.identify_debate_cruxes(top_k=5)
             setattr(result, "belief_cruxes", cruxes)
 

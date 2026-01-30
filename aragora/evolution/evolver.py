@@ -504,24 +504,11 @@ class PromptEvolver(SQLiteStore):
         """
         import os
 
-        import requests  # type: ignore[import-untyped]
-        from requests.adapters import HTTPAdapter  # type: ignore[import-untyped]
-        from urllib3.util.retry import Retry
+        import httpx
 
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
         if not api_key or not patterns:
             return self._evolve_append(current_prompt, patterns)
-
-        # Configure retry strategy for transient failures
-        retry_strategy = Retry(
-            total=2,
-            backoff_factor=1.0,
-            status_forcelist=[429, 502, 503, 504],
-            allowed_methods=["POST"],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session = requests.Session()
-        session.mount("https://", adapter)
 
         # Format patterns for the refinement prompt
         patterns_text = "\n".join(
@@ -547,58 +534,74 @@ Task: Create a refined version of the prompt that:
 
 Return ONLY the refined prompt, no explanations."""
 
+        # Configure httpx client with retry transport for transient failures
+        transport = httpx.HTTPTransport(retries=2)
+
         try:
             anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
             openai_key = os.environ.get("OPENAI_API_KEY")
 
-            if anthropic_key:
-                response = session.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers={
-                        "x-api-key": anthropic_key,
-                        "anthropic-version": "2023-06-01",
-                        "content-type": "application/json",
-                    },
-                    json={
-                        "model": "claude-sonnet-4-20250514",
-                        "max_tokens": 2048,
-                        "messages": [{"role": "user", "content": refinement_prompt}],
-                    },
-                    timeout=(5, 30),  # (connect timeout, read timeout)
-                )
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        return data["content"][0]["text"].strip()
-                    except (json.JSONDecodeError, KeyError, IndexError, ValueError, TypeError) as e:
-                        logger.warning(f"Failed to parse Anthropic response: {e}")
-                else:
-                    logger.warning(f"Anthropic API returned status {response.status_code}")
-            elif openai_key:
-                response = session.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {openai_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": "gpt-4o",
-                        "max_tokens": 2048,
-                        "messages": [{"role": "user", "content": refinement_prompt}],
-                    },
-                    timeout=(5, 30),  # (connect timeout, read timeout)
-                )
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        return data["choices"][0]["message"]["content"].strip()
-                    except (json.JSONDecodeError, KeyError, IndexError, ValueError, TypeError) as e:
-                        logger.warning(f"Failed to parse OpenAI response: {e}")
-                else:
-                    logger.warning(f"OpenAI API returned status {response.status_code}")
-            # No API key available - fall through to append fallback
+            with httpx.Client(
+                transport=transport, timeout=httpx.Timeout(30.0, connect=5.0)
+            ) as client:
+                if anthropic_key:
+                    response = client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": anthropic_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": "claude-sonnet-4-20250514",
+                            "max_tokens": 2048,
+                            "messages": [{"role": "user", "content": refinement_prompt}],
+                        },
+                    )
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            return data["content"][0]["text"].strip()
+                        except (
+                            json.JSONDecodeError,
+                            KeyError,
+                            IndexError,
+                            ValueError,
+                            TypeError,
+                        ) as e:
+                            logger.warning(f"Failed to parse Anthropic response: {e}")
+                    else:
+                        logger.warning(f"Anthropic API returned status {response.status_code}")
+                elif openai_key:
+                    response = client.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {openai_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "model": "gpt-4o",
+                            "max_tokens": 2048,
+                            "messages": [{"role": "user", "content": refinement_prompt}],
+                        },
+                    )
+                    if response.status_code == 200:
+                        try:
+                            data = response.json()
+                            return data["choices"][0]["message"]["content"].strip()
+                        except (
+                            json.JSONDecodeError,
+                            KeyError,
+                            IndexError,
+                            ValueError,
+                            TypeError,
+                        ) as e:
+                            logger.warning(f"Failed to parse OpenAI response: {e}")
+                    else:
+                        logger.warning(f"OpenAI API returned status {response.status_code}")
+                # No API key available - fall through to append fallback
 
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             logger.warning(f"LLM API request failed: {e}")
 
         # Fall back to append if LLM call fails

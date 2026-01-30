@@ -31,11 +31,12 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 from ..base import (
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -479,13 +480,14 @@ class CrossPlatformAnalyticsHandler(SecureHandler):
         "/api/v1/analytics/cross-platform/demo",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: Optional[ServerContext] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        ctx: ServerContext = (
+            server_context if server_context is not None else cast(ServerContext, {})
+        )
+        super().__init__(ctx)
 
-    async def handle(  # type: ignore[override]
-        self, request: Any, path: str, method: str
-    ) -> HandlerResult:
+    async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             # RBAC: Determine required permission based on path and method
@@ -1194,7 +1196,7 @@ def get_cross_platform_analytics_handler() -> CrossPlatformAnalyticsHandler:
 async def handle_cross_platform_analytics(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for cross-platform analytics requests."""
     handler = get_cross_platform_analytics_handler()
-    return await handler.handle(request, path, method)
+    return await handler.handle_request(request, path, method)
 
 
 __all__ = [

@@ -184,9 +184,10 @@ class DebateResult:
         default_factory=list
     )  # Claims needing evidence
     # Verification results - claim verification during consensus
-    verification_results: dict[str, int] = field(
+    # Contains both verified_claim_count (int) and evidence_quality scores (float)
+    verification_results: dict[str, int | float] = field(
         default_factory=dict
-    )  # Agent -> verified_claim_count
+    )  # Agent -> verified_claim_count or quality score
     verification_bonuses: dict[str, float] = field(
         default_factory=dict
     )  # Agent -> vote_bonus_applied

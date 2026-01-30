@@ -451,25 +451,27 @@ Make only the changes specified. Follow existing code style."""
                 *[self.execute_task_with_retry(t) for t in batch], return_exceptions=True
             )
 
-            for task, result in zip(batch, batch_results):
-                # Handle exceptions from gather
-                if isinstance(result, Exception):
-                    result = TaskResult(
+            for task, raw_result in zip(batch, batch_results):
+                # Handle exceptions from gather - normalize to TaskResult
+                if isinstance(raw_result, BaseException):
+                    task_result = TaskResult(
                         task_id=task.id,
                         success=False,
-                        error=str(result),
+                        error=str(raw_result),
                         model_used="unknown",
                         duration_seconds=0,
                     )
+                else:
+                    task_result = raw_result
 
-                results.append(result)  # type: ignore[arg-type]
+                results.append(task_result)
                 remaining.remove(task)
 
-                if getattr(result, "success", False):  # type: ignore[union-attr]
+                if task_result.success:
                     completed.add(task.id)
 
                 if on_task_complete:
-                    on_task_complete(task.id, result)
+                    on_task_complete(task.id, task_result)
 
         return results
 

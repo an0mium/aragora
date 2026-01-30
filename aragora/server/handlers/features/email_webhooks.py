@@ -24,12 +24,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, cast
 from uuid import uuid4
 
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -401,9 +402,9 @@ class EmailWebhooksHandler(BaseHandler):
         "/api/v1/webhooks/history",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
 
     # =========================================================================
     # Webhook Verification Methods
@@ -537,7 +538,7 @@ class EmailWebhooksHandler(BaseHandler):
         return True
 
     @require_permission("webhooks:read")
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
+    async def route_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -941,7 +942,7 @@ def get_email_webhooks_handler() -> EmailWebhooksHandler:
 async def handle_email_webhooks(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for email webhook requests."""
     handler = get_email_webhooks_handler()
-    return await handler.handle(request, path, method)
+    return await handler.route_request(request, path, method)
 
 
 __all__ = [

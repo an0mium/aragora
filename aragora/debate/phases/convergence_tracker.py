@@ -18,7 +18,7 @@ from aragora.debate.phases.ready_signal import (
     CollectiveReadiness,
     parse_ready_signal,
 )
-from aragora.observability.metrics import (  # type: ignore[attr-defined]
+from aragora.observability.metrics import (
     record_convergence_check,
     record_rlm_ready_quorum,
 )
@@ -26,7 +26,7 @@ from aragora.observability.metrics import (  # type: ignore[attr-defined]
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
     from aragora.debate.convergence import ConvergenceDetector
-    from aragora.debate.trickster import Trickster  # type: ignore[attr-defined]
+    from aragora.debate.trickster import EvidencePoweredTrickster as Trickster
     from aragora.debate.novelty import NoveltyTracker
 
 logger = logging.getLogger(__name__)

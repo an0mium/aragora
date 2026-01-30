@@ -30,6 +30,7 @@ from typing import Any, Optional
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
     require_permission,
@@ -162,7 +163,7 @@ def get_gmail_connector(user_id: str = "default"):
         if _gmail_connector is None:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            _gmail_connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
+            _gmail_connector = GmailConnector()
         return _gmail_connector
 
 
@@ -1434,9 +1435,9 @@ class EmailHandler(BaseHandler):
     # Prefix for dynamic routes like /api/email/context/:email_address
     ROUTE_PREFIXES = ["/api/v1/email/context/"]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

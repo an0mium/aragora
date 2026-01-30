@@ -94,9 +94,9 @@ class CLIAgent(CritiqueMixin, Agent):
         "gemini-2.0-flash": "google/gemini-2.0-flash-001",
         "gemini-1.5-pro": "google/gemini-pro-1.5",
         # Grok models
-        "grok-4": "x-ai/grok-2-1212",  # Grok 4 -> latest available on OpenRouter
-        "grok-3": "x-ai/grok-2-1212",
-        "grok-2": "x-ai/grok-2-1212",
+        "grok-4": "x-ai/grok-4",
+        "grok-3": "x-ai/grok-4",
+        "grok-2": "x-ai/grok-4",
         # Deepseek models
         "deepseek-coder": "deepseek/deepseek-chat",
         "deepseek-v3": "deepseek/deepseek-chat",
@@ -174,10 +174,16 @@ class CLIAgent(CritiqueMixin, Agent):
             from aragora.agents.api_agents import OpenRouterAgent
 
             # Map the model to OpenRouter format
-            openrouter_model = self.OPENROUTER_MODEL_MAP.get(
-                self.model,
-                "anthropic/claude-sonnet-4",  # Default fallback model
-            )
+            openrouter_model = self.OPENROUTER_MODEL_MAP.get(self.model)
+            if not openrouter_model:
+                # If already in provider/model form, normalize for OpenRouter
+                if "/" in self.model:
+                    if self.model.startswith("openrouter/"):
+                        openrouter_model = self.model.split("/", 1)[1]
+                    else:
+                        openrouter_model = self.model
+                else:
+                    openrouter_model = "anthropic/claude-sonnet-4"  # Default fallback model
 
             self._fallback_agent = OpenRouterAgent(
                 name=f"{self.name}_fallback",
@@ -613,7 +619,7 @@ class GeminiCLIAgent(CLIAgent):
     default_model=None,
     default_name="kilocode",
     agent_type="CLI",
-    requires="kilocode CLI",
+    requires="kilo CLI",
 )
 class KiloCodeAgent(CLIAgent):
     """Agent that uses Kilo Code CLI for codebase exploration.
@@ -642,6 +648,12 @@ class KiloCodeAgent(CLIAgent):
     def _extract_kilocode_response(self, output: str) -> str:
         """Extract the assistant response from Kilo Code JSON output."""
         clean = output.strip()
+        if not clean:
+            raise CLISubprocessError(
+                message="KiloCode returned empty output",
+                agent_name=self.name,
+                returncode=0,
+            )
         if re.fullmatch(r"\d+\.\d+\.\d+(?:\.\d+)?", clean or ""):
             raise CLISubprocessError(
                 message="KiloCode returned version string; provider not configured",

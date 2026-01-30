@@ -9,7 +9,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, AsyncIterator, Callable, Coroutine, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Coroutine, Literal, Optional, cast
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
 
 from aragora.protocols.a2a.types import (
     AgentCard,
@@ -328,7 +331,7 @@ class A2AServer:
             role = roles[i] if i < len(roles) else "critic"
             try:
                 agent = create_agent(
-                    model_type=agent_name,  # type: ignore[arg-type]
+                    model_type=cast("AgentType", agent_name),
                     name=f"{agent_name}_{role}",
                     role=role,
                 )
@@ -413,9 +416,14 @@ class A2AServer:
         # Run audit (simplified - would use full audit infrastructure)
         try:
             from aragora.audit.audit_types.security import SecurityAuditor
+            from aragora.audit.document_auditor import AuditSession
 
             auditor = SecurityAuditor()
-            findings = await auditor.analyze_text(content)  # type: ignore[attr-defined]
+            session = AuditSession(name="a2a_audit")
+
+            # Convert content to chunk format expected by auditor
+            chunks = [{"id": "chunk_0", "document_id": "a2a_doc", "content": content}]
+            findings = await auditor.audit(chunks, session)
 
             return TaskResult(
                 task_id=request.task_id,

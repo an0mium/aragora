@@ -620,7 +620,9 @@ else:
     try:
         import shutil
 
-        KILOCODE_AVAILABLE = shutil.which("kilocode") is not None
+        KILOCODE_AVAILABLE = (shutil.which("kilo") is not None) or (
+            shutil.which("kilocode") is not None
+        )
     except Exception:
         pass
 
@@ -3509,7 +3511,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             try:
                 import shutil
 
-                return shutil.which("kilocode") is not None
+                return (shutil.which("kilo") is not None) or (shutil.which("kilocode") is not None)
             except Exception:
                 return False
         return kilocode_available

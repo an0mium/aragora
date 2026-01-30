@@ -27,7 +27,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -273,54 +273,77 @@ def profile_function(func: Callable) -> Callable:
     return wrapper
 
 
-def instrument_sqlite_connection(conn: sqlite3.Connection) -> sqlite3.Connection:
+class ProfiledConnection:
     """
-    Instrument a SQLite connection to record queries to the current profiler.
+    Wrapper around sqlite3.Connection that records queries to the current profiler.
+
+    This class wraps a SQLite connection and intercepts execute/executemany calls
+    to record timing information for query profiling.
 
     Usage:
         conn = sqlite3.connect(":memory:")
-        conn = instrument_sqlite_connection(conn)
+        profiled = ProfiledConnection(conn)
+        # Use profiled.execute() and profiled.executemany()
     """
-    original_execute = conn.execute
-    original_executemany = conn.executemany
 
-    def profiled_execute(query: str, params: tuple = ()) -> sqlite3.Cursor:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate attribute access to the underlying connection."""
+        return getattr(self._conn, name)
+
+    def execute(self, sql: str, parameters: Iterable[Any] = ()) -> sqlite3.Cursor:
+        """Execute SQL with profiling."""
         profiler = QueryProfiler.current()
+        params_tuple = tuple(parameters) if not isinstance(parameters, tuple) else parameters
         start = time.perf_counter()
         try:
-            result = original_execute(query, params)
+            result = self._conn.execute(sql, parameters)
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
-                profiler.record(query, params, duration_ms, result.rowcount or 0)
+                profiler.record(sql, params_tuple, duration_ms, result.rowcount or 0)
             return result
         except (sqlite3.Error, ValueError) as e:
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
-                profiler.record(query, params, duration_ms)
+                profiler.record(sql, params_tuple, duration_ms)
             logger.debug(f"Query failed after {duration_ms:.2f}ms: {e}")
             raise
 
-    def profiled_executemany(query: str, params_list: list) -> sqlite3.Cursor:
+    def executemany(self, sql: str, seq_of_parameters: Iterable[Iterable[Any]]) -> sqlite3.Cursor:
+        """Execute SQL for multiple parameter sets with profiling."""
         profiler = QueryProfiler.current()
+        # Materialize to get count for logging
+        params_list = list(seq_of_parameters)
         start = time.perf_counter()
         try:
-            result = original_executemany(query, params_list)
+            result = self._conn.executemany(sql, params_list)
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
                 profiler.record(
-                    f"{query} (x{len(params_list)})", (), duration_ms, result.rowcount or 0
+                    f"{sql} (x{len(params_list)})", (), duration_ms, result.rowcount or 0
                 )
             return result
         except (sqlite3.Error, ValueError) as e:
             duration_ms = (time.perf_counter() - start) * 1000
             if profiler:
-                profiler.record(f"{query} (x{len(params_list)})", (), duration_ms)
+                profiler.record(f"{sql} (x{len(params_list)})", (), duration_ms)
             logger.debug(f"Query batch failed after {duration_ms:.2f}ms: {e}")
             raise
 
-    conn.execute = profiled_execute  # type: ignore[method-assign,assignment]
-    conn.executemany = profiled_executemany  # type: ignore[method-assign,assignment]
-    return conn
+
+def instrument_sqlite_connection(conn: sqlite3.Connection) -> ProfiledConnection:
+    """
+    Instrument a SQLite connection to record queries to the current profiler.
+
+    Returns a ProfiledConnection wrapper that intercepts execute/executemany calls.
+
+    Usage:
+        conn = sqlite3.connect(":memory:")
+        conn = instrument_sqlite_connection(conn)
+    """
+    return ProfiledConnection(conn)
 
 
 # Recommended indexes for common query patterns

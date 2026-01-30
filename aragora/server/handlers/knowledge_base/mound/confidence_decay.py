@@ -13,7 +13,7 @@ Phase A2 - Knowledge Quality Assurance
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 from aragora.rbac.decorators import require_permission
 
@@ -27,6 +27,7 @@ from ...utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.ops.confidence_decay import DecayReport
 
 logger = logging.getLogger(__name__)
 
@@ -77,12 +78,16 @@ class ConfidenceDecayOperationsMixin:
             return error_response("workspace_id is required", status=400)
 
         try:
-            report = await mound.apply_confidence_decay(  # type: ignore[call-arg]
-                workspace_id=workspace_id,
-                force=force,
+            # Cast to DecayReport since mound has ConfidenceDecayMixin
+            report = cast(
+                "DecayReport",
+                await mound.apply_confidence_decay(
+                    workspace_id=workspace_id,
+                    force=force,
+                ),
             )
 
-            return json_response(report.to_dict())  # type: ignore[attr-defined]
+            return json_response(report.to_dict())
         except Exception as e:
             logger.error(f"Error applying confidence decay: {e}")
             return error_response(safe_error_message(e), status=500)

@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Optional, cast
+from typing import Any, Callable, Coroutine, cast
 
 from aragora.core import Agent
 from aragora.debate.consensus import (
@@ -70,14 +70,29 @@ from aragora.verification.formal import (
 )
 
 # Import personas for compliance-aware stress testing
-try:
-    from aragora.gauntlet.personas import PersonaAttack, RegulatoryPersona, get_persona
+# Use a conditional import pattern that avoids type redefinition issues
+PERSONAS_AVAILABLE = False
+RegulatoryPersona: type[Any] | None = None
+PersonaAttack: type[Any] | None = None
+_get_persona: Callable[[str], Any] | None = None
 
+try:
+    from aragora.gauntlet import personas as _personas_module
+
+    RegulatoryPersona = _personas_module.RegulatoryPersona
+    PersonaAttack = _personas_module.PersonaAttack
+    _get_persona = _personas_module.get_persona
     PERSONAS_AVAILABLE = True
 except ImportError:
-    PERSONAS_AVAILABLE = False
-    RegulatoryPersona: Optional[type[Any]] = None  # type: ignore[no-redef]
-    PersonaAttack: Optional[type[Any]] = None  # type: ignore[no-redef]
+    pass
+
+
+def get_persona(name: str) -> Any:
+    """Get a regulatory persona by name. Raises ImportError if personas unavailable."""
+    if _get_persona is None:
+        raise ImportError("aragora.gauntlet.personas is not available")
+    return _get_persona(name)
+
 
 logger = logging.getLogger(__name__)
 

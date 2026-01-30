@@ -382,18 +382,21 @@ class TestSQLiteInstrumentation:
     """
 
     def test_instrument_connection_calls_are_wrapped(self):
-        """Test that instrumentation wraps execute/executemany methods."""
-        # Create a mock connection that allows attribute assignment
+        """Test that instrumentation returns a ProfiledConnection wrapper."""
+        from aragora.db.profiling import ProfiledConnection
+
+        # Create a mock connection
         mock_conn = MagicMock()
         mock_conn.execute = MagicMock(return_value=MagicMock(rowcount=1))
         mock_conn.executemany = MagicMock(return_value=MagicMock(rowcount=3))
 
         result = instrument_sqlite_connection(mock_conn)
 
-        assert result is mock_conn
-        # The execute/executemany should now be wrapped functions
-        assert callable(mock_conn.execute)
-        assert callable(mock_conn.executemany)
+        # Result should be a ProfiledConnection wrapper
+        assert isinstance(result, ProfiledConnection)
+        # The execute/executemany should be callable on the wrapper
+        assert callable(result.execute)
+        assert callable(result.executemany)
 
     def test_instrumented_execute_records_to_profiler(self):
         """Test that wrapped execute records queries to active profiler."""
@@ -404,15 +407,12 @@ class TestSQLiteInstrumentation:
         original_execute = MagicMock(return_value=mock_cursor)
         mock_conn.execute = original_execute
 
-        # Instrument it
-        instrument_sqlite_connection(mock_conn)
-
-        # Get the new wrapped execute
-        wrapped_execute = mock_conn.execute
+        # Instrument it - returns a wrapper
+        wrapped_conn = instrument_sqlite_connection(mock_conn)
 
         # Execute with profiler active
         with QueryProfiler() as profiler:
-            wrapped_execute("SELECT * FROM test WHERE id = ?", (1,))
+            wrapped_conn.execute("SELECT * FROM test WHERE id = ?", (1,))
 
         # Verify query was recorded
         assert profiler.profile.total_queries == 1
@@ -425,11 +425,10 @@ class TestSQLiteInstrumentation:
         mock_conn = MagicMock()
         mock_conn.executemany = MagicMock(return_value=mock_cursor)
 
-        instrument_sqlite_connection(mock_conn)
-        wrapped_executemany = mock_conn.executemany
+        wrapped_conn = instrument_sqlite_connection(mock_conn)
 
         with QueryProfiler() as profiler:
-            wrapped_executemany("INSERT INTO test VALUES (?)", [(1,), (2,), (3,)])
+            wrapped_conn.executemany("INSERT INTO test VALUES (?)", [(1,), (2,), (3,)])
 
         assert profiler.profile.total_queries == 1
         assert "x3" in profiler.profile.queries[0].query
@@ -440,10 +439,10 @@ class TestSQLiteInstrumentation:
         mock_conn = MagicMock()
         mock_conn.execute = MagicMock(return_value=mock_cursor)
 
-        instrument_sqlite_connection(mock_conn)
+        wrapped_conn = instrument_sqlite_connection(mock_conn)
 
         # Should not raise when no profiler is active
-        result = mock_conn.execute("SELECT 1")
+        result = wrapped_conn.execute("SELECT 1")
         assert result is mock_cursor
 
     def test_instrumented_preserves_exceptions(self):
@@ -451,10 +450,10 @@ class TestSQLiteInstrumentation:
         mock_conn = MagicMock()
         mock_conn.execute = MagicMock(side_effect=sqlite3.OperationalError("Test error"))
 
-        instrument_sqlite_connection(mock_conn)
+        wrapped_conn = instrument_sqlite_connection(mock_conn)
 
         with pytest.raises(sqlite3.OperationalError):
-            mock_conn.execute("SELECT 1")
+            wrapped_conn.execute("SELECT 1")
 
 
 # ============================================================================
@@ -586,12 +585,12 @@ class TestProfilingIntegration:
         mock_conn = MagicMock()
         mock_conn.execute = MagicMock(return_value=mock_cursor)
 
-        # Instrument
-        instrument_sqlite_connection(mock_conn)
+        # Instrument - returns a wrapper
+        wrapped_conn = instrument_sqlite_connection(mock_conn)
 
         # Profile operations
         with profile_queries() as profiler:
-            mock_conn.execute("SELECT 1")
-            mock_conn.execute("SELECT 2")
+            wrapped_conn.execute("SELECT 1")
+            wrapped_conn.execute("SELECT 2")
 
         assert profiler.profile.total_queries == 2

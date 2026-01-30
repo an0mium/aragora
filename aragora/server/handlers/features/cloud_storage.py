@@ -267,7 +267,7 @@ if HANDLER_BASE_AVAILABLE:
             """Check if this handler can process the given path."""
             return path.startswith("/api/v1/cloud/")
 
-        async def handle(  # type: ignore[override]
+        async def handle(
             self,
             path: str,
             query_params: dict[str, Any],
@@ -314,10 +314,10 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
-        async def handle_post(  # type: ignore[override]
+        async def handle_post(
             self,
             path: str,
-            body: dict[str, Any],
+            query_params: dict[str, Any],
             handler: Any,
         ) -> HandlerResult | None:
             """Handle POST requests."""
@@ -329,6 +329,10 @@ if HANDLER_BASE_AVAILABLE:
                 return error_response("Authentication required", 401)
             except ForbiddenError as e:
                 return error_response(str(e), 403)
+
+            body = self.read_json_body(handler)
+            if body is None:
+                return error_response("Invalid JSON body", 400)
 
             parts = path.split("/")
             if len(parts) < 6:

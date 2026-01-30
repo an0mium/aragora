@@ -467,13 +467,13 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         from aragora.memory.tier_manager import MemoryTier
 
         # Map KnowledgeMound tier to ContinuumMemory tier
-        tier_mapping = {
-            1: MemoryTier.FAST,
-            2: MemoryTier.MEDIUM,
-            3: MemoryTier.SLOW,
-            4: MemoryTier.GLACIAL,
+        tier_mapping: dict[str, MemoryTier] = {
+            "fast": MemoryTier.FAST,
+            "medium": MemoryTier.MEDIUM,
+            "slow": MemoryTier.SLOW,
+            "glacial": MemoryTier.GLACIAL,
         }
-        tier = tier_mapping.get(request.tier, MemoryTier.SLOW)  # type: ignore[call-overload]
+        tier = tier_mapping.get(request.tier, MemoryTier.SLOW)
 
         return {
             "id": entry_id or f"mound_{uuid.uuid4().hex[:12]}",
@@ -954,7 +954,7 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                     source_type=SourceType.CONTINUUM,
                     workspace_id=workspace_id,
                     confidence=entry.importance,
-                    tier=self._tier_to_km_tier(entry.tier.value),  # type: ignore[arg-type]
+                    tier=entry.tier.value,
                     metadata={
                         "continuum_id": entry.id,
                         "continuum_tier": entry.tier.value,
@@ -991,16 +991,6 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         )
 
         return result
-
-    def _tier_to_km_tier(self, tier_name: str) -> int:
-        """Convert continuum tier name to KM tier number."""
-        mapping = {
-            "fast": 1,
-            "medium": 2,
-            "slow": 3,
-            "glacial": 4,
-        }
-        return mapping.get(tier_name, 3)
 
     def get_reverse_sync_stats(self) -> dict[str, Any]:
         """

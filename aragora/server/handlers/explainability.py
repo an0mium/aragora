@@ -407,12 +407,14 @@ class ExplainabilityHandler(BaseHandler):
 
             # Convert dict to simple object for builder
             class ResultProxy:
+                id: str
+
                 def __init__(self, data: dict[str, Any]):
                     for k, v in data.items():
                         setattr(self, k, v)
 
             result = ResultProxy(debate_data)
-            result.id = debate_id  # type: ignore[attr-defined]  # Ensure id is set
+            result.id = debate_id  # Ensure id is set
 
             decision = await builder.build(result)
             _cache_decision(debate_id, decision)
@@ -583,9 +585,9 @@ class ExplainabilityHandler(BaseHandler):
                     }
                 )
             elif format_type == "html":
-                import markdown
+                import markdown as md_lib
 
-                html_body: str = markdown.markdown(summary)  # type: ignore[attr-defined]
+                html_body: str = md_lib.markdown(summary)
                 html_content = f"""
 <!DOCTYPE html>
 <html>

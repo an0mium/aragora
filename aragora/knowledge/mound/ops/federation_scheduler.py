@@ -580,15 +580,15 @@ class FederationScheduler:
         try:
             from aragora.knowledge.mound import get_knowledge_mound
 
-            mound = get_knowledge_mound(config.workspace_id)  # type: ignore[arg-type]
+            mound: Any = get_knowledge_mound(config.workspace_id)
 
             if config.sync_mode in (SyncMode.PUSH, SyncMode.BIDIRECTIONAL):
                 # Push to remote
                 if hasattr(mound, "sync_to_region"):
-                    result = await mound.sync_to_region(  # type: ignore[call-arg]
+                    result = await mound.sync_to_region(
                         region_id=config.region_id,
                         workspace_id=config.workspace_id,
-                        scope=config.sync_scope.value,
+                        visibility_levels=config.visibility_levels,
                     )
                     items_pushed = getattr(result, "nodes_synced", 0)
 

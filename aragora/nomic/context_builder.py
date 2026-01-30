@@ -178,6 +178,22 @@ class NomicContextBuilder:
         Returns a CodebaseIndex with file metadata (not content) for
         efficient querying. Content is loaded on-demand via RLM.
         """
+        if self._index is not None:
+            return self._index
+
+        manifest_path = self._context_dir / "codebase_manifest.tsv"
+        use_manifest = os.environ.get("ARAGORA_CONTEXT_USE_MANIFEST") or os.environ.get(
+            "NOMIC_CONTEXT_USE_MANIFEST"
+        )
+        if use_manifest is None:
+            use_manifest = "1"
+
+        if use_manifest.strip().lower() in {"1", "true", "yes", "on"}:
+            manifest_index = self._load_manifest_index(manifest_path)
+            if manifest_index is not None:
+                self._index = manifest_index
+                return self._index
+
         start = time.monotonic()
         files: list[IndexedFile] = []
         total_bytes = 0
@@ -267,6 +283,57 @@ class NomicContextBuilder:
         except OSError as exc:
             logger.warning("Failed to write manifest: %s", exc)
             return None
+
+    def _load_manifest_index(self, manifest_path: Path) -> CodebaseIndex | None:
+        """Load an index from a previously written manifest."""
+        if not manifest_path.exists():
+            return None
+
+        files: list[IndexedFile] = []
+        total_bytes = 0
+        total_lines = 0
+        try:
+            with manifest_path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.strip() or line.startswith("#"):
+                        continue
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) < 4:
+                        continue
+                    rel_path, line_count_raw, size_raw, extension = parts[:4]
+                    module_path = parts[4] if len(parts) > 4 else ""
+                    try:
+                        line_count = int(line_count_raw)
+                        size_bytes = int(size_raw)
+                    except ValueError:
+                        continue
+
+                    files.append(
+                        IndexedFile(
+                            relative_path=rel_path,
+                            size_bytes=size_bytes,
+                            line_count=line_count,
+                            extension=extension,
+                            module_path=module_path,
+                        )
+                    )
+                    total_bytes += size_bytes
+                    total_lines += line_count
+        except OSError as exc:
+            logger.warning("Failed to read manifest index: %s", exc)
+            return None
+
+        if not files:
+            return None
+
+        return CodebaseIndex(
+            root_path=self._aragora_path,
+            files=files,
+            total_bytes=total_bytes,
+            total_files=len(files),
+            total_lines=total_lines,
+            build_time_seconds=0.0,
+        )
 
     async def build_rlm_context(self) -> Any:
         """

@@ -71,6 +71,7 @@ class VectorStoreConfig:
     distance_metric: str = "cosine"  # cosine, euclidean, dot_product
     batch_size: int = 100
     timeout_seconds: int = 30
+    namespace: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     @classmethod

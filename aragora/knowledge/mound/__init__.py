@@ -185,11 +185,11 @@ from aragora.knowledge.mound.checkpoint import (
 )
 
 # Singleton instance
-_knowledge_mound_instance: "KnowledgeMound" = None
-_knowledge_mound_config: "MoundConfig" = None
+_knowledge_mound_instance: KnowledgeMound | None = None
+_knowledge_mound_config: MoundConfig | None = None
 
 
-def set_mound_config(config: "MoundConfig") -> None:
+def set_mound_config(config: MoundConfig) -> None:
     """
     Set the global MoundConfig before creating the singleton.
 
@@ -214,7 +214,7 @@ def set_mound_config(config: "MoundConfig") -> None:
     _knowledge_mound_config = config
 
 
-def get_mound_config() -> "MoundConfig":
+def get_mound_config() -> MoundConfig:
     """
     Get the current global MoundConfig.
 
@@ -231,9 +231,9 @@ def get_mound_config() -> "MoundConfig":
 
 def get_knowledge_mound(
     workspace_id: str = "default",
-    config: "MoundConfig" = None,
+    config: MoundConfig | None = None,
     auto_initialize: bool = True,
-) -> "KnowledgeMound":
+) -> KnowledgeMound:
     """
     Get or create the global KnowledgeMound singleton.
 
@@ -263,7 +263,7 @@ def get_knowledge_mound(
         logger.info(
             f"[knowledge_mound] Creating singleton instance (workspace={workspace_id}, backend={config.backend.value})"
         )
-        _knowledge_mound_instance = KnowledgeMound(  # type: ignore[abstract]
+        _knowledge_mound_instance = KnowledgeMound(
             config=config,
             workspace_id=workspace_id,
         )
@@ -277,8 +277,10 @@ def get_knowledge_mound(
                     # Can't await in running loop; schedule initialization task once
                     init_task = getattr(_knowledge_mound_instance, "_init_task", None)
                     if init_task is None or getattr(init_task, "done", lambda: True)():
-                        _knowledge_mound_instance._init_task = loop.create_task(  # type: ignore[attr-defined]
-                            _knowledge_mound_instance.initialize()
+                        setattr(
+                            _knowledge_mound_instance,
+                            "_init_task",
+                            loop.create_task(_knowledge_mound_instance.initialize()),
                         )
                         logger.debug(
                             "[knowledge_mound] Initialization scheduled (event loop running)"

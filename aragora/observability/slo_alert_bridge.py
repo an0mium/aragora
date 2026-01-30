@@ -119,8 +119,8 @@ class SLOAlertBridge:
         self.config = config
         self._active_violations: dict[str, ActiveViolation] = {}
         self._last_notification: dict[str, float] = {}
-        self._pagerduty_client = None
-        self._notification_manager = None
+        self._pagerduty_client: Any | None = None
+        self._notification_manager: Any | None = None
         self._lock = asyncio.Lock()
 
     def _make_incident_key(self, operation: str, percentile: str) -> str:
@@ -190,7 +190,7 @@ class SLOAlertBridge:
                     api_key=self.config.pagerduty_api_key or "",
                     email=self.config.pagerduty_email,
                 )
-                self._pagerduty_client = PagerDutyConnector(credentials)  # type: ignore[assignment]
+                self._pagerduty_client = PagerDutyConnector(credentials)
 
             # Map severity to PagerDuty urgency/priority
             urgency_map = {
@@ -254,7 +254,7 @@ class SLOAlertBridge:
             )
 
             if self._notification_manager is None:
-                self._notification_manager = NotificationManager()  # type: ignore[assignment]
+                self._notification_manager = NotificationManager()
 
             severity = self._map_severity(violation.severity)
             priority_map = {

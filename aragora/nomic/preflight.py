@@ -367,11 +367,11 @@ class PreflightHealthCheck:
                 )
 
             elif provider == "openai":
-                import openai
+                from openai import AsyncOpenAI
 
-                client = openai.AsyncOpenAI()  # type: ignore[assignment]
+                openai_client = AsyncOpenAI()
                 await asyncio.wait_for(
-                    client.chat.completions.create(  # type: ignore[attr-defined]
+                    openai_client.chat.completions.create(
                         model="gpt-3.5-turbo",
                         max_tokens=1,
                         messages=[{"role": "user", "content": "ping"}],

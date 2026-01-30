@@ -14,7 +14,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from aragora.config.legacy import get_db_path
 from aragora.observability import get_logger
@@ -22,6 +22,82 @@ from aragora.storage.backends import POSTGRESQL_AVAILABLE, PostgreSQLBackend
 from aragora.storage.base_store import SQLiteStore
 
 from .policy import ControlPlanePolicy, PolicyViolation
+
+
+class ControlPlanePolicyStoreProtocol(Protocol):
+    """Protocol defining the interface for control plane policy stores.
+
+    Both SQLite and PostgreSQL backends implement this interface.
+    """
+
+    def create_policy(self, policy: ControlPlanePolicy) -> ControlPlanePolicy:
+        """Create a new control plane policy."""
+        ...
+
+    def get_policy(self, policy_id: str) -> ControlPlanePolicy | None:
+        """Get a policy by ID."""
+        ...
+
+    def list_policies(
+        self,
+        enabled_only: bool = False,
+        workspace: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[ControlPlanePolicy]:
+        """List policies with optional filters."""
+        ...
+
+    def update_policy(
+        self,
+        policy_id: str,
+        updates: dict[str, Any],
+    ) -> ControlPlanePolicy | None:
+        """Update a policy."""
+        ...
+
+    def delete_policy(self, policy_id: str) -> bool:
+        """Delete a policy."""
+        ...
+
+    def toggle_policy(self, policy_id: str, enabled: bool) -> bool:
+        """Enable or disable a policy."""
+        ...
+
+    def create_violation(self, violation: PolicyViolation) -> PolicyViolation:
+        """Record a policy violation."""
+        ...
+
+    def list_violations(
+        self,
+        policy_id: str | None = None,
+        violation_type: str | None = None,
+        status: str | None = None,
+        workspace_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """List violations with optional filters."""
+        ...
+
+    def count_violations(
+        self,
+        status: str | None = None,
+        policy_id: str | None = None,
+    ) -> dict[str, int]:
+        """Count violations by type."""
+        ...
+
+    def update_violation_status(
+        self,
+        violation_id: str,
+        status: str,
+        resolved_by: str | None = None,
+        resolution_notes: str | None = None,
+    ) -> bool:
+        """Update violation status."""
+        ...
+
 
 logger = get_logger(__name__)
 
@@ -872,12 +948,12 @@ class PostgresControlPlanePolicyStore:
 
 
 # Factory function
-_policy_store_instance: ControlPlanePolicyStore | None = None
+_policy_store_instance: ControlPlanePolicyStoreProtocol | None = None
 
 
 def get_control_plane_policy_store(
     db_path: Path | None = None,
-) -> ControlPlanePolicyStore:
+) -> ControlPlanePolicyStoreProtocol:
     """
     Get or create the control plane policy store singleton.
 
@@ -898,9 +974,9 @@ def get_control_plane_policy_store(
             try:
                 pg_backend = PostgreSQLBackend(pg_url)
                 # Use a wrapper that matches SQLite store interface
-                _policy_store_instance = PostgresControlPlanePolicyStore(pg_backend)  # type: ignore[assignment]
+                _policy_store_instance = PostgresControlPlanePolicyStore(pg_backend)
                 logger.info("control_plane_policy_store_initialized", backend="postgres")
-                return _policy_store_instance  # type: ignore[return-value]
+                return _policy_store_instance
             except Exception as e:
                 logger.warning(
                     f"Failed to initialize PostgreSQL policy store: {e}, falling back to SQLite"

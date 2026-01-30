@@ -8,38 +8,68 @@ querying the Knowledge Mound.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
+
+# Stub classes for when LangChain is not installed
+class _StubBaseRetriever:
+    """Stub BaseRetriever when LangChain not installed."""
+
+    pass
+
+
+class _StubDocument:
+    """Stub Document."""
+
+    def __init__(self, page_content: str = "", metadata: dict[str, Any] | None = None):
+        self.page_content = page_content
+        self.metadata = metadata or {}
+
+
+class _StubCallbackManager:
+    """Stub callback manager when LangChain not installed."""
+
+    pass
+
+
 # LangChain imports with fallback
+# We use conditional imports and assign to module-level variables.
+# For type checking, we import the real types in TYPE_CHECKING block.
+LANGCHAIN_AVAILABLE = False
+
 try:
-    from langchain.schema import BaseRetriever, Document
+    from langchain.callbacks.manager import (
+        AsyncCallbackManagerForRetrieverRun as _AsyncCallbackManagerForRetrieverRun,
+        CallbackManagerForRetrieverRun as _CallbackManagerForRetrieverRun,
+    )
+    from langchain.schema import BaseRetriever as _BaseRetriever
+    from langchain.schema import Document as _Document
+
+    LANGCHAIN_AVAILABLE = True
+    _ActualBaseRetriever: Any = _BaseRetriever
+    _ActualDocument: Any = _Document
+    _ActualCallbackManager: Any = _CallbackManagerForRetrieverRun
+    _ActualAsyncCallbackManager: Any = _AsyncCallbackManagerForRetrieverRun
+except ImportError:
+    _ActualBaseRetriever = _StubBaseRetriever
+    _ActualDocument = _StubDocument
+    _ActualCallbackManager = _StubCallbackManager
+    _ActualAsyncCallbackManager = _StubCallbackManager
+
+
+if TYPE_CHECKING:
     from langchain.callbacks.manager import (
         AsyncCallbackManagerForRetrieverRun,
         CallbackManagerForRetrieverRun,
     )
-
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-
-    class BaseRetriever:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub BaseRetriever when LangChain not installed."""
-
-        pass
-
-    class Document:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub Document."""
-
-        def __init__(self, page_content: str = "", metadata: dict = None):
-            self.page_content = page_content
-            self.metadata = metadata or {}
+    from langchain.schema import Document
 
 
-class AragoraRetriever(BaseRetriever):
+class AragoraRetriever(_ActualBaseRetriever):
     """
     LangChain Retriever for Aragora Knowledge Mound.
 
@@ -70,7 +100,7 @@ class AragoraRetriever(BaseRetriever):
         api_token: str | None = None,
         max_results: int = 5,
         **kwargs: Any,
-    ):
+    ) -> None:
         """
         Initialize the Aragora retriever.
 
@@ -118,9 +148,9 @@ class AragoraRetriever(BaseRetriever):
                 response.raise_for_status()
                 result = response.json()
 
-            documents = []
+            documents: list[Document] = []
             for item in result.get("items", []):
-                metadata = {}
+                metadata: dict[str, Any] = {}
                 if self.include_metadata:
                     metadata = {
                         "id": item.get("id"),
@@ -130,7 +160,7 @@ class AragoraRetriever(BaseRetriever):
                         "created_at": item.get("created_at"),
                     }
 
-                doc = Document(
+                doc = _ActualDocument(
                     page_content=item.get("content", ""),
                     metadata=metadata,
                 )

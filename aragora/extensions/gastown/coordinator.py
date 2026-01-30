@@ -11,7 +11,11 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
+
+# Type aliases matching LedgerEntry fields
+LedgerEntryType = Literal["issue", "task", "decision", "note"]
+LedgerEntryStatus = Literal["open", "in_progress", "resolved", "closed"]
 
 from .models import (
     Convoy,
@@ -271,7 +275,7 @@ class Coordinator:
     async def create_ledger_entry(
         self,
         workspace_id: str,
-        entry_type: str,
+        entry_type: LedgerEntryType,
         title: str,
         body: str = "",
         convoy_id: str | None = None,
@@ -301,7 +305,7 @@ class Coordinator:
             entry = LedgerEntry(
                 id=entry_id,
                 workspace_id=workspace_id,
-                type=entry_type,  # type: ignore[arg-type]
+                type=entry_type,
                 title=title,
                 body=body,
                 convoy_id=convoy_id,
@@ -350,7 +354,7 @@ class Coordinator:
             if not entry:
                 return None
 
-            entry.status = "resolved"  # type: ignore[attr-defined]
+            entry.status = "resolved"
             entry.resolved_at = datetime.utcnow()
             entry.updated_at = datetime.utcnow()
             if resolution:
@@ -497,10 +501,10 @@ class Coordinator:
                 entry = LedgerEntry(
                     id=data["id"],
                     workspace_id=data["workspace_id"],
-                    type=data["type"],
+                    type=cast(LedgerEntryType, data["type"]),
                     title=data["title"],
                     body=data.get("body", ""),
-                    status=data.get("status", "open"),
+                    status=cast(LedgerEntryStatus, data.get("status", "open")),
                 )
                 self._ledger[entry_id] = entry
             results["ledger"] = len(ledger_data)

@@ -236,6 +236,16 @@ class DebatePhase:
         # Run debate
         result = await self._run_debate(arena)
 
+        if not result.consensus_reached:
+            self._log(
+                "  [debate] Consensus not reached: "
+                f"proposals={len(result.proposals)} votes={len(result.votes)} "
+                f"final_answer_len={len(result.final_answer or '')} status={result.status or 'n/a'}"
+            )
+            if result.agent_failures:
+                failed = ", ".join(sorted(result.agent_failures.keys()))
+                self._log(f"  [debate] Agent failures: {failed}")
+
         # Process post-debate hooks
         if hooks:
             await self._run_post_debate_hooks(result, hooks)

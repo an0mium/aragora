@@ -214,21 +214,23 @@ class EpicAdapter(EHRAdapter):
             List of matched Patient resources with confidence scores
         """
         # Build Parameters resource for $match
-        parameters = {
+        patient_resource: dict[str, Any] = {
+            "resourceType": "Patient",
+            "name": [
+                {
+                    "family": family,
+                    "given": [given],
+                }
+            ],
+            "birthDate": birthdate,
+        }
+
+        parameters: dict[str, Any] = {
             "resourceType": "Parameters",
             "parameter": [
                 {
                     "name": "resource",
-                    "resource": {
-                        "resourceType": "Patient",
-                        "name": [
-                            {
-                                "family": family,
-                                "given": [given],
-                            }
-                        ],
-                        "birthDate": birthdate,
-                    },
+                    "resource": patient_resource,
                 },
                 {
                     "name": "onlyCertainMatches",
@@ -236,8 +238,6 @@ class EpicAdapter(EHRAdapter):
                 },
             ],
         }
-
-        patient_resource: dict = parameters["parameter"][0]["resource"]  # type: ignore[index]
 
         if gender:
             patient_resource["gender"] = gender
@@ -280,12 +280,11 @@ class EpicAdapter(EHRAdapter):
         logger.info(f"Patient $match found {len(matches)} potential matches")
         return matches
 
-    async def get_patient_records(  # type: ignore[override]
+    async def get_patient_records(
         self,
         patient_id: str,
         resource_types: Optional[list[str]] = None,
-        start_date: str | None = None,
-        end_date: str | None = None,
+        **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         """
         Get all clinical records for a patient using $everything operation.
@@ -293,13 +292,17 @@ class EpicAdapter(EHRAdapter):
         Args:
             patient_id: Epic FHIR patient ID
             resource_types: Filter to specific resource types
-            start_date: Start of date range (YYYY-MM-DD)
-            end_date: End of date range (YYYY-MM-DD)
+            **kwargs: Epic-specific options:
+                - start_date: Start of date range (YYYY-MM-DD)
+                - end_date: End of date range (YYYY-MM-DD)
 
         Yields:
             FHIR resources for the patient
         """
-        params = {}
+        start_date: str | None = kwargs.get("start_date")
+        end_date: str | None = kwargs.get("end_date")
+
+        params: dict[str, str] = {}
         if start_date:
             params["start"] = start_date
         if end_date:

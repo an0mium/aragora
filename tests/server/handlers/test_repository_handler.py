@@ -254,7 +254,7 @@ class TestListEntities:
             mock_handler.path = "/api/v1/repository/repo-123/entities"
 
             result = await repository_handler.handle(
-                "/api/v1/repository/repo-123/entities", "GET", mock_handler
+                "/api/v1/repository/repo-123/entities", {}, mock_handler
             )
 
             assert result is not None
@@ -273,7 +273,9 @@ class TestListEntities:
             mock_handler.path = "/api/v1/repository/repo-123/entities?type=class&limit=10"
 
             result = await repository_handler.handle(
-                "/api/v1/repository/repo-123/entities", "GET", mock_handler
+                "/api/v1/repository/repo-123/entities",
+                {"type": ["class"], "limit": ["10"]},
+                mock_handler,
             )
 
             assert result is not None
@@ -294,7 +296,7 @@ class TestGetGraph:
             mock_handler.path = "/api/v1/repository/repo-123/graph"
 
             result = await repository_handler.handle(
-                "/api/v1/repository/repo-123/graph", "GET", mock_handler
+                "/api/v1/repository/repo-123/graph", {}, mock_handler
             )
 
             assert result is not None
@@ -316,9 +318,11 @@ class TestDeleteRepository:
         ):
             mock_handler = MagicMock()
             mock_handler.path = "/api/v1/repository/repo-123"
+            mock_handler.headers = {"Content-Length": "0"}
+            mock_handler.rfile.read.return_value = b""
 
-            result = await repository_handler.handle(
-                "/api/v1/repository/repo-123", "DELETE", mock_handler
+            result = await repository_handler.handle_delete(
+                "/api/v1/repository/repo-123", {}, mock_handler
             )
 
             assert result is not None
@@ -346,8 +350,8 @@ class TestOrchestratorUnavailable:
                 }
             ).encode()
 
-            result = await repository_handler.handle(
-                "/api/v1/repository/index", "POST", mock_handler
+            result = await repository_handler.handle_post(
+                "/api/v1/repository/index", {}, mock_handler
             )
 
             assert result is not None
@@ -366,7 +370,7 @@ class TestPathValidation:
         mock_handler.path = "/api/v1/repository/../../../etc/passwd/status"
 
         result = await repository_handler.handle(
-            "/api/v1/repository/../../../etc/passwd/status", "GET", mock_handler
+            "/api/v1/repository/../../../etc/passwd/status", {}, mock_handler
         )
 
         assert result is not None
@@ -381,7 +385,7 @@ class TestPathValidation:
         mock_handler.path = "/api/v1/repository/<script>alert(1)</script>/status"
 
         result = await repository_handler.handle(
-            "/api/v1/repository/<script>alert(1)</script>/status", "GET", mock_handler
+            "/api/v1/repository/<script>alert(1)</script>/status", {}, mock_handler
         )
 
         assert result is not None

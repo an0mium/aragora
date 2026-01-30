@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import Counter
+from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import AGENT_TIMEOUT_SECONDS
@@ -416,7 +416,7 @@ class VoteProcessor:
         votes: list["Vote"],
         choice_mapping: dict[str, str],
         vote_weight_cache: dict[str, float],
-    ) -> tuple[Counter[str], float]:
+    ) -> tuple[dict[str, float], float]:
         """Count weighted votes.
 
         Args:
@@ -427,24 +427,24 @@ class VoteProcessor:
         Returns:
             Tuple of (vote_counts, total_weighted)
         """
-        vote_counts: Counter[str] = Counter()
+        vote_counts: dict[str, float] = defaultdict(float)
         total_weighted = 0.0
 
         for v in votes:
             if not isinstance(v, Exception):
                 canonical = choice_mapping.get(v.choice, v.choice)
                 weight = vote_weight_cache.get(v.agent, 1.0)
-                vote_counts[canonical] += weight  # type: ignore[assignment]
+                vote_counts[canonical] += weight
                 total_weighted += weight
 
-        return vote_counts, total_weighted
+        return dict(vote_counts), total_weighted
 
     def add_user_votes(
         self,
-        vote_counts: Counter[str],
+        vote_counts: dict[str, float],
         total_weighted: float,
         choice_mapping: dict[str, str],
-    ) -> tuple[Counter[str], float]:
+    ) -> tuple[dict[str, float], float]:
         """Add user votes to counts.
 
         Args:
@@ -472,7 +472,7 @@ class VoteProcessor:
                     intensity_multiplier = 1.0
 
                 final_weight = base_user_weight * intensity_multiplier
-                vote_counts[canonical] += final_weight  # type: ignore[assignment]
+                vote_counts[canonical] = vote_counts.get(canonical, 0.0) + final_weight
                 total_weighted += final_weight
 
                 logger.debug(

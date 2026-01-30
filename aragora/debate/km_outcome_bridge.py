@@ -39,8 +39,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker  # type: ignore[attr-defined]
-    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
+    from aragora.debate.outcome_tracker import ConsensusOutcome, OutcomeTracker
+    from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 

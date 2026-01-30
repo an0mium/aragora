@@ -22,7 +22,7 @@ Routes:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast, Callable, Coroutine
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -443,7 +443,8 @@ class GatewayHandler(BaseHandler):
         if not router:
             return error_response("Agent router not available", 503)
 
-        rules: list = router.list_rules() if hasattr(router, "list_rules") else []  # type: ignore[assignment]
+        rules_result = run_async(router.list_rules()) if hasattr(router, "list_rules") else []
+        rules: list[Any] = list(rules_result) if rules_result else []
 
         return json_response(
             {
@@ -488,8 +489,13 @@ class GatewayHandler(BaseHandler):
         if not content:
             return error_response("content is required", 400)
 
-        # Route the message
-        result = run_async(router.route(channel=channel, content=content))  # type: ignore[call-arg]
+        # Route the message - cast route method to accept flexible kwargs
+        # since the actual router implementation may vary
+        route_method = cast(
+            Callable[..., Coroutine[Any, Any, Any]],
+            router.route,
+        )
+        result = run_async(route_method(channel=channel, content=content))
 
         return json_response(
             {

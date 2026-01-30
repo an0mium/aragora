@@ -285,11 +285,13 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
             result = await agent.generate(prompt, context=[])
             self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
             # Emit agent's full exploration result
+            if not result:
+                return (name, harness, "Error: empty response")
             if result:
                 self._stream_emit(
                     "on_log_message", result, level="info", phase="context", agent=name
                 )
-            return (name, harness, result if result else "No response")
+            return (name, harness, result)
         except Exception as e:
             self._log(f"  {name}: error - {e}", agent=name)
             return (name, harness, f"Error: {e}")

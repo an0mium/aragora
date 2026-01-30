@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 from aragora.debate.agent_pool import AgentPool, AgentPoolConfig
 from aragora.debate.chaos_theater import DramaLevel, get_chaos_director
@@ -22,21 +22,31 @@ from aragora.debate.subsystem_coordinator import SubsystemCoordinator
 from aragora.spectate.stream import SpectatorStream
 
 if TYPE_CHECKING:
+    from aragora.agents.airlock import AirlockProxy
     from aragora.core import Agent, Environment
     from aragora.debate.autonomic_executor import AutonomicExecutor
     from aragora.debate.event_bridge import EventEmitterBridge
+    from aragora.evolution.evolver import PromptEvolver as PromptEvolverType
     from aragora.types.protocols import EventEmitterProtocol
 
 logger = logging.getLogger(__name__)
 
-# Optional evolution import for prompt self-improvement
-try:
-    from aragora.evolution.evolver import PromptEvolver
+# Type alias for agents that may be wrapped with airlock
+AgentLike = Union["Agent", "AirlockProxy"]
 
+# Optional evolution import for prompt self-improvement
+# Declare PromptEvolver with proper type before the conditional import
+_PromptEvolver: Optional[type["PromptEvolverType"]] = None
+try:
+    from aragora.evolution.evolver import PromptEvolver as _ImportedPromptEvolver
+
+    _PromptEvolver = _ImportedPromptEvolver
     PROMPT_EVOLVER_AVAILABLE = True
 except ImportError:
-    PromptEvolver: Optional[type[Any]] = None  # type: ignore[no-redef]
     PROMPT_EVOLVER_AVAILABLE = False
+
+# Expose as PromptEvolver for backward compatibility
+PromptEvolver = _PromptEvolver
 
 
 @dataclass
@@ -207,7 +217,8 @@ class ArenaInitializer:
             from aragora.agents.airlock import AirlockConfig, wrap_agents
 
             airlock_cfg = airlock_config or AirlockConfig()
-            agents = wrap_agents(agents, airlock_cfg)  # type: ignore[assignment]
+            # AirlockProxy delegates to Agent via __getattr__, making it duck-type compatible
+            agents = cast(list["Agent"], wrap_agents(agents, airlock_cfg))
             logger.debug(f"[airlock] Wrapped {len(agents)} agents with resilience layer")
 
         hooks = event_hooks or {}

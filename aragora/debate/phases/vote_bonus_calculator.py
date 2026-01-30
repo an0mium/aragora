@@ -9,10 +9,8 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
-from aragora.observability.metrics import (  # type: ignore[attr-defined]
-    record_evidence_citation_bonus,
-    record_process_evaluation_bonus,
-)
+from aragora.observability.metrics.convergence import record_process_evaluation_bonus
+from aragora.observability.metrics.evidence import record_evidence_citation_bonus
 
 if TYPE_CHECKING:
     from aragora.core import Vote
@@ -144,7 +142,7 @@ class VoteBonusCalculator:
             for agent, count in evidence_citations.items():
                 result.verification_results[f"evidence_{agent}"] = count
                 if agent in evidence_quality_totals:
-                    result.verification_results[f"evidence_quality_{agent}"] = round(  # type: ignore[assignment]
+                    result.verification_results[f"evidence_quality_{agent}"] = round(
                         evidence_quality_totals[agent], 3
                     )
 

@@ -106,40 +106,39 @@ async def fetch_debate_context_tool(
     try:
         from aragora.memory.consensus import ConsensusMemory
 
-        # Get consensus memory
+        # Get consensus memory (initialization happens in __init__)
         memory = ConsensusMemory()
-        await memory.initialize()  # type: ignore[attr-defined]
 
-        # Look up debate
-        debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
-        if not debate:
+        # Look up debate/consensus record
+        consensus = memory.get_consensus(debate_id)
+        if not consensus:
             return {
                 "error": f"Debate not found: {debate_id}",
                 "debate_id": debate_id,
             }
 
-        result = {
+        result: dict[str, Any] = {
             "debate_id": debate_id,
-            "task": debate.get("task", ""),
-            "status": debate.get("status", "unknown"),
-            "created_at": debate.get("created_at", ""),
-            "final_answer": debate.get("final_answer"),
+            "task": consensus.topic,
+            "status": "completed" if consensus.conclusion else "unknown",
+            "created_at": consensus.timestamp.isoformat(),
+            "final_answer": consensus.conclusion,
         }
 
         if include_history:
-            result["rounds"] = debate.get("rounds", [])
-            result["round_count"] = len(result["rounds"])
+            result["rounds"] = consensus.rounds
+            result["round_count"] = consensus.rounds
 
         if include_consensus:
-            result["consensus_reached"] = debate.get("consensus_reached", False)
-            result["confidence"] = debate.get("confidence", 0.0)
-            result["agents"] = debate.get("agents", [])
+            result["consensus_reached"] = consensus.strength.value != "split"
+            result["confidence"] = consensus.confidence
+            result["agents"] = consensus.participating_agents
 
         if include_metrics:
             result["metrics"] = {
-                "duration_seconds": debate.get("duration_seconds"),
-                "total_tokens": debate.get("total_tokens"),
-                "rounds_used": debate.get("rounds_used"),
+                "duration_seconds": consensus.debate_duration_seconds,
+                "total_tokens": consensus.metadata.get("total_tokens"),
+                "rounds_used": consensus.rounds,
             }
 
         return result

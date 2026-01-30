@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import json
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,6 +19,10 @@ from aragora.server.handlers.bots.teams import (
     TeamsHandler,
     _check_botframework_available,
 )
+
+# Check if botbuilder SDK is available
+HAS_BOTBUILDER = "botbuilder" in sys.modules or _check_botframework_available()[0]
+requires_botbuilder = pytest.mark.skipif(not HAS_BOTBUILDER, reason="botbuilder SDK not installed")
 
 
 # =============================================================================
@@ -235,6 +240,7 @@ class TestTeamsMessages:
 
         assert result is None
 
+    @requires_botbuilder
     @pytest.mark.asyncio
     async def test_handle_post_with_valid_activity(self):
         """Should process valid Bot Framework activity."""
@@ -268,7 +274,7 @@ class TestTeamsMessages:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity = MagicMock()
                 mock_activity_cls.deserialize.return_value = mock_activity
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
@@ -282,8 +288,9 @@ class TestTeamsMessages:
 # =============================================================================
 
 
+@requires_botbuilder
 class TestActivityProcessing:
-    """Tests for Bot Framework activity processing."""
+    """Tests for Bot Framework activity processing (requires botbuilder SDK)."""
 
     @pytest.mark.asyncio
     async def test_authentication_failure_invalid_token(self):
@@ -307,7 +314,7 @@ class TestActivityProcessing:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -338,7 +345,7 @@ class TestActivityProcessing:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -371,7 +378,7 @@ class TestActivityProcessing:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -402,7 +409,7 @@ class TestActivityProcessing:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -417,8 +424,9 @@ class TestActivityProcessing:
 # =============================================================================
 
 
+@requires_botbuilder
 class TestCardActions:
-    """Tests for Teams Adaptive Card action handling."""
+    """Tests for Teams Adaptive Card action handling (requires botbuilder SDK)."""
 
     @pytest.mark.asyncio
     async def test_handle_card_action_invoke(self):
@@ -454,7 +462,7 @@ class TestCardActions:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -490,7 +498,7 @@ class TestCardActions:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
@@ -758,8 +766,10 @@ class TestErrorHandling:
 
         assert result is not None
         # Exception is handled by _handle_webhook_exception
-        assert result.status_code in (400, 500)
+        # 503 is returned for connection/IO errors, 400/500 for other errors
+        assert result.status_code in (400, 500, 503)
 
+    @requires_botbuilder
     @pytest.mark.asyncio
     async def test_audit_webhook_auth_failure_called(self):
         """Should audit authentication failures."""
@@ -782,7 +792,7 @@ class TestErrorHandling:
 
         with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_ensure:
             mock_ensure.return_value = mock_bot
-            with patch("aragora.server.handlers.bots.teams.Activity") as mock_activity_cls:
+            with patch("botbuilder.schema.Activity") as mock_activity_cls:
                 mock_activity_cls.deserialize.return_value = MagicMock()
                 with patch.object(handler, "_audit_webhook_auth_failure") as mock_audit:
                     await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)

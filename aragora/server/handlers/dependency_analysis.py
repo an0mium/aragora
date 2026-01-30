@@ -27,6 +27,7 @@ from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -410,9 +411,9 @@ class DependencyAnalysisHandler(BaseHandler):
         "/api/v1/codebase/clear-cache",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
@@ -422,8 +423,14 @@ class DependencyAnalysisHandler(BaseHandler):
         """Route dependency analysis endpoint requests."""
         return None
 
-    async def handle_post(self, path: str, data: dict[str, Any]) -> HandlerResult:  # type: ignore[override]
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests."""
+        # Read JSON body from handler
+        data = self.read_json_body(handler)
+        if data is None:
+            data = {}
         # Create a default context for dependency analysis operations
         context = AuthorizationContext(user_id="system", roles=set())
         if path == "/api/v1/codebase/analyze-dependencies":

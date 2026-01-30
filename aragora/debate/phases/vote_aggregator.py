@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.core import Vote
@@ -214,7 +214,7 @@ class VoteAggregator:
             canonical = choice_mapping.get(vote.choice, vote.choice)
             weight = weights.get(vote.agent, 1.0)
 
-            vote_counts[canonical] += weight  # type: ignore[assignment]
+            vote_counts[canonical] = cast(int, vote_counts[canonical] + weight)
             total_weighted += weight
 
         return vote_counts, total_weighted
@@ -258,7 +258,7 @@ class VoteAggregator:
                 intensity_multiplier = 1.0
 
             final_weight = self._base_user_weight * intensity_multiplier
-            vote_counts[canonical] += final_weight  # type: ignore[assignment]
+            vote_counts[canonical] = cast(int, vote_counts[canonical] + final_weight)
             total_weighted += final_weight
             user_count += 1
 

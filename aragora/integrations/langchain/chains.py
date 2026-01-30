@@ -22,38 +22,58 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any
-
+from typing import TYPE_CHECKING, Any
 
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
-# LangChain imports with fallback
-try:
-    from langchain.chains.base import Chain
+# Type-only imports for static analysis
+if TYPE_CHECKING:
     from langchain.callbacks.manager import (
         AsyncCallbackManagerForChainRun,
         CallbackManagerForChainRun,
     )
-    from pydantic import BaseModel
+
+
+# Stub classes for when LangChain is not installed
+class _StubChain:
+    """Stub Chain base class when LangChain not installed."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        pass
+
+
+class _StubAsyncCallbackManager:
+    """Stub for AsyncCallbackManagerForChainRun when LangChain not installed."""
+
+    pass
+
+
+class _StubCallbackManager:
+    """Stub for CallbackManagerForChainRun when LangChain not installed."""
+
+    pass
+
+
+# LangChain imports with fallback
+try:
+    from langchain.chains.base import Chain as _LangChainBase
+    from langchain.callbacks.manager import (
+        AsyncCallbackManagerForChainRun,
+        CallbackManagerForChainRun,
+    )
 
     LANGCHAIN_AVAILABLE = True
+    _ChainBase: type = _LangChainBase
 except ImportError:
     LANGCHAIN_AVAILABLE = False
-
-    class Chain:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub Chain when LangChain not installed."""
-
-        pass
-
-    class BaseModel:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub BaseModel."""
-
-        pass
+    _ChainBase = _StubChain
+    AsyncCallbackManagerForChainRun = _StubAsyncCallbackManager  # noqa: F811
+    CallbackManagerForChainRun = _StubCallbackManager  # noqa: F811
 
 
-class AragoraDebateChain(Chain):
+class AragoraDebateChain(_ChainBase):
     """
     LangChain Chain for running structured Aragora debates.
 
@@ -225,7 +245,7 @@ class AragoraDebateChain(Chain):
         return "aragora_debate_chain"
 
 
-class AragoraResearchDebateChain(Chain):
+class AragoraResearchDebateChain(_ChainBase):
     """
     Chain that combines research and debate for comprehensive analysis.
 

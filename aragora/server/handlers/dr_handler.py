@@ -22,6 +22,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
+from aragora.backup.manager import BackupManager
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -47,12 +48,14 @@ class DRHandler(BaseHandler):
         "/api/v2/dr/*",
     ]
 
+    _manager: Optional[BackupManager]
+
     def __init__(self, server_context: ServerContext):
         """Initialize with server context."""
         super().__init__(server_context)
         self._manager = None  # Lazy initialization
 
-    def _get_backup_manager(self):
+    def _get_backup_manager(self) -> BackupManager:
         """Get backup manager for DR operations."""
         if self._manager is None:
             from aragora.backup.manager import get_backup_manager
@@ -67,34 +70,80 @@ class DRHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
-        method: str,
-        path: str,
-        body: Optional[dict[str, Any]] = None,
+        path_or_method: Optional[str] = None,
+        query_params_or_path: Optional[dict[str, Any] | str] = None,
+        handler_or_body: Any = None,
         query_params: Optional[dict[str, str]] = None,
         headers: Optional[dict[str, str]] = None,
+        *,
+        method: Optional[str] = None,
+        path: Optional[str] = None,
+        body: Optional[dict[str, Any]] = None,
     ) -> HandlerResult:
-        """Route request to appropriate handler method."""
-        query_params = query_params or {}
-        body = body or {}
+        """Route request to appropriate handler method.
+
+        Supports three calling conventions:
+        1. Base class style: handle(path, query_params, handler)
+        2. Extended positional style: handle(method, path, body, query_params, headers)
+        3. Extended keyword style: handle(method=method, path=path, body=body)
+
+        The calling convention is detected by checking the arguments.
+        """
+        resolved_body: dict[str, Any]
+        resolved_method: str
+        resolved_path: str
+
+        # Check if using keyword argument style (method= and path= kwargs)
+        if method is not None and path is not None:
+            # Extended keyword style: handle(method=method, path=path, body=body)
+            resolved_method = method
+            resolved_path = path
+            resolved_body = body or {}
+        elif path_or_method is None:
+            # No arguments provided - return error
+            return error_response("Invalid request: no path or method provided", 400)
+        elif isinstance(query_params_or_path, dict) or query_params_or_path is None:
+            # Base class calling convention: handle(path, query_params, handler)
+            resolved_path = path_or_method
+            handler = handler_or_body
+            # Extract method from handler if available
+            resolved_method = getattr(handler, "command", "GET") if handler else "GET"
+            # Extract body from handler if available, or use explicit body kwarg
+            resolved_body = (
+                body if body is not None else (self.read_json_body(handler) if handler else {})
+            )
+        else:
+            # Extended positional style: handle(method, path, body, query_params, headers)
+            resolved_method = path_or_method
+            resolved_path = str(query_params_or_path)
+            # Use explicit body kwarg if provided, otherwise use positional arg
+            if body is not None:
+                resolved_body = body
+            elif isinstance(handler_or_body, dict):
+                resolved_body = handler_or_body
+            else:
+                resolved_body = {}
+
+        resolved_body = resolved_body or {}
 
         try:
             # Status endpoint
-            if path == "/api/v2/dr/status" and method == "GET":
+            if resolved_path == "/api/v2/dr/status" and resolved_method == "GET":
                 return await self._get_status()
 
             # Drill endpoint
-            if path == "/api/v2/dr/drill" and method == "POST":
-                return await self._run_drill(body)
+            if resolved_path == "/api/v2/dr/drill" and resolved_method == "POST":
+                return await self._run_drill(resolved_body)
 
             # Objectives endpoint
-            if path == "/api/v2/dr/objectives" and method == "GET":
+            if resolved_path == "/api/v2/dr/objectives" and resolved_method == "GET":
                 return await self._get_objectives()
 
             # Validate endpoint
-            if path == "/api/v2/dr/validate" and method == "POST":
-                return await self._validate_configuration(body)
+            if resolved_path == "/api/v2/dr/validate" and resolved_method == "POST":
+                return await self._validate_configuration(resolved_body)
 
             return error_response("Not found", 404)
 
@@ -431,12 +480,12 @@ class DRHandler(BaseHandler):
                 required_perms = ["dr:read", "dr:write", "dr:admin"]
                 # Verify RBAC module is available and permissions are defined
                 try:
-                    from aragora.rbac.defaults import DEFAULT_PERMISSIONS  # type: ignore[attr-defined]
+                    from aragora.rbac.defaults import SYSTEM_PERMISSIONS
 
                     missing_perms = [
                         p
                         for p in required_perms
-                        if not any(p in str(perm) for perm in DEFAULT_PERMISSIONS)
+                        if not any(p in str(perm) for perm in SYSTEM_PERMISSIONS)
                     ]
                     if not missing_perms:
                         check["status"] = "passed"

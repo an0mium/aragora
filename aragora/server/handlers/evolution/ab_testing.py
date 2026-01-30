@@ -14,7 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
@@ -29,6 +29,9 @@ from ..base import (
     json_response,
     validate_path_segment,
 )
+
+if TYPE_CHECKING:
+    from ..base import ServerContext
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +61,18 @@ class EvolutionABTestingHandler(BaseHandler):
         "/api/v1/evolution/ab-tests",
     ]
 
-    def __init__(self, ctx: dict = None):
+    def __init__(self, ctx: "ServerContext | None" = None):
         """Initialize with context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(cast("ServerContext", ctx or {}))
         self._manager: ABTestManager | None = None
 
     @property
     def manager(self) -> ABTestManager | None:
         """Lazy-load A/B test manager."""
         if self._manager is None and AB_TESTING_AVAILABLE:
-            db_path = self.ctx.get("ab_tests_db", "ab_tests.db")
-            self._manager = ABTestManager(db_path=db_path)  # type: ignore[arg-type]
+            db_path_value = self.ctx.get("ab_tests_db", "ab_tests.db")
+            db_path: str = db_path_value if isinstance(db_path_value, str) else "ab_tests.db"
+            self._manager = ABTestManager(db_path=db_path)
         return self._manager
 
     def _get_user_store(self):

@@ -547,7 +547,11 @@ class ErrorClassifier:
         if cls.is_validation_error(error_str):
             return "validation"
 
-        if cls.is_cli_error(error_str) or isinstance(error, subprocess.SubprocessError):
+        if (
+            isinstance(error, CLIAgentError)
+            or cls.is_cli_error(error_str)
+            or isinstance(error, subprocess.SubprocessError)
+        ):
             return "cli"
 
         return "unknown"
@@ -597,7 +601,11 @@ class ErrorClassifier:
             return True, "model"
 
         # Check CLI errors
-        if cls.is_cli_error(error_str) or isinstance(error, subprocess.SubprocessError):
+        if (
+            isinstance(error, CLIAgentError)
+            or cls.is_cli_error(error_str)
+            or isinstance(error, subprocess.SubprocessError)
+        ):
             return True, "cli"
 
         # Content policy errors - don't fallback (same content will fail elsewhere)

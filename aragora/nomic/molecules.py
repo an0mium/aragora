@@ -42,9 +42,21 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional, cast
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
+
+# Type alias for consensus values accepted by DebateProtocol
+ConsensusType = Literal[
+    "majority",
+    "unanimous",
+    "judge",
+    "none",
+    "weighted",
+    "supermajority",
+    "any",
+    "byzantine",
+]
 from aragora.config.settings import get_settings
 from aragora.nomic.beads import BeadStore
 
@@ -396,16 +408,17 @@ class DebateStepExecutor(StepExecutor):
         """Execute step via Arena debate."""
         question = step.config.get("question", step.name)
         agents_config = step.config.get("agents", get_settings().agent.default_agent_list)
-        rounds = step.config.get("rounds", DEFAULT_ROUNDS)
-        consensus = step.config.get("consensus", DEFAULT_CONSENSUS)
+        rounds: int = step.config.get("rounds", DEFAULT_ROUNDS)
+        consensus_value: str = step.config.get("consensus", DEFAULT_CONSENSUS)
 
         try:
             from aragora.core import Environment, DebateProtocol
+            from aragora.core_types import Agent
             from aragora.debate.orchestrator import Arena
             from aragora.agents.registry import AgentRegistry
 
             # Get agents
-            agents = []
+            agents: list[Agent] = []
             for agent_name in agents_config:
                 if AgentRegistry.is_registered(agent_name):
                     agent = AgentRegistry.create(agent_name)
@@ -417,8 +430,8 @@ class DebateStepExecutor(StepExecutor):
 
             # Create and run debate
             env = Environment(task=question)
-            protocol = DebateProtocol(rounds=rounds, consensus=consensus)  # type: ignore[misc]
-            arena = Arena(env, agents, protocol)  # type: ignore[arg-type]
+            protocol = DebateProtocol(rounds=rounds, consensus=cast(ConsensusType, consensus_value))
+            arena = Arena(env, agents, protocol)
             result = await arena.run()
 
             return {

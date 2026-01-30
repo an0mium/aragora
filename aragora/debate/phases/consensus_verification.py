@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext
@@ -114,18 +114,22 @@ class ConsensusVerifier:
 
                 # Store verification counts for feedback loop
                 # Note: verification_results accepts both int (legacy) and dict (new format)
+                # The type annotation in core_types.py is dict[str, int | float] but we store
+                # dict[str, int] for the new format - cast to Any to work around the mismatch
                 if hasattr(result, "verification_results"):
-                    result.verification_results[agent_name] = {  # type: ignore[assignment]
+                    verification_data: dict[str, int] = {
                         "verified": verified_count,
                         "disproven": disproven_count,
                     }
+                    # Cast to Any since the actual storage type is broader than the annotation
+                    result.verification_results[agent_name] = cast(Any, verification_data)
 
-                bonus = 0.0
+                bonus: float = 0.0
                 if verified_count > 0:
                     # Apply bonus: boost votes for this proposal
-                    current_count = vote_counts[canonical]
-                    bonus = current_count * verification_bonus * verified_count
-                    vote_counts[canonical] = current_count + bonus  # type: ignore[assignment]
+                    current_count: float = vote_counts[canonical]
+                    bonus = current_count * float(verification_bonus) * int(verified_count)
+                    vote_counts[canonical] = current_count + bonus
 
                     # Store bonus for feedback loop
                     if hasattr(result, "verification_bonuses"):

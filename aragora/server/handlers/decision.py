@@ -248,13 +248,9 @@ class DecisionHandler(BaseHandler):
                     actor_id=request.context.user_id,
                     workspace_id=request.context.workspace_id,
                 )
-                enforcer.require(  # type: ignore[unused-coroutine]
+                await enforcer.require(
                     auth_ctx.user_id,
-                    (
-                        ResourceType.DECISION  # type: ignore[attr-defined]
-                        if hasattr(ResourceType, "DECISION")
-                        else ResourceType.DEBATE
-                    ),
+                    ResourceType.DEBATE,
                     Action.CREATE,
                     ctx,
                 )

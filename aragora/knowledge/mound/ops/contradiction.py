@@ -17,10 +17,29 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.mound.types import KnowledgeItem, QueryResult
+
+
+class KnowledgeMoundProtocol(Protocol):
+    """Protocol defining the KnowledgeMound interface needed for contradiction detection."""
+
+    async def query(
+        self,
+        query: str = "",
+        workspace_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> "QueryResult": ...
+
+    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+
+    @property
+    def _semantic_store(self) -> Any: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +323,7 @@ class ContradictionDetector:
 
     async def detect_contradictions(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         workspace_id: str,
         item_ids: Optional[list[str]] = None,
     ) -> ContradictionReport:
@@ -327,7 +346,7 @@ class ContradictionDetector:
         if item_ids:
             items = []
             for item_id in item_ids:
-                item = await mound.get(item_id)  # type: ignore[misc]
+                item = await mound.get(item_id)
                 if item:
                     items.append(item)
         else:
@@ -397,7 +416,7 @@ class ContradictionDetector:
 
     async def _compute_similarity(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         item_a: Any,
         item_b: Any,
     ) -> float:
@@ -639,7 +658,9 @@ class ContradictionOperationsMixin:
             ContradictionReport with findings
         """
         detector = self._get_contradiction_detector()
-        return await detector.detect_contradictions(self, workspace_id, item_ids)  # type: ignore[arg-type]
+        return await detector.detect_contradictions(
+            cast(KnowledgeMoundProtocol, self), workspace_id, item_ids
+        )
 
     async def resolve_contradiction(
         self,

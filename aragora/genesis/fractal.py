@@ -11,8 +11,9 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
+from aragora.agents.base import AgentType
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.consensus import UnresolvedTension
 from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -275,7 +276,7 @@ class FractalOrchestrator:
         for genome in specialists:
             try:
                 agent = create_agent(
-                    model_type=genome.model_preference,  # type: ignore[arg-type]
+                    model_type=cast(AgentType, genome.model_preference),
                     name=genome.name,
                     role="proposer",
                 )
@@ -294,7 +295,7 @@ class FractalOrchestrator:
             for genome in best_genomes:
                 try:
                     agent = create_agent(
-                        model_type=genome.model_preference,  # type: ignore[arg-type]
+                        model_type=cast(AgentType, genome.model_preference),
                         name=genome.name,
                         role="proposer",
                     )

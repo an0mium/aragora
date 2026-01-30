@@ -465,6 +465,7 @@ class TestSemanticSearch:
         mock_debate.consensus.confidence = 0.8
         mock_debate.consensus.domain = "general"
         mock_debate.consensus.timestamp = datetime.now(timezone.utc)
+        mock_debate.consensus.metadata = {}
         mock_debate.similarity = 0.85
 
         mock_consensus = MagicMock()
@@ -472,9 +473,12 @@ class TestSemanticSearch:
 
         adapter = ConsensusAdapter(mock_consensus)
 
-        results = await adapter.semantic_search("test query", limit=5)
+        # Mock the SemanticStore import to trigger fallback
+        with patch.dict("sys.modules", {"aragora.knowledge.mound.semantic_store": None}):
+            results = await adapter.semantic_search("test query", limit=5)
 
         assert len(results) == 1
+        mock_consensus.find_similar_debates.assert_called_once()
 
 
 class TestStoreConsensus:

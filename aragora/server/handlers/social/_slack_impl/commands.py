@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack slash command implementations.
 
@@ -531,10 +530,11 @@ class CommandsMixin(BlocksMixin):
             from aragora.server.storage import get_debates_db
 
             db = get_debates_db()
-            results: list[dict] = []
+            results: list[Any] = []
 
             if db and hasattr(db, "search"):
-                results = db.search(query, limit=5)  # type: ignore[assignment]
+                search_results, _total = db.search(query, limit=5)
+                results = list(search_results)
             elif db and hasattr(db, "list"):
                 # Fallback: manual search through recent debates
                 all_debates = db.list(limit=50)
@@ -1127,7 +1127,7 @@ class CommandsMixin(BlocksMixin):
 
         try:
             from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+            from aragora.agents import get_agents_by_names
 
             # Determine agents and protocol early for thread header
             agent_names = ["anthropic-api", "openai-api"]

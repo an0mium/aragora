@@ -371,9 +371,10 @@ class CritiqueGenerator:
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(critic.name)
             # Create placeholder critique so the UI shows a failure instead of a silent drop
-            placeholder = Critique(  # type: ignore[call-arg]
+            placeholder = Critique(
                 agent=critic.name,
                 target_agent=proposal_agent,
+                target_content=ctx.proposals.get(proposal_agent, ""),
                 issues=[f"[Critique failed: {crit_result.error}]"],
                 suggestions=[],
                 severity=0.0,
@@ -420,9 +421,10 @@ class CritiqueGenerator:
                 self.circuit_breaker.record_failure(critic.name)
 
             # Create placeholder critique
-            placeholder = Critique(  # type: ignore[call-arg]
+            placeholder = Critique(
                 agent=critic.name,
                 target_agent=proposal_agent,
+                target_content=ctx.proposals.get(proposal_agent, ""),
                 issues=["[Critique unavailable - agent timed out or encountered an error]"],
                 suggestions=[],
                 severity=0.0,

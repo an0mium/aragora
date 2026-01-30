@@ -268,7 +268,7 @@ class RelationshipHandler(BaseHandler):
         Returns list of (agent_a, agent_b, debate_count, agreement_count, a_wins, b_wins).
         Returns empty list if table doesn't exist.
         """
-        with get_db_connection(str(tracker.elo_db_path)) as conn:  # type: ignore[arg-type,attr-defined]
+        with get_db_connection(str(tracker.db_path)) as conn:
             cursor = conn.cursor()
             if not table_exists(cursor, "agent_relationships"):
                 return []
@@ -293,7 +293,7 @@ class RelationshipHandler(BaseHandler):
 
             # We need to query the DB directly to get all relationships
             # Use a helper to get all pairs from the database
-            with get_db_connection(str(tracker.elo_db_path)) as conn:  # type: ignore[arg-type,attr-defined]
+            with get_db_connection(str(tracker.db_path)) as conn:
                 cursor = conn.cursor()
 
                 if not table_exists(cursor, "agent_relationships"):
