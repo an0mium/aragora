@@ -847,7 +847,8 @@ async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
     Create and initialize a PostgreSQL workflow store.
 
     This is a convenience function that handles pool creation and
-    store initialization.
+    store initialization. Uses the shared pool from pool_manager if
+    available, otherwise creates a new pool.
 
     Returns:
         Initialized PostgresWorkflowStore
@@ -856,9 +857,26 @@ async def create_postgres_workflow_store() -> "PostgresWorkflowStore":
         RuntimeError: If PostgreSQL is not configured or asyncpg not available
     """
     from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
-    from aragora.storage.postgres_store import get_postgres_pool
 
-    pool = await get_postgres_pool()
+    # Prefer shared pool from pool_manager (avoids creating duplicate pools)
+    pool = None
+    try:
+        from aragora.storage.pool_manager import get_shared_pool, is_pool_initialized
+
+        if is_pool_initialized():
+            pool = get_shared_pool()
+            if pool:
+                logger.debug("Using shared PostgreSQL pool for workflow store")
+    except ImportError:
+        pass
+
+    # Fall back to creating a new pool
+    if pool is None:
+        from aragora.storage.postgres_store import get_postgres_pool
+
+        pool = await get_postgres_pool()
+        logger.debug("Created standalone PostgreSQL pool for workflow store")
+
     store = PostgresWorkflowStore(pool)
     await store.initialize()
     return store
