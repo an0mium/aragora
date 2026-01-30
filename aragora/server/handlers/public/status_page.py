@@ -211,21 +211,59 @@ class StatusPageHandler(BaseHandler):
     def _check_database_health(self) -> ComponentHealth:
         """Check database health."""
         start = time.perf_counter()
-        try:
-            # Try to get database manager
-            from aragora.storage.schema import DatabaseManager
+        db_backend = os.environ.get("ARAGORA_DB_BACKEND", "sqlite").lower()
 
-            db = DatabaseManager.get_instance()  # type: ignore[call-arg]
-            if db and hasattr(db, "engine") and db.engine:  # type: ignore[attr-defined]
-                # Simple connectivity check
-                with db.engine.connect() as conn:  # type: ignore[attr-defined]
-                    conn.execute("SELECT 1")
-                response_time = (time.perf_counter() - start) * 1000
-                return ComponentHealth(
-                    name="Database",
-                    status=ServiceStatus.OPERATIONAL,
-                    response_time_ms=response_time,
-                )
+        try:
+            if db_backend in ("postgres", "postgresql"):
+                # PostgreSQL health check
+                import asyncio
+
+                try:
+                    from aragora.storage.postgres import get_postgres_pool
+                except ImportError:
+                    return ComponentHealth(
+                        name="Database",
+                        status=ServiceStatus.DEGRADED,
+                        message="PostgreSQL driver not installed",
+                    )
+
+                pool = asyncio.get_event_loop().run_until_complete(get_postgres_pool())
+                if pool:
+                    response_time = (time.perf_counter() - start) * 1000
+                    return ComponentHealth(
+                        name="Database",
+                        status=ServiceStatus.OPERATIONAL,
+                        response_time_ms=response_time,
+                    )
+            else:
+                # SQLite health check
+                import sqlite3
+                from pathlib import Path
+
+                data_dir = os.environ.get("ARAGORA_DATA_DIR", "./data")
+                db_path = Path(data_dir) / "aragora.db"
+
+                if db_path.exists():
+                    conn = sqlite3.connect(str(db_path), timeout=5.0)
+                    try:
+                        conn.execute("SELECT 1")
+                        response_time = (time.perf_counter() - start) * 1000
+                        return ComponentHealth(
+                            name="Database",
+                            status=ServiceStatus.OPERATIONAL,
+                            response_time_ms=response_time,
+                        )
+                    finally:
+                        conn.close()
+                else:
+                    # Database file doesn't exist yet - this is OK for new deployments
+                    response_time = (time.perf_counter() - start) * 1000
+                    return ComponentHealth(
+                        name="Database",
+                        status=ServiceStatus.OPERATIONAL,
+                        response_time_ms=response_time,
+                        message="Database not yet initialized",
+                    )
         except Exception as e:
             logger.warning(f"Database health check failed: {e}")
 
@@ -239,17 +277,18 @@ class StatusPageHandler(BaseHandler):
         """Check Redis health."""
         start = time.perf_counter()
         try:
-            from aragora.cache import get_cache
+            from aragora.server.redis_config import get_redis_client, is_redis_available
 
-            cache = get_cache()  # type: ignore[call-arg]
-            if cache:
-                cache.ping()  # type: ignore[attr-defined]
-                response_time = (time.perf_counter() - start) * 1000
-                return ComponentHealth(
-                    name="Cache",
-                    status=ServiceStatus.OPERATIONAL,
-                    response_time_ms=response_time,
-                )
+            if is_redis_available():
+                client = get_redis_client()
+                if client is not None:
+                    client.ping()
+                    response_time = (time.perf_counter() - start) * 1000
+                    return ComponentHealth(
+                        name="Cache",
+                        status=ServiceStatus.OPERATIONAL,
+                        response_time_ms=response_time,
+                    )
         except Exception as e:
             logger.debug(f"Redis health check: {e}")
 

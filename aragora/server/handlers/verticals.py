@@ -65,8 +65,8 @@ class VerticalsHandler(SecureHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler: Any = None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
         path = strip_version_prefix(path)
@@ -527,11 +527,11 @@ class VerticalsHandler(SecureHandler):
             return error_response("Invalid or too large request body", 400)
 
         try:
-            from aragora.verticals.config import (  # type: ignore[attr-defined]
-                ComplianceFramework,
+            from aragora.verticals.config import (
+                ComplianceConfig,
                 ComplianceLevel,
                 ModelConfig,
-                VerticalTool,
+                ToolConfig,
             )
 
             spec = registry.get(vertical_id)
@@ -551,11 +551,11 @@ class VerticalsHandler(SecureHandler):
                 for tool_data in tools_data:
                     if isinstance(tool_data, dict):
                         # Create new tool from data
-                        tool = VerticalTool(
+                        tool = ToolConfig(
                             name=tool_data.get("name", ""),
                             description=tool_data.get("description", ""),
                             enabled=tool_data.get("enabled", True),
-                            api_endpoint=tool_data.get("api_endpoint"),
+                            connector_type=tool_data.get("connector_type"),
                             parameters=tool_data.get("parameters", {}),
                         )
                         new_tools.append(tool)
@@ -571,16 +571,17 @@ class VerticalsHandler(SecureHandler):
                 new_frameworks = []
                 for fw_data in frameworks_data:
                     if isinstance(fw_data, dict):
-                        level_str = fw_data.get("level", "standard")
+                        level_str = fw_data.get("level", "warning")
                         try:
                             level = ComplianceLevel(level_str)
                         except ValueError:
-                            level = ComplianceLevel.STANDARD  # type: ignore[attr-defined]
-                        framework = ComplianceFramework(
-                            name=fw_data.get("name", ""),
-                            description=fw_data.get("description", ""),
+                            level = ComplianceLevel.WARNING
+                        framework = ComplianceConfig(
+                            framework=fw_data.get("framework", fw_data.get("name", "")),
+                            version=fw_data.get("version", "latest"),
                             level=level,
-                            requirements=fw_data.get("requirements", []),
+                            rules=fw_data.get("rules", []),
+                            exemptions=fw_data.get("exemptions", []),
                         )
                         new_frameworks.append(framework)
                 config.compliance_frameworks = new_frameworks
@@ -592,15 +593,15 @@ class VerticalsHandler(SecureHandler):
                 if not isinstance(model_data, dict):
                     return error_response("model_config must be an object", 400)
 
-                model_config = ModelConfig(  # type: ignore[call-arg]
-                    preferred_model=model_data.get(
-                        "preferred_model", config.model_config.preferred_model
+                model_config = ModelConfig(
+                    primary_model=model_data.get(
+                        "primary_model", config.model_config.primary_model
+                    ),
+                    primary_provider=model_data.get(
+                        "primary_provider", config.model_config.primary_provider
                     ),
                     temperature=model_data.get("temperature", config.model_config.temperature),
                     max_tokens=model_data.get("max_tokens", config.model_config.max_tokens),
-                    system_prompt_additions=model_data.get(
-                        "system_prompt_additions", config.model_config.system_prompt_additions
-                    ),
                 )
                 config.model_config = model_config
                 updates_applied.append("model_config")

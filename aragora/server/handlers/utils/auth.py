@@ -21,14 +21,14 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
+from typing import Any, Callable, Optional, TypeVar, overload, cast
 
 from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
 T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 class UnauthorizedError(Exception):
@@ -185,11 +185,27 @@ def _get_user_permissions(user_ctx: Any) -> set[str]:
         return set()
 
 
+@overload
+def require_authenticated(func: F) -> F:
+    """Overload for use without parentheses: @require_authenticated"""
+    ...
+
+
+@overload
 def require_authenticated(
-    func: Optional[Callable[P, T]] = None,
+    func: None = None,
     *,
     on_failure: Optional[Callable[[Exception], Any]] = None,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[F], F]:
+    """Overload for use with arguments: @require_authenticated(on_failure=...)"""
+    ...
+
+
+def require_authenticated(
+    func: Optional[F] = None,
+    *,
+    on_failure: Optional[Callable[[Exception], Any]] = None,
+) -> F | Callable[[F], F]:
     """
     Decorator to require authentication for a handler method.
 
@@ -211,9 +227,9 @@ def require_authenticated(
         Decorated function
     """
 
-    def decorator(fn: Callable[P, T]) -> Callable[P, T]:
+    def decorator(fn: F) -> F:
         @wraps(fn)
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Find request in args/kwargs
             request = _find_request(args, kwargs)
             if request is None:
@@ -223,14 +239,14 @@ def require_authenticated(
                 auth_ctx = await get_auth_context(request, require_auth=True)
                 # Add auth context to kwargs for use by the handler
                 kwargs["auth_context"] = auth_ctx
-                return await fn(*args, **kwargs)  # type: ignore[return-value,misc]
+                return await fn(*args, **kwargs)
             except UnauthorizedError as e:
                 if on_failure:
                     return on_failure(e)
                 raise
 
         @wraps(fn)
-        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             # For sync functions, we can't do async auth
             # This is a fallback - prefer async handlers
             raise NotImplementedError(
@@ -241,12 +257,12 @@ def require_authenticated(
         import asyncio
 
         if asyncio.iscoroutinefunction(fn):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
 
     if func is not None:
         # Called without arguments: @require_authenticated
-        return decorator(func)  # type: ignore[return-value]
+        return decorator(func)
     # Called with arguments: @require_authenticated(...)
     return decorator
 

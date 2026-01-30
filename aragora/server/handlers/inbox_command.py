@@ -23,7 +23,7 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, cast
 
 from aiohttp import web
 
@@ -162,7 +162,7 @@ class InboxCommandHandler:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
                 if registry.has(GmailConnector):
-                    self.gmail_connector = registry.resolve(GmailConnector)  # type: ignore[type-abstract]
+                    self.gmail_connector = cast("GmailConnector", registry.resolve(GmailConnector))
                     logger.debug("Resolved GmailConnector from registry")
             except ImportError as e:
                 logger.debug(f"GmailConnector module not available: {e}")
@@ -735,12 +735,13 @@ class InboxCommandHandler:
                 )
 
                 # Record action for learning
+                # Note: We pass email=None since we only have a dict representation,
+                # not an EmailMessage object. The method handles None gracefully.
                 if self.prioritizer:
-                    email_data = _email_cache.get(email_id)
                     await self.prioritizer.record_user_action(
                         email_id=email_id,
                         action=action,
-                        email=email_data,  # type: ignore[arg-type]
+                        email=None,
                     )
 
             except Exception as e:
@@ -783,7 +784,9 @@ class InboxCommandHandler:
         """Archive an email via Gmail API."""
         if self.gmail_connector and hasattr(self.gmail_connector, "archive_message"):
             try:
-                await self.gmail_connector.archive_message(email_id)  # type: ignore[attr-defined]
+                # hasattr check above confirms archive_message exists at runtime
+                archive_fn: Callable[[str], Any] = self.gmail_connector.archive_message
+                await archive_fn(email_id)
                 logger.info(f"Archived email {email_id}")
                 return {"archived": True}
             except Exception as e:
@@ -1006,9 +1009,13 @@ class InboxCommandHandler:
         # Try to get real stats from sender history (if method exists)
         if self.sender_history and hasattr(self.sender_history, "get_daily_summary"):
             try:
-                today_stats = await self.sender_history.get_daily_summary(user_id="default")  # type: ignore[attr-defined]
+                # hasattr check above confirms get_daily_summary exists at runtime
+                get_summary_fn: Callable[..., Any] = getattr(
+                    self.sender_history, "get_daily_summary"
+                )
+                today_stats: dict[str, Any] | None = await get_summary_fn(user_id="default")
                 if today_stats:
-                    return today_stats  # type: ignore[return-value]
+                    return today_stats
             except Exception as e:
                 logger.debug(f"Daily summary not available: {e}")
 

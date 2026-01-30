@@ -13,9 +13,10 @@ Routes:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.validation.query_params import safe_query_int
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,24 +47,54 @@ PROVIDERS = ["google_drive", "onedrive", "dropbox", "s3"]
 _tokens: dict[str, dict[str, str]] = {}
 
 
-def get_provider_connector(provider: str):
-    """Get connector instance for a provider."""
+def get_provider_connector(provider: str) -> Any:
+    """Get connector instance for a provider.
+
+    Returns a connector instance for the specified cloud storage provider.
+    The connectors are enterprise document connectors that provide OAuth authentication,
+    file listing, and download capabilities.
+
+    Note: The OneDrive and Dropbox connectors extend EnterpriseConnector but don't
+    implement all abstract methods from BaseConnector (search/fetch). They are designed
+    for sync operations rather than search. Similarly, S3Connector requires a bucket
+    parameter for full functionality but can be instantiated with an empty bucket for
+    configuration checking purposes.
+
+    Returns:
+        A connector instance with is_configured property, get_oauth_url method,
+        authenticate method, list_files/list_folders async generators,
+        download_file method, and _access_token/_refresh_token attributes.
+        Returns None if provider is not supported.
+    """
     if provider == "google_drive":
         from aragora.connectors.enterprise.documents.gdrive import GoogleDriveConnector
 
+        # GoogleDriveConnector is a fully concrete implementation
         return GoogleDriveConnector()
-    elif provider == "onedrive":
+
+    if provider == "onedrive":
         from aragora.connectors.enterprise.documents.onedrive import OneDriveConnector
 
-        return OneDriveConnector()  # type: ignore[abstract]
-    elif provider == "dropbox":
+        # OneDriveConnector doesn't implement search/fetch/name from BaseConnector,
+        # but those methods aren't used in this handler. We cast to Any to allow
+        # instantiation since the abstract methods aren't needed for our use case.
+        return cast(Any, OneDriveConnector)()
+
+    if provider == "dropbox":
         from aragora.connectors.enterprise.documents.dropbox import DropboxConnector
 
-        return DropboxConnector()  # type: ignore[abstract]
-    elif provider == "s3":
+        # DropboxConnector doesn't implement search/fetch/name from BaseConnector,
+        # but those methods aren't used in this handler. We cast to Any to allow
+        # instantiation since the abstract methods aren't needed for our use case.
+        return cast(Any, DropboxConnector)()
+
+    if provider == "s3":
         from aragora.connectors.enterprise.documents.s3 import S3Connector
 
-        return S3Connector()  # type: ignore[call-arg]
+        # S3Connector requires bucket parameter - use empty string for config checking.
+        # S3 doesn't support OAuth so this connector has limited use in this handler.
+        return S3Connector(bucket="")
+
     return None
 
 
@@ -73,7 +104,8 @@ def get_provider_status(provider: str) -> dict[str, Any]:
     if not connector:
         return {"connected": False, "configured": False}
 
-    is_configured = connector.is_configured()
+    # is_configured is a property on the connector classes, not a method
+    is_configured: bool = connector.is_configured
     has_token = provider in _tokens and "access_token" in _tokens[provider]
 
     return {

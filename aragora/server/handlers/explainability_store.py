@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 
 from aragora.storage.backends import (
     POSTGRESQL_AVAILABLE,
@@ -21,6 +22,9 @@ from aragora.storage.backends import (
 
 if TYPE_CHECKING:
     from redis import Redis
+
+# Type alias for database rows - can be sqlite3.Row (dict-like) or plain tuple
+DatabaseRow = sqlite3.Row | tuple[Any, ...]
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +104,8 @@ class RedisBatchJobStore(BatchJobStore):
 
     async def get_job(self, batch_id: str) -> BatchJob | None:
         key = self._key(batch_id)
-        data = self._redis.get(key)
+        # Redis get returns bytes | str | None for sync client
+        data = cast(bytes | str | None, self._redis.get(key))
         if data:
             # json.loads returns Any; we know it's a dict from our schema
             parsed: dict[str, Any] = json.loads(data if isinstance(data, str) else data.decode())
@@ -109,17 +114,24 @@ class RedisBatchJobStore(BatchJobStore):
 
     async def delete_job(self, batch_id: str) -> bool:
         key = self._key(batch_id)
-        deleted_count = self._redis.delete(key)
-        return bool(deleted_count and int(deleted_count) > 0)
+        # Redis delete returns int for sync client
+        deleted_count = cast(int, self._redis.delete(key))
+        return deleted_count > 0
 
     async def list_jobs(self, status: str | None = None, limit: int = 100) -> list[BatchJob]:
         # Scan for keys and filter
         jobs: list[BatchJob] = []
         cursor: int = 0
         while len(jobs) < limit:
-            cursor, keys = self._redis.scan(cursor, match=f"{self._prefix}*", count=100)  # type: ignore[misc]
+            # Redis scan returns tuple of (cursor, keys) but type stubs return Any
+            scan_result = cast(
+                tuple[int, list[bytes | str]],
+                self._redis.scan(cursor, match=f"{self._prefix}*", count=100),
+            )
+            cursor, keys = scan_result
             for key in keys:
-                data = self._redis.get(key)
+                # Redis get returns bytes | str | None for sync client
+                data = cast(bytes | str | None, self._redis.get(key))
                 if data:
                     # json.loads returns Any; we know it's a dict from our schema
                     parsed_job: dict[str, Any] = json.loads(
@@ -213,9 +225,10 @@ class DatabaseBatchJobStore(BatchJobStore):
             f"CREATE INDEX IF NOT EXISTS idx_{self._TABLE_NAME}_expires ON {self._TABLE_NAME}(expires_at)"
         )
 
-    def _row_to_job(self, row: Any) -> BatchJob:
+    def _row_to_job(self, row: DatabaseRow) -> BatchJob:
         """Convert a database row into a BatchJob."""
-        if hasattr(row, "keys"):
+        data: dict[str, Any]
+        if isinstance(row, sqlite3.Row):
             data = {key: row[key] for key in row.keys()}
         else:
             columns = [
@@ -319,9 +332,9 @@ class DatabaseBatchJobStore(BatchJobStore):
             return None
 
         job = self._row_to_job(row)
-        expires_at = None
-        if hasattr(row, "keys"):
-            expires_at = row["expires_at"]  # type: ignore[call-overload]
+        expires_at: float | None = None
+        if isinstance(row, sqlite3.Row):
+            expires_at = row["expires_at"]
         else:
             expires_at = row[-1]
 
@@ -374,18 +387,24 @@ class DatabaseBatchJobStore(BatchJobStore):
 
         jobs: list[BatchJob] = []
         for row in rows:
-            expires_at = row["expires_at"] if hasattr(row, "keys") else row[-1]  # type: ignore[call-overload]
-            if self._is_expired(expires_at):
-                batch_id = row["batch_id"] if hasattr(row, "keys") else row[0]  # type: ignore[call-overload]
+            # Cast to DatabaseRow for type narrowing
+            db_row: DatabaseRow = row
+            if isinstance(db_row, sqlite3.Row):
+                row_expires_at: float | None = db_row["expires_at"]
+                row_batch_id: str = db_row["batch_id"]
+            else:
+                row_expires_at = db_row[-1]
+                row_batch_id = db_row[0]
+            if self._is_expired(row_expires_at):
                 try:
                     self._backend.execute_write(
                         f"DELETE FROM {self._TABLE_NAME} WHERE batch_id = ?",
-                        (batch_id,),  # type: ignore[call-overload]
+                        (row_batch_id,),
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to delete expired batch {batch_id}: {e}")
+                    logger.warning(f"Failed to delete expired batch {row_batch_id}: {e}")
                 continue
-            jobs.append(self._row_to_job(row))
+            jobs.append(self._row_to_job(db_row))
         return jobs
 
 

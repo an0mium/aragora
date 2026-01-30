@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Literal, Optional, TYPE_CHECKING, cast
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -26,11 +26,18 @@ from aragora.workflow.types import (
     WorkflowDefinition,
     WorkflowCategory,
     StepDefinition,
+    StepResult,
     TransitionRule,
 )
 from aragora.workflow.engine import WorkflowEngine
 from aragora.workflow.persistent_store import get_workflow_store, PersistentWorkflowStore
 from aragora.audit.unified import audit_data
+
+if TYPE_CHECKING:
+    from aragora.rbac import AuthorizationContext
+
+# Sentinel type for unauthenticated requests
+_UnauthenticatedSentinel = Literal["unauthenticated"]
 
 # RBAC imports
 try:
@@ -60,14 +67,40 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _step_result_to_dict(step: StepResult) -> dict[str, Any]:
+    """Convert a StepResult dataclass to a JSON-serializable dictionary.
+
+    StepResult contains datetime fields that need to be converted to ISO format
+    strings for JSON serialization.
+    """
+    return {
+        "step_id": step.step_id,
+        "step_name": step.step_name,
+        "status": step.status.value if hasattr(step.status, "value") else str(step.status),
+        "started_at": step.started_at.isoformat() if step.started_at else None,
+        "completed_at": step.completed_at.isoformat() if step.completed_at else None,
+        "duration_ms": step.duration_ms,
+        "output": step.output,
+        "error": step.error,
+        "metrics": step.metrics,
+        "retry_count": step.retry_count,
+    }
+
+
 # =============================================================================
 # Persistent Storage (SQLite-backed)
 # =============================================================================
 
 
 def _get_store() -> PersistentWorkflowStore:
-    """Get the persistent workflow store."""
-    return get_workflow_store()  # type: ignore[return-value]
+    """Get the persistent workflow store.
+
+    Note: get_workflow_store() returns WorkflowStoreType which is a Union of
+    PersistentWorkflowStore and PostgresWorkflowStore. Both have the same
+    interface, so we cast to the base type for consistency.
+    """
+    return cast(PersistentWorkflowStore, get_workflow_store())
 
 
 _engine = WorkflowEngine()
@@ -348,9 +381,9 @@ async def execute_workflow(
                 "status": "completed" if result.success else "failed",
                 "completed_at": datetime.now(timezone.utc).isoformat(),
                 "outputs": result.final_output,
-                "steps": [s.__dict__ for s in result.steps],  # type: ignore[union-attr]
+                "steps": [_step_result_to_dict(s) for s in result.steps],
                 "error": result.error,
-                "duration_ms": result.total_duration_ms,  # type: ignore[union-attr]
+                "duration_ms": result.total_duration_ms,
             }
         )
         store.save_execution(execution)
@@ -942,7 +975,9 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             or path.startswith("/api/v1/workflows/executions")
         )
 
-    def _get_auth_context(self, handler: Any) -> Optional["AuthorizationContext"]:
+    def _get_auth_context(
+        self, handler: Any
+    ) -> "AuthorizationContext" | _UnauthenticatedSentinel | None:
         """Build AuthorizationContext from validated JWT token.
 
         SECURITY: Only accepts JWT-based authentication. Header-based auth
@@ -963,7 +998,7 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
                 "workflows: JWT authentication required. Request rejected - no valid token."
             )
             # Return special sentinel to distinguish from RBAC-not-available
-            return "unauthenticated"  # type: ignore[return-value]
+            return "unauthenticated"
 
         roles = {jwt_context.role} if jwt_context.role else {"member"}
         permissions: set[str] = set()

@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, Optional, Protocol, cast, runtime_checkable
+from typing import Any, Literal, Protocol, cast, runtime_checkable
 
 from aragora.server.handlers.base import (
     error_response,
@@ -175,7 +175,7 @@ class IntegrationsHandler(SecureHandler):
             return segments[3], None
         return segments[2], None
 
-    async def handle_get(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -212,15 +212,18 @@ class IntegrationsHandler(SecureHandler):
 
         return error_response("Not found", status=404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        data: dict[str, Any],
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any],
         handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests for integration configuration and tests."""
         normalized = strip_version_prefix(path)
+        # Read body for POST requests
+        data = self.read_json_body(handler) if handler else {}
+        if data is None:
+            data = {}
         if normalized == "/api/integrations":
             integration_type = data.get("type")
             if not integration_type:
@@ -255,15 +258,18 @@ class IntegrationsHandler(SecureHandler):
 
         return error_response("Not found", status=404)
 
-    async def handle_put(  # type: ignore[override]
+    async def handle_put(
         self,
         path: str,
-        data: dict[str, Any],
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any],
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PUT requests for integration configuration."""
         normalized = strip_version_prefix(path)
+        # Read body for PUT requests
+        data = self.read_json_body(handler) if handler else {}
+        if data is None:
+            data = {}
         if normalized.startswith("/api/integrations/"):
             perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
             if perm_error:
@@ -279,15 +285,18 @@ class IntegrationsHandler(SecureHandler):
             )
         return error_response("Not found", status=404)
 
-    async def handle_patch(  # type: ignore[override]
+    async def handle_patch(
         self,
         path: str,
-        data: dict[str, Any],
-        query_params: Optional[dict[str, Any]] = None,
+        query_params: dict[str, Any],
         handler: Any = None,
     ) -> HandlerResult:
         """Handle PATCH requests for integration configuration."""
         normalized = strip_version_prefix(path)
+        # Read body for PATCH requests
+        data = self.read_json_body(handler) if handler else {}
+        if data is None:
+            data = {}
         if normalized.startswith("/api/integrations/"):
             perm_error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
             if perm_error:
@@ -303,7 +312,7 @@ class IntegrationsHandler(SecureHandler):
             )
         return error_response("Not found", status=404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
         query_params: dict[str, Any],

@@ -32,7 +32,7 @@ import hmac
 import json
 import logging
 import os
-from typing import Any, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 
@@ -67,15 +67,25 @@ from ..utils.rate_limit import rate_limit
 # RBAC imports - optional dependency
 try:
     from aragora.rbac.checker import check_permission
-    from aragora.rbac.middleware import extract_user_from_request  # type: ignore[attr-defined]
     from aragora.rbac.models import AuthorizationContext
+
+    # extract_user_from_request is in billing.auth.context, not rbac.middleware
+    # Import it from the correct location for proper typing
+    try:
+        from aragora.billing.auth.context import (
+            extract_user_from_request as _extract_user,
+        )
+
+        extract_user_from_request: Callable[..., Any] | None = _extract_user
+    except ImportError:
+        extract_user_from_request = None
 
     RBAC_AVAILABLE = True
 except (ImportError, AttributeError):
     RBAC_AVAILABLE = False
-    check_permission: Any = None
-    extract_user_from_request: Any = None
-    AuthorizationContext: Any = None
+    check_permission: Callable[..., Any] | None = None
+    extract_user_from_request = None
+    AuthorizationContext: type | None = None
 from .telemetry import (
     record_api_call,
     record_api_latency,
@@ -279,12 +289,13 @@ class WhatsAppHandler(BaseHandler):
 
         if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
             logger.info("WhatsApp webhook verified successfully")
-            # Return challenge as plain text
-            return {  # type: ignore[return-value]
-                "status": 200,
-                "headers": {"Content-Type": "text/plain"},
-                "body": challenge,
-            }
+            # Return challenge as plain text using HandlerResult
+            return HandlerResult(
+                status_code=200,
+                content_type="text/plain",
+                body=challenge.encode("utf-8") if isinstance(challenge, str) else challenge,
+                headers={},
+            )
 
         logger.warning("WhatsApp webhook verification failed")
         return error_response("Forbidden", 403)

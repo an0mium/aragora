@@ -18,9 +18,32 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Coroutine, Optional
+from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol
 
 from aragora.audit.unified import audit_data
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.base import MaybeAsyncHandlerResult
+
+
+class VoteRecordingStore(Protocol):
+    """Protocol for stores that can record votes.
+
+    This is a forward-looking interface - ConsensusStore with record_vote
+    is planned but not yet implemented. The code gracefully handles ImportError.
+    """
+
+    def record_vote(
+        self,
+        debate_id: str,
+        user_id: str,
+        vote: str,
+        source: str,
+    ) -> None:
+        """Record a user vote on a debate outcome."""
+        ...
+
+
 from aragora.config import DEFAULT_AGENTS, DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -134,9 +157,9 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         return json_response(status)
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    ) -> "MaybeAsyncHandlerResult":
         """Route Google Chat GET requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/google-chat/status":
             # Use BotHandlerMixin's RBAC-protected status handler
@@ -314,9 +337,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         logger.info(f"Vote from {user_id} on {debate_id}: {vote_option}")
 
         try:
-            from aragora.memory.consensus import ConsensusStore  # type: ignore[attr-defined]
+            # ConsensusStore with record_vote is a planned feature.
+            # This import will fail until it's implemented.
+            from aragora.memory.consensus import ConsensusStore
 
-            store = ConsensusStore()
+            store: VoteRecordingStore = ConsensusStore()  # type: ignore[assignment]
             store.record_vote(
                 debate_id=debate_id,
                 user_id=f"gchat:{user_id}",
@@ -638,7 +663,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             router = get_decision_router()
             result = await router.route(request)
             if result and result.success:
-                logger.info(f"DecisionRouter completed debate for Google Chat: {result.debate_id}")  # type: ignore[attr-defined]
+                logger.info(f"DecisionRouter completed debate for Google Chat: {result.request_id}")
                 return  # Response handler will post the result
             else:
                 logger.warning("DecisionRouter returned unsuccessful result, falling back")
@@ -651,7 +676,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         # Fallback to direct Arena execution
         try:
             from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+            from aragora.agents import get_agents_by_names
 
             env = Environment(task=f"Debate: {topic}")
             default_agents = [a.strip() for a in DEFAULT_AGENTS.split(",") if a.strip()]

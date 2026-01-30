@@ -22,6 +22,7 @@ from typing import Any
 from .base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -65,9 +66,9 @@ class RLMContextHandler(BaseHandler):
     # Dynamic routes for context operations
     CONTEXT_ROUTE_PREFIX = "/api/v1/rlm/context/"
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
         # In-memory context storage (could be backed by a store in production)
         self._contexts: dict[str, dict[str, Any]] = {}
         self._compressor: Any | None = None

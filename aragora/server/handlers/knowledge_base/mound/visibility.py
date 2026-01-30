@@ -86,9 +86,9 @@ class VisibilityOperationsMixin:
 
         try:
             _run_async(
-                mound.set_visibility(  # type: ignore[misc,call-arg]
+                mound.set_visibility(
                     item_id=node_id,
-                    visibility=visibility,
+                    visibility=visibility.value,
                     set_by=user_id,
                     is_discoverable=is_discoverable,
                 )
@@ -127,7 +127,7 @@ class VisibilityOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))  # type: ignore[misc]
+            node = _run_async(mound.get_node(node_id))
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -203,9 +203,9 @@ class VisibilityOperationsMixin:
 
         try:
             grant = _run_async(
-                mound.grant_access(  # type: ignore[misc]
+                mound.grant_access(
                     item_id=node_id,
-                    grantee_type=grantee_type,
+                    grantee_type=grantee_type.value,
                     grantee_id=grantee_id,
                     permissions=permissions,
                     granted_by=user_id,
@@ -276,7 +276,7 @@ class VisibilityOperationsMixin:
 
         try:
             _run_async(
-                mound.revoke_access(  # type: ignore[misc]
+                mound.revoke_access(
                     item_id=node_id,
                     grantee_id=grantee_id,
                     revoked_by=user_id,
@@ -316,7 +316,7 @@ class VisibilityOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            grants = _run_async(mound.get_access_grants(item_id=node_id))  # type: ignore[misc,call-arg]
+            grants = _run_async(mound.get_access_grants(node_id=node_id))
         except ValueError as e:
             return error_response(str(e), 404)
         except Exception as e:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .base import BURST_MULTIPLIER
 
@@ -145,8 +145,9 @@ class RedisTokenBucket:
     def _get_consume_script(self) -> str:
         """Get or register the consume Lua script."""
         if self._consume_sha is None:
-            # redis-py stubs declare script_load as returning bytes, but it returns str
-            self._consume_sha = self.redis.script_load(self.CONSUME_SCRIPT)  # type: ignore[assignment]
+            # redis-py script_load returns the SHA as a string at runtime
+            # The type stubs return Any, so we cast to str for type safety
+            self._consume_sha = cast(str, self.redis.script_load(self.CONSUME_SCRIPT))
         return self._consume_sha
 
     def consume(self, tokens: int = 1) -> bool:
@@ -158,18 +159,22 @@ class RedisTokenBucket:
         try:
             now = time.time()
             sha = self._get_consume_script()
-            result = self.redis.evalsha(
-                sha,
-                1,  # number of keys
-                self.key,  # KEYS[1]
-                self.rate_per_minute,  # ARGV[1]
-                self.burst_size,  # ARGV[2]
-                now,  # ARGV[3]
-                tokens,  # ARGV[4]
-                self.ttl_seconds,  # ARGV[5]
+            # evalsha returns the Lua script result; our script returns a list [allowed, tokens, burst]
+            # The type stubs say str but Lua scripts can return any Redis data type
+            result: list[Any] = cast(
+                list[Any],
+                self.redis.evalsha(
+                    sha,
+                    1,  # number of keys
+                    self.key,  # KEYS[1]
+                    self.rate_per_minute,  # ARGV[1]
+                    self.burst_size,  # ARGV[2]
+                    now,  # ARGV[3]
+                    tokens,  # ARGV[4]
+                    self.ttl_seconds,  # ARGV[5]
+                ),
             )
-            # evalsha returns list, but redis-py stubs don't reflect this accurately
-            return bool(result[0])  # type: ignore[index]
+            return bool(result[0])
         except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Redis rate limit error, allowing request: {e}")
             return True  # Fail open on Redis errors
@@ -177,8 +182,8 @@ class RedisTokenBucket:
     def get_retry_after(self) -> float:
         """Get seconds until next token is available."""
         try:
-            # redis-py hmget stubs don't accurately type the return value
-            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment, arg-type]
+            # hmget returns a list of values (bytes or None) for each requested field
+            data = cast(list[bytes | None], self.redis.hmget(self.key, ["tokens", "last_refill"]))
             tokens = float(data[0]) if data[0] else float(self.burst_size)
             if tokens >= 1:
                 return 0
@@ -193,8 +198,8 @@ class RedisTokenBucket:
     def remaining(self) -> int:
         """Get remaining tokens."""
         try:
-            # redis-py hmget stubs don't accurately type the return value
-            data: list[bytes | None] = self.redis.hmget(self.key, "tokens", "last_refill")  # type: ignore[assignment, arg-type]
+            # hmget returns a list of values (bytes or None) for each requested field
+            data = cast(list[bytes | None], self.redis.hmget(self.key, ["tokens", "last_refill"]))
             tokens = float(data[0]) if data[0] else float(self.burst_size)
             last_refill = float(data[1]) if data[1] else time.time()
 

@@ -53,8 +53,17 @@ class MockEncryptionService:
     def get_active_key_id(self) -> str | None:
         return self._active_key.key_id if self._active_key else None
 
-    def list_keys(self) -> list[MockEncryptionKey]:
-        return self._keys
+    def list_keys(self) -> list[dict[str, Any]]:
+        """Return keys as dictionaries, matching real EncryptionService.list_keys()."""
+        return [
+            {
+                "key_id": key.key_id,
+                "version": key.version,
+                "created_at": key.created_at.isoformat(),
+                "is_active": key == self._active_key,
+            }
+            for key in self._keys
+        ]
 
     def encrypt(self, data: bytes) -> bytes:
         return b"encrypted:" + data

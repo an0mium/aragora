@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
 if TYPE_CHECKING:
-    from aragora.agents.grounded import RelationshipTracker
+    from aragora.agents.grounded import AgentRelationship as AgentRelationshipType
+    from aragora.agents.grounded import RelationshipTracker as RelationshipTrackerType
 
 from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.rbac.decorators import require_permission
@@ -44,8 +45,11 @@ _relationship_limiter = RateLimiter(requests_per_minute=60)
 _relationship_imports, RELATIONSHIP_TRACKER_AVAILABLE = try_import(
     "aragora.agents.grounded", "RelationshipTracker", "AgentRelationship"
 )
-RelationshipTracker = _relationship_imports["RelationshipTracker"]  # type: ignore[misc]
-AgentRelationship = _relationship_imports["AgentRelationship"]  # type: ignore[misc]
+# These are class types when available, None otherwise
+RelationshipTracker: type[RelationshipTrackerType] | None = _relationship_imports[
+    "RelationshipTracker"
+]
+AgentRelationship: type[AgentRelationshipType] | None = _relationship_imports["AgentRelationship"]
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 

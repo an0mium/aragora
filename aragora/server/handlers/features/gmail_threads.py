@@ -23,6 +23,7 @@ import logging
 from typing import Any, Optional
 
 from aragora.server.validation.query_params import safe_query_int
+from aragora.storage.gmail_token_store import GmailUserState
 
 from ..base import (
     HandlerResult,
@@ -67,7 +68,7 @@ class GmailThreadsHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -84,7 +85,7 @@ class GmailThreadsHandler(SecureHandler):
             return error_response(str(e), 403)
 
         user_id = query_params.get("user_id", "default")
-        state = get_user_state(user_id)
+        state = await get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
@@ -120,10 +121,10 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        body: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests."""
@@ -136,8 +137,11 @@ class GmailThreadsHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), 403)
 
-        user_id = body.get("user_id", "default")
-        state = get_user_state(user_id)
+        # Read JSON body from request
+        body = self.read_json_body(handler) or {}
+
+        user_id = body.get("user_id", query_params.get("user_id", "default"))
+        state = await get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
@@ -171,10 +175,10 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_put(  # type: ignore[override]
+    async def handle_put(
         self,
         path: str,
-        body: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
         """Route PUT requests."""
@@ -187,8 +191,11 @@ class GmailThreadsHandler(SecureHandler):
         except ForbiddenError as e:
             return error_response(str(e), 403)
 
-        user_id = body.get("user_id", "default")
-        state = get_user_state(user_id)
+        # Read JSON body from request
+        body = self.read_json_body(handler) or {}
+
+        user_id = body.get("user_id", query_params.get("user_id", "default"))
+        state = await get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected", 401)
@@ -202,7 +209,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -219,7 +226,7 @@ class GmailThreadsHandler(SecureHandler):
             return error_response(str(e), 403)
 
         user_id = query_params.get("user_id", "default")
-        state = get_user_state(user_id)
+        state = await get_user_state(user_id)
 
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected", 401)
@@ -237,7 +244,9 @@ class GmailThreadsHandler(SecureHandler):
     # Thread Operations
     # =========================================================================
 
-    async def _list_threads(self, state: Any, query_params: dict[str, Any]) -> HandlerResult:
+    async def _list_threads(
+        self, state: GmailUserState, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """List Gmail threads."""
         query = query_params.get("q", query_params.get("query", ""))
         label_ids = (
@@ -264,7 +273,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_list_threads(
         self,
-        state: Any,
+        state: GmailUserState,
         query: str,
         label_ids: Optional[list[str]],
         max_results: int,
@@ -304,7 +313,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return threads, data.get("nextPageToken")
 
-    async def _get_thread(self, state: Any, thread_id: str) -> HandlerResult:
+    async def _get_thread(self, state: GmailUserState, thread_id: str) -> HandlerResult:
         """Get a thread with all messages."""
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -367,12 +376,12 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Get thread failed: {e}")
             return error_response(f"Failed to get thread: {e}", 500)
 
-    async def _archive_thread(self, state: Any, thread_id: str) -> HandlerResult:
+    async def _archive_thread(self, state: GmailUserState, thread_id: str) -> HandlerResult:
         """Archive a thread (remove INBOX label from all messages)."""
         return await self._modify_thread_labels(state, thread_id, {"remove": ["INBOX"]})
 
     async def _trash_thread(
-        self, state: Any, thread_id: str, body: dict[str, Any]
+        self, state: GmailUserState, thread_id: str, body: dict[str, Any]
     ) -> HandlerResult:
         """Move thread to trash or restore from trash."""
         to_trash = body.get("trash", True)
@@ -395,7 +404,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Trash thread failed: {e}")
             return error_response(f"Failed to trash thread: {e}", 500)
 
-    async def _api_trash_thread(self, state: Any, thread_id: str) -> None:
+    async def _api_trash_thread(self, state: GmailUserState, thread_id: str) -> None:
         """Trash thread via Gmail API."""
         import httpx
 
@@ -408,7 +417,7 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
 
-    async def _api_untrash_thread(self, state: Any, thread_id: str) -> None:
+    async def _api_untrash_thread(self, state: GmailUserState, thread_id: str) -> None:
         """Untrash thread via Gmail API."""
         import httpx
 
@@ -423,7 +432,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _modify_thread_labels(
         self,
-        state: Any,
+        state: GmailUserState,
         thread_id: str,
         body: dict[str, Any],
     ) -> HandlerResult:
@@ -449,7 +458,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_modify_thread_labels(
         self,
-        state: Any,
+        state: GmailUserState,
         thread_id: str,
         add_labels: list[str],
         remove_labels: list[str],
@@ -475,7 +484,9 @@ class GmailThreadsHandler(SecureHandler):
     # Draft Operations
     # =========================================================================
 
-    async def _list_drafts(self, state: Any, query_params: dict[str, Any]) -> HandlerResult:
+    async def _list_drafts(
+        self, state: GmailUserState, query_params: dict[str, Any]
+    ) -> HandlerResult:
         """List Gmail drafts."""
         max_results = safe_query_int(query_params, "limit", default=20, max_val=1000)
         page_token = query_params.get("page_token")
@@ -496,7 +507,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_list_drafts(
         self,
-        state: Any,
+        state: GmailUserState,
         max_results: int,
         page_token: str | None,
     ) -> tuple[list[dict[str, Any]], str | None]:
@@ -530,7 +541,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return drafts, data.get("nextPageToken")
 
-    async def _get_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _get_draft(self, state: GmailUserState, draft_id: str) -> HandlerResult:
         """Get a draft with message content."""
         try:
             draft = await self._api_get_draft(state, draft_id)
@@ -540,7 +551,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Get draft failed: {e}")
             return error_response(f"Failed to get draft: {e}", 500)
 
-    async def _api_get_draft(self, state: Any, draft_id: str) -> dict[str, Any]:
+    async def _api_get_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Get draft via Gmail API."""
         import httpx
 
@@ -555,7 +566,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _create_draft(self, state: Any, body: dict[str, Any]) -> HandlerResult:
+    async def _create_draft(self, state: GmailUserState, body: dict[str, Any]) -> HandlerResult:
         """Create a new draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -576,7 +587,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_create_draft(
         self,
-        state: Any,
+        state: GmailUserState,
         to: list[str],
         subject: str,
         body_text: str,
@@ -620,7 +631,9 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _update_draft(self, state: Any, draft_id: str, body: dict[str, Any]) -> HandlerResult:
+    async def _update_draft(
+        self, state: GmailUserState, draft_id: str, body: dict[str, Any]
+    ) -> HandlerResult:
         """Update an existing draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -637,7 +650,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_update_draft(
         self,
-        state: Any,
+        state: GmailUserState,
         draft_id: str,
         to: list[str],
         subject: str,
@@ -675,7 +688,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    async def _delete_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _delete_draft(self, state: GmailUserState, draft_id: str) -> HandlerResult:
         """Delete a draft."""
         try:
             await self._api_delete_draft(state, draft_id)
@@ -685,7 +698,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Delete draft failed: {e}")
             return error_response(f"Failed to delete draft: {e}", 500)
 
-    async def _api_delete_draft(self, state: Any, draft_id: str) -> None:
+    async def _api_delete_draft(self, state: GmailUserState, draft_id: str) -> None:
         """Delete draft via Gmail API."""
         import httpx
 
@@ -698,7 +711,7 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
 
-    async def _send_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _send_draft(self, state: GmailUserState, draft_id: str) -> HandlerResult:
         """Send a draft."""
         try:
             result = await self._api_send_draft(state, draft_id)
@@ -714,7 +727,7 @@ class GmailThreadsHandler(SecureHandler):
             logger.error(f"[GmailThreads] Send draft failed: {e}")
             return error_response(f"Failed to send draft: {e}", 500)
 
-    async def _api_send_draft(self, state: Any, draft_id: str) -> dict[str, Any]:
+    async def _api_send_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Send draft via Gmail API."""
         import httpx
 
@@ -735,7 +748,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _get_attachment(
         self,
-        state: Any,
+        state: GmailUserState,
         message_id: str,
         attachment_id: str,
     ) -> HandlerResult:
@@ -757,7 +770,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_get_attachment(
         self,
-        state: Any,
+        state: GmailUserState,
         message_id: str,
         attachment_id: str,
     ) -> dict[str, Any]:

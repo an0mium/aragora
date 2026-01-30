@@ -10,7 +10,7 @@ Provides endpoints for analytics data:
 from __future__ import annotations
 
 import logging
-from typing import Any, cast
+from typing import Any, TypedDict
 
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -19,6 +19,66 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+
+
+# =============================================================================
+# Type Definitions for Learning Stats
+# =============================================================================
+
+
+class KnowledgeReuseStats(TypedDict):
+    """Statistics about knowledge reuse across debates."""
+
+    total_queries: int
+    queries_with_hits: int
+    reuse_rate: float
+
+
+class ValidationStats(TypedDict):
+    """Statistics about validation outcomes."""
+
+    total_validations: int
+    positive_validations: int
+    negative_validations: int
+    accuracy_rate: float
+
+
+class LearningVelocityStats(TypedDict):
+    """Statistics about learning velocity."""
+
+    new_items_today: int
+    new_items_this_week: int
+    items_promoted: int
+    items_demoted: int
+
+
+class CrossDebateUtilityStats(TypedDict):
+    """Statistics about cross-debate utility."""
+
+    avg_utility_score: float
+    high_utility_items: int
+    low_utility_items: int
+
+
+class AdapterActivityStats(TypedDict):
+    """Statistics about adapter activity."""
+
+    forward_syncs_today: int
+    reverse_queries_today: int
+    semantic_searches_today: int
+
+
+class LearningStats(TypedDict):
+    """Complete learning statistics structure."""
+
+    knowledge_reuse: KnowledgeReuseStats
+    validation: ValidationStats
+    learning_velocity: LearningVelocityStats
+    cross_debate_utility: CrossDebateUtilityStats
+    adapter_activity: AdapterActivityStats
+    timestamp: str
+    workspace_id: str | None
+
 
 logger = logging.getLogger(__name__)
 
@@ -335,37 +395,33 @@ class AnalyticsHandler(BaseHandler):
         try:
             from datetime import datetime
 
-            # Initialize default stats
-            learning_stats = {
-                "knowledge_reuse": {
-                    "total_queries": 0,
-                    "queries_with_hits": 0,
-                    "reuse_rate": 0.0,
-                },
-                "validation": {
-                    "total_validations": 0,
-                    "positive_validations": 0,
-                    "negative_validations": 0,
-                    "accuracy_rate": 0.0,
-                },
-                "learning_velocity": {
-                    "new_items_today": 0,
-                    "new_items_this_week": 0,
-                    "items_promoted": 0,
-                    "items_demoted": 0,
-                },
-                "cross_debate_utility": {
-                    "avg_utility_score": 0.0,
-                    "high_utility_items": 0,
-                    "low_utility_items": 0,
-                },
-                "adapter_activity": {
-                    "forward_syncs_today": 0,
-                    "reverse_queries_today": 0,
-                    "semantic_searches_today": 0,
-                },
-                "timestamp": datetime.now().isoformat(),
-                "workspace_id": workspace_id,
+            # Initialize default stats with proper typed dicts
+            knowledge_reuse: KnowledgeReuseStats = {
+                "total_queries": 0,
+                "queries_with_hits": 0,
+                "reuse_rate": 0.0,
+            }
+            validation: ValidationStats = {
+                "total_validations": 0,
+                "positive_validations": 0,
+                "negative_validations": 0,
+                "accuracy_rate": 0.0,
+            }
+            learning_velocity: LearningVelocityStats = {
+                "new_items_today": 0,
+                "new_items_this_week": 0,
+                "items_promoted": 0,
+                "items_demoted": 0,
+            }
+            cross_debate_utility: CrossDebateUtilityStats = {
+                "avg_utility_score": 0.0,
+                "high_utility_items": 0,
+                "low_utility_items": 0,
+            }
+            adapter_activity: AdapterActivityStats = {
+                "forward_syncs_today": 0,
+                "reverse_queries_today": 0,
+                "semantic_searches_today": 0,
             }
 
             # Try to get real stats from adapters
@@ -379,21 +435,19 @@ class AnalyticsHandler(BaseHandler):
                         stats = adapter.get_stats()
 
                         # Update with real continuum stats
-                        learning_stats["cross_debate_utility"][  # type: ignore[index]
-                            "avg_utility_score"
-                        ] = stats.get("avg_cross_debate_utility", 0.0)
+                        cross_debate_utility["avg_utility_score"] = stats.get(
+                            "avg_cross_debate_utility", 0.0
+                        )
 
                         # Count high/low utility items
                         km_validated = stats.get("km_validated_entries", 0)
                         if km_validated > 0:
                             # Estimate based on average
                             avg = stats.get("avg_cross_debate_utility", 0.5)
-                            learning_stats["cross_debate_utility"][  # type: ignore[index]
-                                "high_utility_items"
-                            ] = int(km_validated * avg)
-                            learning_stats["cross_debate_utility"][  # type: ignore[index]
-                                "low_utility_items"
-                            ] = km_validated - int(km_validated * avg)
+                            cross_debate_utility["high_utility_items"] = int(km_validated * avg)
+                            cross_debate_utility["low_utility_items"] = km_validated - int(
+                                km_validated * avg
+                            )
 
             except ImportError:
                 pass
@@ -401,22 +455,8 @@ class AnalyticsHandler(BaseHandler):
                 logger.debug(f"Failed to get continuum learning stats: {e}")
 
             # Try to get consensus adapter stats
-            try:
-                from aragora.memory.consensus import get_consensus_memory  # type: ignore[attr-defined]
-
-                consensus = get_consensus_memory()
-                if consensus and hasattr(consensus, "_km_adapter"):
-                    adapter = consensus._km_adapter
-                    if adapter:
-                        stats = adapter.get_stats()
-                        # Add consensus stats
-                        reuse_stats = cast(dict[str, Any], learning_stats["knowledge_reuse"])
-                        reuse_stats["total_queries"] += stats.get("total_queries", 0)
-
-            except ImportError:
-                pass
-            except Exception as e:
-                logger.debug(f"Failed to get consensus learning stats: {e}")
+            # Note: ConsensusMemory doesn't have a singleton getter, so we skip this
+            # The consensus memory is typically accessed via storage context
 
             # Try to get cross-subscriber stats
             try:
@@ -432,8 +472,7 @@ class AnalyticsHandler(BaseHandler):
                     handlers = cs_stats.get("handlers", {})
                     validation_stats = handlers.get("km_validation_feedback", {})
                     if validation_stats:
-                        val_stats = cast(dict[str, Any], learning_stats["validation"])
-                        val_stats["total_validations"] = validation_stats.get("call_count", 0)
+                        validation["total_validations"] = validation_stats.get("call_count", 0)
 
             except ImportError:
                 pass
@@ -441,19 +480,28 @@ class AnalyticsHandler(BaseHandler):
                 logger.debug(f"Failed to get cross-subscriber stats: {e}")
 
             # Calculate derived metrics
-            reuse = cast(dict[str, Any], learning_stats["knowledge_reuse"])
-            if reuse["total_queries"] > 0:
-                reuse["reuse_rate"] = round(
-                    reuse["queries_with_hits"] / reuse["total_queries"],
+            if knowledge_reuse["total_queries"] > 0:
+                knowledge_reuse["reuse_rate"] = round(
+                    knowledge_reuse["queries_with_hits"] / knowledge_reuse["total_queries"],
                     3,
                 )
 
-            validation = cast(dict[str, Any], learning_stats["validation"])
             if validation["total_validations"] > 0:
                 validation["accuracy_rate"] = round(
                     validation["positive_validations"] / validation["total_validations"],
                     3,
                 )
+
+            # Assemble the final response
+            learning_stats: LearningStats = {
+                "knowledge_reuse": knowledge_reuse,
+                "validation": validation,
+                "learning_velocity": learning_velocity,
+                "cross_debate_utility": cross_debate_utility,
+                "adapter_activity": adapter_activity,
+                "timestamp": datetime.now().isoformat(),
+                "workspace_id": workspace_id,
+            }
 
             return json_response(learning_stats)
 

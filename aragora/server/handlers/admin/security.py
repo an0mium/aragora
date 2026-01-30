@@ -318,13 +318,17 @@ class SecurityHandler(SecureHandler):
 
             keys_info = []
             for key in all_keys:
-                age_days = (datetime.now(timezone.utc) - key.created_at).days  # type: ignore[attr-defined]
+                # list_keys() returns list[dict[str, Any]] from EncryptionKey.to_dict()
+                # Parse the ISO format created_at string back to datetime for age calculation
+                created_at_str = key["created_at"]
+                created_at = datetime.fromisoformat(created_at_str)
+                age_days = (datetime.now(timezone.utc) - created_at).days
                 keys_info.append(
                     {
-                        "key_id": key.key_id,  # type: ignore[attr-defined]
-                        "version": key.version,  # type: ignore[attr-defined]
-                        "is_active": key.key_id == active_key_id,  # type: ignore[attr-defined]
-                        "created_at": key.created_at.isoformat(),  # type: ignore[attr-defined]
+                        "key_id": key["key_id"],
+                        "version": key["version"],
+                        "is_active": key["key_id"] == active_key_id,
+                        "created_at": created_at_str,
                         "age_days": age_days,
                     }
                 )

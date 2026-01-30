@@ -62,7 +62,7 @@ class GmailLabelsHandler(SecureHandler):
                 return True
         return False
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -92,10 +92,10 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        body: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests."""
@@ -107,6 +107,10 @@ class GmailLabelsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
 
         user_id = body.get("user_id", "default")
         state = get_user_state(user_id)
@@ -142,10 +146,10 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_patch(  # type: ignore[override]
+    async def handle_patch(
         self,
         path: str,
-        body: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
         """Route PATCH requests."""
@@ -157,6 +161,10 @@ class GmailLabelsHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
+
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
 
         user_id = body.get("user_id", "default")
         state = get_user_state(user_id)
@@ -171,7 +179,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_delete(  # type: ignore[override]
+    async def handle_delete(
         self,
         path: str,
         query_params: dict[str, Any],

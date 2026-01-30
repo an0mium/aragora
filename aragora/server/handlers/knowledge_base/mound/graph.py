@@ -10,7 +10,7 @@ Provides graph traversal operations:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from aragora.knowledge.unified.types import RelationshipType
 from aragora.rbac.decorators import require_permission
@@ -26,9 +26,23 @@ from ...base import (
 )
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound import GraphQueryResult, KnowledgeMound
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_relationship_type(value: str | None) -> RelationshipType | None:
+    """Parse a string into a RelationshipType enum value, or return None if invalid."""
+    if value is None:
+        return None
+    try:
+        return RelationshipType(value)
+    except ValueError:
+        # Try uppercase variant
+        try:
+            return RelationshipType[value.upper()]
+        except KeyError:
+            return None
 
 
 class GraphHandlerProtocol(Protocol):
@@ -43,7 +57,7 @@ class GraphOperationsMixin:
     @require_permission("knowledge:read")
     @handle_errors("graph traversal")
     def _handle_graph_traversal(
-        self: GraphHandlerProtocol, path: str, query_params: dict
+        self: GraphHandlerProtocol, path: str, query_params: dict[str, Any]
     ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id - Graph traversal."""
 
@@ -52,26 +66,29 @@ class GraphOperationsMixin:
             return error_response("Node ID required", 400)
 
         node_id = parts[4]
-        relationship_type = get_bounded_string_param(
+        relationship_type_str = get_bounded_string_param(
             query_params, "relationship_type", None, max_length=50
         )
         depth = get_clamped_int_param(query_params, "depth", 2, min_val=1, max_val=5)
-        direction = get_bounded_string_param(query_params, "direction", "outgoing", max_length=20)
+        max_nodes = get_clamped_int_param(query_params, "max_nodes", 50, min_val=1, max_val=1000)
 
-        if direction not in ("outgoing", "incoming", "both"):
-            return error_response("direction must be 'outgoing', 'incoming', or 'both'", 400)
+        # Parse relationship type if provided
+        relationship_type = _parse_relationship_type(relationship_type_str)
+        relationship_types: list[RelationshipType] | None = None
+        if relationship_type is not None:
+            relationship_types = [relationship_type]
 
         mound = self._get_mound()
         if not mound:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            nodes = _run_async(
-                mound.query_graph(  # type: ignore[call-arg]
-                    start_node_id=node_id,
-                    relationship_type=relationship_type,
+            result: GraphQueryResult = _run_async(
+                mound.query_graph(
+                    start_id=node_id,
+                    relationship_types=relationship_types,
                     depth=depth,
-                    direction=direction,
+                    max_nodes=max_nodes,
                 )
             )
         except Exception as e:
@@ -82,17 +99,17 @@ class GraphOperationsMixin:
             {
                 "start_node_id": node_id,
                 "depth": depth,
-                "direction": direction,
-                "relationship_type": relationship_type,
-                "nodes": [n.to_dict() for n in nodes],  # type: ignore[attr-defined]
-                "count": len(nodes),  # type: ignore[arg-type]
+                "max_nodes": max_nodes,
+                "relationship_type": relationship_type_str,
+                "nodes": [n.to_dict() for n in result.nodes],
+                "count": len(result.nodes),
             }
         )
 
     @require_permission("knowledge:read")
     @handle_errors("graph lineage")
     def _handle_graph_lineage(
-        self: GraphHandlerProtocol, path: str, query_params: dict
+        self: GraphHandlerProtocol, path: str, query_params: dict[str, Any]
     ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/lineage - Get node lineage."""
 
@@ -108,7 +125,7 @@ class GraphOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            result = _run_async(
+            result: GraphQueryResult = _run_async(
                 mound.query_graph(
                     start_id=node_id,
                     relationship_types=[RelationshipType.DERIVED_FROM],
@@ -124,7 +141,7 @@ class GraphOperationsMixin:
                 "node_id": node_id,
                 "lineage": {
                     "nodes": [n.to_dict() for n in result.nodes],
-                    "edges": [e.to_dict() if hasattr(e, "to_dict") else e for e in result.edges],
+                    "edges": [e.to_dict() for e in result.edges],
                     "total_nodes": result.total_nodes,
                     "total_edges": result.total_edges,
                 },
@@ -135,7 +152,7 @@ class GraphOperationsMixin:
     @require_permission("knowledge:read")
     @handle_errors("graph related")
     def _handle_graph_related(
-        self: GraphHandlerProtocol, path: str, query_params: dict
+        self: GraphHandlerProtocol, path: str, query_params: dict[str, Any]
     ) -> HandlerResult:
         """Handle GET /api/knowledge/mound/graph/:id/related - Get related nodes."""
 
@@ -144,21 +161,26 @@ class GraphOperationsMixin:
             return error_response("Node ID required", 400)
 
         node_id = parts[4]
-        relationship_type = get_bounded_string_param(
+        relationship_type_str = get_bounded_string_param(
             query_params, "relationship_type", None, max_length=50
         )
         limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
+
+        # Parse relationship type if provided
+        relationship_type = _parse_relationship_type(relationship_type_str)
+        relationship_types: list[RelationshipType] | None = None
+        if relationship_type is not None:
+            relationship_types = [relationship_type]
 
         mound = self._get_mound()
         if not mound:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            rel_types = [relationship_type] if relationship_type else None
-            result = _run_async(
-                mound.query_graph(  # type: ignore[call-arg]
+            result: GraphQueryResult = _run_async(
+                mound.query_graph(
                     start_id=node_id,
-                    relationship_types=rel_types,  # type: ignore[arg-type]
+                    relationship_types=relationship_types,
                     depth=1,
                     max_nodes=limit,
                 )
@@ -171,7 +193,7 @@ class GraphOperationsMixin:
             {
                 "node_id": node_id,
                 "related": [n.to_dict() for n in result.nodes if n.id != node_id],
-                "relationship_type": relationship_type,
+                "relationship_type": relationship_type_str,
                 "total": len(result.nodes) - 1,
             }
         )

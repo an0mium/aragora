@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
+from aragora.protocols import HTTPRequestHandler
 
 from ..base import (
     HandlerResult,
@@ -79,8 +80,8 @@ class DashboardHandler(SecureHandler):
             return len(path.split("/")) == 7
         return False
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Route dashboard requests to appropriate methods with RBAC."""
         # Rate limit check
@@ -174,8 +175,8 @@ class DashboardHandler(SecureHandler):
 
         return None
 
-    async def handle_post(  # type: ignore[override]
-        self, path: str, body: dict, handler
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: HTTPRequestHandler
     ) -> HandlerResult | None:
         """Handle dashboard write actions (stub)."""
         # Rate limit check
