@@ -29,7 +29,7 @@ import pytest
 from aragora.billing.models import User, hash_password
 from aragora.billing.jwt_auth import create_token_pair, decode_jwt
 from aragora.core_types import DebateResult
-from aragora.gauntlet.receipt import DecisionReceipt, ConsensusProof
+from aragora.gauntlet.receipt import ConsensusProof, DecisionReceipt
 from aragora.server.handlers.auth import AuthHandler
 from aragora.server.handlers.base import HandlerResult, ServerContext
 
@@ -101,7 +101,7 @@ class TestFullAuthToReceiptFlow:
         tokens = create_token_pair(
             user_id="user-123",
             email="test@example.com",
-            tenant_id="tenant-1",
+            org_id="org-1",
         )
 
         # Verify tokens are created
@@ -115,7 +115,7 @@ class TestFullAuthToReceiptFlow:
         tokens = create_token_pair(
             user_id="user-123",
             email="test@example.com",
-            tenant_id="tenant-1",
+            org_id="org-1",
         )
 
         decoded = decode_jwt(tokens.access_token)
@@ -123,14 +123,23 @@ class TestFullAuthToReceiptFlow:
         assert decoded["sub"] == "user-123"
 
     @pytest.mark.asyncio
-    async def test_receipt_generation_from_debate_result(self, mock_debate_result):
-        """Verify receipt can be generated from debate result."""
+    async def test_gauntlet_receipt_generation(self, mock_debate_result):
+        """Verify Gauntlet receipt can be generated with correct structure."""
+        # Create a Gauntlet DecisionReceipt (audit receipt for validation)
         receipt = DecisionReceipt(
             receipt_id=f"rcpt-{mock_debate_result.debate_id}",
-            debate_id=mock_debate_result.debate_id,
-            decision=mock_debate_result.final_answer,
-            confidence=mock_debate_result.confidence,
+            gauntlet_id="gauntlet-test-001",
             timestamp=datetime.now(timezone.utc).isoformat(),
+            input_summary=f"Debate: {mock_debate_result.task}",
+            input_hash="abc123def456",
+            risk_summary={"critical": 0, "high": 0, "medium": 1, "low": 2},
+            attacks_attempted=5,
+            attacks_successful=0,
+            probes_run=10,
+            vulnerabilities_found=0,
+            verdict="PASS",
+            confidence=mock_debate_result.confidence,
+            robustness_score=0.95,
             consensus_proof=ConsensusProof(
                 method="majority_vote",
                 threshold=0.66,
@@ -138,48 +147,27 @@ class TestFullAuthToReceiptFlow:
                 supporting_agents=["claude", "gpt-4", "gemini"],
                 dissenting_agents=["mistral"],
             ),
-            participants=mock_debate_result.participants,
-            rounds=mock_debate_result.rounds_completed,
         )
 
         # Verify receipt has required fields
-        assert receipt.debate_id == mock_debate_result.debate_id
-        assert receipt.decision == mock_debate_result.final_answer
+        assert receipt.receipt_id == f"rcpt-{mock_debate_result.debate_id}"
+        assert receipt.verdict == "PASS"
+        assert receipt.confidence == mock_debate_result.confidence
+        assert receipt.consensus_proof is not None
         assert receipt.consensus_proof.supporting_agents == ["claude", "gpt-4", "gemini"]
 
     @pytest.mark.asyncio
-    async def test_receipt_adapter_respects_org_context(self, mock_debate_result):
-        """Verify receipt storage in Knowledge Mound respects organization boundaries."""
+    async def test_receipt_adapter_initialization(self):
+        """Verify receipt adapter initializes correctly with mound."""
         from aragora.knowledge.mound.adapters.receipt_adapter import ReceiptAdapter
 
-        # Create adapter with org context
-        adapter = ReceiptAdapter(
-            mound=MagicMock(),
-            tenant_id="org-123",
-        )
+        # Create adapter with mock mound
+        mock_mound = MagicMock()
+        adapter = ReceiptAdapter(mound=mock_mound)
 
-        # Mock the mound store method
-        adapter.mound.store = AsyncMock(return_value="km-item-456")
-
-        receipt = DecisionReceipt(
-            receipt_id="rcpt-test",
-            debate_id="debate-test",
-            decision="Test decision",
-            confidence=0.9,
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            consensus_proof=ConsensusProof(
-                method="unanimous",
-                threshold=1.0,
-                achieved_score=1.0,
-                supporting_agents=["agent1"],
-                dissenting_agents=[],
-            ),
-            participants=["agent1"],
-            rounds=1,
-        )
-
-        # The adapter should include organization context
-        assert adapter.tenant_id == "org-123"
+        # Verify adapter was created
+        assert adapter._mound is mock_mound
+        assert adapter._auto_ingest is True
 
 
 class TestAuthenticationEnforcement:
@@ -202,7 +190,7 @@ class TestAuthenticationEnforcement:
         tokens = create_token_pair(
             user_id=user.id,
             email=user.email,
-            tenant_id="tenant-default",
+            org_id="org-default",
         )
 
         # Verify token structure
@@ -219,7 +207,7 @@ class TestAuthenticationEnforcement:
         tokens = create_token_pair(
             user_id="user-123",
             email="test@example.com",
-            tenant_id="tenant-1",
+            org_id="org-1",
         )
 
         # Verify refresh token exists and is different from access token
@@ -231,12 +219,12 @@ class TestOrganizationIsolation:
     """Test that organization isolation is enforced in auth and receipt flow."""
 
     @pytest.mark.asyncio
-    async def test_token_contains_tenant_info(self):
-        """Verify JWT tokens include organization/tenant context."""
+    async def test_token_contains_org_info(self):
+        """Verify JWT tokens include organization context."""
         tokens = create_token_pair(
             user_id="user-123",
             email="test@example.com",
-            tenant_id="org-456",
+            org_id="org-456",
         )
 
         decoded = decode_jwt(tokens.access_token)

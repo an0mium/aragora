@@ -437,8 +437,9 @@ class TestRefreshCV:
     def store(self, temp_db_path):
         """Create a CVStore with mocked builder."""
         mock_builder = MagicMock(spec=CVBuilder)
-        mock_builder.build_cv.return_value = AgentCV(
-            agent_id="refreshed",
+        # Mock returns CV with the requested agent_id
+        mock_builder.build_cv.side_effect = lambda agent_id: AgentCV(
+            agent_id=agent_id,
             overall_elo=1300.0,
         )
         return CVStore(db_path=temp_db_path, cv_builder=mock_builder)
@@ -455,6 +456,7 @@ class TestRefreshCV:
 
         store.cv_builder.build_cv.assert_called_once_with("refresh-test")
         assert new_cv.overall_elo == 1300.0
+        assert new_cv.agent_id == "refresh-test"
 
     @pytest.mark.asyncio
     async def test_refresh_cv_updates_database(self, store):

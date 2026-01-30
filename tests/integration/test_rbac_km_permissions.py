@@ -271,7 +271,7 @@ class TestPermissionCheckerIntegration:
         checker = PermissionChecker()
 
         # Check knowledge.read permission
-        decision = checker.check(admin_context, "knowledge.read")
+        decision = checker.check_permission(admin_context, "knowledge.read")
         assert decision.allowed, "Admin should be allowed knowledge.read"
 
     @pytest.mark.asyncio
@@ -280,7 +280,7 @@ class TestPermissionCheckerIntegration:
         checker = PermissionChecker()
 
         # Check knowledge.read permission - should be denied
-        decision = checker.check(restricted_context, "knowledge.read")
+        decision = checker.check_permission(restricted_context, "knowledge.read")
         assert not decision.allowed, "Restricted user should be denied knowledge.read"
 
     @pytest.mark.asyncio
@@ -289,8 +289,8 @@ class TestPermissionCheckerIntegration:
         checker = PermissionChecker()
 
         # Both should pass permission check (both are admins in their org)
-        decision_a = checker.check(admin_context, "knowledge.read")
-        decision_b = checker.check(other_org_context, "knowledge.read")
+        decision_a = checker.check_permission(admin_context, "knowledge.read")
+        decision_b = checker.check_permission(other_org_context, "knowledge.read")
 
         # Both should be allowed
         assert decision_a.allowed
@@ -319,7 +319,7 @@ class TestKMPermissionEdgeCases:
         )
 
         checker = PermissionChecker()
-        decision = checker.check(empty_context, "knowledge.read")
+        decision = checker.check_permission(empty_context, "knowledge.read")
         assert not decision.allowed
 
     @pytest.mark.asyncio
@@ -336,7 +336,7 @@ class TestKMPermissionEdgeCases:
 
         # Wildcard should grant all knowledge permissions
         for action in ["read", "write", "delete", "share"]:
-            decision = checker.check(wildcard_context, f"knowledge.{action}")
+            decision = checker.check_permission(wildcard_context, f"knowledge.{action}")
             # Note: Depends on checker implementation supporting wildcards
             # This test documents the expected behavior
 

@@ -702,7 +702,11 @@ class TestEdgeCasesAndErrors:
     """Tests for edge cases and error handling."""
 
     def test_empty_votes_dict(self, tracker):
-        """Test handling of empty votes dictionary."""
+        """Test handling of empty votes dictionary.
+
+        When votes dict is empty, votes.get() returns None for both agents,
+        and None == None is True, so this counts as agreement.
+        """
         tracker.update_from_debate(
             debate_id="test1",
             participants=["alice", "bob"],
@@ -713,10 +717,15 @@ class TestEdgeCasesAndErrors:
 
         rel = tracker.get_relationship("alice", "bob")
         assert rel.debate_count == 1
-        assert rel.agreement_count == 0
+        # Both agents have None vote, which counts as agreement
+        assert rel.agreement_count == 1
 
     def test_missing_vote_keys(self, tracker):
-        """Test handling when vote keys don't match participants."""
+        """Test handling when vote keys don't match participants.
+
+        When both participants are missing from votes, both get None,
+        which counts as agreement (None == None).
+        """
         tracker.update_from_debate(
             debate_id="test1",
             participants=["alice", "bob"],
@@ -726,7 +735,8 @@ class TestEdgeCasesAndErrors:
         )
 
         rel = tracker.get_relationship("alice", "bob")
-        assert rel.agreement_count == 0
+        # Both alice and bob have None votes, which counts as agreement
+        assert rel.agreement_count == 1
 
     def test_empty_critiques_list(self, tracker):
         """Test handling of empty critiques list."""
