@@ -683,3 +683,10 @@ def reset_bead_store() -> None:
     """Reset the default store (for testing)."""
     global _default_store
     _default_store = None
+
+
+# Backwards-compatible spec export for legacy imports.
+try:
+    from aragora.nomic.stores.specs import BeadSpec  # noqa: F401
+except Exception:  # pragma: no cover - best-effort compatibility
+    BeadSpec = None  # type: ignore[assignment]

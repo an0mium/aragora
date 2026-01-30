@@ -62,6 +62,43 @@ def _print_table(headers: list[str], rows: list[list[str]], widths: Optional[lis
         print("  ".join(str(cell).ljust(w) for cell, w in zip(row, widths)))
 
 
+def _resolve_gt_paths() -> tuple[Path, Path]:
+    """Resolve bead and convoy storage paths."""
+    workspace_dir = Path(".gt")
+    if workspace_dir.exists():
+        return workspace_dir / "beads", workspace_dir / "convoys"
+    bead_dir = Path(".beads")
+    return bead_dir, bead_dir
+
+
+def _init_bead_store():
+    """Initialize the canonical bead store."""
+    from aragora.nomic.stores import create_bead_store
+
+    bead_dir, _ = _resolve_gt_paths()
+    return _run_async(create_bead_store(bead_dir=str(bead_dir)))
+
+
+def _init_convoy_manager(bead_store=None):
+    """Initialize the canonical convoy manager."""
+    from aragora.nomic.stores import ConvoyManager
+
+    if bead_store is None:
+        bead_store = _init_bead_store()
+    _, convoy_dir = _resolve_gt_paths()
+    manager = ConvoyManager(bead_store, convoy_dir=convoy_dir)
+    _run_async(manager.initialize())
+    return bead_store, manager
+
+
+def _normalize_priority(priority: str) -> str:
+    """Normalize CLI priority to enum names."""
+    key = priority.strip().upper()
+    if key == "CRITICAL":
+        return "URGENT"
+    return key
+
+
 # =============================================================================
 # Convoy Commands
 # =============================================================================
@@ -70,9 +107,9 @@ def _print_table(headers: list[str], rows: list[list[str]], widths: Optional[lis
 def cmd_convoy_list(args: argparse.Namespace) -> int:
     """List active convoys."""
     try:
-        from aragora.nomic.convoys import ConvoyManager, ConvoyStatus
+        from aragora.nomic.stores import ConvoyStatus
 
-        manager = ConvoyManager()  # type: ignore[call-arg]
+        _, manager = _init_convoy_manager()
 
         # Filter by status if specified
         status_filter = None
@@ -93,14 +130,15 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
         headers = ["ID", "Title", "Status", "Beads", "Progress", "Created"]
         rows = []
         for c in convoys[: args.limit]:
-            progress = f"{c.completed_beads}/{c.total_beads}"
+            progress = _run_async(manager.get_convoy_progress(c.id))
+            progress_text = f"{progress.completed_beads}/{progress.total_beads}"
             rows.append(
                 [
                     c.id[:8],
                     c.title[:30] if c.title else "Untitled",
                     c.status.value,
-                    str(c.total_beads),
-                    progress,
+                    str(len(c.bead_ids)),
+                    progress_text,
                     _format_timestamp(c.created_at),
                 ]
             )
@@ -120,10 +158,16 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
 def cmd_convoy_create(args: argparse.Namespace) -> int:
     """Create a new convoy."""
     try:
-        from aragora.nomic.convoys import ConvoyManager, ConvoySpec  # type: ignore[attr-defined]
-        from aragora.nomic.beads import BeadSpec, BeadPriority  # type: ignore[attr-defined]
+        from aragora.nomic.stores import (
+            Bead,
+            BeadPriority,
+            BeadSpec,
+            BeadType,
+            ConvoyPriority,
+            ConvoySpec,
+        )
 
-        manager = ConvoyManager()  # type: ignore[call-arg]
+        bead_store, manager = _init_convoy_manager()
 
         # Parse beads from comma-separated list
         bead_specs = []
@@ -131,10 +175,11 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
             for bead_title in args.beads.split(","):
                 bead_title = bead_title.strip()
                 if bead_title:
+                    priority_key = _normalize_priority(args.priority)
                     bead_specs.append(
                         BeadSpec(
                             title=bead_title,
-                            priority=BeadPriority[args.priority.upper()],
+                            priority=BeadPriority[priority_key],
                         )
                     )
 
@@ -142,18 +187,55 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
             print("Error: At least one bead is required (--beads task1,task2,...)")
             return 1
 
+        priority_key = _normalize_priority(args.priority)
         spec = ConvoySpec(
             title=args.title,
             description=args.description or "",
             beads=bead_specs,
+            priority=ConvoyPriority[priority_key],
         )
 
-        convoy = _run_async(manager.create_convoy(spec))  # type: ignore[call-arg]
+        bead_ids = []
+        for bead_spec in spec.beads:
+            bead_type = bead_spec.bead_type or BeadType.TASK
+            if isinstance(bead_type, str):
+                try:
+                    bead_type = BeadType(bead_type)
+                except ValueError:
+                    bead_type = BeadType.TASK
+
+            bead_priority = bead_spec.priority or BeadPriority[priority_key]
+            if isinstance(bead_priority, int):
+                bead_priority = BeadPriority(bead_priority)
+
+            bead = Bead.create(
+                bead_type=bead_type,
+                title=bead_spec.title,
+                description=bead_spec.description,
+                priority=bead_priority,
+                dependencies=list(bead_spec.dependencies),
+                tags=list(bead_spec.tags),
+                metadata=dict(bead_spec.metadata),
+            )
+            bead_id = _run_async(bead_store.create(bead))
+            bead_ids.append(bead_id)
+
+        convoy = _run_async(
+            manager.create_convoy(
+                title=spec.title,
+                bead_ids=bead_ids,
+                description=spec.description,
+                priority=spec.priority or ConvoyPriority[priority_key],
+                dependencies=list(spec.dependencies) if spec.dependencies else None,
+                tags=list(spec.tags),
+                metadata=dict(spec.metadata),
+            )
+        )
 
         print("Convoy created successfully!")
         print(f"  ID: {convoy.id}")
         print(f"  Title: {convoy.title}")
-        print(f"  Beads: {len(convoy.beads)}")
+        print(f"  Beads: {len(convoy.bead_ids)}")
         print(f"  Status: {convoy.status.value}")
         return 0
 
@@ -168,34 +250,40 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
 def cmd_convoy_status(args: argparse.Namespace) -> int:
     """Get convoy status and progress."""
     try:
-        from aragora.nomic.convoys import ConvoyManager
-
-        manager = ConvoyManager()  # type: ignore[call-arg]
+        bead_store, manager = _init_convoy_manager()
         convoy = _run_async(manager.get_convoy(args.convoy_id))
 
         if not convoy:
             print(f"Convoy not found: {args.convoy_id}")
             return 1
 
+        progress = _run_async(manager.get_convoy_progress(convoy.id))
+
         print(f"Convoy: {convoy.title}")
         print(f"  ID: {convoy.id}")
         print(f"  Status: {convoy.status.value}")
         print(f"  Created: {_format_timestamp(convoy.created_at)}")
-        print(f"  Progress: {convoy.completed_beads}/{convoy.total_beads} beads")
+        print(f"  Progress: {progress.completed_beads}/{progress.total_beads} beads")
 
-        if convoy.beads:
+        if convoy.bead_ids:
             print("\nBeads:")
-            for bead in convoy.beads[:10]:
+            for bead_id in convoy.bead_ids[:10]:
+                bead = _run_async(bead_store.get(bead_id))
+                if not bead:
+                    continue
                 status_icon = {
                     "pending": "[ ]",
-                    "in_progress": "[~]",
+                    "claimed": "[~]",
+                    "running": "[~]",
                     "completed": "[x]",
                     "failed": "[!]",
+                    "cancelled": "[-]",
+                    "blocked": "[?]",
                 }.get(bead.status.value, "[ ]")
                 print(f"  {status_icon} {bead.title[:50]}")
 
-            if len(convoy.beads) > 10:
-                print(f"  ... and {len(convoy.beads) - 10} more")
+            if len(convoy.bead_ids) > 10:
+                print(f"  ... and {len(convoy.bead_ids) - 10} more")
 
         return 0
 
@@ -215,9 +303,7 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
 def cmd_bead_list(args: argparse.Namespace) -> int:
     """List beads with optional filters."""
     try:
-        from aragora.nomic.beads import BeadManager, BeadStatus  # type: ignore[attr-defined]
-
-        manager = BeadManager()  # type: ignore[misc]
+        from aragora.nomic.stores import BeadStatus
 
         # Filter by status if specified
         status_filter = None
@@ -229,13 +315,23 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
                 print(f"Valid: {', '.join(s.value for s in BeadStatus)}")
                 return 1
 
+        bead_store = _init_bead_store()
         beads = _run_async(
-            manager.list_beads(
+            bead_store.list_beads(
                 status=status_filter,
-                convoy_id=args.convoy,
                 limit=args.limit,
             )
         )
+
+        convoy_map = {}
+        if args.convoy:
+            _, manager = _init_convoy_manager(bead_store)
+            convoy = _run_async(manager.get_convoy(args.convoy))
+            if not convoy:
+                print(f"Convoy not found: {args.convoy}")
+                return 1
+            convoy_map = {bead_id: convoy.id for bead_id in convoy.bead_ids}
+            beads = [b for b in beads if b.id in convoy_map]
 
         if not beads:
             print("No beads found")
@@ -244,14 +340,23 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
         headers = ["ID", "Title", "Status", "Priority", "Assigned", "Convoy"]
         rows = []
         for b in beads:
+            assigned = getattr(b, "claimed_by", None) or getattr(b, "assigned_to", None)
+            convoy_id = getattr(b, "convoy_id", None) or convoy_map.get(b.id)
+            priority_value = getattr(b, "priority", None)
+            if priority_value is None:
+                priority_label = "normal"
+            elif hasattr(priority_value, "name"):
+                priority_label = priority_value.name.lower()
+            else:
+                priority_label = str(priority_value)
             rows.append(
                 [
                     b.id[:8],
                     b.title[:30] if b.title else "Untitled",
                     b.status.value,
-                    b.priority.value if hasattr(b, "priority") else "normal",
-                    b.assigned_to[:8] if b.assigned_to else "-",
-                    b.convoy_id[:8] if b.convoy_id else "-",
+                    priority_label,
+                    assigned[:8] if assigned else "-",
+                    convoy_id[:8] if convoy_id else "-",
                 ]
             )
 
@@ -270,10 +375,8 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
 def cmd_bead_assign(args: argparse.Namespace) -> int:
     """Assign a bead to an agent."""
     try:
-        from aragora.nomic.beads import BeadManager  # type: ignore[attr-defined]
-
-        manager = BeadManager()  # type: ignore[misc]
-        success = _run_async(manager.assign_bead(args.bead_id, args.agent_id))
+        bead_store = _init_bead_store()
+        success = _run_async(bead_store.claim(args.bead_id, args.agent_id))
 
         if success:
             print(f"Bead {args.bead_id} assigned to agent {args.agent_id}")
@@ -505,7 +608,10 @@ POLECAT (ephemeral worker), or CREW (persistent worker).
     convoy_create.add_argument("--beads", "-b", required=True, help="Comma-separated bead titles")
     convoy_create.add_argument("--description", "-d", help="Convoy description")
     convoy_create.add_argument(
-        "--priority", "-p", default="normal", choices=["low", "normal", "high", "critical"]
+        "--priority",
+        "-p",
+        default="normal",
+        choices=["low", "normal", "high", "critical", "urgent"],
     )
     convoy_create.set_defaults(func=cmd_convoy_create)
 

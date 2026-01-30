@@ -68,6 +68,7 @@ class MockBead:
     title: str = "Test Bead"
     status: MockStatus = MockStatus.PENDING
     priority: MockPriority = MockPriority.NORMAL
+    claimed_by: str | None = None
     assigned_to: str | None = None
     convoy_id: str | None = None
 
@@ -79,16 +80,14 @@ class MockConvoy:
     id: str = "convoy-12345678"
     title: str = "Test Convoy"
     status: MockStatus = MockStatus.IN_PROGRESS
-    total_beads: int = 5
-    completed_beads: int = 2
     created_at: datetime = None
-    beads: list = None
+    bead_ids: list[str] = None
 
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.now()
-        if self.beads is None:
-            self.beads = [MockBead()]
+        if self.bead_ids is None:
+            self.bead_ids = ["bead-12345678"]
 
 
 @dataclass
@@ -175,11 +174,7 @@ class TestCmdConvoyList:
         """Test with no convoys."""
         args = argparse.Namespace(status=None, limit=20)
 
-        mock_manager = MagicMock()
-        mock_module = MagicMock()
-        mock_module.ConvoyManager.return_value = mock_manager
-
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": mock_module}):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
             with patch("aragora.cli.gt._run_async", return_value=[]):
                 result = cmd_convoy_list(args)
 
@@ -192,13 +187,15 @@ class TestCmdConvoyList:
         args = argparse.Namespace(status=None, limit=20)
 
         mock_convoy = MockConvoy()
-        mock_manager = MagicMock()
-        mock_module = MagicMock()
-        mock_module.ConvoyManager.return_value = mock_manager
-        mock_module.ConvoyStatus = MockStatus
+        mock_progress = MagicMock()
+        mock_progress.completed_beads = 2
+        mock_progress.total_beads = 5
 
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": mock_module}):
-            with patch("aragora.cli.gt._run_async", return_value=[mock_convoy]):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
+            with patch(
+                "aragora.cli.gt._run_async",
+                side_effect=[[mock_convoy], mock_progress],
+            ):
                 result = cmd_convoy_list(args)
 
         assert result == 0
@@ -210,13 +207,7 @@ class TestCmdConvoyList:
         """Test with invalid status filter."""
         args = argparse.Namespace(status="invalid_status", limit=20)
 
-        mock_module = MagicMock()
-        mock_module.ConvoyManager.return_value = MagicMock()
-        mock_module.ConvoyStatus = MockStatus
-        mock_module.ConvoyStatus.side_effect = ValueError()
-
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": mock_module}):
-            result = cmd_convoy_list(args)
+        result = cmd_convoy_list(args)
 
         assert result == 1
         captured = capsys.readouterr()
@@ -226,7 +217,7 @@ class TestCmdConvoyList:
         """Test handling import error."""
         args = argparse.Namespace(status=None, limit=20)
 
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": None}):
+        with patch.dict("sys.modules", {"aragora.nomic.stores": None}):
             result = cmd_convoy_list(args)
 
         assert result == 1
@@ -246,19 +237,15 @@ class TestCmdConvoyCreate:
             priority="normal",
         )
 
-        mock_convoy = MockConvoy(title="New Convoy")
-        mock_module = MagicMock()
-        mock_beads_module = MagicMock()
-        mock_beads_module.BeadPriority = {"NORMAL": MockPriority.NORMAL}
+        mock_convoy = MockConvoy(title="New Convoy", bead_ids=["bead-1", "bead-2", "bead-3"])
+        mock_store = MagicMock()
+        mock_manager = MagicMock()
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.convoys": mock_module,
-                "aragora.nomic.beads": mock_beads_module,
-            },
-        ):
-            with patch("aragora.cli.gt._run_async", return_value=mock_convoy):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(mock_store, mock_manager)):
+            with patch(
+                "aragora.cli.gt._run_async",
+                side_effect=["bead-1", "bead-2", "bead-3", mock_convoy],
+            ):
                 result = cmd_convoy_create(args)
 
         assert result == 0
@@ -274,17 +261,7 @@ class TestCmdConvoyCreate:
             priority="normal",
         )
 
-        mock_module = MagicMock()
-        mock_beads_module = MagicMock()
-        mock_beads_module.BeadPriority = {"NORMAL": MockPriority.NORMAL}
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "aragora.nomic.convoys": mock_module,
-                "aragora.nomic.beads": mock_beads_module,
-            },
-        ):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
             result = cmd_convoy_create(args)
 
         assert result == 1
@@ -299,10 +276,7 @@ class TestCmdConvoyStatus:
         """Test when convoy not found."""
         args = argparse.Namespace(convoy_id="nonexistent")
 
-        mock_module = MagicMock()
-        mock_module.ConvoyManager.return_value = MagicMock()
-
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": mock_module}):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
             with patch("aragora.cli.gt._run_async", return_value=None):
                 result = cmd_convoy_status(args)
 
@@ -315,10 +289,16 @@ class TestCmdConvoyStatus:
         args = argparse.Namespace(convoy_id="convoy-123")
 
         mock_convoy = MockConvoy()
-        mock_module = MagicMock()
+        mock_bead = MockBead()
+        mock_progress = MagicMock()
+        mock_progress.completed_beads = 1
+        mock_progress.total_beads = 1
 
-        with patch.dict("sys.modules", {"aragora.nomic.convoys": mock_module}):
-            with patch("aragora.cli.gt._run_async", return_value=mock_convoy):
+        with patch("aragora.cli.gt._init_convoy_manager", return_value=(MagicMock(), MagicMock())):
+            with patch(
+                "aragora.cli.gt._run_async",
+                side_effect=[mock_convoy, mock_progress, mock_bead],
+            ):
                 result = cmd_convoy_status(args)
 
         assert result == 0
@@ -339,10 +319,7 @@ class TestCmdBeadList:
         """Test with no beads."""
         args = argparse.Namespace(status=None, convoy=None, limit=20)
 
-        mock_module = MagicMock()
-        mock_module.BeadStatus = MockStatus
-
-        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_module}):
+        with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
             with patch("aragora.cli.gt._run_async", return_value=[]):
                 result = cmd_bead_list(args)
 
@@ -355,10 +332,8 @@ class TestCmdBeadList:
         args = argparse.Namespace(status=None, convoy=None, limit=20)
 
         mock_bead = MockBead()
-        mock_module = MagicMock()
-        mock_module.BeadStatus = MockStatus
 
-        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_module}):
+        with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
             with patch("aragora.cli.gt._run_async", return_value=[mock_bead]):
                 result = cmd_bead_list(args)
 
@@ -375,9 +350,7 @@ class TestCmdBeadAssign:
         """Test successful bead assignment."""
         args = argparse.Namespace(bead_id="bead-123", agent_id="agent-456")
 
-        mock_module = MagicMock()
-
-        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_module}):
+        with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
             with patch("aragora.cli.gt._run_async", return_value=True):
                 result = cmd_bead_assign(args)
 
@@ -389,9 +362,7 @@ class TestCmdBeadAssign:
         """Test failed bead assignment."""
         args = argparse.Namespace(bead_id="bead-123", agent_id="agent-456")
 
-        mock_module = MagicMock()
-
-        with patch.dict("sys.modules", {"aragora.nomic.beads": mock_module}):
+        with patch("aragora.cli.gt._init_bead_store", return_value=MagicMock()):
             with patch("aragora.cli.gt._run_async", return_value=False):
                 result = cmd_bead_assign(args)
 

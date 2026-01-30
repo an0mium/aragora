@@ -601,3 +601,10 @@ def reset_convoy_manager() -> None:
     """Reset the default manager (for testing)."""
     global _default_manager
     _default_manager = None
+
+
+# Backwards-compatible spec export for legacy imports.
+try:
+    from aragora.nomic.stores.specs import ConvoySpec  # noqa: F401
+except Exception:  # pragma: no cover - best-effort compatibility
+    ConvoySpec = None  # type: ignore[assignment]

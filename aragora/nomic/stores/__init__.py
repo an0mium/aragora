@@ -30,6 +30,9 @@ from .convoy_store import (
     ConvoyStatus,
     ConvoyStore,
 )
+from .specs import BeadSpec, ConvoySpec
+from aragora.nomic.beads import create_bead_store, get_bead_store, reset_bead_store
+from aragora.nomic.convoys import get_convoy_manager, reset_convoy_manager
 
 __all__ = [
     # Bead primitives
@@ -38,6 +41,7 @@ __all__ = [
     "BeadStatus",
     "BeadStore",
     "BeadType",
+    "BeadSpec",
     # Convoy primitives
     "Convoy",
     "ConvoyManager",
@@ -45,4 +49,11 @@ __all__ = [
     "ConvoyProgress",
     "ConvoyStatus",
     "ConvoyStore",
+    "ConvoySpec",
+    # Store helpers
+    "create_bead_store",
+    "get_bead_store",
+    "reset_bead_store",
+    "get_convoy_manager",
+    "reset_convoy_manager",
 ]
