@@ -38,6 +38,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Import encryption (optional - graceful degradation if not available)
+# Declare types for fallback case
+get_encryption_service: Any = None
+is_encryption_required: Any = None
+EncryptionError: Any = Exception
+CRYPTO_AVAILABLE = False
+
 try:
     from aragora.security.encryption import (
         get_encryption_service,
@@ -48,10 +54,10 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-    def get_encryption_service():  # type: ignore[misc,no-redef]
+    def _fb_get_encryption_service() -> Any:
         raise RuntimeError("Encryption not available")
 
-    def is_encryption_required() -> bool:  # type: ignore[misc,no-redef]
+    def _fb_is_encryption_required() -> bool:
         """Fallback when security module unavailable - still check env vars."""
         import os
 
@@ -61,7 +67,7 @@ except ImportError:
             return True
         return False
 
-    class EncryptionError(Exception):  # type: ignore[no-redef]
+    class _FBEncryptionError(Exception):
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):
@@ -72,6 +78,10 @@ except ImportError:
                 f"Encryption {operation} failed in {store}: {reason}. "
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
+
+    get_encryption_service = _fb_get_encryption_service
+    is_encryption_required = _fb_is_encryption_required
+    EncryptionError = _FBEncryptionError
 
 
 # Token fields to encrypt
