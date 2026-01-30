@@ -240,6 +240,8 @@ def get_rlm(
 
     _metrics.singleton_misses += 1
 
+    user_provided_config = config is not None
+
     if config is None:
         config = _apply_env_overrides(RLMConfig())
     rlm = AragoraRLM(aragora_config=config)
@@ -271,7 +273,7 @@ def get_rlm(
             )
 
     # Cache if using default config and no specific mode
-    if config is None and not force_new and mode is None:
+    if not user_provided_config and not force_new and mode is None:
         _rlm_instance = rlm
 
     return rlm

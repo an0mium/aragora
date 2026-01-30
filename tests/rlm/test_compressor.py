@@ -80,7 +80,7 @@ class TestRLMConfig:
         assert config.sub_model == "gpt-4o-mini"
         assert config.max_depth == 2
         assert config.max_sub_calls == 10
-        assert config.target_tokens == 4000
+        assert config.target_tokens == 8000
         assert config.overlap_tokens == 200
         assert config.compression_ratio == 0.3
         assert config.preserve_structure is True
@@ -321,7 +321,7 @@ class TestHierarchicalCompressorInit:
         compressor = HierarchicalCompressor()
 
         assert compressor.config is not None
-        assert compressor.config.target_tokens == 4000
+        assert compressor.config.target_tokens == 8000
         assert compressor.agent_call is None
 
     def test_custom_config(self):

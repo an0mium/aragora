@@ -130,7 +130,7 @@ class GmailQueryHandler(SecureHandler):
         """Handle natural language query over email content."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
+        if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
 
         question = body.get("question", body.get("q", ""))
@@ -158,10 +158,10 @@ class GmailQueryHandler(SecureHandler):
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         # Create connector with user's tokens
-        connector = GmailConnector(max_results=limit * 2)  # type: ignore[abstract]
-        connector._access_token = state.access_token
-        connector._refresh_token = state.refresh_token
-        connector._token_expiry = state.token_expiry
+        connector = GmailConnector(max_results=limit * 2)
+        setattr(connector, "_access_token", getattr(state, "access_token", None))
+        setattr(connector, "_refresh_token", getattr(state, "refresh_token", None))
+        setattr(connector, "_token_expiry", getattr(state, "token_expiry", None))
 
         # Search for relevant emails
         results = await connector.search(query=question, limit=limit)
@@ -230,18 +230,20 @@ class GmailQueryHandler(SecureHandler):
         try:
             from aragora.rlm.streaming import StreamingRLMQuery
 
-            rlm = StreamingRLMQuery()  # type: ignore[call-arg]
+            rlm = StreamingRLMQuery()
 
             # Compress context if too long
-            if len(context) > 4000:
-                compressed = await rlm.compress(  # type: ignore[attr-defined]
+            if len(context) > 4000 and hasattr(rlm, "compress"):
+                compressed = await rlm.compress(
                     content=context,
                     target_tokens=3000,
                 )
                 context = compressed or context[:4000]
 
             # Generate answer
-            answer = await rlm.query(  # type: ignore[attr-defined]
+            if not hasattr(rlm, "query"):
+                raise AttributeError("RLM does not have query method")
+            answer = await rlm.query(
                 context=context,
                 question=question,
                 system_prompt=(
@@ -265,7 +267,9 @@ class GmailQueryHandler(SecureHandler):
             from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
 
             agent = AnthropicAPIAgent()
-            response = await agent.respond(  # type: ignore[attr-defined]
+            if not hasattr(agent, "respond"):
+                raise AttributeError("Agent does not have respond method")
+            response = await agent.respond(
                 f"Based on these emails:\n\n{context[:3000]}\n\n"
                 f"Answer this question: {question}\n\n"
                 "Be concise and specific. If the emails don't contain the answer, say so."
@@ -314,7 +318,7 @@ class GmailQueryHandler(SecureHandler):
         """Handle voice input query."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
+        if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
 
         # Get audio data
@@ -362,7 +366,7 @@ class GmailQueryHandler(SecureHandler):
             from aragora.connectors.whisper import WhisperConnector
 
             whisper = WhisperConnector()
-            result = await whisper.transcribe(audio_bytes)  # type: ignore[call-arg]
+            result = await whisper.transcribe(audio_bytes)
 
             return result.text if result else None
 
@@ -381,7 +385,7 @@ class GmailQueryHandler(SecureHandler):
         """Get prioritized inbox list."""
         state = get_user_state(user_id)
 
-        if not state or not state.refresh_token:  # type: ignore[union-attr,attr-defined]
+        if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
 
         limit = int(query_params.get("limit", 20))
@@ -414,10 +418,10 @@ class GmailQueryHandler(SecureHandler):
         from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         # Create connector
-        connector = GmailConnector(max_results=limit * 2)  # type: ignore[abstract]
-        connector._access_token = state.access_token
-        connector._refresh_token = state.refresh_token
-        connector._token_expiry = state.token_expiry
+        connector = GmailConnector(max_results=limit * 2)
+        setattr(connector, "_access_token", getattr(state, "access_token", None))
+        setattr(connector, "_refresh_token", getattr(state, "refresh_token", None))
+        setattr(connector, "_token_expiry", getattr(state, "token_expiry", None))
 
         # Get message IDs
         message_ids, _ = await connector.list_messages(query=query, max_results=limit * 2)

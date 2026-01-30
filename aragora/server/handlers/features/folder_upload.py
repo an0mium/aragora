@@ -129,8 +129,8 @@ class FolderUploadHandler(BaseHandler):
         # Handle /api/documents/folder/upload/{folder_id}/status
         if path.startswith("/api/v1/documents/folder/upload/") and path.endswith("/status"):
             return True
-        # Handle /api/documents/folders/{folder_id}
-        if path.startswith("/api/v1/documents/folders/") and path.count("/") == 4:
+        # Handle /api/v1/documents/folders/{folder_id}
+        if path.startswith("/api/v1/documents/folders/") and path.count("/") == 5:
             return True
         return False
 

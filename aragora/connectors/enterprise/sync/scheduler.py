@@ -605,7 +605,7 @@ class SyncScheduler:
         # Remove from left (oldest) while they're too old
         # Use popleft() for deque or pop(0) for list (backwards compatible)
         while self._history and self._history[0].started_at < cutoff:
-            if hasattr(self._history, 'popleft'):
+            if hasattr(self._history, "popleft"):
                 self._history.popleft()
             else:
                 self._history.pop(0)

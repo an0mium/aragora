@@ -565,8 +565,8 @@ class SenderHistoryService:
                 self._domain_cache[domain_key] = (datetime.now(), new_avg, count + 1)
             else:
                 self._domain_cache[domain_key] = (datetime.now(), reputation_score, 1)
-        except Exception:
-            pass  # Non-critical operation
+        except Exception as e:
+            logger.debug("Failed to update domain reputation cache: %s", e)
 
     async def get_domain_reputation(
         self,
@@ -601,9 +601,9 @@ class SenderHistoryService:
                 """
                 SELECT
                     COUNT(*) as sender_count,
-                    AVG(total_interactions) as avg_interactions,
-                    AVG(CAST(emails_opened AS FLOAT) / NULLIF(total_interactions, 0)) as avg_open_rate,
-                    AVG(CAST(emails_replied AS FLOAT) / NULLIF(total_interactions, 0)) as avg_reply_rate
+                    AVG(total_emails) as avg_interactions,
+                    AVG(CAST(emails_opened AS FLOAT) / NULLIF(total_emails, 0)) as avg_open_rate,
+                    AVG(CAST(emails_replied AS FLOAT) / NULLIF(total_emails, 0)) as avg_reply_rate
                 FROM sender_stats
                 WHERE user_id = ? AND sender_email LIKE ?
                 """,

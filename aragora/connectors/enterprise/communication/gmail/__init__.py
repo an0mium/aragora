@@ -93,6 +93,9 @@ class GmailConnector(  # type: ignore[misc]
             user_id: Gmail user ID ("me" for authenticated user)
         """
         super().__init__(connector_id="gmail", **kwargs)
+        # Set connector_id directly since MRO through Protocol does not
+        # forward kwargs to EnterpriseConnector.__init__
+        self.connector_id = "gmail"
 
         self.labels = labels
         self.exclude_labels = set(exclude_labels or [])

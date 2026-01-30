@@ -896,7 +896,7 @@ class FindingWorkflowHandler(BaseHandler):
         user_id, user_name = self._get_user_from_request(request)
 
         store = get_finding_workflow_store()
-        results: dict[str, list[str]] = {"success": [], "failed": []}
+        results: dict[str, list[str | dict[str, str]]] = {"success": [], "failed": []}
 
         for fid in finding_ids:
             try:
@@ -940,7 +940,7 @@ class FindingWorkflowHandler(BaseHandler):
                 results["success"].append(fid)
 
             except Exception as e:  # noqa: BLE001 - Bulk operations should continue despite individual failures
-                results["failed"].append({"finding_id": fid, "error": str(e)})  # type: ignore[arg-type]
+                results["failed"].append({"finding_id": fid, "error": str(e)})
 
         return self._json_response(
             200,

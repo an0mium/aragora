@@ -307,11 +307,11 @@ class LocalFineTuner:
             self.config.base_model,
             trust_remote_code=True,
         )
-        if self._tokenizer.pad_token is None:  # type: ignore[attr-defined]
-            self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[attr-defined]
+        if getattr(self._tokenizer, "pad_token", None) is None:
+            setattr(self._tokenizer, "pad_token", getattr(self._tokenizer, "eos_token", None))
 
-        # Load model (type ignore needed - transformers lacks complete stubs)
-        self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
+        # Load model
+        self._model = AutoModelForCausalLM.from_pretrained(
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
@@ -319,7 +319,8 @@ class LocalFineTuner:
         )
 
         if self.config.use_gradient_checkpointing:
-            self._model.gradient_checkpointing_enable()  # type: ignore[attr-defined]
+            if hasattr(self._model, "gradient_checkpointing_enable"):
+                self._model.gradient_checkpointing_enable()
 
         self._is_loaded = True
         logger.info(f"Model loaded: {self.config.base_model}")
@@ -351,7 +352,7 @@ class LocalFineTuner:
         # Apply LoRA
         self._peft_model = get_peft_model(self._model, lora_config)
 
-        trainable, total = self._peft_model.get_nb_trainable_parameters()  # type: ignore[attr-defined]
+        trainable, total = self._peft_model.get_nb_trainable_parameters()
         logger.info(
             f"Trainable parameters: {trainable:,} / {total:,} ({100 * trainable / total:.2f}%)"
         )
@@ -450,8 +451,8 @@ class LocalFineTuner:
             train_result = trainer.train()
 
             # Save model
-            self._peft_model.save_pretrained(self.config.output_dir)  # type: ignore[attr-defined]
-            self._tokenizer.save_pretrained(self.config.output_dir)  # type: ignore[attr-defined]
+            self._peft_model.save_pretrained(self.config.output_dir)
+            self._tokenizer.save_pretrained(self.config.output_dir)
 
             training_time = time.time() - start_time
 
@@ -507,7 +508,7 @@ class LocalFineTuner:
         else:
             bnb_config = None
 
-        self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
+        self._model = AutoModelForCausalLM.from_pretrained(
             self.config.base_model,
             quantization_config=bnb_config,
             device_map="auto",
@@ -555,24 +556,28 @@ class LocalFineTuner:
         # Format prompt
         formatted_prompt = f"### Instruction:\n{prompt}\n\n### Response:\n"
 
-        inputs = self._tokenizer(  # type: ignore[misc]
+        inputs = self._tokenizer(
             formatted_prompt,
             return_tensors="pt",
             truncation=True,
             max_length=self.config.max_seq_length,
-        ).to(model.device)  # type: ignore[attr-defined]
+        )
+        device = getattr(model, "device", None)
+        if device is not None:
+            inputs = inputs.to(device)
 
         with __import__("torch").no_grad():
-            outputs = model.generate(  # type: ignore[attr-defined]
+            pad_token_id = getattr(self._tokenizer, "pad_token_id", None)
+            outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 top_p=top_p,
                 do_sample=True,
-                pad_token_id=self._tokenizer.pad_token_id,  # type: ignore[attr-defined]
+                pad_token_id=pad_token_id,
             )
 
-        generated = self._tokenizer.decode(  # type: ignore[attr-defined]
+        generated = self._tokenizer.decode(
             outputs[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )
@@ -687,8 +692,8 @@ class DPOFineTuner(LocalFineTuner):
             train_result = trainer.train()
 
             # Save
-            self._peft_model.save_pretrained(self.config.output_dir)  # type: ignore[attr-defined]
-            self._tokenizer.save_pretrained(self.config.output_dir)  # type: ignore[attr-defined]
+            self._peft_model.save_pretrained(self.config.output_dir)
+            self._tokenizer.save_pretrained(self.config.output_dir)
 
             training_time = time.time() - start_time
 
@@ -731,5 +736,6 @@ def create_fine_tuner(
         Fine-tuner instance
     """
     if method == "dpo":
-        return DPOFineTuner(config or DPOConfig())  # type: ignore[arg-type]
+        dpo_config = config if isinstance(config, DPOConfig) else DPOConfig()
+    return DPOFineTuner(dpo_config)
     return LocalFineTuner(config or FineTuneConfig())

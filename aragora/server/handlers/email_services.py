@@ -539,10 +539,12 @@ async def handle_apply_snooze(
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            gmail = GmailConnector()  # type: ignore[abstract]
-            if gmail.is_connected:  # type: ignore[attr-defined]
-                await gmail.add_label(email_id, f"Snoozed/{label}")  # type: ignore[attr-defined]
-                await gmail.archive_message(email_id)  # type: ignore[attr-defined]
+            gmail = GmailConnector()
+            if hasattr(gmail, "is_connected") and gmail.is_connected:
+                if hasattr(gmail, "add_label"):
+                    await gmail.add_label(email_id, f"Snoozed/{label}")
+                if hasattr(gmail, "archive_message"):
+                    await gmail.archive_message(email_id)
         except Exception as gmail_error:
             logger.warning(f"Could not apply Gmail snooze: {gmail_error}")
 
@@ -586,10 +588,12 @@ async def handle_cancel_snooze(
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            gmail = GmailConnector()  # type: ignore[abstract]
-            if gmail.is_connected:  # type: ignore[attr-defined]
-                await gmail.remove_label(email_id, "Snoozed")  # type: ignore[attr-defined]
-                await gmail.unarchive_message(email_id)  # type: ignore[attr-defined]
+            gmail = GmailConnector()
+            if hasattr(gmail, "is_connected") and gmail.is_connected:
+                if hasattr(gmail, "remove_label"):
+                    await gmail.remove_label(email_id, "Snoozed")
+                if hasattr(gmail, "unarchive_message"):
+                    await gmail.unarchive_message(email_id)
         except Exception as gmail_error:
             logger.warning(f"Could not remove Gmail snooze: {gmail_error}")
 
@@ -685,10 +689,12 @@ async def handle_process_due_snoozes(
             try:
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                gmail = GmailConnector()  # type: ignore[abstract]
-                if gmail.is_connected:  # type: ignore[attr-defined]
-                    await gmail.unarchive_message(email_id)  # type: ignore[attr-defined]
-                    await gmail.remove_label(email_id, "Snoozed")  # type: ignore[attr-defined]
+                gmail = GmailConnector()
+                if hasattr(gmail, "is_connected") and gmail.is_connected:
+                    if hasattr(gmail, "unarchive_message"):
+                        await gmail.unarchive_message(email_id)
+                    if hasattr(gmail, "remove_label"):
+                        await gmail.remove_label(email_id, "Snoozed")
             except Exception as gmail_error:
                 logger.warning(f"Could not unsnooze {email_id} in Gmail: {gmail_error}")
 

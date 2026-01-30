@@ -603,6 +603,7 @@ from aragora.agents.api_agents import (
     MistralAgent,
     QwenAgent,
     KimiK2Agent,
+    OpenAIAPIAgent,
 )
 from aragora.agents.cli_agents import CodexAgent, ClaudeAgent, GrokCLIAgent, KiloCodeAgent
 from aragora.agents.api_agents import GrokAgent
@@ -2983,12 +2984,22 @@ Aragora should grow more powerful over time, not be stripped down."""
             + safety_footer
         )
 
-        self.codex = CodexAgent(
-            name="codex-engineer",
-            model="gpt-5.2-codex",
-            role="proposer",
-            timeout=1200,  # Doubled - Codex has known latency issues
-        )
+        use_api_codex = os.environ.get("NOMIC_CODEX_USE_API", "0") == "1"
+        codex_api_model = os.environ.get("NOMIC_CODEX_API_MODEL", "gpt-5.2")
+        if use_api_codex:
+            self.codex = OpenAIAPIAgent(
+                name="codex-engineer",
+                model=codex_api_model,
+                role="proposer",
+                timeout=1200,  # Doubled - Codex has known latency issues
+            )
+        else:
+            self.codex = CodexAgent(
+                name="codex-engineer",
+                model="gpt-5.2-codex",
+                role="proposer",
+                timeout=1200,  # Doubled - Codex has known latency issues
+            )
         self.codex.system_prompt = (
             """You are a pragmatic engineer for aragora.
 Focus on: technical excellence, code quality, practical utility, implementation feasibility.
