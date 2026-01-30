@@ -32,9 +32,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from aragora.evidence.collector import Evidence as CollectorEvidence  # type: ignore[attr-defined]
     from aragora.knowledge.mound import KnowledgeMound
     from aragora.learning.meta import HyperparameterState, LearningMetrics
+
+    # Evidence type may not exist in collector
+    CollectorEvidence = Any
 
 logger = logging.getLogger(__name__)
 
@@ -135,11 +137,11 @@ class MetaLearnerBridge:
         confidence = (metrics.prediction_accuracy + metrics.pattern_retention_rate) / 2
 
         # Create pattern node
-        from aragora.knowledge.mound import KnowledgeNode
+        from aragora.knowledge.mound import KnowledgeNode, NodeType
         from aragora.memory.tier_manager import MemoryTier
 
         node = KnowledgeNode(
-            node_type="pattern",  # type: ignore[arg-type]
+            node_type=NodeType.PATTERN,
             content=content,
             confidence=confidence,
             provenance=provenance,
@@ -148,7 +150,8 @@ class MetaLearnerBridge:
             surprise_score=0.5,  # Neutral surprise for meta-learning
         )
 
-        node_id = await self.mound.add_node(node)  # type: ignore[misc]
+        # add_node returns node_id string
+        node_id = await self.mound.add_node(node)
         logger.info(f"Captured meta-learning adjustment as pattern node: {node_id}")
         return node_id
 
@@ -193,7 +196,7 @@ class MetaLearnerBridge:
             base_confidence = max(0.0, base_confidence - 0.1)
 
         node = KnowledgeNode(
-            node_type="pattern",  # type: ignore[arg-type]
+            node_type=NodeType.PATTERN,
             content=content,
             confidence=base_confidence,
             provenance=provenance,
@@ -201,9 +204,9 @@ class MetaLearnerBridge:
             workspace_id=self.mound.workspace_id,
         )
 
-        node_id = await self.mound.add_node(node)  # type: ignore[misc]
+        node_id = await self.mound.add_node(node)
         logger.info(f"Captured meta-learning summary as pattern node: {node_id}")
-        return node_id
+        return str(node_id)
 
 
 class EvidenceBridge:
