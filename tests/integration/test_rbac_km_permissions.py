@@ -2,7 +2,7 @@
 Integration tests for RBAC + Knowledge Mound permission enforcement.
 
 Tests that RBAC permissions are correctly enforced for Knowledge Mound operations:
-1. Tenant isolation - Tenant A cannot access Tenant B's knowledge
+1. Organization isolation - Org A cannot access Org B's knowledge
 2. Permission enforcement - Users without knowledge.read cannot view knowledge
 3. Role-based access - Different roles have different KM access levels
 4. Receipt access control - receipts:read required for viewing decision receipts
@@ -31,7 +31,7 @@ def admin_context() -> AuthorizationContext:
     """Create admin authorization context with full access."""
     return AuthorizationContext(
         user_id="admin-123",
-        tenant_id="tenant-main",
+        org_id="org-main",
         roles=["admin"],
         permissions=[
             "knowledge.read",
@@ -50,7 +50,7 @@ def viewer_context() -> AuthorizationContext:
     """Create viewer authorization context with read-only access."""
     return AuthorizationContext(
         user_id="viewer-456",
-        tenant_id="tenant-main",
+        org_id="org-main",
         roles=["viewer"],
         permissions=[
             "knowledge.read",
@@ -64,7 +64,7 @@ def restricted_context() -> AuthorizationContext:
     """Create restricted authorization context with no KM access."""
     return AuthorizationContext(
         user_id="restricted-789",
-        tenant_id="tenant-main",
+        org_id="org-main",
         roles=["basic"],
         permissions=[
             "debates.read",  # Can read debates but NOT knowledge
@@ -73,12 +73,12 @@ def restricted_context() -> AuthorizationContext:
 
 
 @pytest.fixture
-def other_tenant_context() -> AuthorizationContext:
-    """Create context for a different tenant."""
+def other_org_context() -> AuthorizationContext:
+    """Create context for a different organization."""
     return AuthorizationContext(
         user_id="user-other",
-        tenant_id="tenant-other",
-        roles=["admin"],  # Admin in their own tenant
+        org_id="org-other",
+        roles=["admin"],  # Admin in their own org
         permissions=[
             "knowledge.read",
             "knowledge.write",
@@ -88,33 +88,30 @@ def other_tenant_context() -> AuthorizationContext:
 
 
 # =============================================================================
-# Tenant Isolation Tests
+# Organization Isolation Tests
 # =============================================================================
 
 
-class TestKMTenantIsolation:
-    """Test that Knowledge Mound respects tenant boundaries."""
+class TestKMOrganizationIsolation:
+    """Test that Knowledge Mound respects organization boundaries."""
 
     @pytest.mark.asyncio
-    async def test_tenant_a_cannot_access_tenant_b_knowledge(
-        self, admin_context, other_tenant_context
-    ):
-        """Verify tenant isolation prevents cross-tenant knowledge access."""
-        # Tenant A creates knowledge
-        tenant_a_item = {
+    async def test_org_a_cannot_access_org_b_knowledge(self, admin_context, other_org_context):
+        """Verify organization isolation prevents cross-org knowledge access."""
+        # Org A creates knowledge
+        org_a_item = {
             "id": "km-item-123",
-            "tenant_id": "tenant-main",
-            "content": "Confidential knowledge for Tenant A",
+            "org_id": "org-main",
+            "content": "Confidential knowledge for Org A",
             "visibility": "private",
         }
 
-        # Tenant B should not see Tenant A's knowledge
-        assert tenant_a_item["tenant_id"] != other_tenant_context.tenant_id
+        # Org B should not see Org A's knowledge
+        assert org_a_item["org_id"] != other_org_context.org_id
 
-        # In a real implementation, KM queries would filter by tenant
-        # This test verifies the tenant_id fields are properly tracked
-        assert admin_context.tenant_id == "tenant-main"
-        assert other_tenant_context.tenant_id == "tenant-other"
+        # Verify org_id fields are properly tracked
+        assert admin_context.org_id == "org-main"
+        assert other_org_context.org_id == "org-other"
 
     @pytest.mark.asyncio
     async def test_shared_knowledge_respects_sharing_rules(self, admin_context):
@@ -122,15 +119,15 @@ class TestKMTenantIsolation:
         # Knowledge with explicit sharing
         shared_item = {
             "id": "km-shared-456",
-            "tenant_id": "tenant-main",
+            "org_id": "org-main",
             "content": "Shared knowledge",
             "visibility": "shared",
-            "shared_with": ["tenant-partner"],  # Explicitly shared
+            "shared_with": ["org-partner"],  # Explicitly shared
         }
 
-        # Only explicitly shared tenants should access
-        assert "tenant-partner" in shared_item["shared_with"]
-        assert "tenant-other" not in shared_item["shared_with"]
+        # Only explicitly shared orgs should access
+        assert "org-partner" in shared_item["shared_with"]
+        assert "org-other" not in shared_item["shared_with"]
 
 
 # =============================================================================
@@ -287,20 +284,20 @@ class TestPermissionCheckerIntegration:
         assert not decision.allowed, "Restricted user should be denied knowledge.read"
 
     @pytest.mark.asyncio
-    async def test_permission_checker_respects_tenant(self, admin_context, other_tenant_context):
-        """Verify PermissionChecker includes tenant in decisions."""
+    async def test_permission_checker_respects_org(self, admin_context, other_org_context):
+        """Verify PermissionChecker includes org in decisions."""
         checker = PermissionChecker()
 
-        # Both should pass permission check (both are admins in their tenant)
+        # Both should pass permission check (both are admins in their org)
         decision_a = checker.check(admin_context, "knowledge.read")
-        decision_b = checker.check(other_tenant_context, "knowledge.read")
+        decision_b = checker.check(other_org_context, "knowledge.read")
 
         # Both should be allowed
         assert decision_a.allowed
         assert decision_b.allowed
 
-        # But they are in different tenants
-        assert admin_context.tenant_id != other_tenant_context.tenant_id
+        # But they are in different orgs
+        assert admin_context.org_id != other_org_context.org_id
 
 
 # =============================================================================
@@ -316,7 +313,7 @@ class TestKMPermissionEdgeCases:
         """Verify empty permissions list denies all access."""
         empty_context = AuthorizationContext(
             user_id="user-empty",
-            tenant_id="tenant-test",
+            org_id="org-test",
             roles=[],
             permissions=[],
         )
@@ -330,7 +327,7 @@ class TestKMPermissionEdgeCases:
         """Verify wildcard permissions grant access."""
         wildcard_context = AuthorizationContext(
             user_id="user-super",
-            tenant_id="tenant-test",
+            org_id="org-test",
             roles=["superadmin"],
             permissions=["knowledge.*"],  # Wildcard
         )
@@ -344,15 +341,15 @@ class TestKMPermissionEdgeCases:
             # This test documents the expected behavior
 
     @pytest.mark.asyncio
-    async def test_missing_tenant_id_handled(self):
-        """Verify missing tenant_id is handled gracefully."""
-        no_tenant_context = AuthorizationContext(
+    async def test_missing_org_id_handled(self):
+        """Verify missing org_id is handled gracefully."""
+        no_org_context = AuthorizationContext(
             user_id="user-test",
-            tenant_id="",  # Empty tenant
+            org_id="",  # Empty org
             roles=["viewer"],
             permissions=["knowledge.read"],
         )
 
         # Should still have the permission, but operations should scope correctly
-        assert "knowledge.read" in no_tenant_context.permissions
-        assert no_tenant_context.tenant_id == ""
+        assert "knowledge.read" in no_org_context.permissions
+        assert no_org_context.org_id == ""
