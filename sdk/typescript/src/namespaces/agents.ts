@@ -438,4 +438,168 @@ export class AgentsAPI {
   async getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }> {
     return this.client.getCalibrationLeaderboard();
   }
+
+  // ===========================================================================
+  // Team Selection (matching Python SDK)
+  // ===========================================================================
+
+  /**
+   * Select an optimal team of agents for a task.
+   *
+   * @param task - The task description
+   * @param teamSize - Number of agents to select (default: 3)
+   * @param strategy - Selection strategy (default: 'balanced')
+   * @returns Selected team with rationale
+   *
+   * @example
+   * ```typescript
+   * const team = await client.agents.selectTeam(
+   *   'Design a distributed caching system',
+   *   3,
+   *   'balanced'
+   * );
+   * console.log(`Selected agents: ${team.agents.join(', ')}`);
+   * ```
+   */
+  async selectTeam(
+    task: string,
+    teamSize: number = 3,
+    strategy: TeamSelectionStrategy = 'balanced'
+  ): Promise<SelectTeamResponse> {
+    const request: TeamSelectionRequest = {
+      task_type: task,
+      team_size: teamSize,
+    };
+
+    // Map strategy to request parameters
+    if (strategy === 'diverse') {
+      request.diversity_weight = 0.8;
+      request.quality_weight = 0.2;
+    } else if (strategy === 'competitive') {
+      request.diversity_weight = 0.2;
+      request.quality_weight = 0.8;
+    } else if (strategy === 'specialized') {
+      request.diversity_weight = 0.0;
+      request.quality_weight = 1.0;
+    } else {
+      // balanced
+      request.diversity_weight = 0.5;
+      request.quality_weight = 0.5;
+    }
+
+    const result = await this.client.selectTeam(request);
+    return {
+      agents: result.agents.map(a => a.agent_id),
+      rationale: undefined, // Not provided by current API
+      diversity_score: result.diversity_score,
+      total_score: result.total_score,
+      coverage: result.coverage,
+    };
+  }
+
+  // ===========================================================================
+  // Agent Profile & Identity (matching Python SDK)
+  // ===========================================================================
+
+  /**
+   * Get agent's persona configuration.
+   *
+   * @param name - Agent name
+   * @returns Persona configuration
+   */
+  async getPersona(name: string): Promise<AgentPersona> {
+    return this.client.request<AgentPersona>(
+      'GET',
+      `/api/agent/${encodeURIComponent(name)}/persona`
+    );
+  }
+
+  /**
+   * Delete agent's custom persona.
+   *
+   * @param name - Agent name
+   * @returns Deletion result
+   */
+  async deletePersona(name: string): Promise<{ success: boolean; message: string }> {
+    return this.client.request<{ success: boolean; message: string }>(
+      'DELETE',
+      `/api/agent/${encodeURIComponent(name)}/persona`
+    );
+  }
+
+  /**
+   * Get agent's grounded (evidence-based) persona with performance metrics.
+   *
+   * @param name - Agent name
+   * @returns Grounded persona with ELO and performance data
+   */
+  async getGroundedPersona(name: string): Promise<GroundedPersona> {
+    return this.client.request<GroundedPersona>(
+      'GET',
+      `/api/agent/${encodeURIComponent(name)}/grounded-persona`
+    );
+  }
+
+  /**
+   * Get agent's identity prompt.
+   *
+   * @param name - Agent name
+   * @returns Identity prompt for the agent
+   */
+  async getIdentityPrompt(name: string): Promise<IdentityPrompt> {
+    return this.client.request<IdentityPrompt>(
+      'GET',
+      `/api/agent/${encodeURIComponent(name)}/identity-prompt`
+    );
+  }
+
+  // ===========================================================================
+  // Agent Analytics (matching Python SDK)
+  // ===========================================================================
+
+  /**
+   * Get agent's accuracy metrics.
+   *
+   * @param name - Agent name
+   * @returns Accuracy metrics including position accuracy by domain
+   */
+  async getAccuracy(name: string): Promise<AgentAccuracy> {
+    return this.client.request<AgentAccuracy>(
+      'GET',
+      `/api/agent/${encodeURIComponent(name)}/accuracy`
+    );
+  }
+
+  // ===========================================================================
+  // Agent Relationships (matching Python SDK)
+  // ===========================================================================
+
+  /**
+   * Get relationship data between this agent and others.
+   *
+   * Same as getNetwork but named to match Python SDK.
+   *
+   * @param name - Agent name
+   * @returns Relationship data with other agents
+   */
+  async getRelationships(name: string): Promise<AgentNetwork> {
+    return this.client.getAgentNetwork(name);
+  }
+
+  // ===========================================================================
+  // Alternate Compare Methods (matching Python SDK)
+  // ===========================================================================
+
+  /**
+   * Compare two agents' performance.
+   *
+   * Alternative method name matching Python SDK's `compare_agents`.
+   *
+   * @param agent1 - First agent name
+   * @param agent2 - Second agent name
+   * @returns Comparison data
+   */
+  async compareAgents(agent1: string, agent2: string): Promise<AgentComparison> {
+    return this.client.compareAgents([agent1, agent2]);
+  }
 }
