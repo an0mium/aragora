@@ -65,6 +65,8 @@ class ConvoyTracker:
             use_nomic_store if use_nomic_store is not None else bool(storage_path)
         )
         self._bead_store: NomicBeadStore | None = None
+        if self._use_nomic_store and self._storage_path is None:
+            self._storage_path = Path(".aragora_beads")
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
             if self._use_nomic_store:
