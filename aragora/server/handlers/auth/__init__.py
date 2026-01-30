@@ -3,6 +3,11 @@ Auth handlers subpackage.
 
 This package contains authentication-related handlers split by domain:
 - handler: Main AuthHandler class for authentication endpoints
+- login: User registration and login handlers
+- password: Password change and reset handlers
+- api_keys: API key management handlers
+- mfa: Multi-factor authentication handlers
+- sessions: Session management handlers
 - validation: Email and password validation utilities
 - store: In-memory user store for development/testing
 - sso_handlers: SSO/OIDC authentication handlers
@@ -40,6 +45,29 @@ from .signup_handlers import (
     handle_accept_invite,
 )
 
+# Import from split modules for convenience
+from .login import handle_register, handle_login
+from .password import (
+    handle_change_password,
+    handle_forgot_password,
+    handle_reset_password,
+    send_password_reset_email,
+)
+from .api_keys import (
+    handle_generate_api_key,
+    handle_revoke_api_key,
+    handle_list_api_keys,
+    handle_revoke_api_key_prefix,
+)
+from .mfa import (
+    handle_mfa_setup,
+    handle_mfa_enable,
+    handle_mfa_disable,
+    handle_mfa_verify,
+    handle_mfa_backup_codes,
+)
+from .sessions import handle_list_sessions, handle_revoke_session
+
 __all__ = [
     # Core auth
     "AuthHandler",
@@ -67,4 +95,26 @@ __all__ = [
     "handle_invite",
     "handle_check_invite",
     "handle_accept_invite",
+    # Login handlers
+    "handle_register",
+    "handle_login",
+    # Password handlers
+    "handle_change_password",
+    "handle_forgot_password",
+    "handle_reset_password",
+    "send_password_reset_email",
+    # API key handlers
+    "handle_generate_api_key",
+    "handle_revoke_api_key",
+    "handle_list_api_keys",
+    "handle_revoke_api_key_prefix",
+    # MFA handlers
+    "handle_mfa_setup",
+    "handle_mfa_enable",
+    "handle_mfa_disable",
+    "handle_mfa_verify",
+    "handle_mfa_backup_codes",
+    # Session handlers
+    "handle_list_sessions",
+    "handle_revoke_session",
 ]

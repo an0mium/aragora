@@ -20,10 +20,8 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 # Lockout tracker for brute-force protection
-from aragora.auth.lockout import get_lockout_tracker
 
 # Module-level imports for test mocking compatibility
 from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh_token
@@ -47,10 +45,32 @@ from ..base import (
     json_response,
     log_request,
 )
-from ..utils.rate_limit import get_client_ip, rate_limit
+from ..utils.rate_limit import rate_limit
 from ..secure import SecureHandler
 from aragora.server.versioning.compat import strip_version_prefix
-from .validation import validate_email, validate_password
+
+# Import handlers from split modules
+from .login import handle_register, handle_login
+from .password import (
+    handle_change_password,
+    handle_forgot_password,
+    handle_reset_password,
+    send_password_reset_email,
+)
+from .api_keys import (
+    handle_generate_api_key,
+    handle_revoke_api_key,
+    handle_list_api_keys,
+    handle_revoke_api_key_prefix,
+)
+from .mfa import (
+    handle_mfa_setup,
+    handle_mfa_enable,
+    handle_mfa_disable,
+    handle_mfa_verify,
+    handle_mfa_backup_codes,
+)
+from .sessions import handle_list_sessions, handle_revoke_session
 
 # Unified audit logging
 try:
@@ -324,225 +344,21 @@ class AuthHandler(SecureHandler):
 
         return None  # Allowed
 
-    @rate_limit(requests_per_minute=2, limiter_name="auth_register")
-    @handle_errors("user registration")
-    @log_request("user registration")
+    # =========================================================================
+    # Login/Register - Delegated to login.py
+    # =========================================================================
+
     def _handle_register(self, handler) -> HandlerResult:
         """Handle user registration."""
-        from aragora.billing.jwt_auth import create_token_pair
-        from aragora.billing.models import hash_password
+        return handle_register(self, handler)
 
-        # Parse request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        # Extract and validate fields
-        email = body.get("email", "").strip().lower()
-        password = body.get("password", "")
-        name = body.get("name", "").strip()
-        org_name = body.get("organization", "").strip()
-
-        # Validate email
-        valid, err = validate_email(email)
-        if not valid:
-            return error_response(err, 400)
-
-        # Validate password
-        valid, err = validate_password(password)
-        if not valid:
-            return error_response(err, 400)
-
-        # Get user store
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("User service unavailable", 503)
-
-        # Check if email already exists
-        existing = user_store.get_user_by_email(email)
-        if existing:
-            return error_response("Email already registered", 409)
-
-        # Hash password
-        password_hash, password_salt = hash_password(password)
-
-        # Create user first (without org)
-        try:
-            user = user_store.create_user(
-                email=email,
-                password_hash=password_hash,
-                password_salt=password_salt,
-                name=name or email.split("@")[0],
-            )
-        except ValueError as e:
-            logger.warning(f"User creation failed: {type(e).__name__}: {e}")
-            return error_response("User creation failed", 409)
-
-        # Create organization if name provided
-        if org_name:
-            user_store.create_organization(
-                name=org_name,
-                owner_id=user.id,
-            )
-            # Refresh user to get updated org_id
-            user = user_store.get_user_by_id(user.id)
-
-        # Create tokens
-        tokens = create_token_pair(
-            user_id=user.id,
-            email=user.email,
-            org_id=user.org_id,
-            role=user.role,
-        )
-
-        logger.info(f"User registered: {user.email} (id={user.id})")
-
-        # Audit log: user registration
-        if AUDIT_AVAILABLE and audit_admin:
-            audit_admin(
-                admin_id=user.id,
-                action="user_registered",
-                target_type="user",
-                target_id=user.id,
-            )
-
-        return json_response(
-            {
-                "user": user.to_dict(),
-                "tokens": tokens.to_dict(),
-            },
-            status=201,
-        )
-
-    @rate_limit(requests_per_minute=3, limiter_name="auth_login")
-    @handle_errors("user login")
-    @log_request("user login")
     def _handle_login(self, handler) -> HandlerResult:
         """Handle user login."""
-        from aragora.billing.jwt_auth import create_mfa_pending_token, create_token_pair
+        return handle_login(self, handler)
 
-        # Parse request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        email = body.get("email", "").strip().lower()
-        password = body.get("password", "")
-
-        if not email or not password:
-            return error_response("Email and password required", 400)
-
-        # Get client IP for lockout tracking
-        client_ip = get_client_ip(handler)
-
-        # Get user store
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        # Check lockout tracker (tracks by email AND IP)
-        lockout_tracker = get_lockout_tracker()
-        if lockout_tracker.is_locked(email=email, ip=client_ip):
-            remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
-            remaining_minutes = max(1, remaining_seconds // 60)
-            logger.warning(f"Login attempt on locked account/IP: email={email}, ip={client_ip}")
-            return error_response(
-                f"Too many failed attempts. Try again in {remaining_minutes} minute(s).", 429
-            )
-
-        # Also check database-based account lockout (legacy support)
-        if hasattr(user_store, "is_account_locked"):
-            is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
-            if is_locked and lockout_until:
-                remaining_minutes = max(
-                    1, int((lockout_until - datetime.now(timezone.utc)).total_seconds() / 60)
-                )
-                logger.warning(f"Login attempt on locked account (db): {email}")
-                return error_response(
-                    f"Account temporarily locked. Try again in {remaining_minutes} minute(s).", 429
-                )
-
-        # Find user
-        user = user_store.get_user_by_email(email)
-        if not user:
-            # Record failed attempt to lockout tracker (prevents enumeration attacks)
-            lockout_tracker.record_failure(email=email, ip=client_ip)
-            # Use same error to prevent email enumeration
-            return error_response("Invalid email or password", 401)
-
-        # Check if account is active
-        # 401: account disabled means the user cannot authenticate
-        if not user.is_active:
-            return error_response("Account is disabled", 401)
-
-        # Verify password
-        if not user.verify_password(password):
-            # Record failed login attempt to both trackers
-            attempts, lockout_seconds = lockout_tracker.record_failure(email=email, ip=client_ip)
-
-            # Also record in database for persistence across restarts
-            if hasattr(user_store, "record_failed_login"):
-                db_attempts, lockout_until = user_store.record_failed_login(email)
-
-            if lockout_seconds:
-                remaining_minutes = max(1, lockout_seconds // 60)
-                # Audit log: account lockout
-                if AUDIT_AVAILABLE and audit_security:
-                    audit_security(
-                        event_type="anomaly",
-                        actor_id=email,
-                        ip_address=client_ip,
-                        reason="account_locked_due_to_failed_attempts",
-                    )
-                return error_response(
-                    f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
-                    429,
-                )
-            # Audit log: failed login
-            if AUDIT_AVAILABLE and audit_login:
-                audit_login(email, success=False, ip_address=client_ip, method="password")
-            return error_response("Invalid email or password", 401)
-
-        # Successful login - reset failed attempts in both trackers
-        lockout_tracker.reset(email=email, ip=client_ip)
-        if hasattr(user_store, "reset_failed_login_attempts"):
-            user_store.reset_failed_login_attempts(email)
-
-        # Update last login
-        user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
-
-        # Check if MFA is enabled - require second factor before issuing tokens
-        if user.mfa_enabled and user.mfa_secret:
-            pending_token = create_mfa_pending_token(user.id, user.email)
-            logger.info(f"User login pending MFA: {user.email}")
-            return json_response(
-                {
-                    "mfa_required": True,
-                    "pending_token": pending_token,
-                    "message": "MFA verification required",
-                }
-            )
-
-        # No MFA - create full tokens
-        tokens = create_token_pair(
-            user_id=user.id,
-            email=user.email,
-            org_id=user.org_id,
-            role=user.role,
-        )
-
-        logger.info(f"User logged in: {user.email}")
-
-        # Audit log: successful login
-        if AUDIT_AVAILABLE and audit_login:
-            audit_login(user.id, success=True, ip_address=client_ip, method="password")
-
-        return json_response(
-            {
-                "user": user.to_dict(),
-                "tokens": tokens.to_dict(),
-            }
-        )
+    # =========================================================================
+    # Token Management - Kept in handler.py
+    # =========================================================================
 
     @rate_limit(requests_per_minute=20, limiter_name="auth_refresh")
     @handle_errors("token refresh")
@@ -715,6 +531,10 @@ class AuthHandler(SecureHandler):
             }
         )
 
+    # =========================================================================
+    # Profile Methods - Kept in handler.py
+    # =========================================================================
+
     # Cache-control headers to prevent CDN caching of auth responses
     AUTH_NO_CACHE_HEADERS = {
         "Cache-Control": "no-store, no-cache, must-revalidate, private",
@@ -802,363 +622,9 @@ class AuthHandler(SecureHandler):
 
         return json_response({"user": user.to_dict()})
 
-    @rate_limit(requests_per_minute=3, limiter_name="auth_change_password")
-    @handle_errors("change password")
-    def _handle_change_password(self, handler) -> HandlerResult:
-        """Change user password."""
-        # RBAC check: authentication.read permission required
-        if error := self._check_permission(handler, "authentication.read"):
-            return error
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        # Parse request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        current_password = body.get("current_password", "")
-        new_password = body.get("new_password", "")
-
-        if not current_password or not new_password:
-            return error_response("Current and new password required", 400)
-
-        # Validate new password
-        valid, err = validate_password(new_password)
-        if not valid:
-            return error_response(err, 400)
-
-        # Get user store
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        # Get user
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        # Verify current password
-        if not user.verify_password(current_password):
-            return error_response("Current password is incorrect", 401)
-
-        # Set new password
-        from aragora.billing.models import hash_password
-
-        password_hash, password_salt = hash_password(new_password)
-        user_store.update_user(
-            user.id,
-            password_hash=password_hash,
-            password_salt=password_salt,
-        )
-
-        # Invalidate all existing sessions by incrementing token version
-        user_store.increment_token_version(user.id)
-
-        logger.info(f"Password changed for user: {user.email}")
-
-        return json_response(
-            {
-                "message": "Password changed successfully",
-                "sessions_invalidated": True,
-            }
-        )
-
-    @rate_limit(requests_per_minute=3, limiter_name="auth_forgot_password")
-    @handle_errors("forgot password")
-    @log_request("forgot password")
-    def _handle_forgot_password(self, handler) -> HandlerResult:
-        """
-        Handle forgot password request.
-
-        Generates a password reset token and sends an email with reset link.
-        Always returns success to prevent email enumeration attacks.
-        """
-        from aragora.storage.password_reset_store import get_password_reset_store
-
-        # Parse request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        email = body.get("email", "").strip().lower()
-        if not email:
-            return error_response("Email is required", 400)
-
-        # Validate email format
-        valid, err = validate_email(email)
-        if not valid:
-            return error_response(err, 400)
-
-        # Get client IP for logging
-        client_ip = get_client_ip(handler)
-
-        # Get user store to check if email exists
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        # Check if user exists (but don't reveal this to prevent enumeration)
-        user = user_store.get_user_by_email(email)
-
-        # Generate reset token only if user exists
-        if user and user.is_active:
-            store = get_password_reset_store()
-            token, rate_error = store.create_token(email)
-
-            if rate_error:
-                # Rate limit hit - still return generic success for security
-                logger.warning(f"Password reset rate limited: email={email}, ip={client_ip}")
-            elif token:
-                # Build reset link (frontend URL with token)
-                import os
-
-                base_url = os.environ.get("ARAGORA_FRONTEND_URL", "https://aragora.ai")
-                reset_link = f"{base_url}/reset-password?token={token}"
-
-                # Send email asynchronously
-                self._send_password_reset_email(user, reset_link)
-
-                logger.info(f"Password reset requested: email={email}, ip={client_ip}")
-
-                # Audit log: password reset requested
-                if AUDIT_AVAILABLE and audit_security:
-                    audit_security(
-                        event_type="anomaly",
-                        actor_id=email,
-                        ip_address=client_ip,
-                        reason="password_reset_requested",
-                    )
-        else:
-            # User doesn't exist - log but return same response
-            logger.debug(f"Password reset for non-existent email: {email}, ip={client_ip}")
-
-        # Always return success to prevent email enumeration
-        return json_response(
-            {
-                "message": "If an account exists with that email, a password reset link has been sent.",
-                "email": email,
-            }
-        )
-
-    def _send_password_reset_email(self, user, reset_link: str) -> None:
-        """Send password reset email to user (fire-and-forget)."""
-        import asyncio
-        import os
-
-        async def send_email():
-            try:
-                from aragora.integrations.email import (
-                    EmailConfig,
-                    EmailIntegration,
-                    EmailRecipient,
-                )
-
-                # Check if email is configured
-                smtp_host = os.environ.get("SMTP_HOST", "")
-                sendgrid_key = os.environ.get("SENDGRID_API_KEY", "")
-                ses_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
-
-                if not smtp_host and not sendgrid_key and not ses_key:
-                    logger.warning(
-                        "No email provider configured - password reset email not sent. "
-                        "Configure SMTP_HOST, SENDGRID_API_KEY, or AWS_ACCESS_KEY_ID."
-                    )
-                    return
-
-                config = EmailConfig(
-                    smtp_host=smtp_host,
-                    sendgrid_api_key=sendgrid_key,
-                    from_email=os.environ.get("ARAGORA_FROM_EMAIL", "noreply@aragora.ai"),
-                    from_name="Aragora",
-                )
-
-                async with EmailIntegration(config) as email_client:
-                    recipient = EmailRecipient(email=user.email, name=user.name)
-
-                    subject = "Reset Your Password - Aragora"
-                    html_body = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #00ff00, #00cc00); color: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-        .content {{ background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0; }}
-        .footer {{ background: #333; color: #999; padding: 15px; text-align: center; font-size: 12px; border-radius: 0 0 8px 8px; }}
-        .button {{ display: inline-block; background: #00cc00; color: #000; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin: 20px 0; }}
-        .warning {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 4px; margin-top: 20px; font-size: 13px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Password Reset Request</h1>
-        </div>
-        <div class="content">
-            <p>Hi {user.name or "there"},</p>
-            <p>We received a request to reset your password for your Aragora account.</p>
-            <p>Click the button below to reset your password:</p>
-            <div style="text-align: center;">
-                <a href="{reset_link}" class="button">Reset Password</a>
-            </div>
-            <p style="font-size: 13px; color: #666;">
-                Or copy and paste this link into your browser:<br>
-                <code style="word-break: break-all;">{reset_link}</code>
-            </p>
-            <div class="warning">
-                <strong>Security Notice:</strong> This link will expire in 1 hour.
-                If you didn't request this password reset, you can safely ignore this email.
-                Your password will not be changed unless you click the link above.
-            </div>
-        </div>
-        <div class="footer">
-            <p>Aragora AI - Multi-Agent Debate Platform</p>
-            <p>This is an automated message. Please do not reply.</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-                    text_body = f"""Password Reset Request
-======================
-
-Hi {user.name or "there"},
-
-We received a request to reset your password for your Aragora account.
-
-Click the link below to reset your password:
-{reset_link}
-
-This link will expire in 1 hour.
-
-If you didn't request this password reset, you can safely ignore this email.
-Your password will not be changed unless you click the link above.
-
----
-Aragora AI - Multi-Agent Debate Platform
-This is an automated message. Please do not reply.
-"""
-
-                    success = await email_client._send_email(
-                        recipient, subject, html_body, text_body
-                    )
-                    if success:
-                        logger.info(f"Password reset email sent to: {user.email}")
-                    else:
-                        logger.error(f"Failed to send password reset email to: {user.email}")
-
-            except ImportError as e:
-                logger.warning(f"Email integration not available: {e}")
-            except Exception as e:
-                logger.error(f"Error sending password reset email: {e}")
-
-        # Run email sending in background (don't block the response)
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(send_email())
-            else:
-                loop.run_until_complete(send_email())
-        except RuntimeError:
-            # No event loop - create one for this task
-            asyncio.run(send_email())
-
-    @rate_limit(requests_per_minute=5, limiter_name="auth_reset_password")
-    @handle_errors("reset password")
-    @log_request("reset password")
-    def _handle_reset_password(self, handler) -> HandlerResult:
-        """
-        Handle password reset with token.
-
-        Validates the reset token and updates the user's password.
-        """
-        from aragora.billing.models import hash_password
-        from aragora.storage.password_reset_store import get_password_reset_store
-
-        # Parse request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        token = body.get("token", "").strip()
-        new_password = body.get("password", "") or body.get("new_password", "")
-
-        if not token:
-            return error_response("Reset token is required", 400)
-
-        if not new_password:
-            return error_response("New password is required", 400)
-
-        # Validate password requirements
-        valid, err = validate_password(new_password)
-        if not valid:
-            return error_response(err, 400)
-
-        # Get client IP for logging
-        client_ip = get_client_ip(handler)
-
-        # Validate the reset token
-        store = get_password_reset_store()
-        email, token_error = store.validate_token(token)
-
-        if token_error:
-            logger.warning(f"Invalid password reset attempt: ip={client_ip}, error={token_error}")
-            return error_response(token_error, 400)
-
-        # Get user store
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Service unavailable", 503)
-
-        # Get user by email
-        user = user_store.get_user_by_email(email)
-        if not user:
-            # This shouldn't happen if token is valid, but handle it
-            store.consume_token(token)
-            return error_response("User not found", 404)
-
-        if not user.is_active:
-            store.consume_token(token)
-            return error_response("Account is disabled", 401)
-
-        # Hash the new password
-        password_hash, password_salt = hash_password(new_password)
-
-        # Update password
-        user_store.update_user(
-            user.id,
-            password_hash=password_hash,
-            password_salt=password_salt,
-        )
-
-        # Invalidate all existing sessions
-        user_store.increment_token_version(user.id)
-
-        # Consume the reset token and invalidate any other tokens for this email
-        store.consume_token(token)
-        store.invalidate_tokens_for_email(email)
-
-        logger.info(f"Password reset completed: email={email}, ip={client_ip}")
-
-        # Audit log: password reset completed
-        if AUDIT_AVAILABLE and audit_security:
-            audit_security(
-                event_type="encryption",
-                actor_id=user.id,
-                ip_address=client_ip,
-                reason="password_reset_completed",
-            )
-
-        return json_response(
-            {
-                "message": "Password has been reset successfully. Please log in with your new password.",
-                "sessions_invalidated": True,
-            }
-        )
+    # =========================================================================
+    # Token Revocation
+    # =========================================================================
 
     @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_token")
     @handle_errors("revoke token")
@@ -1214,667 +680,81 @@ This is an automated message. Please do not reply.
         else:
             return error_response("Invalid token - could not revoke", 400)
 
-    @rate_limit(requests_per_minute=3, limiter_name="auth_api_key_gen")
-    @handle_errors("generate API key")
+    # =========================================================================
+    # Password Management - Delegated to password.py
+    # =========================================================================
+
+    def _handle_change_password(self, handler) -> HandlerResult:
+        """Change user password."""
+        return handle_change_password(self, handler)
+
+    def _handle_forgot_password(self, handler) -> HandlerResult:
+        """Handle forgot password request."""
+        return handle_forgot_password(self, handler)
+
+    def _handle_reset_password(self, handler) -> HandlerResult:
+        """Handle password reset with token."""
+        return handle_reset_password(self, handler)
+
+    def _send_password_reset_email(self, user, reset_link: str) -> None:
+        """Send password reset email to user (fire-and-forget)."""
+        send_password_reset_email(user, reset_link)
+
+    # =========================================================================
+    # API Key Management - Delegated to api_keys.py
+    # =========================================================================
+
     def _handle_generate_api_key(self, handler) -> HandlerResult:
         """Generate a new API key for the user."""
-        # RBAC check: api_key.create permission required
-        if error := self._check_permission(handler, "api_key.create"):
-            return error
+        return handle_generate_api_key(self, handler)
 
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        # Get user store
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        # Get user
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        # Check if user's tier allows API access
-        if user.org_id:
-            org = user_store.get_organization_by_id(user.org_id)
-            if org and not org.limits.api_access:
-                return error_response("API access requires Professional tier or higher", 403)
-
-        # Generate new API key using secure hash-based storage
-        # The plaintext key is only returned once; we store the hash
-        api_key = user.generate_api_key(expires_days=365)
-
-        # Persist the hashed key fields (api_key_hash, api_key_prefix, expiry)
-        user_store.update_user(
-            user.id,
-            api_key_hash=user.api_key_hash,
-            api_key_prefix=user.api_key_prefix,
-            api_key_created_at=user.api_key_created_at,
-            api_key_expires_at=user.api_key_expires_at,
-        )
-
-        logger.info(f"API key generated for user: {user.email} (prefix: {user.api_key_prefix})")
-
-        # Audit log: API key generated
-        if AUDIT_AVAILABLE and audit_admin:
-            audit_admin(
-                admin_id=user.id,
-                action="api_key_generated",
-                target_type="api_key",
-                target_id=user.api_key_prefix,
-            )
-
-        # Return the key (only shown once - plaintext is never stored)
-        return json_response(
-            {
-                "api_key": api_key,
-                "prefix": user.api_key_prefix,
-                "expires_at": (
-                    user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
-                ),
-                "message": "Save this key - it will not be shown again",
-            }
-        )
-
-    @rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key")
-    @handle_errors("revoke API key")
     def _handle_revoke_api_key(self, handler) -> HandlerResult:
         """Revoke the user's API key."""
-        # RBAC check: api_key.revoke permission required
-        if error := self._check_permission(handler, "api_key.revoke"):
-            return error
+        return handle_revoke_api_key(self, handler)
 
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        # Get user store
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        # Get user
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        # Revoke API key - clear all hashed fields
-        user_store.update_user(
-            user.id,
-            api_key_hash=None,
-            api_key_prefix=None,
-            api_key_created_at=None,
-            api_key_expires_at=None,
-        )
-
-        logger.info(f"API key revoked for user: {user.email}")
-
-        # Audit log: API key revoked
-        if AUDIT_AVAILABLE and audit_admin:
-            audit_admin(
-                admin_id=user.id,
-                action="api_key_revoked",
-                target_type="api_key",
-                target_id=user.id,
-            )
-
-        return json_response({"message": "API key revoked"})
-
-    @rate_limit(requests_per_minute=10, limiter_name="auth_list_api_keys")
-    @handle_errors("list API keys")
     def _handle_list_api_keys(self, handler) -> HandlerResult:
         """List API keys for the current user."""
-        # RBAC check: reuse api_key.create permission for self-service listing
-        if error := self._check_permission(handler, "api_key.create"):
-            return error
+        return handle_list_api_keys(self, handler)
 
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        keys = []
-        if user.api_key_prefix:
-            keys.append(
-                {
-                    "prefix": user.api_key_prefix,
-                    "created_at": (
-                        user.api_key_created_at.isoformat() if user.api_key_created_at else None
-                    ),
-                    "expires_at": (
-                        user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
-                    ),
-                }
-            )
-
-        return json_response({"keys": keys, "count": len(keys)})
-
-    @rate_limit(requests_per_minute=5, limiter_name="auth_revoke_api_key_prefix")
-    @handle_errors("revoke API key (prefix)")
     def _handle_revoke_api_key_prefix(self, handler, prefix: str) -> HandlerResult:
         """Revoke the user's API key by prefix."""
-        if error := self._check_permission(handler, "api_key.revoke"):
-            return error
-
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        if not user.api_key_prefix or user.api_key_prefix != prefix:
-            return error_response("API key not found", 404)
-
-        user_store.update_user(
-            user.id,
-            api_key_hash=None,
-            api_key_prefix=None,
-            api_key_created_at=None,
-            api_key_expires_at=None,
-        )
-
-        logger.info(f"API key revoked for user: {user.email} (prefix: {prefix})")
-
-        if AUDIT_AVAILABLE and audit_admin:
-            audit_admin(
-                admin_id=user.id,
-                action="api_key_revoked",
-                target_type="api_key",
-                target_id=prefix,
-            )
-
-        return json_response({"message": "API key revoked"})
+        return handle_revoke_api_key_prefix(self, handler, prefix)
 
     # =========================================================================
-    # MFA/2FA Methods
+    # MFA/2FA Methods - Delegated to mfa.py
     # =========================================================================
 
-    @rate_limit(requests_per_minute=5, limiter_name="mfa_setup")
-    @handle_errors("MFA setup")
-    @log_request("MFA setup")
     def _handle_mfa_setup(self, handler) -> HandlerResult:
         """Generate MFA secret and provisioning URI for setup."""
-        # RBAC check: authentication.create permission required
-        if error := self._check_permission(handler, "authentication.create"):
-            return error
+        return handle_mfa_setup(self, handler)
 
-        try:
-            import pyotp
-        except ImportError:
-            return error_response("MFA not available (pyotp not installed)", 503)
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        if user.mfa_enabled:
-            return error_response("MFA is already enabled", 400)
-
-        # Generate new secret
-        secret = pyotp.random_base32()
-
-        # Store secret temporarily (not enabled yet)
-        user_store.update_user(user.id, mfa_secret=secret)
-
-        # Generate provisioning URI for authenticator apps
-        totp = pyotp.TOTP(secret)
-        provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name="Aragora")
-
-        return json_response(
-            {
-                "secret": secret,
-                "provisioning_uri": provisioning_uri,
-                "message": "Scan QR code or enter secret in your authenticator app, then call /api/auth/mfa/enable with verification code",
-            }
-        )
-
-    @rate_limit(requests_per_minute=5, limiter_name="mfa_enable")
-    @handle_errors("MFA enable")
-    @log_request("MFA enable")
     def _handle_mfa_enable(self, handler) -> HandlerResult:
         """Enable MFA after verifying setup code."""
-        # RBAC check: authentication.update permission required
-        if error := self._check_permission(handler, "authentication.update"):
-            return error
+        return handle_mfa_enable(self, handler)
 
-        import hashlib
-        import secrets as py_secrets
-
-        try:
-            import pyotp
-        except ImportError:
-            return error_response("MFA not available", 503)
-
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        code = body.get("code", "").strip()
-        if not code:
-            return error_response("Verification code is required", 400)
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        if user.mfa_enabled:
-            return error_response("MFA is already enabled", 400)
-
-        if not user.mfa_secret:
-            return error_response("MFA not set up. Call /api/auth/mfa/setup first", 400)
-
-        # Verify the code
-        totp = pyotp.TOTP(user.mfa_secret)
-        if not totp.verify(code, valid_window=1):
-            return error_response("Invalid verification code", 400)
-
-        # Generate backup codes
-        backup_codes = [py_secrets.token_hex(4) for _ in range(10)]
-        backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
-
-        import json as json_module
-
-        user_store.update_user(
-            user.id,
-            mfa_enabled=True,
-            mfa_backup_codes=json_module.dumps(backup_hashes),
-        )
-
-        # Invalidate all existing sessions by incrementing token version
-        user_store.increment_token_version(user.id)
-
-        logger.info(f"MFA enabled for user: {user.email}")
-
-        # Audit log: MFA enabled
-        if AUDIT_AVAILABLE and audit_security:
-            audit_security(
-                event_type="encryption",
-                actor_id=user.id,
-                reason="mfa_enabled",
-            )
-
-        return json_response(
-            {
-                "message": "MFA enabled successfully",
-                "backup_codes": backup_codes,
-                "warning": "Save these backup codes securely. They cannot be shown again.",
-                "sessions_invalidated": True,
-            }
-        )
-
-    @rate_limit(requests_per_minute=5, limiter_name="mfa_disable")
-    @handle_errors("MFA disable")
-    @log_request("MFA disable")
     def _handle_mfa_disable(self, handler) -> HandlerResult:
         """Disable MFA for the user."""
-        # RBAC check: authentication.update permission required
-        if error := self._check_permission(handler, "authentication.update"):
-            return error
+        return handle_mfa_disable(self, handler)
 
-        try:
-            import pyotp
-        except ImportError:
-            return error_response("MFA not available", 503)
-
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        # Require password or MFA code to disable
-        code = body.get("code", "").strip()
-        password = body.get("password", "").strip()
-
-        if not code and not password:
-            return error_response("MFA code or password required to disable MFA", 400)
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        if not user.mfa_enabled:
-            return error_response("MFA is not enabled", 400)
-
-        # Verify with code or password
-        if code:
-            totp = pyotp.TOTP(user.mfa_secret)
-            if not totp.verify(code, valid_window=1):
-                return error_response("Invalid MFA code", 400)
-        elif password:
-            if not user.verify_password(password):
-                return error_response("Invalid password", 400)
-
-        # Disable MFA
-        user_store.update_user(
-            user.id,
-            mfa_enabled=False,
-            mfa_secret=None,
-            mfa_backup_codes=None,
-        )
-
-        logger.info(f"MFA disabled for user: {user.email}")
-
-        # Audit log: MFA disabled
-        if AUDIT_AVAILABLE and audit_security:
-            audit_security(
-                event_type="encryption",
-                actor_id=user.id,
-                reason="mfa_disabled",
-            )
-
-        return json_response({"message": "MFA disabled successfully"})
-
-    @rate_limit(requests_per_minute=10, limiter_name="mfa_verify")
-    @handle_errors("MFA verify")
-    @log_request("MFA verify")
     def _handle_mfa_verify(self, handler) -> HandlerResult:
         """Verify MFA code during login."""
-        import hashlib
+        return handle_mfa_verify(self, handler)
 
-        from aragora.billing.jwt_auth import create_token_pair, validate_mfa_pending_token
-
-        try:
-            import pyotp
-        except ImportError:
-            return error_response("MFA not available", 503)
-
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        code = body.get("code", "").strip()
-        pending_token = body.get("pending_token", "").strip()
-
-        if not code:
-            return error_response("MFA code is required", 400)
-
-        if not pending_token:
-            return error_response("Pending token is required", 400)
-
-        # Validate the pending token to identify the user
-        pending_payload = validate_mfa_pending_token(pending_token)
-        if not pending_payload:
-            return error_response("Invalid or expired pending token", 401)
-
-        user_store = self._get_user_store()
-        if not user_store:
-            return error_response("Authentication service unavailable", 503)
-
-        user = user_store.get_user_by_id(pending_payload.sub)
-        if not user:
-            return error_response("User not found", 404)
-
-        if not user.mfa_enabled or not user.mfa_secret:
-            return error_response("MFA not enabled for this user", 400)
-
-        # Try TOTP code first
-        totp = pyotp.TOTP(user.mfa_secret)
-        if totp.verify(code, valid_window=1):
-            # Blacklist pending token to prevent replay
-            from aragora.billing.jwt_auth import get_token_blacklist
-
-            blacklist = get_token_blacklist()
-            blacklist.revoke_token(pending_token)
-
-            # Valid TOTP code - create full tokens
-            tokens = create_token_pair(
-                user_id=user.id,
-                email=user.email,
-                org_id=user.org_id,
-                role=user.role,
-            )
-            token_dict = tokens.to_dict()
-            logger.info(f"MFA verified for user: {user.email}")
-            return json_response(
-                {
-                    "message": "MFA verification successful",
-                    "user": user.to_dict(),
-                    "tokens": token_dict,
-                }
-            )
-
-        # Try backup code
-        if user.mfa_backup_codes:
-            import json as json_module
-
-            code_hash = hashlib.sha256(code.encode()).hexdigest()
-            backup_hashes = json_module.loads(user.mfa_backup_codes)
-
-            if code_hash in backup_hashes:
-                # Valid backup code - remove it
-                backup_hashes.remove(code_hash)
-                user_store.update_user(
-                    user.id,
-                    mfa_backup_codes=json_module.dumps(backup_hashes),
-                )
-
-                # Blacklist pending token to prevent replay
-                from aragora.billing.jwt_auth import get_token_blacklist
-
-                blacklist = get_token_blacklist()
-                blacklist.revoke_token(pending_token)
-
-                tokens = create_token_pair(
-                    user_id=user.id,
-                    email=user.email,
-                    org_id=user.org_id,
-                    role=user.role,
-                )
-                token_dict = tokens.to_dict()
-                remaining = len(backup_hashes)
-
-                logger.info(f"Backup code used for user: {user.email}, {remaining} remaining")
-
-                return json_response(
-                    {
-                        "message": "MFA verification successful (backup code used)",
-                        "user": user.to_dict(),
-                        "tokens": token_dict,
-                        "backup_codes_remaining": remaining,
-                        "warning": (
-                            f"Backup code used. {remaining} remaining." if remaining < 5 else None
-                        ),
-                    }
-                )
-
-        return error_response("Invalid MFA code", 400)
-
-    @rate_limit(requests_per_minute=3, limiter_name="mfa_backup")
-    @handle_errors("MFA backup codes")
-    @log_request("MFA backup codes")
     def _handle_mfa_backup_codes(self, handler) -> HandlerResult:
         """Regenerate MFA backup codes."""
-        # RBAC check: authentication.read permission required
-        if error := self._check_permission(handler, "authentication.read"):
-            return error
-
-        import hashlib
-        import secrets as py_secrets
-
-        try:
-            import pyotp
-        except ImportError:
-            return error_response("MFA not available", 503)
-
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
-
-        # Require current MFA code to regenerate backup codes
-        code = body.get("code", "").strip()
-        if not code:
-            return error_response("Current MFA code is required", 400)
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        user = user_store.get_user_by_id(auth_ctx.user_id)
-        if not user:
-            return error_response("User not found", 404)
-
-        if not user.mfa_enabled or not user.mfa_secret:
-            return error_response("MFA not enabled", 400)
-
-        # Verify current code
-        totp = pyotp.TOTP(user.mfa_secret)
-        if not totp.verify(code, valid_window=1):
-            return error_response("Invalid MFA code", 400)
-
-        # Generate new backup codes
-        backup_codes = [py_secrets.token_hex(4) for _ in range(10)]
-        backup_hashes = [hashlib.sha256(c.encode()).hexdigest() for c in backup_codes]
-
-        import json as json_module
-
-        user_store.update_user(
-            user.id,
-            mfa_backup_codes=json_module.dumps(backup_hashes),
-        )
-
-        logger.info(f"Backup codes regenerated for user: {user.email}")
-
-        return json_response(
-            {
-                "backup_codes": backup_codes,
-                "warning": "Save these backup codes securely. They cannot be shown again.",
-            }
-        )
+        return handle_mfa_backup_codes(self, handler)
 
     # =========================================================================
-    # Session Management
+    # Session Management - Delegated to sessions.py
     # =========================================================================
 
-    @rate_limit(requests_per_minute=30, limiter_name="auth_sessions")
-    @handle_errors("list sessions")
     def _handle_list_sessions(self, handler) -> HandlerResult:
-        """List all active sessions for the current user.
+        """List all active sessions for the current user."""
+        return handle_list_sessions(self, handler)
 
-        Returns list of sessions with metadata (device, IP, last activity).
-        The current session is marked with is_current=true.
-        """
-        # RBAC check: session.list_active permission required
-        if error := self._check_permission(handler, "session.list_active"):
-            return error
-
-        from aragora.billing.auth.sessions import get_session_manager
-        from aragora.billing.jwt_auth import decode_jwt
-        from aragora.server.middleware.auth import extract_token
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        # Get current token JTI to mark current session
-        current_jti = None
-        token = extract_token(handler)
-        if token:
-            payload = decode_jwt(token)
-            current_jti = payload.jti if payload else None  # type: ignore[attr-defined]
-
-        # Get sessions from manager
-        manager = get_session_manager()
-        sessions = manager.list_sessions(auth_ctx.user_id)
-
-        # Convert to response format
-        session_list = []
-        for session in sessions:
-            session_dict = session.to_dict()
-            session_dict["is_current"] = session.session_id == current_jti
-            session_list.append(session_dict)
-
-        # Sort by last activity (most recent first)
-        session_list.sort(key=lambda s: s["last_activity"], reverse=True)
-
-        return json_response(
-            {
-                "sessions": session_list,
-                "total": len(session_list),
-            }
-        )
-
-    @rate_limit(requests_per_minute=10, limiter_name="auth_revoke_session")
-    @handle_errors("revoke session")
     def _handle_revoke_session(self, handler, session_id: str) -> HandlerResult:
-        """Revoke a specific session.
-
-        This invalidates the session and adds the token to the blacklist.
-        Users cannot revoke their current session (use logout instead).
-        """
-        # RBAC check: session.revoke permission required
-        if error := self._check_permission(handler, "session.revoke"):
-            return error
-
-        from aragora.billing.auth.sessions import get_session_manager
-        from aragora.billing.jwt_auth import decode_jwt
-        from aragora.server.middleware.auth import extract_token
-
-        # Get current user (already verified by _check_permission)
-        user_store = self._get_user_store()
-        auth_ctx = extract_user_from_request(handler, user_store)
-
-        # Validate session_id format
-        if not session_id or len(session_id) < 8:
-            return error_response("Invalid session ID", 400)
-
-        # Check if trying to revoke current session
-        current_jti = None
-        token = extract_token(handler)
-        if token:
-            payload = decode_jwt(token)
-            current_jti = payload.jti if payload else None  # type: ignore[attr-defined]
-
-        if session_id == current_jti:
-            return error_response(
-                "Cannot revoke current session. Use /api/auth/logout instead.",
-                400,
-            )
-
-        # Get session manager and verify session belongs to user
-        manager = get_session_manager()
-        session = manager.get_session(auth_ctx.user_id, session_id)
-
-        if not session:
-            return error_response("Session not found", 404)
-
-        # Revoke the session
-        manager.revoke_session(auth_ctx.user_id, session_id)
-
-        # Note: We don't have the actual token to blacklist here since we only
-        # store session metadata. The token will be rejected when:
-        # 1. User increments token version (logout-all)
-        # 2. Token expires naturally
-        # For immediate revocation, users should use logout-all
-
-        logger.info(f"Session {session_id[:8]}... revoked for user {auth_ctx.user_id}")
-
-        return json_response(
-            {
-                "success": True,
-                "message": "Session revoked successfully",
-                "session_id": session_id,
-            }
-        )
+        """Revoke a specific session."""
+        return handle_revoke_session(self, handler, session_id)
 
 
 __all__ = ["AuthHandler"]

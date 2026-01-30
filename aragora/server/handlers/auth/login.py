@@ -1,0 +1,260 @@
+"""
+Login and Registration Handlers.
+
+Handles user authentication endpoints:
+- POST /api/auth/register - Create a new user account
+- POST /api/auth/login - Authenticate and get tokens
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+from aragora.auth.lockout import get_lockout_tracker
+
+from ..base import HandlerResult, error_response, json_response, handle_errors, log_request
+from ..utils.rate_limit import get_client_ip, rate_limit
+from .validation import validate_email, validate_password
+
+if TYPE_CHECKING:
+    from .handler import AuthHandler
+
+# Unified audit logging
+try:
+    from aragora.audit.unified import audit_admin, audit_login, audit_security
+
+    AUDIT_AVAILABLE = True
+except ImportError:
+    AUDIT_AVAILABLE = False
+    audit_admin = None
+    audit_login = None
+    audit_security = None
+
+logger = logging.getLogger(__name__)
+
+
+@rate_limit(requests_per_minute=2, limiter_name="auth_register")
+@handle_errors("user registration")
+@log_request("user registration")
+def handle_register(handler_instance: "AuthHandler", handler) -> HandlerResult:
+    """Handle user registration."""
+    from aragora.billing.jwt_auth import create_token_pair
+    from aragora.billing.models import hash_password
+
+    # Parse request body
+    body = handler_instance.read_json_body(handler)
+    if body is None:
+        return error_response("Invalid JSON body", 400)
+
+    # Extract and validate fields
+    email = body.get("email", "").strip().lower()
+    password = body.get("password", "")
+    name = body.get("name", "").strip()
+    org_name = body.get("organization", "").strip()
+
+    # Validate email
+    valid, err = validate_email(email)
+    if not valid:
+        return error_response(err, 400)
+
+    # Validate password
+    valid, err = validate_password(password)
+    if not valid:
+        return error_response(err, 400)
+
+    # Get user store
+    user_store = handler_instance._get_user_store()
+    if not user_store:
+        return error_response("User service unavailable", 503)
+
+    # Check if email already exists
+    existing = user_store.get_user_by_email(email)
+    if existing:
+        return error_response("Email already registered", 409)
+
+    # Hash password
+    password_hash, password_salt = hash_password(password)
+
+    # Create user first (without org)
+    try:
+        user = user_store.create_user(
+            email=email,
+            password_hash=password_hash,
+            password_salt=password_salt,
+            name=name or email.split("@")[0],
+        )
+    except ValueError as e:
+        logger.warning(f"User creation failed: {type(e).__name__}: {e}")
+        return error_response("User creation failed", 409)
+
+    # Create organization if name provided
+    if org_name:
+        user_store.create_organization(
+            name=org_name,
+            owner_id=user.id,
+        )
+        # Refresh user to get updated org_id
+        user = user_store.get_user_by_id(user.id)
+
+    # Create tokens
+    tokens = create_token_pair(
+        user_id=user.id,
+        email=user.email,
+        org_id=user.org_id,
+        role=user.role,
+    )
+
+    logger.info(f"User registered: {user.email} (id={user.id})")
+
+    # Audit log: user registration
+    if AUDIT_AVAILABLE and audit_admin:
+        audit_admin(
+            admin_id=user.id,
+            action="user_registered",
+            target_type="user",
+            target_id=user.id,
+        )
+
+    return json_response(
+        {
+            "user": user.to_dict(),
+            "tokens": tokens.to_dict(),
+        },
+        status=201,
+    )
+
+
+@rate_limit(requests_per_minute=3, limiter_name="auth_login")
+@handle_errors("user login")
+@log_request("user login")
+def handle_login(handler_instance: "AuthHandler", handler) -> HandlerResult:
+    """Handle user login."""
+    from aragora.billing.jwt_auth import create_mfa_pending_token, create_token_pair
+
+    # Parse request body
+    body = handler_instance.read_json_body(handler)
+    if body is None:
+        return error_response("Invalid JSON body", 400)
+
+    email = body.get("email", "").strip().lower()
+    password = body.get("password", "")
+
+    if not email or not password:
+        return error_response("Email and password required", 400)
+
+    # Get client IP for lockout tracking
+    client_ip = get_client_ip(handler)
+
+    # Get user store
+    user_store = handler_instance._get_user_store()
+    if not user_store:
+        return error_response("Authentication service unavailable", 503)
+
+    # Check lockout tracker (tracks by email AND IP)
+    lockout_tracker = get_lockout_tracker()
+    if lockout_tracker.is_locked(email=email, ip=client_ip):
+        remaining_seconds = lockout_tracker.get_remaining_time(email=email, ip=client_ip)
+        remaining_minutes = max(1, remaining_seconds // 60)
+        logger.warning(f"Login attempt on locked account/IP: email={email}, ip={client_ip}")
+        return error_response(
+            f"Too many failed attempts. Try again in {remaining_minutes} minute(s).", 429
+        )
+
+    # Also check database-based account lockout (legacy support)
+    if hasattr(user_store, "is_account_locked"):
+        is_locked, lockout_until, failed_attempts = user_store.is_account_locked(email)
+        if is_locked and lockout_until:
+            remaining_minutes = max(
+                1, int((lockout_until - datetime.now(timezone.utc)).total_seconds() / 60)
+            )
+            logger.warning(f"Login attempt on locked account (db): {email}")
+            return error_response(
+                f"Account temporarily locked. Try again in {remaining_minutes} minute(s).", 429
+            )
+
+    # Find user
+    user = user_store.get_user_by_email(email)
+    if not user:
+        # Record failed attempt to lockout tracker (prevents enumeration attacks)
+        lockout_tracker.record_failure(email=email, ip=client_ip)
+        # Use same error to prevent email enumeration
+        return error_response("Invalid email or password", 401)
+
+    # Check if account is active
+    # 401: account disabled means the user cannot authenticate
+    if not user.is_active:
+        return error_response("Account is disabled", 401)
+
+    # Verify password
+    if not user.verify_password(password):
+        # Record failed login attempt to both trackers
+        attempts, lockout_seconds = lockout_tracker.record_failure(email=email, ip=client_ip)
+
+        # Also record in database for persistence across restarts
+        if hasattr(user_store, "record_failed_login"):
+            db_attempts, lockout_until = user_store.record_failed_login(email)
+
+        if lockout_seconds:
+            remaining_minutes = max(1, lockout_seconds // 60)
+            # Audit log: account lockout
+            if AUDIT_AVAILABLE and audit_security:
+                audit_security(
+                    event_type="anomaly",
+                    actor_id=email,
+                    ip_address=client_ip,
+                    reason="account_locked_due_to_failed_attempts",
+                )
+            return error_response(
+                f"Too many failed attempts. Account locked for {remaining_minutes} minute(s).",
+                429,
+            )
+        # Audit log: failed login
+        if AUDIT_AVAILABLE and audit_login:
+            audit_login(email, success=False, ip_address=client_ip, method="password")
+        return error_response("Invalid email or password", 401)
+
+    # Successful login - reset failed attempts in both trackers
+    lockout_tracker.reset(email=email, ip=client_ip)
+    if hasattr(user_store, "reset_failed_login_attempts"):
+        user_store.reset_failed_login_attempts(email)
+
+    # Update last login
+    user_store.update_user(user.id, last_login_at=datetime.now(timezone.utc))
+
+    # Check if MFA is enabled - require second factor before issuing tokens
+    if user.mfa_enabled and user.mfa_secret:
+        pending_token = create_mfa_pending_token(user.id, user.email)
+        logger.info(f"User login pending MFA: {user.email}")
+        return json_response(
+            {
+                "mfa_required": True,
+                "pending_token": pending_token,
+                "message": "MFA verification required",
+            }
+        )
+
+    # No MFA - create full tokens
+    tokens = create_token_pair(
+        user_id=user.id,
+        email=user.email,
+        org_id=user.org_id,
+        role=user.role,
+    )
+
+    logger.info(f"User logged in: {user.email}")
+
+    # Audit log: successful login
+    if AUDIT_AVAILABLE and audit_login:
+        audit_login(user.id, success=True, ip_address=client_ip, method="password")
+
+    return json_response(
+        {
+            "user": user.to_dict(),
+            "tokens": tokens.to_dict(),
+        }
+    )
+
+
+__all__ = ["handle_register", "handle_login"]
