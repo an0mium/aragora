@@ -446,8 +446,8 @@ class LocalGateway:
         # Send protocol challenge to align with OpenClaw connection flow.
         try:
             await ws.send_json(protocol.create_challenge_event())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to send WebSocket challenge: %s", e)
 
         # Add to subscribers
         if not hasattr(self, "_ws_subscribers"):

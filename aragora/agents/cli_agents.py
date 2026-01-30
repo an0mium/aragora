@@ -734,8 +734,8 @@ class KiloCodeAgent(CLIAgent):
                 if tmp_path:
                     try:
                         os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed to clean up temp file %s: %s", tmp_path, e)
         return await self._generate_with_fallback(
             base_cmd + [full_prompt],
             prompt,
