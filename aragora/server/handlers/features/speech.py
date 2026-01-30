@@ -198,16 +198,18 @@ class SpeechHandler(BaseHandler):
 
         # Fetch audio from URL
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             async def fetch_audio():
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
-                        if resp.status != 200:
-                            return None, f"Failed to fetch URL: HTTP {resp.status}"
-                        if resp.content_length and resp.content_length > MAX_FILE_SIZE_BYTES:
-                            return None, f"Audio file too large. Maximum: {MAX_FILE_SIZE_MB}MB"
-                        return await resp.read(), None
+                pool = get_http_pool()
+                async with pool.get_session("speech") as client:
+                    resp = await client.get(url, timeout=60)
+                    if resp.status_code != 200:
+                        return None, f"Failed to fetch URL: HTTP {resp.status_code}"
+                    content_length = resp.headers.get("content-length")
+                    if content_length and int(content_length) > MAX_FILE_SIZE_BYTES:
+                        return None, f"Audio file too large. Maximum: {MAX_FILE_SIZE_MB}MB"
+                    return resp.content, None
 
             try:
                 content, error = run_async(fetch_audio())
@@ -218,7 +220,7 @@ class SpeechHandler(BaseHandler):
                 return error_response(error, 400)
 
         except ImportError:
-            return error_response("aiohttp package required for URL transcription", 500)
+            return error_response("httpx package required for URL transcription", 500)
         except asyncio.TimeoutError:
             logger.warning(f"Timeout fetching audio from URL: {url}")
             return error_response("Timeout fetching audio from URL", 400)
@@ -287,7 +289,10 @@ class SpeechHandler(BaseHandler):
 
         except ImportError as e:
             logger.error(f"Speech module import error: {e}")
-            return error_dict("Speech transcription not available. Check server configuration.", code="SERVICE_UNAVAILABLE")
+            return error_dict(
+                "Speech transcription not available. Check server configuration.",
+                code="SERVICE_UNAVAILABLE",
+            )
         except RuntimeError as e:
             logger.error(f"STT provider error: {e}")
             return error_dict(str(e), code="INTERNAL_ERROR", status=500)

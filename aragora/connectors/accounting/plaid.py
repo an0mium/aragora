@@ -27,8 +27,6 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
-import aiohttp
-
 logger = logging.getLogger(__name__)
 
 from aragora.connectors.model_base import ConnectorDataclass
@@ -329,6 +327,10 @@ class PlaidConnector:
         data: dict[str, Any],
     ) -> dict[str, Any]:
         """Make authenticated request to Plaid API with circuit breaker protection."""
+        import httpx
+
+        from aragora.server.http_client_pool import get_http_pool
+
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
             cooldown = self._circuit_breaker.cooldown_remaining()
@@ -347,38 +349,39 @@ class PlaidConnector:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("plaid") as client:
+                response = await client.post(
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    response_data = await response.json()
+                    timeout=30,
+                )
+                response_data = response.json()
 
-                    # Handle transient errors (record failure for circuit breaker)
-                    if response.status >= 500 or response.status == 429:
-                        if self._circuit_breaker:
-                            self._circuit_breaker.record_failure()
-                        error_code = response_data.get("error_code", "SERVER_ERROR")
-                        error_message = response_data.get(
-                            "error_message", f"HTTP {response.status}"
-                        )
-                        raise PlaidError(error_code, error_message)
-
-                    # Handle client errors (don't record failure - not transient)
-                    if response.status >= 400:
-                        error_code = response_data.get("error_code", "UNKNOWN")
-                        error_message = response_data.get("error_message", "Unknown error")
-                        raise PlaidError(error_code, error_message)
-
-                    # Success - record for circuit breaker
+                # Handle transient errors (record failure for circuit breaker)
+                if response.status_code >= 500 or response.status_code == 429:
                     if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
+                        self._circuit_breaker.record_failure()
+                    error_code = response_data.get("error_code", "SERVER_ERROR")
+                    error_message = response_data.get(
+                        "error_message", f"HTTP {response.status_code}"
+                    )
+                    raise PlaidError(error_code, error_message)
 
-                    return response_data
+                # Handle client errors (don't record failure - not transient)
+                if response.status_code >= 400:
+                    error_code = response_data.get("error_code", "UNKNOWN")
+                    error_message = response_data.get("error_message", "Unknown error")
+                    raise PlaidError(error_code, error_message)
 
-        except aiohttp.ClientError as e:
+                # Success - record for circuit breaker
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_success()
+
+                return response_data
+
+        except httpx.RequestError as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
             raise PlaidError("NETWORK_ERROR", f"Connection error: {e}")

@@ -216,9 +216,10 @@ class WebSearchSkill(Skill):
             return await self._search_duckduckgo(query, max_results, None, None)
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("tavily") as client:
                 response = await client.post(
                     "https://api.tavily.com/search",
                     json={
@@ -265,9 +266,10 @@ class WebSearchSkill(Skill):
             return await self._search_duckduckgo(query, max_results, None, None)
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("google") as client:
                 response = await client.get(
                     "https://www.googleapis.com/customsearch/v1",
                     params={

@@ -270,7 +270,7 @@ class GmailLabelsHandler(SecureHandler):
         options: dict[str, Any],
     ) -> dict[str, Any]:
         """Create label via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -287,7 +287,8 @@ class GmailLabelsHandler(SecureHandler):
                 "textColor": options.get("text_color", "#ffffff"),
             }
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/labels",
                 headers={"Authorization": f"Bearer {token}"},
@@ -313,7 +314,7 @@ class GmailLabelsHandler(SecureHandler):
         updates: dict[str, Any],
     ) -> dict[str, Any]:
         """Update label via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -330,7 +331,8 @@ class GmailLabelsHandler(SecureHandler):
                 "textColor": updates.get("text_color", "#ffffff"),
             }
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.patch(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/labels/{label_id}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -351,11 +353,12 @@ class GmailLabelsHandler(SecureHandler):
 
     async def _api_delete_label(self, state: Any, label_id: str) -> None:
         """Delete label via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.delete(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/labels/{label_id}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -401,11 +404,12 @@ class GmailLabelsHandler(SecureHandler):
         remove_labels: list[str],
     ) -> dict[str, Any]:
         """Modify message labels via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/modify",
                 headers={"Authorization": f"Bearer {token}"},
@@ -514,11 +518,12 @@ class GmailLabelsHandler(SecureHandler):
 
     async def _api_trash_message(self, state: Any, message_id: str) -> None:
         """Move message to trash via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/trash",
                 headers={"Authorization": f"Bearer {token}"},
@@ -527,11 +532,12 @@ class GmailLabelsHandler(SecureHandler):
 
     async def _api_untrash_message(self, state: Any, message_id: str) -> None:
         """Remove message from trash via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/untrash",
                 headers={"Authorization": f"Bearer {token}"},
@@ -559,11 +565,12 @@ class GmailLabelsHandler(SecureHandler):
 
     async def _api_list_filters(self, state: Any) -> list[dict[str, Any]]:
         """List filters via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 "https://gmail.googleapis.com/gmail/v1/users/me/settings/filters",
                 headers={"Authorization": f"Bearer {token}"},
@@ -597,7 +604,7 @@ class GmailLabelsHandler(SecureHandler):
         action: dict[str, Any],
     ) -> dict[str, Any]:
         """Create filter via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -638,7 +645,8 @@ class GmailLabelsHandler(SecureHandler):
         if "forward" in action:
             filter_action["forward"] = action["forward"]
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/settings/filters",
                 headers={"Authorization": f"Bearer {token}"},
@@ -662,11 +670,12 @@ class GmailLabelsHandler(SecureHandler):
 
     async def _api_delete_filter(self, state: Any, filter_id: str) -> None:
         """Delete filter via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.delete(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/settings/filters/{filter_id}",
                 headers={"Authorization": f"Bearer {token}"},

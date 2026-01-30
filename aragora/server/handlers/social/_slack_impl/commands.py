@@ -409,12 +409,12 @@ class CommandsMixin(BlocksMixin):
         channel_id: str,
     ) -> None:
         """Answer a question asynchronously using a single agent."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
-            # Call the quick answer API endpoint
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                resp = await client.post(
                     f"{ARAGORA_API_BASE_URL}/api/quick-answer",
                     json={
                         "question": question,
@@ -424,78 +424,75 @@ class CommandsMixin(BlocksMixin):
                             "user_id": user_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp:
-                    if resp.status != 200:
-                        # Fallback to debate API if quick-answer not available
-                        data = {"answer": None, "error": "Quick answer service unavailable"}
-                    else:
-                        data = await resp.json()
+                    timeout=60,
+                )
+                if resp.status_code != 200:
+                    # Fallback to debate API if quick-answer not available
+                    data = {"answer": None, "error": "Quick answer service unavailable"}
+                else:
+                    data = resp.json()
 
-                    answer = data.get("answer")
-                    if not answer:
-                        # Fallback: use single-round debate
-                        async with session.post(
-                            f"{ARAGORA_API_BASE_URL}/api/debates",
-                            json={
-                                "task": question,
-                                "rounds": 1,
-                                "agents": ["anthropic-api"],
-                            },
-                            timeout=aiohttp.ClientTimeout(total=60),
-                        ) as debate_resp:
-                            if debate_resp.status == 200 or debate_resp.status == 201:
-                                debate_data = await debate_resp.json()
-                                answer = debate_data.get(
-                                    "final_answer", "Unable to generate answer."
-                                )
-                            else:
-                                answer = "Unable to generate answer at this time."
-
-                    # Build response blocks
-                    blocks = [
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": f"*Question:*\n_{question[:200]}{'...' if len(question) > 200 else ''}_",
-                            },
+                answer = data.get("answer")
+                if not answer:
+                    # Fallback: use single-round debate
+                    debate_resp = await client.post(
+                        f"{ARAGORA_API_BASE_URL}/api/debates",
+                        json={
+                            "task": question,
+                            "rounds": 1,
+                            "agents": ["anthropic-api"],
                         },
-                        {
-                            "type": "divider",
-                        },
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": f"*Answer:*\n{answer[:2000] if answer else 'No answer available'}",
-                            },
-                        },
-                        {
-                            "type": "context",
-                            "elements": [
-                                {
-                                    "type": "mrkdwn",
-                                    "text": f"Asked by <@{user_id}>",
-                                },
-                            ],
-                        },
-                    ]
-
-                    await self._post_to_response_url(
-                        response_url,
-                        {
-                            "response_type": "in_channel",
-                            "text": f"Answer: {answer[:100] if answer else 'No answer'}...",
-                            "blocks": blocks,
-                            "replace_original": False,
-                        },
+                        timeout=60,
                     )
+                    if debate_resp.status_code == 200 or debate_resp.status_code == 201:
+                        debate_data = debate_resp.json()
+                        answer = debate_data.get("final_answer", "Unable to generate answer.")
+                    else:
+                        answer = "Unable to generate answer at this time."
+
+                # Build response blocks
+                blocks = [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Question:*\n_{question[:200]}{'...' if len(question) > 200 else ''}_",
+                        },
+                    },
+                    {
+                        "type": "divider",
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Answer:*\n{answer[:2000] if answer else 'No answer available'}",
+                        },
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Asked by <@{user_id}>",
+                            },
+                        ],
+                    },
+                ]
+
+                await self._post_to_response_url(
+                    response_url,
+                    {
+                        "response_type": "in_channel",
+                        "text": f"Answer: {answer[:100] if answer else 'No answer'}...",
+                        "blocks": blocks,
+                        "replace_original": False,
+                    },
+                )
 
         except (
             OSError,
             asyncio.TimeoutError,
-            aiohttp.ClientError,
             json.JSONDecodeError,
             ValueError,
             KeyError,
@@ -883,12 +880,12 @@ class CommandsMixin(BlocksMixin):
         workspace_id: str | None = None,
     ) -> None:
         """Run gauntlet asynchronously and POST result to Slack."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
-            # Call the gauntlet API
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                resp = await client.post(
                     f"{ARAGORA_API_BASE_URL}/api/gauntlet/run",
                     json={
                         "statement": statement,
@@ -899,105 +896,104 @@ class CommandsMixin(BlocksMixin):
                             "user_id": user_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=120,
+                )
+                data = resp.json()
 
-                    if resp.status != 200:
-                        await self._post_to_response_url(
-                            response_url,
-                            {
-                                "response_type": "in_channel",
-                                "text": f"Gauntlet failed: {data.get('error', 'Unknown error')}",
-                                "replace_original": False,
-                            },
-                        )
-                        return
-
-                    # Build result blocks
-                    run_id = data.get("run_id", "unknown")
-                    score = data.get("score", 0)
-                    passed = data.get("passed", False)
-                    vulnerabilities = data.get("vulnerabilities", [])
-
-                    score_bar = "\u2b50" * int(score * 5) + "\u2606" * (5 - int(score * 5))
-                    status_emoji = "\u2705" if passed else "\u274c"
-
-                    blocks = [
-                        {
-                            "type": "header",
-                            "text": {
-                                "type": "plain_text",
-                                "text": f"{status_emoji} Gauntlet Results",
-                                "emoji": True,
-                            },
-                        },
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_",
-                            },
-                        },
-                        {
-                            "type": "section",
-                            "fields": [
-                                {
-                                    "type": "mrkdwn",
-                                    "text": f"*Score:* {score_bar} {score:.1%}",
-                                },
-                                {
-                                    "type": "mrkdwn",
-                                    "text": f"*Status:* {'Passed' if passed else 'Failed'}",
-                                },
-                                {
-                                    "type": "mrkdwn",
-                                    "text": f"*Vulnerabilities:* {len(vulnerabilities)}",
-                                },
-                            ],
-                        },
-                    ]
-
-                    if vulnerabilities:
-                        vuln_text = "*Issues Found:*\n"
-                        for v in vulnerabilities[:5]:
-                            vuln_text += f"\u2022 {v.get('description', 'Unknown issue')[:100]}\n"
-                        if len(vulnerabilities) > 5:
-                            vuln_text += f"_...and {len(vulnerabilities) - 5} more_"
-
-                        blocks.append(
-                            {
-                                "type": "section",
-                                "text": {"type": "mrkdwn", "text": vuln_text},
-                            }
-                        )
-
-                    blocks.append(
-                        {
-                            "type": "context",
-                            "elements": [
-                                {
-                                    "type": "mrkdwn",
-                                    "text": f"Run ID: `{run_id}` | Requested by <@{user_id}>",
-                                },
-                            ],
-                        }
-                    )
-
+                if resp.status_code != 200:
                     await self._post_to_response_url(
                         response_url,
                         {
                             "response_type": "in_channel",
-                            "text": f"Gauntlet complete: {statement[:50]}...",
-                            "blocks": blocks,
+                            "text": f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                             "replace_original": False,
                         },
                     )
+                    return
+
+                # Build result blocks
+                run_id = data.get("run_id", "unknown")
+                score = data.get("score", 0)
+                passed = data.get("passed", False)
+                vulnerabilities = data.get("vulnerabilities", [])
+
+                score_bar = "\u2b50" * int(score * 5) + "\u2606" * (5 - int(score * 5))
+                status_emoji = "\u2705" if passed else "\u274c"
+
+                blocks = [
+                    {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"{status_emoji} Gauntlet Results",
+                            "emoji": True,
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_",
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Score:* {score_bar} {score:.1%}",
+                            },
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Status:* {'Passed' if passed else 'Failed'}",
+                            },
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Vulnerabilities:* {len(vulnerabilities)}",
+                            },
+                        ],
+                    },
+                ]
+
+                if vulnerabilities:
+                    vuln_text = "*Issues Found:*\n"
+                    for v in vulnerabilities[:5]:
+                        vuln_text += f"\u2022 {v.get('description', 'Unknown issue')[:100]}\n"
+                    if len(vulnerabilities) > 5:
+                        vuln_text += f"_...and {len(vulnerabilities) - 5} more_"
+
+                    blocks.append(
+                        {
+                            "type": "section",
+                            "text": {"type": "mrkdwn", "text": vuln_text},
+                        }
+                    )
+
+                blocks.append(
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Run ID: `{run_id}` | Requested by <@{user_id}>",
+                            },
+                        ],
+                    }
+                )
+
+                await self._post_to_response_url(
+                    response_url,
+                    {
+                        "response_type": "in_channel",
+                        "text": f"Gauntlet complete: {statement[:50]}...",
+                        "blocks": blocks,
+                        "replace_original": False,
+                    },
+                )
 
         except (
             OSError,
             asyncio.TimeoutError,
-            aiohttp.ClientError,
             json.JSONDecodeError,
             ValueError,
             KeyError,

@@ -654,23 +654,24 @@ class OAuthWizardHandler(SecureHandler):
             if not token:
                 return {"success": False, "error": "No access token available"}
 
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                response = await client.post(
                     "https://slack.com/api/auth.test",
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    data = await response.json()
-                    if data.get("ok"):
-                        return {
-                            "success": True,
-                            "team": data.get("team"),
-                            "user": data.get("user"),
-                            "team_id": data.get("team_id"),
-                        }
-                    return {"success": False, "error": data.get("error", "Unknown")}
+                    timeout=10,
+                )
+                data = response.json()
+                if data.get("ok"):
+                    return {
+                        "success": True,
+                        "team": data.get("team"),
+                        "user": data.get("user"),
+                        "team_id": data.get("team_id"),
+                    }
+                return {"success": False, "error": data.get("error", "Unknown")}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -689,23 +690,24 @@ class OAuthWizardHandler(SecureHandler):
             if not token:
                 return {"success": False, "error": "No access token available"}
 
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
+            pool = get_http_pool()
+            async with pool.get_session("teams") as client:
+                response = await client.get(
                     "https://graph.microsoft.com/v1.0/me",
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return {
-                            "success": True,
-                            "display_name": data.get("displayName"),
-                        }
-                    elif response.status == 401:
-                        return {"success": False, "error": "Token expired"}
-                    return {"success": False, "error": f"API returned {response.status}"}
+                    timeout=10,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "success": True,
+                        "display_name": data.get("displayName"),
+                    }
+                elif response.status_code == 401:
+                    return {"success": False, "error": "Token expired"}
+                return {"success": False, "error": f"API returned {response.status_code}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
@@ -716,18 +718,19 @@ class OAuthWizardHandler(SecureHandler):
             return {"success": False, "error": "DISCORD_BOT_TOKEN not configured"}
 
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
+            pool = get_http_pool()
+            async with pool.get_session("discord") as client:
+                response = await client.get(
                     "https://discord.com/api/v10/users/@me",
                     headers={"Authorization": f"Bot {bot_token}"},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return {"success": True, "bot_name": data.get("username")}
-                    return {"success": False, "error": f"API returned {response.status}"}
+                    timeout=10,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {"success": True, "bot_name": data.get("username")}
+                return {"success": False, "error": f"API returned {response.status_code}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

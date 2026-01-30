@@ -146,13 +146,14 @@ class EvidenceFetchSkill(Skill):
             return {"url": url, "error": f"URL blocked: {error}"}
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
         except ImportError:
-            return {"error": "httpx not installed"}
+            return {"error": "http_client_pool not available"}
 
         try:
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                response = await client.get(url, timeout=30.0)
+            pool = get_http_pool()
+            async with pool.get_session("evidence_fetch") as client:
+                response = await client.get(url, timeout=30.0, follow_redirects=True)
                 response.raise_for_status()
 
                 content_type = response.headers.get("content-type", "")
@@ -256,9 +257,10 @@ class EvidenceFetchSkill(Skill):
     ) -> list[dict[str, Any]]:
         """Search academic papers via Semantic Scholar."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("semantic_scholar") as client:
                 response = await client.get(
                     "https://api.semanticscholar.org/graph/v1/paper/search",
                     params={

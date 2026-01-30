@@ -826,49 +826,49 @@ Expense details:
 Respond with ONLY the category name (lowercase, with underscores). No explanation."""
 
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
+
+            pool = get_http_pool()
 
             if provider == "anthropic":
-                async with aiohttp.ClientSession() as session:
-                    async with (
-                        session.post(
-                            "https://api.anthropic.com/v1/messages",
-                            headers={
-                                "x-api-key": api_key,
-                                "anthropic-version": "2023-06-01",
-                                "content-type": "application/json",
-                            },
-                            json={
-                                "model": "claude-3-haiku-20240307",  # Fast, cheap model for categorization
-                                "max_tokens": 50,
-                                "messages": [{"role": "user", "content": prompt}],
-                            },
-                            timeout=aiohttp.ClientTimeout(total=10),
-                        ) as resp
-                    ):
-                        if resp.status == 200:
-                            data = await resp.json()
-                            category_text = data["content"][0]["text"].strip().lower()
-                            # Emit usage event for LLM call
-                            usage = data.get("usage", {})
-                            await self._emit_usage_event(
-                                operation="categorize_expense",
-                                tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
-                                cost_usd=0.00025,  # ~$0.25/M tokens for Haiku
-                                provider="anthropic",
-                                model="claude-3-haiku-20240307",
-                            )
-                            try:
-                                return ExpenseCategory(category_text)
-                            except ValueError:
-                                logger.debug(f"LLM returned invalid category: {category_text}")
-                                return None
-                        else:
-                            logger.warning(f"Anthropic API error: {resp.status}")
+                async with pool.get_session("anthropic") as client:
+                    response = await client.post(
+                        "https://api.anthropic.com/v1/messages",
+                        headers={
+                            "x-api-key": api_key,
+                            "anthropic-version": "2023-06-01",
+                            "content-type": "application/json",
+                        },
+                        json={
+                            "model": "claude-3-haiku-20240307",  # Fast, cheap model for categorization
+                            "max_tokens": 50,
+                            "messages": [{"role": "user", "content": prompt}],
+                        },
+                        timeout=10,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        category_text = data["content"][0]["text"].strip().lower()
+                        # Emit usage event for LLM call
+                        usage = data.get("usage", {})
+                        await self._emit_usage_event(
+                            operation="categorize_expense",
+                            tokens=usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+                            cost_usd=0.00025,  # ~$0.25/M tokens for Haiku
+                            provider="anthropic",
+                            model="claude-3-haiku-20240307",
+                        )
+                        try:
+                            return ExpenseCategory(category_text)
+                        except ValueError:
+                            logger.debug(f"LLM returned invalid category: {category_text}")
                             return None
+                    else:
+                        logger.warning(f"Anthropic API error: {response.status_code}")
+                        return None
             else:  # OpenAI
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
+                async with pool.get_session("openai") as client:
+                    response = await client.post(
                         "https://api.openai.com/v1/chat/completions",
                         headers={
                             "Authorization": f"Bearer {api_key}",
@@ -879,28 +879,28 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                             "max_tokens": 50,
                             "messages": [{"role": "user", "content": prompt}],
                         },
-                        timeout=aiohttp.ClientTimeout(total=10),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            category_text = data["choices"][0]["message"]["content"].strip().lower()
-                            # Emit usage event for LLM call
-                            usage = data.get("usage", {})
-                            await self._emit_usage_event(
-                                operation="categorize_expense",
-                                tokens=usage.get("total_tokens", 0),
-                                cost_usd=0.00015,  # ~$0.15/M tokens for GPT-4o-mini
-                                provider="openai",
-                                model="gpt-4o-mini",
-                            )
-                            try:
-                                return ExpenseCategory(category_text)
-                            except ValueError:
-                                logger.debug(f"LLM returned invalid category: {category_text}")
-                                return None
-                        else:
-                            logger.warning(f"OpenAI API error: {resp.status}")
+                        timeout=10,
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        category_text = data["choices"][0]["message"]["content"].strip().lower()
+                        # Emit usage event for LLM call
+                        usage = data.get("usage", {})
+                        await self._emit_usage_event(
+                            operation="categorize_expense",
+                            tokens=usage.get("total_tokens", 0),
+                            cost_usd=0.00015,  # ~$0.15/M tokens for GPT-4o-mini
+                            provider="openai",
+                            model="gpt-4o-mini",
+                        )
+                        try:
+                            return ExpenseCategory(category_text)
+                        except ValueError:
+                            logger.debug(f"LLM returned invalid category: {category_text}")
                             return None
+                    else:
+                        logger.warning(f"OpenAI API error: {response.status_code}")
+                        return None
         except Exception as e:
             logger.warning(f"LLM categorization failed: {e}")
             return None

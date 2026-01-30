@@ -1540,17 +1540,18 @@ class CheckpointWebhook:
     async def _send_webhook(self, event: str, data: dict):
         """Send webhook notification."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                await session.post(
+            pool = get_http_pool()
+            async with pool.get_session("checkpoint_webhook") as client:
+                await client.post(
                     self.webhook_url,
                     json={"event": event, "data": data},
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=10,
                 )
         except ImportError as e:
-            logger.debug(f"Webhook notification failed - aiohttp not available: {e}")
-        except (ConnectionError, TimeoutError) as e:
+            logger.debug(f"Webhook notification failed - http pool not available: {e}")
+        except (ConnectionError, TimeoutError, OSError) as e:
             logger.debug(f"Webhook notification failed - connection error: {e}")
         except Exception as e:
             logger.warning(f"Unexpected webhook notification error: {e}")

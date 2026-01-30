@@ -547,43 +547,48 @@ class QuickBooksConnector:
         Returns:
             OAuth credentials
         """
-        import aiohttp
         import base64
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        pool = get_http_pool()
+        async with pool.get_session("qbo") as client:
+            response = await client.post(
                 self.TOKEN_URL,
                 headers={
                     "Authorization": f"Basic {auth_header}",
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
-                data={
-                    "grant_type": "authorization_code",
-                    "code": authorization_code,
-                    "redirect_uri": self.redirect_uri,
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise ConnectorAuthError(
-                        f"Token exchange failed: {error_text}",
-                        connector_name="qbo",
-                    )
-
-                data = await response.json()
-
-                self._credentials = QBOCredentials(
-                    access_token=data["access_token"],
-                    refresh_token=data["refresh_token"],
-                    realm_id=realm_id,
-                    token_type=data.get("token_type", "Bearer"),
-                    expires_at=datetime.now(timezone.utc)
-                    + timedelta(seconds=data.get("expires_in", 3600)),
+                content=urllib.parse.urlencode(
+                    {
+                        "grant_type": "authorization_code",
+                        "code": authorization_code,
+                        "redirect_uri": self.redirect_uri,
+                    }
+                ),
+            )
+            if response.status_code != 200:
+                error_text = response.text
+                raise ConnectorAuthError(
+                    f"Token exchange failed: {error_text}",
+                    connector_name="qbo",
                 )
 
-                return self._credentials
+            data = response.json()
+
+            self._credentials = QBOCredentials(
+                access_token=data["access_token"],
+                refresh_token=data["refresh_token"],
+                realm_id=realm_id,
+                token_type=data.get("token_type", "Bearer"),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(seconds=data.get("expires_in", 3600)),
+            )
+
+            return self._credentials
 
     async def refresh_tokens(self) -> QBOCredentials:
         """Refresh OAuth tokens."""
@@ -593,42 +598,47 @@ class QuickBooksConnector:
                 connector_name="qbo",
             )
 
-        import aiohttp
         import base64
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        pool = get_http_pool()
+        async with pool.get_session("qbo") as client:
+            response = await client.post(
                 self.TOKEN_URL,
                 headers={
                     "Authorization": f"Basic {auth_header}",
                     "Content-Type": "application/x-www-form-urlencoded",
                 },
-                data={
-                    "grant_type": "refresh_token",
-                    "refresh_token": self._credentials.refresh_token,
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise ConnectorAuthError(
-                        f"Token refresh failed: {error_text}",
-                        connector_name="qbo",
-                    )
-
-                data = await response.json()
-
-                self._credentials = QBOCredentials(
-                    access_token=data["access_token"],
-                    refresh_token=data["refresh_token"],
-                    realm_id=self._credentials.realm_id,
-                    token_type=data.get("token_type", "Bearer"),
-                    expires_at=datetime.now(timezone.utc)
-                    + timedelta(seconds=data.get("expires_in", 3600)),
+                content=urllib.parse.urlencode(
+                    {
+                        "grant_type": "refresh_token",
+                        "refresh_token": self._credentials.refresh_token,
+                    }
+                ),
+            )
+            if response.status_code != 200:
+                error_text = response.text
+                raise ConnectorAuthError(
+                    f"Token refresh failed: {error_text}",
+                    connector_name="qbo",
                 )
 
-                return self._credentials
+            data = response.json()
+
+            self._credentials = QBOCredentials(
+                access_token=data["access_token"],
+                refresh_token=data["refresh_token"],
+                realm_id=self._credentials.realm_id,
+                token_type=data.get("token_type", "Bearer"),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(seconds=data.get("expires_in", 3600)),
+            )
+
+            return self._credentials
 
     def set_credentials(self, credentials: QBOCredentials) -> None:
         """Set credentials (e.g., from storage)."""
@@ -660,7 +670,9 @@ class QuickBooksConnector:
         """
         import asyncio
 
-        import aiohttp
+        import httpx
+
+        from aragora.server.http_client_pool import get_http_pool
 
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
@@ -690,55 +702,56 @@ class QuickBooksConnector:
         retryable_statuses = {429, 500, 502, 503, 504}
         last_error: Exception | None = None
 
+        pool = get_http_pool()
         for attempt in range(max_retries + 1):
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.request(
+                async with pool.get_session("qbo") as client:
+                    response = await client.request(
                         method,
                         url,
                         headers=headers,
                         json=data,
-                        timeout=aiohttp.ClientTimeout(total=30),
-                    ) as response:
-                        # Handle rate limiting with Retry-After header
-                        if response.status == 429:
-                            retry_after = response.headers.get("Retry-After")
-                            if retry_after and attempt < max_retries:
-                                delay = float(retry_after)
-                                logger.warning(f"QBO rate limited, waiting {delay}s")
-                                await asyncio.sleep(delay)
-                                continue
-
-                        # Retry on server errors
-                        if response.status in retryable_statuses and attempt < max_retries:
-                            delay = base_delay * (2**attempt)
-                            logger.warning(
-                                f"QBO request failed ({response.status}), "
-                                f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
-                            )
+                        timeout=30,
+                    )
+                    # Handle rate limiting with Retry-After header
+                    if response.status_code == 429:
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after and attempt < max_retries:
+                            delay = float(retry_after)
+                            logger.warning(f"QBO rate limited, waiting {delay}s")
                             await asyncio.sleep(delay)
                             continue
 
-                        response_data = await response.json()
+                    # Retry on server errors
+                    if response.status_code in retryable_statuses and attempt < max_retries:
+                        delay = base_delay * (2**attempt)
+                        logger.warning(
+                            f"QBO request failed ({response.status_code}), "
+                            f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
 
-                        if response.status >= 400:
-                            error = response_data.get("Fault", {}).get("Error", [{}])[0]
-                            # Record failure for persistent errors
-                            if self._circuit_breaker:
-                                self._circuit_breaker.record_failure()
-                            raise ConnectorAPIError(
-                                f"QBO API error: {error.get('Message', 'Unknown error')}",
-                                connector_name="qbo",
-                                status_code=response.status,
-                            )
+                    response_data = response.json()
 
-                        # Success - record it
+                    if response.status_code >= 400:
+                        error = response_data.get("Fault", {}).get("Error", [{}])[0]
+                        # Record failure for persistent errors
                         if self._circuit_breaker:
-                            self._circuit_breaker.record_success()
+                            self._circuit_breaker.record_failure()
+                        raise ConnectorAPIError(
+                            f"QBO API error: {error.get('Message', 'Unknown error')}",
+                            connector_name="qbo",
+                            status_code=response.status_code,
+                        )
 
-                        return response_data
+                    # Success - record it
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
 
-            except aiohttp.ClientError as e:
+                    return response_data
+
+            except httpx.RequestError as e:
                 last_error = e
                 if attempt < max_retries:
                     delay = base_delay * (2**attempt)

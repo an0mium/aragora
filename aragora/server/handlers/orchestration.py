@@ -1078,16 +1078,17 @@ class OrchestrationHandler(SecureHandler):
     async def _send_to_webhook(self, channel: OutputChannel, result: OrchestrationResult) -> None:
         """Send result to webhook."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("orchestration_handler") as client:
+                response = await client.post(
                     channel.channel_id,
                     json=result.to_dict(),
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status >= 400:
-                        logger.warning(f"Webhook returned {response.status}")
+                    timeout=10.0,
+                )
+                if response.status_code >= 400:
+                    logger.warning(f"Webhook returned {response.status_code}")
         except Exception as e:
             logger.warning(f"Failed to send to webhook: {e}")
 

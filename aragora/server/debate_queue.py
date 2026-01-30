@@ -553,7 +553,7 @@ class DebateQueue:
     async def _send_webhook(self, batch: BatchRequest) -> None:
         """Send webhook notification for completed batch."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             is_valid, error_msg = validate_webhook_url(batch.webhook_url or "")
             if not is_valid:
@@ -577,21 +577,22 @@ class DebateQueue:
             headers = {"Content-Type": "application/json"}
             headers.update(extra_headers)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
+                response = await client.post(
                     batch.webhook_url,
                     json=payload,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status >= 400:
-                        logger.warning(
-                            f"Webhook failed for batch {batch.batch_id}: status={response.status}"
-                        )
-                    else:
-                        logger.info(f"Webhook sent for batch {batch.batch_id}")
+                    timeout=30,
+                )
+                if response.status_code >= 400:
+                    logger.warning(
+                        f"Webhook failed for batch {batch.batch_id}: status={response.status_code}"
+                    )
+                else:
+                    logger.info(f"Webhook sent for batch {batch.batch_id}")
         except ImportError:
-            logger.warning("aiohttp not available for webhook")
+            logger.warning("httpx not available for webhook")
         except (ConnectionError, OSError, TimeoutError, asyncio.TimeoutError) as e:
             logger.error(f"Webhook error for batch {batch.batch_id}: {e}")
 

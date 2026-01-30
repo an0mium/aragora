@@ -343,9 +343,10 @@ class GmailQueryHandler(SecureHandler):
                 audio_bytes = base64.b64decode(audio_data)
             else:
                 # Fetch from URL
-                import httpx
+                from aragora.server.http_client_pool import get_http_pool
 
-                async with httpx.AsyncClient() as client:
+                pool = get_http_pool()
+                async with pool.get_session("google") as client:
                     resp = await client.get(audio_url)
                     audio_bytes = resp.content
 

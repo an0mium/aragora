@@ -71,36 +71,38 @@ class ZoomOAuthManager:
 
         # Fetch new token using client credentials
         try:
-            import aiohttp
             import base64
+
+            from aragora.server.http_client_pool import get_http_pool
 
             auth_str = f"{self.client_id}:{self.client_secret}"
             auth_bytes = base64.b64encode(auth_str.encode()).decode()
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("zoom") as client:
+                resp = await client.post(
                     "https://zoom.us/oauth/token",
                     headers={
                         "Authorization": f"Basic {auth_bytes}",
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
                     data={"grant_type": "client_credentials"},
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self._access_token = data.get("access_token")
-                        expires_in = data.get("expires_in", 3600)
-                        from datetime import timedelta
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    self._access_token = data.get("access_token")
+                    expires_in = data.get("expires_in", 3600)
+                    from datetime import timedelta
 
-                        self._token_expires = datetime.now(timezone.utc) + timedelta(
-                            seconds=expires_in - 60  # Buffer
-                        )
-                        return self._access_token
-                    else:
-                        logger.error(f"Failed to get Zoom token: {resp.status}")
-                        return None
+                    self._token_expires = datetime.now(timezone.utc) + timedelta(
+                        seconds=expires_in - 60  # Buffer
+                    )
+                    return self._access_token
+                else:
+                    logger.error(f"Failed to get Zoom token: {resp.status_code}")
+                    return None
         except ImportError:
-            logger.warning("aiohttp not installed for Zoom OAuth")
+            logger.warning("httpx not installed for Zoom OAuth")
             return None
         except OSError as e:
             logger.error(f"Zoom OAuth error: {e}")
@@ -262,7 +264,7 @@ class AragoraZoomBot:
     ) -> None:
         """Generate and send post-meeting summary using debate analysis."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             meeting_data = payload.get("object", {})
             topic = meeting_data.get("topic", "Untitled Meeting")
@@ -270,8 +272,9 @@ class AragoraZoomBot:
             participant_count = meeting_data.get("participant_count", 0)
 
             # Request summary generation from Aragora API
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("aragora") as client:
+                resp = await client.post(
                     f"{API_BASE}/api/v1/meetings/summary",
                     json={
                         "meeting_id": meeting_id,
@@ -282,15 +285,15 @@ class AragoraZoomBot:
                         "platform": "zoom",
                     },
                     headers={"Content-Type": "application/json"},
-                ) as resp:
-                    if resp.status == 200:
-                        logger.info(f"Post-meeting summary generated for {meeting_id}")
-                    else:
-                        logger.warning(
-                            f"Failed to generate summary for {meeting_id}: {resp.status}"
-                        )
+                )
+                if resp.status_code == 200:
+                    logger.info(f"Post-meeting summary generated for {meeting_id}")
+                else:
+                    logger.warning(
+                        f"Failed to generate summary for {meeting_id}: {resp.status_code}"
+                    )
         except ImportError:
-            logger.warning("aiohttp not available for post-meeting summary")
+            logger.warning("httpx not available for post-meeting summary")
         except OSError as e:
             logger.error(f"Error generating post-meeting summary: {e}")
 
@@ -302,7 +305,7 @@ class AragoraZoomBot:
     ) -> dict[str, Any]:
         """Send a chat message via Zoom API."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             token = await self.oauth.get_access_token()
             if not token:
@@ -326,25 +329,26 @@ class AragoraZoomBot:
                 },
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("zoom") as client:
+                resp = await client.post(
                     "https://api.zoom.us/v2/im/chat/messages",
                     headers={
                         "Authorization": f"Bearer {token}",
                         "Content-Type": "application/json",
                     },
                     json=payload,
-                ) as resp:
-                    if resp.status in (200, 201):
-                        return {"status": "ok"}
-                    else:
-                        text = await resp.text()
-                        logger.error(f"Zoom send failed: {resp.status} - {text}")
-                        return {"status": "error", "message": text[:100]}
+                )
+                if resp.status_code in (200, 201):
+                    return {"status": "ok"}
+                else:
+                    text = resp.text
+                    logger.error(f"Zoom send failed: {resp.status_code} - {text}")
+                    return {"status": "error", "message": text[:100]}
 
         except ImportError:
-            logger.warning("aiohttp not installed for Zoom API calls")
-            return {"status": "error", "message": "aiohttp not installed"}
+            logger.warning("httpx not installed for Zoom API calls")
+            return {"status": "error", "message": "httpx not installed"}
         except OSError as e:
             logger.error(f"Zoom send error: {e}")
             return {"status": "error", "message": str(e)[:100]}

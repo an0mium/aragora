@@ -287,7 +287,7 @@ class SlackProvider(ChannelProvider):
     async def send(self, message: NotificationMessage, config: ChannelConfig) -> NotificationResult:
         """Send notification to Slack."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             payload = self.format_message(message)
 
@@ -309,28 +309,29 @@ class SlackProvider(ChannelProvider):
                     error="No Slack webhook URL or bot token configured",
                 )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload, headers=headers) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        return NotificationResult(
-                            success=True,
-                            channel=NotificationChannel.SLACK,
-                            message_id=data.get("ts"),
-                        )
-                    else:
-                        error_text = await resp.text()
-                        return NotificationResult(
-                            success=False,
-                            channel=NotificationChannel.SLACK,
-                            error=f"Slack API error: {resp.status} - {error_text}",
-                        )
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return NotificationResult(
+                        success=True,
+                        channel=NotificationChannel.SLACK,
+                        message_id=data.get("ts"),
+                    )
+                else:
+                    error_text = resp.text
+                    return NotificationResult(
+                        success=False,
+                        channel=NotificationChannel.SLACK,
+                        error=f"Slack API error: {resp.status_code} - {error_text}",
+                    )
 
         except ImportError:
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.SLACK,
-                error="aiohttp not installed",
+                error="httpx not installed",
             )
         except Exception as e:
             return NotificationResult(
@@ -407,7 +408,7 @@ class TeamsProvider(ChannelProvider):
     async def send(self, message: NotificationMessage, config: ChannelConfig) -> NotificationResult:
         """Send notification to Microsoft Teams."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             if not config.teams_webhook_url:
                 return NotificationResult(
@@ -418,30 +419,31 @@ class TeamsProvider(ChannelProvider):
 
             payload = self.format_message(message)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("teams") as client:
+                resp = await client.post(
                     config.teams_webhook_url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                ) as resp:
-                    if resp.status == 200:
-                        return NotificationResult(
-                            success=True,
-                            channel=NotificationChannel.TEAMS,
-                        )
-                    else:
-                        error_text = await resp.text()
-                        return NotificationResult(
-                            success=False,
-                            channel=NotificationChannel.TEAMS,
-                            error=f"Teams webhook error: {resp.status} - {error_text}",
-                        )
+                )
+                if resp.status_code == 200:
+                    return NotificationResult(
+                        success=True,
+                        channel=NotificationChannel.TEAMS,
+                    )
+                else:
+                    error_text = resp.text
+                    return NotificationResult(
+                        success=False,
+                        channel=NotificationChannel.TEAMS,
+                        error=f"Teams webhook error: {resp.status_code} - {error_text}",
+                    )
 
         except ImportError:
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.TEAMS,
-                error="aiohttp not installed",
+                error="httpx not installed",
             )
         except Exception as e:
             return NotificationResult(
@@ -515,7 +517,7 @@ class WebhookProvider(ChannelProvider):
     async def send(self, message: NotificationMessage, config: ChannelConfig) -> NotificationResult:
         """Send notification to a webhook endpoint."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             if not config.webhook_url:
                 return NotificationResult(
@@ -527,26 +529,27 @@ class WebhookProvider(ChannelProvider):
             payload = self.format_message(message)
             headers = {"Content-Type": "application/json", **config.webhook_headers}
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(config.webhook_url, json=payload, headers=headers) as resp:
-                    if resp.status < 300:
-                        return NotificationResult(
-                            success=True,
-                            channel=NotificationChannel.WEBHOOK,
-                        )
-                    else:
-                        error_text = await resp.text()
-                        return NotificationResult(
-                            success=False,
-                            channel=NotificationChannel.WEBHOOK,
-                            error=f"Webhook error: {resp.status} - {error_text}",
-                        )
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
+                resp = await client.post(config.webhook_url, json=payload, headers=headers)
+                if resp.status_code < 300:
+                    return NotificationResult(
+                        success=True,
+                        channel=NotificationChannel.WEBHOOK,
+                    )
+                else:
+                    error_text = resp.text
+                    return NotificationResult(
+                        success=False,
+                        channel=NotificationChannel.WEBHOOK,
+                        error=f"Webhook error: {resp.status_code} - {error_text}",
+                    )
 
         except ImportError:
             return NotificationResult(
                 success=False,
                 channel=NotificationChannel.WEBHOOK,
-                error="aiohttp not installed",
+                error="httpx not installed",
             )
         except Exception as e:
             return NotificationResult(

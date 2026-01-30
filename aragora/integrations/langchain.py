@@ -197,7 +197,7 @@ class AragoraTool(BaseTool):
         Returns:
             JSON string with debate result
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         agents = agents or self.default_agents
         rounds = rounds or self.default_rounds
@@ -217,24 +217,25 @@ class AragoraTool(BaseTool):
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("langchain_tool") as client:
+                response = await client.post(
                     f"{self.api_base}/api/debates",
                     json=payload,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout_seconds),
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        return self._format_result(result)
-                    else:
-                        error = await response.text()
-                        return json.dumps(
-                            {
-                                "error": f"API error: {response.status}",
-                                "details": error,
-                            }
-                        )
+                    timeout=self.timeout_seconds,
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    return self._format_result(result)
+                else:
+                    error = response.text
+                    return json.dumps(
+                        {
+                            "error": f"API error: {response.status_code}",
+                            "details": error,
+                        }
+                    )
         except asyncio.TimeoutError:
             return json.dumps(
                 {
@@ -350,7 +351,7 @@ class AragoraRetriever(BaseRetriever):
 
     async def _fetch_documents(self, query: str) -> list[Document]:
         """Internal method to fetch documents from the API."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         headers = {
             "Content-Type": "application/json",
@@ -365,19 +366,20 @@ class AragoraRetriever(BaseRetriever):
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
+            pool = get_http_pool()
+            async with pool.get_session("langchain_retriever") as client:
+                response = await client.get(
                     f"{self.api_base}/api/knowledge/search",
                     params=params,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        return self._convert_to_documents(result.get("nodes", []))
-                    else:
-                        logger.warning(f"Knowledge search failed: {response.status}")
-                        return []
+                    timeout=30,
+                )
+                if response.status_code == 200:
+                    result = response.json()
+                    return self._convert_to_documents(result.get("nodes", []))
+                else:
+                    logger.warning(f"Knowledge search failed: {response.status_code}")
+                    return []
         except Exception as e:
             logger.error(f"Failed to retrieve documents: {e}")
             return []

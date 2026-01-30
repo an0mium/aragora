@@ -61,21 +61,22 @@ class MessagingMixin:
             logger.warning(f"Invalid Slack response_url blocked (SSRF protection): {url[:50]}")
             return
 
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                response = await client.post(
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status != 200:
-                        text = await response.text()
-                        logger.warning(
-                            f"Slack response_url POST failed: {response.status} - {text[:100]}"
-                        )
+                    timeout=30,
+                )
+                if response.status_code != 200:
+                    text = response.text
+                    logger.warning(
+                        f"Slack response_url POST failed: {response.status_code} - {text[:100]}"
+                    )
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting to Slack response_url: {e}")
         except Exception as e:
@@ -99,7 +100,7 @@ class MessagingMixin:
         Returns:
             Message timestamp (ts) if successful, None otherwise
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not SLACK_BOT_TOKEN:
             logger.warning("Cannot post message: SLACK_BOT_TOKEN not configured")
@@ -115,22 +116,23 @@ class MessagingMixin:
             if blocks:
                 payload["blocks"] = blocks
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                response = await client.post(
                     "https://slack.com/api/chat.postMessage",
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(f"Slack API error: {result.get('error')}")
-                        return None
-                    # Return message timestamp for thread tracking
-                    return result.get("ts")
+                    timeout=30,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Slack API error: {result.get('error')}")
+                    return None
+                # Return message timestamp for thread tracking
+                return result.get("ts")
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting Slack message: {e}")
             return None

@@ -31,6 +31,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -192,11 +193,10 @@ class SharePointConnector(EnterpriseConnector):
             )
 
         try:
-            import httpx
-
             token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("sharepoint") as client:
                 response = await client.post(
                     token_url,
                     data={
@@ -229,12 +229,11 @@ class SharePointConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Microsoft Graph API."""
-        import httpx
-
         token = await self._get_access_token()
         url = f"https://graph.microsoft.com/v1.0{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("sharepoint") as client:
             response = await client.request(
                 method,
                 url,
@@ -413,13 +412,12 @@ class SharePointConnector(EnterpriseConnector):
 
     async def _get_file_content(self, drive_id: str, item_id: str) -> str:
         """Get file content as text."""
-        import httpx
-
         token = await self._get_access_token()
         url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content"
 
         try:
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("sharepoint") as client:
                 response = await client.get(
                     url,
                     headers={"Authorization": f"Bearer {token}"},

@@ -229,7 +229,7 @@ class GitHubClient:
 
     async def get_pr(self, owner: str, repo: str, pr_number: int) -> PRDetails | None:
         """Get PR details from GitHub API."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         # Try using the connector first
         if self._connector:
@@ -248,18 +248,19 @@ class GitHubClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_pr_review") as client:
                 # Get PR details
                 url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pr_number}"
-                async with session.get(url, headers=headers) as response:
-                    if response.status != 200:
-                        return self._demo_pr(pr_number)
-                    data = await response.json()
+                response = await client.get(url, headers=headers)
+                if response.status_code != 200:
+                    return self._demo_pr(pr_number)
+                data = response.json()
 
                 # Get files
                 files_url = f"{url}/files"
-                async with session.get(files_url, headers=headers) as files_response:
-                    files = await files_response.json() if files_response.status == 200 else []
+                files_response = await client.get(files_url, headers=headers)
+                files = files_response.json() if files_response.status_code == 200 else []
 
                 return PRDetails(
                     number=data["number"],
@@ -333,7 +334,7 @@ class GitHubClient:
         comments: Optional[list[dict[str, Any]]] = None,
     ) -> dict[str, Any]:
         """Submit a review to GitHub."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             return {"success": True, "demo": True}
@@ -351,14 +352,15 @@ class GitHubClient:
             if comments:
                 payload["comments"] = comments
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_pr_review") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status in (200, 201):
-                        return {"success": True, "data": await response.json()}
-                    else:
-                        error = await response.text()
-                        return {"success": False, "error": error}
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code in (200, 201):
+                    return {"success": True, "data": response.json()}
+                else:
+                    error = response.text
+                    return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to submit review: {e}")

@@ -18,6 +18,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -89,12 +90,11 @@ class SlackDock(ChannelDock):
             )
 
         try:
-            import httpx
-
             # Build Slack message payload
             payload = self._build_payload(channel_id, message, **kwargs)
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
                 response = await client.post(
                     "https://slack.com/api/chat.postMessage",
                     headers={

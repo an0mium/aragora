@@ -19,8 +19,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Optional
 
-import aiohttp
-
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
@@ -226,9 +224,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
             recovery_timeout=60,
         )
 
-        # HTTP session
-        self._session: aiohttp.ClientSession | None = None
-
     @property
     def source_type(self) -> SourceType:
         return SourceType.DOCUMENT
@@ -292,12 +287,6 @@ class OutlookCalendarConnector(EnterpriseConnector):
         auth_url = self.AUTH_URL_TEMPLATE.format(tenant=tenant)
         return f"{auth_url}?{urlencode(params)}"
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-
     async def _ensure_token(self) -> str:
         """Ensure we have a valid access token, refreshing if needed."""
         async with self._token_lock:
@@ -318,6 +307,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
     async def _refresh_access_token(self) -> None:
         """Refresh the access token using refresh token."""
         import os
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         client_id = (
             os.environ.get("OUTLOOK_CALENDAR_CLIENT_ID")
@@ -335,24 +327,27 @@ class OutlookCalendarConnector(EnterpriseConnector):
         tenant = self._get_tenant()
         token_url = self.TOKEN_URL_TEMPLATE.format(tenant=tenant)
 
-        session = await self._get_session()
-
-        async with session.post(
-            token_url,
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "refresh_token": self._refresh_token,
-                "grant_type": "refresh_token",
-                "scope": " ".join(CALENDAR_SCOPES + ["offline_access"]),
-            },
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.text()
+        pool = get_http_pool()
+        async with pool.get_session("outlook_calendar") as client:
+            response = await client.post(
+                token_url,
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": self._refresh_token,
+                        "grant_type": "refresh_token",
+                        "scope": " ".join(CALENDAR_SCOPES + ["offline_access"]),
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error = response.text
                 logger.error(f"Token refresh failed: {error}")
-                raise ValueError(f"Token refresh failed: {resp.status}")
+                raise ValueError(f"Token refresh failed: {response.status_code}")
 
-            data = await resp.json()
+            data = response.json()
             self._access_token = data["access_token"]
             self._refresh_token = data.get("refresh_token", self._refresh_token)
             expires_in = data.get("expires_in", 3600)
@@ -376,6 +371,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
             True if authentication successful
         """
         import os
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if refresh_token:
             self._refresh_token = refresh_token
@@ -401,25 +399,28 @@ class OutlookCalendarConnector(EnterpriseConnector):
         tenant = self._get_tenant()
         token_url = self.TOKEN_URL_TEMPLATE.format(tenant=tenant)
 
-        session = await self._get_session()
-
-        async with session.post(
-            token_url,
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "code": code,
-                "redirect_uri": redirect_uri,
-                "grant_type": "authorization_code",
-                "scope": " ".join(CALENDAR_SCOPES + ["offline_access"]),
-            },
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.text()
+        pool = get_http_pool()
+        async with pool.get_session("outlook_calendar") as client:
+            response = await client.post(
+                token_url,
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "code": code,
+                        "redirect_uri": redirect_uri,
+                        "grant_type": "authorization_code",
+                        "scope": " ".join(CALENDAR_SCOPES + ["offline_access"]),
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error = response.text
                 logger.error(f"Token exchange failed: {error}")
                 return False
 
-            data = await resp.json()
+            data = response.json()
             self._access_token = data["access_token"]
             self._refresh_token = data.get("refresh_token")
             expires_in = data.get("expires_in", 3600)
@@ -435,8 +436,11 @@ class OutlookCalendarConnector(EnterpriseConnector):
         json_data: dict | None = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
+        import httpx
+
+        from aragora.server.http_client_pool import get_http_pool
+
         token = await self._ensure_token()
-        session = await self._get_session()
 
         # Handle absolute URLs (for pagination)
         if endpoint.startswith("https://"):
@@ -450,34 +454,36 @@ class OutlookCalendarConnector(EnterpriseConnector):
         }
 
         async def _make_request():
-            async with session.request(
-                method,
-                url,
-                headers=headers,
-                params=params,
-                json=json_data,
-            ) as resp:
-                if resp.status == 401:
+            pool = get_http_pool()
+            async with pool.get_session("outlook_calendar") as client:
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    json=json_data,
+                )
+                if response.status_code == 401:
                     # Token expired, refresh and retry
                     await self._refresh_access_token()
                     headers["Authorization"] = f"Bearer {self._access_token}"
-                    async with session.request(
+                    retry_response = await client.request(
                         method,
                         url,
                         headers=headers,
                         params=params,
                         json=json_data,
-                    ) as retry_resp:
-                        if retry_resp.status >= 400:
-                            error = await retry_resp.text()
-                            raise ValueError(f"API error: {retry_resp.status} - {error}")
-                        return await retry_resp.json() if retry_resp.content else {}
+                    )
+                    if retry_response.status_code >= 400:
+                        error = retry_response.text
+                        raise ValueError(f"API error: {retry_response.status_code} - {error}")
+                    return retry_response.json() if retry_response.content else {}
 
-                if resp.status >= 400:
-                    error = await resp.text()
-                    raise ValueError(f"API error: {resp.status} - {error}")
+                if response.status_code >= 400:
+                    error = response.text
+                    raise ValueError(f"API error: {response.status_code} - {error}")
 
-                return await resp.json() if resp.content else {}
+                return response.json() if response.content else {}
 
         if not self._circuit_breaker.can_proceed():
             raise ValueError("Circuit breaker is open - API temporarily unavailable")
@@ -485,7 +491,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
             result = await _make_request()
             self._circuit_breaker.record_success()
             return result
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
+        except (httpx.RequestError, asyncio.TimeoutError, ValueError, OSError) as e:
             logger.warning(f"API request failed, recording circuit breaker failure: {e}")
             self._circuit_breaker.record_failure()
             raise
@@ -822,7 +828,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
                 result[cal_id or "default"] = busy_slots
 
-            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
+            except (asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to get events for calendar {cal_id}: {e}")
                 result[cal_id or "default"] = []
 
@@ -886,7 +892,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                     time_max=time_max,
                 )
                 all_events.extend(events)
-            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
+            except (asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to get events from {cal_id}: {e}")
 
         # Sort by start time
@@ -957,15 +963,14 @@ class OutlookCalendarConnector(EnterpriseConnector):
 
             data = await self._api_request("GET", endpoint)
             return self._parse_event(data, calendar_id or "default")
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
+        except (asyncio.TimeoutError, ValueError, OSError) as e:
             logger.warning(f"Failed to get event {event_id}: {e}")
             return None
 
     async def close(self) -> None:
         """Close the connector and release resources."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
+        # HTTP client pool is managed globally, no session to close
+        pass
 
     async def sync(
         self,
@@ -1041,7 +1046,7 @@ class OutlookCalendarConnector(EnterpriseConnector):
                             "all_day": event.all_day,
                         },
                     )
-            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as e:
+            except (asyncio.TimeoutError, ValueError, OSError) as e:
                 logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")
 
 

@@ -791,7 +791,7 @@ class WhatsAppHandler(BaseHandler):
         statement: str,
     ) -> None:
         """Run gauntlet and send result."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         record_gauntlet_started("whatsapp")
 
@@ -805,8 +805,9 @@ class WhatsAppHandler(BaseHandler):
         )
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp_handler") as client:
+                resp = await client.post(
                     "http://localhost:8080/api/gauntlet/run",
                     json={
                         "statement": statement,
@@ -816,59 +817,59 @@ class WhatsAppHandler(BaseHandler):
                             "from_number": from_number,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=120.0,
+                )
+                data = resp.json()
 
-                    if resp.status != 200:
-                        await self._send_text_message_async(
-                            from_number,
-                            f"Gauntlet failed: {data.get('error', 'Unknown error')}",
-                        )
-                        record_gauntlet_failed("whatsapp")
-                        return
-
-                    run_id = data.get("run_id", "unknown")
-                    score = data.get("score", 0)
-                    passed = data.get("passed", False)
-                    vulnerabilities = data.get("vulnerabilities", [])
-
-                    response = (
-                        f"*Gauntlet Results* {'PASSED' if passed else 'FAILED'}\n\n"
-                        f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_\n\n"
-                        f"*Score:* {score:.1%}\n"
-                        f"*Status:* {'Passed' if passed else 'Failed'}\n"
-                        f"*Vulnerabilities:* {len(vulnerabilities)}\n"
+                if resp.status_code != 200:
+                    await self._send_text_message_async(
+                        from_number,
+                        f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                     )
+                    record_gauntlet_failed("whatsapp")
+                    return
 
-                    if vulnerabilities:
-                        response += "\n*Issues Found:*\n"
-                        for v in vulnerabilities[:5]:
-                            desc = v.get("description", "Unknown issue")[:100]
-                            response += f"- {desc}\n"
-                        if len(vulnerabilities) > 5:
-                            response += f"_...and {len(vulnerabilities) - 5} more_\n"
+                run_id = data.get("run_id", "unknown")
+                score = data.get("score", 0)
+                passed = data.get("passed", False)
+                vulnerabilities = data.get("vulnerabilities", [])
 
-                    response += f"\n_Run ID: {run_id}_\n_Requested by {profile_name}_"
+                response = (
+                    f"*Gauntlet Results* {'PASSED' if passed else 'FAILED'}\n\n"
+                    f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_\n\n"
+                    f"*Score:* {score:.1%}\n"
+                    f"*Status:* {'Passed' if passed else 'Failed'}\n"
+                    f"*Vulnerabilities:* {len(vulnerabilities)}\n"
+                )
 
-                    await self._send_text_message_async(from_number, response)
+                if vulnerabilities:
+                    response += "\n*Issues Found:*\n"
+                    for v in vulnerabilities[:5]:
+                        desc = v.get("description", "Unknown issue")[:100]
+                        response += f"- {desc}\n"
+                    if len(vulnerabilities) > 5:
+                        response += f"_...and {len(vulnerabilities) - 5} more_\n"
 
-                    # Emit webhook event for gauntlet completed
-                    emit_gauntlet_completed(
-                        platform="whatsapp",
-                        chat_id=from_number,
-                        gauntlet_id=run_id,
-                        statement=statement,
-                        verdict="passed" if passed else "failed",
-                        confidence=score,
-                        challenges_passed=len(
-                            [v for v in vulnerabilities if not v.get("critical", False)]
-                        ),
-                        challenges_total=len(vulnerabilities) + 1,
-                    )
+                response += f"\n_Run ID: {run_id}_\n_Requested by {profile_name}_"
 
-                    # Record successful gauntlet completion
-                    record_gauntlet_completed("whatsapp", passed)
+                await self._send_text_message_async(from_number, response)
+
+                # Emit webhook event for gauntlet completed
+                emit_gauntlet_completed(
+                    platform="whatsapp",
+                    chat_id=from_number,
+                    gauntlet_id=run_id,
+                    statement=statement,
+                    verdict="passed" if passed else "failed",
+                    confidence=score,
+                    challenges_passed=len(
+                        [v for v in vulnerabilities if not v.get("critical", False)]
+                    ),
+                    challenges_total=len(vulnerabilities) + 1,
+                )
+
+                # Record successful gauntlet completion
+                record_gauntlet_completed("whatsapp", passed)
 
         except Exception as e:
             logger.error(f"WhatsApp gauntlet failed: {e}", exc_info=True)
@@ -1035,7 +1036,7 @@ class WhatsAppHandler(BaseHandler):
         text: str,
     ) -> None:
         """Send a text message via WhatsApp Cloud API."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
         import time
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
@@ -1054,20 +1055,21 @@ class WhatsAppHandler(BaseHandler):
                 "text": {"preview_url": False, "body": text},
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if response.status != 200:
-                        logger.warning(f"WhatsApp API error: {result}")
-                        status = "error"
+                    timeout=30.0,
+                )
+                result = response.json()
+                if response.status_code != 200:
+                    logger.warning(f"WhatsApp API error: {result}")
+                    status = "error"
         except Exception as e:
             logger.error(f"Error sending WhatsApp message: {e}")
             status = "error"
@@ -1087,7 +1089,7 @@ class WhatsAppHandler(BaseHandler):
 
         buttons: List of dicts with 'id' and 'title' keys (max 3 buttons)
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
         import time
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
@@ -1122,22 +1124,23 @@ class WhatsAppHandler(BaseHandler):
                 "interactive": interactive,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if response.status != 200:
-                        logger.warning(f"WhatsApp API error: {result}")
-                        status = "error"
-                        # Fall back to plain text if interactive fails
-                        await self._send_text_message_async(to_number, body_text)
+                    timeout=30.0,
+                )
+                result = response.json()
+                if response.status_code != 200:
+                    logger.warning(f"WhatsApp API error: {result}")
+                    status = "error"
+                    # Fall back to plain text if interactive fails
+                    await self._send_text_message_async(to_number, body_text)
         except Exception as e:
             logger.error(f"Error sending WhatsApp interactive message: {e}")
             status = "error"
@@ -1198,8 +1201,9 @@ class WhatsAppHandler(BaseHandler):
         """Send an audio message via WhatsApp Cloud API.
 
         WhatsApp requires uploading media first, then sending with media ID.
+        Note: Voice upload uses multipart form data which httpx supports.
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
             logger.warning("Cannot send voice: WhatsApp not configured")
@@ -1218,37 +1222,37 @@ class WhatsAppHandler(BaseHandler):
             }
             mime_type = mime_types.get(audio_format, "audio/mpeg")
 
-            # Create form data for upload
-            form_data = aiohttp.FormData()
-            form_data.add_field(
-                "file",
-                audio_bytes,
-                filename=f"voice.{audio_format}",
-                content_type=mime_type,
-            )
-            form_data.add_field("messaging_product", "whatsapp")
-            form_data.add_field("type", mime_type)
+            # Create multipart form data for upload
+            files = {
+                "file": (f"voice.{audio_format}", audio_bytes, mime_type),
+            }
+            data = {
+                "messaging_product": "whatsapp",
+                "type": mime_type,
+            }
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp_handler") as client:
                 # Upload the audio file
-                async with session.post(
+                upload_response = await client.post(
                     upload_url,
-                    data=form_data,
+                    data=data,
+                    files=files,
                     headers={
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                     },
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as upload_response:
-                    upload_result = await upload_response.json()
+                    timeout=60.0,
+                )
+                upload_result = upload_response.json()
 
-                    if upload_response.status != 200:
-                        logger.warning(f"WhatsApp media upload failed: {upload_result}")
-                        return
+                if upload_response.status_code != 200:
+                    logger.warning(f"WhatsApp media upload failed: {upload_result}")
+                    return
 
-                    media_id = upload_result.get("id")
-                    if not media_id:
-                        logger.warning("No media ID returned from upload")
-                        return
+                media_id = upload_result.get("id")
+                if not media_id:
+                    logger.warning("No media ID returned from upload")
+                    return
 
                 # Step 2: Send audio message with media ID
                 send_url = f"{WHATSAPP_API_BASE}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -1260,20 +1264,20 @@ class WhatsAppHandler(BaseHandler):
                     "audio": {"id": media_id},
                 }
 
-                async with session.post(
+                send_response = await client.post(
                     send_url,
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as send_response:
-                    send_result = await send_response.json()
-                    if send_response.status != 200:
-                        logger.warning(f"WhatsApp audio send failed: {send_result}")
-                    else:
-                        logger.info(f"WhatsApp voice message sent to {to_number}")
+                    timeout=30.0,
+                )
+                send_result = send_response.json()
+                if send_response.status_code != 200:
+                    logger.warning(f"WhatsApp audio send failed: {send_result}")
+                else:
+                    logger.info(f"WhatsApp voice message sent to {to_number}")
 
         except Exception as e:
             logger.error(f"Error sending WhatsApp voice message: {e}")

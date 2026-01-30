@@ -128,10 +128,7 @@ class TaskStep(BaseStep):
 
     async def _execute_http(self, config: dict[str, Any], context: WorkflowContext) -> Any:
         """Execute an HTTP request."""
-        try:
-            import aiohttp
-        except ImportError:
-            return {"success": False, "error": "aiohttp not installed"}
+        from aragora.server.http_client_pool import get_http_pool
 
         url = self._interpolate_text(config.get("url", ""), context)
         method = config.get("method", "GET").upper()
@@ -140,28 +137,29 @@ class TaskStep(BaseStep):
         timeout = config.get("timeout_seconds", 30)
 
         try:
-            async with aiohttp.ClientSession() as session:
-                kwargs = {"headers": headers, "timeout": aiohttp.ClientTimeout(total=timeout)}
+            pool = get_http_pool()
+            async with pool.get_session("workflow") as client:
+                kwargs: dict[str, Any] = {"headers": headers, "timeout": timeout}
                 if method in ("POST", "PUT", "PATCH") and body:
                     kwargs["json"] = body
 
-                async with session.request(method, url, **kwargs) as response:
-                    response_text = await response.text()
+                response = await client.request(method, url, **kwargs)
+                response_text = response.text
 
-                    # Try to parse as JSON
-                    try:
-                        import json
+                # Try to parse as JSON
+                try:
+                    import json
 
-                        response_data = json.loads(response_text)
-                    except (json.JSONDecodeError, ValueError):
-                        response_data = response_text
+                    response_data = json.loads(response_text)
+                except (json.JSONDecodeError, ValueError):
+                    response_data = response_text
 
-                    return {
-                        "success": response.status < 400,
-                        "status_code": response.status,
-                        "response": response_data,
-                        "headers": dict(response.headers),
-                    }
+                return {
+                    "success": response.status_code < 400,
+                    "status_code": response.status_code,
+                    "response": response_data,
+                    "headers": dict(response.headers),
+                }
 
         except asyncio.TimeoutError:
             return {"success": False, "error": f"Request timed out after {timeout}s"}

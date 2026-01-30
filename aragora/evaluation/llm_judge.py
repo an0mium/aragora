@@ -666,15 +666,16 @@ Provide your comparison:"""
             return response
 
         except ImportError:
-            # Fallback to direct API call
+            # Fallback to direct API call using HTTP pool
             import os
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
             api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY not set")
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("anthropic") as client:
                 response = await client.post(
                     "https://api.anthropic.com/v1/messages",
                     headers={

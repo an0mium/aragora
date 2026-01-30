@@ -51,7 +51,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-import httpx
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.outlook import OutlookConnector
@@ -363,7 +363,7 @@ class OutlookSyncService:
             )
             return True
 
-        except (OSError, ValueError, KeyError, httpx.HTTPError, json.JSONDecodeError) as e:
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
             self._status = OutlookSyncStatus.ERROR
             if self._state:
                 self._state.last_error = str(e)
@@ -447,7 +447,7 @@ class OutlookSyncService:
                         )
                         if synced:
                             synced_messages.append(synced)
-                    except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
+                    except (OSError, KeyError, ValueError) as e:
                         logger.warning(f"[OutlookSync] Failed to fetch message {message_id}: {e}")
 
         # Callback for batch
@@ -555,7 +555,7 @@ class OutlookSyncService:
                                 synced = await self._process_message(msg, is_new=False)
                                 if synced:
                                     synced_messages.append(synced)
-                            except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
+                            except (OSError, KeyError, ValueError) as e:
                                 logger.warning(
                                     f"[OutlookSync] Failed to fetch message {msg_id}: {e}"
                                 )
@@ -583,7 +583,7 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
+            except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -639,7 +639,7 @@ class OutlookSyncService:
                         synced = await self._process_message(msg, is_new=True)
                         if synced:
                             synced_messages.append(synced)
-                    except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
+                    except (OSError, KeyError, ValueError) as e:
                         logger.warning(f"[OutlookSync] Failed to fetch message {msg_id}: {e}")
 
                 # Update state
@@ -661,7 +661,7 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
+            except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = str(e)
@@ -725,7 +725,8 @@ class OutlookSyncService:
                 "clientState": self._state.client_state,
             }
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("outlook") as client:
                 response = await client.post(
                     "https://graph.microsoft.com/v1.0/subscriptions",
                     headers={
@@ -753,7 +754,7 @@ class OutlookSyncService:
                 else:
                     logger.error(f"[OutlookSync] Failed to create subscription: {response.text}")
 
-        except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
+        except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"[OutlookSync] Subscription setup failed: {e}")
 
     async def _renew_subscription(self) -> None:
@@ -769,7 +770,8 @@ class OutlookSyncService:
                 minutes=self.config.subscription_expiry_minutes
             )
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("outlook") as client:
                 response = await client.patch(
                     f"https://graph.microsoft.com/v1.0/subscriptions/{self._state.subscription_id}",
                     headers={
@@ -803,7 +805,7 @@ class OutlookSyncService:
                 else:
                     logger.error(f"[OutlookSync] Failed to renew subscription: {response.text}")
 
-        except (OSError, httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
+        except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error(f"[OutlookSync] Subscription renewal failed: {e}")
 
     async def _delete_subscription(self) -> None:
@@ -814,7 +816,8 @@ class OutlookSyncService:
         try:
             token = await self._connector._get_access_token()
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("outlook") as client:
                 response = await client.delete(
                     f"https://graph.microsoft.com/v1.0/subscriptions/{self._state.subscription_id}",
                     headers={"Authorization": f"Bearer {token}"},
@@ -836,7 +839,7 @@ class OutlookSyncService:
             self._state.subscription_expiry = None
             await self._save_state()
 
-        except (OSError, httpx.HTTPError, KeyError, ValueError) as e:
+        except (OSError, KeyError, ValueError) as e:
             logger.warning(f"[OutlookSync] Failed to delete subscription: {e}")
 
     async def _subscription_renewal_loop(self) -> None:
@@ -863,7 +866,7 @@ class OutlookSyncService:
 
             except asyncio.CancelledError:
                 break
-            except (OSError, httpx.HTTPError, ValueError) as e:
+            except (OSError, ValueError) as e:
                 logger.error(f"[OutlookSync] Renewal loop error: {e}")
                 await asyncio.sleep(60)
 

@@ -277,7 +277,7 @@ class TelegramHandler(BaseHandler):
 
     async def _set_webhook_async(self, webhook_url: str) -> None:
         """Set Telegram webhook via API."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/setWebhook"
@@ -286,17 +286,18 @@ class TelegramHandler(BaseHandler):
             if TELEGRAM_WEBHOOK_SECRET:
                 payload["secret_token"] = TELEGRAM_WEBHOOK_SECRET
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if result.get("ok"):
-                        logger.info(f"Telegram webhook set to: {webhook_url}")
-                    else:
-                        logger.error(f"Failed to set webhook: {result}")
+                    timeout=30.0,
+                )
+                result = response.json()
+                if result.get("ok"):
+                    logger.info(f"Telegram webhook set to: {webhook_url}")
+                else:
+                    logger.error(f"Failed to set webhook: {result}")
         except Exception as e:
             logger.error(f"Error setting Telegram webhook: {e}")
 
@@ -825,7 +826,7 @@ class TelegramHandler(BaseHandler):
         statement: str,
     ) -> None:
         """Run gauntlet asynchronously and send result to chat."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         record_gauntlet_started("telegram")
 
@@ -839,8 +840,9 @@ class TelegramHandler(BaseHandler):
         )
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                resp = await client.post(
                     "http://localhost:8080/api/gauntlet/run",
                     json={
                         "statement": statement,
@@ -851,66 +853,66 @@ class TelegramHandler(BaseHandler):
                             "user_id": user_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=120.0,
+                )
+                data = resp.json()
 
-                    if resp.status != 200:
-                        await self._send_message_async(
-                            chat_id,
-                            f"Gauntlet failed: {data.get('error', 'Unknown error')}",
-                        )
-                        record_gauntlet_failed("telegram")
-                        return
-
-                    run_id = data.get("run_id", "unknown")
-                    score = data.get("score", 0)
-                    passed = data.get("passed", False)
-                    vulnerabilities = data.get("vulnerabilities", [])
-
-                    status_emoji = "PASSED" if passed else "FAILED"
-                    score_pct = f"{score:.1%}"
-
-                    response = (
-                        f"*Gauntlet Results* {status_emoji}\n\n"
-                        f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_\n\n"
-                        f"*Score:* {score_pct}\n"
-                        f"*Status:* {'Passed' if passed else 'Failed'}\n"
-                        f"*Vulnerabilities:* {len(vulnerabilities)}\n"
-                    )
-
-                    if vulnerabilities:
-                        response += "\n*Issues Found:*\n"
-                        for v in vulnerabilities[:5]:
-                            desc = v.get("description", "Unknown issue")[:100]
-                            response += f"- {desc}\n"
-                        if len(vulnerabilities) > 5:
-                            response += f"_...and {len(vulnerabilities) - 5} more_\n"
-
-                    response += f"\n_Run ID: {run_id}_\n_Requested by @{username}_"
-
+                if resp.status_code != 200:
                     await self._send_message_async(
                         chat_id,
-                        response,
-                        parse_mode="Markdown",
+                        f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                     )
+                    record_gauntlet_failed("telegram")
+                    return
 
-                    # Emit webhook event for gauntlet completed
-                    emit_gauntlet_completed(
-                        platform="telegram",
-                        chat_id=str(chat_id),
-                        gauntlet_id=run_id,
-                        statement=statement,
-                        verdict="passed" if passed else "failed",
-                        confidence=score,
-                        challenges_passed=len(
-                            [v for v in vulnerabilities if not v.get("critical", False)]
-                        ),
-                        challenges_total=len(vulnerabilities) + 1,
-                    )
+                run_id = data.get("run_id", "unknown")
+                score = data.get("score", 0)
+                passed = data.get("passed", False)
+                vulnerabilities = data.get("vulnerabilities", [])
 
-                    # Record successful gauntlet completion
-                    record_gauntlet_completed("telegram", passed)
+                status_emoji = "PASSED" if passed else "FAILED"
+                score_pct = f"{score:.1%}"
+
+                response = (
+                    f"*Gauntlet Results* {status_emoji}\n\n"
+                    f"*Statement:*\n_{statement[:200]}{'...' if len(statement) > 200 else ''}_\n\n"
+                    f"*Score:* {score_pct}\n"
+                    f"*Status:* {'Passed' if passed else 'Failed'}\n"
+                    f"*Vulnerabilities:* {len(vulnerabilities)}\n"
+                )
+
+                if vulnerabilities:
+                    response += "\n*Issues Found:*\n"
+                    for v in vulnerabilities[:5]:
+                        desc = v.get("description", "Unknown issue")[:100]
+                        response += f"- {desc}\n"
+                    if len(vulnerabilities) > 5:
+                        response += f"_...and {len(vulnerabilities) - 5} more_\n"
+
+                response += f"\n_Run ID: {run_id}_\n_Requested by @{username}_"
+
+                await self._send_message_async(
+                    chat_id,
+                    response,
+                    parse_mode="Markdown",
+                )
+
+                # Emit webhook event for gauntlet completed
+                emit_gauntlet_completed(
+                    platform="telegram",
+                    chat_id=str(chat_id),
+                    gauntlet_id=run_id,
+                    statement=statement,
+                    verdict="passed" if passed else "failed",
+                    confidence=score,
+                    challenges_passed=len(
+                        [v for v in vulnerabilities if not v.get("critical", False)]
+                    ),
+                    challenges_total=len(vulnerabilities) + 1,
+                )
+
+                # Record successful gauntlet completion
+                record_gauntlet_completed("telegram", passed)
 
         except Exception as e:
             logger.error(f"Telegram gauntlet failed: {e}", exc_info=True)
@@ -1114,7 +1116,7 @@ class TelegramHandler(BaseHandler):
         reply_markup: Optional[dict[str, Any]] = None,
     ) -> None:
         """Send a message to Telegram chat."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
         import time
 
         if not TELEGRAM_BOT_TOKEN:
@@ -1134,16 +1136,17 @@ class TelegramHandler(BaseHandler):
             if reply_markup:
                 payload["reply_markup"] = reply_markup
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(f"Telegram API error: {result.get('description')}")
-                        status = "error"
+                    timeout=30.0,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Telegram API error: {result.get('description')}")
+                    status = "error"
         except Exception as e:
             logger.error(f"Error sending Telegram message: {e}")
             status = "error"
@@ -1159,7 +1162,7 @@ class TelegramHandler(BaseHandler):
         show_alert: bool = False,
     ) -> None:
         """Answer a callback query."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
         import time
 
         if not TELEGRAM_BOT_TOKEN:
@@ -1175,18 +1178,17 @@ class TelegramHandler(BaseHandler):
                 "show_alert": show_alert,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(
-                            f"Telegram callback answer failed: {result.get('description')}"
-                        )
-                        status = "error"
+                    timeout=10.0,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Telegram callback answer failed: {result.get('description')}")
+                    status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram callback: {e}")
             status = "error"
@@ -1201,7 +1203,7 @@ class TelegramHandler(BaseHandler):
         results: list[dict[str, Any]],
     ) -> None:
         """Answer an inline query."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
         import time
 
         if not TELEGRAM_BOT_TOKEN:
@@ -1217,18 +1219,17 @@ class TelegramHandler(BaseHandler):
                 "cache_time": 10,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                response = await client.post(
                     url,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(
-                            f"Telegram inline answer failed: {result.get('description')}"
-                        )
-                        status = "error"
+                    timeout=10.0,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Telegram inline answer failed: {result.get('description')}")
+                    status = "error"
         except Exception as e:
             logger.error(f"Error answering Telegram inline query: {e}")
             status = "error"
@@ -1279,8 +1280,7 @@ class TelegramHandler(BaseHandler):
         duration: float,
     ) -> None:
         """Send a voice message to Telegram chat."""
-        import aiohttp
-        import io
+        from aragora.server.http_client_pool import get_http_pool
 
         if not TELEGRAM_BOT_TOKEN:
             logger.warning("Cannot send voice: TELEGRAM_BOT_TOKEN not configured")
@@ -1289,28 +1289,28 @@ class TelegramHandler(BaseHandler):
         try:
             url = f"{TELEGRAM_API_BASE}{TELEGRAM_BOT_TOKEN}/sendVoice"
 
-            # Create form data with audio file
-            data = aiohttp.FormData()
-            data.add_field("chat_id", str(chat_id))
-            data.add_field(
-                "voice",
-                io.BytesIO(audio_bytes),
-                filename="voice.ogg",
-                content_type="audio/ogg",
-            )
-            data.add_field("duration", str(int(duration)))
+            # Create multipart form data with audio file
+            files = {
+                "voice": ("voice.ogg", audio_bytes, "audio/ogg"),
+            }
+            data = {
+                "chat_id": str(chat_id),
+                "duration": str(int(duration)),
+            }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("telegram_handler") as client:
+                response = await client.post(
                     url,
                     data=data,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(f"Telegram sendVoice failed: {result.get('description')}")
-                    else:
-                        logger.info(f"Voice message sent to chat {chat_id}")
+                    files=files,
+                    timeout=60.0,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Telegram sendVoice failed: {result.get('description')}")
+                else:
+                    logger.info(f"Voice message sent to chat {chat_id}")
         except Exception as e:
             logger.error(f"Error sending Telegram voice: {e}")
 

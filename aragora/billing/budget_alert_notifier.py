@@ -414,7 +414,7 @@ class BudgetAlertNotifier:
             alert: The budget alert.
             config: Webhook-specific config.
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         payload = {
             "event_type": "budget_alert",
@@ -427,10 +427,11 @@ class BudgetAlertNotifier:
         if config.get("headers"):
             headers.update(config["headers"])
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers=headers) as resp:
-                if resp.status >= 400:
-                    raise Exception(f"Webhook returned {resp.status}")
+        pool = get_http_pool()
+        async with pool.get_session("webhook") as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code >= 400:
+                raise Exception(f"Webhook returned {resp.status_code}")
 
     def _record_delivery(self, result: DeliveryResult) -> None:
         """Record delivery result in history.

@@ -28,6 +28,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +152,8 @@ class GoogleSheetsConnector(EnterpriseConnector):
                 "Set GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, and GDRIVE_REFRESH_TOKEN"
             )
 
-        import httpx
-
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -182,15 +182,14 @@ class GoogleSheetsConnector(EnterpriseConnector):
         **kwargs,
     ) -> dict[str, Any]:
         """Make a request to Google API."""
-        import httpx
-
         token = await self._get_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
         }
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.request(
                 method,
                 url,

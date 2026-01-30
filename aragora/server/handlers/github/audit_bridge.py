@@ -165,7 +165,7 @@ class GitHubAuditClient:
         milestone: int | None = None,
     ) -> dict[str, Any]:
         """Create a GitHub issue."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             # Demo mode
@@ -194,20 +194,21 @@ class GitHubAuditClient:
             if milestone:
                 payload["milestone"] = milestone
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/issues"
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status in (200, 201):
-                        data = await response.json()
-                        return {
-                            "success": True,
-                            "number": data["number"],
-                            "html_url": data["html_url"],
-                            "id": data["id"],
-                        }
-                    else:
-                        error = await response.text()
-                        return {"success": False, "error": error}
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    return {
+                        "success": True,
+                        "number": data["number"],
+                        "html_url": data["html_url"],
+                        "id": data["id"],
+                    }
+                else:
+                    error = response.text
+                    return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to create issue: {e}")
@@ -221,7 +222,7 @@ class GitHubAuditClient:
         from_branch: str = "main",
     ) -> dict[str, Any]:
         """Create a new branch from an existing branch."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             return {"success": True, "demo": True, "ref": f"refs/heads/{branch_name}"}
@@ -232,14 +233,15 @@ class GitHubAuditClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 # Get SHA of source branch
                 ref_url = f"{self.base_url}/repos/{owner}/{repo}/git/refs/heads/{from_branch}"
-                async with session.get(ref_url, headers=headers) as response:
-                    if response.status != 200:
-                        return {"success": False, "error": f"Branch {from_branch} not found"}
-                    ref_data = await response.json()
-                    sha = ref_data["object"]["sha"]
+                response = await client.get(ref_url, headers=headers)
+                if response.status_code != 200:
+                    return {"success": False, "error": f"Branch {from_branch} not found"}
+                ref_data = response.json()
+                sha = ref_data["object"]["sha"]
 
                 # Create new branch
                 create_url = f"{self.base_url}/repos/{owner}/{repo}/git/refs"
@@ -247,13 +249,13 @@ class GitHubAuditClient:
                     "ref": f"refs/heads/{branch_name}",
                     "sha": sha,
                 }
-                async with session.post(create_url, headers=headers, json=payload) as response:
-                    if response.status in (200, 201):
-                        data = await response.json()
-                        return {"success": True, "ref": data["ref"]}
-                    else:
-                        error = await response.text()
-                        return {"success": False, "error": error}
+                response = await client.post(create_url, headers=headers, json=payload)
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    return {"success": True, "ref": data["ref"]}
+                else:
+                    error = response.text
+                    return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to create branch: {e}")
@@ -270,7 +272,7 @@ class GitHubAuditClient:
         draft: bool = False,
     ) -> dict[str, Any]:
         """Create a pull request."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             demo_number = hash(title) % 10000
@@ -295,20 +297,21 @@ class GitHubAuditClient:
                 "draft": draft,
             }
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/pulls"
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status in (200, 201):
-                        data = await response.json()
-                        return {
-                            "success": True,
-                            "number": data["number"],
-                            "html_url": data["html_url"],
-                            "id": data["id"],
-                        }
-                    else:
-                        error = await response.text()
-                        return {"success": False, "error": error}
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    return {
+                        "success": True,
+                        "number": data["number"],
+                        "html_url": data["html_url"],
+                        "id": data["id"],
+                    }
+                else:
+                    error = response.text
+                    return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to create PR: {e}")
@@ -321,7 +324,7 @@ class GitHubAuditClient:
         issue_number: int,
     ) -> Optional[dict[str, Any]]:
         """Get issue details."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             return {
@@ -336,12 +339,13 @@ class GitHubAuditClient:
                 "Accept": "application/vnd.github.v3+json",
             }
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}"
-                async with session.get(url, headers=headers) as response:
-                    if response.status == 200:
-                        return await response.json()
-                    return None
+                response = await client.get(url, headers=headers)
+                if response.status_code == 200:
+                    return response.json()
+                return None
 
         except Exception as e:
             logger.exception(f"Failed to get issue: {e}")
@@ -355,7 +359,7 @@ class GitHubAuditClient:
         body: str,
     ) -> dict[str, Any]:
         """Add a comment to an issue."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             return {"success": True, "demo": True}
@@ -368,14 +372,15 @@ class GitHubAuditClient:
 
             payload = {"body": body}
 
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 url = f"{self.base_url}/repos/{owner}/{repo}/issues/{issue_number}/comments"
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status in (200, 201):
-                        return {"success": True, "data": await response.json()}
-                    else:
-                        error = await response.text()
-                        return {"success": False, "error": error}
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code in (200, 201):
+                    return {"success": True, "data": response.json()}
+                else:
+                    error = response.text
+                    return {"success": False, "error": error}
 
         except Exception as e:
             logger.exception(f"Failed to add comment: {e}")
@@ -388,7 +393,7 @@ class GitHubAuditClient:
         labels: list[str],
     ) -> None:
         """Ensure labels exist in the repository, creating them if needed."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.token:
             return
@@ -416,14 +421,15 @@ class GitHubAuditClient:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("github_audit") as client:
                 for label in labels:
                     try:
                         # Check if label exists
                         url = f"{self.base_url}/repos/{owner}/{repo}/labels/{label}"
-                        async with session.get(url, headers=headers) as response:
-                            if response.status == 200:
-                                continue  # Label exists
+                        response = await client.get(url, headers=headers)
+                        if response.status_code == 200:
+                            continue  # Label exists
 
                         # Create label
                         create_url = f"{self.base_url}/repos/{owner}/{repo}/labels"
@@ -431,12 +437,10 @@ class GitHubAuditClient:
                             "name": label,
                             "color": label_colors.get(label, "EDEDED"),
                         }
-                        async with session.post(
-                            create_url, headers=headers, json=payload
-                        ) as response:
-                            if response.status in (200, 201):
-                                logger.debug(f"Created label: {label}")
-                            # Ignore errors (label might already exist with different casing)
+                        response = await client.post(create_url, headers=headers, json=payload)
+                        if response.status_code in (200, 201):
+                            logger.debug(f"Created label: {label}")
+                        # Ignore errors (label might already exist with different casing)
 
                     except Exception as e:
                         logger.warning(f"Could not ensure label {label}: {e}")

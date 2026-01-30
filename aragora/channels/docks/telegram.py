@@ -18,6 +18,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -94,12 +95,11 @@ class TelegramDock(ChannelDock):
             return await self._send_voice(channel_id, audio, message, **kwargs)
 
         try:
-            import httpx
-
             url = f"https://api.telegram.org/bot{self._token}/sendMessage"
             payload = self._build_payload(channel_id, message, **kwargs)
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("telegram") as client:
                 response = await client.post(url, json=payload, timeout=30.0)
 
                 if response.status_code == 200:
@@ -141,8 +141,6 @@ class TelegramDock(ChannelDock):
     ) -> SendResult:
         """Send a voice message to Telegram."""
         try:
-            import httpx
-
             url = f"https://api.telegram.org/bot{self._token}/sendVoice"
 
             # Get audio data
@@ -157,7 +155,8 @@ class TelegramDock(ChannelDock):
                     channel_id=channel_id,
                 )
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("telegram") as client:
                 files = {"voice": ("voice.ogg", audio_data, "audio/ogg")}
                 data = {"chat_id": channel_id}
 

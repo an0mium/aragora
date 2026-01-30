@@ -297,7 +297,7 @@ class WebhookDeliveryWorker:
         attempt: int,
     ) -> DeliveryResult:
         """Perform the actual webhook delivery."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         start_time = time.time()
 
@@ -319,25 +319,26 @@ class WebhookDeliveryWorker:
             headers["X-Signature-SHA256"] = signature
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
+                response = await client.post(
                     url,
-                    data=payload_bytes,
+                    content=payload_bytes,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=self._request_timeout),
-                ) as response:
-                    response_time = (time.time() - start_time) * 1000
+                    timeout=self._request_timeout,
+                )
+                response_time = (time.time() - start_time) * 1000
 
-                    success = 200 <= response.status < 300
-                    return DeliveryResult(
-                        webhook_id=webhook_id,
-                        url=url,
-                        success=success,
-                        status_code=response.status,
-                        response_time_ms=response_time,
-                        attempt=attempt,
-                        error=None if success else f"HTTP {response.status}",
-                    )
+                success = 200 <= response.status_code < 300
+                return DeliveryResult(
+                    webhook_id=webhook_id,
+                    url=url,
+                    success=success,
+                    status_code=response.status_code,
+                    response_time_ms=response_time,
+                    attempt=attempt,
+                    error=None if success else f"HTTP {response.status_code}",
+                )
 
         except asyncio.TimeoutError:
             return DeliveryResult(
@@ -348,7 +349,7 @@ class WebhookDeliveryWorker:
                 response_time_ms=(time.time() - start_time) * 1000,
                 attempt=attempt,
             )
-        except aiohttp.ClientError as e:
+        except (OSError, ConnectionError) as e:
             return DeliveryResult(
                 webhook_id=webhook_id,
                 url=url,

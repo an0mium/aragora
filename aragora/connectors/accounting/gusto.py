@@ -390,43 +390,49 @@ class GustoConnector:
         authorization_code: str,
     ) -> GustoCredentials:
         """Exchange authorization code for tokens."""
-        import aiohttp
+        import urllib.parse
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        from aragora.server.http_client_pool import get_http_pool
+
+        pool = get_http_pool()
+        async with pool.get_session("gusto") as client:
+            response = await client.post(
                 self.TOKEN_URL,
-                data={
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "code": authorization_code,
-                    "grant_type": "authorization_code",
-                    "redirect_uri": self.redirect_uri,
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise ConnectorAuthError(
-                        f"Token exchange failed: {error_text}",
-                        connector_name="gusto",
-                    )
-
-                data = await response.json()
-
-                # Get company info
-                company_info = await self._get_current_company(data["access_token"])
-
-                self._credentials = GustoCredentials(
-                    access_token=data["access_token"],
-                    refresh_token=data["refresh_token"],
-                    company_id=company_info["id"],
-                    company_name=company_info["name"],
-                    token_type=data.get("token_type", "Bearer"),
-                    expires_at=datetime.now(timezone.utc)
-                    + timedelta(seconds=data.get("expires_in", 7200)),
-                    scope=data.get("scope", ""),
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                        "code": authorization_code,
+                        "grant_type": "authorization_code",
+                        "redirect_uri": self.redirect_uri,
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error_text = response.text
+                raise ConnectorAuthError(
+                    f"Token exchange failed: {error_text}",
+                    connector_name="gusto",
                 )
 
-                return self._credentials
+            data = response.json()
+
+            # Get company info
+            company_info = await self._get_current_company(data["access_token"])
+
+            self._credentials = GustoCredentials(
+                access_token=data["access_token"],
+                refresh_token=data["refresh_token"],
+                company_id=company_info["id"],
+                company_name=company_info["name"],
+                token_type=data.get("token_type", "Bearer"),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(seconds=data.get("expires_in", 7200)),
+                scope=data.get("scope", ""),
+            )
+
+            return self._credentials
 
     async def refresh_tokens(self) -> GustoCredentials:
         """Refresh OAuth tokens."""
@@ -436,38 +442,44 @@ class GustoConnector:
                 connector_name="gusto",
             )
 
-        import aiohttp
+        import urllib.parse
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        from aragora.server.http_client_pool import get_http_pool
+
+        pool = get_http_pool()
+        async with pool.get_session("gusto") as client:
+            response = await client.post(
                 self.TOKEN_URL,
-                data={
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "refresh_token": self._credentials.refresh_token,
-                    "grant_type": "refresh_token",
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise ConnectorAuthError(
-                        f"Token refresh failed: {error_text}",
-                        connector_name="gusto",
-                    )
-
-                data = await response.json()
-
-                self._credentials = GustoCredentials(
-                    access_token=data["access_token"],
-                    refresh_token=data["refresh_token"],
-                    company_id=self._credentials.company_id,
-                    company_name=self._credentials.company_name,
-                    token_type=data.get("token_type", "Bearer"),
-                    expires_at=datetime.now(timezone.utc)
-                    + timedelta(seconds=data.get("expires_in", 7200)),
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                        "refresh_token": self._credentials.refresh_token,
+                        "grant_type": "refresh_token",
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error_text = response.text
+                raise ConnectorAuthError(
+                    f"Token refresh failed: {error_text}",
+                    connector_name="gusto",
                 )
 
-                return self._credentials
+            data = response.json()
+
+            self._credentials = GustoCredentials(
+                access_token=data["access_token"],
+                refresh_token=data["refresh_token"],
+                company_id=self._credentials.company_id,
+                company_name=self._credentials.company_name,
+                token_type=data.get("token_type", "Bearer"),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(seconds=data.get("expires_in", 7200)),
+            )
+
+            return self._credentials
 
     def set_credentials(self, credentials: GustoCredentials) -> None:
         """Set credentials (e.g., from storage)."""
@@ -483,7 +495,9 @@ class GustoConnector:
         """Make authenticated API request with circuit breaker protection."""
         import asyncio
 
-        import aiohttp
+        import httpx
+
+        from aragora.server.http_client_pool import get_http_pool
 
         # Check circuit breaker before making request
         if self._circuit_breaker and not self._circuit_breaker.can_proceed():
@@ -511,52 +525,53 @@ class GustoConnector:
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(
+            pool = get_http_pool()
+            async with pool.get_session("gusto") as client:
+                response = await client.request(
                     method,
                     url,
                     headers=headers,
                     json=data,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    response_data = await response.json()
+                    timeout=30,
+                )
+                response_data = response.json()
 
-                    # Handle rate limiting
-                    if response.status == 429:
-                        if self._circuit_breaker:
-                            self._circuit_breaker.record_failure()
-                        retry_after = float(response.headers.get("Retry-After", 60))
-                        raise ConnectorRateLimitError(
-                            "Rate limited by Gusto API",
-                            connector_name="gusto",
-                            retry_after=retry_after,
-                        )
-
-                    # Handle server errors (transient - record failure)
-                    if response.status >= 500:
-                        if self._circuit_breaker:
-                            self._circuit_breaker.record_failure()
-                        error = response_data.get("error", "Server error")
-                        raise ConnectorAPIError(
-                            f"Gusto API server error: {error}",
-                            connector_name="gusto",
-                            status_code=response.status,
-                        )
-
-                    # Handle client errors (not transient - don't record failure)
-                    if response.status >= 400:
-                        error = response_data.get("error", "Unknown error")
-                        raise ConnectorAPIError(
-                            f"Gusto API error: {error}",
-                            connector_name="gusto",
-                            status_code=response.status,
-                        )
-
-                    # Success - record it
+                # Handle rate limiting
+                if response.status_code == 429:
                     if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
+                        self._circuit_breaker.record_failure()
+                    retry_after = float(response.headers.get("Retry-After", 60))
+                    raise ConnectorRateLimitError(
+                        "Rate limited by Gusto API",
+                        connector_name="gusto",
+                        retry_after=retry_after,
+                    )
 
-                    return response_data
+                # Handle server errors (transient - record failure)
+                if response.status_code >= 500:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    error = response_data.get("error", "Server error")
+                    raise ConnectorAPIError(
+                        f"Gusto API server error: {error}",
+                        connector_name="gusto",
+                        status_code=response.status_code,
+                    )
+
+                # Handle client errors (not transient - don't record failure)
+                if response.status_code >= 400:
+                    error = response_data.get("error", "Unknown error")
+                    raise ConnectorAPIError(
+                        f"Gusto API error: {error}",
+                        connector_name="gusto",
+                        status_code=response.status_code,
+                    )
+
+                # Success - record it
+                if self._circuit_breaker:
+                    self._circuit_breaker.record_success()
+
+                return response_data
 
         except asyncio.TimeoutError as e:
             if self._circuit_breaker:
@@ -565,7 +580,7 @@ class GustoConnector:
                 "Request to Gusto API timed out",
                 connector_name="gusto",
             ) from e
-        except aiohttp.ClientError as e:
+        except httpx.RequestError as e:
             if self._circuit_breaker:
                 self._circuit_breaker.record_failure()
             raise ConnectorNetworkError(

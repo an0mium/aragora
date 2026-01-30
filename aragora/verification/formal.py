@@ -398,7 +398,7 @@ class LeanBackend:
         """
         import os
 
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         # Try DeepSeek-Prover first if configured
         if self._translation_model in (TranslationModel.AUTO, TranslationModel.DEEPSEEK_PROVER):
@@ -472,43 +472,43 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
             else:
                 return None
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status != 200:
-                        logger.warning(
-                            f"LLM API returned status {response.status} for Lean translation"
-                        )
-                        return None
+            pool = get_http_pool()
+            provider = "anthropic" if anthropic_key else "openai"
+            async with pool.get_session(provider) as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=30)
+                if response.status_code != 200:
+                    logger.warning(
+                        f"LLM API returned status {response.status_code} for Lean translation"
+                    )
+                    return None
 
-                    try:
-                        data = await response.json()
-                    except (json.JSONDecodeError, aiohttp.ContentTypeError) as e:
-                        logger.warning(f"Failed to parse LLM API response as JSON: {e}")
-                        return None
+                try:
+                    data = response.json()
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Failed to parse LLM API response as JSON: {e}")
+                    return None
 
-                    try:
-                        if anthropic_key:
-                            result = data["content"][0]["text"].strip()
-                        else:
-                            result = data["choices"][0]["message"]["content"].strip()
-                    except (KeyError, IndexError, TypeError) as e:
-                        logger.warning(f"Unexpected LLM response format for Lean translation: {e}")
-                        return None
+                try:
+                    if anthropic_key:
+                        result = data["content"][0]["text"].strip()
+                    else:
+                        result = data["choices"][0]["message"]["content"].strip()
+                except (KeyError, IndexError, TypeError) as e:
+                    logger.warning(f"Unexpected LLM response format for Lean translation: {e}")
+                    return None
 
-                    if "UNTRANSLATABLE" in result:
-                        return None
+                if "UNTRANSLATABLE" in result:
+                    return None
 
-                    # Extract Lean code from markdown if present
-                    import re
+                # Extract Lean code from markdown if present
+                import re
 
-                    lean_match = re.search(r"```(?:lean4?|lean)?\n?(.*?)```", result, re.DOTALL)
-                    if lean_match:
-                        return lean_match.group(1).strip()
-                    return result
+                lean_match = re.search(r"```(?:lean4?|lean)?\n?(.*?)```", result, re.DOTALL)
+                if lean_match:
+                    return lean_match.group(1).strip()
+                return result
 
-        except aiohttp.ClientError as e:
+        except (OSError, ConnectionError) as e:
             logger.warning(f"Network error translating claim to Lean 4: {e}")
             return None
         except asyncio.TimeoutError:
@@ -673,7 +673,7 @@ theorem claim_1 : ∀ n : Nat, n + 0 = n := by simp
         """
         import os
 
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
         if not api_key:
@@ -736,34 +736,34 @@ Examples of MATCHING:
                     "messages": [{"role": "user", "content": prompt}],
                 }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status != 200:
-                        return False, 0.3, f"LLM API error: status {response.status}"
+            pool = get_http_pool()
+            provider = "anthropic" if anthropic_key else "openai"
+            async with pool.get_session(provider) as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=30)
+                if response.status_code != 200:
+                    return False, 0.3, f"LLM API error: status {response.status_code}"
 
-                    data = await response.json()
+                data = response.json()
 
-                    if anthropic_key:
-                        result = data["content"][0]["text"].strip()
-                    else:
-                        result = data["choices"][0]["message"]["content"].strip()
+                if anthropic_key:
+                    result = data["content"][0]["text"].strip()
+                else:
+                    result = data["choices"][0]["message"]["content"].strip()
 
-                    # Parse response
-                    import re
+                # Parse response
+                import re
 
-                    matches_match = re.search(r"MATCHES:\s*(YES|NO)", result, re.IGNORECASE)
-                    conf_match = re.search(r"CONFIDENCE:\s*([0-9.]+)", result)
-                    expl_match = re.search(r"EXPLANATION:\s*(.+?)(?:\n|$)", result, re.DOTALL)
+                matches_match = re.search(r"MATCHES:\s*(YES|NO)", result, re.IGNORECASE)
+                conf_match = re.search(r"CONFIDENCE:\s*([0-9.]+)", result)
+                expl_match = re.search(r"EXPLANATION:\s*(.+?)(?:\n|$)", result, re.DOTALL)
 
-                    matches = bool(matches_match and matches_match.group(1).upper() == "YES")
-                    confidence = float(conf_match.group(1)) if conf_match else 0.5
-                    explanation = (
-                        expl_match.group(1).strip() if expl_match else "Unable to parse explanation"
-                    )
+                matches = bool(matches_match and matches_match.group(1).upper() == "YES")
+                confidence = float(conf_match.group(1)) if conf_match else 0.5
+                explanation = (
+                    expl_match.group(1).strip() if expl_match else "Unable to parse explanation"
+                )
 
-                    return matches, min(1.0, max(0.0, confidence)), explanation
+                return matches, min(1.0, max(0.0, confidence)), explanation
 
         except Exception as e:
             logger.warning(f"Semantic verification failed: {e}")

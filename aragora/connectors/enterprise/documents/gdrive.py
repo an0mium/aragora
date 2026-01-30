@@ -27,6 +27,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -169,9 +170,8 @@ class GoogleDriveConnector(EnterpriseConnector):
             )
 
         # Refresh access token
-        import httpx
-
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -200,8 +200,6 @@ class GoogleDriveConnector(EnterpriseConnector):
         **kwargs,
     ) -> dict[str, Any]:
         """Make a request to Google Drive API."""
-        import httpx
-
         token = await self._get_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
@@ -210,7 +208,8 @@ class GoogleDriveConnector(EnterpriseConnector):
 
         url = f"https://www.googleapis.com/drive/v3{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.request(
                 method,
                 url,
@@ -224,8 +223,6 @@ class GoogleDriveConnector(EnterpriseConnector):
 
     async def _download_file(self, file_id: str, mime_type: str | None = None) -> bytes:
         """Download file content."""
-        import httpx
-
         token = await self._get_access_token()
         headers = {"Authorization": f"Bearer {token}"}
 
@@ -238,7 +235,8 @@ class GoogleDriveConnector(EnterpriseConnector):
             url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
             params = {"alt": "media"}
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 url,
                 headers=headers,

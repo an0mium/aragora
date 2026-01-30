@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
-import aiohttp
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -112,18 +112,19 @@ import Mathlib.Algebra.Ring.Basic
             return self._model_available
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
+            pool = get_http_pool()
+            async with pool.get_session("openrouter") as client:
+                response = await client.get(
                     "https://openrouter.ai/api/v1/models",
                     headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        models = data.get("data", [])
-                        model_ids = {m.get("id") for m in models}
-                        self._model_available = self.PRIMARY_MODEL in model_ids
-                        return self._model_available
+                    timeout=10,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    models = data.get("data", [])
+                    model_ids = {m.get("id") for m in models}
+                    self._model_available = self.PRIMARY_MODEL in model_ids
+                    return self._model_available
         except Exception as e:
             logger.warning(f"Failed to check model availability: {e}")
 
@@ -242,7 +243,8 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
 
         for model in models_to_try:
             try:
-                async with aiohttp.ClientSession() as session:
+                pool = get_http_pool()
+                async with pool.get_session("openrouter") as client:
                     headers = {
                         "Authorization": f"Bearer {self.api_key}",
                         "Content-Type": "application/json",
@@ -263,47 +265,47 @@ If the claim is UNTRANSLATABLE to Lean 4, return exactly:
                         "temperature": 0.1,  # Low temperature for deterministic output
                     }
 
-                    async with session.post(
+                    response = await client.post(
                         "https://openrouter.ai/api/v1/chat/completions",
                         json=payload,
                         headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=self.timeout),
-                    ) as response:
-                        elapsed_ms = (time.time() - start_time) * 1000
+                        timeout=self.timeout,
+                    )
+                    elapsed_ms = (time.time() - start_time) * 1000
 
-                        if response.status == 200:
-                            data = await response.json()
-                            content = data["choices"][0]["message"]["content"]
+                    if response.status_code == 200:
+                        data = response.json()
+                        content = data["choices"][0]["message"]["content"]
 
-                            lean_code = self._extract_lean_code(content)
+                        lean_code = self._extract_lean_code(content)
 
-                            if lean_code is None or "UNTRANSLATABLE" in content:
-                                return TranslationResult(
-                                    success=False,
-                                    error_message="Claim cannot be translated to Lean 4",
-                                    model_used=model,
-                                    translation_time_ms=elapsed_ms,
-                                )
-
-                            confidence = self._estimate_confidence(lean_code)
-
+                        if lean_code is None or "UNTRANSLATABLE" in content:
                             return TranslationResult(
-                                success=True,
-                                lean_code=lean_code,
+                                success=False,
+                                error_message="Claim cannot be translated to Lean 4",
                                 model_used=model,
                                 translation_time_ms=elapsed_ms,
-                                confidence=confidence,
                             )
 
-                        else:
-                            error_text = await response.text()
-                            last_error = f"API error {response.status}: {error_text[:200]}"
-                            logger.warning(f"DeepSeek-Prover {model} failed: {last_error}")
+                        confidence = self._estimate_confidence(lean_code)
+
+                        return TranslationResult(
+                            success=True,
+                            lean_code=lean_code,
+                            model_used=model,
+                            translation_time_ms=elapsed_ms,
+                            confidence=confidence,
+                        )
+
+                    else:
+                        error_text = response.text
+                        last_error = f"API error {response.status_code}: {error_text[:200]}"
+                        logger.warning(f"DeepSeek-Prover {model} failed: {last_error}")
 
             except asyncio.TimeoutError:
                 last_error = f"Timeout after {self.timeout}s"
                 logger.warning(f"DeepSeek-Prover {model} timed out")
-            except aiohttp.ClientError as e:
+            except (OSError, ConnectionError) as e:
                 last_error = f"Network error: {e}"
                 logger.warning(f"DeepSeek-Prover {model} network error: {e}")
             except Exception as e:

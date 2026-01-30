@@ -18,6 +18,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -89,8 +90,6 @@ class DiscordDock(ChannelDock):
             )
 
         try:
-            import httpx
-
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
             headers = {
                 "Authorization": f"Bot {self._token}",
@@ -98,7 +97,8 @@ class DiscordDock(ChannelDock):
             }
             payload = self._build_payload(channel_id, message, **kwargs)
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("discord") as client:
                 response = await client.post(url, json=payload, headers=headers, timeout=30.0)
 
                 if response.status_code in (200, 201):
@@ -206,8 +206,6 @@ class DiscordDock(ChannelDock):
             )
 
         try:
-            import httpx
-
             url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
             headers = {
                 "Authorization": f"Bot {self._token}",
@@ -221,7 +219,8 @@ class DiscordDock(ChannelDock):
             if text:
                 data["content"] = text[:2000]
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("discord") as client:
                 response = await client.post(
                     url, data=data, files=files, headers=headers, timeout=60.0
                 )

@@ -332,7 +332,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
     )
     async def cmd_status(ctx: CommandContext) -> CommandResult:
         """Check system health status."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
             api_base = _get_api_base(ctx)
@@ -340,14 +340,13 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             return CommandResult.fail(f"Configuration error: {e}")
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{api_base}/healthz", timeout=aiohttp.ClientTimeout(total=5)
-                ) as resp:
-                    if resp.status == 200:
-                        return CommandResult.ok("Aragora is online and healthy.")
-                    else:
-                        return CommandResult.ok(f"Aragora returned status {resp.status}")
+            pool = get_http_pool()
+            async with pool.get_session("aragora") as client:
+                resp = await client.get(f"{api_base}/healthz", timeout=5)
+                if resp.status_code == 200:
+                    return CommandResult.ok("Aragora is online and healthy.")
+                else:
+                    return CommandResult.ok(f"Aragora returned status {resp.status_code}")
         except asyncio.TimeoutError:
             return CommandResult.fail("Health check timed out.")
         except OSError as e:
@@ -437,13 +436,14 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             logger.warning(f"DecisionRouter failed, falling back to HTTP: {e}")
 
         # Fallback to HTTP API if DecisionRouter unavailable
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         try:
-            async with aiohttp.ClientSession() as session:
+            pool = get_http_pool()
+            async with pool.get_session("aragora") as client:
                 from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 
-                async with session.post(
+                resp = await client.post(
                     f"{api_base}/api/debate",
                     json={
                         "question": topic,
@@ -456,21 +456,21 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                             "thread_id": ctx.thread_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=30,
+                )
+                data = resp.json()
 
-                    if resp.status == 200 and data.get("success"):
-                        debate_id = data.get("debate_id")
-                        return CommandResult.ok(
-                            f"Debate started on: **{topic}**\n"
-                            f"Debate ID: `{debate_id}`\n"
-                            f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
-                            data={"debate_id": debate_id},
-                        )
-                    else:
-                        error = data.get("error", "Unknown error")
-                        return CommandResult.fail(f"Failed to start debate: {error}")
+                if resp.status_code == 200 and data.get("success"):
+                    debate_id = data.get("debate_id")
+                    return CommandResult.ok(
+                        f"Debate started on: **{topic}**\n"
+                        f"Debate ID: `{debate_id}`\n"
+                        f"View at: {api_base.replace('http://', 'https://')}/debate/{debate_id}",
+                        data={"debate_id": debate_id},
+                    )
+                else:
+                    error = data.get("error", "Unknown error")
+                    return CommandResult.fail(f"Failed to start debate: {error}")
 
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")
@@ -487,7 +487,7 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
     )
     async def cmd_gauntlet(ctx: CommandContext) -> CommandResult:
         """Run gauntlet validation on a statement."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         statement = ctx.raw_args
         if not statement:
@@ -499,8 +499,9 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
             return CommandResult.fail(f"Configuration error: {e}")
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("aragora") as client:
+                resp = await client.post(
                     f"{api_base}/api/gauntlet/run",
                     json={
                         "statement": statement,
@@ -511,20 +512,20 @@ def _register_builtin_commands(registry: CommandRegistry) -> None:
                             "user_id": ctx.user_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=60,
+                )
+                data = resp.json()
 
-                    if resp.status == 200:
-                        run_id = data.get("run_id")
-                        return CommandResult.ok(
-                            f"Gauntlet started for: **{statement[:100]}{'...' if len(statement) > 100 else ''}**\n"
-                            f"Run ID: `{run_id}`\n"
-                            f"Results will be posted when ready."
-                        )
-                    else:
-                        error = data.get("error", "Unknown error")
-                        return CommandResult.fail(f"Failed to start gauntlet: {error}")
+                if resp.status_code == 200:
+                    run_id = data.get("run_id")
+                    return CommandResult.ok(
+                        f"Gauntlet started for: **{statement[:100]}{'...' if len(statement) > 100 else ''}**\n"
+                        f"Run ID: `{run_id}`\n"
+                        f"Results will be posted when ready."
+                    )
+                else:
+                    error = data.get("error", "Unknown error")
+                    return CommandResult.fail(f"Failed to start gauntlet: {error}")
 
         except asyncio.TimeoutError:
             return CommandResult.fail("Request timed out. Please try again.")

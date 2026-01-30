@@ -164,9 +164,10 @@ class DatabaseRotationHandler(RotationHandler):
         if project_ref and api_key:
             # Use Supabase Management API if available
             try:
-                import httpx
+                from aragora.server.http_client_pool import get_http_pool
 
-                async with httpx.AsyncClient() as client:
+                pool = get_http_pool()
+                async with pool.get_session("supabase") as client:
                     response = await client.patch(
                         f"https://api.supabase.com/v1/projects/{project_ref}/database/password",
                         headers={

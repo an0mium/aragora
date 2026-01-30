@@ -27,6 +27,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +264,6 @@ class ServiceNowConnector(EnterpriseConnector):
 
     async def _get_oauth_token(self) -> str:
         """Get OAuth2 access token."""
-        import httpx
-
         # Check if we have a valid cached token
         if self._oauth_token and self._oauth_expires:
             if datetime.now(timezone.utc) < self._oauth_expires:
@@ -290,7 +289,8 @@ class ServiceNowConnector(EnterpriseConnector):
             "password": password,
         }
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("servicenow") as client:
             response = await client.post(url, data=data)
             response.raise_for_status()
             token_data = response.json()
@@ -311,15 +311,14 @@ class ServiceNowConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to ServiceNow REST API."""
-        import httpx
-
         headers = await self._get_auth_header()
         headers["Accept"] = "application/json"
         headers["Content-Type"] = "application/json"
 
         url = f"{self.instance_url}/api/now{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("servicenow") as client:
             response = await client.request(
                 method,
                 url,

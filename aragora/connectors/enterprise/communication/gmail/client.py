@@ -218,7 +218,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         Returns:
             True if authentication successful
         """
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         client_id, client_secret = _get_client_credentials()
 
@@ -227,7 +227,8 @@ class GmailClientMixin(EnterpriseConnectorMethods):
             return False
 
         try:
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("google") as client:
                 if code and redirect_uri:
                     # Exchange code for tokens
                     response = await client.post(
@@ -275,9 +276,6 @@ class GmailClientMixin(EnterpriseConnectorMethods):
             logger.info("[Gmail] Authentication successful")
             return True
 
-        except httpx.HTTPError as e:
-            logger.error(f"[Gmail] Authentication failed: {e}")
-            return False
         except (OSError, ValueError, KeyError) as e:
             logger.error(f"[Gmail] Authentication failed: {e}")
             return False
@@ -287,14 +285,15 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
     async def _refresh_access_token(self) -> str:
         """Refresh the access token using refresh token."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self._refresh_token:
             raise ValueError("No refresh token available")
 
         client_id, client_secret = _get_client_credentials()
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
@@ -337,7 +336,7 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Gmail API with circuit breaker protection."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         # Check circuit breaker first
         if not self.check_circuit_breaker():
@@ -355,8 +354,9 @@ class GmailClientMixin(EnterpriseConnectorMethods):
         url = f"https://gmail.googleapis.com/gmail/v1/users/{self.user_id}{endpoint}"
 
         request_error: Exception | None = None
-        response: httpx.Response | None = None
-        async with httpx.AsyncClient() as client:
+        response = None
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             try:
                 response = await client.request(
                     method,
@@ -366,14 +366,14 @@ class GmailClientMixin(EnterpriseConnectorMethods):
                     json=json_data,
                     timeout=60,
                 )
-            except httpx.TimeoutException as e:
+            except TimeoutError as e:
                 request_error = e
             except (OSError, ConnectionError) as e:
                 request_error = e
 
         if request_error:
             self.record_failure()
-            if isinstance(request_error, httpx.TimeoutException):
+            if isinstance(request_error, TimeoutError):
                 logger.error(f"Gmail API timeout: {request_error}")
             else:
                 logger.error(f"Gmail API error: {request_error}")
@@ -395,9 +395,10 @@ class GmailClientMixin(EnterpriseConnectorMethods):
 
     def _get_client(self):
         """Get HTTP client context manager for API requests."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
-        return httpx.AsyncClient(timeout=60)
+        pool = get_http_pool()
+        return pool.get_session("google")
 
     async def get_user_info(self) -> dict[str, Any]:
         """Get authenticated user's Gmail profile."""

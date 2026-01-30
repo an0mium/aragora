@@ -98,7 +98,7 @@ class EventsMixin:
         Returns:
             Message timestamp (ts) if successful, None otherwise
         """
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         from .._slack_impl import SLACK_BOT_TOKEN
 
@@ -116,22 +116,23 @@ class EventsMixin:
             if blocks:
                 payload["blocks"] = blocks
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("slack") as client:
+                response = await client.post(
                     "https://slack.com/api/chat.postMessage",
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {SLACK_BOT_TOKEN}",
                         "Content-Type": "application/json",
                     },
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    result = await response.json()
-                    if not result.get("ok"):
-                        logger.warning(f"Slack API error: {result.get('error')}")
-                        return None
-                    # Return message timestamp for thread tracking
-                    return result.get("ts")
+                    timeout=30,
+                )
+                result = response.json()
+                if not result.get("ok"):
+                    logger.warning(f"Slack API error: {result.get('error')}")
+                    return None
+                # Return message timestamp for thread tracking
+                return result.get("ts")
         except (ConnectionError, TimeoutError) as e:
             logger.warning(f"Connection error posting Slack message: {e}")
             return None

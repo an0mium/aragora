@@ -942,14 +942,15 @@ async def webhook_alert_callback(
         headers: Optional headers to include
     """
     try:
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         payload = {
             "type": "slo_alert",
             **breach.to_dict(),
         }
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("webhook") as client:
             response = await client.post(
                 webhook_url,
                 json=payload,
@@ -960,7 +961,7 @@ async def webhook_alert_callback(
             logger.info(f"SLO alert sent to webhook: {webhook_url}")
 
     except ImportError:
-        logger.warning("httpx not installed, webhook alert skipped")
+        logger.warning("HTTP client pool not available, webhook alert skipped")
     except Exception as e:
         logger.error(f"Failed to send webhook alert: {e}")
 
@@ -977,7 +978,7 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
 
     async def slack_callback(breach: SLOBreach) -> None:
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
             # Format as Slack message
             color = "#ff0000" if breach.severity == "critical" else "#ffa500"
@@ -1019,13 +1020,14 @@ def create_slack_alert_callback(webhook_url: str) -> AlertCallback:
                 ]
             }
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
                 response = await client.post(webhook_url, json=payload, timeout=10.0)
                 response.raise_for_status()
                 logger.info("SLO alert sent to Slack")
 
         except ImportError:
-            logger.warning("httpx not installed, Slack alert skipped")
+            logger.warning("HTTP client pool not available, Slack alert skipped")
         except Exception as e:
             logger.error(f"Failed to send Slack alert: {e}")
 

@@ -189,7 +189,7 @@ async def send_notification(
         webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
         if webhook_url:
             try:
-                import httpx
+                from aragora.server.http_client_pool import get_http_pool
 
                 payload = {
                     "channel": slack_config.get("channel", "#aragora-security"),
@@ -203,7 +203,8 @@ async def send_notification(
                 if status == "failure" and slack_config.get("mention_on_failure"):
                     payload["text"] = f"{slack_config['mention_on_failure']} " + payload["text"]
 
-                async with httpx.AsyncClient() as client:
+                pool = get_http_pool()
+                async with pool.get_session("slack") as client:
                     await client.post(webhook_url, json=payload, timeout=10.0)
                     logger.info(f"Sent Slack notification for {secret_id}")
 

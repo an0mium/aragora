@@ -21,6 +21,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -100,8 +101,6 @@ class WhatsAppDock(ChannelDock):
             return await self._send_voice_message(channel_id, audio, message, **kwargs)
 
         try:
-            import httpx
-
             url = f"https://graph.facebook.com/v18.0/{self._phone_number_id}/messages"
             headers = {
                 "Authorization": f"Bearer {self._access_token}",
@@ -109,7 +108,8 @@ class WhatsAppDock(ChannelDock):
             }
             payload = self._build_payload(channel_id, message, **kwargs)
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp") as client:
                 response = await client.post(url, json=payload, headers=headers, timeout=30.0)
 
                 if response.status_code == 200:
@@ -178,7 +178,6 @@ class WhatsAppDock(ChannelDock):
     ) -> SendResult:
         """Send a voice message to WhatsApp."""
         try:
-            import httpx
             from aragora.channels.normalized import MessageAttachment
 
             # Get audio data
@@ -197,7 +196,8 @@ class WhatsAppDock(ChannelDock):
                 "Authorization": f"Bearer {self._access_token}",
             }
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("whatsapp") as client:
                 # Upload audio file
                 files = {
                     "file": ("voice.ogg", audio_data, "audio/ogg"),

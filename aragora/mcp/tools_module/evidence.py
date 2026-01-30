@@ -147,18 +147,19 @@ async def verify_citation_tool(
     if not url:
         return {"error": "url is required"}
 
-    import aiohttp
+    from aragora.server.http_client_pool import get_http_pool
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.head(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                return {
-                    "url": url,
-                    "valid": response.status == 200,
-                    "status_code": response.status,
-                    "content_type": response.headers.get("Content-Type", "unknown"),
-                    "accessible": response.status < 400,
-                }
+        pool = get_http_pool()
+        async with pool.get_session("evidence") as client:
+            response = await client.head(url, timeout=10)
+            return {
+                "url": url,
+                "valid": response.status_code == 200,
+                "status_code": response.status_code,
+                "content_type": response.headers.get("Content-Type", "unknown"),
+                "accessible": response.status_code < 400,
+            }
     except asyncio.TimeoutError:
         return {"url": url, "valid": False, "error": "Timeout"}
     except Exception as e:

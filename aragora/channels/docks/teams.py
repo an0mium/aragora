@@ -17,6 +17,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
+from aragora.server.http_client_pool import get_http_pool
 
 if TYPE_CHECKING:
     from aragora.channels.normalized import NormalizedMessage
@@ -88,11 +89,10 @@ class TeamsDock(ChannelDock):
             )
 
         try:
-            import httpx
-
             payload = self._build_payload(channel_id, message, **kwargs)
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("teams") as client:
                 response = await client.post(webhook_url, json=payload, timeout=30.0)
 
                 if response.status_code == 200:

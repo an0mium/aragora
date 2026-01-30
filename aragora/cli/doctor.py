@@ -149,23 +149,22 @@ async def check_server() -> list[tuple[str, str, bool | None]]:
     checks = []
 
     try:
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(
-                    "http://localhost:8080/health", timeout=aiohttp.ClientTimeout(total=5)
-                ) as resp:
-                    if resp.status == 200:
-                        checks.append(("Server (localhost:8080)", "running", True))
-                    else:
-                        checks.append(
-                            ("Server (localhost:8080)", f"unhealthy ({resp.status})", False)
-                        )
-            except aiohttp.ClientError:
-                checks.append(("Server (localhost:8080)", "not running", None))
+        pool = get_http_pool()
+        try:
+            async with pool.get_session("health_check") as client:
+                resp = await client.get("http://localhost:8080/health", timeout=5)
+                if resp.status_code == 200:
+                    checks.append(("Server (localhost:8080)", "running", True))
+                else:
+                    checks.append(
+                        ("Server (localhost:8080)", f"unhealthy ({resp.status_code})", False)
+                    )
+        except (OSError, ConnectionError, TimeoutError):
+            checks.append(("Server (localhost:8080)", "not running", None))
     except ImportError:
-        checks.append(("Server check", "aiohttp not available", None))
+        checks.append(("Server check", "http pool not available", None))
 
     return checks
 

@@ -83,9 +83,10 @@ class OAuthRotationHandler(RotationHandler):
         token_url = self._get_token_url(provider, metadata)
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("oauth") as client:
                 response = await client.post(
                     token_url,
                     data={
@@ -116,8 +117,8 @@ class OAuthRotationHandler(RotationHandler):
                 "rotated_at": datetime.utcnow().isoformat(),
             }
 
-        except ImportError:
-            raise RotationError("httpx not installed. Install with: pip install httpx", secret_id)
+        except ImportError as e:
+            raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ValueError, KeyError) as e:
             raise RotationError(f"OAuth refresh failed: {e}", secret_id)
 
@@ -169,9 +170,10 @@ class OAuthRotationHandler(RotationHandler):
             return True
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("oauth") as client:
                 response = await client.get(
                     validation_url,
                     headers={"Authorization": f"Bearer {secret_value}"},
@@ -191,7 +193,7 @@ class OAuthRotationHandler(RotationHandler):
                     return response.status_code < 400
 
         except ImportError:
-            logger.warning("httpx not installed, assuming token valid")
+            logger.warning("HTTPClientPool not available, assuming token valid")
             return True
         except (OSError, ValueError) as e:
             logger.error(f"OAuth validation error for {secret_id}: {e}")
@@ -237,9 +239,10 @@ class OAuthRotationHandler(RotationHandler):
         client_secret = metadata.get("client_secret")
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("oauth") as client:
                 response = await client.post(
                     revoke_url,
                     data={
@@ -260,7 +263,7 @@ class OAuthRotationHandler(RotationHandler):
                     return False
 
         except ImportError:
-            logger.warning("httpx not installed, skipping revocation")
+            logger.warning("HTTPClientPool not available, skipping revocation")
             return True
         except (OSError, ValueError) as e:
             logger.error(f"OAuth revocation error for {secret_id}: {e}")

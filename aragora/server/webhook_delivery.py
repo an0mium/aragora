@@ -706,27 +706,20 @@ class WebhookDeliveryManager:
     ) -> int:
         """Send HTTP POST request."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
+                response = await client.post(
                     url,
                     json=payload,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=self._timeout),
-                ) as response:
-                    return response.status
+                    timeout=self._timeout,
+                )
+                return response.status_code
         except ImportError:
-            # Fallback to httpx if aiohttp not available
-            try:
-                import httpx
-
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    httpx_response = await client.post(url, json=payload, headers=headers)
-                    return httpx_response.status_code
-            except ImportError:
-                logger.error("No HTTP client available (need aiohttp or httpx)")
-                raise RuntimeError("No HTTP client available")
+            logger.error("httpx not available for HTTP client pool")
+            raise RuntimeError("No HTTP client available")
 
     def _schedule_retry(
         self,

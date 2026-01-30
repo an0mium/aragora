@@ -280,7 +280,7 @@ class GmailThreadsHandler(SecureHandler):
         page_token: str | None,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """List threads via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -292,7 +292,8 @@ class GmailThreadsHandler(SecureHandler):
         if page_token:
             params["pageToken"] = page_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 "https://gmail.googleapis.com/gmail/v1/users/me/threads",
                 headers={"Authorization": f"Bearer {token}"},
@@ -406,11 +407,12 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_trash_thread(self, state: GmailUserState, thread_id: str) -> None:
         """Trash thread via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/threads/{thread_id}/trash",
                 headers={"Authorization": f"Bearer {token}"},
@@ -419,11 +421,12 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_untrash_thread(self, state: GmailUserState, thread_id: str) -> None:
         """Untrash thread via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/threads/{thread_id}/untrash",
                 headers={"Authorization": f"Bearer {token}"},
@@ -464,11 +467,12 @@ class GmailThreadsHandler(SecureHandler):
         remove_labels: list[str],
     ) -> dict[str, Any]:
         """Modify thread labels via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/threads/{thread_id}/modify",
                 headers={"Authorization": f"Bearer {token}"},
@@ -512,7 +516,7 @@ class GmailThreadsHandler(SecureHandler):
         page_token: str | None,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """List drafts via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -520,7 +524,8 @@ class GmailThreadsHandler(SecureHandler):
         if page_token:
             params["pageToken"] = page_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 "https://gmail.googleapis.com/gmail/v1/users/me/drafts",
                 headers={"Authorization": f"Bearer {token}"},
@@ -553,11 +558,12 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_get_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Get draft via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/drafts/{draft_id}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -596,9 +602,10 @@ class GmailThreadsHandler(SecureHandler):
         thread_id: str | None,
     ) -> dict[str, Any]:
         """Create draft via Gmail API."""
-        import httpx
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -622,7 +629,8 @@ class GmailThreadsHandler(SecureHandler):
         if thread_id:
             draft_data["message"]["threadId"] = thread_id
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/drafts",
                 headers={"Authorization": f"Bearer {token}"},
@@ -658,9 +666,10 @@ class GmailThreadsHandler(SecureHandler):
         html_body: str | None,
     ) -> dict[str, Any]:
         """Update draft via Gmail API."""
-        import httpx
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
@@ -679,7 +688,8 @@ class GmailThreadsHandler(SecureHandler):
 
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.put(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/drafts/{draft_id}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -700,11 +710,12 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_delete_draft(self, state: GmailUserState, draft_id: str) -> None:
         """Delete draft via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.delete(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/drafts/{draft_id}",
                 headers={"Authorization": f"Bearer {token}"},
@@ -729,11 +740,12 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _api_send_draft(self, state: GmailUserState, draft_id: str) -> dict[str, Any]:
         """Send draft via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.post(
                 "https://gmail.googleapis.com/gmail/v1/users/me/drafts/send",
                 headers={"Authorization": f"Bearer {token}"},
@@ -775,11 +787,12 @@ class GmailThreadsHandler(SecureHandler):
         attachment_id: str,
     ) -> dict[str, Any]:
         """Get attachment via Gmail API."""
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
 
         token = state.access_token
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("google") as client:
             response = await client.get(
                 f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}/attachments/{attachment_id}",
                 headers={"Authorization": f"Bearer {token}"},

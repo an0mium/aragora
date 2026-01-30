@@ -384,50 +384,48 @@ class WebProvenanceTracker:
     ) -> StalenessCheck:
         """Check if web evidence has become stale."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    source_info.url,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as response:
-                    if response.status != 200:
-                        return StalenessCheck(
-                            evidence_id=source_info.url,
-                            status=StalenessStatus.ERROR,
-                            checked_at=datetime.now().isoformat(),
-                            reason=f"HTTP {response.status}",
-                        )
+            pool = get_http_pool()
+            async with pool.get_session("web_provenance") as client:
+                response = await client.get(source_info.url, timeout=timeout)
+                if response.status_code != 200:
+                    return StalenessCheck(
+                        evidence_id=source_info.url,
+                        status=StalenessStatus.ERROR,
+                        checked_at=datetime.now().isoformat(),
+                        reason=f"HTTP {response.status_code}",
+                    )
 
-                    content = await response.text()
-                    current_hash = hashlib.sha256(content.encode()).hexdigest()
+                content = response.text
+                current_hash = hashlib.sha256(content.encode()).hexdigest()
 
-                    if current_hash == source_info.content_hash:
-                        return StalenessCheck(
-                            evidence_id=source_info.url,
-                            status=StalenessStatus.FRESH,
-                            checked_at=datetime.now().isoformat(),
-                            reason="Content unchanged",
-                            original_hash=source_info.content_hash[:16],
-                            current_hash=current_hash[:16],
-                        )
-                    else:
-                        return StalenessCheck(
-                            evidence_id=source_info.url,
-                            status=StalenessStatus.STALE,
-                            checked_at=datetime.now().isoformat(),
-                            reason="Content has changed",
-                            original_hash=source_info.content_hash[:16],
-                            current_hash=current_hash[:16],
-                        )
+                if current_hash == source_info.content_hash:
+                    return StalenessCheck(
+                        evidence_id=source_info.url,
+                        status=StalenessStatus.FRESH,
+                        checked_at=datetime.now().isoformat(),
+                        reason="Content unchanged",
+                        original_hash=source_info.content_hash[:16],
+                        current_hash=current_hash[:16],
+                    )
+                else:
+                    return StalenessCheck(
+                        evidence_id=source_info.url,
+                        status=StalenessStatus.STALE,
+                        checked_at=datetime.now().isoformat(),
+                        reason="Content has changed",
+                        original_hash=source_info.content_hash[:16],
+                        current_hash=current_hash[:16],
+                    )
 
         except ImportError:
-            # aiohttp not available, use basic check
+            # http pool not available, use basic check
             return StalenessCheck(
                 evidence_id=source_info.url,
                 status=StalenessStatus.UNKNOWN,
                 checked_at=datetime.now().isoformat(),
-                reason="aiohttp not available for web checking",
+                reason="http pool not available for web checking",
             )
         except Exception as e:
             return StalenessCheck(

@@ -19,8 +19,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncIterator, Optional
 
-import aiohttp
-
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
@@ -203,9 +201,6 @@ class GoogleCalendarConnector(EnterpriseConnector):
             recovery_timeout=60,
         )
 
-        # HTTP session
-        self._session: aiohttp.ClientSession | None = None
-
     @property
     def source_type(self) -> SourceType:
         return SourceType.DOCUMENT
@@ -254,12 +249,6 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
         return f"{self.AUTH_URL}?{urlencode(params)}"
 
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-
     async def _ensure_token(self) -> str:
         """Ensure we have a valid access token, refreshing if needed."""
         async with self._token_lock:
@@ -280,6 +269,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
     async def _refresh_access_token(self) -> None:
         """Refresh the access token using refresh token."""
         import os
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         client_id = os.environ.get("GOOGLE_CALENDAR_CLIENT_ID") or os.environ.get(
             "GOOGLE_CLIENT_ID", ""
@@ -288,23 +280,26 @@ class GoogleCalendarConnector(EnterpriseConnector):
             "GOOGLE_CLIENT_SECRET", ""
         )
 
-        session = await self._get_session()
-
-        async with session.post(
-            self.TOKEN_URL,
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "refresh_token": self._refresh_token,
-                "grant_type": "refresh_token",
-            },
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.text()
+        pool = get_http_pool()
+        async with pool.get_session("google_calendar") as client:
+            response = await client.post(
+                self.TOKEN_URL,
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": self._refresh_token,
+                        "grant_type": "refresh_token",
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error = response.text
                 logger.error(f"Token refresh failed: {error}")
-                raise ValueError(f"Token refresh failed: {resp.status}")
+                raise ValueError(f"Token refresh failed: {response.status_code}")
 
-            data = await resp.json()
+            data = response.json()
             self._access_token = data["access_token"]
             expires_in = data.get("expires_in", 3600)
             self._token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
@@ -327,6 +322,9 @@ class GoogleCalendarConnector(EnterpriseConnector):
             True if authentication successful
         """
         import os
+        import urllib.parse
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if refresh_token:
             self._refresh_token = refresh_token
@@ -343,24 +341,27 @@ class GoogleCalendarConnector(EnterpriseConnector):
             "GOOGLE_CLIENT_SECRET", ""
         )
 
-        session = await self._get_session()
-
-        async with session.post(
-            self.TOKEN_URL,
-            data={
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "code": code,
-                "redirect_uri": redirect_uri,
-                "grant_type": "authorization_code",
-            },
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.text()
+        pool = get_http_pool()
+        async with pool.get_session("google_calendar") as client:
+            response = await client.post(
+                self.TOKEN_URL,
+                content=urllib.parse.urlencode(
+                    {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "code": code,
+                        "redirect_uri": redirect_uri,
+                        "grant_type": "authorization_code",
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error = response.text
                 logger.error(f"Token exchange failed: {error}")
                 return False
 
-            data = await resp.json()
+            data = response.json()
             self._access_token = data["access_token"]
             self._refresh_token = data.get("refresh_token")
             expires_in = data.get("expires_in", 3600)
@@ -376,41 +377,44 @@ class GoogleCalendarConnector(EnterpriseConnector):
         json_data: dict | None = None,
     ) -> dict[str, Any]:
         """Make authenticated API request."""
+        from aragora.server.http_client_pool import get_http_pool
+
         token = await self._ensure_token()
-        session = await self._get_session()
 
         url = f"{self.API_BASE}{endpoint}"
         headers = {"Authorization": f"Bearer {token}"}
 
         async def _make_request():
-            async with session.request(
-                method,
-                url,
-                headers=headers,
-                params=params,
-                json=json_data,
-            ) as resp:
-                if resp.status == 401:
+            pool = get_http_pool()
+            async with pool.get_session("google_calendar") as client:
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=params,
+                    json=json_data,
+                )
+                if response.status_code == 401:
                     # Token expired, refresh and retry
                     await self._refresh_access_token()
                     headers["Authorization"] = f"Bearer {self._access_token}"
-                    async with session.request(
+                    retry_response = await client.request(
                         method,
                         url,
                         headers=headers,
                         params=params,
                         json=json_data,
-                    ) as retry_resp:
-                        if retry_resp.status >= 400:
-                            error = await retry_resp.text()
-                            raise ValueError(f"API error: {retry_resp.status} - {error}")
-                        return await retry_resp.json()
+                    )
+                    if retry_response.status_code >= 400:
+                        error = retry_response.text
+                        raise ValueError(f"API error: {retry_response.status_code} - {error}")
+                    return retry_response.json()
 
-                if resp.status >= 400:
-                    error = await resp.text()
-                    raise ValueError(f"API error: {resp.status} - {error}")
+                if response.status_code >= 400:
+                    error = response.text
+                    raise ValueError(f"API error: {response.status_code} - {error}")
 
-                return await resp.json()
+                return response.json()
 
         return await self._circuit_breaker.execute(_make_request)
 
@@ -700,9 +704,8 @@ class GoogleCalendarConnector(EnterpriseConnector):
 
     async def close(self) -> None:
         """Close the connector and release resources."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
+        # HTTP client pool is managed globally, no session to close
+        pass
 
     async def sync(
         self,

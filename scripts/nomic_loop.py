@@ -10180,9 +10180,11 @@ async def main():
         print("\nTo run only pre-flight checks: python scripts/nomic_loop.py preflight")
         sys.exit(1)
 
+    max_cycle_seconds = int(os.environ.get("NOMIC_MAX_CYCLE_SECONDS", "3600"))
     loop = NomicLoop(
         aragora_path=args.path,
         max_cycles=args.cycles,
+        max_cycle_seconds=max_cycle_seconds,
         require_human_approval=not args.auto,
         auto_commit=args.auto,
         initial_proposal=initial_proposal,

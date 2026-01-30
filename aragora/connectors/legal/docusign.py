@@ -296,9 +296,12 @@ class DocuSignConnector:
 
         Requires private key file.
         """
-        import aiohttp
-        import jwt
         import time
+        import urllib.parse
+
+        import jwt
+
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self.private_key_path:
             raise ValueError("Private key path required for JWT authentication")
@@ -321,52 +324,57 @@ class DocuSignConnector:
         token = jwt.encode(payload, private_key, algorithm="RS256")
 
         # Exchange for access token
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        pool = get_http_pool()
+        async with pool.get_session("docusign") as client:
+            response = await client.post(
                 f"{self.auth_url}/token",
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                    "assertion": token,
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"JWT auth failed: {error_text}")
+                content=urllib.parse.urlencode(
+                    {
+                        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                        "assertion": token,
+                    }
+                ),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            if response.status_code != 200:
+                error_text = response.text
+                raise Exception(f"JWT auth failed: {error_text}")
 
-                data = await response.json()
+            data = response.json()
 
-                self._credentials = DocuSignCredentials(
-                    access_token=data["access_token"],
-                    account_id=self.account_id or "",
-                    base_uri=self.api_url,
-                    token_type=data.get("token_type", "Bearer"),
-                    expires_at=datetime.now(timezone.utc)
-                    + timedelta(seconds=data.get("expires_in", 3600)),
-                )
+            self._credentials = DocuSignCredentials(
+                access_token=data["access_token"],
+                account_id=self.account_id or "",
+                base_uri=self.api_url,
+                token_type=data.get("token_type", "Bearer"),
+                expires_at=datetime.now(timezone.utc)
+                + timedelta(seconds=data.get("expires_in", 3600)),
+            )
 
-                # Get user info to confirm account
-                if not self.account_id:
-                    user_info = await self._get_user_info()
-                    if user_info.get("accounts"):
-                        account = user_info["accounts"][0]
-                        self._credentials.account_id = account["account_id"]
-                        self._credentials.base_uri = account["base_uri"]
+            # Get user info to confirm account
+            if not self.account_id:
+                user_info = await self._get_user_info()
+                if user_info.get("accounts"):
+                    account = user_info["accounts"][0]
+                    self._credentials.account_id = account["account_id"]
+                    self._credentials.base_uri = account["base_uri"]
 
-                return self._credentials
+            return self._credentials
 
     async def _get_user_info(self) -> dict[str, Any]:
         """Get user info including accounts."""
-        import aiohttp
+        from aragora.server.http_client_pool import get_http_pool
 
         if not self._credentials:
             raise Exception("Not authenticated")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        pool = get_http_pool()
+        async with pool.get_session("docusign") as client:
+            response = await client.get(
                 f"{self.auth_url}/userinfo",
                 headers={"Authorization": f"Bearer {self._credentials.access_token}"},
-            ) as response:
-                return await response.json()
+            )
+            return response.json()
 
     async def _request(
         self,
@@ -376,13 +384,13 @@ class DocuSignConnector:
         raw_response: bool = False,
     ) -> Any:
         """Make authenticated API request."""
+        from aragora.server.http_client_pool import get_http_pool
+
         if not self._credentials:
             raise Exception("Not authenticated")
 
         if self._credentials.is_expired:
             await self.authenticate_jwt()
-
-        import aiohttp
 
         url = (
             f"{self._credentials.base_uri}/v2.1/accounts/{self._credentials.account_id}/{endpoint}"
@@ -394,23 +402,24 @@ class DocuSignConnector:
             "Accept": "application/json",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
+        pool = get_http_pool()
+        async with pool.get_session("docusign") as client:
+            response = await client.request(
                 method,
                 url,
                 headers=headers,
                 json=data,
-            ) as response:
-                if raw_response:
-                    return await response.read()
+            )
+            if raw_response:
+                return response.content
 
-                response_data = await response.json()
+            response_data = response.json()
 
-                if response.status >= 400:
-                    error = response_data.get("message", "Unknown error")
-                    raise Exception(f"DocuSign API error: {error}")
+            if response.status_code >= 400:
+                error = response_data.get("message", "Unknown error")
+                raise Exception(f"DocuSign API error: {error}")
 
-                return response_data
+            return response_data
 
     # =========================================================================
     # Envelope Operations

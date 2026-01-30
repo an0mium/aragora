@@ -17,7 +17,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 
-import aiohttp
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -158,34 +158,32 @@ class LocalLLMDetector:
         server = LocalLLMServer(name=name, base_url=base_url, available=False)
 
         try:
-            async with aiohttp.ClientSession() as session:
-                health_url = base_url.rstrip("/") + config["health_endpoint"]
+            pool = get_http_pool()
+            health_url = base_url.rstrip("/") + config["health_endpoint"]
 
-                async with session.get(
-                    health_url,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as response:
-                    if response.status != 200:
-                        return server
-
-                    data = await response.json()
-                    server.available = True
-
-                    # Extract model list
-                    models_data = data.get(config["models_key"], [])
-                    server.models = [
-                        m.get(config["model_name_key"], str(m))
-                        for m in models_data
-                        if isinstance(m, dict)
-                    ]
-
-                    if server.models:
-                        server.default_model = self._pick_best_model(server.models)
-
+            async with pool.get_session("local_llm") as client:
+                response = await client.get(health_url, timeout=self.timeout)
+                if response.status_code != 200:
                     return server
 
-        except aiohttp.ClientConnectorError:
-            logger.debug(f"{name} not available at {base_url}")
+                data = response.json()
+                server.available = True
+
+                # Extract model list
+                models_data = data.get(config["models_key"], [])
+                server.models = [
+                    m.get(config["model_name_key"], str(m))
+                    for m in models_data
+                    if isinstance(m, dict)
+                ]
+
+                if server.models:
+                    server.default_model = self._pick_best_model(server.models)
+
+                return server
+
+        except (OSError, ConnectionError) as e:
+            logger.debug(f"{name} not available at {base_url}: {e}")
             return server
         except asyncio.TimeoutError:
             logger.debug(f"{name} timed out at {base_url}")

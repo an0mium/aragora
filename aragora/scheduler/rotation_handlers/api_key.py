@@ -123,9 +123,10 @@ class APIKeyRotationHandler(RotationHandler):
             )
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("openai") as client:
                 # Create new API key
                 response = await client.post(
                     "https://api.openai.com/v1/organization/api_keys",
@@ -156,8 +157,8 @@ class APIKeyRotationHandler(RotationHandler):
                 "rotation_method": "programmatic",
             }
 
-        except ImportError:
-            raise RotationError("httpx not installed. Install with: pip install httpx", secret_id)
+        except ImportError as e:
+            raise RotationError(f"Required module not installed: {e}", secret_id)
         except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
             logger.error(f"OpenAI key rotation failed: {e}")
             await self._notify_manual_rotation(secret_id, "openai", metadata)
@@ -237,9 +238,10 @@ class APIKeyRotationHandler(RotationHandler):
     async def _validate_anthropic(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
         """Validate Anthropic API key."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("anthropic") as client:
                 response = await client.get(
                     "https://api.anthropic.com/v1/messages",
                     headers={
@@ -258,9 +260,10 @@ class APIKeyRotationHandler(RotationHandler):
     async def _validate_openai(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
         """Validate OpenAI API key."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("openai") as client:
                 response = await client.get(
                     "https://api.openai.com/v1/models",
                     headers={"Authorization": f"Bearer {key}"},
@@ -275,9 +278,10 @@ class APIKeyRotationHandler(RotationHandler):
     async def _validate_google(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
         """Validate Google/Gemini API key."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("google") as client:
                 response = await client.get(
                     f"https://generativelanguage.googleapis.com/v1/models?key={key}",
                     timeout=10.0,
@@ -291,9 +295,10 @@ class APIKeyRotationHandler(RotationHandler):
     async def _validate_mistral(self, secret_id: str, key: str, metadata: dict[str, Any]) -> bool:
         """Validate Mistral API key."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("mistral") as client:
                 response = await client.get(
                     "https://api.mistral.ai/v1/models",
                     headers={"Authorization": f"Bearer {key}"},
@@ -310,9 +315,10 @@ class APIKeyRotationHandler(RotationHandler):
     ) -> bool:
         """Validate OpenRouter API key."""
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("openrouter") as client:
                 response = await client.get(
                     "https://openrouter.ai/api/v1/auth/key",
                     headers={"Authorization": f"Bearer {key}"},
@@ -367,9 +373,10 @@ class APIKeyRotationHandler(RotationHandler):
             return False
 
         try:
-            import httpx
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with httpx.AsyncClient() as client:
+            pool = get_http_pool()
+            async with pool.get_session("openai") as client:
                 response = await client.delete(
                     f"https://api.openai.com/v1/organization/api_keys/{key_id}",
                     headers={"Authorization": f"Bearer {admin_key}"},

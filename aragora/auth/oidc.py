@@ -332,7 +332,10 @@ class OIDCProvider(SSOProvider):
             if HAS_HTTPX:
                 if httpx is None:
                     raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                async with httpx.AsyncClient() as client:
+                from aragora.server.http_client_pool import get_http_pool
+
+                pool = get_http_pool()
+                async with pool.get_session("oidc") as client:
                     response = await client.get(discovery_url, timeout=10.0)
                     response.raise_for_status()
                     self._discovery_cache = response.json()
@@ -519,7 +522,10 @@ class OIDCProvider(SSOProvider):
             if HAS_HTTPX:
                 if httpx is None:
                     raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                async with httpx.AsyncClient() as client:
+                from aragora.server.http_client_pool import get_http_pool
+
+                pool = get_http_pool()
+                async with pool.get_session("oidc") as client:
                     response = await client.post(
                         token_endpoint, data=data, headers=headers, timeout=30.0
                     )
@@ -620,7 +626,10 @@ class OIDCProvider(SSOProvider):
             if HAS_HTTPX:
                 if httpx is None:
                     raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                async with httpx.AsyncClient() as client:
+                from aragora.server.http_client_pool import get_http_pool
+
+                pool = get_http_pool()
+                async with pool.get_session("oidc") as client:
                     response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
                     response.raise_for_status()
                     return response.json()
@@ -726,7 +735,10 @@ class OIDCProvider(SSOProvider):
             if HAS_HTTPX:
                 if httpx is None:
                     raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                async with httpx.AsyncClient() as client:
+                from aragora.server.http_client_pool import get_http_pool
+
+                pool = get_http_pool()
+                async with pool.get_session("oidc") as client:
                     response = await client.post(token_endpoint, data=data, timeout=30.0)
                     response.raise_for_status()
                     tokens = response.json()

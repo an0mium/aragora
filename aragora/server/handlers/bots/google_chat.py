@@ -805,10 +805,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             return
 
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("google_chat_handler") as client:
+                resp = await client.post(
                     "http://localhost:8080/api/v1/gauntlet/run",
                     json={
                         "statement": statement,
@@ -819,50 +820,48 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
                             "user_id": user_id,
                         },
                     },
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    data = await resp.json()
+                    timeout=120.0,
+                )
+                data = resp.json()
 
-                    if resp.status != 200:
-                        await connector.send_message(
-                            space_name,
-                            f"Gauntlet failed: {data.get('error', 'Unknown error')}",
-                        )
-                        return
-
-                    score = data.get("score", 0)
-                    passed = data.get("passed", False)
-                    vulnerabilities = data.get("vulnerabilities", [])
-
-                    status_emoji = "✅" if passed else "❌"
-                    score_bar = "█" * int(score * 5) + "░" * (5 - int(score * 5))
-
-                    body = (
-                        f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
-                    )
-                    body += f"*Score:* {score_bar} {score:.0%}\n"
-                    body += f"*Status:* {'Passed' if passed else 'Failed'}\n"
-                    body += f"*Issues Found:* {len(vulnerabilities)}\n"
-
-                    if vulnerabilities:
-                        body += "\n*Issues:*\n"
-                        for v in vulnerabilities[:3]:
-                            body += f"• {v.get('description', 'Unknown')[:80]}\n"
-                        if len(vulnerabilities) > 3:
-                            body += f"_...and {len(vulnerabilities) - 3} more_"
-
+                if resp.status_code != 200:
                     await connector.send_message(
                         space_name,
-                        "Gauntlet complete",
-                        blocks=(
-                            connector.format_blocks(
-                                title=f"{status_emoji} Gauntlet Results",
-                                body=body,
-                            )
-                            if hasattr(connector, "format_blocks")
-                            else None
-                        ),
+                        f"Gauntlet failed: {data.get('error', 'Unknown error')}",
                     )
+                    return
+
+                score = data.get("score", 0)
+                passed = data.get("passed", False)
+                vulnerabilities = data.get("vulnerabilities", [])
+
+                status_emoji = "✅" if passed else "❌"
+                score_bar = "█" * int(score * 5) + "░" * (5 - int(score * 5))
+
+                body = f"*Statement:* {statement[:200]}{'...' if len(statement) > 200 else ''}\n\n"
+                body += f"*Score:* {score_bar} {score:.0%}\n"
+                body += f"*Status:* {'Passed' if passed else 'Failed'}\n"
+                body += f"*Issues Found:* {len(vulnerabilities)}\n"
+
+                if vulnerabilities:
+                    body += "\n*Issues:*\n"
+                    for v in vulnerabilities[:3]:
+                        body += f"• {v.get('description', 'Unknown')[:80]}\n"
+                    if len(vulnerabilities) > 3:
+                        body += f"_...and {len(vulnerabilities) - 3} more_"
+
+                await connector.send_message(
+                    space_name,
+                    "Gauntlet complete",
+                    blocks=(
+                        connector.format_blocks(
+                            title=f"{status_emoji} Gauntlet Results",
+                            body=body,
+                        )
+                        if hasattr(connector, "format_blocks")
+                        else None
+                    ),
+                )
 
         except (RuntimeError, ImportError, ValueError, AttributeError, OSError) as e:
             logger.error(f"Async gauntlet failed: {e}", exc_info=True)

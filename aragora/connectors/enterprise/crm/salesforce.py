@@ -27,6 +27,7 @@ from aragora.connectors.enterprise.base import (
     SyncState,
 )
 from aragora.reasoning.provenance import SourceType
+from aragora.server.http_client_pool import get_http_pool
 
 logger = logging.getLogger(__name__)
 
@@ -447,11 +448,10 @@ class SalesforceConnector(EnterpriseConnector):
         refresh_token: str,
     ) -> str:
         """Refresh OAuth2 access token."""
-        import httpx
-
         token_url = self.SANDBOX_TOKEN_URL if self.is_sandbox else self.TOKEN_URL
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("salesforce") as client:
             response = await client.post(
                 token_url,
                 data={
@@ -481,14 +481,13 @@ class SalesforceConnector(EnterpriseConnector):
         security_token: str | None = None,
     ) -> str:
         """Authenticate with username/password flow."""
-        import httpx
-
         token_url = self.SANDBOX_TOKEN_URL if self.is_sandbox else self.TOKEN_URL
 
         # Security token is appended to password
         full_password = password + (security_token or "")
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("salesforce") as client:
             response = await client.post(
                 token_url,
                 data={
@@ -523,8 +522,6 @@ class SalesforceConnector(EnterpriseConnector):
         json_data: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make a request to Salesforce REST API."""
-        import httpx
-
         token = await self._get_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
@@ -534,7 +531,8 @@ class SalesforceConnector(EnterpriseConnector):
 
         url = f"{self._get_api_base()}{endpoint}"
 
-        async with httpx.AsyncClient() as client:
+        pool = get_http_pool()
+        async with pool.get_session("salesforce") as client:
             response = await client.request(
                 method,
                 url,

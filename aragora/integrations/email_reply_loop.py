@@ -1184,9 +1184,9 @@ async def _send_via_sendgrid(
 ) -> dict[str, Any] | None:
     """Send email via SendGrid API."""
     try:
-        import httpx
+        from aragora.server.http_client_pool import get_http_pool
     except ImportError:
-        logger.warning("httpx not installed, cannot send via SendGrid")
+        logger.warning("HTTPClientPool not available, cannot send via SendGrid")
         return None
 
     api_key = os.environ.get("SENDGRID_API_KEY", "")
@@ -1213,7 +1213,8 @@ Participants: {", ".join(result.get("participants", []))}
 Reply to this email to continue the discussion.
 """
 
-    async with httpx.AsyncClient() as client:
+    pool = get_http_pool()
+    async with pool.get_session("sendgrid") as client:
         response = await client.post(
             "https://api.sendgrid.com/v3/mail/send",
             headers={

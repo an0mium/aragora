@@ -185,21 +185,22 @@ class WebhookNotifier(ApprovalNotifier):
     async def _send_webhook(self, payload: dict[str, Any]) -> None:
         """Send webhook notification."""
         try:
-            import aiohttp
+            from aragora.server.http_client_pool import get_http_pool
 
             headers = {"Content-Type": "application/json"}
             if self._auth_token:
                 headers["Authorization"] = f"Bearer {self._auth_token}"
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            pool = get_http_pool()
+            async with pool.get_session("webhook") as client:
+                response = await client.post(
                     self._webhook_url,
                     json=payload,
                     headers=headers,
                     timeout=10.0,
-                ) as response:
-                    if not response.ok:
-                        logger.warning(f"Webhook failed: {response.status}")
+                )
+                if response.status_code >= 400:
+                    logger.warning(f"Webhook failed: {response.status_code}")
         except Exception as e:
             logger.error(f"Webhook error: {e}")
 
