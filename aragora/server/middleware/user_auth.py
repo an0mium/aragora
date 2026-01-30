@@ -273,8 +273,9 @@ class SupabaseAuthValidator:
                 )
             else:
                 # SECURITY: In production, reject tokens if proper validation unavailable
-                env = os.getenv("ARAGORA_ENVIRONMENT", "development").lower()
-                if env == "production":
+                env = os.getenv("ARAGORA_ENV", "development").lower()
+                is_production = env not in ("development", "dev", "local", "test")
+                if is_production:
                     if not HAS_JWT:
                         logger.error(
                             "JWT validation unavailable in production. "

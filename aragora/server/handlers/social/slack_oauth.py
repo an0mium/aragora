@@ -956,9 +956,24 @@ class SlackOAuthHandler(SecureHandler):
         This is called by Slack when a user uninstalls the app.
         Verifies the request signature using the Slack signing secret.
         """
-        # Verify signature in production
+        # Verify signature - REQUIRED in production
         signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
-        if signing_secret:
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+
+        if not signing_secret:
+            if is_production:
+                logger.error(
+                    "SECURITY: SLACK_SIGNING_SECRET not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return error_response("Webhook verification not configured", 503)
+            else:
+                logger.warning(
+                    "SLACK_SIGNING_SECRET not set - skipping signature verification. "
+                    "This is only acceptable in development!"
+                )
+        else:
             timestamp = headers.get("x-slack-request-timestamp", "")
             signature = headers.get("x-slack-signature", "")
 

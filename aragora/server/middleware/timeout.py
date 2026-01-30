@@ -383,6 +383,231 @@ def timeout_context(
 
 
 # =============================================================================
+# Middleware-Style Timeout Execution
+# =============================================================================
+
+
+class TimeoutMiddleware:
+    """
+    Middleware that enforces request timeouts with pattern matching.
+
+    Provides a more structured approach than decorators for gateway-level
+    timeout enforcement.
+
+    Features:
+    - Configurable default timeout
+    - Per-route timeout overrides with glob pattern matching
+    - Metrics tracking for timeout events
+    - Header-based timeout override (X-Request-Timeout)
+    """
+
+    def __init__(
+        self,
+        default_timeout: float = 30.0,
+        min_timeout: float = 1.0,
+        max_timeout: float = 600.0,
+    ):
+        """Initialize the timeout middleware.
+
+        Args:
+            default_timeout: Default timeout in seconds
+            min_timeout: Minimum allowed timeout
+            max_timeout: Maximum allowed timeout
+        """
+        self._default_timeout = default_timeout
+        self._min_timeout = min_timeout
+        self._max_timeout = max_timeout
+        self._route_timeouts: dict[str, float] = {}
+
+        # Metrics
+        self._total_requests = 0
+        self._total_timeouts = 0
+        self._timeout_by_route: dict[str, int] = {}
+
+    def set_route_timeout(self, pattern: str, timeout: float) -> None:
+        """Set timeout for routes matching a pattern.
+
+        Patterns support:
+        - Exact match: "/api/v1/health"
+        - Wildcard: "/api/v1/debates/*"
+
+        Args:
+            pattern: Route pattern to match
+            timeout: Timeout in seconds
+        """
+
+        timeout = max(self._min_timeout, min(timeout, self._max_timeout))
+        self._route_timeouts[pattern] = timeout
+
+    def get_timeout(self, path: str) -> float:
+        """Get the timeout for a specific route.
+
+        Args:
+            path: Request path
+
+        Returns:
+            Timeout in seconds
+        """
+        import fnmatch
+
+        # Check for exact match first
+        if path in self._route_timeouts:
+            return self._route_timeouts[path]
+
+        # Check patterns
+        for pattern, timeout in self._route_timeouts.items():
+            if fnmatch.fnmatch(path, pattern):
+                return timeout
+
+        return self._default_timeout
+
+    async def execute(
+        self,
+        handler: Callable[..., Any],
+        *args: Any,
+        path: str = "",
+        method: str = "GET",
+        timeout_override: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Execute a handler with timeout protection.
+
+        Args:
+            handler: Async handler function to execute
+            *args: Positional arguments for handler
+            path: Request path (for timeout lookup and metrics)
+            method: HTTP method (for metrics)
+            timeout_override: Override timeout (from X-Request-Timeout header)
+            **kwargs: Keyword arguments for handler
+
+        Returns:
+            Handler result
+
+        Raises:
+            RequestTimeoutError: If handler exceeds timeout
+        """
+        import time
+
+        # Determine timeout
+        if timeout_override is not None:
+            timeout = max(
+                self._min_timeout,
+                min(timeout_override, self._max_timeout),
+            )
+        else:
+            timeout = self.get_timeout(path)
+
+        self._total_requests += 1
+        start_time = time.time()
+
+        try:
+            result = await asyncio.wait_for(
+                handler(*args, **kwargs),
+                timeout=timeout,
+            )
+            return result
+
+        except asyncio.TimeoutError:
+            elapsed = time.time() - start_time
+            self._total_timeouts += 1
+            self._timeout_by_route[path] = self._timeout_by_route.get(path, 0) + 1
+
+            logger.warning(
+                "Request timeout: %s %s (timeout=%.1fs, elapsed=%.1fs)",
+                method,
+                path,
+                timeout,
+                elapsed,
+            )
+
+            raise RequestTimeoutError(
+                message=f"Request timed out after {timeout:.1f}s",
+                timeout=timeout,
+                path=path,
+            )
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get timeout statistics."""
+        return {
+            "total_requests": self._total_requests,
+            "total_timeouts": self._total_timeouts,
+            "timeout_rate": (
+                (self._total_timeouts / self._total_requests * 100)
+                if self._total_requests > 0
+                else 0.0
+            ),
+            "timeout_by_route": dict(self._timeout_by_route),
+            "route_timeouts": dict(self._route_timeouts),
+            "default_timeout": self._default_timeout,
+        }
+
+    def reset_stats(self) -> None:
+        """Reset timeout statistics."""
+        self._total_requests = 0
+        self._total_timeouts = 0
+        self._timeout_by_route.clear()
+
+
+# Default route timeout configurations
+DEFAULT_ROUTE_TIMEOUTS: dict[str, float] = {
+    # Fast endpoints (5s)
+    "/api/v1/health": 5.0,
+    "/api/v1/health/*": 5.0,
+    "/api/v2/health": 5.0,
+    "/api/v2/health/*": 5.0,
+    "/health": 5.0,
+    "/healthz": 5.0,
+    "/readyz": 5.0,
+    # Authentication (10s)
+    "/api/v1/auth/*": 10.0,
+    "/api/v2/auth/*": 10.0,
+    # Long-running debate operations (120s)
+    "/api/v1/debates/*/run": 120.0,
+    "/api/v1/debates/*/execute": 120.0,
+    "/api/v2/debates/*/run": 120.0,
+    "/api/v2/debates/*/execute": 120.0,
+    # Batch operations (60s)
+    "/api/v1/batch/*": 60.0,
+    "/api/v2/batch/*": 60.0,
+    # Export operations (300s / 5 min)
+    "/api/v1/export/*": 300.0,
+    "/api/v2/export/*": 300.0,
+    # GraphQL (60s for complex queries)
+    "/graphql": 60.0,
+}
+
+
+def create_default_timeout_middleware() -> TimeoutMiddleware:
+    """Create a TimeoutMiddleware with sensible defaults."""
+    middleware = TimeoutMiddleware(
+        default_timeout=30.0,
+        min_timeout=1.0,
+        max_timeout=600.0,
+    )
+    for pattern, timeout in DEFAULT_ROUTE_TIMEOUTS.items():
+        middleware.set_route_timeout(pattern, timeout)
+    return middleware
+
+
+# Global middleware instance
+_timeout_middleware: TimeoutMiddleware | None = None
+
+
+def get_timeout_middleware() -> TimeoutMiddleware:
+    """Get or create the global timeout middleware."""
+    global _timeout_middleware
+    if _timeout_middleware is None:
+        _timeout_middleware = create_default_timeout_middleware()
+    return _timeout_middleware
+
+
+def reset_timeout_middleware() -> None:
+    """Reset the global timeout middleware (for testing)."""
+    global _timeout_middleware
+    _timeout_middleware = None
+
+
+# =============================================================================
 # Health Check
 # =============================================================================
 
@@ -425,6 +650,12 @@ __all__ = [
     "async_with_timeout",
     # Context manager
     "timeout_context",
+    # Middleware
+    "TimeoutMiddleware",
+    "get_timeout_middleware",
+    "reset_timeout_middleware",
+    "create_default_timeout_middleware",
+    "DEFAULT_ROUTE_TIMEOUTS",
     # Utilities
     "get_timeout_stats",
     "shutdown_executor",

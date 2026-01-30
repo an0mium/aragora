@@ -41,7 +41,6 @@ def test_legacy_gt_fallback(tmp_path, monkeypatch):
 def test_create_bead_store_resolves_default(monkeypatch, tmp_path):
     """create_bead_store uses canonical resolution when no override set."""
     from aragora.nomic.beads import create_bead_store
-    from aragora.nomic.stores.paths import resolve_store_dir
 
     orig_cwd = Path.cwd()
     monkeypatch.chdir(tmp_path)

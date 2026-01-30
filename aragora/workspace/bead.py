@@ -22,7 +22,7 @@ from aragora.nomic.stores import (
     BeadStatus as NomicBeadStatus,
     BeadStore as NomicBeadStore,
 )
-from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
 from aragora.nomic.stores.adapters.workspace import (
     nomic_bead_to_workspace,
     workspace_bead_metadata,
@@ -143,9 +143,8 @@ class BeadManager:
     ) -> None:
         self._beads: dict[str, Bead] = {}
         self._storage_dir = Path(storage_dir) if storage_dir else None
-        self._use_nomic_store = (
-            use_nomic_store if use_nomic_store is not None else bool(storage_dir)
-        )
+        default_use = should_use_canonical_store(default=False) or bool(storage_dir)
+        self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
         self._nomic_store = nomic_store
         self._nomic_initialized = False
         if self._storage_dir:

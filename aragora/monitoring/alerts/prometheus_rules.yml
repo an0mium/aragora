@@ -1184,3 +1184,162 @@ groups:
           summary: "Slow RBAC evaluation (p95 > 25ms)"
           description: "RBAC policy evaluation taking longer than expected. Check cache status and policy complexity."
           runbook_url: "https://docs.aragora.io/runbooks/rbac/slow-evaluation"
+
+  # =========================================================================
+  # SLO Burn Rate Alerts
+  # Multi-window burn rate alerting for service level objectives
+  # Based on Google SRE burn rate methodology
+  # =========================================================================
+  - name: aragora_slo_burn_rate
+    rules:
+      # Recording rules for SLO calculations
+      - record: aragora:slo:api_error_rate:5m
+        expr: |
+          sum(rate(aragora_api_requests_total{status="error"}[5m]))
+          /
+          sum(rate(aragora_api_requests_total[5m]))
+
+      - record: aragora:slo:api_error_rate:1h
+        expr: |
+          sum(rate(aragora_api_requests_total{status="error"}[1h]))
+          /
+          sum(rate(aragora_api_requests_total[1h]))
+
+      - record: aragora:slo:api_error_rate:6h
+        expr: |
+          sum(rate(aragora_api_requests_total{status="error"}[6h]))
+          /
+          sum(rate(aragora_api_requests_total[6h]))
+
+      - record: aragora:slo:api_error_rate:24h
+        expr: |
+          sum(rate(aragora_api_requests_total{status="error"}[24h]))
+          /
+          sum(rate(aragora_api_requests_total[24h]))
+
+      # Burn rate recording rules (assuming 99.9% SLO = 0.1% error budget)
+      - record: aragora:slo:burn_rate:5m
+        expr: aragora:slo:api_error_rate:5m / 0.001
+
+      - record: aragora:slo:burn_rate:1h
+        expr: aragora:slo:api_error_rate:1h / 0.001
+
+      - record: aragora:slo:burn_rate:6h
+        expr: aragora:slo:api_error_rate:6h / 0.001
+
+      # Fast burn alert: 14.4x rate over 1h (exhausts 2% budget in 1h)
+      # Uses multi-window: both 1h and 5m must be high
+      - alert: SLOFastBurn
+        expr: |
+          aragora:slo:burn_rate:1h > 14.4
+          and
+          aragora:slo:burn_rate:5m > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          service: aragora
+          category: slo
+          burn_type: fast
+        annotations:
+          summary: "SLO fast burn detected (consuming 2% error budget per hour)"
+          description: |
+            Error budget is being consumed at {{ $value | printf "%.1f" }}x the target rate.
+            At this rate, the monthly error budget will be exhausted in {{ 720 | humanizeDuration }}h / {{ $value | printf "%.0f" }} = {{ 720.0 | div $value | printf "%.1f" }} hours.
+            Immediate investigation required.
+          runbook_url: "https://docs.aragora.io/runbooks/slo/fast-burn"
+
+      # Slow burn alert: 6x rate over 6h (exhausts 5% budget in 6h)
+      # Uses multi-window: both 6h and 30m must be high
+      - alert: SLOSlowBurn
+        expr: |
+          aragora:slo:burn_rate:6h > 6
+          and
+          aragora:slo:burn_rate:1h > 6
+        for: 15m
+        labels:
+          severity: warning
+          service: aragora
+          category: slo
+          burn_type: slow
+        annotations:
+          summary: "SLO slow burn detected (consuming 5% error budget per 6 hours)"
+          description: |
+            Error budget is being consumed at {{ $value | printf "%.1f" }}x the target rate.
+            This may exhaust the monthly budget before the month ends.
+            Schedule investigation during business hours.
+          runbook_url: "https://docs.aragora.io/runbooks/slo/slow-burn"
+
+      # Very slow burn alert: 3x rate over 24h (exhausts 10% budget in 24h)
+      - alert: SLOVerySlowBurn
+        expr: |
+          aragora:slo:api_error_rate:24h / 0.001 > 3
+        for: 1h
+        labels:
+          severity: warning
+          service: aragora
+          category: slo
+          burn_type: very_slow
+        annotations:
+          summary: "SLO very slow burn detected (above target error rate)"
+          description: |
+            Error rate is consistently above target for the past 24 hours.
+            Monthly error budget may be at risk. Review error patterns.
+          runbook_url: "https://docs.aragora.io/runbooks/slo/slow-burn"
+
+      # Error budget exhaustion warning
+      - alert: SLOErrorBudgetLow
+        expr: |
+          (
+            1 - (
+              sum(increase(aragora_api_requests_total{status="error"}[7d]))
+              /
+              sum(increase(aragora_api_requests_total[7d]))
+            )
+          ) < 0.25
+        for: 30m
+        labels:
+          severity: warning
+          service: aragora
+          category: slo
+        annotations:
+          summary: "SLO error budget is low (< 25% remaining)"
+          description: |
+            Less than 25% of the monthly error budget remains.
+            Consider reducing deployments and focusing on reliability.
+          runbook_url: "https://docs.aragora.io/runbooks/slo/budget-low"
+
+      # Debate SLO burn rate (for debate-specific SLO)
+      - alert: DebateSLOBurnRate
+        expr: |
+          (
+            sum(rate(aragora_debates_completed_total{outcome="failed"}[1h]))
+            /
+            sum(rate(aragora_debates_completed_total[1h]))
+          ) / 0.01 > 5
+        for: 10m
+        labels:
+          severity: warning
+          service: aragora
+          category: slo
+        annotations:
+          summary: "Debate failure rate exceeding SLO target"
+          description: |
+            Debate failure rate is {{ $value | printf "%.1f" }}x the target rate.
+            Check agent health and system resources.
+          runbook_url: "https://docs.aragora.io/runbooks/slo/debate-failures"
+
+      # Cardinality alert (ties into cardinality tracking)
+      - alert: MetricCardinalityHigh
+        expr: |
+          aragora_metric_cardinality > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: aragora
+          category: observability
+        annotations:
+          summary: "High metric cardinality detected"
+          description: |
+            Metric {{ $labels.metric_name }} has {{ $value | printf "%.0f" }} unique label combinations.
+            This may cause memory issues. Review label usage.
+          runbook_url: "https://docs.aragora.io/runbooks/observability/cardinality"

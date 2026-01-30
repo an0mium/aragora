@@ -53,6 +53,19 @@ class ConfigValidator:
     # Environment variables that are required in production mode
     PRODUCTION_REQUIRED = ["ARAGORA_API_TOKEN", "DATABASE_URL"]
 
+    # Insecure development-only environment variables that must NOT be set in production
+    # Setting these in production creates security vulnerabilities
+    INSECURE_DEV_ONLY_VARS = {
+        "ARAGORA_ALLOW_DEV_AUTH_FALLBACK": (
+            "Allows JWT tokens without signature verification. "
+            "This bypasses authentication security entirely."
+        ),
+        "ARAGORA_ALLOW_INSECURE_PASSWORDS": (
+            "Allows SHA-256 password hashing instead of bcrypt. "
+            "SHA-256 is computationally fast, making password cracking easier."
+        ),
+    }
+
     # At least one of these LLM API keys should be present
     LLM_API_KEYS = [
         "ANTHROPIC_API_KEY",
@@ -116,6 +129,15 @@ class ConfigValidator:
             for var in cls.PRODUCTION_REQUIRED:
                 if not os.getenv(var):
                     errors.append(f"Missing required environment variable in production: {var}")
+
+            # SECURITY: Check for insecure development-only variables in production
+            for var, description in cls.INSECURE_DEV_ONLY_VARS.items():
+                value = os.getenv(var, "").lower()
+                if value in ("1", "true", "yes"):
+                    errors.append(
+                        f"SECURITY VIOLATION: {var} is set in production. "
+                        f"{description} Remove this variable before deploying to production."
+                    )
 
         # Check LLM API keys
         has_llm_key = any(os.getenv(key) for key in cls.LLM_API_KEYS)

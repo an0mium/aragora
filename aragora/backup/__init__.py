@@ -67,6 +67,25 @@ from .encryption import (
     encrypt_backup,
     decrypt_backup,
 )
+from .replication_monitor import (
+    ReplicationHealthMonitor,
+    ReplicationHealth,
+    ReplicationConfig,
+    ReplicationMetrics,
+    ReplicationStatus,
+    get_replication_monitor,
+    set_replication_monitor,
+    create_replication_monitor,
+)
+from .monitoring import (
+    RecoveryProgressMonitor,
+    RecoveryProgress,
+    RecoveryPhase,
+    get_recovery_monitor,
+    set_recovery_monitor,
+    record_recovery_progress,
+    record_recovery_completed,
+)
 
 __all__ = [
     # Manager
@@ -96,4 +115,21 @@ __all__ = [
     "KeyManager",
     "encrypt_backup",
     "decrypt_backup",
+    # Replication Monitoring
+    "ReplicationHealthMonitor",
+    "ReplicationHealth",
+    "ReplicationConfig",
+    "ReplicationMetrics",
+    "ReplicationStatus",
+    "get_replication_monitor",
+    "set_replication_monitor",
+    "create_replication_monitor",
+    # Recovery Progress Monitoring
+    "RecoveryProgressMonitor",
+    "RecoveryProgress",
+    "RecoveryPhase",
+    "get_recovery_monitor",
+    "set_recovery_monitor",
+    "record_recovery_progress",
+    "record_recovery_completed",
 ]

@@ -49,6 +49,10 @@ __all__ = [
     "check_and_record_slo_with_recovery",
     "track_operation_slo",
     "get_slo_metrics_summary",
+    # Burn rate calculation
+    "calculate_burn_rate",
+    "get_burn_rate_thresholds",
+    "BurnRateAlert",
     # Webhook integration
     "init_slo_webhooks",
     "notify_slo_violation",
@@ -851,3 +855,144 @@ def _invoke_callbacks(
                 callback(data)
         except Exception as e:
             logger.warning(f"SLO callback {callback.__name__} failed: {e}")
+
+
+# =============================================================================
+# SLO Burn Rate Calculation
+# =============================================================================
+
+
+@dataclass
+class BurnRateAlert:
+    """Alert for SLO burn rate threshold exceeded.
+
+    Attributes:
+        slo_name: Name of the SLO
+        burn_rate: Current burn rate
+        threshold: Threshold that was exceeded
+        window: Time window for burn rate calculation
+        level: Alert level (fast_burn or slow_burn)
+        error_budget_consumed: Percentage of error budget consumed
+    """
+
+    slo_name: str
+    burn_rate: float
+    threshold: float
+    window: str
+    level: str  # "fast_burn" or "slow_burn"
+    error_budget_consumed: float
+    timestamp: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.timestamp == 0.0:
+            self.timestamp = time.time()
+
+
+def calculate_burn_rate(
+    error_rate: float,
+    slo_target: float,
+    window_hours: float = 1.0,
+    budget_hours: float = 720.0,  # 30 days
+) -> float:
+    """Calculate SLO burn rate.
+
+    Burn rate indicates how fast you're consuming your error budget.
+    A burn rate of 1.0 means you'll exhaust the budget exactly on time.
+    A burn rate of 10.0 means you'll exhaust it 10x faster.
+
+    Formula:
+        burn_rate = error_rate / (1 - slo_target)
+
+    For example, with 99.9% SLO (0.1% error budget):
+        - 0.1% error rate = burn rate of 1.0 (on target)
+        - 1.0% error rate = burn rate of 10.0 (10x over)
+
+    Args:
+        error_rate: Current error rate (0.0 to 1.0)
+        slo_target: SLO target (e.g., 0.999 for 99.9%)
+        window_hours: Time window for error rate measurement
+        budget_hours: Total error budget period (default: 30 days)
+
+    Returns:
+        Burn rate multiplier (1.0 = consuming at target rate)
+    """
+    error_budget = 1.0 - slo_target
+    if error_budget <= 0:
+        return 0.0
+
+    burn_rate = error_rate / error_budget
+    return max(0.0, burn_rate)
+
+
+def get_burn_rate_thresholds() -> dict[str, dict[str, float]]:
+    """Get standard burn rate thresholds for multi-window alerting.
+
+    Returns thresholds based on Google SRE burn rate methodology:
+    - Fast burn: 14.4x rate over 1h (exhausts 2% budget in 1h)
+    - Slow burn: 6.0x rate over 6h (exhausts 5% budget in 6h)
+    - Very slow: 3.0x rate over 24h (exhausts 10% budget in 24h)
+
+    Returns:
+        Dict with threshold configurations
+    """
+    return {
+        "fast_burn": {
+            "burn_rate_threshold": 14.4,
+            "short_window_hours": 1.0,
+            "long_window_hours": 5.0 / 60,  # 5 minutes
+            "budget_consumption_percent": 2.0,
+        },
+        "slow_burn": {
+            "burn_rate_threshold": 6.0,
+            "short_window_hours": 6.0,
+            "long_window_hours": 0.5,  # 30 minutes
+            "budget_consumption_percent": 5.0,
+        },
+        "very_slow_burn": {
+            "burn_rate_threshold": 3.0,
+            "short_window_hours": 24.0,
+            "long_window_hours": 2.0,
+            "budget_consumption_percent": 10.0,
+        },
+        "budget_exhaustion": {
+            "burn_rate_threshold": 1.0,
+            "short_window_hours": 720.0,  # 30 days
+            "long_window_hours": 24.0,
+            "budget_consumption_percent": 100.0,
+        },
+    }
+
+
+def check_burn_rate_thresholds(
+    error_rate: float,
+    slo_target: float,
+    slo_name: str = "default",
+) -> list[BurnRateAlert]:
+    """Check if burn rate exceeds any thresholds.
+
+    Args:
+        error_rate: Current error rate (0.0 to 1.0)
+        slo_target: SLO target (e.g., 0.999 for 99.9%)
+        slo_name: Name of the SLO for alerting
+
+    Returns:
+        List of BurnRateAlert for exceeded thresholds
+    """
+    burn_rate = calculate_burn_rate(error_rate, slo_target)
+    thresholds = get_burn_rate_thresholds()
+
+    alerts = []
+    for level, config in thresholds.items():
+        if burn_rate >= config["burn_rate_threshold"]:
+            alerts.append(
+                BurnRateAlert(
+                    slo_name=slo_name,
+                    burn_rate=burn_rate,
+                    threshold=config["burn_rate_threshold"],
+                    window=f"{config['short_window_hours']}h",
+                    level=level,
+                    error_budget_consumed=config["budget_consumption_percent"],
+                )
+            )
+
+    return alerts
