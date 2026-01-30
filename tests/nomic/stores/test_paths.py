@@ -36,3 +36,18 @@ def test_legacy_gt_fallback(tmp_path, monkeypatch):
         assert resolved.resolve() == (legacy / "beads").resolve()
     finally:
         monkeypatch.chdir(cwd)
+
+
+def test_create_bead_store_resolves_default(monkeypatch, tmp_path):
+    """create_bead_store uses canonical resolution when no override set."""
+    from aragora.nomic.beads import create_bead_store
+    from aragora.nomic.stores.paths import resolve_store_dir
+
+    orig_cwd = Path.cwd()
+    monkeypatch.chdir(tmp_path)
+    try:
+        loop = __import__("asyncio").get_event_loop()
+        store = loop.run_until_complete(create_bead_store())
+        assert store.bead_dir == resolve_store_dir()
+    finally:
+        monkeypatch.chdir(orig_cwd)

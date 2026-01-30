@@ -118,15 +118,16 @@ result = await decomposer.decompose("Maximize utility for SME businesses")
 ### Beads (Atomic Work Units)
 ```python
 from aragora.nomic import BeadStore, Bead
+from aragora.nomic.beads import create_bead_store
 
-store = BeadStore(path=".convoys")
+store = await create_bead_store()
 bead = Bead(
     id="impl-abc12",
     type="implement",
     description="Add form validation",
     depends_on=["spec-xyz99"]
 )
-await store.save(bead)
+await store.create(bead)
 # Status: PENDING → ASSIGNED → RUNNING → DONE/FAILED
 ```
 
@@ -134,12 +135,12 @@ await store.save(bead)
 ```python
 from aragora.nomic import ConvoyManager
 
-manager = ConvoyManager(path=".convoys")
-convoy = await manager.create(
-    rig_id="rig-123",
-    beads=[bead1, bead2, bead3]
+manager = ConvoyManager(bead_store=store)
+convoy = await manager.create_convoy(
+    title="Example convoy",
+    bead_ids=[bead1.id, bead2.id, bead3.id]
 )
-# Status: CREATED → ASSIGNING → EXECUTING → MERGING → DONE
+# Status: PENDING → ACTIVE → COMPLETED/FAILED/PARTIAL
 ```
 
 ## Recovery & Resilience

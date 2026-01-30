@@ -12,8 +12,7 @@ Key concepts:
 - BeadStatus: Lifecycle states (PENDING, CLAIMED, RUNNING, COMPLETED, FAILED)
 
 Usage:
-    store = BeadStore(Path(".beads"))
-    await store.initialize()
+    store = await create_bead_store()
 
     # Create a bead
     bead = Bead.create(
