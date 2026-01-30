@@ -170,10 +170,10 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
                     record["fusion_metadata"] = metadata
                 record_id = record.get("id", "unknown")
             else:
-                record.reliability_score = fused_confidence  # type: ignore[attr-defined]
-                if hasattr(record, "metadata"):
-                    record.metadata["km_fused"] = True  # type: ignore[index]
-                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore[index]
+                setattr(record, "reliability_score", fused_confidence)
+                if hasattr(record, "metadata") and isinstance(record.metadata, dict):
+                    record.metadata["km_fused"] = True
+                    record.metadata["km_fused_confidence"] = fused_confidence
                 record_id = getattr(record, "id", "unknown")
 
             logger.debug(
@@ -402,20 +402,21 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             # Use content hash-based lookup for exact matches
             content_hash = hashlib.sha256(content.encode()).hexdigest()[:32]
 
-            try:
-                existing = store.get_evidence_by_hash(content_hash)  # type: ignore[attr-defined]
-                if existing:
-                    # Check SLO for hash lookup
-                    latency_ms = (time.time() - start) * 1000
-                    if SLO_AVAILABLE:
-                        check_and_record_slo("evidence_hash_lookup", latency_ms)
-                    return [existing]
-            except AttributeError:
+            if hasattr(store, "get_evidence_by_hash"):
+                try:
+                    existing = store.get_evidence_by_hash(content_hash)
+                    if existing:
+                        # Check SLO for hash lookup
+                        latency_ms = (time.time() - start) * 1000
+                        if SLO_AVAILABLE:
+                            check_and_record_slo("evidence_hash_lookup", latency_ms)
+                        return [existing]
+                except Exception as e:
+                    # Log but don't fail - fall back to text search
+                    logger.warning(f"Hash lookup failed, falling back to text search: {e}")
+            else:
                 # Store doesn't support hash lookup, fall through to text search
                 logger.debug("Evidence store does not support hash lookup, using text search")
-            except Exception as e:
-                # Log but don't fail - fall back to text search
-                logger.warning(f"Hash lookup failed, falling back to text search: {e}")
 
             # Fall back to text search for partial matches
             # Extract key terms for search
@@ -696,17 +697,18 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         """
         store = self._ensure_store()
 
-        try:
-            store.mark_used_in_consensus(debate_id, evidence_id)  # type: ignore[arg-type]
-            logger.debug(
-                f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
-            )
-        except AttributeError:
+        if hasattr(store, "mark_used_in_consensus"):
+            try:
+                store.mark_used_in_consensus(str(debate_id), str(evidence_id))
+                logger.debug(
+                    f"Marked evidence {evidence_id} as used in consensus for debate {debate_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to mark evidence {evidence_id} in consensus: {e}")
+                raise EvidenceAdapterError(f"Failed to mark consensus usage: {e}") from e
+        else:
             # Store doesn't support this method
             logger.debug("Evidence store does not support mark_used_in_consensus")
-        except Exception as e:
-            logger.error(f"Failed to mark evidence {evidence_id} in consensus: {e}")
-            raise EvidenceAdapterError(f"Failed to mark consensus usage: {e}") from e
 
     async def update_reliability_from_km(
         self,
@@ -749,10 +751,13 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
             new_reliability = current_reliability * (1 - weight) + km_confidence * weight
 
             # Update the evidence
-            store.update_evidence(  # type: ignore[attr-defined]
-                evidence_id,
-                reliability_score=new_reliability,
-            )
+            if hasattr(store, "update_evidence"):
+                store.update_evidence(
+                    evidence_id,
+                    reliability_score=new_reliability,
+                )
+            else:
+                raise AttributeError("Evidence store does not support update_evidence")
 
             logger.info(
                 f"Updated evidence reliability from KM: {evidence_id} "
@@ -780,15 +785,16 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         """
         store = self._ensure_store()
 
-        try:
-            return store.get_stats()  # type: ignore[attr-defined]
-        except AttributeError:
+        if hasattr(store, "get_stats"):
+            try:
+                return store.get_stats()
+            except Exception as e:
+                logger.error(f"Failed to get evidence store stats: {e}")
+                raise EvidenceAdapterError(f"Stats retrieval failed: {e}") from e
+        else:
             # Store doesn't support get_stats
             logger.debug("Evidence store does not support get_stats")
             return {"error": "stats not supported", "store_type": type(store).__name__}
-        except Exception as e:
-            logger.error(f"Failed to get evidence store stats: {e}")
-            raise EvidenceAdapterError(f"Stats retrieval failed: {e}") from e
 
     def get_debate_evidence(
         self,

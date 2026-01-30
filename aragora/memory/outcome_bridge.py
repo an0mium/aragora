@@ -214,7 +214,7 @@ class OutcomeMemoryBridge:
                                     result.memories_promoted += 1
                                 else:
                                     result.memories_demoted += 1
-            except Exception as e:
+            except (AttributeError, KeyError, ValueError, TypeError) as e:
                 logger.warning("Failed to update memory %s: %s", memory_id, e)
 
         # Clean up usage records for this debate
@@ -299,7 +299,7 @@ class OutcomeMemoryBridge:
 
             return True
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.warning("Error updating memory %s: %s", memory_id, e)
             return False
 
@@ -380,7 +380,7 @@ class OutcomeMemoryBridge:
 
             return None
 
-        except Exception as e:
+        except (AttributeError, KeyError, ValueError, TypeError) as e:
             logger.warning("Error checking promotion for %s: %s", memory_id, e)
             return None
 

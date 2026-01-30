@@ -229,20 +229,15 @@ class CultureAccumulator:
             return
 
         try:
-            from aragora.events.types import StreamEvent, StreamEventType
-
-            self._mound.event_emitter.emit(  # type: ignore[unused-coroutine,arg-type,call-arg]
-                StreamEvent(  # type: ignore[arg-type]
-                    type=StreamEventType.MOUND_UPDATED,
-                    data={
-                        "workspace_id": workspace_id,
-                        "update_type": update_type,
-                        **kwargs,
-                    },
-                )
+            self._mound.event_emitter.emit_sync(
+                event_type="mound_updated",
+                debate_id="",
+                workspace_id=workspace_id,
+                update_type=update_type,
+                **kwargs,
             )
-        except (ImportError, AttributeError, TypeError):
-            pass  # Events module not available
+        except (AttributeError, TypeError):
+            pass  # Event emitter not available or misconfigured
 
     def _extract_observation(self, debate_result: Any) -> DebateObservation | None:
         """Extract observation data from debate result."""

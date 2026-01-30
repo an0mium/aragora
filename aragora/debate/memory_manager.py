@@ -473,8 +473,6 @@ class MemoryManager:
             return
 
         try:
-            from aragora.events.types import StreamEvent, StreamEventType
-
             # Build snippet summaries for the event
             snippet_summaries = []
             for snippet in snippets[:5]:  # Limit to 5 in event
@@ -487,17 +485,13 @@ class MemoryManager:
                     }
                 )
 
-            self.event_emitter.emit(  # type: ignore[unused-coroutine]
-                StreamEvent(
-                    type=StreamEventType.EVIDENCE_FOUND,
-                    loop_id=self.loop_id,
-                    data={
-                        "count": count,
-                        "domain": domain,
-                        "task": task[:100],
-                        "snippets": snippet_summaries,
-                    },
-                )
+            self.event_emitter.emit_sync(
+                event_type="evidence_found",
+                debate_id="",
+                count=count,
+                domain=domain,
+                task=task[:100],
+                snippets=snippet_summaries,
             )
         except ImportError as e:
             # Expected: stream module not available
@@ -618,21 +612,15 @@ class MemoryManager:
 
             # Also emit to WebSocket stream for live dashboard
             if self.event_emitter:
-                from aragora.events.types import StreamEvent, StreamEventType
-
-                self.event_emitter.emit(  # type: ignore[unused-coroutine]
-                    StreamEvent(
-                        type=StreamEventType.MEMORY_RECALL,
-                        loop_id=self.loop_id,
-                        data={
-                            "query": task,
-                            "hits": [
-                                {"topic": excerpt, "similarity": round(sim, 2)}
-                                for _, excerpt, sim in results[:3]
-                            ],
-                            "count": len(results),
-                        },
-                    )
+                self.event_emitter.emit_sync(
+                    event_type="memory_recall",
+                    debate_id="",
+                    query=task,
+                    hits=[
+                        {"topic": excerpt, "similarity": round(sim, 2)}
+                        for _, excerpt, sim in results[:3]
+                    ],
+                    count=len(results),
                 )
 
             lines = ["## HISTORICAL CONTEXT (Similar Past Debates)"]

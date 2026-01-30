@@ -34,22 +34,17 @@ def emit_tier_event(
     try:
         from aragora.server.stream import StreamEvent, StreamEventType
 
-        stream_type = (
-            StreamEventType.MEMORY_TIER_PROMOTION
-            if event_type == "promotion"
-            else StreamEventType.MEMORY_TIER_DEMOTION
-        )
 
-        cms.event_emitter.emit(  # type: ignore[unused-coroutine]
-            StreamEvent(
-                type=stream_type,
-                data={
-                    "memory_id": memory_id,
-                    "from_tier": from_tier.value,
-                    "to_tier": to_tier.value,
-                    "surprise_score": surprise_score,
-                },
-            )
+        event_type_str = (
+            "memory_tier_promotion" if event_type == "promotion" else "memory_tier_demotion"
+        )
+        cms.event_emitter.emit_sync(
+            event_type=event_type_str,
+            debate_id="",
+            memory_id=memory_id,
+            from_tier=from_tier.value,
+            to_tier=to_tier.value,
+            surprise_score=surprise_score,
         )
     except ImportError:
         # Stream module not available - expected in minimal installations
