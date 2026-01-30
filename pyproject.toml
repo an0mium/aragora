@@ -895,16 +895,11 @@ module = [
     "aragora.server.validation.decorators",
     "aragora.server.middleware.*",
     "aragora.server.handlers.admin.cache",
-    "aragora.server.handlers.utils.database",
-    "aragora.agents.api_agents.rate_limiter",
     # Documents/indexing (external adapters)
     "aragora.documents.ingestion.unstructured_adapter",
     "aragora.documents.indexing.weaviate_store",
     # Modules with actual type errors (need fixes)
     "aragora.evidence.collector",
-    "aragora.server.question_classifier",
-    # MCP tools (dynamic typing)
-    "aragora.mcp.tools_module.evidence",
     # Enterprise connectors - database adapters (complex third-party types)
     "aragora.connectors.enterprise.database.sqlserver",
     "aragora.connectors.enterprise.database.mysql",
@@ -921,26 +916,34 @@ module = [
     # Enterprise database connectors (complex third-party async types)
     "aragora.connectors.enterprise.database.mongodb",
     "aragora.connectors.enterprise.database.postgres",
-    # Visualization and CLI modules (complex return types)
-    "aragora.visualization.replay",
-    "aragora.tournaments.tournament",
-    "aragora.ranking.km_elo_bridge",
-    "aragora.cli.template",
-    "aragora.cli.knowledge",
-    "aragora.cli.document_audit",
-    "aragora.cli.audit",
-    "aragora.cli.gauntlet",
-    "aragora.tools.code",
-    # Server handlers with dynamic patterns
-    "aragora.server.handlers.inbox_command",
+    # Server stream modules
     "aragora.server.stream.debate_executor",
     "aragora.server.handlers.knowledge.analytics",
     "aragora.server.stream.servers",
-    # MCP modules (dynamic typing)
-    "aragora.mcp.tools_module.integrations",
+    # MCP server (complex dynamic typing)
     "aragora.mcp.server",
 ]
 ignore_errors = true
+
+# ============================================================================
+# PROMOTED TO STRICT (Phase 23, Jan 2026)
+# These modules now pass mypy --ignore-missing-imports
+# ============================================================================
+# aragora.server.handlers.utils.database
+# aragora.agents.api_agents.rate_limiter
+# aragora.server.question_classifier
+# aragora.mcp.tools_module.evidence
+# aragora.mcp.tools_module.integrations
+# aragora.visualization.replay
+# aragora.tournaments.tournament
+# aragora.ranking.km_elo_bridge
+# aragora.cli.template
+# aragora.cli.knowledge
+# aragora.cli.document_audit
+# aragora.cli.audit
+# aragora.cli.gauntlet
+# aragora.tools.code
+# aragora.server.handlers.inbox_command
 
 # ============================================================================
 # PROMOTED TO STRICT (Phase 22, Jan 2026)
