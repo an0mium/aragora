@@ -1431,7 +1431,7 @@ class LatencyTracker:
         self._samples.append(latency_ms)
         self._total_count += 1
         if len(self._samples) > self._max_samples:
-            self._samples = self._samples[-self._max_samples:]
+            self._samples = self._samples[-self._max_samples :]
 
     def get_adaptive_timeout(self) -> float:
         """Calculate adaptive timeout based on P95 latency.
