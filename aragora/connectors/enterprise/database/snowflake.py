@@ -159,7 +159,7 @@ class SnowflakeConnector(EnterpriseConnector):
         """Build connection parameters."""
         import os
 
-        params = {
+        params: dict[str, Any] = {
             "account": self.account,
             "warehouse": self.warehouse,
             "database": self.database,
@@ -194,7 +194,7 @@ class SnowflakeConnector(EnterpriseConnector):
                     or None,
                     backend=default_backend(),
                 )
-                params["private_key"] = p_key  # type: ignore[assignment]
+                params["private_key"] = p_key
         elif password:
             params["password"] = password
         else:

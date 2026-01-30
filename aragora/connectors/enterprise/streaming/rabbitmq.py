@@ -227,13 +227,13 @@ class RabbitMQConnector(EnterpriseConnector):
                 exchange = self._channel.default_exchange  # type: ignore[attr-defined]
 
             # Build queue arguments
-            queue_args = {}
+            queue_args: dict[str, Any] = {}
             if self.config.dead_letter_exchange:
                 queue_args["x-dead-letter-exchange"] = self.config.dead_letter_exchange
             if self.config.dead_letter_routing_key:
                 queue_args["x-dead-letter-routing-key"] = self.config.dead_letter_routing_key
             if self.config.message_ttl:
-                queue_args["x-message-ttl"] = self.config.message_ttl  # type: ignore[assignment]
+                queue_args["x-message-ttl"] = self.config.message_ttl
 
             # Declare queue
             self._queue = await self._channel.declare_queue(  # type: ignore[attr-defined]

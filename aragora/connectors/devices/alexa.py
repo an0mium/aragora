@@ -221,12 +221,15 @@ class AlexaConnector(DeviceConnector):
         if not success or not response:
             raise Exception(f"Failed to refresh Alexa access token: {error}")
 
-        self._access_token = response.get("access_token")
+        token = response.get("access_token")
+        if not token:
+            raise Exception("Token refresh failed: no access_token in response")
+        self._access_token = token
         expires_in = response.get("expires_in", 3600)
         self._token_expires_at = time.time() + expires_in
 
         logger.debug(f"Alexa access token refreshed, expires in {expires_in}s")
-        return self._access_token  # type: ignore[return-value]  # Checked via response
+        return self._access_token
 
     # ==========================================================================
     # Request Verification

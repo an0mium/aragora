@@ -228,7 +228,7 @@ class TwitterPosterConnector:
         self,
         method: str,
         url: str,
-        params: dict = None,
+        params: dict | None = None,
     ) -> str:
         """Generate OAuth 1.0a Authorization header."""
         params = params or {}

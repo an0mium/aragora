@@ -269,10 +269,13 @@ class GoogleHomeConnector(DeviceConnector):
             )
 
             if success and response:
-                self._access_token = response.get("access_token")
+                token = response.get("access_token")
+                if not token:
+                    raise Exception("Token exchange failed: no access_token in response")
+                self._access_token = token
                 expires_in = response.get("expires_in", 3600)
                 self._token_expires_at = time.time() + expires_in
-                return self._access_token  # type: ignore[return-value]  # Checked via response
+                return self._access_token
             else:
                 raise Exception(f"Token exchange failed: {error}")
 
