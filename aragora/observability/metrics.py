@@ -697,37 +697,23 @@ def _init_cross_functional_metrics_internal() -> None:
 
     Note: Cache metrics (CACHE_HITS, CACHE_MISSES, KNOWLEDGE_CACHE_*,
     RLM_CACHE_*) are now initialized by aragora.observability.metrics.cache.
-    """
-    global MEMORY_COORDINATOR_WRITES, SELECTION_FEEDBACK_ADJUSTMENTS
-    global WORKFLOW_TRIGGERS, EVIDENCE_STORED, CULTURE_PATTERNS
-    from prometheus_client import Counter
 
-    MEMORY_COORDINATOR_WRITES = Counter(
-        "aragora_memory_coordinator_writes_total",
-        "Atomic memory coordinator writes",
-        ["status"],
-    )
+    Note: MEMORY_COORDINATOR_WRITES is now initialized by
+    aragora.observability.metrics.memory.
+
+    Note: WORKFLOW_TRIGGERS is now initialized by
+    aragora.observability.metrics.workflow.
+
+    Note: EVIDENCE_STORED and CULTURE_PATTERNS are now initialized by
+    aragora.observability.metrics.evidence.
+    """
+    global SELECTION_FEEDBACK_ADJUSTMENTS
+    from prometheus_client import Counter
 
     SELECTION_FEEDBACK_ADJUSTMENTS = Counter(
         "aragora_selection_feedback_adjustments_total",
         "Agent selection weight adjustments",
         ["agent", "direction"],
-    )
-
-    WORKFLOW_TRIGGERS = Counter(
-        "aragora_workflow_triggers_total",
-        "Post-debate workflow triggers",
-        ["status"],
-    )
-
-    EVIDENCE_STORED = Counter(
-        "aragora_evidence_stored_total",
-        "Evidence items stored in knowledge mound",
-    )
-
-    CULTURE_PATTERNS = Counter(
-        "aragora_culture_patterns_total",
-        "Culture patterns extracted from debates",
     )
 
 
@@ -736,9 +722,12 @@ def _init_phase9_metrics_internal() -> None:
 
     Note: RLM_CACHE_HITS and RLM_CACHE_MISSES are now initialized by
     aragora.observability.metrics.cache.
+
+    Note: ADAPTIVE_ROUND_CHANGES is now initialized by
+    aragora.observability.metrics.memory.
     """
     global CALIBRATION_ADJUSTMENTS, LEARNING_BONUSES
-    global VOTING_ACCURACY_UPDATES, ADAPTIVE_ROUND_CHANGES
+    global VOTING_ACCURACY_UPDATES
     global BRIDGE_SYNCS, BRIDGE_SYNC_LATENCY, BRIDGE_ERRORS
     global PERFORMANCE_ROUTING_DECISIONS, PERFORMANCE_ROUTING_LATENCY
     global OUTCOME_COMPLEXITY_ADJUSTMENTS, ANALYTICS_SELECTION_RECOMMENDATIONS
@@ -764,12 +753,6 @@ def _init_phase9_metrics_internal() -> None:
         "aragora_voting_accuracy_updates_total",
         "Voting accuracy records updated",
         ["result"],
-    )
-
-    ADAPTIVE_ROUND_CHANGES = Counter(
-        "aragora_adaptive_round_changes_total",
-        "Debate round count adjustments from memory strategy",
-        ["direction"],
     )
 
     BRIDGE_SYNCS = Counter(
@@ -887,15 +870,11 @@ def _init_feature_metrics_internal() -> None:
     Note: TTS metrics are now initialized by aragora.observability.metrics.tts.
     Note: Convergence metrics (CONVERGENCE_CHECKS_TOTAL, PROCESS_EVALUATION_BONUSES,
     RLM_READY_QUORUM_EVENTS) are now initialized by aragora.observability.metrics.convergence.
+    Note: EVIDENCE_CITATION_BONUSES is now initialized by aragora.observability.metrics.evidence.
     """
-    global EVIDENCE_CITATION_BONUSES
-    from prometheus_client import Counter
-
-    EVIDENCE_CITATION_BONUSES = Counter(
-        "aragora_evidence_citation_bonuses_total",
-        "Evidence citation vote bonuses applied",
-        ["agent"],
-    )
+    # All feature metrics have been moved to submodules.
+    # This function is kept for backward compatibility.
+    pass
 
 
 def _init_gauntlet_metrics_internal() -> None:
@@ -924,30 +903,8 @@ def _init_gauntlet_metrics_internal() -> None:
     )
 
 
-def _init_workflow_metrics_internal() -> None:
-    """Initialize workflow template metrics."""
-    global WORKFLOW_TEMPLATES_CREATED, WORKFLOW_TEMPLATE_EXECUTIONS
-    global WORKFLOW_TEMPLATE_EXECUTION_LATENCY
-    from prometheus_client import Counter, Histogram
-
-    WORKFLOW_TEMPLATES_CREATED = Counter(
-        "aragora_workflow_templates_created_total",
-        "Workflow templates created",
-        ["pattern", "template_id"],
-    )
-
-    WORKFLOW_TEMPLATE_EXECUTIONS = Counter(
-        "aragora_workflow_template_executions_total",
-        "Workflow template executions",
-        ["pattern", "status"],
-    )
-
-    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = Histogram(
-        "aragora_workflow_template_execution_latency_seconds",
-        "Workflow template execution latency",
-        ["pattern"],
-        buckets=[0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
-    )
+# NOTE: _init_workflow_metrics_internal has been removed.
+# Workflow metrics are now initialized by aragora.observability.metrics.workflow.
 
 
 def _init_noop_metrics() -> None:
