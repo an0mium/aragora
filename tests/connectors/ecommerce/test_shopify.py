@@ -777,15 +777,14 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_success(self, connector):
         """Successful connect sets session and returns True."""
-        mock_session_cls = MagicMock()
-        mock_session = AsyncMock()
-        mock_session_cls.return_value = mock_session
-        mock_session.get.return_value = _make_mock_response(
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=_make_mock_response(
             {"shop": {"name": "Test Store"}},
             status=200,
-        )
+        ))
+        mock_session_cls = MagicMock(return_value=mock_session)
 
-        with patch.dict("sys.modules", {"aiohttp": MagicMock(ClientSession=mock_session_cls)}):
+        with patch("aiohttp.ClientSession", mock_session_cls):
             result = await connector.connect()
 
         assert result is True
@@ -793,12 +792,11 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_failure_status(self, connector):
         """Non-200 response from shop.json returns False."""
-        mock_session_cls = MagicMock()
-        mock_session = AsyncMock()
-        mock_session_cls.return_value = mock_session
-        mock_session.get.return_value = _make_mock_response({}, status=401)
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=_make_mock_response({}, status=401))
+        mock_session_cls = MagicMock(return_value=mock_session)
 
-        with patch.dict("sys.modules", {"aiohttp": MagicMock(ClientSession=mock_session_cls)}):
+        with patch("aragora.connectors.ecommerce.shopify.aiohttp.ClientSession", mock_session_cls):
             result = await connector.connect()
 
         assert result is False
@@ -821,12 +819,11 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_exception(self, connector):
         """connect() returns False on unexpected exceptions."""
-        mock_session_cls = MagicMock()
-        mock_session = AsyncMock()
-        mock_session_cls.return_value = mock_session
-        mock_session.get.side_effect = RuntimeError("boom")
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(side_effect=RuntimeError("boom"))
+        mock_session_cls = MagicMock(return_value=mock_session)
 
-        with patch.dict("sys.modules", {"aiohttp": MagicMock(ClientSession=mock_session_cls)}):
+        with patch("aragora.connectors.ecommerce.shopify.aiohttp.ClientSession", mock_session_cls):
             result = await connector.connect()
 
         assert result is False
@@ -858,8 +855,8 @@ class TestRequest:
     async def test_request_auto_connects(self, connector):
         """_request calls connect() when session is None."""
         connector._session = None
-        mock_session = AsyncMock()
-        mock_session.request.return_value = _make_mock_response({"ok": True})
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=_make_mock_response({"ok": True}))
 
         async def fake_connect():
             connector._session = mock_session
