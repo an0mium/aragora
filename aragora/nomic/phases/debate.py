@@ -10,19 +10,28 @@ Phase 1: Agents debate what to improve
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from aragora.config.settings import DebateSettings
 from . import DebateResult
+
+
+def _default_rounds() -> int:
+    return DebateSettings().default_rounds
+
+
+def _default_min_rounds() -> int:
+    return max(_default_rounds() - 1, 1)
 
 
 @dataclass
 class DebateConfig:
     """Configuration for debate phase."""
 
-    rounds: int = 9
+    rounds: int = field(default_factory=_default_rounds)
     consensus_mode: str = "judge"
     judge_selection: str = "elo_ranked"
     proposer_count: int = -1
@@ -31,7 +40,7 @@ class DebateConfig:
     agreement_intensity: int = 2
     early_stopping: bool = True
     early_stop_threshold: float = 0.95
-    min_rounds_before_early_stop: int = 8
+    min_rounds_before_early_stop: int = field(default_factory=_default_min_rounds)
     convergence_detection: bool = True
     audience_injection: str = "summary"
     enable_research: bool = True

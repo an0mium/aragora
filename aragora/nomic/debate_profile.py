@@ -30,9 +30,17 @@ from aragora.debate.protocol import (
     STRUCTURED_ROUND_PHASES,
     RoundPhase,
 )
-from aragora.config.settings import AgentSettings
+from aragora.config.settings import AgentSettings, DebateSettings
 
 logger = logging.getLogger(__name__)
+
+def _default_rounds() -> int:
+    return DebateSettings().default_rounds
+
+
+def _default_min_rounds() -> int:
+    return max(_default_rounds() - 1, 1)
+
 
 # The 8 frontier models available in aragora
 DEFAULT_NOMIC_AGENTS = AgentSettings().default_agent_list
@@ -44,7 +52,7 @@ class NomicDebateProfile:
     Full-power debate configuration for Nomic loop self-improvement debates.
 
     Defaults to:
-    - 8 rounds (+ round 0 context gathering = 9 structured phases)
+    - 9 rounds (+ round 0 context gathering = 9 structured phases)
     - 8 frontier model agents
     - Judge consensus with ELO-ranked selection
     - Full structured round phases (Analyst → Skeptic → Lateral → Devil's
@@ -56,7 +64,7 @@ class NomicDebateProfile:
     agents: list[str] = field(default_factory=lambda: list(DEFAULT_NOMIC_AGENTS))
 
     # Debate structure
-    rounds: int = 9  # Rounds 0-8 debate, round 8 adjudication
+    rounds: int = field(default_factory=_default_rounds)
     use_structured_phases: bool = True
     round_phases: list[RoundPhase] = field(default_factory=lambda: list(STRUCTURED_ROUND_PHASES))
 
@@ -73,7 +81,7 @@ class NomicDebateProfile:
 
     # Early stopping (set high to ensure thorough debate)
     early_stop_threshold: float = 0.95
-    min_rounds_before_early_stop: int = 8
+    min_rounds_before_early_stop: int = field(default_factory=_default_min_rounds)
 
     # Agreement intensity (slight disagreement bias improves accuracy)
     agreement_intensity: int = 2
@@ -179,7 +187,7 @@ class NomicDebateProfile:
             else list(DEFAULT_NOMIC_AGENTS)
         )
 
-        rounds = int(os.environ.get("NOMIC_DEBATE_ROUNDS", "9"))
+        rounds = int(os.environ.get("NOMIC_DEBATE_ROUNDS", str(_default_rounds())))
         agreement = int(os.environ.get("NOMIC_AGREEMENT_INTENSITY", "2"))
         force_full_rounds = (
             os.environ.get("NOMIC_FORCE_FULL_ROUNDS", "0") == "1"

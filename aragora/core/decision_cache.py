@@ -39,6 +39,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.config import DEFAULT_ROUNDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,7 +131,7 @@ class DecisionCache:
             config = getattr(request, "config", None)
             if config:
                 # Include key config fields
-                rounds = getattr(config, "rounds", 3)
+                rounds = getattr(config, "rounds", DEFAULT_ROUNDS)
                 consensus = getattr(config, "consensus", "majority")
                 key_parts.append(f"rounds:{rounds}")
                 key_parts.append(f"consensus:{consensus}")

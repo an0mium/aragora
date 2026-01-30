@@ -134,7 +134,7 @@ class DebateProtocol:
         0.5  # fraction of possible critique connections (for sparse/random-graph)
     )
     topology_hub_agent: str | None = None  # for star topology, which agent is the hub
-    rounds: int = DEFAULT_ROUNDS  # Structured default format (0-8), Round 8 is adjudication
+    rounds: int = DEFAULT_ROUNDS  # Structured default format (0-8, 9 phases)
 
     # Structured round phases: Use predefined phase structure for each round
     # When enabled, each round has a specific focus (Analysis, Skeptic, Lateral, etc.)
