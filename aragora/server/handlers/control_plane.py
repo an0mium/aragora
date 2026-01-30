@@ -1263,7 +1263,8 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            stats = manager.get_stats()  # type: ignore[attr-defined]
+            stats_fn = getattr(manager, "get_stats", None)
+            stats = stats_fn() if stats_fn else {}
             return json_response(
                 {
                     "notifications": [],  # History is internal; could expose if needed
@@ -1299,7 +1300,8 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            return json_response(manager.get_stats())  # type: ignore[attr-defined]
+            stats_fn = getattr(manager, "get_stats", None)
+            return json_response(stats_fn() if stats_fn else {})
         except Exception as e:
             logger.error(f"Error getting notification stats: {e}")
             return error_response(safe_error_message(e, "notifications"), 500)
@@ -1378,7 +1380,11 @@ class ControlPlaneHandler(BaseHandler):
                 ),
             )
 
-            entries = _run_async(audit_log.query(query))  # type: ignore[attr-defined]
+            query_fn = getattr(audit_log, "query", None)
+            if query_fn is None:
+                entries = []
+            else:
+                entries = _run_async(query_fn(query))
 
             return json_response(
                 {
