@@ -36,6 +36,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +120,8 @@ class AuditTrailHandler(BaseHandler):
     @require_permission("audit:read")
     async def _list_audit_trails(self, query_params: dict[str, str]) -> HandlerResult:
         """List recent audit trails with pagination."""
-        limit = int(query_params.get("limit", "20"))
-        offset = int(query_params.get("offset", "0"))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=1000)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
         verdict = query_params.get("verdict")
 
         # Get trails from database-backed store
