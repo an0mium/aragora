@@ -11,6 +11,18 @@ The `aragora.workspace` module provides project management capabilities:
 - **Beads**: Atomic units of work with JSONL-backed state tracking
 - **Refinery**: Merge queue for coordinating parallel agent work
 
+## Storage & persistence
+
+By default, workspace bead/convoy adapters use the canonical Nomic stores with
+an **ephemeral temp directory** unless you enable persistence.
+
+To persist canonical stores:
+- Set `ARAGORA_CANONICAL_STORE_PERSIST=1` (preferred)
+- Or set `ARAGORA_STORE_DIR=/path/to/.aragora_beads`
+
+This keeps dev/test runs isolated while allowing production deployments to
+persist convoy/bead state.
+
 ## Quick Start
 
 ```python

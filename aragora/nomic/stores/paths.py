@@ -23,6 +23,17 @@ def _env_store_dir() -> Path | None:
     return None
 
 
+def _should_persist_canonical_store() -> bool:
+    env_value = os.getenv("ARAGORA_CANONICAL_STORE_PERSIST") or os.getenv(
+        "NOMIC_CANONICAL_STORE_PERSIST"
+    )
+    if env_value is not None:
+        return env_value.strip().lower() in {"1", "true", "yes", "on"}
+    if _env_store_dir() is not None:
+        return True
+    return False
+
+
 def resolve_store_dir(
     *,
     workspace_root: str | Path | None = None,
@@ -68,6 +79,13 @@ def resolve_runtime_store_dir(
     legacy_gt = Path(".gt")
     if prefer_legacy_gt and legacy_gt.exists() and not Path(".aragora_beads").exists():
         return legacy_gt / "beads"
+
+    if _should_persist_canonical_store():
+        return resolve_store_dir(
+            workspace_root=workspace_root,
+            override=override,
+            prefer_legacy_gt=prefer_legacy_gt,
+        )
 
     if prefer_ephemeral:
         return Path(tempfile.mkdtemp(prefix="aragora-beads-"))

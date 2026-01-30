@@ -5,7 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+import tempfile
+
+from aragora.nomic.stores.paths import (
+    resolve_runtime_store_dir,
+    resolve_store_dir,
+    should_use_canonical_store,
+)
 
 
 def test_env_override_takes_precedence(tmp_path, monkeypatch):
@@ -36,6 +42,31 @@ def test_legacy_gt_fallback(tmp_path, monkeypatch):
         assert resolved.resolve() == (legacy / "beads").resolve()
     finally:
         monkeypatch.chdir(cwd)
+
+
+def test_runtime_store_defaults_to_ephemeral(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ARAGORA_CANONICAL_STORE_PERSIST", raising=False)
+    monkeypatch.delenv("NOMIC_CANONICAL_STORE_PERSIST", raising=False)
+    monkeypatch.delenv("ARAGORA_STORE_DIR", raising=False)
+    path = resolve_runtime_store_dir()
+    assert path.exists()
+    assert str(path).startswith(tempfile.gettempdir())
+    assert path != tmp_path / ".aragora_beads"
+
+
+def test_runtime_store_persists_when_enabled(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ARAGORA_CANONICAL_STORE_PERSIST", "1")
+    path = resolve_runtime_store_dir(workspace_root=tmp_path)
+    assert path == tmp_path / ".aragora_beads"
+
+
+def test_runtime_store_uses_env_dir(tmp_path, monkeypatch):
+    env_dir = tmp_path / "env-store"
+    monkeypatch.setenv("ARAGORA_STORE_DIR", str(env_dir))
+    path = resolve_runtime_store_dir()
+    assert path == env_dir
 
 
 def test_create_bead_store_resolves_default(monkeypatch, tmp_path):
