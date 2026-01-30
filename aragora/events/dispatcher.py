@@ -32,7 +32,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -535,7 +535,7 @@ class WebhookDispatcher:
     def get_stats(self) -> dict:
         """Get dispatcher statistics."""
         with self._lock:
-            stats = {
+            stats: dict[str, Any] = {
                 "deliveries": self._deliveries,
                 "successes": self._successes,
                 "failures": self._failures,
@@ -549,7 +549,7 @@ class WebhookDispatcher:
         # Add rate limiter stats if enabled
         rate_limiter = get_event_rate_limiter()
         if rate_limiter:
-            stats["rate_limiter"] = rate_limiter.get_stats()  # type: ignore[assignment]
+            stats["rate_limiter"] = rate_limiter.get_stats()
 
         return stats
 

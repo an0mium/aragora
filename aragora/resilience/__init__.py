@@ -72,110 +72,89 @@ from .circuit_breaker import _set_metrics_callback
 _set_metrics_callback(_emit_metrics)
 
 # =============================================================================
-# NEW MODULE COMPATIBILITY ALIASES
+# RESILIENCE PATTERNS (retry, timeout, health, circuit breaker v2)
 # =============================================================================
-# Re-export key components from resilience_patterns module for unified API.
-# This allows connectors to use either old or new patterns during migration.
+# These were originally in aragora.resilience_patterns and are now consolidated
+# into this package. The aragora.resilience_patterns module is a backward-compat
+# shim that re-exports from here.
 
-try:
-    from aragora.resilience_patterns import (
-        # Retry patterns
-        RetryConfig,
-        RetryStrategy,
-        with_retry,
-        with_retry_sync,
-        # Timeout patterns
-        TimeoutConfig,
-        with_timeout,
-        with_timeout_sync,
-        # Circuit breaker v2
-        BaseCircuitBreaker,
-        CircuitBreakerConfig as CircuitBreakerConfigV2,
-        CircuitBreakerConfig,  # Also export as original name for compatibility
-        CircuitState,
-        with_circuit_breaker,
-        # Health monitoring
-        HealthChecker,
-        HealthReport,
-        HealthStatus,
-    )
+# Retry patterns
+from .retry import (
+    RetryConfig,
+    RetryStrategy,
+    with_retry,
+    with_retry_sync,
+)
 
-    __all__ = [
-        # Core
-        "CircuitBreaker",
-        "CircuitOpenError",
-        # Registry
-        "MAX_CIRCUIT_BREAKERS",
-        "STALE_THRESHOLD_SECONDS",
-        "_circuit_breakers",
-        "_circuit_breakers_lock",
-        "get_circuit_breaker",
-        "get_circuit_breakers",
-        "prune_circuit_breakers",
-        "reset_all_circuit_breakers",
-        # Metrics
-        "_emit_metrics",
-        "get_all_circuit_breakers_status",
-        "get_circuit_breaker_metrics",
-        "get_circuit_breaker_status",
-        "get_circuit_breaker_summary",
-        "set_metrics_callback",
-        # Persistence
-        "cleanup_stale_persisted",
-        "init_circuit_breaker_persistence",
-        "load_circuit_breakers",
-        "persist_all_circuit_breakers",
-        "persist_circuit_breaker",
-        # Decorator
-        "with_resilience",
-        "_prune_stale_circuit_breakers",
-        # NEW - Re-exports from resilience_patterns
-        "RetryConfig",
-        "RetryStrategy",
-        "with_retry",
-        "with_retry_sync",
-        "TimeoutConfig",
-        "with_timeout",
-        "with_timeout_sync",
-        "BaseCircuitBreaker",
-        "CircuitBreakerConfig",
-        "CircuitBreakerConfigV2",
-        "CircuitState",
-        "with_circuit_breaker",
-        "HealthChecker",
-        "HealthReport",
-        "HealthStatus",
-    ]
+# Timeout patterns
+from .timeout import (
+    TimeoutConfig,
+    with_timeout,
+    with_timeout_sync,
+)
 
-except ImportError:
-    # resilience_patterns not available - only export core patterns
-    __all__ = [
-        # Core
-        "CircuitBreaker",
-        "CircuitOpenError",
-        # Registry
-        "MAX_CIRCUIT_BREAKERS",
-        "STALE_THRESHOLD_SECONDS",
-        "_circuit_breakers",
-        "_circuit_breakers_lock",
-        "_prune_stale_circuit_breakers",
-        "get_circuit_breaker",
-        "get_circuit_breakers",
-        "prune_circuit_breakers",
-        "reset_all_circuit_breakers",
-        # Metrics
-        "_emit_metrics",
-        "get_all_circuit_breakers_status",
-        "get_circuit_breaker_metrics",
-        "get_circuit_breaker_status",
-        "get_circuit_breaker_summary",
-        "set_metrics_callback",
-        # Persistence
-        "cleanup_stale_persisted",
-        "init_circuit_breaker_persistence",
-        "load_circuit_breakers",
-        "persist_all_circuit_breakers",
-        "persist_circuit_breaker",
-        # Decorator
-        "with_resilience",
-    ]
+# Circuit breaker v2 (async-first, configurable)
+from .circuit_breaker_v2 import (
+    BaseCircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerConfig as CircuitBreakerConfigV2,
+    CircuitState,
+    with_circuit_breaker,
+)
+
+# Health monitoring
+from .health import (
+    HealthChecker,
+    HealthReport,
+    HealthStatus,
+)
+
+__all__ = [
+    # Core v1
+    "CircuitBreaker",
+    "CircuitOpenError",
+    # Registry
+    "MAX_CIRCUIT_BREAKERS",
+    "STALE_THRESHOLD_SECONDS",
+    "_circuit_breakers",
+    "_circuit_breakers_lock",
+    "_prune_stale_circuit_breakers",
+    "get_circuit_breaker",
+    "get_circuit_breakers",
+    "prune_circuit_breakers",
+    "reset_all_circuit_breakers",
+    # Metrics
+    "_emit_metrics",
+    "get_all_circuit_breakers_status",
+    "get_circuit_breaker_metrics",
+    "get_circuit_breaker_status",
+    "get_circuit_breaker_summary",
+    "set_metrics_callback",
+    # Persistence
+    "cleanup_stale_persisted",
+    "init_circuit_breaker_persistence",
+    "load_circuit_breakers",
+    "persist_all_circuit_breakers",
+    "persist_circuit_breaker",
+    # Decorator
+    "with_resilience",
+    # Retry patterns
+    "RetryConfig",
+    "RetryStrategy",
+    "with_retry",
+    "with_retry_sync",
+    # Timeout patterns
+    "TimeoutConfig",
+    "with_timeout",
+    "with_timeout_sync",
+    # Circuit breaker v2
+    "BaseCircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitBreakerConfigV2",
+    "CircuitState",
+    "with_circuit_breaker",
+    # Health monitoring
+    "HealthChecker",
+    "HealthReport",
+    "HealthStatus",
+]
