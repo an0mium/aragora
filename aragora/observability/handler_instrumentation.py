@@ -27,7 +27,7 @@ import logging
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, Callable, Iterator, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +252,7 @@ def instrument_handler(
                 if span and hasattr(span, "__exit__"):
                     span.__exit__(None, None, None)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

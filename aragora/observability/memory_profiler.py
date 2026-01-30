@@ -35,7 +35,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Generator, TypeVar
+from typing import Any, Callable, Generator, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -501,8 +501,8 @@ def track_memory(
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
+        return cast(F, wrapper)
 
     return decorator
 

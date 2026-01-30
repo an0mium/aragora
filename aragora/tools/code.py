@@ -241,7 +241,7 @@ class CodeReader:
             if depth > max_depth:
                 return {"...": "..."}
 
-            result = {}
+            result: dict[str, Any] = {}
             try:
                 for item in sorted(path.iterdir()):
                     if item.name.startswith("."):
@@ -587,7 +587,7 @@ class SelfImprover:
         # Find all Python files
         py_files = list(self.codebase_path.glob("**/*.py"))
 
-        analysis = {
+        analysis: dict[str, Any] = {
             "structure": tree,
             "file_count": len(py_files),
             "total_lines": 0,

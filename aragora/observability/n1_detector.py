@@ -34,7 +34,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -329,8 +329,8 @@ def detect_n1(
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
 
     return decorator
 
