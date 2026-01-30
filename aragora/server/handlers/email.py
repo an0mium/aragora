@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
     success_response,
     require_permission,
 )
+from aragora.server.middleware.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,7 @@ def get_context_service():
 # =============================================================================
 
 
+@rate_limit(rpm=60)
 async def handle_prioritize_email(
     email_data: dict[str, Any],
     user_id: str = "default",
@@ -303,6 +305,7 @@ async def handle_prioritize_email(
         }
 
 
+@rate_limit(rpm=60)
 async def handle_rank_inbox(
     emails: list[dict[str, Any]],
     user_id: str = "default",
@@ -376,6 +379,7 @@ async def handle_rank_inbox(
         }
 
 
+@rate_limit(rpm=60)
 async def handle_email_feedback(
     email_id: str,
     action: str,

@@ -27,6 +27,7 @@ from aragora.config import DEFAULT_AGENTS, DEFAULT_ROUNDS
 from aragora.server.handlers.base import HandlerResult, ServerContext, error_response, json_response
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
+from aragora.server.middleware.rate_limit import rate_limit
 import re
 
 logger = logging.getLogger(__name__)
@@ -500,6 +501,7 @@ def build_consensus_message_blocks(
 build_debate_result_blocks = build_consensus_message_blocks
 
 
+@rate_limit(rpm=60)
 async def handle_slack_events(request: Any) -> HandlerResult:
     """Handle Slack Events API webhook."""
     try:
@@ -541,6 +543,7 @@ async def handle_slack_events(request: Any) -> HandlerResult:
         return error_response(str(e), 500)
 
 
+@rate_limit(rpm=60)
 async def handle_slack_interactions(request: Any) -> HandlerResult:
     """Handle Slack interactive components (button clicks, votes)."""
     try:
@@ -707,6 +710,7 @@ async def handle_slack_interactions(request: Any) -> HandlerResult:
         return error_response(str(e), 500)
 
 
+@rate_limit(rpm=60)
 async def handle_slack_commands(request: Any) -> HandlerResult:
     """Handle Slack slash commands (/aragora)."""
     try:
