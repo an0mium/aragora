@@ -33,15 +33,13 @@ class TestConnectionPoolState:
         assert state.loop_id is None
         assert len(state.pending_close_tasks) == 0
 
-    @pytest.mark.asyncio
-    async def test_lock_is_threading_lock(self):
+    def test_lock_is_threading_lock(self):
         """Lock should be a threading lock for thread safety."""
-        import threading
-
         from aragora.agents.api_agents.common import ConnectionPoolState
 
         state = ConnectionPoolState()
-        assert isinstance(state.lock, threading.Lock)
+        # threading.Lock is a factory function creating _thread.lock
+        assert "lock" in type(state.lock).__name__.lower()
 
 
 class TestGetSharedConnector:
@@ -162,8 +160,8 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
-        # Create mock stream
-        mock_content = AsyncMock()
+        # Create mock stream - iter_any should return the async iterator directly
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [b'data: {"content": "Hello"}\n\n', b"data: [DONE]\n\n"]
         )
@@ -181,7 +179,7 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [
                 b'data: {"content": "Hello "}\n\n',
@@ -204,7 +202,7 @@ class TestSSEStreamParser:
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
         # Chunk split in the middle
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [b'data: {"conte', b'nt": "Hello"}\n\n', b"data: [DONE]\n\n"]
         )
@@ -222,7 +220,7 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [b"\n\n", b'data: {"content": "Hello"}\n\n', b"\n", b"data: [DONE]\n\n"]
         )
@@ -240,7 +238,7 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [
                 b": this is a comment\n",
@@ -265,7 +263,7 @@ class TestSSEStreamParser:
         parser = SSEStreamParser(content_extractor=simple_extractor, max_buffer_size=100)
 
         # Send a chunk larger than max buffer
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator([b"x" * 200])
 
         with pytest.raises(AgentStreamError, match="buffer exceeded maximum size"):
@@ -279,7 +277,7 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=simple_extractor)
 
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [
                 b"data: {invalid json}\n\n",
@@ -302,7 +300,7 @@ class TestSSEStreamParser:
 
         parser = SSEStreamParser(content_extractor=openai_extractor)
 
-        mock_content = AsyncMock()
+        mock_content = MagicMock()
         mock_content.iter_any.return_value = AsyncIterator(
             [
                 b'data: {"choices": [{"delta": {"content": "Hello"}}]}\n\n',

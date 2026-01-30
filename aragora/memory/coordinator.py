@@ -606,6 +606,10 @@ class MemoryCoordinator:
                     await asyncio.sleep(opts.retry_delay_seconds)
                 else:
                     op.mark_failed(str(e))
+            except Exception as e:
+                # Catch-all for unexpected errors (e.g., database errors)
+                op.mark_failed(str(e))
+                return  # Don't retry unexpected errors
 
     async def _write_continuum(self, data: dict[str, Any]) -> str:
         """Write to ContinuumMemory."""
