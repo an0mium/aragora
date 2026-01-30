@@ -39,6 +39,7 @@ from ..base import (
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils import parse_json_body
+from aragora.server.validation.query_params import safe_query_int
 
 # Permission constants for DevOps operations
 DEVOPS_READ_PERMISSION = "devops:read"
@@ -282,8 +283,8 @@ class DevOpsHandler(SecureHandler):
             params.get("service_ids", "").split(",") if params.get("service_ids") else None
         )
         urgencies = params.get("urgency", "").split(",") if params.get("urgency") else None
-        limit = int(params.get("limit", 25))
-        offset = int(params.get("offset", 0))
+        limit = safe_query_int(params, "limit", default=25, min_val=1, max_val=1000)
+        offset = safe_query_int(params, "offset", default=0, min_val=0, max_val=100000)
 
         try:
             incidents, has_more = await connector.list_incidents(
@@ -735,8 +736,8 @@ class DevOpsHandler(SecureHandler):
             return error_response("PagerDuty not configured", 503)
 
         params = self._get_query_params(request)
-        limit = int(params.get("limit", 25))
-        offset = int(params.get("offset", 0))
+        limit = safe_query_int(params, "limit", default=25, min_val=1, max_val=1000)
+        offset = safe_query_int(params, "offset", default=0, min_val=0, max_val=100000)
 
         try:
             services, has_more = await connector.list_services(limit=limit, offset=offset)

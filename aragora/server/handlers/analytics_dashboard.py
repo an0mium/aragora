@@ -708,6 +708,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                         AND created_at <= ?
                     GROUP BY {date_format}
                     ORDER BY period
+                    LIMIT 1000
                     """,
                     (org_id, period_start.isoformat(), period_end.isoformat()),
                 ).fetchall()
@@ -802,6 +803,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                         AND provider != ''
                     GROUP BY provider, model
                     ORDER BY cost DESC
+                    LIMIT 500
                     """,
                     (org_id, period_start.isoformat(), period_end.isoformat()),
                 ).fetchall()
@@ -1061,6 +1063,7 @@ class AnalyticsDashboardHandler(BaseHandler):
                     WHERE detected_at >= ?
                     GROUP BY {date_format}, flip_type
                     ORDER BY period
+                    LIMIT 5000
                     """,
                     (period_start.isoformat(),),
                 ).fetchall()

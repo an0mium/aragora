@@ -122,11 +122,11 @@ test = [
     # Cloud and storage
     "boto3>=1.34,<2.0",  # S3 and AWS tests
     # Document generation
-    "weasyprint>=68.0,<69.0",  # PDF generation tests
+    "weasyprint>=68.0,<70.0",  # PDF generation tests
     "reportlab>=3.6,<4.0",  # Report generation tests
     # ML and embeddings
     "scikit-learn>=1.5.0,<2.0",  # ML-based tests
-    "sentence-transformers>=3.0.0,<4.0",  # Embedding tests
+    "sentence-transformers>=3.0.0,<6.0",  # Embedding tests
     # Audio processing
     "pydub>=0.25.0,<1.0",  # Audio processing tests
 ]
@@ -162,7 +162,7 @@ documents = [
     "ebooklib>=0.18,<1.0",  # EPUB e-book parsing
     "beautifulsoup4>=4.12,<5.0",  # HTML parsing for EPUB
     "mobi>=0.3,<1.0",  # Kindle MOBI parsing
-    "weasyprint>=68.0,<69.0",  # HTML to PDF conversion for receipts
+    "weasyprint>=68.0,<70.0",  # HTML to PDF conversion for receipts
 ]
 broadcast = [
     "edge-tts>=6.1.0,<7.0",
@@ -271,10 +271,10 @@ all = [
     "weaviate-client>=4.0,<5.0",
     "z3-solver>=4.12,<5.0",
     "boto3>=1.34,<2.0",
-    "weasyprint>=68.0,<69.0",
+    "weasyprint>=68.0,<70.0",
     "reportlab>=3.6,<4.0",
     "scikit-learn>=1.5.0,<2.0",
-    "sentence-transformers>=3.0.0,<4.0",
+    "sentence-transformers>=3.0.0,<6.0",
     "pydub>=0.25.0,<1.0",
     "sqlalchemy>=2.0.40,<3.0",
     "pypdf>=6.6,<7.0",

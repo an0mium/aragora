@@ -787,7 +787,7 @@ def route_decision(
 
             return result
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

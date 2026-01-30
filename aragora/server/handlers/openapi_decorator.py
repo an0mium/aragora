@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar, cast
 
 # Type for decorated functions
 F = TypeVar("F", bound=Callable[..., Any])
@@ -280,7 +280,7 @@ def api_endpoint(
             return func(*args, **kwargs)
 
         wrapper._openapi = endpoint  # type: ignore[attr-defined]
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     return decorator
 

@@ -399,18 +399,16 @@ class PostgresStore:
                     datetime.now(),
                 )
 
-            # Save topics
+            # Save topics (batch operation)
             if node_data.get("topics"):
                 await conn.execute(
                     "DELETE FROM node_topics WHERE node_id = $1",
                     node_data["id"],
                 )
-                for topic in node_data["topics"]:
-                    await conn.execute(
-                        "INSERT INTO node_topics (node_id, topic) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                        node_data["id"],
-                        topic,
-                    )
+                await conn.executemany(
+                    "INSERT INTO node_topics (node_id, topic) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                    [(node_data["id"], topic) for topic in node_data["topics"]],
+                )
 
         node_id: str = node_data["id"]
         return node_id

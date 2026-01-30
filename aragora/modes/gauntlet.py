@@ -500,11 +500,6 @@ class GauntletOrchestrator:
             )
 
         # 2. Run parallel stress tests
-        # Initialize result variables for type safety
-        redteam_result: RedTeamResult | None = None
-        probe_report: VulnerabilityReport | None = None
-        audit_verdict: DeepAuditVerdict | None = None
-
         tasks: list[tuple[str, Coroutine[Any, Any, Any]]] = []
 
         if config.enable_redteam and self.agents:

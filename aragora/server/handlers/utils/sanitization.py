@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -290,7 +290,7 @@ def sanitize_output(
                     return sanitize_response(result, additional_fields, True, redact_value)
                 return result
 
-            return async_wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
         else:
 
             @functools.wraps(func)
@@ -300,7 +300,7 @@ def sanitize_output(
                     return sanitize_response(result, additional_fields, True, redact_value)
                 return result
 
-            return sync_wrapper  # type: ignore[return-value]
+            return cast(F, sync_wrapper)
 
     return decorator
 

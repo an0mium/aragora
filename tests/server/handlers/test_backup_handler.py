@@ -337,11 +337,18 @@ class TestCreateBackup:
     @pytest.mark.asyncio
     async def test_create_backup_success(self, handler):
         """Test creating a new backup."""
-        result = await handler.handle(
-            "POST",
-            "/api/v2/backups",
-            body={"source_path": "/data/test.db"},
-        )
+        from pathlib import Path
+
+        # Mock path validation to allow test path
+        with patch(
+            "aragora.server.handlers.backup_handler.safe_path",
+            return_value=Path("/data/test.db"),
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/v2/backups",
+                body={"source_path": "/data/test.db"},
+            )
         assert result.status_code == 201
 
     @pytest.mark.asyncio
@@ -349,6 +356,29 @@ class TestCreateBackup:
         """Test creating backup without source_path fails."""
         result = await handler.handle("POST", "/api/v2/backups", body={})
         assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_create_backup_rejects_path_traversal(self, handler):
+        """Test that path traversal attempts are rejected."""
+        # Attempt path traversal with ..
+        result = await handler.handle(
+            "POST",
+            "/api/v2/backups",
+            body={"source_path": "../../../etc/passwd"},
+        )
+        assert result.status_code == 400
+        assert b"Invalid source path" in result.body
+
+    @pytest.mark.asyncio
+    async def test_create_backup_rejects_absolute_paths_outside_allowed(self, handler):
+        """Test that absolute paths outside allowed directories are rejected."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/backups",
+            body={"source_path": "/etc/passwd"},
+        )
+        assert result.status_code == 400
+        assert b"Invalid source path" in result.body
 
 
 class TestVerifyBackup:
