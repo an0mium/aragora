@@ -417,7 +417,7 @@ class SCIMServer:
             """Parse and validate JSON body, returning SCIM error on failure."""
             try:
                 body = await request.json()
-            except Exception:
+            except (ValueError, TypeError):
                 error = SCIMError(
                     status=400,
                     detail="Invalid JSON in request body",

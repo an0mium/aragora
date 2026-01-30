@@ -14,7 +14,7 @@ import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    pass
+    from aragora.storage.token_blacklist_store import BlacklistBackend
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ def get_token_blacklist() -> TokenBlacklist:
     return _token_blacklist
 
 
-def get_persistent_blacklist():
+def get_persistent_blacklist() -> "BlacklistBackend":
     """
     Get the persistent blacklist backend.
 

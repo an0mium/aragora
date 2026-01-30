@@ -34,7 +34,7 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler, UnauthorizedError
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 
 # RBAC Permissions for Teams OAuth operations
 CONNECTOR_AUTHORIZE = "connectors.authorize"
@@ -123,7 +123,7 @@ class TeamsOAuthHandler(SecureHandler):
             if method == "GET":
                 try:
                     self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
-                except Exception:
+                except (ForbiddenError, PermissionError):
                     return error_response("Permission denied: connector:authorize required", 403)
                 return await self._handle_install(query_params)
             return error_response("Method not allowed", 405)

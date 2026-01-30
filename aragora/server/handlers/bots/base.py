@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+from enum import Enum
 from typing import Any, Callable, Coroutine, Optional, TypeVar
 
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
@@ -38,6 +39,37 @@ T = TypeVar("T")
 
 # Default RBAC permission for bot status endpoints
 DEFAULT_BOTS_READ_PERMISSION = "bots.read"
+
+
+class BotErrorCode(str, Enum):
+    """Standardized error codes for bot handler responses."""
+
+    # Authentication / Authorization
+    INVALID_SIGNATURE = "INVALID_SIGNATURE"
+    INVALID_TOKEN = "INVALID_TOKEN"
+    AUTH_REQUIRED = "AUTH_REQUIRED"
+    PERMISSION_DENIED = "PERMISSION_DENIED"
+
+    # Data validation
+    INVALID_JSON = "INVALID_JSON"
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    MISSING_FIELD = "MISSING_FIELD"
+    EMPTY_BODY = "EMPTY_BODY"
+
+    # Configuration
+    NOT_CONFIGURED = "NOT_CONFIGURED"
+    FEATURE_DISABLED = "FEATURE_DISABLED"
+
+    # Rate limiting
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
+
+    # Platform errors
+    PLATFORM_ERROR = "PLATFORM_ERROR"
+    PLATFORM_UNAVAILABLE = "PLATFORM_UNAVAILABLE"
+    CONNECTION_ERROR = "CONNECTION_ERROR"
+
+    # Server errors
+    INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
 class BotHandlerMixin:
@@ -79,10 +111,10 @@ class BotHandlerMixin:
             auth_context = await self.get_auth_context(handler, require_auth=True)  # type: ignore[attr-defined]
             self.check_permission(auth_context, self.bots_read_permission)  # type: ignore[attr-defined]
         except UnauthorizedError:
-            return error_response("Authentication required", 401)
+            return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
             logger.warning(f"{self.bot_platform.title()} status access denied: {e}")
-            return error_response(str(e), 403)
+            return error_response(str(e), 403, code=BotErrorCode.PERMISSION_DENIED)
 
         return self._build_status_response(extra_status)
 
@@ -143,13 +175,13 @@ class BotHandlerMixin:
             auth_context = await self.get_auth_context(handler, require_auth=True)  # type: ignore[attr-defined]
             self.check_permission(auth_context, permission)  # type: ignore[attr-defined]
         except UnauthorizedError:
-            return error_response("Authentication required", 401)
+            return error_response("Authentication required", 401, code=BotErrorCode.AUTH_REQUIRED)
         except ForbiddenError as e:
             logger.warning(
                 f"{self.bot_platform.title()} operation access denied "
                 f"(permission={permission}): {e}"
             )
-            return error_response(str(e), 403)
+            return error_response(str(e), 403, code=BotErrorCode.PERMISSION_DENIED)
 
         return await operation(*args, auth_context=auth_context, **kwargs)
 
@@ -165,7 +197,7 @@ class BotHandlerMixin:
         message = "Rate limit exceeded"
         if limit_info:
             message = f"{message}: {limit_info}"
-        return error_response(message, 429)
+        return error_response(message, 429, code=BotErrorCode.RATE_LIMIT_EXCEEDED)
 
     def handle_webhook_auth_failed(self, method: str = "unknown") -> HandlerResult:
         """Return an unauthorized response for webhook auth failure.
@@ -193,7 +225,7 @@ class BotHandlerMixin:
         except ImportError:
             pass  # Audit not available
 
-        return error_response("Unauthorized", 401)
+        return error_response("Unauthorized", 401, code=BotErrorCode.INVALID_SIGNATURE)
 
     # =========================================================================
     # Request body utilities - consolidates ~80 lines of duplicated code
@@ -236,13 +268,13 @@ class BotHandlerMixin:
             if allow_empty:
                 return {}, None
             logger.error(f"Empty body in {self.bot_platform} {context}")
-            return None, error_response("Empty request body", 400)
+            return None, error_response("Empty request body", 400, code=BotErrorCode.EMPTY_BODY)
 
         try:
             return json.loads(body.decode("utf-8")), None
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in {self.bot_platform} {context}: {e}")
-            return None, error_response("Invalid JSON", 400)
+            return None, error_response("Invalid JSON", 400, code=BotErrorCode.INVALID_JSON)
 
     def _handle_webhook_exception(
         self,
@@ -268,25 +300,39 @@ class BotHandlerMixin:
 
         if isinstance(exception, json.JSONDecodeError):
             logger.error(f"Invalid JSON in {self.bot_platform} {context}: {exception}")
-            return error_response("Invalid JSON payload", 400)
+            return error_response("Invalid JSON payload", 400, code=BotErrorCode.INVALID_JSON)
 
         if isinstance(exception, (ValueError, KeyError, TypeError)):
             logger.warning(f"Data error in {self.bot_platform} {context}: {exception}")
             if return_200_on_error:
-                return json_response({"ok": False, "error": error_msg})
-            return error_response(f"Invalid data: {error_msg}", 400)
+                return json_response(
+                    {"ok": False, "error": error_msg, "code": BotErrorCode.VALIDATION_ERROR.value}
+                )
+            return error_response(
+                f"Invalid data: {error_msg}", 400, code=BotErrorCode.VALIDATION_ERROR
+            )
 
         if isinstance(exception, (ConnectionError, OSError, TimeoutError)):
             logger.error(f"Connection error in {self.bot_platform} {context}: {exception}")
             if return_200_on_error:
-                return json_response({"ok": False, "error": "Connection error"})
-            return error_response("Service temporarily unavailable", 503)
+                return json_response(
+                    {
+                        "ok": False,
+                        "error": "Connection error",
+                        "code": BotErrorCode.CONNECTION_ERROR.value,
+                    }
+                )
+            return error_response(
+                "Service temporarily unavailable", 503, code=BotErrorCode.CONNECTION_ERROR
+            )
 
         # Unexpected exception
         logger.exception(f"Unexpected {self.bot_platform} {context} error: {exception}")
         if return_200_on_error:
-            return json_response({"ok": False, "error": error_msg})
-        return error_response(f"Internal error: {error_msg}", 500)
+            return json_response(
+                {"ok": False, "error": error_msg, "code": BotErrorCode.INTERNAL_ERROR.value}
+            )
+        return error_response(f"Internal error: {error_msg}", 500, code=BotErrorCode.INTERNAL_ERROR)
 
     def _audit_webhook_auth_failure(self, method: str, reason: str | None = None) -> None:
         """Audit a webhook authentication failure.
@@ -310,6 +356,7 @@ class BotHandlerMixin:
 
 
 __all__ = [
+    "BotErrorCode",
     "BotHandlerMixin",
     "DEFAULT_BOTS_READ_PERMISSION",
 ]

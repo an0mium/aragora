@@ -359,8 +359,8 @@ class SQLiteOAuthStateStore(OAuthStateStore):
         if hasattr(self._local, "connection"):
             try:
                 self._local.connection.close()
-            except Exception:  # noqa: BLE001 - Cleanup must not raise
-                pass
+            except (OSError, sqlite3.Error) as e:
+                logger.debug(f"Error closing SQLite connection: {e}")
             delattr(self._local, "connection")
 
 
@@ -890,8 +890,8 @@ class FallbackOAuthStateStore(OAuthStateStore):
         if self._sqlite_store:
             try:
                 self._sqlite_store.close()
-            except Exception:  # noqa: BLE001 - Cleanup must not raise
-                pass
+            except (OSError, Exception) as e:
+                logger.debug(f"Error closing fallback OAuth store: {e}")
 
 
 # Global singleton

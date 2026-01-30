@@ -11,6 +11,7 @@ overridden with explicit production domains.
 
 import logging
 import os
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,20 @@ class CORSConfig:
                 "Wildcard origin '*' is not allowed for security. "
                 "Specify explicit origins in ARAGORA_ALLOWED_ORIGINS."
             )
+
+        # Validate that all origins are valid URLs with scheme and host
+        for origin in self.allowed_origins:
+            parsed = urlparse(origin)
+            if not parsed.scheme or not parsed.hostname:
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}': must include scheme "
+                    f"(e.g. https://example.com). Check ARAGORA_ALLOWED_ORIGINS."
+                )
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError(
+                    f"Invalid CORS origin '{origin}': scheme must be "
+                    f"http or https. Check ARAGORA_ALLOWED_ORIGINS."
+                )
 
         # Log configured origins at debug level
         logger.debug(f"[CORS] Allowed origins: {self.allowed_origins}")
