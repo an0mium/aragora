@@ -33,27 +33,27 @@ class ExportCacheBackend(ABC):
     @abstractmethod
     def get(self, debate_id: str, format_name: str, graph_hash: str) -> str | None:
         """Get cached export content."""
-        pass
+        ...
 
     @abstractmethod
     def set(self, debate_id: str, format_name: str, graph_hash: str, content: str) -> None:
         """Cache export content."""
-        pass
+        ...
 
     @abstractmethod
     def clear(self) -> int:
         """Clear all cached exports. Returns count cleared."""
-        pass
+        ...
 
     @abstractmethod
     def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
-        pass
+        ...
 
     @abstractmethod
     def cleanup_expired(self) -> int:
         """Remove expired entries. Returns count removed."""
-        pass
+        ...
 
 
 class InMemoryCacheBackend(ExportCacheBackend):
