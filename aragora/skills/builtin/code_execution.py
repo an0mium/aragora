@@ -455,6 +455,21 @@ class CodeExecutionSkill(Skill):
             logger.exception(f"Code execution failed: {e}")
             return SkillResult.create_failure(f"Execution failed: {e}")
 
+    @staticmethod
+    def _get_safe_subprocess_env() -> dict[str, str]:
+        """Get a filtered environment for subprocess execution.
+
+        Removes sensitive environment variables (API keys, secrets, tokens)
+        to prevent them from being exposed to executed code.
+        """
+        safe_env = {}
+        for key in ("PATH", "HOME", "PYTHONPATH", "LANG", "LC_ALL", "TMPDIR", "TMP", "TEMP"):
+            if key in os.environ:
+                safe_env[key] = os.environ[key]
+        if "LANG" not in safe_env:
+            safe_env["LANG"] = "en_US.UTF-8"
+        return safe_env
+
     async def _execute_python(
         self,
         code: str,
@@ -464,8 +479,12 @@ class CodeExecutionSkill(Skill):
     ) -> dict[str, Any]:
         """Execute Python code in a subprocess.
 
-        Security: AST-based validation is performed BEFORE subprocess execution
-        to catch dangerous patterns early and prevent malicious code from running.
+        Security layers:
+        1. AST-based validation BEFORE execution (blocks dangerous patterns)
+        2. Restricted builtins in exec() (no __import__, open, exec, eval, etc.)
+        3. Code injected via repr() (prevents triple-quote escape attacks)
+        4. Filtered environment variables (prevents API key leakage)
+        5. Timeout enforcement via asyncio.wait_for()
         """
         # SECURITY: Validate code BEFORE execution
         # This catches dangerous patterns before any code runs
@@ -477,40 +496,78 @@ class CodeExecutionSkill(Skill):
         )
         logger.debug("Code validation passed, proceeding with execution")
 
-        # Create a wrapper script that handles input/output
-        wrapper = f'''
+        # SECURITY: Serialize input_data to JSON for safe injection (prevents repr injection)
+        safe_input_json = _json_module.dumps(input_data)
+
+        # SECURITY: Use repr() to safely inject code as a string literal,
+        # preventing triple-quote escape attacks. The subprocess uses
+        # restricted builtins (safe subset only, no __import__, open, exec, etc.)
+        # and a filtered environment (no API keys).
+        wrapper = f"""
 import json
 import sys
+import io
 
-# Input data
-input_data = {repr(input_data)}
+# Safe builtins whitelist - blocks dangerous functions
+SAFE_BUILTINS = {{
+    'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
+    'chr': chr, 'dict': dict, 'divmod': divmod, 'enumerate': enumerate,
+    'filter': filter, 'float': float, 'format': format, 'frozenset': frozenset,
+    'hash': hash, 'hex': hex, 'int': int, 'isinstance': isinstance,
+    'issubclass': issubclass, 'iter': iter, 'len': len, 'list': list,
+    'map': map, 'max': max, 'min': min, 'next': next, 'oct': oct, 'ord': ord,
+    'pow': pow, 'print': print, 'range': range, 'repr': repr, 'reversed': reversed,
+    'round': round, 'set': set, 'slice': slice, 'sorted': sorted, 'str': str,
+    'sum': sum, 'tuple': tuple, 'type': type, 'zip': zip,
+    # Exceptions for try/except
+    'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
+    'KeyError': KeyError, 'IndexError': IndexError, 'AssertionError': AssertionError,
+    'AttributeError': AttributeError, 'RuntimeError': RuntimeError,
+    'StopIteration': StopIteration, 'ZeroDivisionError': ZeroDivisionError,
+    'True': True, 'False': False, 'None': None,
+}}
+
+# Allow safe imports through a restricted __import__
+ALLOWED_MODULES = {{'math', 'json', 're', 'datetime', 'collections', 'itertools', 'functools'}}
+
+def _safe_import(name, *args, **kwargs):
+    if name.split('.')[0] not in ALLOWED_MODULES:
+        raise ImportError(f"Import of '{{name}}' is not allowed in sandbox")
+    import importlib
+    return importlib.import_module(name)
+
+SAFE_BUILTINS['__import__'] = _safe_import
+
+# Input data (safely deserialized from JSON)
+input_data = json.loads({repr(safe_input_json)})
 
 # Capture output
 _output_lines = []
 _original_print = print
 def _capture_print(*args, **kwargs):
-    import io
     buf = io.StringIO()
     _original_print(*args, file=buf, **kwargs)
     _output_lines.append(buf.getvalue())
     _original_print(*args, **kwargs)
 
-print = _capture_print
+# Override print in safe builtins
+SAFE_BUILTINS['print'] = _capture_print
 
-# User code
+# Execute user code with restricted builtins
+_user_code = {repr(code)}
 try:
     result = None
-    exec_globals = {{"input_data": input_data, "__builtins__": __builtins__}}
-    exec("""{code.replace('"""', chr(92) + '"""')}""", exec_globals)
+    exec_globals = {{"input_data": input_data, "__builtins__": SAFE_BUILTINS}}
+    exec(_user_code, exec_globals)
     result = exec_globals.get("result")
 except Exception as e:
-    print(f"Error: {{e}}")
+    _capture_print(f"Error: {{e}}")
     result = None
 
 # Output result
 output = {{"output": "".join(_output_lines), "result": repr(result)}}
-print("__RESULT__:" + json.dumps(output))
-'''
+_original_print("__RESULT__:" + json.dumps(output))
+"""
 
         # Write to temp file and execute
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -519,10 +576,11 @@ print("__RESULT__:" + json.dumps(output))
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "python3",
+                _sys_module.executable,
                 temp_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=self._get_safe_subprocess_env(),
             )
 
             stdout, stderr = await asyncio.wait_for(
@@ -537,10 +595,8 @@ print("__RESULT__:" + json.dumps(output))
             result_data = {"output": stdout_str, "error": stderr_str}
             if "__RESULT__:" in stdout_str:
                 try:
-                    import json
-
                     result_line = stdout_str.split("__RESULT__:")[-1].strip()
-                    result_data = json.loads(result_line)
+                    result_data = _json_module.loads(result_line)
                 except Exception as e:
                     logger.debug("Failed to parse execution result JSON: %s", e)
 

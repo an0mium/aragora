@@ -826,18 +826,18 @@ class TestDuplicateHandlingEdgeCases:
         # First request creates in-flight future but never completes
         await middleware._deduplicator.check_and_mark("timeout msg", "U5678", "slack")
 
-        # Patch asyncio.wait_for to simulate timeout
         context = _make_context(request_id="dup-timeout")
-        original_wait_for = asyncio.wait_for
 
         async def mock_wait_for(fut, timeout):
             raise asyncio.TimeoutError()
 
         with patch("aragora.server.middleware.decision_routing.asyncio.wait_for", mock_wait_for):
-            result = await middleware.process("timeout msg", context)
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                with _patch_router(middleware):
+                    result = await middleware.process("timeout msg", context)
 
-        # On timeout the middleware falls through; it does not explicitly set success=False
-        # (the code has a bare return from the timeout handling block, so execution continues)
+        # On timeout the middleware logs a warning; the code then falls through
+        # to process normally (no explicit return on timeout path).
         assert "request_id" in result
 
 

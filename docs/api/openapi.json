@@ -54346,6 +54346,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -54368,6 +54379,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -54389,6 +54411,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54474,6 +54507,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54494,6 +54538,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -54513,6 +54568,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54660,6 +54726,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54680,6 +54757,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -54699,6 +54787,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54722,6 +54821,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54742,6 +54852,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -54761,6 +54882,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54784,6 +54916,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54804,6 +54947,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -54823,6 +54977,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54908,6 +55073,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54928,6 +55104,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -54947,6 +55134,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -54970,6 +55168,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -54990,6 +55199,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -55009,6 +55229,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55032,6 +55263,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -55052,6 +55294,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -55071,6 +55324,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55094,6 +55358,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -55114,6 +55389,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -55133,6 +55419,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55156,6 +55453,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -55176,6 +55484,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -55195,6 +55514,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55218,6 +55548,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "patch": {
@@ -55238,6 +55579,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -55257,6 +55609,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55345,6 +55708,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55461,6 +55835,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -55482,6 +55867,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55506,6 +55902,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -55527,6 +55934,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55551,6 +55969,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -55572,6 +56001,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55596,6 +56036,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -55617,6 +56068,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -55641,6 +56103,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -55662,6 +56135,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -59009,6 +59493,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "description": "Alert identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -59604,6 +60099,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -59625,6 +60131,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -59649,6 +60166,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -59670,6 +60198,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -59694,6 +60233,26 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -59715,6 +60274,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -59911,6 +60490,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -59931,6 +60521,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -59954,6 +60555,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -59973,6 +60585,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -60648,6 +61271,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -60669,6 +61303,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -60693,6 +61338,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -60714,6 +61370,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -60738,6 +61405,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -60759,6 +61437,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -60783,6 +61472,26 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -60804,6 +61513,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -61710,6 +62439,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -61731,6 +62471,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -61754,6 +62505,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -61775,6 +62537,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -61798,6 +62571,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -61819,6 +62603,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -61842,6 +62637,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -61864,6 +62670,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -61885,6 +62702,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -62414,6 +63242,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -62854,6 +63693,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "description": "Rule identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -62875,6 +63725,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "description": "Rule identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -63476,6 +64337,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -63497,6 +64369,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -63520,6 +64403,26 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "level",
+            "in": "path",
+            "required": true,
+            "description": "Level value",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -63541,6 +64444,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -64005,6 +64919,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -64026,6 +64951,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -64246,6 +65182,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -64511,6 +65458,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -64532,6 +65490,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -65127,6 +66096,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -65500,6 +66480,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -67532,6 +68523,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "feature_id",
+            "in": "path",
+            "required": true,
+            "description": "Feature identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -67553,6 +68555,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "feature_id",
+            "in": "path",
+            "required": true,
+            "description": "Feature identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -67598,6 +68611,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "connector_id",
+            "in": "path",
+            "required": true,
+            "description": "Connector identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -67620,6 +68644,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "connector_id",
+            "in": "path",
+            "required": true,
+            "description": "Connector identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -67641,6 +68676,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sync_id",
+            "in": "path",
+            "required": true,
+            "description": "Sync operation identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -68080,6 +69126,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "get": {
@@ -68099,6 +69156,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       },
@@ -68120,6 +69188,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -68140,6 +69219,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "put": {
@@ -68159,6 +69249,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -68914,6 +70015,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "description": "Account identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -68957,6 +70069,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "description": "Message identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -69374,6 +70497,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -69395,6 +70529,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -69419,6 +70564,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -69440,6 +70596,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -69464,6 +70631,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -69485,6 +70663,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -69509,6 +70698,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -69530,6 +70730,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -69554,6 +70765,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -69575,6 +70797,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -70076,6 +71309,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "scan_id",
+            "in": "path",
+            "required": true,
+            "description": "Scan identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70252,6 +71496,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70273,6 +71528,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "description": "Finding identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -70476,6 +71742,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70497,6 +71774,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -70741,6 +72029,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70762,6 +72061,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -70851,6 +72161,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70873,6 +72194,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -70894,6 +72226,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71118,6 +72461,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71139,6 +72493,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71163,6 +72528,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71184,6 +72560,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71208,6 +72595,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71229,6 +72627,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71253,6 +72662,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71274,6 +72694,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71298,6 +72729,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71319,6 +72761,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71824,6 +73277,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "description": "Template identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71846,6 +73310,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "description": "Template identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -71867,6 +73342,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "description": "Template identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -71933,6 +73419,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "required": true,
+            "description": "Deployment identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -72435,6 +73932,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -72954,6 +74462,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "get": {
@@ -72974,6 +74493,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -72993,6 +74523,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -73016,6 +74557,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "get": {
@@ -73036,6 +74588,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       },
       "post": {
@@ -73055,6 +74618,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "param",
+            "in": "path",
+            "required": true,
+            "description": "Resource identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74513,6 +76087,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "reconciliation_id",
+            "in": "path",
+            "required": true,
+            "description": "Reconciliation identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74534,6 +76119,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reconciliation_id",
+            "in": "path",
+            "required": true,
+            "description": "Reconciliation identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74557,6 +76153,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "reconciliation_id",
+            "in": "path",
+            "required": true,
+            "description": "Reconciliation identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74578,6 +76185,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reconciliation_id",
+            "in": "path",
+            "required": true,
+            "description": "Reconciliation identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74689,6 +76307,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "envelope_id",
+            "in": "path",
+            "required": true,
+            "description": "Envelope identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74710,6 +76339,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "envelope_id",
+            "in": "path",
+            "required": true,
+            "description": "Envelope identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74733,6 +76373,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "envelope_id",
+            "in": "path",
+            "required": true,
+            "description": "Envelope identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74755,6 +76406,26 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "envelope_id",
+            "in": "path",
+            "required": true,
+            "description": "Envelope identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "description": "Document identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74776,6 +76447,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "envelope_id",
+            "in": "path",
+            "required": true,
+            "description": "Envelope identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74883,6 +76565,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74904,6 +76597,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74927,6 +76631,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74948,6 +76663,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -74971,6 +76697,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -74992,6 +76729,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "description": "Incident identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75037,6 +76785,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "description": "Service identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75080,6 +76839,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "description": "Service identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75187,6 +76957,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75231,6 +77012,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75252,6 +77044,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "description": "Dashboard identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75385,6 +77197,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75407,6 +77230,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75428,6 +77262,17 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75495,6 +77340,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75539,6 +77395,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75560,6 +77427,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "description": "Contact identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75605,6 +77492,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75626,6 +77524,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "company_id",
+            "in": "path",
+            "required": true,
+            "description": "Company identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75671,6 +77589,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75692,6 +77621,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deal_id",
+            "in": "path",
+            "required": true,
+            "description": "Deal identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -75847,6 +77796,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75891,6 +77851,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75913,6 +77884,26 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "description": "Ticket Id",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -75934,6 +77925,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "description": "Ticket Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -76089,6 +78100,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -76133,6 +78155,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -76154,6 +78187,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "description": "Order identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }
@@ -76199,6 +78252,17 @@
           {
             "bearerAuth": []
           }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          }
         ]
       }
     },
@@ -76220,6 +78284,26 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "description": "Platform name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "description": "Product identifier",
+            "schema": {
+              "type": "string"
+            }
           }
         ]
       }

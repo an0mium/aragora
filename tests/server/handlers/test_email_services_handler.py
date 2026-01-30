@@ -984,20 +984,27 @@ class TestRouteRegistration:
 class TestHandlerMethods:
     """Test handler class methods."""
 
+    @pytest.mark.no_auto_auth
     @pytest.mark.asyncio
-    async def test_handle_get_categories_public(self, handler):
-        """Test that categories endpoint is public."""
-        mock_http = create_mock_handler(method="GET", path="/api/v1/email/categories")
+    async def test_handle_get_categories_requires_auth(self, handler):
+        """Test that categories endpoint requires authentication.
 
-        result = await handler.handle_get(
-            "/api/v1/email/categories",
-            {"user_id": "test_user"},
-            mock_http,
-        )
+        Note: All email operations require authentication after the security
+        hardening. The categories endpoint is no longer public.
+        """
+        os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        try:
+            mock_http = create_mock_handler(method="GET", path="/api/v1/email/categories")
 
-        assert result.status_code == 200
-        body = unwrap_response(json.loads(result.body))
-        assert "categories" in body
+            result = await handler.handle_get(
+                "/api/v1/email/categories",
+                {"user_id": "test_user"},
+                mock_http,
+            )
+
+            assert result.status_code == 401
+        finally:
+            del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
     @pytest.mark.asyncio
     async def test_handle_post_not_found(self, handler):

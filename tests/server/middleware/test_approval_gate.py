@@ -2,16 +2,26 @@
 Tests for aragora.server.middleware.approval_gate - Approval Gate Middleware.
 
 Tests cover:
-1. Approval request creation
+1. Approval request creation and field population
 2. Multi-approver workflows
-3. Timeout handling
+3. Timeout / expiration handling
 4. Denial and rejection paths
 5. Notification delivery
 6. Audit trail creation
 7. Permission checks
-8. State transitions
+8. State transitions (PENDING -> APPROVED / REJECTED / EXPIRED)
 9. Concurrent approval requests
 10. Error handling edge cases
+11. Cleanup mechanism (_cleanup_expired_approvals, _maybe_cleanup)
+12. Max pending approvals limit (_MAX_PENDING_APPROVALS)
+13. OperationRiskLevel enum
+14. ApprovalState enum
+15. ApprovalChecklistItem dataclass
+16. OperationApprovalRequest.to_dict() serialization
+17. require_approval decorator (auto-approve roles, resource params, auth context discovery)
+18. ApprovalPendingError / ApprovalDeniedError exceptions
+19. get_pending_approvals filtering
+20. recover_pending_approvals startup recovery
 
 SOC 2 Control: CC5-03 - Require approval for high-risk operations
 """
@@ -19,6 +29,7 @@ SOC 2 Control: CC5-03 - Require approval for high-risk operations
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -68,6 +79,8 @@ def approval_module():
 
     # Clear pending approvals before each test
     approval_gate._pending_approvals.clear()
+    # Reset cleanup timer so tests don't inherit stale state
+    approval_gate._last_cleanup_time = 0.0
     return approval_gate
 
 
@@ -104,6 +117,13 @@ class TestOperationRiskLevel:
         OperationRiskLevel = approval_module.OperationRiskLevel
 
         assert len(OperationRiskLevel) == 4
+
+    def test_risk_level_from_string(self, approval_module):
+        """Should create risk level from string value."""
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        assert OperationRiskLevel("high") == OperationRiskLevel.HIGH
+        assert OperationRiskLevel("critical") == OperationRiskLevel.CRITICAL
 
 
 # ===========================================================================
@@ -166,6 +186,15 @@ class TestApprovalChecklistItem:
 
         assert item.checked is True
 
+    def test_item_mutation(self, approval_module):
+        """Checked status should be mutable after creation."""
+        ApprovalChecklistItem = approval_module.ApprovalChecklistItem
+
+        item = ApprovalChecklistItem(label="Check")
+        assert item.checked is False
+        item.checked = True
+        assert item.checked is True
+
 
 # ===========================================================================
 # Test OperationApprovalRequest
@@ -193,6 +222,31 @@ class TestOperationApprovalRequest:
         assert request.risk_level == OperationRiskLevel.HIGH
         assert request.requester_id == "user-456"
         assert request.state == ApprovalState.PENDING
+
+    def test_default_fields(self, approval_module):
+        """Should have correct defaults for optional fields."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        request = OperationApprovalRequest(
+            id="req-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+        )
+
+        assert request.requester_email is None
+        assert request.org_id is None
+        assert request.workspace_id is None
+        assert request.resource_type == ""
+        assert request.resource_id == ""
+        assert request.description == ""
+        assert request.checklist == []
+        assert request.context == {}
+        assert request.expires_at is None
+        assert request.approved_by is None
+        assert request.approved_at is None
+        assert request.rejection_reason is None
 
     def test_to_dict_serialization(self, approval_module):
         """to_dict() should serialize all fields."""
@@ -236,6 +290,38 @@ class TestOperationApprovalRequest:
         assert d["state"] == "pending"
         assert d["created_at"] == now.isoformat()
         assert d["expires_at"] == expires.isoformat()
+
+    def test_to_dict_no_expires(self, approval_module):
+        """to_dict() should handle None expires_at."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        request = OperationApprovalRequest(
+            id="req-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+        )
+
+        d = request.to_dict()
+        assert d["expires_at"] is None
+
+    def test_to_dict_with_approved_at(self, approval_module):
+        """to_dict() should serialize approved_at correctly."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        now = datetime.now(timezone.utc)
+        request = OperationApprovalRequest(
+            id="req-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            approved_at=now,
+        )
+
+        d = request.to_dict()
+        assert d["approved_at"] == now.isoformat()
 
 
 # ===========================================================================
@@ -335,6 +421,47 @@ class TestCreateApprovalRequest:
             )
 
         mock_persist.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_creates_request_with_resource_info(self, approval_module, auth_context):
+        """Should populate resource_type and resource_id."""
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+                resource_type="users",
+                resource_id="user-target",
+            )
+
+        assert request.resource_type == "users"
+        assert request.resource_id == "user-target"
+
+    @pytest.mark.asyncio
+    async def test_creates_request_with_context(self, approval_module, auth_context):
+        """Should store context data."""
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+                context={"ip": "10.0.0.1"},
+            )
+
+        assert request.context == {"ip": "10.0.0.1"}
+
+    @pytest.mark.asyncio
+    async def test_creates_request_with_description(self, approval_module, auth_context):
+        """Should store description."""
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+                description="Deleting inactive user",
+            )
+
+        assert request.description == "Deleting inactive user"
 
 
 # ===========================================================================
@@ -545,6 +672,55 @@ class TestResolveApproval:
         assert request.state == approval_module.ApprovalState.APPROVED
 
     @pytest.mark.asyncio
+    async def test_partial_checklist_blocks_approval(self, approval_module, auth_context):
+        """Should block approval if only some required items checked."""
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            patch.object(approval_module, "_update_approval_state", new_callable=AsyncMock),
+        ):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+                checklist=["Verify backup", "Notify user"],
+            )
+
+            result = await approval_module.resolve_approval(
+                request_id=request.id,
+                approved=True,
+                approver_id="admin-789",
+                checklist_status={"Verify backup": True},
+                # "Notify user" not checked
+            )
+
+        assert result is False
+        assert request.state == approval_module.ApprovalState.PENDING
+
+    @pytest.mark.asyncio
+    async def test_rejection_ignores_checklist(self, approval_module, auth_context):
+        """Rejection should succeed even if checklist items are unchecked."""
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            patch.object(approval_module, "_update_approval_state", new_callable=AsyncMock),
+        ):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+                checklist=["Verify backup"],
+            )
+
+            result = await approval_module.resolve_approval(
+                request_id=request.id,
+                approved=False,
+                approver_id="admin-789",
+                rejection_reason="Not needed",
+            )
+
+        assert result is True
+        assert request.state == approval_module.ApprovalState.REJECTED
+
+    @pytest.mark.asyncio
     async def test_removes_from_pending_on_resolve(self, approval_module, auth_context):
         """Should remove request from pending store on resolution."""
         with (
@@ -564,6 +740,30 @@ class TestResolveApproval:
             )
 
         assert request.id not in approval_module._pending_approvals
+
+    @pytest.mark.asyncio
+    async def test_approved_at_timestamp_set(self, approval_module, auth_context):
+        """Should set approved_at timestamp on resolution."""
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            patch.object(approval_module, "_update_approval_state", new_callable=AsyncMock),
+        ):
+            before = datetime.now(timezone.utc)
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+
+            await approval_module.resolve_approval(
+                request_id=request.id,
+                approved=True,
+                approver_id="admin-789",
+            )
+            after = datetime.now(timezone.utc)
+
+        assert request.approved_at is not None
+        assert before <= request.approved_at <= after
 
 
 # ===========================================================================
@@ -616,6 +816,260 @@ class TestTimeoutHandling:
             pending = await approval_module.get_pending_approvals()
 
         assert request.id not in [r.id for r in pending]
+
+    @pytest.mark.asyncio
+    async def test_expired_request_state_changed(self, approval_module, auth_context):
+        """Expired request should have its state changed when listed."""
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+
+            request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+            await approval_module.get_pending_approvals()
+
+        assert request.state == approval_module.ApprovalState.EXPIRED
+
+    @pytest.mark.asyncio
+    async def test_expired_removed_from_pending_on_resolve(self, approval_module, auth_context):
+        """Expired request should be removed from in-memory store on resolve attempt."""
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            patch.object(approval_module, "_update_approval_state", new_callable=AsyncMock),
+        ):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+
+            request.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+            await approval_module.resolve_approval(
+                request_id=request.id,
+                approved=True,
+                approver_id="admin-789",
+            )
+
+        assert request.id not in approval_module._pending_approvals
+
+
+# ===========================================================================
+# Test Cleanup Mechanism
+# ===========================================================================
+
+
+class TestCleanupMechanism:
+    """Tests for _cleanup_expired_approvals and _maybe_cleanup."""
+
+    def test_cleanup_removes_expired(self, approval_module):
+        """_cleanup_expired_approvals should remove expired entries."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        # Add an expired request
+        expired_req = OperationApprovalRequest(
+            id="expired-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        approval_module._pending_approvals["expired-1"] = expired_req
+
+        removed = approval_module._cleanup_expired_approvals()
+
+        assert removed == 1
+        assert "expired-1" not in approval_module._pending_approvals
+
+    def test_cleanup_removes_resolved(self, approval_module):
+        """_cleanup_expired_approvals should remove resolved (non-pending) entries."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalState = approval_module.ApprovalState
+
+        approved_req = OperationApprovalRequest(
+            id="approved-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            state=ApprovalState.APPROVED,
+        )
+        approval_module._pending_approvals["approved-1"] = approved_req
+
+        removed = approval_module._cleanup_expired_approvals()
+
+        assert removed == 1
+        assert "approved-1" not in approval_module._pending_approvals
+
+    def test_cleanup_keeps_valid_pending(self, approval_module):
+        """_cleanup_expired_approvals should keep valid pending entries."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        valid_req = OperationApprovalRequest(
+            id="valid-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        approval_module._pending_approvals["valid-1"] = valid_req
+
+        removed = approval_module._cleanup_expired_approvals()
+
+        assert removed == 0
+        assert "valid-1" in approval_module._pending_approvals
+
+    def test_cleanup_updates_last_cleanup_time(self, approval_module):
+        """_cleanup_expired_approvals should update _last_cleanup_time."""
+        before = time.time()
+        approval_module._cleanup_expired_approvals()
+        after = time.time()
+
+        assert before <= approval_module._last_cleanup_time <= after
+
+    def test_maybe_cleanup_runs_when_interval_elapsed(self, approval_module):
+        """_maybe_cleanup should run when cleanup interval has elapsed."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalState = approval_module.ApprovalState
+
+        # Add a resolved request
+        resolved_req = OperationApprovalRequest(
+            id="resolved-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            state=ApprovalState.REJECTED,
+        )
+        approval_module._pending_approvals["resolved-1"] = resolved_req
+
+        # Set last cleanup long ago
+        approval_module._last_cleanup_time = 0.0
+
+        approval_module._maybe_cleanup()
+
+        assert "resolved-1" not in approval_module._pending_approvals
+
+    def test_maybe_cleanup_skips_when_recent(self, approval_module):
+        """_maybe_cleanup should skip if interval hasn't elapsed."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalState = approval_module.ApprovalState
+
+        resolved_req = OperationApprovalRequest(
+            id="resolved-2",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+            state=ApprovalState.REJECTED,
+        )
+        approval_module._pending_approvals["resolved-2"] = resolved_req
+
+        # Set last cleanup to now
+        approval_module._last_cleanup_time = time.time()
+
+        approval_module._maybe_cleanup()
+
+        # Should not have cleaned up
+        assert "resolved-2" in approval_module._pending_approvals
+
+    def test_cleanup_mixed_entries(self, approval_module):
+        """Should handle a mix of expired, resolved, and valid entries."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalState = approval_module.ApprovalState
+
+        now = datetime.now(timezone.utc)
+
+        # Expired
+        approval_module._pending_approvals["exp-1"] = OperationApprovalRequest(
+            id="exp-1", operation="a", risk_level=OperationRiskLevel.LOW,
+            requester_id="u1", expires_at=now - timedelta(hours=1),
+        )
+        # Approved (resolved)
+        approval_module._pending_approvals["app-1"] = OperationApprovalRequest(
+            id="app-1", operation="b", risk_level=OperationRiskLevel.LOW,
+            requester_id="u1", state=ApprovalState.APPROVED,
+        )
+        # Valid pending
+        approval_module._pending_approvals["val-1"] = OperationApprovalRequest(
+            id="val-1", operation="c", risk_level=OperationRiskLevel.LOW,
+            requester_id="u1", expires_at=now + timedelta(hours=1),
+        )
+
+        removed = approval_module._cleanup_expired_approvals()
+
+        assert removed == 2
+        assert "exp-1" not in approval_module._pending_approvals
+        assert "app-1" not in approval_module._pending_approvals
+        assert "val-1" in approval_module._pending_approvals
+
+
+# ===========================================================================
+# Test Max Pending Approvals Limit
+# ===========================================================================
+
+
+class TestMaxPendingApprovals:
+    """Tests for _MAX_PENDING_APPROVALS capacity enforcement."""
+
+    @pytest.mark.asyncio
+    async def test_raises_when_at_capacity(self, approval_module, auth_context):
+        """Should raise RuntimeError when at max capacity and cleanup doesn't help."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+
+        # Fill to capacity with valid pending entries
+        for i in range(approval_module._MAX_PENDING_APPROVALS):
+            approval_module._pending_approvals[f"req-{i}"] = OperationApprovalRequest(
+                id=f"req-{i}",
+                operation="fill.op",
+                risk_level=OperationRiskLevel.LOW,
+                requester_id="u1",
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+            )
+
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            pytest.raises(RuntimeError, match="Too many pending"),
+        ):
+            await approval_module.create_approval_request(
+                operation="overflow.op",
+                risk_level=OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+
+    @pytest.mark.asyncio
+    async def test_cleanup_makes_room(self, approval_module, auth_context):
+        """Should succeed after cleanup frees space."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalState = approval_module.ApprovalState
+
+        # Fill to capacity but all resolved (cleanup will remove them)
+        for i in range(approval_module._MAX_PENDING_APPROVALS):
+            approval_module._pending_approvals[f"req-{i}"] = OperationApprovalRequest(
+                id=f"req-{i}",
+                operation="fill.op",
+                risk_level=OperationRiskLevel.LOW,
+                requester_id="u1",
+                state=ApprovalState.APPROVED,
+            )
+
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            # Should succeed because cleanup removes all resolved entries
+            request = await approval_module.create_approval_request(
+                operation="new.op",
+                risk_level=OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+
+        assert request.id in approval_module._pending_approvals
 
 
 # ===========================================================================
@@ -697,6 +1151,27 @@ class TestGetPendingApprovals:
 
         assert len(pending) == 1
         assert pending[0].id == request1.id
+
+    @pytest.mark.asyncio
+    async def test_empty_when_no_requests(self, approval_module):
+        """Should return empty list when no pending requests."""
+        pending = await approval_module.get_pending_approvals()
+        assert pending == []
+
+    @pytest.mark.asyncio
+    async def test_excludes_non_pending_state(self, approval_module, auth_context):
+        """Should exclude requests that are not in PENDING state."""
+        with patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock):
+            request = await approval_module.create_approval_request(
+                operation="user.delete",
+                risk_level=approval_module.OperationRiskLevel.HIGH,
+                auth_context=auth_context,
+            )
+            request.state = approval_module.ApprovalState.APPROVED
+
+            pending = await approval_module.get_pending_approvals()
+
+        assert len(pending) == 0
 
 
 # ===========================================================================
@@ -881,6 +1356,86 @@ class TestRequireApprovalDecorator:
         assert request.resource_type == "users"
         assert request.resource_id == "target-user-123"
 
+    @pytest.mark.asyncio
+    async def test_auth_context_from_positional_arg(self, approval_module, auth_context):
+        """Should find auth context in positional args."""
+        ApprovalPendingError = approval_module.ApprovalPendingError
+
+        @approval_module.require_approval(
+            operation="user.delete",
+            risk_level=approval_module.OperationRiskLevel.HIGH,
+        )
+        async def delete_user(ctx):
+            return {"deleted": True}
+
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            pytest.raises(ApprovalPendingError),
+        ):
+            await delete_user(auth_context)
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_non_matching_role_requires_approval(self, approval_module, auth_context):
+        """Should require approval when user doesn't have auto-approve role."""
+        ApprovalPendingError = approval_module.ApprovalPendingError
+
+        @approval_module.require_approval(
+            operation="user.delete",
+            risk_level=approval_module.OperationRiskLevel.HIGH,
+            auto_approve_roles={"superadmin"},
+        )
+        async def delete_user(auth_context):
+            return {"deleted": True}
+
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            pytest.raises(ApprovalPendingError),
+        ):
+            await delete_user(auth_context=auth_context)
+
+    @pytest.mark.asyncio
+    async def test_description_propagated(self, approval_module, auth_context):
+        """Should propagate description from decorator to request."""
+        ApprovalPendingError = approval_module.ApprovalPendingError
+
+        @approval_module.require_approval(
+            operation="user.delete",
+            risk_level=approval_module.OperationRiskLevel.HIGH,
+            description="Custom description for delete",
+        )
+        async def delete_user(auth_context):
+            return {"deleted": True}
+
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            pytest.raises(ApprovalPendingError) as exc_info,
+        ):
+            await delete_user(auth_context=auth_context)
+
+        assert exc_info.value.request.description == "Custom description for delete"
+
+    @pytest.mark.asyncio
+    async def test_checklist_propagated(self, approval_module, auth_context):
+        """Should propagate checklist from decorator to request."""
+        ApprovalPendingError = approval_module.ApprovalPendingError
+
+        @approval_module.require_approval(
+            operation="user.delete",
+            risk_level=approval_module.OperationRiskLevel.HIGH,
+            checklist=["Step 1", "Step 2"],
+        )
+        async def delete_user(auth_context):
+            return {"deleted": True}
+
+        with (
+            patch.object(approval_module, "_persist_approval_request", new_callable=AsyncMock),
+            pytest.raises(ApprovalPendingError) as exc_info,
+        ):
+            await delete_user(auth_context=auth_context)
+
+        labels = [c.label for c in exc_info.value.request.checklist]
+        assert labels == ["Step 1", "Step 2"]
+
 
 # ===========================================================================
 # Test ApprovalPendingError
@@ -937,6 +1492,22 @@ class TestApprovalDeniedError:
         assert error.reason == "Not authorized"
         assert "user.delete" in str(error)
         assert "Not authorized" in str(error)
+
+    def test_empty_reason(self, approval_module):
+        """Should handle empty reason string."""
+        OperationApprovalRequest = approval_module.OperationApprovalRequest
+        OperationRiskLevel = approval_module.OperationRiskLevel
+        ApprovalDeniedError = approval_module.ApprovalDeniedError
+
+        request = OperationApprovalRequest(
+            id="req-1",
+            operation="test.op",
+            risk_level=OperationRiskLevel.LOW,
+            requester_id="u1",
+        )
+
+        error = ApprovalDeniedError(request)
+        assert error.reason == ""
 
 
 # ===========================================================================
