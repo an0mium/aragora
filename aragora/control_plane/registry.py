@@ -27,9 +27,7 @@ from aragora.observability import (
 )
 
 # Resilience
-from aragora.resilience_patterns import (
-    get_circuit_breaker,
-)
+from aragora.resilience import get_v2_circuit_breaker as get_circuit_breaker
 
 logger = get_logger(__name__)
 
