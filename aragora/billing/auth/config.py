@@ -53,6 +53,64 @@ def _get_jwt_secret_previous() -> str:
     return _jwt_secret_previous_cache
 
 
+def _set_jwt_secret(value: str) -> None:
+    """Set JWT secret (for testing purposes)."""
+    global _jwt_secret_cache
+    _jwt_secret_cache = value
+
+
+def _set_jwt_secret_previous(value: str) -> None:
+    """Set previous JWT secret (for testing purposes)."""
+    global _jwt_secret_previous_cache
+    _jwt_secret_previous_cache = value
+
+
+# Module-level property descriptors for backward compatibility with tests
+class _JWTSecretDescriptor:
+    """Descriptor for lazy-loaded JWT_SECRET with test compatibility."""
+
+    def __get__(self, obj, objtype=None) -> str:
+        return _get_jwt_secret()
+
+    def __set__(self, obj, value: str) -> None:
+        _set_jwt_secret(value)
+
+
+class _JWTSecretPreviousDescriptor:
+    """Descriptor for lazy-loaded JWT_SECRET_PREVIOUS with test compatibility."""
+
+    def __get__(self, obj, objtype=None) -> str:
+        return _get_jwt_secret_previous()
+
+    def __set__(self, obj, value: str) -> None:
+        _set_jwt_secret_previous(value)
+
+
+# Create a module wrapper class to support descriptors at module level
+class _ModuleWrapper:
+    """Wrapper to enable property-like access at module level."""
+
+    def __init__(self, module):
+        self._module = module
+
+    def __getattr__(self, name):
+        if name == "JWT_SECRET":
+            return _get_jwt_secret()
+        elif name == "JWT_SECRET_PREVIOUS":
+            return _get_jwt_secret_previous()
+        return getattr(self._module, name)
+
+    def __setattr__(self, name, value):
+        if name == "_module":
+            object.__setattr__(self, name, value)
+        elif name == "JWT_SECRET":
+            _set_jwt_secret(value)
+        elif name == "JWT_SECRET_PREVIOUS":
+            _set_jwt_secret_previous(value)
+        else:
+            setattr(self._module, name, value)
+
+
 # Unix timestamp when secret was rotated (for limiting previous secret validity)
 JWT_SECRET_ROTATED_AT = os.environ.get("ARAGORA_JWT_SECRET_ROTATED_AT", "")
 # How long previous secret remains valid after rotation (default: 24 hours)
@@ -248,3 +306,6 @@ __all__ = [
     "get_secret",
     "get_previous_secret",
 ]
+
+# Replace module with wrapper for backward-compatible attribute access
+sys.modules[__name__] = _ModuleWrapper(sys.modules[__name__])
