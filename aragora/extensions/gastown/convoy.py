@@ -15,6 +15,7 @@ from typing import Any
 
 from aragora.nomic.stores import BeadStore as NomicBeadStore
 from aragora.nomic.stores import ConvoyManager as NomicConvoyManager
+from aragora.nomic.stores.paths import resolve_store_dir
 from aragora.workspace.convoy import (
     Convoy as WorkspaceConvoy,
     ConvoyStatus as WorkspaceConvoyStatus,
@@ -66,7 +67,7 @@ class ConvoyTracker:
         )
         self._bead_store: NomicBeadStore | None = None
         if self._use_nomic_store and self._storage_path is None:
-            self._storage_path = Path(".aragora_beads")
+            self._storage_path = resolve_store_dir()
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
             if self._use_nomic_store:

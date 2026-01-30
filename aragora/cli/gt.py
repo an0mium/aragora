@@ -65,11 +65,9 @@ def _print_table(headers: list[str], rows: list[list[str]], widths: Optional[lis
 
 def _resolve_gt_paths() -> tuple[Path, Path]:
     """Resolve bead and convoy storage paths."""
-    workspace_dir = Path(".gt")
-    if workspace_dir.exists():
-        return workspace_dir / "beads", workspace_dir / "convoys"
-    bead_dir = Path(".beads")
-    return bead_dir, bead_dir
+    from aragora.nomic.stores.paths import resolve_bead_and_convoy_dirs
+
+    return resolve_bead_and_convoy_dirs(prefer_legacy_gt=True)
 
 
 def _init_bead_store():

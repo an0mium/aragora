@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.nomic.stores import BeadStore as NomicBeadStore
+from aragora.nomic.stores.paths import resolve_store_dir
 from aragora.workspace.bead import Bead, BeadManager, BeadStatus
 from aragora.workspace.convoy import Convoy, ConvoyStatus, ConvoyTracker
 from aragora.workspace.rig import Rig, RigConfig, RigStatus
@@ -49,13 +50,14 @@ class WorkspaceManager:
         self._workspace_id = workspace_id
 
         # Sub-managers
+        store_dir = resolve_store_dir(workspace_root=self._workspace_root)
         self._bead_store = NomicBeadStore(
-            self._workspace_root / ".aragora_beads",
+            store_dir,
             git_enabled=False,
             auto_commit=False,
         )
         self._bead_manager = BeadManager(
-            storage_dir=self._workspace_root / ".aragora_beads",
+            storage_dir=store_dir,
             use_nomic_store=True,
             nomic_store=self._bead_store,
         )
