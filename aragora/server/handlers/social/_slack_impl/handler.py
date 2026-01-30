@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack integration handler - main SlackHandler class.
 
@@ -10,8 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Awaitable, Optional, cast
 from urllib.parse import parse_qs
+
+from aragora.server.handlers.base import ServerContext
 
 from . import config as _cfg
 from .config import (
@@ -52,7 +53,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route Slack requests to appropriate methods."""
@@ -150,8 +151,13 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
             logger.debug(f"Failed to extract team_id: {e}")
         return None
 
-    def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> HandlerResult | None:
-        """Handle POST requests."""
+    def handle_post(
+        self, path: str, body: dict[str, Any], handler: Any
+    ) -> Awaitable[HandlerResult | None]:
+        """Handle POST requests.
+
+        Returns an awaitable since handle() is async. Callers must await the result.
+        """
         return self.handle(path, {}, handler)
 
     def _verify_signature(self, handler: Any, body: str, signing_secret: str) -> bool:
@@ -198,7 +204,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
 _slack_handler: Optional["SlackHandler"] = None
 
 
-def get_slack_handler(server_context: dict | None = None) -> "SlackHandler":
+def get_slack_handler(server_context: ServerContext | dict[str, Any] | None = None) -> SlackHandler:
     """Get or create the Slack handler instance.
 
     Args:
@@ -210,6 +216,7 @@ def get_slack_handler(server_context: dict | None = None) -> "SlackHandler":
     global _slack_handler
     if _slack_handler is None:
         if server_context is None:
-            server_context = {}  # Default empty context for standalone usage
-        _slack_handler = SlackHandler(server_context)  # type: ignore[arg-type]
+            server_context = {}
+        # Cast to ServerContext - the TypedDict accepts any dict with compatible keys
+        _slack_handler = SlackHandler(cast(ServerContext, server_context))
     return _slack_handler

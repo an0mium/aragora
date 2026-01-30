@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 
@@ -33,6 +33,9 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.facade import KnowledgeMound as KnowledgeMoundType
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +63,8 @@ async def _get_orchestrator() -> Any | None:
             from aragora.knowledge.mound import KnowledgeMound
 
             # Initialize with default mound
-            mound = KnowledgeMound()  # type: ignore[abstract]
+            # Use cast since KnowledgeMound is a concrete class composed from mixins
+            mound = cast("KnowledgeMoundType", KnowledgeMound())
             await mound.initialize()
 
             _orchestrator_instance = RepositoryOrchestrator(
@@ -107,72 +111,102 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
         return False
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
-        self, path: str, method: str, handler: Any = None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
-        """Route request to appropriate handler method."""
-        query_params: dict[str, Any] = {}
-        body: dict[str, Any] = {}
-
-        if handler:
-            query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
-            from urllib.parse import parse_qs
-
-            query_params = parse_qs(query_str)
-
-            # Read JSON body for POST requests
-            if method == "POST":
-                try:
-                    content_length = int(handler.headers.get("Content-Length", 0))
-                    if content_length > 0:
-                        raw_body = handler.rfile.read(content_length)
-                        body = json.loads(raw_body.decode("utf-8"))
-                except Exception as e:
-                    logger.debug(f"Failed to parse request body: {e}")
-
-        # POST /api/repository/index - Start full index
-        if path == "/api/v1/repository/index" and method == "POST":
-            return await self._start_index(body)
-
-        # POST /api/repository/incremental - Incremental update
-        if path == "/api/v1/repository/incremental" and method == "POST":
-            return await self._incremental_update(body)
-
-        # POST /api/repository/batch - Batch index multiple repos
-        if path == "/api/v1/repository/batch" and method == "POST":
-            return await self._batch_index(body)
-
-        # Handle repository-specific routes
+        """Handle GET requests for repository endpoints."""
+        # Handle repository-specific GET routes
         parts = path.split("/")
         if len(parts) >= 4:
-            repo_id = parts[3]  # /api/repository/{repo_id}/...
+            repo_id = parts[3]  # /api/v1/repository/{repo_id}/...
+
+            # Validate repo_id for repository-specific routes
+            # Skip validation for action routes like 'index', 'incremental', 'batch'
+            if repo_id not in ("index", "incremental", "batch"):
+                is_valid, err = validate_path_segment(repo_id, "repo_id", SAFE_ID_PATTERN)
+                if not is_valid:
+                    return error_response(err or "Invalid repository ID", 400)
+
+                # GET /api/v1/repository/:id/status
+                if len(parts) == 5 and parts[4] == "status":
+                    return await self._get_status(repo_id)
+
+                # GET /api/v1/repository/:id/entities
+                if len(parts) == 5 and parts[4] == "entities":
+                    return await self._get_entities(repo_id, query_params)
+
+                # GET /api/v1/repository/:id/graph
+                if len(parts) == 5 and parts[4] == "graph":
+                    return await self._get_graph(repo_id, query_params)
+
+                # GET /api/v1/repository/:id - Get repository info
+                if len(parts) == 4:
+                    return await self._get_repository(repo_id)
+
+        return error_response("Repository endpoint not found", 404)
+
+    @rate_limit(requests_per_minute=30)
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
+        """Handle POST requests for repository endpoints."""
+        body: dict[str, Any] = {}
+
+        # Read JSON body for POST requests
+        if handler:
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+                if content_length > 0:
+                    raw_body = handler.rfile.read(content_length)
+                    body = json.loads(raw_body.decode("utf-8"))
+            except Exception as e:
+                logger.debug(f"Failed to parse request body: {e}")
+
+        # POST /api/v1/repository/index - Start full index
+        if path == "/api/v1/repository/index":
+            return await self._start_index(body)
+
+        # POST /api/v1/repository/incremental - Incremental update
+        if path == "/api/v1/repository/incremental":
+            return await self._incremental_update(body)
+
+        # POST /api/v1/repository/batch - Batch index multiple repos
+        if path == "/api/v1/repository/batch":
+            return await self._batch_index(body)
+
+        return error_response("Repository POST endpoint not found", 404)
+
+    @rate_limit(requests_per_minute=30)
+    async def handle_delete(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
+        """Handle DELETE requests for repository endpoints."""
+        body: dict[str, Any] = {}
+
+        # Read JSON body for DELETE requests (for workspace_id)
+        if handler:
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+                if content_length > 0:
+                    raw_body = handler.rfile.read(content_length)
+                    body = json.loads(raw_body.decode("utf-8"))
+            except Exception as e:
+                logger.debug(f"Failed to parse request body: {e}")
+
+        # Handle repository-specific DELETE routes
+        parts = path.split("/")
+        if len(parts) == 4:
+            repo_id = parts[3]  # /api/v1/repository/{repo_id}
 
             # Validate repo_id
             is_valid, err = validate_path_segment(repo_id, "repo_id", SAFE_ID_PATTERN)
             if not is_valid:
                 return error_response(err or "Invalid repository ID", 400)
 
-            # GET /api/repository/:id/status
-            if len(parts) == 5 and parts[4] == "status" and method == "GET":
-                return await self._get_status(repo_id)
+            # DELETE /api/v1/repository/:id - Remove repository
+            return await self._remove_repository(repo_id, body)
 
-            # GET /api/repository/:id/entities
-            if len(parts) == 5 and parts[4] == "entities" and method == "GET":
-                return await self._get_entities(repo_id, query_params)
-
-            # GET /api/repository/:id/graph
-            if len(parts) == 5 and parts[4] == "graph" and method == "GET":
-                return await self._get_graph(repo_id, query_params)
-
-            # GET /api/repository/:id - Get repository info
-            if len(parts) == 4 and method == "GET":
-                return await self._get_repository(repo_id)
-
-            # DELETE /api/repository/:id - Remove repository
-            if len(parts) == 4 and method == "DELETE":
-                return await self._remove_repository(repo_id, body)
-
-        return error_response("Repository endpoint not found", 404)
+        return error_response("Repository DELETE endpoint not found", 404)
 
     @require_permission("repository.create")
     async def _start_index(self, body: dict[str, Any]) -> HandlerResult:

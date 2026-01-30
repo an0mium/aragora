@@ -604,7 +604,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
             (tenant_id, message["account_id"], message["external_id"]),
         ).fetchone()
 
-        now = _format_dt(message.get("received_at") or _utc_now())
+        received_at_str = _format_dt(message.get("received_at")) or _format_dt(_utc_now())
         created_at = _format_dt(message.get("created_at") or _utc_now())
         updated_at = _format_dt(_utc_now())
         is_read = 1 if message.get("is_read") else 0
@@ -630,7 +630,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                     message.get("sender_name"),
                     json.dumps(message.get("recipients") or []),
                     json.dumps(message.get("cc") or []),
-                    _format_dt(message.get("received_at") or now),  # type: ignore[arg-type]
+                    received_at_str,
                     message.get("snippet"),
                     message.get("body_preview"),
                     is_read,
@@ -678,7 +678,7 @@ class SQLiteUnifiedInboxStore(UnifiedInboxStoreBackend):
                 message.get("sender_name"),
                 json.dumps(message.get("recipients") or []),
                 json.dumps(message.get("cc") or []),
-                _format_dt(message.get("received_at") or now),  # type: ignore[arg-type]
+                received_at_str,
                 message.get("snippet"),
                 message.get("body_preview"),
                 is_read,

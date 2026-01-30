@@ -4,6 +4,7 @@ Base classes for regulatory personas.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class AttackSeverity(Enum):
@@ -92,7 +93,7 @@ Provide specific findings with evidence from the target.
         """Get attacks for a specific category."""
         return [a for a in self.attack_prompts if a.category == category]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -102,4 +103,29 @@ Provide specific findings with evidence from the target.
             "attack_count": len(self.attack_prompts),
             "compliance_checks": self.compliance_checks,
             "categories": list(set(a.category for a in self.attack_prompts)),
+        }
+
+    async def evaluate(self, input_content: str) -> dict[str, Any]:
+        """
+        Evaluate input content for compliance with this persona's regulatory framework.
+
+        This is a stub implementation that returns a non-compliant result.
+        Subclasses should override this method to perform actual compliance checks.
+
+        Args:
+            input_content: The content to evaluate for compliance.
+
+        Returns:
+            A dictionary containing:
+                - compliant: bool indicating whether the input is compliant
+                - findings: list of compliance findings/violations
+                - score: float between 0.0 and 1.0 indicating compliance level
+        """
+        return {
+            "compliant": False,
+            "findings": [
+                f"Compliance evaluation not implemented for {self.name}. "
+                f"Override evaluate() method in subclass."
+            ],
+            "score": 0.0,
         }

@@ -140,8 +140,8 @@ class TestIndexRepository:
                 }
             ).encode()
 
-            result = await repository_handler.handle(
-                "/api/v1/repository/index", "POST", mock_handler
+            result = await repository_handler.handle_post(
+                "/api/v1/repository/index", {}, mock_handler
             )
 
             assert result is not None
@@ -162,8 +162,8 @@ class TestIndexRepository:
             mock_handler.headers = {"Content-Length": "2"}
             mock_handler.rfile.read.return_value = b"{}"
 
-            result = await repository_handler.handle(
-                "/api/v1/repository/index", "POST", mock_handler
+            result = await repository_handler.handle_post(
+                "/api/v1/repository/index", {}, mock_handler
             )
 
             assert result is not None
@@ -192,8 +192,8 @@ class TestIncrementalUpdate:
                 }
             ).encode()
 
-            result = await repository_handler.handle(
-                "/api/v1/repository/incremental", "POST", mock_handler
+            result = await repository_handler.handle_post(
+                "/api/v1/repository/incremental", {}, mock_handler
             )
 
             assert result is not None
@@ -216,7 +216,7 @@ class TestGetStatus:
             mock_handler.path = "/api/v1/repository/repo-123/status"
 
             result = await repository_handler.handle(
-                "/api/v1/repository/repo-123/status", "GET", mock_handler
+                "/api/v1/repository/repo-123/status", {}, mock_handler
             )
 
             assert result is not None
@@ -230,7 +230,7 @@ class TestGetStatus:
         mock_handler.path = "/api/v1/repository/<script>/status"
 
         result = await repository_handler.handle(
-            "/api/v1/repository/<script>/status", "GET", mock_handler
+            "/api/v1/repository/<script>/status", {}, mock_handler
         )
 
         assert result is not None

@@ -9,12 +9,16 @@ Provides workflow integration with Aragora's debate orchestration:
 
 from __future__ import annotations
 
+import dataclasses
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS
 from aragora.config.settings import get_settings
 from aragora.workflow.step import BaseStep, WorkflowContext
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
 
 logger = logging.getLogger(__name__)
 
@@ -123,14 +127,19 @@ class DebateStep(BaseStep):
                     from aragora.debate.arena_config import ArenaConfig
 
                     # Interpolate any template values in arena_config
-                    interpolated_config = {}
+                    interpolated_config: dict[str, Any] = {}
                     for key, value in arena_config_dict.items():
                         if isinstance(value, str):
                             interpolated_config[key] = self._interpolate_text(value, context)
                         else:
                             interpolated_config[key] = value
 
-                    arena_config = ArenaConfig(**interpolated_config)  # type: ignore[arg-type]
+                    # Filter to only valid ArenaConfig fields
+                    valid_fields = {f.name for f in dataclasses.fields(ArenaConfig)}
+                    filtered_config = {
+                        k: v for k, v in interpolated_config.items() if k in valid_fields
+                    }
+                    arena_config = ArenaConfig(**filtered_config)
                 except Exception as e:
                     logger.warning(f"Failed to build ArenaConfig: {e}")
 
@@ -265,19 +274,20 @@ class QuickDebateStep(BaseStep):
             max_length = config.get("max_response_length", 500)
 
             # Get responses in parallel
-            async def get_response(agent_type: str) -> dict[str, Any]:
+            async def get_response(agent_type_str: str) -> dict[str, Any]:
                 try:
-                    agent = create_agent(agent_type)  # type: ignore[arg-type]
+                    # Cast to AgentType - validation happens at runtime in create_agent
+                    agent = create_agent(cast("AgentType", agent_type_str))
                     response = await agent.generate(question)
                     return {
-                        "agent": agent_type,
+                        "agent": agent_type_str,
                         "response": (
                             response[:max_length] if len(response) > max_length else response
                         ),
                         "success": True,
                     }
                 except Exception as e:
-                    return {"agent": agent_type, "error": str(e), "success": False}
+                    return {"agent": agent_type_str, "error": str(e), "success": False}
 
             responses = await asyncio.gather(*[get_response(at) for at in agent_types])
 
@@ -289,7 +299,8 @@ class QuickDebateStep(BaseStep):
             if config.get("synthesize", True) and len(successful) > 1:
                 # Use first agent to synthesize
                 try:
-                    synth_agent = create_agent(agent_types[0])
+                    # Cast to AgentType - validation happens at runtime in create_agent
+                    synth_agent = create_agent(cast("AgentType", agent_types[0]))
                     synth_prompt = f"Synthesize these perspectives on: {question}\n\n"
                     for r in successful:
                         synth_prompt += f"- {r['agent']}: {r['response']}\n\n"

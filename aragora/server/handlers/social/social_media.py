@@ -143,6 +143,31 @@ class VideoGeneratorProtocol(Protocol):
         ...
 
 
+class DebateContentFormatterProtocol(Protocol):
+    """Protocol for debate content formatter interface used by social media handler."""
+
+    def format_as_thread(
+        self,
+        task: str,
+        agents: list[str],
+        verdict: str | None,
+        debate_url: str,
+    ) -> list[str]:
+        """Format debate as a thread of tweets."""
+        ...
+
+    def format_single_tweet(
+        self,
+        task: str,
+        agents: list[str],
+        verdict: str | None,
+        audio_url: str | None,
+        debate_url: str | None,
+    ) -> str:
+        """Format debate as a single tweet."""
+        ...
+
+
 logger = logging.getLogger(__name__)
 
 # Check if we're in production mode
@@ -456,10 +481,10 @@ class SocialMediaHandler(BaseHandler):
         try:
             from aragora.connectors.twitter_poster import DebateContentFormatter
 
-            formatter = DebateContentFormatter()
+            formatter = cast(DebateContentFormatterProtocol, DebateContentFormatter())
 
             if thread_mode:
-                tweets = formatter.format_as_thread(  # type: ignore[attr-defined]
+                tweets = formatter.format_as_thread(
                     task=debate.get("task", ""),
                     agents=debate.get("agents", []),
                     verdict=debate.get("verdict"),
@@ -467,7 +492,7 @@ class SocialMediaHandler(BaseHandler):
                 )
                 result = _run_async(twitter.post_thread(tweets))
             else:
-                tweet_text = formatter.format_single_tweet(  # type: ignore[attr-defined]
+                tweet_text = formatter.format_single_tweet(
                     task=debate.get("task", ""),
                     agents=debate.get("agents", []),
                     verdict=debate.get("verdict"),

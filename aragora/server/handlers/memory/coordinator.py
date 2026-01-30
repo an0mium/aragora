@@ -9,16 +9,20 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from ..base import (
     HandlerResult,
+    MaybeAsyncHandlerResult,
     error_response,
     handle_errors,
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+
+if TYPE_CHECKING:
+    from aragora.memory.coordinator import MemoryCoordinator as MemoryCoordinatorType
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +34,13 @@ _coordinator_limiter = RateLimiter(requests_per_minute=30)
 
 # Optional import for coordinator functionality
 try:
-    from aragora.memory.coordinator import MemoryCoordinator, CoordinatorOptions
+    from aragora.memory.coordinator import CoordinatorOptions, MemoryCoordinator
 
     COORDINATOR_AVAILABLE = True
 except ImportError:
     COORDINATOR_AVAILABLE = False
-    MemoryCoordinator: Any = None
-    CoordinatorOptions: Any = None
+    MemoryCoordinator = None
+    CoordinatorOptions = None
 
 
 class CoordinatorHandler(SecureHandler):
@@ -54,9 +58,9 @@ class CoordinatorHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler=None
-    ) -> HandlerResult | None:
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> MaybeAsyncHandlerResult:
         """Route coordinator requests with RBAC."""
         client_ip = get_client_ip(handler)
 
@@ -91,12 +95,14 @@ class CoordinatorHandler(SecureHandler):
 
         return None
 
-    def _get_coordinator(self) -> Optional["MemoryCoordinator"]:
+    def _get_coordinator(self) -> MemoryCoordinatorType | None:
         """Get coordinator from context."""
         coordinator = self.ctx.get("memory_coordinator")
         if coordinator is None:
             return None
-        return coordinator  # type: ignore[return-value]
+        # The coordinator from context is typed as Any, but we know it's a MemoryCoordinator
+        result: MemoryCoordinatorType = coordinator
+        return result
 
     @handle_errors("coordinator metrics")
     def _get_metrics(self) -> HandlerResult:

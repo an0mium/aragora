@@ -9,19 +9,24 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import DebateResult, Message, Vote
 
-# Optional imports for trace support
+# Type-only imports for type hints
+if TYPE_CHECKING:
+    from aragora.debate.traces import DebateTrace
+
+# Runtime check for trace support
 try:
-    from aragora.debate.traces import DebateTrace, EventType
+    from aragora.debate import traces as _traces_module
 
     HAS_TRACE_SUPPORT = True
+    _EventType = _traces_module.EventType
 except ImportError:
     HAS_TRACE_SUPPORT = False
-    DebateTrace: Any = None  # type: ignore[no-redef]
-    EventType: Any = None  # type: ignore[no-redef]
+    _traces_module = None
+    _EventType = None
 
 
 @dataclass
@@ -138,7 +143,10 @@ class ReplayGenerator:
         consensus_events = {}
         if trace and HAS_TRACE_SUPPORT:
             for event in trace.events:
-                if getattr(event, "type", None) == EventType.CONSENSUS_CHECK:
+                if (
+                    _EventType is not None
+                    and getattr(event, "type", None) == _EventType.CONSENSUS_CHECK
+                ):
                     consensus_events[getattr(event, "round_num", 0)] = getattr(event, "data", {})
 
         # Create scenes

@@ -147,16 +147,16 @@ class ContextPhase:
         if use_kilocode and self.kilocode_agent_factory:
             gemini_explorer = self.kilocode_agent_factory(
                 name="gemini-explorer",
-                provider_id="gemini-explorer",
-                model="gemini-3-pro-preview",
+                provider_id="openrouter/google/gemini-3-pro-preview",
+                model="openrouter/google/gemini-3-pro-preview",
                 role="explorer",
                 timeout=600,
                 mode="architect",
             )
             grok_explorer = self.kilocode_agent_factory(
                 name="grok-explorer",
-                provider_id="grok-explorer",
-                model="grok-4",
+                provider_id="openrouter/x-ai/grok-4",
+                model="openrouter/x-ai/grok-4",
                 role="explorer",
                 timeout=600,
                 mode="architect",

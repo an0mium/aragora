@@ -26,12 +26,26 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
     from aragora.services.email_prioritization import EmailPriorityResult
-    from aragora.services.sender_history import SenderHistoryService
+
+
+class SenderStatsProtocol(Protocol):
+    """Protocol for sender statistics returned by history service."""
+
+    avg_response_time_minutes: float | None
+
+
+class SenderHistoryServiceProtocol(Protocol):
+    """Protocol for sender history service interface used by snooze recommender."""
+
+    async def get_stats(self, sender_email: str) -> SenderStatsProtocol | None:
+        """Get stats for a sender by email address."""
+        ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +129,7 @@ class SnoozeRecommender:
 
     def __init__(
         self,
-        sender_history: SenderHistoryService | None = None,
+        sender_history: SenderHistoryServiceProtocol | None = None,
         calendar_service: Any | None = None,
         work_schedule: WorkSchedule | None = None,
     ):
@@ -335,12 +349,16 @@ class SnoozeRecommender:
 
         try:
             # Get sender stats
-            stats = await self.sender_history.get_stats(sender_email)  # type: ignore[attr-defined]
+            stats = await self.sender_history.get_stats(sender_email)
             if not stats:
                 return suggestions
 
             # If user typically responds within X hours, suggest that
-            avg_response: float = getattr(stats, "avg_response_time_hours", 24.0)  # type: ignore[assignment]
+            # Convert minutes to hours, defaulting to 24 hours if not available
+            avg_response_minutes = stats.avg_response_time_minutes
+            avg_response: float = (
+                avg_response_minutes / 60.0 if avg_response_minutes is not None else 24.0
+            )
 
             if avg_response < 4:
                 # Quick responder - suggest soon

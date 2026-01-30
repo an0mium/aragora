@@ -876,6 +876,8 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
         now = datetime.now(timezone.utc).isoformat()
 
         # Build atomic update based on direction and error status
+        # params can hold either (str, str, str, str) for error case or (str, int, str, str) for success case
+        params: tuple[str, str | int, str, str]
         if direction == "push":
             if error:
                 sql = """
@@ -894,7 +896,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                         updated_at = NOW()
                     WHERE region_id = $3 AND workspace_id = $4
                 """
-                params = (now, nodes_synced, region_id, ws_id)  # type: ignore[assignment]
+                params = (now, nodes_synced, region_id, ws_id)
         else:  # pull
             if error:
                 sql = """
@@ -913,7 +915,7 @@ class PostgresFederationRegistryStore(FederationRegistryStoreBackend):
                         updated_at = NOW()
                     WHERE region_id = $3 AND workspace_id = $4
                 """
-                params = (now, nodes_synced, region_id, ws_id)  # type: ignore[assignment]
+                params = (now, nodes_synced, region_id, ws_id)
 
         async with self._pool.acquire() as conn:
             await conn.execute(sql, *params)

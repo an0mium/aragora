@@ -11,7 +11,7 @@ Wraps the GauntletRunner to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
@@ -160,8 +160,9 @@ class GauntletStep(BaseStep):
             # Create agent factory for gauntlet
             def agent_factory(agent_type: str):
                 from aragora.agents import create_agent
+                from aragora.agents.base import AgentType
 
-                return create_agent(agent_type)  # type: ignore[arg-type]
+                return create_agent(cast(AgentType, agent_type))
 
             # Create runner
             runner = GauntletRunner(
@@ -310,7 +311,7 @@ class GauntletStep(BaseStep):
                 try:
                     persona = persona_class()
                     # Run compliance check
-                    check_result = await persona.evaluate(input_content)  # type: ignore[attr-defined]
+                    check_result = await persona.evaluate(input_content)
                     results.append(
                         {
                             "framework": framework,

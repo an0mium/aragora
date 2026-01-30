@@ -16,8 +16,11 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any, Optional
+
+from aragora.workflow.types import WorkflowDefinition
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.rbac.decorators import require_permission
@@ -354,16 +357,13 @@ class WorkflowTemplatesHandler(BaseHandler):
             return error_response(f"Template not found: {template_id}", 404)
 
         inputs = data.get("inputs", {})
-        agents = data.get("agents")
 
         # Execute template
         try:
             engine = WorkflowEngine()
-            result = engine.execute_sync(  # type: ignore[attr-defined]
-                workflow=template,
-                inputs=inputs,
-                agents=agents,
-            )
+            # Convert template dict to WorkflowDefinition
+            workflow_def = WorkflowDefinition.from_dict(template)
+            result = asyncio.run(engine.execute(workflow_def, inputs))
 
             return json_response(
                 {
@@ -597,7 +597,9 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
             return error_response(f"Invalid JSON: {e}", 400)
 
         # Map pattern IDs to factory functions
-        pattern_factories = {
+        # Note: These functions are typed as returning dict[str, Any] but actually return
+        # WorkflowDefinition (cast internally). We cast the result back to WorkflowDefinition.
+        pattern_factories: dict[str, Callable[..., Any]] = {
             "hive-mind": create_hive_mind_workflow,
             "hive_mind": create_hive_mind_workflow,
             "map-reduce": create_map_reduce_workflow,
@@ -618,10 +620,11 @@ class WorkflowPatternTemplatesHandler(BaseHandler):
         config = data.get("config", {})
 
         # Merge task and config
-        workflow_args = {"name": name, "task": task, **config}
+        workflow_args: dict[str, Any] = {"name": name, "task": task, **config}
 
         try:
-            workflow = factory(**workflow_args)  # type: ignore[misc,operator]
+            # Factory functions return WorkflowDefinition (despite being typed as dict)
+            workflow: WorkflowDefinition = factory(**workflow_args)
 
             # Convert workflow to serializable dict
             workflow_dict = {

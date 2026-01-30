@@ -185,6 +185,7 @@ class TrainingStatus(str, Enum):
     EVALUATING = "evaluating"
     READY = "ready"
     FAILED = "failed"
+    CANCELLED = "cancelled"
     DEPRECATED = "deprecated"
 
 

@@ -42,7 +42,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.models import EmailMessage
@@ -512,7 +512,8 @@ class CostOptimizedPrioritizer:
                 uncached_indices.append(i)
 
         if not uncached_indices:
-            return results  # type: ignore[return-value]  # List may have None placeholders
+            # All results were cached, so no None placeholders remain
+            return cast(list["EmailPriorityResult"], results)
 
         # Score uncached emails with concurrency limit
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -528,7 +529,8 @@ class CostOptimizedPrioritizer:
         for index, result in scored:
             results[index] = result
 
-        return results  # type: ignore[return-value]  # List now fully populated
+        # All indices have been populated, so no None placeholders remain
+        return cast(list["EmailPriorityResult"], results)
 
     def get_usage_stats(self) -> UsageStats:
         """Get current usage statistics."""

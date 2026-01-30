@@ -58,6 +58,7 @@ def create_tracked_task(coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Ta
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     auto_error_response,
     error_response,
     json_response,
@@ -559,7 +560,7 @@ class WhatsAppHandler(BaseHandler):
         debate_id = None
         try:
             from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+            from aragora.agents import get_agents_by_names
 
             # Register debate origin for tracking
             try:
@@ -1263,13 +1264,12 @@ class WhatsAppHandler(BaseHandler):
 _whatsapp_handler: Optional["WhatsAppHandler"] = None
 
 
-def get_whatsapp_handler(server_context: dict | None = None) -> "WhatsAppHandler":
+def get_whatsapp_handler(server_context: ServerContext | None = None) -> "WhatsAppHandler":
     """Get or create the WhatsApp handler instance."""
     global _whatsapp_handler
     if _whatsapp_handler is None:
-        if server_context is None:
-            server_context = {}
-        _whatsapp_handler = WhatsAppHandler(server_context)  # type: ignore[arg-type]
+        ctx: ServerContext = server_context if server_context is not None else {}
+        _whatsapp_handler = WhatsAppHandler(ctx)
     return _whatsapp_handler
 
 

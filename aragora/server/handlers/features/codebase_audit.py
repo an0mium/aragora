@@ -873,7 +873,7 @@ class CodebaseAuditHandler(SecureHandler):
         request: Any,
         tenant_id: str,
         scan_type: ScanType,
-        scan_func,
+        scan_func: Any,
     ) -> HandlerResult:
         """Run a single type of scan."""
         try:

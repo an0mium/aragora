@@ -1101,8 +1101,12 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
         # Store action in knowledge mound for learning
         if self.mound:
             try:
-                await self.mound.store(  # type: ignore[misc,call-arg]
+                from aragora.knowledge.mound import IngestionRequest, KnowledgeSource
+
+                request = IngestionRequest(
                     content=f"User {action} email {email_id}",
+                    workspace_id=self.mound.workspace_id,
+                    source_type=KnowledgeSource.EXTERNAL,
                     metadata={
                         "type": "email_action",
                         "email_id": email_id,
@@ -1111,6 +1115,7 @@ Provide: PRIORITY (1-5), CONFIDENCE (0-1), and RATIONALE."""
                         "sender": email.from_address if email else None,
                     },
                 )
+                await self.mound.store(request)
             except Exception as e:
                 logger.debug(f"Failed to store in knowledge mound: {e}")
 
@@ -1156,15 +1161,8 @@ async def prioritize_inbox(
         config=config,
     )
 
-    # Fetch recent emails
-    emails: list[Any] = []
-    async for item in gmail_connector.sync():  # type: ignore[attr-defined]
-        if len(emails) >= limit:
-            break
-        # Convert SyncItem to EmailMessage if needed
-        if hasattr(item, "raw_data") and "message" in item.raw_data:
-            emails.append(item.raw_data["message"])
-        else:
-            emails.append(item)
+    # Fetch recent emails using list_messages and get_messages
+    message_ids, _ = await gmail_connector.list_messages(max_results=limit)
+    emails = await gmail_connector.get_messages(message_ids[:limit])
 
     return await prioritizer.rank_inbox(emails)

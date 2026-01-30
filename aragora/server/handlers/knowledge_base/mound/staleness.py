@@ -28,6 +28,7 @@ from ...base import (
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.types import StalenessCheck
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class StalenessOperationsMixin:
             logger.error(f"Failed to get stale knowledge: {e}")
             return error_response(f"Failed to get stale knowledge: {e}", 500)
 
+        stale_items_typed: list[StalenessCheck] = stale_items
         return json_response(
             {
                 "stale_items": [
@@ -77,14 +79,14 @@ class StalenessOperationsMixin:
                         "node_id": item.node_id,
                         "staleness_score": item.staleness_score,
                         "reasons": [r.value if hasattr(r, "value") else r for r in item.reasons],
-                        "last_validated_at": (
-                            item.last_validated_at.isoformat() if item.last_validated_at else None  # type: ignore[attr-defined]
+                        "last_checked_at": (
+                            item.last_checked_at.isoformat() if item.last_checked_at else None
                         ),
-                        "recommended_action": item.recommended_action,  # type: ignore[attr-defined]
+                        "revalidation_recommended": item.revalidation_recommended,
                     }
-                    for item in stale_items
+                    for item in stale_items_typed
                 ],
-                "total": len(stale_items),
+                "total": len(stale_items_typed),
                 "threshold": threshold,
                 "workspace_id": workspace_id,
             }

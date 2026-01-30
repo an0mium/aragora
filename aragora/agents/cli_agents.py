@@ -281,11 +281,28 @@ class CLIAgent(CritiqueMixin, Agent):
                         stderr=stderr_text or None,
                     )
 
+                stdout_text = stdout.decode("utf-8", errors="replace").strip()
+                stderr_text = stderr.decode("utf-8", errors="replace").strip()
+
+                # Some CLIs (e.g., Kilo) emit errors on stderr but return code 0.
+                # Treat "no stdout + non-empty stderr" as a failure to enable fallback.
+                if not stdout_text and stderr_text:
+                    if self._circuit_breaker is not None:
+                        self._circuit_breaker.record_failure()
+                    lines = [line.strip() for line in stderr_text.split("\n") if line.strip()]
+                    last_line = lines[-1][:200] if lines else "stderr present"
+                    raise CLISubprocessError(
+                        message=f"CLI command produced no output: {last_line}",
+                        agent_name=self.name,
+                        returncode=0,
+                        stderr=stderr_text or None,
+                    )
+
                 # Record success to circuit breaker
                 if self._circuit_breaker is not None:
                     self._circuit_breaker.record_success()
 
-                return stdout.decode("utf-8", errors="replace").strip()
+                return stdout_text
 
             except asyncio.TimeoutError:
                 # Record failure to circuit breaker
@@ -605,17 +622,14 @@ class KiloCodeAgent(CLIAgent):
     autonomously. It supports multiple AI providers including Gemini and Grok
     via direct API or OpenRouter.
 
-    Provider IDs (configured in ~/.kilocode/cli/config.json):
-    - gemini-explorer: Gemini 3 Pro via direct API
-    - grok-explorer: Grok via xAI API
-    - openrouter-gemini: Gemini via OpenRouter
-    - openrouter-grok: Grok via OpenRouter
+    Provider IDs should be in provider/model format for the `kilo run` CLI.
+    Example: openrouter/google/gemini-3-pro-preview
     """
 
     def __init__(
         self,
         name: str,
-        provider_id: str = "gemini-explorer",
+        provider_id: str = "openrouter/google/gemini-3-pro-preview",
         model: str | None = None,
         role: AgentRole = "proposer",
         timeout: int = 600,
@@ -627,6 +641,14 @@ class KiloCodeAgent(CLIAgent):
 
     def _extract_kilocode_response(self, output: str) -> str:
         """Extract the assistant response from Kilo Code JSON output."""
+        clean = output.strip()
+        if re.fullmatch(r"\d+\.\d+\.\d+(?:\.\d+)?", clean or ""):
+            raise CLISubprocessError(
+                message="KiloCode returned version string; provider not configured",
+                agent_name=self.name,
+                returncode=0,
+                stderr=clean or None,
+            )
         lines = output.strip().split("\n")
         responses = []
         for line in lines:
@@ -635,12 +657,26 @@ class KiloCodeAgent(CLIAgent):
                 continue
             try:
                 msg = json.loads(line)
+                if msg.get("type") == "error":
+                    err = msg.get("error") or {}
+                    message = (
+                        err.get("message") or err.get("data", {}).get("message") or "Kilo error"
+                    )
+                    raise CLISubprocessError(
+                        message=f"KiloCode error event: {message}",
+                        agent_name=self.name,
+                        returncode=0,
+                        stderr=json.dumps(err)[:500] if err else None,
+                    )
                 if msg.get("role") == "assistant":
                     content = msg.get("content", "")
                     if content:
                         responses.append(content)
                 elif msg.get("type") == "text":
                     text = msg.get("text", "")
+                    if not text:
+                        part = msg.get("part") or {}
+                        text = part.get("text") or part.get("content", "")
                     if text:
                         responses.append(text)
             except json.JSONDecodeError:
@@ -654,28 +690,40 @@ class KiloCodeAgent(CLIAgent):
         For large prompts (>100KB), uses stdin to avoid OS E2BIG error.
         """
         full_prompt = self._build_full_prompt(prompt, context)
+        # Kilo CLI expects provider/model via --model and outputs JSON events when --format json
         base_cmd = [
-            "kilocode",
-            "--auto",
-            "--yolo",
-            "--json",
-            "-pv",
+            "kilo",
+            "run",
+            "--format",
+            "json",
+            "--model",
             self.provider_id,
-            "-m",
-            self.mode,
-            "-t",
-            str(self.timeout),
+            "--auto",
         ]
-        # Use stdin for large prompts to avoid E2BIG (arg list too long)
+        # Use a file attachment for very large prompts to avoid E2BIG errors
         if self._is_prompt_too_large_for_argv(full_prompt):
-            logger.debug(f"[{self.name}] Using stdin for large prompt ({len(full_prompt)} chars)")
-            return await self._generate_with_fallback(
-                base_cmd + ["-"],
-                prompt,
-                context,
-                input_text=full_prompt,
-                response_extractor=self._extract_kilocode_response,
+            logger.debug(
+                f"[{self.name}] Using file attachment for large prompt ({len(full_prompt)} chars)"
             )
+            tmp_path = None
+            try:
+                import tempfile
+
+                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tf:
+                    tf.write(full_prompt)
+                    tmp_path = tf.name
+                return await self._generate_with_fallback(
+                    base_cmd + ["--file", tmp_path, "--", "See attached prompt file."],
+                    prompt,
+                    context,
+                    response_extractor=self._extract_kilocode_response,
+                )
+            finally:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception:
+                        pass
         return await self._generate_with_fallback(
             base_cmd + [full_prompt],
             prompt,

@@ -22,9 +22,51 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Protocol, cast
 
 logger = logging.getLogger(__name__)
+
+
+class EmailActionConnector(Protocol):
+    """Protocol for email connectors that support action operations.
+
+    This protocol defines the interface for email connectors used by
+    EmailActionsService. Both GmailConnector and OutlookConnector
+    implement this interface through their respective mixins.
+    """
+
+    async def send_message(
+        self,
+        to: list[str],
+        subject: str,
+        body: str,
+        cc: Optional[list[str]] = None,
+        bcc: Optional[list[str]] = None,
+        reply_to: str | None = None,
+        html_body: str | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def reply_to_message(
+        self,
+        original_message_id: str,
+        body: str,
+        cc: Optional[list[str]] = None,
+        html_body: str | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def archive_message(self, message_id: str) -> dict[str, Any]: ...
+
+    async def trash_message(self, message_id: str) -> dict[str, Any]: ...
+
+    async def snooze_message(self, message_id: str, snooze_until: datetime) -> dict[str, Any]: ...
+
+    async def mark_as_read(self, message_id: str) -> dict[str, Any]: ...
+
+    async def star_message(self, message_id: str) -> dict[str, Any]: ...
+
+    async def move_to_folder(self, message_id: str, folder: str) -> dict[str, Any]: ...
+
+    async def batch_archive(self, message_ids: list[str]) -> dict[str, Any]: ...
 
 
 class EmailProvider(str, Enum):
@@ -188,7 +230,7 @@ class EmailActionsService:
         """Initialize the email actions service."""
         self._action_logs: list[ActionLog] = []
         self._snoozed_messages: dict[str, SnoozeRequest] = {}
-        self._connectors: dict[str, Any] = {}
+        self._connectors: dict[str, EmailActionConnector] = {}
         self._action_counter = 0
         self._lock = asyncio.Lock()
 
@@ -203,7 +245,7 @@ class EmailActionsService:
         self,
         provider: str | EmailProvider,
         user_id: str,
-    ) -> Any:
+    ) -> EmailActionConnector:
         """Get or create a connector for the provider.
 
         In production, this would look up the user's OAuth tokens
@@ -216,13 +258,17 @@ class EmailActionsService:
             if provider_str == "gmail":
                 from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-                connector = GmailConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
+                # GmailConnector uses mixins to implement abstract methods from EnterpriseConnector.
+                # The type checker cannot verify this statically, so we cast to the Protocol.
+                connector = cast(EmailActionConnector, GmailConnector())
                 # In production: await connector.authenticate(tokens_from_db)
                 self._connectors[key] = connector
             elif provider_str == "outlook":
                 from aragora.connectors.enterprise.communication.outlook import OutlookConnector
 
-                outlook_connector = OutlookConnector()  # type: ignore[abstract]  # Mixins implement all abstract methods
+                # OutlookConnector implements EnterpriseConnector directly.
+                # Cast to Protocol for consistent typing.
+                outlook_connector = cast(EmailActionConnector, OutlookConnector())
                 self._connectors[key] = outlook_connector
             else:
                 raise ValueError(f"Unsupported provider: {provider}")

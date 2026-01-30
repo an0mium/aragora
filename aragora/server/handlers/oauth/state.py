@@ -12,6 +12,7 @@ from collections.abc import Iterator, MutableMapping
 from typing import Any
 
 from aragora.server.oauth_state_store import (
+    FallbackOAuthStateStore,
     OAuthState,
     get_oauth_state_store,
 )
@@ -22,15 +23,15 @@ from aragora.server.oauth_state_store import (
 logger = logging.getLogger(__name__)
 
 
-class _OAuthStatesView(MutableMapping[str, dict]):
+class _OAuthStatesView(MutableMapping[str, dict[str, Any]]):
     """Compatibility view over OAuth state storage."""
 
-    def __init__(self, store) -> None:
+    def __init__(self, store: FallbackOAuthStateStore) -> None:
         self._store = store
 
     @property
-    def _states(self) -> dict:
-        return self._store._memory_store._states  # type: ignore[attr-defined]
+    def _states(self) -> dict[str, OAuthState]:
+        return self._store._memory_store._states
 
     def __getitem__(self, key: str) -> dict:
         value = self._states[key]
@@ -94,7 +95,6 @@ def _validate_state(state: str) -> dict[str, Any] | None:
 
 def _cleanup_expired_states() -> int:
     """Backward-compatible cleanup helper for in-memory states."""
-    try:
-        return _state_store._memory_store.cleanup_expired()  # type: ignore[attr-defined]
-    except AttributeError:
-        return 0
+    if isinstance(_OAUTH_STATES, _OAuthStatesView):
+        return _OAUTH_STATES._store._memory_store.cleanup_expired()
+    return 0

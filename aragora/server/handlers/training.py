@@ -15,7 +15,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .base import (
     BaseHandler,
@@ -25,6 +25,9 @@ from .base import (
     json_response,
     safe_error_message,
 )
+
+if TYPE_CHECKING:
+    from .base import ServerContext
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.query_params import safe_query_float, safe_query_int
@@ -55,9 +58,9 @@ class TrainingHandler(BaseHandler):
         "/api/v1/training/jobs/*",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: "ServerContext"):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
         self._exporters: dict[str, Any] = {}
         self._export_dir = Path(
             os.environ.get("ARAGORA_TRAINING_EXPORT_DIR", ".nomic/training_exports")
@@ -712,7 +715,7 @@ class TrainingHandler(BaseHandler):
         try:
             from aragora.training.specialist_models import TrainingStatus
 
-            pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)  # type: ignore[attr-defined]
+            pipeline._registry.update_status(job_id, TrainingStatus.CANCELLED)
             return json_response({"success": True, "job_id": job_id, "status": "cancelled"})
         except ValueError as e:
             return error_response(str(e), 404)

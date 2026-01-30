@@ -217,12 +217,12 @@ async def init_km_adapters() -> bool:
 
         # Initialize RankingAdapter
         ranking_adapter = RankingAdapter()
-        manager._ranking_adapter = ranking_adapter  # type: ignore[attr-defined]
+        setattr(manager, "_ranking_adapter", ranking_adapter)
         logger.debug("RankingAdapter initialized for KM integration")
 
         # Initialize RlmAdapter
         rlm_adapter = RlmAdapter()
-        manager._rlm_adapter = rlm_adapter  # type: ignore[attr-defined]
+        setattr(manager, "_rlm_adapter", rlm_adapter)
         logger.debug("RlmAdapter initialized for KM integration")
 
         # Note: Actual KM state loading would happen here if KM backend is available
