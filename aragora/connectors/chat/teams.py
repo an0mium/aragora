@@ -297,7 +297,7 @@ class TeamsConnector(ChatPlatformConnector):
         """
         try:
             token = await self._get_graph_token()
-        except Exception as e:
+        except (RuntimeError, httpx.HTTPError, httpx.TimeoutException, OSError, KeyError) as e:
             return False, None, f"Failed to get Graph token: {e}"
 
         headers: dict[str, str] = {
@@ -409,7 +409,14 @@ class TeamsConnector(ChatPlatformConnector):
             logger.error(f"Teams send_message connection error: {e}")
             self._record_failure(classified)
             raise ConnectorNetworkError(str(e), connector_name="teams") from e
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+        ) as e:
             classified = _classify_teams_error(str(e))
             logger.error(f"Teams send_message error: {e}")
             self._record_failure(classified)
@@ -496,7 +503,14 @@ class TeamsConnector(ChatPlatformConnector):
             logger.error(f"Teams update_message connection error: {e}")
             self._record_failure(classified)
             raise ConnectorNetworkError(str(e), connector_name="teams") from e
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+        ) as e:
             classified = _classify_teams_error(str(e))
             logger.error(f"Teams update_message error: {e}")
             self._record_failure(classified)
@@ -534,7 +548,13 @@ class TeamsConnector(ChatPlatformConnector):
 
             return success
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            RuntimeError,
+            OSError,
+        ) as e:
             logger.error(f"Teams delete_message error: {e}")
             return False
 
@@ -572,7 +592,13 @@ class TeamsConnector(ChatPlatformConnector):
 
             return success
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            RuntimeError,
+            OSError,
+        ) as e:
             logger.debug(f"Teams typing indicator error: {e}")
             return False
 
@@ -694,7 +720,13 @@ class TeamsConnector(ChatPlatformConnector):
             else:
                 return SendMessageResponse(success=False, error=error or "Unknown error")
 
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            RuntimeError,
+            OSError,
+        ) as e:
             logger.error(f"Teams response URL error: {e}")
             return SendMessageResponse(success=False, error=str(e))
 
@@ -900,7 +932,14 @@ class TeamsConnector(ChatPlatformConnector):
                 content=content,
                 metadata={"error": str(e)},
             )
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+        ) as e:
             classified = _classify_teams_error(str(e))
             logger.error(f"Teams file upload error: {e}")
             self._record_failure(classified)
@@ -1033,7 +1072,14 @@ class TeamsConnector(ChatPlatformConnector):
                 size=0,
                 metadata={"error": str(e)},
             )
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+        ) as e:
             classified = _classify_teams_error(str(e))
             logger.error(f"Teams file download error: {e}")
             self._record_failure(classified)
@@ -1426,7 +1472,14 @@ class TeamsConnector(ChatPlatformConnector):
             logger.error(f"Teams get_channel_history connection error: {e}")
             self._record_failure(classified)
             return []
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+        ) as e:
             classified = _classify_teams_error(str(e))
             logger.error(f"Teams get_channel_history error: {e}")
             self._record_failure(classified)
@@ -1550,7 +1603,7 @@ class TeamsConnector(ChatPlatformConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
             logger.debug(f"Teams get_channel_info error: {e}")
             return None
 
@@ -1609,7 +1662,7 @@ class TeamsConnector(ChatPlatformConnector):
             logger.debug(f"Listed {len(channels)} channels for team {team_id}")
             return channels
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
             logger.error(f"Teams list_channels error: {e}")
             return channels
 
@@ -1653,7 +1706,7 @@ class TeamsConnector(ChatPlatformConnector):
                 },
             )
 
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, RuntimeError, OSError) as e:
             logger.debug(f"Teams get_user_info error: {e}")
             return None
 

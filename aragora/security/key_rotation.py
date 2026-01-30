@@ -232,7 +232,7 @@ class KeyRotationScheduler:
         if self._event_callback:
             try:
                 self._event_callback(event_type, data)
-            except Exception as e:
+            except (TypeError, ValueError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
     def _record_metric(
@@ -250,7 +250,7 @@ class KeyRotationScheduler:
             record_key_rotation(operation, success, duration_seconds)
         except (ImportError, AttributeError):
             pass
-        except Exception as e:
+        except (TypeError, ValueError, RuntimeError, OSError) as e:
             logger.debug(f"Failed to record metric: {e}")
 
     async def start(self) -> None:
@@ -393,7 +393,7 @@ class KeyRotationScheduler:
             from aragora.security.kms_provider import detect_cloud_provider
 
             return detect_cloud_provider()
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError, RuntimeError) as e:
             logger.debug(f"Could not detect cloud provider, defaulting to local: {e}")
             return "local"
 
@@ -418,7 +418,14 @@ class KeyRotationScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (
+                RuntimeError,
+                ValueError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                TimeoutError,
+            ) as e:
                 logger.error(f"Key rotation check error: {e}")
                 self._status = SchedulerStatus.ERROR
                 self._stats.status = SchedulerStatus.ERROR
@@ -509,7 +516,16 @@ class KeyRotationScheduler:
                     },
                 )
 
-            except Exception as e:
+            except (
+                ValueError,
+                RuntimeError,
+                TypeError,
+                OSError,
+                ConnectionError,
+                TimeoutError,
+                ImportError,
+                AttributeError,
+            ) as e:
                 job.status = RotationStatus.FAILED
                 job.error = str(e)
                 job.completed_at = datetime.now(timezone.utc)

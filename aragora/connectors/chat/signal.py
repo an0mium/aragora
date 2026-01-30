@@ -193,7 +193,7 @@ class SignalConnector(ChatPlatformConnector):
                     channel_id=channel_id,
                     timestamp=datetime.fromtimestamp(timestamp / 1000).isoformat(),
                 )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
             raise
 
@@ -267,7 +267,7 @@ class SignalConnector(ChatPlatformConnector):
                 else:
                     self._record_failure(Exception(f"Delete failed: {response.status_code}"))
                     return False
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -328,7 +328,7 @@ class SignalConnector(ChatPlatformConnector):
                     content_type=content_type,
                     size=len(content),
                 )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
             raise
 
@@ -374,7 +374,7 @@ class SignalConnector(ChatPlatformConnector):
                     size=len(content),
                     content=content,
                 )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
             raise
 
@@ -404,7 +404,7 @@ class SignalConnector(ChatPlatformConnector):
                 message_id=attachment.id,
                 channel_id=channel_id,
             )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, RuntimeError) as e:
             logger.error(f"Failed to send voice message: {e}")
             return SendMessageResponse(
                 success=False,
@@ -449,7 +449,7 @@ class SignalConnector(ChatPlatformConnector):
                     self._record_success()
                     return True
                 return False
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             logger.debug(f"Typing indicator error: {e}")
             return False
 
@@ -509,7 +509,7 @@ class SignalConnector(ChatPlatformConnector):
                 else:
                     self._record_failure(Exception(f"Reaction failed: {response.status_code}"))
                     return False
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError) as e:
             self._record_failure(e)
             raise
 
@@ -786,7 +786,7 @@ class SignalConnector(ChatPlatformConnector):
                     is_private=True,
                     is_dm=True,
                 )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
             raise
 
@@ -845,7 +845,7 @@ class SignalConnector(ChatPlatformConnector):
                 platform="signal",
                 username=user_id,
             )
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(f"Unexpected error looking up Signal user {user_id}: {e}")
             return ChatUser(
                 id=user_id,
@@ -897,7 +897,7 @@ class SignalConnector(ChatPlatformConnector):
                     file=attachment,
                     metadata={"waveform": kwargs.get("waveform")},
                 )
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, RuntimeError, KeyError) as e:
             logger.error(f"Failed to get voice message: {e}")
         return None
 
@@ -930,7 +930,7 @@ class SignalConnector(ChatPlatformConnector):
                         "success": False,
                         "error": f"HTTP {response.status_code}",
                     }
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             return {
                 "platform": self.platform_name,
                 "success": False,
@@ -958,7 +958,7 @@ class SignalConnector(ChatPlatformConnector):
 
                 self._record_success()
                 return response.json()
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
             raise
 
@@ -1001,7 +1001,7 @@ class SignalConnector(ChatPlatformConnector):
 
                 self._record_success()
                 return response.json()
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
             raise
 

@@ -5,6 +5,8 @@ Provides user management, organization handling, subscription tiers,
 usage tracking, and Stripe integration for monetization.
 """
 
+from typing import Any
+
 from aragora.billing.jwt_auth import (
     JWTPayload,
     TokenPair,
@@ -98,12 +100,12 @@ try:
         export_invoice_html,
     )
 except ImportError:
-    InvoiceExporter = None  # type: ignore[misc]
-    InvoiceCompanyInfo = None  # type: ignore[misc]
-    InvoiceCustomerInfo = None  # type: ignore[misc]
-    InvoiceExportConfig = None  # type: ignore[misc]
-    export_invoice_pdf = None  # type: ignore[misc]
-    export_invoice_html = None  # type: ignore[misc]
+    InvoiceExporter: Any = None
+    InvoiceCompanyInfo: Any = None
+    InvoiceCustomerInfo: Any = None
+    InvoiceExportConfig: Any = None
+    export_invoice_pdf: Any = None
+    export_invoice_html: Any = None
 from aragora.billing.discounts import (
     DiscountType,
     DiscountCodeStatus,

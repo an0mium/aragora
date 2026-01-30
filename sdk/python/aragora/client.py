@@ -7,8 +7,11 @@ Main HTTP client for interacting with the Aragora platform.
 from __future__ import annotations
 
 import time
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urljoin
+
+if TYPE_CHECKING:
+    from .websocket import AragoraWebSocket
 
 import httpx
 
@@ -396,6 +399,7 @@ class AragoraAsyncClient:
         self,
         base_url: str,
         api_key: str | None = None,
+        ws_url: str | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
@@ -406,12 +410,14 @@ class AragoraAsyncClient:
         Args:
             base_url: Base URL of the Aragora API
             api_key: API key for authentication
+            ws_url: Explicit WebSocket URL (derived from base_url if None)
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries
             retry_delay: Base delay between retries
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
+        self.ws_url = ws_url
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
@@ -420,6 +426,9 @@ class AragoraAsyncClient:
             timeout=timeout,
             headers=self._build_headers(),
         )
+
+        # WebSocket client (created lazily)
+        self._stream: AragoraWebSocket | None = None
 
         # Initialize namespace APIs
         self._init_namespaces()
@@ -726,8 +735,24 @@ class AragoraAsyncClient:
         else:
             raise AragoraError(message, status_code=status, response_body=body)
 
+    @property
+    def stream(self) -> AragoraWebSocket:
+        """Lazy-initialized WebSocket client for real-time event streaming."""
+        if self._stream is None:
+            from .websocket import AragoraWebSocket
+
+            self._stream = AragoraWebSocket(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                ws_url=self.ws_url,
+            )
+        return self._stream
+
     async def close(self) -> None:
-        """Close the HTTP client."""
+        """Close the HTTP client and any open WebSocket connection."""
+        if self._stream is not None:
+            await self._stream.close()
+            self._stream = None
         await self._client.aclose()
 
     async def __aenter__(self) -> AragoraAsyncClient:

@@ -292,6 +292,12 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     # TTS metrics
     record_tts_synthesis,
     record_tts_latency,
+    # Cache metrics
+    record_knowledge_cache_hit,
+    record_knowledge_cache_miss,
+    # Convergence metrics
+    record_convergence_check,
+    record_rlm_ready_quorum,
     # Migration metrics
     record_migration_record,
     record_migration_error,

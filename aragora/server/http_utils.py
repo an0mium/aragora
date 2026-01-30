@@ -79,6 +79,12 @@ ALLOWED_QUERY_PARAMS = {
     "lines": None,
     # Belief network
     "top_k": None,
+    # Codebase context (RLM)
+    "refresh": 10,
+    "rlm": 10,
+    "include_tests": 10,
+    "full_corpus": 10,
+    "max_bytes": None,
     # OAuth
     "redirect_url": 500,  # Where to redirect after OAuth
     "code": 500,  # OAuth authorization code

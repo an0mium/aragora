@@ -34,7 +34,7 @@ from aragora.reasoning.provenance import SourceType
 try:
     import aiomysql
 except ImportError:
-    aiomysql = None  # type: ignore[assignment]
+    aiomysql: Any = None
 
 logger = logging.getLogger(__name__)
 

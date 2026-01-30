@@ -261,7 +261,7 @@ class AzureKeyVaultProvider(KmsProvider):
 
             plaintext: bytes = result.plaintext
             return plaintext
-        except Exception as e:
+        except (ImportError, ValueError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Azure Key Vault decrypt failed: {e}")
             raise
 
@@ -283,7 +283,7 @@ class AzureKeyVaultProvider(KmsProvider):
 
             ciphertext: bytes = result.ciphertext
             return ciphertext
-        except Exception as e:
+        except (ImportError, ValueError, RuntimeError, OSError, ConnectionError) as e:
             logger.error(f"Azure Key Vault encrypt failed: {e}")
             raise
 

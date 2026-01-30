@@ -184,7 +184,7 @@ class EncryptionMigrator:
                         result.failed_records += 1
                         result.errors.append(f"Failed to save record: {record_id}")
 
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                     result.failed_records += 1
                     result.errors.append(f"Error migrating {record_id}: {str(e)}")
                     logger.warning(f"Failed to migrate record {record_id}: {e}")
@@ -199,7 +199,7 @@ class EncryptionMigrator:
                 f"{result.failed_records} failed"
             )
 
-        except Exception as e:
+        except (TypeError, RuntimeError, OSError, ValueError) as e:
             result.errors.append(f"Migration failed: {str(e)}")
             result.failed_records = result.total_records
             logger.error(f"Migration failed for {store_name}: {e}")
@@ -407,7 +407,7 @@ def run_startup_migration(
             if not result.success and config.fail_on_error:
                 raise RuntimeError(f"Migration failed for {store_name}: {result.errors}")
 
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, KeyError, TypeError) as e:
             logger.error(f"Migration error for {store_name}: {e}")
             if config.fail_on_error:
                 raise
@@ -522,7 +522,7 @@ def rotate_and_reencrypt_store(
                                 associated_data=str(record_id),
                             )
                             reencrypted[key] = encrypted.to_base64()
-                        except Exception as e:
+                        except (ValueError, KeyError, TypeError, RuntimeError, OSError) as e:
                             logger.warning(f"Failed to re-encrypt field {key}: {e}")
                             reencrypted[key] = value  # Keep original
                     else:
@@ -536,7 +536,7 @@ def rotate_and_reencrypt_store(
                     result.failed_records += 1
                     result.errors.append(f"Failed to save record: {record_id}")
 
-            except Exception as e:
+            except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
                 result.failed_records += 1
                 result.errors.append(f"Error re-encrypting {record_id}: {str(e)}")
                 logger.warning(f"Failed to re-encrypt record {record_id}: {e}")
@@ -551,7 +551,7 @@ def rotate_and_reencrypt_store(
             f"{result.failed_records} failed"
         )
 
-    except Exception as e:
+    except (TypeError, RuntimeError, OSError, ValueError) as e:
         result.errors.append(f"Re-encryption failed: {str(e)}")
         result.failed_records = result.total_records
         logger.error(f"Key rotation re-encryption failed for {store_name}: {e}")
@@ -665,7 +665,7 @@ def rotate_encryption_key(
                 result.failed_records += store_result.failed_records
                 result.errors.extend(store_result.errors)
 
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError, TypeError, OSError) as e:
                 result.errors.append(f"Store {store_name} failed: {str(e)}")
                 logger.error(f"Key rotation failed for store {store_name}: {e}")
 
@@ -678,7 +678,7 @@ def rotate_encryption_key(
             f"{result.failed_records} failures"
         )
 
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, OSError, ImportError, AttributeError) as e:
         result.errors.append(f"Key rotation failed: {str(e)}")
         logger.error(f"Key rotation failed: {e}")
 

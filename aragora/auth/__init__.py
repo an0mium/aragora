@@ -23,6 +23,8 @@ Usage:
         return error(f"Locked for {remaining} seconds")
 """
 
+from typing import Any
+
 from .lockout import (
     LockoutEntry,
     LockoutTracker,
@@ -47,11 +49,11 @@ try:
 
     HAS_SCIM = True
 except ImportError:
-    SCIMConfig = None  # type: ignore[assignment, misc]
-    SCIMServer = None  # type: ignore[assignment, misc]
-    SCIMUser = None  # type: ignore[assignment, misc]
-    SCIMGroup = None  # type: ignore[assignment, misc]
-    SCIMError = None  # type: ignore[assignment, misc]
+    SCIMConfig: Any = None
+    SCIMServer: Any = None
+    SCIMUser: Any = None
+    SCIMGroup: Any = None
+    SCIMError: Any = None
     HAS_SCIM = False
 
 # SAML requires python3-saml optional dependency
@@ -65,9 +67,9 @@ try:
     HAS_SAML = True
 except ImportError:
     # SAML unavailable - define placeholders
-    SAMLConfig = None  # type: ignore[assignment, misc]
-    SAMLError = None  # type: ignore[assignment, misc]
-    SAMLProvider = None  # type: ignore[assignment, misc]
+    SAMLConfig: Any = None
+    SAMLError: Any = None
+    SAMLProvider: Any = None
     HAS_SAML = False
 
 from .sso import (

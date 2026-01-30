@@ -78,7 +78,7 @@ class JWTVerifier:
             try:
                 self._microsoft_jwks_client = PyJWKClient(MICROSOFT_JWKS_URI)
                 self._cache_time = now
-            except Exception as e:
+            except (PyJWTError, ValueError, OSError) as e:
                 logger.warning(f"Failed to create Microsoft JWKS client: {e}")
                 return None
 
@@ -94,7 +94,7 @@ class JWTVerifier:
             try:
                 self._google_jwks_client = PyJWKClient(GOOGLE_JWKS_URI)
                 self._cache_time = now
-            except Exception as e:
+            except (PyJWTError, ValueError, OSError) as e:
                 logger.warning(f"Failed to create Google JWKS client: {e}")
                 return None
 
@@ -161,7 +161,7 @@ class JWTVerifier:
                 claims={},
                 error=str(e),
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Unexpected error verifying Microsoft token: {e}")
             return JWTVerificationResult(
                 valid=False,
@@ -255,7 +255,7 @@ class JWTVerifier:
                 claims={},
                 error=str(e),
             )
-        except Exception as e:
+        except (KeyError, ValueError, TypeError) as e:
             logger.error(f"Unexpected error verifying Google token: {e}")
             return JWTVerificationResult(
                 valid=False,

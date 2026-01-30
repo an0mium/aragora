@@ -161,7 +161,7 @@ def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:
     try:
         from aragora.server.handlers.endpoint_analytics import record_endpoint_request
     except ImportError:
-        record_endpoint_request = None  # type: ignore[assignment]
+        record_endpoint_request: Any = None
 
     def _record_metrics(method: str, endpoint: str, status: int, duration: float) -> None:
         record_http_request(method, endpoint, status, duration)

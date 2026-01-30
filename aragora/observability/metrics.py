@@ -129,16 +129,28 @@ WORKFLOW_TEMPLATE_EXECUTION_LATENCY: Any = None
 # TTS metrics
 from aragora.observability.metrics.tts import (  # noqa: E402
     init_tts_metrics,
+    record_tts_synthesis as _record_tts_synthesis_impl,
+    record_tts_latency as _record_tts_latency_impl,
+    track_tts_synthesis,
 )
 
 # Cache metrics
 from aragora.observability.metrics.cache import (  # noqa: E402
     init_cache_metrics,
+    record_cache_hit as _record_cache_hit_impl,
+    record_cache_miss as _record_cache_miss_impl,
+    record_knowledge_cache_hit as _record_knowledge_cache_hit_impl,
+    record_knowledge_cache_miss as _record_knowledge_cache_miss_impl,
+    record_rlm_cache_hit as _record_rlm_cache_hit_impl,
+    record_rlm_cache_miss as _record_rlm_cache_miss_impl,
 )
 
 # Convergence metrics
 from aragora.observability.metrics.convergence import (  # noqa: E402
     init_convergence_metrics,
+    record_convergence_check as _record_convergence_check_impl,
+    record_process_evaluation_bonus as _record_process_evaluation_bonus_impl,
+    record_rlm_ready_quorum as _record_rlm_ready_quorum_impl,
 )
 
 # Task Queue metrics
@@ -345,9 +357,10 @@ __all__ = [
     "record_slow_debate",
     "record_slow_round",
     "record_round_latency",
-    # Feature recording
+    # Feature recording (delegated to submodules)
     "record_tts_synthesis",
     "record_tts_latency",
+    "track_tts_synthesis",
     "record_convergence_check",
     "record_evidence_citation_bonus",
     "record_process_evaluation_bonus",
@@ -438,6 +451,42 @@ __all__ = [
 # =============================================================================
 
 
+def _sync_submodule_globals() -> None:
+    """Sync metric globals from submodules back to the facade.
+
+    After submodule init functions create Prometheus metric objects in their
+    own module scope, this function copies those references into the facade's
+    globals so that existing code referencing e.g.
+    ``aragora.observability.metrics.TTS_SYNTHESIS_TOTAL`` continues to work.
+    """
+    global TTS_SYNTHESIS_TOTAL, TTS_SYNTHESIS_LATENCY
+    global CACHE_HITS, CACHE_MISSES
+    global KNOWLEDGE_CACHE_HITS, KNOWLEDGE_CACHE_MISSES
+    global RLM_CACHE_HITS, RLM_CACHE_MISSES
+    global CONVERGENCE_CHECKS_TOTAL, PROCESS_EVALUATION_BONUSES
+    global RLM_READY_QUORUM_EVENTS
+
+    # Import current values from submodules (they may have been re-assigned
+    # during init_*_metrics())
+    import aragora.observability.metrics.tts as _tts_mod
+    import aragora.observability.metrics.cache as _cache_mod
+    import aragora.observability.metrics.convergence as _conv_mod
+
+    TTS_SYNTHESIS_TOTAL = _tts_mod.TTS_SYNTHESIS_TOTAL
+    TTS_SYNTHESIS_LATENCY = _tts_mod.TTS_SYNTHESIS_LATENCY
+
+    CACHE_HITS = _cache_mod.CACHE_HITS
+    CACHE_MISSES = _cache_mod.CACHE_MISSES
+    KNOWLEDGE_CACHE_HITS = _cache_mod.KNOWLEDGE_CACHE_HITS
+    KNOWLEDGE_CACHE_MISSES = _cache_mod.KNOWLEDGE_CACHE_MISSES
+    RLM_CACHE_HITS = _cache_mod.RLM_CACHE_HITS
+    RLM_CACHE_MISSES = _cache_mod.RLM_CACHE_MISSES
+
+    CONVERGENCE_CHECKS_TOTAL = _conv_mod.CONVERGENCE_CHECKS_TOTAL
+    PROCESS_EVALUATION_BONUSES = _conv_mod.PROCESS_EVALUATION_BONUSES
+    RLM_READY_QUORUM_EVENTS = _conv_mod.RLM_READY_QUORUM_EVENTS
+
+
 def _init_metrics() -> bool:
     """Initialize Prometheus metrics lazily."""
     global _initialized
@@ -521,6 +570,9 @@ def _init_metrics() -> bool:
         init_tts_metrics()
         init_cache_metrics()
         init_convergence_metrics()
+
+        # Sync submodule globals back to facade for backward compatibility
+        _sync_submodule_globals()
 
         # Initialize other submodule metrics
         init_task_queue_metrics()
@@ -1053,15 +1105,21 @@ def record_agent_participation(agent: str, phase: str) -> None:
 
 
 def record_cache_hit(cache_name: str) -> None:
-    """Record a cache hit."""
+    """Record a cache hit.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_cache_hit`.
+    """
     _init_metrics()
-    CACHE_HITS.labels(cache_name=cache_name).inc()
+    _record_cache_hit_impl(cache_name)
 
 
 def record_cache_miss(cache_name: str) -> None:
-    """Record a cache miss."""
+    """Record a cache miss.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_cache_miss`.
+    """
     _init_metrics()
-    CACHE_MISSES.labels(cache_name=cache_name).inc()
+    _record_cache_miss_impl(cache_name)
 
 
 # =============================================================================
@@ -1070,15 +1128,21 @@ def record_cache_miss(cache_name: str) -> None:
 
 
 def record_knowledge_cache_hit() -> None:
-    """Record a knowledge query cache hit."""
+    """Record a knowledge query cache hit.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_knowledge_cache_hit`.
+    """
     _init_metrics()
-    KNOWLEDGE_CACHE_HITS.inc()
+    _record_knowledge_cache_hit_impl()
 
 
 def record_knowledge_cache_miss() -> None:
-    """Record a knowledge query cache miss."""
+    """Record a knowledge query cache miss.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_knowledge_cache_miss`.
+    """
     _init_metrics()
-    KNOWLEDGE_CACHE_MISSES.inc()
+    _record_knowledge_cache_miss_impl()
 
 
 def record_memory_coordinator_write(success: bool) -> None:
@@ -1119,15 +1183,21 @@ def record_culture_patterns(count: int = 1) -> None:
 
 
 def record_rlm_cache_hit() -> None:
-    """Record an RLM cache hit."""
+    """Record an RLM cache hit.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_rlm_cache_hit`.
+    """
     _init_metrics()
-    RLM_CACHE_HITS.inc()
+    _record_rlm_cache_hit_impl()
 
 
 def record_rlm_cache_miss() -> None:
-    """Record an RLM cache miss."""
+    """Record an RLM cache miss.
+
+    Delegates to :func:`aragora.observability.metrics.cache.record_rlm_cache_miss`.
+    """
     _init_metrics()
-    RLM_CACHE_MISSES.inc()
+    _record_rlm_cache_miss_impl()
 
 
 def record_calibration_adjustment(agent: str) -> None:
@@ -1220,21 +1290,30 @@ def record_round_latency(latency_seconds: float) -> None:
 
 
 def record_tts_synthesis(voice: str, platform: str = "unknown") -> None:
-    """Record a TTS synthesis operation."""
+    """Record a TTS synthesis operation.
+
+    Delegates to :func:`aragora.observability.metrics.tts.record_tts_synthesis`.
+    """
     _init_metrics()
-    TTS_SYNTHESIS_TOTAL.labels(voice=voice, platform=platform).inc()
+    _record_tts_synthesis_impl(voice, platform)
 
 
 def record_tts_latency(latency_seconds: float) -> None:
-    """Record TTS synthesis latency."""
+    """Record TTS synthesis latency.
+
+    Delegates to :func:`aragora.observability.metrics.tts.record_tts_latency`.
+    """
     _init_metrics()
-    TTS_SYNTHESIS_LATENCY.observe(latency_seconds)
+    _record_tts_latency_impl(latency_seconds)
 
 
 def record_convergence_check(status: str, blocked: bool = False) -> None:
-    """Record a convergence check event."""
+    """Record a convergence check event.
+
+    Delegates to :func:`aragora.observability.metrics.convergence.record_convergence_check`.
+    """
     _init_metrics()
-    CONVERGENCE_CHECKS_TOTAL.labels(status=status, blocked=str(blocked)).inc()
+    _record_convergence_check_impl(status, blocked)
 
 
 def record_evidence_citation_bonus(agent: str) -> None:
@@ -1244,15 +1323,21 @@ def record_evidence_citation_bonus(agent: str) -> None:
 
 
 def record_process_evaluation_bonus(agent: str) -> None:
-    """Record a process evaluation vote bonus."""
+    """Record a process evaluation vote bonus.
+
+    Delegates to :func:`aragora.observability.metrics.convergence.record_process_evaluation_bonus`.
+    """
     _init_metrics()
-    PROCESS_EVALUATION_BONUSES.labels(agent=agent).inc()
+    _record_process_evaluation_bonus_impl(agent)
 
 
 def record_rlm_ready_quorum() -> None:
-    """Record an RLM ready signal quorum event."""
+    """Record an RLM ready signal quorum event.
+
+    Delegates to :func:`aragora.observability.metrics.convergence.record_rlm_ready_quorum`.
+    """
     _init_metrics()
-    RLM_READY_QUORUM_EVENTS.inc()
+    _record_rlm_ready_quorum_impl()
 
 
 # =============================================================================
