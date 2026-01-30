@@ -20,6 +20,8 @@ services:
       - ARAGORA_ALLOWED_ORIGINS=http://localhost:3000,http://frontend:3000
       - ARAGORA_ENV=${ARAGORA_ENV:-development}
       - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-development}
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=${DATABASE_URL:-}
       - ARAGORA_POSTGRES_DSN=${ARAGORA_POSTGRES_DSN:-}

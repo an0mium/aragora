@@ -64,6 +64,16 @@ backend:
     LOG_LEVEL: info
     FEDERATION_ENABLED: "true"
 
+  # Backend persistence (shared data dir)
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessModes:
+      - ReadWriteMany
+    size: 10Gi
+    storeDir: "/data/.aragora_beads"
+
   # Secrets (reference external secrets)
   envFrom:
     - secretRef:

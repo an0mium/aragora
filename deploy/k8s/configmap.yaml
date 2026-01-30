@@ -21,6 +21,8 @@ data:
   # Database backend (use postgresql for multi-instance)
   ARAGORA_DB_BACKEND: "postgresql"
   ARAGORA_DB_POOL_SIZE: "20"
+  ARAGORA_CANONICAL_STORE_PERSIST: "1"
+  ARAGORA_STORE_DIR: "/app/data/.aragora_beads"
 
   # Redis for shared state (required for multi-instance)
   ARAGORA_STATE_BACKEND: "redis"

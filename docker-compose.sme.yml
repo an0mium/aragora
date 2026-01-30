@@ -42,6 +42,8 @@ services:
       # Environment mode
       - ARAGORA_ENV=${ARAGORA_ENV:-production}
       - ARAGORA_ENVIRONMENT=${ARAGORA_ENVIRONMENT:-production}
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
       # Security
       - ARAGORA_API_TOKEN=${ARAGORA_API_TOKEN:-}
       - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-*}

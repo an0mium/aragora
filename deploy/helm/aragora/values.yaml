@@ -135,6 +135,9 @@ config:
   port: 8080
   logLevel: INFO
   logFormat: json  # json or text
+  # Canonical bead/convoy store (requires persistence.enabled)
+  canonicalStorePersist: true
+  storeDir: "/app/data/.aragora_beads"
 
   # API keys (use secrets in production)
   anthropicApiKey: ""

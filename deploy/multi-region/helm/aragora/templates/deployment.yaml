@@ -66,6 +66,12 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            {{- if .Values.backend.persistence.enabled }}
+            - name: ARAGORA_CANONICAL_STORE_PERSIST
+              value: "true"
+            - name: ARAGORA_STORE_DIR
+              value: {{ .Values.backend.persistence.storeDir | default "/data/.aragora_beads" | quote }}
+            {{- end }}
             {{- if .Values.redis.enabled }}
             - name: REDIS_URL
               value: "redis://{{ include "aragora.fullname" . }}-redis-master:6379"
@@ -108,7 +114,12 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: data
+          {{- if .Values.backend.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.backend.persistence.existingClaim | default (printf "%s-backend-data" (include "aragora.fullname" .)) }}
+          {{- else }}
           emptyDir: {}
+          {{- end }}
 {{- end }}
 ---
 {{- if .Values.debateWorker.enabled }}

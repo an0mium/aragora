@@ -31,6 +31,8 @@ services:
       - ARAGORA_ENVIRONMENT=development
       - ARAGORA_DB_BACKEND=sqlite
       - ARAGORA_DATA_DIR=/app/data
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
 
       # CORS (adjust for your frontend URL)
       - ARAGORA_ALLOWED_ORIGINS=${ARAGORA_ALLOWED_ORIGINS:-http://localhost:3000}

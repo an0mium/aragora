@@ -113,6 +113,8 @@ services:
       # Environment
       - ARAGORA_ENV=production
       - ARAGORA_LOG_LEVEL=${ARAGORA_LOG_LEVEL:-INFO}
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
       # Performance
       - ARAGORA_MAX_CONCURRENT_DEBATES=${ARAGORA_MAX_CONCURRENT_DEBATES:-10}
       # Metrics
@@ -167,6 +169,8 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
+      - ARAGORA_CANONICAL_STORE_PERSIST=1
+      - ARAGORA_STORE_DIR=/app/data/.aragora_beads
     volumes:
       - aragora-data:/app/data
     restart: unless-stopped

@@ -21,6 +21,8 @@ data:
   # Database paths (for SQLite - will migrate to PostgreSQL)
   NOMIC_DB_PATH: "/data/.nomic"
   ARAGORA_DATA_DIR: "/data"
+  ARAGORA_CANONICAL_STORE_PERSIST: "1"
+  ARAGORA_STORE_DIR: "/data/.aragora_beads"
 
   # Logging
   LOG_LEVEL: "INFO"
