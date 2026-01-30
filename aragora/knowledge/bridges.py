@@ -528,7 +528,7 @@ class KnowledgeBridgeHub:
     Central hub for all knowledge bridges.
 
     Provides a single point of access to connect various Aragora
-    systems to the KnowledgeMoundProtocol.
+    systems to the KnowledgeMound.
 
     Usage:
         hub = KnowledgeBridgeHub(mound)
