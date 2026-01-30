@@ -1422,7 +1422,8 @@ class ControlPlaneHandler(BaseHandler):
                     }
                 )
 
-            return json_response(audit_log.get_stats())  # type: ignore[attr-defined]
+            stats_fn = getattr(audit_log, "get_stats", None)
+            return json_response(stats_fn() if stats_fn else {})
         except Exception as e:
             logger.error(f"Error getting audit stats: {e}")
             return error_response(safe_error_message(e, "audit"), 500)
@@ -1457,7 +1458,11 @@ class ControlPlaneHandler(BaseHandler):
                 else None
             )
 
-            is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))  # type: ignore[attr-defined]
+            verify_fn = getattr(audit_log, "verify_integrity", None)
+            if verify_fn is None:
+                is_valid = False
+            else:
+                is_valid = _run_async(verify_fn(start_seq, end_seq))
 
             return json_response(
                 {
