@@ -13,6 +13,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import tempfile
+
+
+def _env_store_dir() -> Path | None:
+    env_dir = os.getenv("ARAGORA_STORE_DIR") or os.getenv("ARAGORA_BEAD_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return None
 
 
 def resolve_store_dir(
@@ -25,9 +33,9 @@ def resolve_store_dir(
     if override:
         return Path(override).expanduser()
 
-    env_dir = os.getenv("ARAGORA_STORE_DIR") or os.getenv("ARAGORA_BEAD_DIR")
+    env_dir = _env_store_dir()
     if env_dir:
-        return Path(env_dir).expanduser()
+        return env_dir
 
     if workspace_root:
         return Path(workspace_root).expanduser() / ".aragora_beads"
@@ -35,6 +43,34 @@ def resolve_store_dir(
     legacy_gt = Path(".gt")
     if prefer_legacy_gt and legacy_gt.exists() and not Path(".aragora_beads").exists():
         return legacy_gt / "beads"
+
+    return Path(".aragora_beads")
+
+
+def resolve_runtime_store_dir(
+    *,
+    workspace_root: str | Path | None = None,
+    override: str | Path | None = None,
+    prefer_legacy_gt: bool = True,
+    prefer_ephemeral: bool = True,
+) -> Path:
+    """Resolve store dir, preferring ephemeral temp storage when unset."""
+    if override:
+        return Path(override).expanduser()
+
+    env_dir = _env_store_dir()
+    if env_dir:
+        return env_dir
+
+    if workspace_root:
+        return Path(workspace_root).expanduser() / ".aragora_beads"
+
+    legacy_gt = Path(".gt")
+    if prefer_legacy_gt and legacy_gt.exists() and not Path(".aragora_beads").exists():
+        return legacy_gt / "beads"
+
+    if prefer_ephemeral:
+        return Path(tempfile.mkdtemp(prefix="aragora-beads-"))
 
     return Path(".aragora_beads")
 

@@ -24,7 +24,10 @@ from aragora.nomic.stores import (
     ConvoyManager as NomicConvoyManager,
     ConvoyStatus as NomicConvoyStatus,
 )
-from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
+from aragora.nomic.stores.paths import (
+    resolve_runtime_store_dir,
+    should_use_canonical_store,
+)
 from aragora.nomic.stores.adapters.workspace import (
     nomic_convoy_to_workspace,
     resolve_workspace_convoy_status,
@@ -213,10 +216,12 @@ class ConvoyTracker:
         use_nomic_store: bool | None = None,
     ) -> None:
         self._convoys: dict[str, Convoy] = {}
-        default_use = should_use_canonical_store(default=False) or bool(bead_store)
+        default_use = should_use_canonical_store(default=True) or bool(bead_store)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
         if self._use_nomic_store and bead_store is None:
-            bead_store = NomicBeadStore(resolve_store_dir(), git_enabled=False, auto_commit=False)
+            bead_store = NomicBeadStore(
+                resolve_runtime_store_dir(), git_enabled=False, auto_commit=False
+            )
         self._nomic_manager = NomicConvoyManager(bead_store) if bead_store else None
         self._nomic_initialized = False
 

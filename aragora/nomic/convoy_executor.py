@@ -77,7 +77,7 @@ class GastownConvoyExecutor:
         self._test_timeout = test_timeout
         self._test_lock = asyncio.Lock()
 
-        use_canonical_store = should_use_canonical_store(default=False)
+        use_canonical_store = should_use_canonical_store(default=True)
         if bead_dir is None and use_canonical_store:
             base_dir = resolve_store_dir(workspace_root=self.repo_path)
         else:
