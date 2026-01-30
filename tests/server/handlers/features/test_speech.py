@@ -317,7 +317,10 @@ class TestAsyncTranscription:
             assert "error" in result
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Test patches pathlib.Path which breaks internal Path usage")
+    @pytest.mark.skipif(
+        True,  # Patching pathlib.Path breaks internal Path usage in handler
+        reason="Test patches pathlib.Path which breaks internal Path usage - needs refactor",
+    )
     async def test_do_transcription_success(self, handler):
         """Test successful transcription."""
         mock_result = MagicMock()
