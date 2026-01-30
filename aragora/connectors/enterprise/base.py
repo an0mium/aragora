@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Protocol
 
 from aragora.connectors.base import BaseConnector, Evidence
 from aragora.reasoning.provenance import SourceType
@@ -26,6 +26,18 @@ if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
 
 logger = logging.getLogger(__name__)
+
+
+class CredentialProviderProtocol(Protocol):
+    """Protocol for credential providers."""
+
+    async def get_credential(self, key: str) -> str | None:
+        """Get a credential by key."""
+        ...
+
+    async def set_credential(self, key: str, value: str) -> None:
+        """Set a credential."""
+        ...
 
 
 class SyncStatus(Enum):
@@ -166,27 +178,21 @@ class SyncResult:
 
 
 # Import credential providers from dedicated module
+# Use a type alias that works whether the import succeeds or not
+CredentialProvider: type[CredentialProviderProtocol]
+
 try:
     from aragora.connectors.credentials import (
-        CredentialProvider,
+        CredentialProvider as _ImportedCredentialProvider,
         get_credential_provider,
     )
+
+    CredentialProvider = _ImportedCredentialProvider
 except ImportError:
-    # Fallback for backwards compatibility
-    from typing import Protocol as CredentialProtocol
+    # Fallback for backwards compatibility - use EnvCredentialProvider as the implementation
+    CredentialProvider = CredentialProviderProtocol  # type: ignore[assignment, misc]
 
-    class CredentialProvider(CredentialProtocol):  # type: ignore[no-redef]  # Stub when creds module unavailable
-        """Protocol for credential providers."""
-
-        async def get_credential(self, key: str) -> str | None:
-            """Get a credential by key."""
-            ...
-
-        async def set_credential(self, key: str, value: str) -> None:
-            """Set a credential."""
-            ...
-
-    def get_credential_provider(**kwargs) -> "EnvCredentialProvider":  # type: ignore[misc,no-redef]
+    def get_credential_provider(**kwargs: Any) -> "EnvCredentialProvider":
         return EnvCredentialProvider()
 
 
@@ -454,7 +460,15 @@ class EnterpriseConnector(BaseConnector):
         Yields:
             SyncItem objects to ingest into Knowledge Mound
         """
-        yield  # type: ignore[misc]  # Async generator yield
+        # Abstract async generator - subclasses must implement
+        # This pattern is required to make mypy recognize this as an async generator
+        if False:  # pragma: no cover
+            yield SyncItem(
+                id="",
+                content="",
+                source_type="",
+                source_id="",
+            )
 
     async def sync(
         self,
@@ -581,10 +595,14 @@ class EnterpriseConnector(BaseConnector):
         Returns: "created", "updated", or "skipped"
         """
         try:
-            from aragora.knowledge.mound import KnowledgeMound, IngestionRequest, KnowledgeSource
+            from aragora.knowledge.mound import (
+                get_knowledge_mound,
+                IngestionRequest,
+                KnowledgeSource,
+            )
 
             # Map source type string to enum
-            source_type_map = {
+            source_type_map: dict[str, KnowledgeSource] = {
                 "code": KnowledgeSource.FACT,
                 "document": KnowledgeSource.FACT,
                 "issue": KnowledgeSource.FACT,
@@ -610,9 +628,9 @@ class EnterpriseConnector(BaseConnector):
                 },
             )
 
-            mound = KnowledgeMound(workspace_id=self.tenant_id)  # type: ignore[abstract]
-            await mound.initialize()
-            result = await mound.store(request)  # type: ignore[arg-type,misc]
+            # Use the singleton getter which handles initialization properly
+            mound = get_knowledge_mound(workspace_id=self.tenant_id)
+            result = await mound.store(request)
 
             if result.deduplicated:
                 return "skipped"

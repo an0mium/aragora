@@ -53,6 +53,13 @@ class GmailBaseMethods(Protocol):
 class GmailWatchMixin(GmailBaseMethods):
     """Mixin providing Pub/Sub watch and push notification operations."""
 
+    # Expected attributes from concrete class
+    user_id: str
+    exclude_labels: set[str]
+    _gmail_state: GmailSyncState | None
+    _watch_task: Optional["asyncio.Task[None]"]
+    _watch_running: bool
+
     async def setup_watch(
         self,
         topic_name: str,
@@ -126,7 +133,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     expiration = datetime.fromtimestamp(int(expiration_ms) / 1000, tz=timezone.utc)
 
                 # Initialize or update gmail state
-                if not self._gmail_state:  # type: ignore[has-type]
+                if not self._gmail_state:
                     self._gmail_state = GmailSyncState(
                         user_id=self.user_id,
                         history_id=history_id,
@@ -168,11 +175,11 @@ class GmailWatchMixin(GmailBaseMethods):
             )
 
         # Cancel renewal task if running
-        if self._watch_task and not self._watch_task.done():  # type: ignore[has-type]
+        if self._watch_task and not self._watch_task.done():
             self._watch_running = False
-            self._watch_task.cancel()  # type: ignore[has-type]
+            self._watch_task.cancel()
             try:
-                await self._watch_task  # type: ignore[has-type]
+                await self._watch_task
             except asyncio.CancelledError:
                 pass
             self._watch_task = None
@@ -331,7 +338,7 @@ class GmailWatchMixin(GmailBaseMethods):
             return
 
         self._watch_running = True
-        self._watch_task = asyncio.create_task(  # type: ignore[assignment]
+        self._watch_task = asyncio.create_task(
             self._watch_renewal_loop(topic_name, renewal_hours, project_id)
         )
         logger.info(f"[Gmail] Watch renewal started (every {renewal_hours} hours)")
