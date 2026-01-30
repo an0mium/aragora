@@ -235,7 +235,7 @@ class TaskPatternMatcher:
                     f"agents={list(affinities.keys())}"
                 )
             return affinities
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to get agent affinities for {pattern}: {e}")
             return {}
 
@@ -369,7 +369,7 @@ class TaskPatternMatcher:
                 )
                 return affinities
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.debug(f"Failed to get pattern affinities for {pattern}: {e}")
             return []
 

@@ -632,7 +632,7 @@ Return JSON with these exact fields:
             )
             logger.error(f"[debate] Validation error in {debate_id}: {e}")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all: debate execution must handle any error to emit proper error events and cleanup
             import traceback
 
             safe_msg = safe_error_message(e, "debate_execution")
@@ -700,7 +700,11 @@ Return JSON with these exact fields:
             finally:
                 loop.close()
 
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, asyncio.TimeoutError) as e:
+            # ImportError: pulse module not available
+            # RuntimeError: async execution errors
+            # OSError: network connectivity issues
+            # TimeoutError: API request timeout
             logger.warning(f"Trending topic fetch failed (non-fatal): {e}")
             return None
 
@@ -728,7 +732,11 @@ Return JSON with these exact fields:
                     },
                 )
             )
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError, RuntimeError) as e:
+            # AttributeError: missing method on elo_system
+            # KeyError: missing fields in agent data
+            # TypeError: unexpected data format
+            # RuntimeError: emission failure
             logger.debug(f"Leaderboard emission failed: {e}")
 
     def _generate_onboarding_receipt(
@@ -825,10 +833,19 @@ Return JSON with these exact fields:
                             flow["id"],
                             {"metadata": {**flow.get("metadata", {}), "receipt_id": receipt_id}},
                         )
-                except Exception as e:
+                except (ImportError, KeyError, TypeError, OSError) as e:
+                    # ImportError: onboarding repository not available
+                    # KeyError: missing flow data
+                    # TypeError: unexpected flow structure
+                    # OSError: database access errors
                     logger.debug(f"Could not update onboarding flow with receipt: {e}")
 
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, OSError, KeyError) as e:
+            # ImportError: receipt store module not available
+            # ValueError: invalid receipt data
+            # TypeError: unexpected data types
+            # OSError: storage access errors
+            # KeyError: missing required fields
             logger.warning(f"[onboarding] Failed to generate receipt for {debate_id}: {e}")
 
     @classmethod

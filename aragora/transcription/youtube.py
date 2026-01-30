@@ -186,7 +186,7 @@ class YouTubeFetcher:
 
         try:
             info = await loop.run_in_executor(None, _extract)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             raise RuntimeError(f"Failed to fetch video info: {e}")
 
         return YouTubeVideoInfo(
@@ -264,7 +264,7 @@ class YouTubeFetcher:
         try:
             logger.info(f"Downloading audio for {video_id}: {info.title}")
             await loop.run_in_executor(None, _download)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             raise RuntimeError(f"Failed to download audio: {e}")
 
         if not cache_path.exists():

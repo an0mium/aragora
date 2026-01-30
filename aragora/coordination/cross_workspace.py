@@ -748,7 +748,7 @@ class CrossWorkspaceCoordinator:
                 error="Operation timed out",
                 error_code="TIMEOUT",
             )
-        except Exception as e:
+        except (RuntimeError, TypeError, ValueError) as e:
             logger.error(f"Operation execution failed: {e}")
             return CrossWorkspaceResult(
                 request_id=request.id,
@@ -864,7 +864,7 @@ class CrossWorkspaceCoordinator:
                         **kwargs,
                     }
                 )
-            except Exception as e:
+            except (TypeError, ValueError, RuntimeError) as e:
                 logger.error(f"Audit callback failed: {e}")
 
         logger.debug(f"Audit: {event_type} {kwargs}")
