@@ -70,6 +70,82 @@ export interface HealthCheck {
   response_time_ms?: number;
 }
 
+export interface StarterTemplate {
+  /** Unique template identifier */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Template description */
+  description: string;
+  /** Applicable use cases */
+  use_cases: string[];
+  /** Number of agents */
+  agents_count: number;
+  /** Number of debate rounds */
+  rounds: number;
+  /** Estimated duration */
+  estimated_minutes: number;
+  /** Example prompt */
+  example_prompt: string;
+  /** Categorization tags */
+  tags?: string[];
+  /** Difficulty level */
+  difficulty?: string;
+}
+
+export interface GauntletRun {
+  /** Run identifier */
+  id: string;
+  /** Run status */
+  status: "pending" | "running" | "completed" | "failed";
+  /** Final verdict */
+  verdict?: string;
+  /** Confidence score */
+  confidence?: number;
+  /** List of findings */
+  findings?: Record<string, any>[];
+  /** Additional metadata */
+  metadata?: Record<string, any>;
+  /** Creation timestamp */
+  created_at?: string;
+  /** Start timestamp */
+  started_at?: string;
+  /** Completion timestamp */
+  completed_at?: string;
+}
+
+export interface GauntletComparison {
+  run_a?: GauntletRun;
+  run_b?: GauntletRun;
+  /** Differences between runs */
+  diff?: Record<string, any>;
+  /** Similarity percentage */
+  similarity_score?: number;
+  /** Notes about differences */
+  comparison_notes?: string[];
+}
+
+export interface Policy {
+  /** Policy identifier */
+  id: string;
+  /** Policy name */
+  name: string;
+  /** Policy description */
+  description?: string;
+  /** Policy type */
+  type?: string;
+  /** Policy rules */
+  rules?: Record<string, any>[];
+  /** Whether policy is enabled */
+  enabled?: boolean;
+  /** Execution priority */
+  priority?: number;
+  /** Creation timestamp */
+  created_at?: string;
+  /** Last update timestamp */
+  updated_at?: string;
+}
+
 export type DebateStatus = "created" | "starting" | "pending" | "running" | "in_progress" | "completed" | "failed" | "cancelled" | "paused" | "active" | "concluded" | "archived";
 
 export interface ConsensusResult {
@@ -1843,69 +1919,5 @@ export interface UnifiedCampaign {
   /** When the campaign was created */
   created_at?: string;
   /** When the campaign was last updated */
-  updated_at?: string;
-}
-
-export interface StarterTemplate {
-  id: string;
-  name: string;
-  description: string;
-  use_cases: string[];
-  agents_count: number;
-  rounds: number;
-  estimated_minutes: number;
-  example_prompt: string;
-  tags?: string[];
-  difficulty?: string;
-}
-
-export interface GauntletResult {
-  id?: string;
-  status?: string;
-  verdict?: string;
-  confidence?: number;
-  findings?: Record<string, any>[];
-  created_at?: string;
-  completed_at?: any;
-}
-
-export interface PolicyDefinition {
-  id?: string;
-  name?: string;
-  description?: string;
-  rules?: Record<string, any>[];
-  enabled?: boolean;
-  priority?: number;
-}
-
-export interface GauntletRun {
-  id: string;
-  status: "pending" | "running" | "completed" | "failed";
-  verdict?: any;
-  confidence?: number;
-  findings?: Record<string, any>[];
-  metadata?: Record<string, any>;
-  created_at?: string;
-  started_at?: any;
-  completed_at?: any;
-}
-
-export interface GauntletComparison {
-  run_a?: GauntletRun;
-  run_b?: GauntletRun;
-  diff?: Record<string, any>;
-  similarity_score?: number;
-  comparison_notes?: string[];
-}
-
-export interface Policy {
-  id: string;
-  name: string;
-  description?: string;
-  type?: string;
-  rules?: Record<string, any>[];
-  enabled?: boolean;
-  priority?: number;
-  created_at?: string;
   updated_at?: string;
 }
