@@ -6,8 +6,6 @@
  * and relationships to other facts in the knowledge graph.
  */
 
-import type { PaginationParams } from '../types';
-
 // =============================================================================
 // Fact Types
 // =============================================================================

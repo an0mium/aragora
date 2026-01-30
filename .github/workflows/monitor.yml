@@ -23,8 +23,8 @@ jobs:
 
       - name: Check Production API (Lightsail)
         run: |
-          # Use /healthz (public liveness probe) instead of authenticated endpoints
-          response=$(curl -sf -o /dev/null -w "%{http_code}" "https://api.aragora.ai/healthz" || echo "000")
+          # Use /api/health (public, load-balancer friendly)
+          response=$(curl -sf -o /dev/null -w "%{http_code}" "https://api.aragora.ai/api/health" || echo "000")
           if [ "$response" != "200" ]; then
             echo "::error::Production API returned $response"
             exit 1
@@ -34,8 +34,8 @@ jobs:
       - name: Check Staging API (EC2)
         continue-on-error: true
         run: |
-          # Use /healthz (public liveness probe) instead of authenticated endpoints
-          response=$(curl -sf -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}:8080/healthz" --connect-timeout 10 || echo "000")
+          # Use /api/health (public, load-balancer friendly)
+          response=$(curl -sf -o /dev/null -w "%{http_code}" "http://${{ secrets.EC2_HOST }}:8080/api/health" --connect-timeout 10 || echo "000")
           if [ "$response" != "200" ]; then
             echo "::warning::Staging API returned $response (non-critical)"
           else
@@ -86,7 +86,7 @@ jobs:
 
             ### Services to Check
             - [ ] Frontend: https://aragora.pages.dev
-            - [ ] Production API: https://api.aragora.ai/healthz
+          - [ ] Production API: https://api.aragora.ai/api/health
             - [ ] Lightsail instance status
 
             ### Quick Commands
