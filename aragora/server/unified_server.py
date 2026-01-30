@@ -92,7 +92,18 @@ from aragora.server.initialization import init_persistence
 _server_start_time: float = time.time()
 
 
-class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequestHandler):  # type: ignore[misc]
+class _UnifiedHandlerBase(BaseHTTPRequestHandler):
+    """Base class to establish proper MRO for mixins.
+
+    This intermediate class ensures mypy understands that UnifiedHandler
+    inherits from BaseHTTPRequestHandler, allowing the mixins to properly
+    reference methods like send_response, send_header, etc.
+    """
+
+    pass
+
+
+class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, _UnifiedHandlerBase):
     """HTTP handler with API endpoints and static file serving.
 
     Handler routing is provided by HandlerRegistryMixin from handler_registry.py.

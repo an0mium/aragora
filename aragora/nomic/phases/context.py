@@ -141,16 +141,16 @@ class ContextPhase:
         if use_kilocode and self.kilocode_agent_factory:
             gemini_explorer = self.kilocode_agent_factory(
                 name="gemini-explorer",
-                provider_id="gemini-explorer",
-                model="gemini-3-pro-preview",
+                provider_id="openrouter/google/gemini-3-pro-preview",
+                model="openrouter/google/gemini-3-pro-preview",
                 role="explorer",
                 timeout=600,
                 mode="architect",
             )
             grok_explorer = self.kilocode_agent_factory(
                 name="grok-explorer",
-                provider_id="grok-explorer",
-                model="grok-4",
+                provider_id="openrouter/x-ai/grok-4",
+                model="openrouter/x-ai/grok-4",
                 role="explorer",
                 timeout=600,
                 mode="architect",
@@ -348,11 +348,10 @@ CRITICAL: Be thorough. Features you miss here may be accidentally proposed for r
                     result = await agent.generate(prompt, context=[])
             self._log(f"  {name}: complete ({len(result) if result else 0} chars)", agent=name)
             # Emit agent's full exploration result
-            if result:
-                self._stream_emit(
-                    "on_log_message", result, level="info", phase="context", agent=name
-                )
-            return (name, harness, result if result else "No response")
+            if not result:
+                return (name, harness, "Error: empty response")
+            self._stream_emit("on_log_message", result, level="info", phase="context", agent=name)
+            return (name, harness, result)
         except asyncio.TimeoutError:
             self._log(f"  {name}: timeout exceeded", agent=name)
             return (name, harness, "Error: timeout exceeded")

@@ -496,7 +496,7 @@ class RedisRateLimiter:
             for key in instance_keys:
                 instance_id = key.replace(self._metrics_key, "")
                 # Sync redis returns dict directly, async redis returns Awaitable
-                metrics: dict[str, Any] = self.redis.hgetall(key)  # type: ignore[assignment]
+                metrics = self.redis.hgetall(key)
 
                 if metrics:
                     allowed = int(metrics.get("requests_allowed", 0))

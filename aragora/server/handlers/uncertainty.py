@@ -48,27 +48,13 @@ class UncertaintyHandler(BaseHandler):
 
     @require_permission("uncertainty:read")
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
-        self, path: str, method: str, handler: Any = None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
-        """Route request to appropriate handler method."""
-        if handler:
-            query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
-            from urllib.parse import parse_qs
-
-            parse_qs(query_str)
-
-        # POST /api/uncertainty/estimate
-        if path == "/api/v1/uncertainty/estimate" and method == "POST":
-            return await self._estimate_uncertainty(handler)
-
-        # POST /api/uncertainty/followups
-        if path == "/api/v1/uncertainty/followups" and method == "POST":
-            return await self._generate_followups(handler)
-
+        """Route GET requests to appropriate handler method."""
         # GET /api/v1/uncertainty/debate/:id
         # Parts: ["", "api", "v1", "uncertainty", "debate", "{debate_id}"]
-        if path.startswith("/api/v1/uncertainty/debate/") and method == "GET":
+        if path.startswith("/api/v1/uncertainty/debate/"):
             parts = path.split("/")
             if len(parts) == 6:
                 debate_id = parts[5]
@@ -79,7 +65,7 @@ class UncertaintyHandler(BaseHandler):
 
         # GET /api/v1/uncertainty/agent/:id
         # Parts: ["", "api", "v1", "uncertainty", "agent", "{agent_id}"]
-        if path.startswith("/api/v1/uncertainty/agent/") and method == "GET":
+        if path.startswith("/api/v1/uncertainty/agent/"):
             parts = path.split("/")
             if len(parts) == 6:
                 agent_id = parts[5]
@@ -87,6 +73,22 @@ class UncertaintyHandler(BaseHandler):
                 if not is_valid:
                     return error_response(err, 400)
                 return self._get_agent_calibration(agent_id)
+
+        return None
+
+    @require_permission("uncertainty:read")
+    @rate_limit(requests_per_minute=60)
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
+        """Route POST requests to appropriate handler method."""
+        # POST /api/uncertainty/estimate
+        if path == "/api/v1/uncertainty/estimate":
+            return await self._estimate_uncertainty(handler)
+
+        # POST /api/uncertainty/followups
+        if path == "/api/v1/uncertainty/followups":
+            return await self._generate_followups(handler)
 
         return None
 

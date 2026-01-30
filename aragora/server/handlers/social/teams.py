@@ -56,8 +56,8 @@ from ..utils.rate_limit import rate_limit
 
 # RBAC imports - optional dependency
 try:
+    from aragora.billing.auth.context import UserAuthContext, extract_user_from_request
     from aragora.rbac.checker import check_permission
-    from aragora.rbac.middleware import extract_user_from_request  # type: ignore[attr-defined]
     from aragora.rbac.models import AuthorizationContext
 
     RBAC_AVAILABLE = True
@@ -66,6 +66,7 @@ except (ImportError, AttributeError):
     check_permission: Any = None
     extract_user_from_request: Any = None
     AuthorizationContext: Any = None
+    UserAuthContext: Any = None
 
 # Environment configuration
 TEAMS_APP_ID = os.environ.get("TEAMS_APP_ID")

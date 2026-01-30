@@ -30,6 +30,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 
+from .dataloaders import create_loaders
 from .resolvers import (
     MUTATION_RESOLVERS,
     QUERY_RESOLVERS,
@@ -224,14 +225,16 @@ class GraphQLHandler(BaseHandler):
         if not query:
             return error_response("Missing 'query' field", 400)
 
-        # Build resolver context
+        # Build resolver context with DataLoaders for N+1 prevention
         user = self.get_current_user(handler)
+        loaders = create_loaders(self.ctx)
         ctx = ResolverContext(
             server_context=self.ctx,
             user_id=user.user_id if user else None,
             org_id=user.org_id if user else None,
             trace_id=getattr(handler, "trace_id", None),
             variables=variables or {},
+            loaders=loaders,
         )
 
         # Execute the query

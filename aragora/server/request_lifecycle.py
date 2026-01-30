@@ -158,15 +158,18 @@ def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:
     """
     from aragora.server.prometheus import record_http_request
 
+    _record_endpoint_request: Optional[Callable[[str, str, int, float], None]] = None
     try:
         from aragora.server.handlers.endpoint_analytics import record_endpoint_request
+
+        _record_endpoint_request = record_endpoint_request
     except ImportError:
-        record_endpoint_request: Any = None  # type: ignore[no-redef]
+        pass
 
     def _record_metrics(method: str, endpoint: str, status: int, duration: float) -> None:
         record_http_request(method, endpoint, status, duration)
-        if record_endpoint_request:
-            record_endpoint_request(endpoint, method, status, duration)
+        if _record_endpoint_request is not None:
+            _record_endpoint_request(endpoint, method, status, duration)
 
     return RequestLifecycleManager(
         handler=handler,

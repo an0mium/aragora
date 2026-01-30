@@ -28,6 +28,7 @@ from aragora.config import DEFAULT_ROUNDS
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import ServerContext
+    from aragora.server.graphql.dataloaders import DataLoaderContext
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class ResolverContext:
         org_id: Organization/workspace ID
         trace_id: Request trace ID for logging
         variables: Query variables
+        loaders: DataLoaderContext for batched queries (N+1 prevention)
     """
 
     server_context: "ServerContext"
@@ -53,6 +55,7 @@ class ResolverContext:
     org_id: str | None = None
     trace_id: str | None = None
     variables: dict[str, Any] = field(default_factory=dict)
+    loaders: "DataLoaderContext | None" = None
 
     def __post_init__(self) -> None:
         pass  # variables now has proper default factory
@@ -211,8 +214,11 @@ class QueryResolvers:
             if not debate:
                 return ResolverResult(errors=[f"Debate not found: {id}"])
 
-            # Transform to GraphQL format
-            data = _transform_debate(debate)
+            # Transform to GraphQL format using DataLoader for agent stats
+            if ctx.loaders:
+                data = await _transform_debate_async(debate, ctx)
+            else:
+                data = _transform_debate(debate)
             return ResolverResult(data=data)
 
         except (KeyError, AttributeError, TypeError, ValueError) as e:
@@ -262,7 +268,7 @@ class QueryResolvers:
             has_more = len(debates) > limit
             debates = debates[offset : offset + limit]
 
-            # Transform debates
+            # Transform debates using DataLoader for batched agent stats
             transformed: list[dict[str, Any]] = []
             for d in debates:
                 debate_dict = (
@@ -270,7 +276,10 @@ class QueryResolvers:
                     if isinstance(d, dict)
                     else (d.__dict__ if hasattr(d, "__dict__") else {"id": str(d)})
                 )
-                transformed.append(_transform_debate(debate_dict))
+                if ctx.loaders:
+                    transformed.append(await _transform_debate_async(debate_dict, ctx))
+                else:
+                    transformed.append(_transform_debate(debate_dict))
 
             return ResolverResult(
                 data={
@@ -324,6 +333,7 @@ class QueryResolvers:
                     ).lower()
                 ][:limit]
 
+            # Transform using DataLoader for batched agent stats
             transformed: list[dict[str, Any]] = []
             for d in debates:
                 debate_dict = (
@@ -331,7 +341,10 @@ class QueryResolvers:
                     if isinstance(d, dict)
                     else (d.__dict__ if hasattr(d, "__dict__") else {"id": str(d)})
                 )
-                transformed.append(_transform_debate(debate_dict))
+                if ctx.loaders:
+                    transformed.append(await _transform_debate_async(debate_dict, ctx))
+                else:
+                    transformed.append(_transform_debate(debate_dict))
 
             return ResolverResult(
                 data={
@@ -764,6 +777,8 @@ class MutationResolvers:
             if storage:
                 debate = storage.get_debate(debate_id)
                 if debate:
+                    if ctx.loaders:
+                        return ResolverResult(data=await _transform_debate_async(debate, ctx))
                     return ResolverResult(data=_transform_debate(debate))
 
             # Return minimal response
@@ -893,6 +908,8 @@ class MutationResolvers:
             if storage:
                 debate = storage.get_debate(id)
                 if debate:
+                    if ctx.loaders:
+                        return ResolverResult(data=await _transform_debate_async(debate, ctx))
                     return ResolverResult(data=_transform_debate(debate))
 
             return ResolverResult(
@@ -1276,6 +1293,111 @@ def _transform_debate(debate: dict[str, Any]) -> dict[str, Any]:
                     "provider": None,
                 }
             )
+
+    # Build consensus
+    consensus = None
+    if debate.get("consensus_reached"):
+        consensus = {
+            "reached": True,
+            "answer": debate.get("final_answer", ""),
+            "agreeingAgents": debate.get("agreeing_agents", []),
+            "dissentingAgents": debate.get("dissenting_agents", []),
+            "confidence": debate.get("confidence"),
+            "method": debate.get("consensus_method", "majority"),
+        }
+
+    return {
+        "id": debate.get("id") or debate.get("debate_id", ""),
+        "topic": debate.get("task") or debate.get("question", ""),
+        "task": debate.get("task") or debate.get("question", ""),
+        "status": _normalize_debate_status(debate.get("status")),
+        "rounds": rounds,
+        "participants": participants,
+        "consensus": consensus,
+        "createdAt": _to_iso_datetime(debate.get("created_at") or debate.get("timestamp")),
+        "completedAt": _to_iso_datetime(debate.get("completed_at")),
+        "roundCount": debate.get("rounds", DEFAULT_ROUNDS),
+        "tags": debate.get("tags", []),
+        "consensusReached": debate.get("consensus_reached", False),
+        "confidence": debate.get("confidence"),
+        "winner": debate.get("winner"),
+    }
+
+
+async def _transform_debate_async(
+    debate: dict[str, Any],
+    ctx: ResolverContext,
+) -> dict[str, Any]:
+    """Transform internal debate format to GraphQL format with DataLoader batching.
+
+    Uses DataLoaders to batch-fetch agent stats, solving the N+1 query problem.
+
+    Args:
+        debate: Internal debate dict
+        ctx: ResolverContext with DataLoaders
+
+    Returns:
+        GraphQL-formatted debate dict with real agent stats
+    """
+    # Import here to avoid circular import
+    from aragora.server.graphql.dataloaders import load_agents_batch
+
+    messages = debate.get("messages", [])
+    critiques = debate.get("critiques", [])
+
+    # Group messages by round
+    rounds_map: dict[int, dict[str, Any]] = {}
+    for msg in messages:
+        round_num = msg.get("round", 1)
+        if round_num not in rounds_map:
+            rounds_map[round_num] = {
+                "number": round_num,
+                "messages": [],
+                "critiques": [],
+                "completed": False,
+            }
+        rounds_map[round_num]["messages"].append(
+            {
+                "index": len(rounds_map[round_num]["messages"]),
+                "role": msg.get("role", "agent"),
+                "content": msg.get("content", ""),
+                "agent": msg.get("agent") or msg.get("name"),
+                "round": round_num,
+                "timestamp": _to_iso_datetime(msg.get("timestamp")),
+            }
+        )
+
+    # Add critiques to rounds
+    for critique in critiques:
+        round_num = critique.get("round", 1)
+        if round_num in rounds_map:
+            rounds_map[round_num]["critiques"].append(
+                {
+                    "id": critique.get("id", ""),
+                    "critic": critique.get("critic", ""),
+                    "target": critique.get("target", ""),
+                    "content": critique.get("content", ""),
+                    "severity": critique.get("severity", 0.5),
+                    "accepted": critique.get("accepted"),
+                }
+            )
+
+    # Mark rounds as completed
+    total_rounds = debate.get("rounds", DEFAULT_ROUNDS)
+    for round_num in rounds_map:
+        if round_num < total_rounds or debate.get("status") in ("completed", "concluded"):
+            rounds_map[round_num]["completed"] = True
+
+    rounds = [rounds_map[k] for k in sorted(rounds_map.keys())]
+
+    # Build participants list using DataLoader for batch fetching
+    agents = debate.get("agents", [])
+    if isinstance(agents, str):
+        agents = agents.split(",")
+    agent_names = [name.strip() for name in agents if name.strip()]
+
+    # Batch load all participant data in a single query
+    participants = await load_agents_batch(ctx.loaders, agent_names)
 
     # Build consensus
     consensus = None

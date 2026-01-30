@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 
 from aragora.exceptions import ConfigurationError
 
-from .base import HandlerResult, error_response, json_response, safe_error_message
+from .base import HandlerResult, ServerContext, error_response, json_response, safe_error_message
 from .utils.rate_limit import rate_limit
 from .secure import SecureHandler
 
@@ -80,9 +80,10 @@ class SSOHandler(SecureHandler):
     Supports SAML 2.0 and OpenID Connect (OIDC) providers.
     """
 
-    def __init__(self, server_context: dict | None = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize SSO handler."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        ctx: ServerContext = server_context if server_context is not None else {}
+        super().__init__(ctx)
         self._provider = None
         self._initialized = False
 

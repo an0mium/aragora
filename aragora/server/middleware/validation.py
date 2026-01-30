@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Pattern
+from typing import Any, Callable, Optional, Pattern, cast
 
 from aragora.server.validation.schema import (
     BILLING_PORTAL_SCHEMA,
@@ -79,7 +79,7 @@ class RouteValidation:
         if self.method != "*" and self.method.upper() != method.upper():
             return False
         # Pattern is always compiled in __post_init__
-        pattern: Pattern[str] = self.pattern  # type: ignore[assignment]
+        pattern = cast(Pattern[str], self.pattern)
         return bool(pattern.match(path))
 
 

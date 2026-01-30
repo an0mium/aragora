@@ -24,7 +24,7 @@ from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadT
 from aragora.nomic.convoy_coordinator import AssignmentStatus, ConvoyCoordinator
 from aragora.nomic.convoys import ConvoyManager, ConvoyPriority
 from aragora.nomic.hook_queue import HookQueue
-from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class GastownConvoyExecutor:
         self._test_timeout = test_timeout
         self._test_lock = asyncio.Lock()
 
-        use_canonical_store = os.environ.get("NOMIC_CONVOY_CANONICAL_STORE", "0") == "1"
+        use_canonical_store = should_use_canonical_store(default=False)
         if bead_dir is None and use_canonical_store:
             base_dir = resolve_store_dir(workspace_root=self.repo_path)
         else:

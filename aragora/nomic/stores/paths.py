@@ -55,3 +55,13 @@ def resolve_bead_and_convoy_dirs(
     if store_dir.name == "beads" and store_dir.parent.name == ".gt":
         return store_dir, store_dir.parent / "convoys"
     return store_dir, store_dir
+
+
+def should_use_canonical_store(default: bool = False) -> bool:
+    """Return True when env opts in to canonical bead/convoy storage."""
+    env_value = os.getenv("ARAGORA_CONVOY_CANONICAL_STORE") or os.getenv(
+        "NOMIC_CONVOY_CANONICAL_STORE"
+    )
+    if env_value is None:
+        return default
+    return env_value.strip().lower() in {"1", "true", "yes", "on"}

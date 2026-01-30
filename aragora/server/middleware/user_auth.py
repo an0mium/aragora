@@ -35,7 +35,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     pass
@@ -88,7 +88,7 @@ class _JWTModuleProtocol(Protocol):
 # JWT validation (PyJWT always available)
 import jwt
 
-_jwt_module: _JWTModuleProtocol | None = jwt  # type: ignore[assignment]
+_jwt_module: _JWTModuleProtocol | None = cast(_JWTModuleProtocol, jwt)
 HAS_JWT = True
 
 # Use real exception classes from jwt

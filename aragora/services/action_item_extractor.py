@@ -35,10 +35,19 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Pattern
+from typing import Any, Pattern, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from aragora.connectors.enterprise.communication.models import EmailMessage
+
+@runtime_checkable
+class EmailLike(Protocol):
+    """Protocol for email-like objects that can have action items extracted."""
+
+    id: str
+    subject: str
+    body_text: str
+    from_address: str
+    to_addresses: list[str]
+
 
 logger = logging.getLogger(__name__)
 
@@ -354,7 +363,7 @@ class ActionItemExtractor:
 
     async def extract_action_items(
         self,
-        email: EmailMessage,
+        email: EmailLike,
         extract_deadlines: bool = True,
         detect_assignees: bool = True,
     ) -> ExtractionResult:
@@ -768,7 +777,7 @@ class ActionItemExtractor:
 
     async def extract_batch(
         self,
-        emails: list[EmailMessage],
+        emails: list[EmailLike],
     ) -> list[ExtractionResult]:
         """Extract action items from multiple emails."""
         import asyncio
@@ -839,21 +848,30 @@ async def extract_action_items_quick(
     """
 
     class SimpleEmail:
-        def __init__(self, subject: str, body: str, sender: str):
-            self.id = f"quick_{hash((subject, body, sender))}"
-            self.subject = subject
-            self.body_text = body
-            self.from_address = sender
-            self.to_addresses: list[str] = []
+        """Minimal email implementation for quick extraction."""
 
-    email = SimpleEmail(subject, body, sender)
+        id: str
+        subject: str
+        body_text: str
+        from_address: str
+        to_addresses: list[str]
+
+        def __init__(self, subj: str, body: str, sender_addr: str):
+            self.id = f"quick_{hash((subj, body, sender_addr))}"
+            self.subject = subj
+            self.body_text = body
+            self.from_address = sender_addr
+            self.to_addresses = []
+
+    email: EmailLike = SimpleEmail(subject, body, sender)
     extractor = ActionItemExtractor()
-    return await extractor.extract_action_items(email)  # type: ignore[arg-type]  # SimpleEmail satisfies protocol
+    return await extractor.extract_action_items(email)
 
 
 __all__ = [
     "ActionItemExtractor",
     "ActionItem",
+    "EmailLike",
     "ExtractionResult",
     "ActionItemPriority",
     "ActionItemStatus",

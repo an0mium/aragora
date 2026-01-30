@@ -258,8 +258,10 @@ class CrossChannelContextService:
         context = ChannelContext(user_email=user_email)
 
         # Process Slack signal
-        if results and not isinstance(results[0], Exception) and results[0]:
-            context.slack = results[0]  # type: ignore[assignment]
+        if results and not isinstance(results[0], (Exception, BaseException)) and results[0]:
+            slack_result = results[0]
+            if isinstance(slack_result, SlackActivitySignal):
+                context.slack = slack_result
 
         # Calculate derived signals
         context = self._calculate_derived_signals(context)

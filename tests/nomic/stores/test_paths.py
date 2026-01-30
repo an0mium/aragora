@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from aragora.nomic.stores.paths import resolve_store_dir
+from aragora.nomic.stores.paths import resolve_store_dir, should_use_canonical_store
 
 
 def test_env_override_takes_precedence(tmp_path, monkeypatch):
@@ -78,3 +78,15 @@ def test_convoy_coordinator_default_storage(monkeypatch, tmp_path):
     manager.bead_store = MagicMock()
     coord = ConvoyCoordinator(convoy_manager=manager, hierarchy=MagicMock())
     assert coord.storage_dir.resolve() == resolve_store_dir().resolve()
+
+
+def test_should_use_canonical_store_env(monkeypatch):
+    monkeypatch.delenv("ARAGORA_CONVOY_CANONICAL_STORE", raising=False)
+    monkeypatch.delenv("NOMIC_CONVOY_CANONICAL_STORE", raising=False)
+    assert should_use_canonical_store(default=False) is False
+
+    monkeypatch.setenv("ARAGORA_CONVOY_CANONICAL_STORE", "1")
+    assert should_use_canonical_store(default=False) is True
+
+    monkeypatch.setenv("ARAGORA_CONVOY_CANONICAL_STORE", "0")
+    assert should_use_canonical_store(default=True) is False

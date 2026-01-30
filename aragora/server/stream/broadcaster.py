@@ -140,8 +140,12 @@ class ClientManager:
             self._rate_limiter_last_access[client_id] = time.time()
             return self._rate_limiters[client_id]
 
-    def _cleanup_stale_rate_limiters(self) -> None:
-        """Remove rate limiters not accessed within TTL."""
+    def _cleanup_stale_rate_limiters(self) -> int:
+        """Remove rate limiters not accessed within TTL.
+
+        Returns:
+            Number of stale rate limiters removed.
+        """
         now = time.time()
         with self._rate_limiters_lock:
             stale_keys = [
@@ -154,6 +158,7 @@ class ClientManager:
                 self._rate_limiter_last_access.pop(k, None)
         if stale_keys:
             logger.debug(f"Cleaned up {len(stale_keys)} stale rate limiters")
+        return len(stale_keys)
 
     @property
     def client_count(self) -> int:
@@ -677,14 +682,14 @@ class WebSocketBroadcaster:
         """Stop the drain loop."""
         self._running = False
 
-    def cleanup_all(self) -> dict:
+    def cleanup_all(self) -> dict[str, int]:
         """Run cleanup on all components.
 
         Returns:
             Dict with counts of cleaned items per component
         """
         return {
-            "rate_limiters": self.client_manager._cleanup_stale_rate_limiters() or 0,  # type: ignore[attr-defined, func-returns-value]
+            "rate_limiters": self.client_manager._cleanup_stale_rate_limiters(),
             "debate_states": self.debate_state_cache.cleanup_stale(),
             "loops": self.loop_registry.cleanup_stale(),
         }

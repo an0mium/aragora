@@ -25,7 +25,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -137,7 +137,7 @@ def _make_fallback(fallback: T, error: str, include_error: bool) -> T:
         result = fallback.copy()
         result["error"] = error
         result["available"] = False
-        return result  # type: ignore[return-value]
+        return cast(T, result)
 
     return fallback
 

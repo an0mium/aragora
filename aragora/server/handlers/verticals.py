@@ -17,7 +17,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.config import DEFAULT_ROUNDS
 from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
@@ -404,15 +404,15 @@ class VerticalsHandler(SecureHandler):
             additional_agents = data.get("additional_agents", [])
 
             if additional_agents:
-                from aragora.agents.base import create_agent
+                from aragora.agents.base import AgentType, create_agent
 
                 for agent_spec in additional_agents:
                     if isinstance(agent_spec, str):
-                        agents.append(create_agent(agent_spec))  # type: ignore[arg-type]
+                        agents.append(create_agent(cast(AgentType, agent_spec)))
                     elif isinstance(agent_spec, dict):
                         agents.append(
                             create_agent(
-                                agent_spec.get("type", "anthropic-api"),
+                                cast(AgentType, agent_spec.get("type", "anthropic-api")),
                                 name=agent_spec.get("name"),
                                 role=agent_spec.get("role"),
                             )

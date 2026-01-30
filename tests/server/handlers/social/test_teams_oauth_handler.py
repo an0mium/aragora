@@ -125,7 +125,7 @@ class TestTeamsOAuthInstall:
     async def test_install_no_client_id(self, oauth_handler):
         """Test install without TEAMS_CLIENT_ID configured."""
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", ""):
-            result = await oauth_handler.handle("GET", "/api/integrations/teams/install")
+            result = await oauth_handler.dispatch("GET", "/api/integrations/teams/install")
 
         assert result.status_code == 503
         data = parse_handler_response(result)
@@ -135,7 +135,7 @@ class TestTeamsOAuthInstall:
     async def test_install_redirect(self, oauth_handler, oauth_state_store):
         """Test install redirects to Microsoft OAuth."""
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "test-client-id"):
-            result = await oauth_handler.handle("GET", "/api/integrations/teams/install")
+            result = await oauth_handler.dispatch("GET", "/api/integrations/teams/install")
 
         assert result.status_code == 302
         assert "Location" in result.headers
@@ -148,7 +148,7 @@ class TestTeamsOAuthInstall:
         initial_count = len(oauth_state_store._states)
 
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "test-client-id"):
-            result = await oauth_handler.handle("GET", "/api/integrations/teams/install")
+            result = await oauth_handler.dispatch("GET", "/api/integrations/teams/install")
 
         assert len(oauth_state_store._states) == initial_count + 1
         assert "state=" in result.headers["Location"]
@@ -157,7 +157,7 @@ class TestTeamsOAuthInstall:
     async def test_install_with_org_id(self, oauth_handler, oauth_state_store):
         """Test install stores org_id in state."""
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "test-client-id"):
-            result = await oauth_handler.handle(
+            result = await oauth_handler.dispatch(
                 "GET",
                 "/api/integrations/teams/install",
                 query_params={"org_id": "org-001"},
@@ -185,14 +185,14 @@ class TestTeamsOAuthInstall:
         )
 
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "test-client-id"):
-            await oauth_handler.handle("GET", "/api/integrations/teams/install")
+            await oauth_handler.dispatch("GET", "/api/integrations/teams/install")
 
         assert old_state not in oauth_state_store._states
 
     @pytest.mark.asyncio
     async def test_install_method_not_allowed(self, oauth_handler):
         """Test install rejects non-GET methods."""
-        result = await oauth_handler.handle("POST", "/api/integrations/teams/install")
+        result = await oauth_handler.dispatch("POST", "/api/integrations/teams/install")
 
         assert result.status_code == 405
 
@@ -208,7 +208,7 @@ class TestTeamsOAuthCallback:
     @pytest.mark.asyncio
     async def test_callback_error_from_microsoft(self, oauth_handler):
         """Test callback handles error from Microsoft."""
-        result = await oauth_handler.handle(
+        result = await oauth_handler.dispatch(
             "GET",
             "/api/integrations/teams/callback",
             query_params={"error": "access_denied"},
@@ -221,7 +221,7 @@ class TestTeamsOAuthCallback:
     @pytest.mark.asyncio
     async def test_callback_missing_code(self, oauth_handler):
         """Test callback requires authorization code."""
-        result = await oauth_handler.handle(
+        result = await oauth_handler.dispatch(
             "GET",
             "/api/integrations/teams/callback",
             query_params={"state": "some-state"},
@@ -234,7 +234,7 @@ class TestTeamsOAuthCallback:
     @pytest.mark.asyncio
     async def test_callback_missing_state(self, oauth_handler):
         """Test callback requires state parameter."""
-        result = await oauth_handler.handle(
+        result = await oauth_handler.dispatch(
             "GET",
             "/api/integrations/teams/callback",
             query_params={"code": "auth-code"},
@@ -247,7 +247,7 @@ class TestTeamsOAuthCallback:
     @pytest.mark.asyncio
     async def test_callback_invalid_state(self, oauth_handler, oauth_state_store):
         """Test callback rejects invalid state token."""
-        result = await oauth_handler.handle(
+        result = await oauth_handler.dispatch(
             "GET",
             "/api/integrations/teams/callback",
             query_params={"code": "auth-code", "state": "invalid-state"},
@@ -273,7 +273,7 @@ class TestTeamsOAuthCallback:
 
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "id"):
             with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_SECRET", ""):
-                result = await oauth_handler.handle(
+                result = await oauth_handler.dispatch(
                     "GET",
                     "/api/integrations/teams/callback",
                     query_params={"code": "auth-code", "state": state},
@@ -299,7 +299,7 @@ class TestTeamsOAuthCallback:
                     mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                         side_effect=Exception("Network error")
                     )
-                    result = await oauth_handler.handle(
+                    result = await oauth_handler.dispatch(
                         "GET",
                         "/api/integrations/teams/callback",
                         query_params={"code": "auth-code", "state": state},
@@ -352,7 +352,7 @@ class TestTeamsOAuthCallback:
                         "aragora.storage.teams_tenant_store.get_teams_tenant_store",
                         return_value=mock_store,
                     ):
-                        result = await oauth_handler.handle(
+                        result = await oauth_handler.dispatch(
                             "GET",
                             "/api/integrations/teams/callback",
                             query_params={"code": "auth-code", "state": state},
@@ -367,7 +367,7 @@ class TestTeamsOAuthCallback:
     @pytest.mark.asyncio
     async def test_callback_method_not_allowed(self, oauth_handler):
         """Test callback rejects non-GET methods."""
-        result = await oauth_handler.handle("POST", "/api/integrations/teams/callback")
+        result = await oauth_handler.dispatch("POST", "/api/integrations/teams/callback")
 
         assert result.status_code == 405
 
@@ -383,7 +383,7 @@ class TestTeamsOAuthRefresh:
     @pytest.mark.asyncio
     async def test_refresh_missing_tenant_id(self, oauth_handler):
         """Test refresh requires tenant_id."""
-        result = await oauth_handler.handle(
+        result = await oauth_handler.dispatch(
             "POST",
             "/api/integrations/teams/refresh",
             body={},
@@ -405,7 +405,7 @@ class TestTeamsOAuthRefresh:
                     "aragora.storage.teams_tenant_store.get_teams_tenant_store",
                     return_value=mock_store,
                 ):
-                    result = await oauth_handler.handle(
+                    result = await oauth_handler.dispatch(
                         "POST",
                         "/api/integrations/teams/refresh",
                         body={"tenant_id": "unknown-tenant"},
@@ -428,7 +428,7 @@ class TestTeamsOAuthRefresh:
                     "aragora.storage.teams_tenant_store.get_teams_tenant_store",
                     return_value=mock_store,
                 ):
-                    result = await oauth_handler.handle(
+                    result = await oauth_handler.dispatch(
                         "POST",
                         "/api/integrations/teams/refresh",
                         body={"tenant_id": "tenant-001"},
@@ -466,7 +466,7 @@ class TestTeamsOAuthRefresh:
                         mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                             return_value=mock_response
                         )
-                        result = await oauth_handler.handle(
+                        result = await oauth_handler.dispatch(
                             "POST",
                             "/api/integrations/teams/refresh",
                             body={"tenant_id": "tenant-001"},
@@ -481,7 +481,7 @@ class TestTeamsOAuthRefresh:
     @pytest.mark.asyncio
     async def test_refresh_method_not_allowed(self, oauth_handler):
         """Test refresh rejects non-POST methods."""
-        result = await oauth_handler.handle("GET", "/api/integrations/teams/refresh")
+        result = await oauth_handler.dispatch("GET", "/api/integrations/teams/refresh")
 
         assert result.status_code == 405
 
@@ -512,7 +512,7 @@ class TestTeamsOAuthHandlerErrors:
     @pytest.mark.asyncio
     async def test_handle_not_found(self, oauth_handler):
         """Test handle returns 404 for unknown path."""
-        result = await oauth_handler.handle("GET", "/api/integrations/teams/unknown")
+        result = await oauth_handler.dispatch("GET", "/api/integrations/teams/unknown")
 
         assert result.status_code == 404
 
@@ -544,7 +544,7 @@ class TestTeamsOAuthState:
                     mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                         side_effect=Exception("Error")
                     )
-                    await oauth_handler.handle(
+                    await oauth_handler.dispatch(
                         "GET",
                         "/api/integrations/teams/callback",
                         query_params={"code": "code", "state": state},
@@ -558,7 +558,7 @@ class TestTeamsOAuthState:
         """Test state includes creation timestamp."""
         with patch("aragora.server.handlers.social.teams_oauth.TEAMS_CLIENT_ID", "id"):
             before = time.time()
-            await oauth_handler.handle("GET", "/api/integrations/teams/install")
+            await oauth_handler.dispatch("GET", "/api/integrations/teams/install")
             after = time.time()
 
         for state, data in oauth_state_store._states.items():

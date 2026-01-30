@@ -87,7 +87,33 @@ class TeamsOAuthHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
+    async def handle(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult | None:
+        """BaseHandler-compatible entry point.
+
+        This wrapper delegates to dispatch() which supports the OAuth-style
+        calling convention used by this handler's tests and callers.
+
+        Args:
+            path: Request path (e.g., "/api/integrations/teams/install")
+            query_params: Query parameters dict
+            handler: HTTP request handler
+
+        Returns:
+            HandlerResult or None if not handled
+        """
+        return await self.dispatch(
+            method="GET",  # BaseHandler only calls handle() for GET
+            path=path,
+            query_params=query_params,
+            handler=handler,
+        )
+
+    async def dispatch(
         self,
         method: str,
         path: str,
@@ -98,18 +124,24 @@ class TeamsOAuthHandler(SecureHandler):
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
+        This is the primary entry point supporting the OAuth-style calling convention:
+            dispatch(method, path, body=None, query_params=None, headers=None, handler=None)
+
+        For BaseHandler compatibility, use handle(path, query_params, handler) which
+        delegates to this method.
+
         Authentication:
         - /install: Requires authentication + connector:authorize permission
         - /callback: No auth (OAuth redirect from Microsoft)
         - /refresh: Requires authentication (admin operation)
         """
-        query_params = query_params or {}
+        query_params_dict = query_params or {}
         body = body or {}
 
         # OAuth callback from Microsoft - no auth required (external redirect)
         if path == "/api/integrations/teams/callback":
             if method == "GET":
-                return await self._handle_callback(query_params)
+                return await self._handle_callback(query_params_dict)
             return error_response("Method not allowed", 405)
 
         # All other routes require authentication
@@ -125,7 +157,7 @@ class TeamsOAuthHandler(SecureHandler):
                     self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
                 except (ForbiddenError, PermissionError):
                     return error_response("Permission denied: connector:authorize required", 403)
-                return await self._handle_install(query_params)
+                return await self._handle_install(query_params_dict)
             return error_response("Method not allowed", 405)
 
         if path == "/api/integrations/teams/refresh":

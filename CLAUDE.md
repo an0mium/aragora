@@ -34,6 +34,10 @@ Context for Claude Code when working with the Aragora codebase.
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 | Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
+| Workspace | `aragora/workspace/` | `bead.py`, `convoy.py` (orchestration layer) |
+| Nomic Stores | `aragora/nomic/stores/` | `beads.py`, `convoys.py`, `paths.py` (canonical storage) |
+| Gateway | `aragora/gateway/` | API gateway module |
+| Observability | `aragora/observability/` | `metrics.py`, `tracing.py` (monitoring) |
 
 ## Canonical Storage Paths
 
@@ -49,7 +53,7 @@ Legacy `.gt` stores are supported for backwards compatibility when present.
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.
 
-**Codebase Scale:** 2,400+ Python modules | 58,000+ tests | 2,390 test files | 174 debate modules | 110 HTTP handlers + 22 WebSocket streams | 461 API endpoints | 28 KM adapters | 105 SDK namespaces
+**Codebase Scale:** 2,495 Python modules | 78,000+ tests | 2,195 test files | 180 debate modules | 340 HTTP handlers + 22 WebSocket streams | 461 API endpoints | 34 KM adapters | 105 SDK namespaces
 
 ## Architecture
 
@@ -285,7 +289,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 76,000+ tests across 2,165 test files
+**Test Suite:** 78,000+ tests across 2,195 test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)

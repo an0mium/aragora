@@ -23,7 +23,7 @@ import logging
 import os
 import secrets
 import time
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
@@ -179,25 +179,95 @@ class SlackOAuthHandler(SecureHandler):
                 return True
         return False
 
-    async def handle(  # type: ignore[override]
+    async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
+        """Route OAuth requests with dual-signature support.
+
+        Supports two calling conventions:
+        1. Direct call (tests): handle(method, path, body, query_params, headers, handler)
+        2. Registry call: handle(path, query_params, handler)
+
+        The calling convention is auto-detected based on whether the second
+        argument is a string (path for direct call) or a dict (query_params
+        for registry call).
+        """
+        # Parse arguments based on calling convention
+        if len(args) >= 2 and isinstance(args[1], str):
+            # Direct call: handle(method, path, body?, query_params?, headers?, handler?)
+            method = str(args[0])
+            path = str(args[1])
+            body = (
+                args[2] if len(args) > 2 and isinstance(args[2], dict) else kwargs.get("body", {})
+            )
+            qp = (
+                args[3]
+                if len(args) > 3 and isinstance(args[3], dict)
+                else kwargs.get("query_params", {})
+            )
+            hdrs = (
+                args[4]
+                if len(args) > 4 and isinstance(args[4], dict)
+                else kwargs.get("headers", {})
+            )
+            hndlr = args[5] if len(args) > 5 else kwargs.get("handler")
+        else:
+            # Registry call: handle(path, query_params, handler)
+            path = str(args[0]) if args else kwargs.get("path", "")
+            raw_qp = args[1] if len(args) > 1 else kwargs.get("query_params", {})
+            hndlr = args[2] if len(args) > 2 else kwargs.get("handler")
+
+            # Extract method from handler's command attribute (HTTP method)
+            method = getattr(hndlr, "command", "GET") if hndlr else "GET"
+
+            # Normalize query_params to dict[str, str]
+            qp = {}
+            if isinstance(raw_qp, dict):
+                qp = {k: v[0] if isinstance(v, list) else str(v) for k, v in raw_qp.items()}
+
+            # Extract body from handler if available
+            body = {}
+            if hndlr and hasattr(hndlr, "rfile") and hasattr(hndlr, "headers"):
+                content_length = int(hndlr.headers.get("Content-Length", 0))
+                if content_length > 0:
+                    import json as json_module
+
+                    try:
+                        raw_body = hndlr.rfile.read(content_length)
+                        body = json_module.loads(raw_body) if raw_body else {}
+                    except Exception:
+                        body = {}
+
+            # Extract headers from handler if available
+            hdrs = dict(hndlr.headers) if hndlr and hasattr(hndlr, "headers") else {}
+
+        return await self._handle_oauth(method, path, body, qp, hdrs, hndlr)
+
+    async def _handle_oauth(
         self,
         method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        body: dict[str, Any],
+        query_params: dict[str, str],
+        headers: dict[str, str],
         handler: Any | None = None,
     ) -> HandlerResult:
-        """Route OAuth requests to appropriate methods.
+        """Internal OAuth request handler.
+
+        This method contains the actual OAuth handling logic and can be called
+        directly by tests with all parameters specified.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: Request path
+            body: Parsed request body
+            query_params: Query parameters
+            headers: Request headers
+            handler: Optional HTTP handler for auth context
 
         RBAC enforcement:
         - /install and /preview require authentication
         - /callback is unauthenticated (OAuth redirect from Slack)
         - /uninstall uses Slack signature verification (webhook)
         """
-        query_params = query_params or {}
-        headers = headers or {}
-        body = body or {}
 
         # OAuth callback from Slack - no auth required (external redirect)
         if path == "/api/integrations/slack/callback":

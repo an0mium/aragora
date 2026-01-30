@@ -21,7 +21,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_against_schema
@@ -29,6 +29,7 @@ from aragora.server.validation.schema import SHARE_UPDATE_SCHEMA, validate_again
 from ..base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     handle_errors,
     json_response,
@@ -225,8 +226,8 @@ class SharingHandler(BaseHandler):
         "/share/revoke",
     ]
 
-    def __init__(self, server_context: dict = None):
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+    def __init__(self, server_context: ServerContext | None = None):
+        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
         self._store = get_share_store()
 
     @require_permission("sharing:read")

@@ -90,14 +90,11 @@ class DiscordOAuthHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
-        method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
         query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
-        handler: Any | None = None,
+        handler: Any = None,
     ) -> HandlerResult:
         """Route OAuth requests to appropriate methods.
 
@@ -105,9 +102,23 @@ class DiscordOAuthHandler(SecureHandler):
         - /install: Requires authentication + connector:authorize permission
         - /callback: No auth (OAuth redirect from Discord)
         - /uninstall: No auth (webhook event from Discord)
+
+        Args:
+            path: The request path
+            query_params: Parsed query parameters
+            handler: HTTP request handler for accessing request context
         """
         query_params = query_params or {}
-        body = body or {}
+
+        # Extract method from handler
+        method: str = "GET"
+        if handler is not None and hasattr(handler, "command"):
+            method = handler.command
+
+        # Extract body from handler for POST requests
+        body: dict[str, Any] = {}
+        if method == "POST" and handler is not None:
+            body = self.read_json_body(handler) or {}
 
         # OAuth callback from Discord - no auth required (external redirect)
         if path == "/api/integrations/discord/callback":

@@ -28,12 +28,13 @@ See docs/OBSERVABILITY.md for configuration guide.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator, TypeVar, cast
+from typing import Any, Callable, Coroutine, Generator, TypeVar, cast
 
 from aragora.observability.config import get_metrics_config
 from aragora.observability.metrics.base import NoOpMetric
@@ -1676,7 +1677,7 @@ def measure_async_latency(endpoint: str) -> Callable[[F], F]:
 
 
 def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
-    """Decorator factory to track async handler metrics.
+    """Decorator factory to track handler metrics (supports both sync and async).
 
     Tracks:
     - Request count with success/error status
@@ -1693,24 +1694,28 @@ def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
             ...
 
         @track_handler("payments/process", method="POST")
-        async def handle_process_payment(data):
+        def handle_process_payment(data):  # Also works with sync handlers
             ...
     """
 
+    def _extract_status(result: Any) -> int:
+        """Extract status code from result if it indicates failure."""
+        if isinstance(result, dict):
+            if result.get("success") is False:
+                return result.get("status", 400)
+            elif "error" in result and "success" not in result:
+                return result.get("status", 500)
+        return 200
+
     def decorator(func: F) -> F:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             _init_metrics()
             start = time.perf_counter()
             status = 200
             try:
-                result = await func(*args, **kwargs)
-                # Check if result indicates failure
-                if isinstance(result, dict):
-                    if result.get("success") is False:
-                        status = result.get("status", 400)
-                    elif "error" in result and "success" not in result:
-                        status = result.get("status", 500)
+                result = func(*args, **kwargs)
+                status = _extract_status(result)
                 return result
             except Exception:
                 status = 500
@@ -1719,6 +1724,25 @@ def track_handler(handler_name: str, method: str = "POST") -> Callable[[F], F]:
                 latency = time.perf_counter() - start
                 record_request(method, handler_name, status, latency)
 
-        return cast(F, wrapper)
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            _init_metrics()
+            start = time.perf_counter()
+            status = 200
+            try:
+                result = await cast(Coroutine[Any, Any, Any], func(*args, **kwargs))
+                status = _extract_status(result)
+                return result
+            except Exception:
+                status = 500
+                raise
+            finally:
+                latency = time.perf_counter() - start
+                record_request(method, handler_name, status, latency)
+
+        # Return appropriate wrapper based on function type
+        if asyncio.iscoroutinefunction(func):
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
 
     return decorator

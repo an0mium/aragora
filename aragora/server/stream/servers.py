@@ -43,6 +43,7 @@ from .events import (
     StreamEvent,
     StreamEventType,
 )
+from .client_sender import TimeoutSender
 from .server_base import ServerBase
 from .voice_stream import VoiceStreamHandler
 from .state_manager import (
@@ -231,6 +232,13 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
 
         # Stop event for graceful shutdown
         self._stop_event: asyncio.Event | None = None
+
+        # Timeout-safe sender for WebSocket broadcasts (prevents slow clients from blocking)
+        self._timeout_sender = TimeoutSender(
+            timeout=2.0,  # 2 second timeout per client
+            max_failures=3,  # Quarantine after 3 consecutive failures
+            quarantine_duration=10.0,  # Quarantine for 10 seconds
+        )
 
         # Wire TTS integration to voice handler
         self._wire_tts_integration()
@@ -1280,14 +1288,14 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
 
                 # SECURITY: Broadcast only to clients subscribed to this debate
                 # This prevents data leakage between concurrent debates
-                dead_clients = []
                 event_loop_id = event.loop_id
-                sent_count = 0
 
                 # Take snapshot of subscriptions to avoid holding lock during I/O
                 with self._client_subscriptions_lock:
                     subscriptions_snapshot = dict(self._client_subscriptions)
 
+                # Filter clients to send to based on subscription
+                clients_to_send = []
                 for client in list(self.clients):
                     client_ws_id = id(client)
                     subscribed_id = subscriptions_snapshot.get(client_ws_id)
@@ -1303,24 +1311,22 @@ class AiohttpUnifiedServer(ServerBase, StreamAPIHandlersMixin):
                     )
 
                     if should_send:
-                        try:
-                            await client.send_str(message)
-                            sent_count += 1
-                        except (OSError, ConnectionError, RuntimeError) as e:
-                            # WebSocket/network errors during send
-                            logger.debug(
-                                "WebSocket client disconnected during broadcast: %s",
-                                type(e).__name__,
-                            )
-                            dead_clients.append(client)
+                        clients_to_send.append(client)
+
+                # Use timeout sender to broadcast with per-client timeouts
+                # This prevents slow clients from blocking the entire drain loop
+                sent_count, dead_clients = await self._timeout_sender.send_many(
+                    clients_to_send, message
+                )
 
                 if dead_clients:
-                    logger.info("Removed %d dead WebSocket client(s)", len(dead_clients))
+                    logger.info("Removed %d dead/slow WebSocket client(s)", len(dead_clients))
                     for client in dead_clients:
                         self.clients.discard(client)
-                        # Also cleanup subscription tracking
+                        # Cleanup subscription and sender tracking
                         with self._client_subscriptions_lock:
                             self._client_subscriptions.pop(id(client), None)
+                        self._timeout_sender.remove_client(client)
 
             except queue.Empty:
                 await asyncio.sleep(0.01)
