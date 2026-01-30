@@ -228,7 +228,7 @@ class MetaLearnerBridge:
 
 class EvidenceBridge:
     """
-    Bridge between Evidence Collector and KnowledgeMoundProtocol.
+    Bridge between Evidence Collector and KnowledgeMound.
 
     Converts evidence from external sources into KnowledgeNodes:
     - node_type: "evidence"
@@ -371,10 +371,10 @@ class EvidenceBridge:
 
 class PatternBridge:
     """
-    Bridge between Pattern Extractor and KnowledgeMoundProtocol.
+    Bridge between Pattern Extractor and KnowledgeMound.
 
     Converts extracted patterns into KnowledgeNodes:
-    - node_type: "pattern"
+    - node_type: "fact" (with pattern info in content/provenance)
     - content: Pattern description
     - confidence: Pattern strength/frequency
     - provenance: Source debates/interactions

@@ -1222,4 +1222,373 @@ export class DebatesAPI {
   async getMatrixComparison(debateId: string): Promise<MatrixComparison> {
     return this.client.request('GET', `/api/v1/debates/matrix/${debateId}`);
   }
+
+  // ===========================================================================
+  // Explainability
+  // ===========================================================================
+
+  /**
+   * Get explainability data for a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const explainability = await client.debates.getExplainability('debate-123');
+   * console.log(`Decision explanation: ${explainability.narrative}`);
+   * ```
+   */
+  async getExplainability(debateId: string): Promise<{
+    debate_id: string;
+    narrative: string;
+    factors: Array<{ name: string; weight: number; description: string }>;
+    confidence: number;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/explainability`);
+  }
+
+  /**
+   * Get factor decomposition for a debate decision.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const factors = await client.debates.getExplainabilityFactors('debate-123');
+   * for (const factor of factors.factors) {
+   *   console.log(`${factor.name}: ${factor.weight} - ${factor.description}`);
+   * }
+   * ```
+   */
+  async getExplainabilityFactors(debateId: string): Promise<{
+    factors: Array<{ name: string; weight: number; description: string; evidence: string[] }>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/explainability/factors`);
+  }
+
+  /**
+   * Get natural language narrative explanation.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const narrative = await client.debates.getExplainabilityNarrative('debate-123');
+   * console.log(narrative.text);
+   * ```
+   */
+  async getExplainabilityNarrative(debateId: string): Promise<{
+    text: string;
+    key_points: string[];
+    audience_level: string;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/explainability/narrative`);
+  }
+
+  /**
+   * Get provenance chain for debate claims.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const provenance = await client.debates.getExplainabilityProvenance('debate-123');
+   * for (const claim of provenance.claims) {
+   *   console.log(`${claim.text}: ${claim.sources.join(', ')}`);
+   * }
+   * ```
+   */
+  async getExplainabilityProvenance(debateId: string): Promise<{
+    claims: Array<{ text: string; sources: string[]; confidence: number; agent: string }>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/explainability/provenance`);
+  }
+
+  /**
+   * Get counterfactual analysis.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const counterfactual = await client.debates.getExplainabilityCounterfactual('debate-123');
+   * for (const scenario of counterfactual.scenarios) {
+   *   console.log(`If ${scenario.condition}, then ${scenario.outcome}`);
+   * }
+   * ```
+   */
+  async getExplainabilityCounterfactual(debateId: string): Promise<{
+    scenarios: Array<{ condition: string; outcome: string; probability: number }>;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/explainability/counterfactual`);
+  }
+
+  /**
+   * Create a counterfactual scenario.
+   *
+   * @param debateId - The debate ID
+   * @param changes - The hypothetical changes to consider
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.createCounterfactual('debate-123', {
+   *   agents: ['claude', 'gpt-4', 'gemini'],
+   *   rounds: 5,
+   * });
+   * console.log(`Counterfactual outcome: ${result.predicted_outcome}`);
+   * ```
+   */
+  async createCounterfactual(
+    debateId: string,
+    changes: Record<string, unknown>
+  ): Promise<{
+    predicted_outcome: string;
+    confidence: number;
+    impact_analysis: Array<{ factor: string; original: unknown; modified: unknown; impact: number }>;
+  }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/explainability/counterfactual`, {
+      body: changes,
+    });
+  }
+
+  // ===========================================================================
+  // Red Team & Specialized Debates
+  // ===========================================================================
+
+  /**
+   * Get red team analysis for a debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const redTeam = await client.debates.getRedTeam('debate-123');
+   * for (const vulnerability of redTeam.vulnerabilities) {
+   *   console.log(`${vulnerability.severity}: ${vulnerability.description}`);
+   * }
+   * ```
+   */
+  async getRedTeam(debateId: string): Promise<{
+    debate_id: string;
+    vulnerabilities: Array<{
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      description: string;
+      recommendation: string;
+    }>;
+    overall_risk: number;
+  }> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/red-team`);
+  }
+
+  /**
+   * Run a capability probe debate.
+   *
+   * @param task - The task to probe
+   * @param agents - Optional list of agents to use
+   *
+   * @example
+   * ```typescript
+   * const probe = await client.debates.capabilityProbe('Can this system handle real-time data?', ['claude', 'gpt-4']);
+   * console.log(`Capability assessment: ${probe.assessment}`);
+   * ```
+   */
+  async capabilityProbe(
+    task: string,
+    agents?: string[]
+  ): Promise<{
+    debate_id: string;
+    assessment: string;
+    capabilities: Array<{ name: string; level: number; evidence: string }>;
+    gaps: string[];
+  }> {
+    const data: { task: string; agents?: string[] } = { task };
+    if (agents) {
+      data.agents = agents;
+    }
+    return this.client.request('POST', '/api/v1/debates/capability-probe', {
+      body: data,
+    });
+  }
+
+  /**
+   * Run a deep audit debate.
+   *
+   * @param task - The task to audit
+   * @param agents - Optional list of agents to use
+   *
+   * @example
+   * ```typescript
+   * const audit = await client.debates.deepAudit('Review the security implementation', ['claude', 'gemini']);
+   * console.log(`Audit findings: ${audit.findings.length}`);
+   * ```
+   */
+  async deepAudit(
+    task: string,
+    agents?: string[]
+  ): Promise<{
+    debate_id: string;
+    findings: Array<{ severity: string; description: string; recommendation: string }>;
+    compliance_score: number;
+    summary: string;
+  }> {
+    const data: { task: string; agents?: string[] } = { task };
+    if (agents) {
+      data.agents = agents;
+    }
+    return this.client.request('POST', '/api/v1/debates/deep-audit', {
+      body: data,
+    });
+  }
+
+  // ===========================================================================
+  // Broadcasting & Publishing
+  // ===========================================================================
+
+  /**
+   * Broadcast debate to channels.
+   *
+   * @param debateId - The debate ID
+   * @param channels - Optional list of channels to broadcast to
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.broadcast('debate-123', ['slack', 'discord']);
+   * console.log(`Broadcasted to ${result.channels_notified.length} channels`);
+   * ```
+   */
+  async broadcast(
+    debateId: string,
+    channels?: string[]
+  ): Promise<{
+    success: boolean;
+    channels_notified: string[];
+  }> {
+    const data: { channels?: string[] } = {};
+    if (channels) {
+      data.channels = channels;
+    }
+    return this.client.request('POST', `/api/v1/debates/${debateId}/broadcast`, {
+      body: data,
+    });
+  }
+
+  /**
+   * Publish debate summary to Twitter.
+   *
+   * @param debateId - The debate ID
+   * @param message - Optional custom message
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.publishTwitter('debate-123', 'Check out this debate!');
+   * console.log(`Tweet posted: ${result.tweet_id}`);
+   * ```
+   */
+  async publishTwitter(
+    debateId: string,
+    message?: string
+  ): Promise<{
+    success: boolean;
+    tweet_id?: string;
+    url?: string;
+  }> {
+    const data: { message?: string } = {};
+    if (message) {
+      data.message = message;
+    }
+    return this.client.request('POST', `/api/v1/debates/${debateId}/publish/twitter`, {
+      body: data,
+    });
+  }
+
+  /**
+   * Publish debate to YouTube.
+   *
+   * @param debateId - The debate ID
+   * @param title - Optional custom title
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.publishYouTube('debate-123', 'AI Debate: Microservices vs Monolith');
+   * console.log(`Video published: ${result.video_id}`);
+   * ```
+   */
+  async publishYouTube(
+    debateId: string,
+    title?: string
+  ): Promise<{
+    success: boolean;
+    video_id?: string;
+    url?: string;
+  }> {
+    const data: { title?: string } = {};
+    if (title) {
+      data.title = title;
+    }
+    return this.client.request('POST', `/api/v1/debates/${debateId}/publish/youtube`, {
+      body: data,
+    });
+  }
+
+  // ===========================================================================
+  // Dashboard & History
+  // ===========================================================================
+
+  /**
+   * Get debates dashboard view.
+   *
+   * @example
+   * ```typescript
+   * const dashboard = await client.debates.getDashboard();
+   * console.log(`Active debates: ${dashboard.active_count}`);
+   * console.log(`Completed today: ${dashboard.completed_today}`);
+   * ```
+   */
+  async getDashboard(): Promise<{
+    active_count: number;
+    completed_today: number;
+    pending_count: number;
+    recent_debates: Debate[];
+    trending_topics: string[];
+  }> {
+    return this.client.request('GET', '/api/v1/dashboard/debates');
+  }
+
+  /**
+   * Get graph stats via the alternate debate endpoint.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.debates.getDebateGraphStats('debate-123');
+   * console.log(`Nodes: ${stats.node_count}, Edges: ${stats.edge_count}`);
+   * ```
+   */
+  async getDebateGraphStats(debateId: string): Promise<GraphStats> {
+    return this.client.request('GET', `/api/v1/debate/${debateId}/graph-stats`);
+  }
+
+  /**
+   * Get debate history.
+   *
+   * @param limit - Maximum number of debates to return (default 20)
+   * @param offset - Number of debates to skip (default 0)
+   *
+   * @example
+   * ```typescript
+   * const history = await client.debates.getHistory(10, 0);
+   * for (const debate of history.debates) {
+   *   console.log(`${debate.task}: ${debate.status}`);
+   * }
+   * ```
+   */
+  async getHistory(
+    limit: number = 20,
+    offset: number = 0
+  ): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/history/debates', {
+      params: { limit, offset },
+    });
+  }
 }

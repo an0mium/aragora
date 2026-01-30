@@ -183,8 +183,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     _debate_factory: DebateFactory | None = None
 
     # Request logging for observability
-    _request_log_enabled = True
-    _slow_request_threshold_ms = 1000
+    _request_log_enabled: bool = True
+    _slow_request_threshold_ms: int = 1000
 
     # Per-request rate limit result (set by _check_tier_rate_limit)
     _rate_limit_result: Optional["RateLimitResult"] = None
