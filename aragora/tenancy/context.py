@@ -16,10 +16,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Optional,
+    ParamSpec,
+    TypeVar,
+    overload,
+)
 
 if TYPE_CHECKING:
     from aragora.tenancy.tenant import Tenant
@@ -33,7 +42,7 @@ _current_tenant: ContextVar[Optional["Tenant"]] = ContextVar("current_tenant", d
 _current_tenant_id: ContextVar[str | None] = ContextVar("current_tenant_id", default=None)
 
 T = TypeVar("T")
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
 
 
 class TenantNotSetError(Exception):
@@ -99,8 +108,8 @@ class TenantContext:
             self._tenant = None
             self._tenant_id = tenant_id
 
-        self._token_id: Any | None = None
-        self._token_tenant: Any | None = None
+        self._token_id: Token[str | None] | None = None
+        self._token_tenant: Token[Optional["Tenant"]] | None = None
         self._previous_tenant: Optional["Tenant"] = None
         self._previous_tenant_id: str | None = None
 
@@ -233,7 +242,21 @@ def get_context_info() -> TenantContextInfo:
     )
 
 
-def tenant_required(func: F) -> F:
+@overload
+def tenant_required(
+    func: Callable[P, Awaitable[T]],
+) -> Callable[P, Awaitable[T]]: ...
+
+
+@overload
+def tenant_required(
+    func: Callable[P, T],
+) -> Callable[P, T]: ...
+
+
+def tenant_required(
+    func: Callable[P, T] | Callable[P, Awaitable[T]],
+) -> Callable[P, T] | Callable[P, Awaitable[T]]:
     """
     Decorator that requires a tenant to be set.
 
@@ -245,23 +268,40 @@ def tenant_required(func: F) -> F:
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         if _current_tenant_id.get() is None:
             raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
-        return func(*args, **kwargs)
+        return func(*args, **kwargs)  # type: ignore[return-value]
 
     @wraps(func)
-    async def async_wrapper(*args, **kwargs):
+    async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         if _current_tenant_id.get() is None:
             raise TenantNotSetError(f"Function {func.__name__} requires a tenant context")
-        return await func(*args, **kwargs)
+        return await func(*args, **kwargs)  # type: ignore[misc]
 
     if asyncio.iscoroutinefunction(func):
-        return async_wrapper  # type: ignore[return-value]
-    return wrapper  # type: ignore[return-value]
+        return async_wrapper
+    return wrapper
 
 
-def for_tenant(tenant_id: str) -> Callable[[F], F]:
+@overload
+def for_tenant(
+    tenant_id: str,
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]: ...
+
+
+@overload
+def for_tenant(
+    tenant_id: str,
+) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
+
+
+def for_tenant(
+    tenant_id: str,
+) -> Callable[
+    [Callable[P, T] | Callable[P, Awaitable[T]]],
+    Callable[P, T] | Callable[P, Awaitable[T]],
+]:
     """
     Decorator that runs a function in a specific tenant context.
 
@@ -271,20 +311,22 @@ def for_tenant(tenant_id: str) -> Callable[[F], F]:
             # Always runs in acme-corp context
     """
 
-    def decorator(func: F) -> F:
+    def decorator(
+        func: Callable[P, T] | Callable[P, Awaitable[T]],
+    ) -> Callable[P, T] | Callable[P, Awaitable[T]]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             with TenantContext(tenant_id=tenant_id):
-                return func(*args, **kwargs)
+                return func(*args, **kwargs)  # type: ignore[return-value]
 
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             async with TenantContext(tenant_id=tenant_id):
-                return await func(*args, **kwargs)
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return wrapper  # type: ignore[return-value]
+            return async_wrapper
+        return wrapper
 
     return decorator
 

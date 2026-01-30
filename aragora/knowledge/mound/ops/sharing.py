@@ -480,6 +480,7 @@ class KnowledgeSharingMixin:
         item_id: str,
         visibility: str,
         set_by: str | None = None,
+        is_discoverable: bool = True,
     ) -> bool:
         """
         Set the visibility level of a knowledge item.
@@ -488,6 +489,7 @@ class KnowledgeSharingMixin:
             item_id: ID of the item to update
             visibility: Visibility level ('private', 'workspace', 'organization', 'public', 'system')
             set_by: User ID who is setting the visibility
+            is_discoverable: Whether the item should appear in search results
 
         Returns:
             True if visibility was updated
@@ -513,7 +515,11 @@ class KnowledgeSharingMixin:
         elif hasattr(self._meta_store, "update_node_async"):
             await self._meta_store.update_node_async(
                 item_id,
-                {"visibility": visibility, "visibility_set_by": set_by},
+                {
+                    "visibility": visibility,
+                    "visibility_set_by": set_by,
+                    "is_discoverable": is_discoverable,
+                },
             )
             logger.info(f"Set visibility of item {item_id} to {visibility} by {set_by}")
             return True

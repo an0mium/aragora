@@ -3489,7 +3489,7 @@ The most valuable proposals combine deep analysis with actionable implementation
             codex_agent=getattr(self, "codex", None),
             kilocode_available=self._resolve_kilocode_available(),
             skip_kilocode=self._resolve_kilocode_skip(),
-            kilocode_agent_factory=KiloCodeAgent if "KiloCodeAgent" in dir() else None,
+            kilocode_agent_factory=KiloCodeAgent,
             cycle_count=self.cycle_count,
             log_fn=self._log,
             stream_emit_fn=self._stream_emit,

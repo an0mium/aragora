@@ -915,9 +915,11 @@ class DecisionRouter:
                 resource_type = resource_type_map.get(request.decision_type, ResourceType.DEBATE)
 
                 # Build isolation context
-                isolation_ctx = IsolationContext(  # type: ignore[call-arg]
+                # IsolationContext requires actor_id, use user_id as the actor
+                actor_id = request.context.user_id or "anonymous"
+                isolation_ctx = IsolationContext(
+                    actor_id=actor_id,
                     workspace_id=request.context.workspace_id,
-                    user_id=request.context.user_id,
                 )
 
                 # Require CREATE permission
@@ -934,10 +936,12 @@ class DecisionRouter:
                 logger.debug("RBAC module not available, skipping authorization")
             except (PermissionError, ValueError) as e:
                 logger.warning(f"RBAC check failed: {e}")
-                return DecisionResult(  # type: ignore[call-arg]
+                return DecisionResult(
                     request_id=request.request_id,
                     decision_type=request.decision_type,
                     answer="",
+                    confidence=0.0,
+                    consensus_reached=False,
                     success=False,
                     error=f"Authorization denied: {e}",
                 )
@@ -1317,8 +1321,11 @@ class DecisionRouter:
             if span:
                 span.set_attribute("workflow.id", workflow_id)
 
-            # Load workflow definition
-            definition = await self._workflow_engine.get_definition(workflow_id)  # type: ignore[union-attr]
+            # Load workflow definition from workflow store
+            from aragora.workflow.persistent_store import get_workflow_store
+
+            workflow_store = get_workflow_store()
+            definition = workflow_store.get_workflow(workflow_id)
             if not definition:
                 raise ValueError(f"Workflow not found: {workflow_id}")
 
@@ -1335,9 +1342,8 @@ class DecisionRouter:
                 span.set_attribute("workflow.success", workflow_result.success)
 
             # Extract answer from workflow outputs
-            answer = (
-                workflow_result.outputs.get("answer") or workflow_result.outputs.get("result") or ""  # type: ignore[union-attr]
-            )
+            outputs = workflow_result.outputs if workflow_result.outputs else {}
+            answer = outputs.get("answer") or outputs.get("result") or ""
 
             return DecisionResult(
                 request_id=request.request_id,
@@ -1429,9 +1435,9 @@ class DecisionRouter:
             span.set_attribute("quick.agent", agent_name)
 
         try:
-            from aragora.agents import get_agent  # type: ignore[attr-defined]
+            from aragora.agents import create_agent
 
-            agent = get_agent(agent_name)
+            agent = create_agent(agent_name)
 
             response = await agent.generate(request.content)
 

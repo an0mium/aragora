@@ -166,9 +166,9 @@ class VerticalFineTuningPipeline:
         """
         self.config = config
         self.data_dir = data_dir
-        self._model = None
-        self._tokenizer = None
-        self._trainer = None
+        self._model: Any | None = None
+        self._tokenizer: Any | None = None
+        self._trainer: Any | None = None
         self._training_examples: list[TrainingExample] = []
 
     def load_base_model(self, quantization: str | None = "4bit") -> None:
@@ -204,7 +204,7 @@ class VerticalFineTuningPipeline:
             if bnb_config:
                 model_kwargs["quantization_config"] = bnb_config
 
-            self._model = AutoModelForCausalLM.from_pretrained(  # type: ignore[assignment]
+            self._model = AutoModelForCausalLM.from_pretrained(
                 self.config.base_model_id,
                 **model_kwargs,
             )
@@ -215,12 +215,13 @@ class VerticalFineTuningPipeline:
                 trust_remote_code=True,
             )
 
-            if self._tokenizer.pad_token is None:  # type: ignore[union-attr,attr-defined]
-                self._tokenizer.pad_token = self._tokenizer.eos_token  # type: ignore[union-attr,attr-defined]
+            if getattr(self._tokenizer, "pad_token", None) is None:
+                setattr(self._tokenizer, "pad_token", getattr(self._tokenizer, "eos_token", None))
 
             # Enable gradient checkpointing
             if self.config.gradient_checkpointing:
-                self._model.gradient_checkpointing_enable()  # type: ignore[union-attr,attr-defined]
+                if hasattr(self._model, "gradient_checkpointing_enable"):
+                    self._model.gradient_checkpointing_enable()
 
             logger.info("Base model loaded successfully")
 

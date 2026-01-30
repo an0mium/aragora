@@ -49,6 +49,8 @@ from langchain_core.documents import Document
 from langchain_core.callbacks.manager import (
     CallbackManagerForToolRun,
     AsyncCallbackManagerForToolRun,
+    CallbackManagerForRetrieverRun,
+    AsyncCallbackManagerForRetrieverRun,
 )
 from pydantic import BaseModel, Field
 
@@ -315,16 +317,39 @@ class AragoraRetriever(BaseRetriever):
         self.min_confidence = min_confidence
         self.include_metadata = include_metadata
 
-    def _get_relevant_documents(self, query: str) -> list[Document]:  # type: ignore[override]
+    def _get_relevant_documents(
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+    ) -> list[Document]:
         """Retrieve relevant documents synchronously.
 
         This is the required abstract method for LangChain BaseRetriever.
         LangChain's get_relevant_documents() routes here automatically.
-        """
-        return asyncio.run(self._aget_relevant_documents(query))
 
-    async def _aget_relevant_documents(self, query: str) -> list[Document]:  # type: ignore[override]
-        """Retrieve relevant documents asynchronously."""
+        Args:
+            query: The search query.
+            run_manager: LangChain callback manager (not used in this implementation).
+        """
+        return asyncio.run(self._fetch_documents(query))
+
+    async def _aget_relevant_documents(
+        self,
+        query: str,
+        *,
+        run_manager: AsyncCallbackManagerForRetrieverRun,
+    ) -> list[Document]:
+        """Retrieve relevant documents asynchronously.
+
+        Args:
+            query: The search query.
+            run_manager: LangChain async callback manager (not used in this implementation).
+        """
+        return await self._fetch_documents(query)
+
+    async def _fetch_documents(self, query: str) -> list[Document]:
+        """Internal method to fetch documents from the API."""
         import aiohttp
 
         headers = {
@@ -403,7 +428,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
         on_debate_start: Optional[Callable[[dict], None]] = None,
         on_debate_end: Optional[Callable[[dict], None]] = None,
         on_consensus: Optional[Callable[[dict], None]] = None,
-        on_error: Optional[Callable[[Exception], None]] = None,
+        on_error: Optional[Callable[[BaseException], None]] = None,
         verbose: bool = False,
     ):
         """Initialize the callback handler.
@@ -412,7 +437,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
             on_debate_start: Callback for debate start events
             on_debate_end: Callback for debate end events
             on_consensus: Callback for consensus events
-            on_error: Callback for error events
+            on_error: Callback for error events (receives BaseException)
             verbose: Whether to log debug information
         """
         super().__init__()
@@ -450,16 +475,24 @@ class AragoraCallbackHandler(BaseCallbackHandler):
             except json.JSONDecodeError:
                 self._on_debate_end({"raw_output": output})
 
-    def on_tool_error(  # type: ignore[override]
+    def on_tool_error(
         self,
-        error: Exception | KeyboardInterrupt,
-        **kwargs,
-    ) -> None:
-        """Called when a tool errors."""
+        error: BaseException,
+        **kwargs: Any,
+    ) -> Any:
+        """Called when a tool errors.
+
+        Args:
+            error: The exception that occurred.
+            **kwargs: Additional keyword arguments from LangChain.
+
+        Returns:
+            Any value (unused, for compatibility with base class).
+        """
         if self.verbose:
             logger.error(f"Aragora debate error: {error}")
         if self._on_error:
-            self._on_error(error)  # type: ignore[arg-type]
+            self._on_error(error)
 
 
 # =============================================================================
@@ -502,8 +535,8 @@ def create_aragora_chain(
     from langchain.agents import AgentExecutor, create_tool_calling_agent
     from langchain_core.prompts import ChatPromptTemplate
 
-    # Create tools
-    tools = [
+    # Create tools - use BaseTool type to allow mixing AragoraTool and retriever Tool
+    tools: list[BaseTool] = [
         AragoraTool(api_base=api_base, api_key=api_key),
     ]
 
@@ -517,7 +550,7 @@ def create_aragora_chain(
             "aragora_knowledge",
             "Search Aragora's knowledge base for relevant information and past debate insights.",
         )
-        tools.append(retriever_tool)  # type: ignore[arg-type]
+        tools.append(retriever_tool)
 
     # Create prompt
     prompt = ChatPromptTemplate.from_messages(
