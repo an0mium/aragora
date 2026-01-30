@@ -15,6 +15,7 @@ import gzip
 import hashlib
 import json
 import logging
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -26,6 +27,30 @@ from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+# SQL identifier validation pattern - prevents SQL injection via malicious table/column names
+# Matches standard SQL identifier rules: starts with letter/underscore, followed by alphanumeric/underscore
+_VALID_SQL_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
+    """Validate SQL identifier to prevent SQL injection.
+
+    Args:
+        name: Table or column name to validate
+        context: Context for error messages (e.g., "table", "column")
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If identifier has invalid format
+    """
+    if not name:
+        raise ValueError(f"SQL {context} cannot be empty")
+    if not _VALID_SQL_IDENTIFIER.match(name):
+        raise ValueError(f"Invalid SQL {context} format: {name!r}")
+    return name
 
 
 class BackupStatus(str, Enum):
@@ -970,16 +995,32 @@ class BackupManager:
             tables = [row[0] for row in cursor.fetchall()]
 
             for table in tables:
-                cursor.execute(f'PRAGMA table_info("{table}")')
+                # Validate table name to prevent SQL injection
+                try:
+                    safe_table = _validate_sql_identifier(table, "table")
+                except ValueError as e:
+                    logger.warning(f"Skipping table with invalid name: {e}")
+                    continue
+
+                cursor.execute(f'PRAGMA table_info("{safe_table}")')
                 for col in cursor.fetchall():
                     col_name, col_notnull = col[1], col[3]
                     if col_notnull:
-                        cursor.execute(f'SELECT COUNT(*) FROM "{table}" WHERE "{col_name}" IS NULL')
+                        # Validate column name to prevent SQL injection
+                        try:
+                            safe_col = _validate_sql_identifier(col_name, "column")
+                        except ValueError as e:
+                            logger.warning(f"Skipping column with invalid name: {e}")
+                            continue
+
+                        cursor.execute(
+                            f'SELECT COUNT(*) FROM "{safe_table}" WHERE "{safe_col}" IS NULL'
+                        )
                         null_count = cursor.fetchone()[0]
                         if null_count > 0:
                             result.valid = False
                             result.null_constraint_violations.append(
-                                f"{table}.{col_name} has {null_count} NULL values"
+                                f"{safe_table}.{safe_col} has {null_count} NULL values"
                             )
 
         except Exception as e:
@@ -1006,9 +1047,17 @@ class BackupManager:
             tables = [row[0] for row in cursor.fetchall()]
 
             for table in tables:
+                # Validate table name to prevent SQL injection
+                try:
+                    safe_table = _validate_sql_identifier(table, "table")
+                except ValueError as e:
+                    logger.warning(f"Skipping table with invalid name: {e}")
+                    checksums[table] = ""
+                    continue
+
                 # Get all data sorted by rowid for deterministic hash
                 try:
-                    cursor.execute(f'SELECT * FROM "{table}" ORDER BY rowid')
+                    cursor.execute(f'SELECT * FROM "{safe_table}" ORDER BY rowid')
                     rows = cursor.fetchall()
 
                     # Create hash from serialized rows

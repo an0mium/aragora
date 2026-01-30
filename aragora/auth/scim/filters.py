@@ -217,7 +217,7 @@ class SCIMFilterParser:
         """Initialize the filter parser."""
         self._pos = 0
         self._text = ""
-        self._tokens: list[tuple[str, str | bool | int | float]] = []
+        self._tokens: list[tuple[str, Any]] = []
 
     def parse(self, filter_text: str) -> SCIMFilter | SCIMCompoundFilter | None:
         """
