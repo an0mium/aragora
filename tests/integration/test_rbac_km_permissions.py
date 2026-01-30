@@ -314,8 +314,8 @@ class TestKMPermissionEdgeCases:
         empty_context = AuthorizationContext(
             user_id="user-empty",
             org_id="org-test",
-            roles=[],
-            permissions=[],
+            roles=set(),
+            permissions=set(),
         )
 
         checker = PermissionChecker()
@@ -328,8 +328,8 @@ class TestKMPermissionEdgeCases:
         wildcard_context = AuthorizationContext(
             user_id="user-super",
             org_id="org-test",
-            roles=["superadmin"],
-            permissions=["knowledge.*"],  # Wildcard
+            roles={"superadmin"},
+            permissions={"knowledge.*"},  # Wildcard
         )
 
         checker = PermissionChecker()
@@ -346,8 +346,8 @@ class TestKMPermissionEdgeCases:
         no_org_context = AuthorizationContext(
             user_id="user-test",
             org_id="",  # Empty org
-            roles=["viewer"],
-            permissions=["knowledge.read"],
+            roles={"viewer"},
+            permissions={"knowledge.read"},
         )
 
         # Should still have the permission, but operations should scope correctly
