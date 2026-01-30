@@ -72,7 +72,7 @@ class EloFeedback:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             # Batch fetch all ratings
             ratings_batch = self.elo_system.get_ratings_batch(participants)

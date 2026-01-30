@@ -59,7 +59,7 @@ class SpectatorMixin:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             # Map spectator event types to StreamEventType
             type_mapping = {
@@ -121,7 +121,7 @@ class SpectatorMixin:
         if not self.event_emitter:
             return
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             self.event_emitter.emit(
                 StreamEvent(

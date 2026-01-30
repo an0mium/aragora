@@ -69,7 +69,7 @@ class PersonaFeedback:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             for agent in ctx.agents:
                 # Get agent's current traits

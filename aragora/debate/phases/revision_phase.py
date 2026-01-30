@@ -17,7 +17,7 @@ from aragora.config import (
     MAX_CONCURRENT_REVISIONS,
 )
 from aragora.debate.complexity_governor import get_complexity_governor
-from aragora.server.stream.arena_hooks import streaming_task_context
+from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message

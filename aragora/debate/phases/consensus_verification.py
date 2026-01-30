@@ -320,7 +320,7 @@ class ConsensusVerifier:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             ctx.event_emitter.emit(
                 StreamEvent(

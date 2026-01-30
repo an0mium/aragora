@@ -426,7 +426,7 @@ class AnalyticsPhase:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             self.event_emitter.emit(
                 StreamEvent(

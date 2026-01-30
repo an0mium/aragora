@@ -15,7 +15,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from aragora.server.stream.arena_hooks import streaming_task_context
+from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.debate.context import DebateContext

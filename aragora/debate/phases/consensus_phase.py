@@ -39,7 +39,7 @@ from aragora.debate.phases.vote_bonus_calculator import VoteBonusCalculator
 from aragora.debate.phases.vote_collector import VoteCollector, VoteCollectorConfig
 from aragora.debate.phases.weight_calculator import WeightCalculator
 from aragora.debate.phases.winner_selector import WinnerSelector
-from aragora.server.stream.arena_hooks import streaming_task_context
+from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.core import Vote
@@ -1322,7 +1322,7 @@ class ConsensusPhase:
 
             if ctx.event_emitter:
                 try:
-                    from aragora.server.stream import StreamEvent, StreamEventType
+                    from aragora.events.types import StreamEvent, StreamEventType
 
                     ctx.event_emitter.emit(
                         StreamEvent(

@@ -99,7 +99,7 @@ class EventEmitterBridge:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             stream_type_name = self.EVENT_TYPE_MAPPING.get(event_type)
             if not stream_type_name:
@@ -190,7 +190,7 @@ class EventEmitterBridge:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             self.event_emitter.emit(
                 StreamEvent(

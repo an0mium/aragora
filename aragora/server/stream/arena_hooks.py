@@ -5,48 +5,18 @@ Provides hooks that connect the Arena debate engine to the event streaming
 system, enabling real-time WebSocket broadcasts of debate events.
 """
 
-import contextvars
 import logging
 import uuid
-from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Callable, Generator, cast
+from typing import Any, Callable, cast
 
 from aragora.debate.hooks import HookManager
+from aragora.events.context import get_current_task_id, streaming_task_context
 from aragora.server.errors import safe_error_message as _safe_error_message
 from aragora.server.stream.emitter import SyncEventEmitter
 from aragora.server.stream.events import StreamEvent, StreamEventType
 
 logger = logging.getLogger(__name__)
-
-# Context variable to track current task_id for streaming events
-# This allows concurrent generate() calls from the same agent to be distinguished
-_current_task_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "current_task_id", default=""
-)
-
-
-@contextmanager
-def streaming_task_context(task_id: str) -> Generator[None, None, None]:
-    """Context manager to set the current task_id for streaming events.
-
-    Use this when calling agent methods that may stream, to ensure their
-    TOKEN_* events include the task_id for proper grouping.
-
-    Example:
-        with streaming_task_context(f"{agent.name}:critique:{target}"):
-            result = await agent.critique(proposal, task, context)
-    """
-    token = _current_task_id.set(task_id)
-    try:
-        yield
-    finally:
-        _current_task_id.reset(token)
-
-
-def get_current_task_id() -> str:
-    """Get the current task_id for streaming events."""
-    return _current_task_id.get()
 
 
 def wrap_agent_for_streaming(agent: Any, emitter: SyncEventEmitter, debate_id: str) -> Any:

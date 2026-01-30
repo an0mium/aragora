@@ -747,7 +747,7 @@ class GraphDebateOrchestrator:
     def _emit_graph_event(self, event_emitter, event_type: str, data: dict, debate_id: str):
         """Emit a graph debate event via WebSocket."""
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             type_map = {
                 "node": StreamEventType.GRAPH_NODE_ADDED,

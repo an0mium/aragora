@@ -313,7 +313,7 @@ class TrainingEmitter:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             if not hasattr(StreamEventType, "TRAINING_DATA_EXPORTED"):
                 return

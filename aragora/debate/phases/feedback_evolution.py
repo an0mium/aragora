@@ -169,7 +169,7 @@ class EvolutionFeedback:
 
             # Emit event if event_emitter available
             if self.event_emitter:
-                from aragora.server.stream import StreamEvent, StreamEventType
+                from aragora.events.types import StreamEvent, StreamEventType
 
                 self.event_emitter.emit(
                     StreamEvent(

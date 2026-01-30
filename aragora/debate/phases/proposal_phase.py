@@ -27,7 +27,7 @@ from aragora.config import (
 )
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.types import AgentType, DebateContextType
-from aragora.server.stream.arena_hooks import streaming_task_context
+from aragora.events.context import streaming_task_context
 
 if TYPE_CHECKING:
     from aragora.debate.molecules import MoleculeTracker

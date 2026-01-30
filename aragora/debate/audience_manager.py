@@ -96,7 +96,7 @@ class AudienceManager:
         Args:
             event: Event with type and data attributes
         """
-        from aragora.server.stream.events import StreamEventType
+        from aragora.events.types import StreamEventType
 
         # Ignore events from other loops to prevent cross-contamination
         event_loop_id = getattr(event, "loop_id", None)
@@ -128,7 +128,7 @@ class AudienceManager:
         Returns:
             Number of events processed
         """
-        from aragora.server.stream.events import StreamEventType
+        from aragora.events.types import StreamEventType
 
         drained_count = 0
         skipped_count = 0

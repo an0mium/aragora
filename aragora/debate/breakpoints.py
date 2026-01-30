@@ -379,7 +379,7 @@ class BreakpointManager:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             snapshot = breakpoint.debate_snapshot
             self.event_emitter.emit(
@@ -531,7 +531,7 @@ How would you like to proceed?
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             guidance = breakpoint.guidance
             self.event_emitter.emit(

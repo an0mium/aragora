@@ -648,7 +648,7 @@ class FeedbackPhase:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             self.event_emitter.emit(
                 StreamEvent(
@@ -919,7 +919,7 @@ class FeedbackPhase:
 
         try:
             from aragora.debate.risk_assessor import assess_debate_risk
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             # Assess risks for the debate topic
             risks = assess_debate_risk(ctx.env.task, domain=ctx.domain)
@@ -1006,7 +1006,7 @@ class FeedbackPhase:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             # Get summary stats from calibration tracker
             summary = {}
@@ -1310,7 +1310,7 @@ class FeedbackPhase:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             for flip in flips:
                 self.event_emitter.emit(

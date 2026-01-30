@@ -473,7 +473,7 @@ class MemoryManager:
             return
 
         try:
-            from aragora.server.stream import StreamEvent, StreamEventType
+            from aragora.events.types import StreamEvent, StreamEventType
 
             # Build snippet summaries for the event
             snippet_summaries = []
@@ -618,7 +618,7 @@ class MemoryManager:
 
             # Also emit to WebSocket stream for live dashboard
             if self.event_emitter:
-                from aragora.server.stream import StreamEvent, StreamEventType
+                from aragora.events.types import StreamEvent, StreamEventType
 
                 self.event_emitter.emit(  # type: ignore[unused-coroutine]
                     StreamEvent(

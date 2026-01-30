@@ -25,7 +25,7 @@ from aragora.debate.performance_monitor import get_debate_monitor
 from aragora.debate.phases.convergence_tracker import (
     DebateConvergenceTracker,
 )
-from aragora.server.stream.arena_hooks import streaming_task_context
+from aragora.events.context import streaming_task_context
 
 # Timeout for async callbacks that can hang (evidence refresh, judge termination, etc.)
 DEFAULT_CALLBACK_TIMEOUT = 30.0
