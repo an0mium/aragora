@@ -145,7 +145,7 @@ export class SSONamespace {
     SAMLResponse?: string;
     RelayState?: string;
   }): Promise<SSOCallbackResult> {
-    return this.client.request<SSOCallbackResult>('POST', '/auth/sso/callback', params);
+    return this.client.request<SSOCallbackResult>('POST', '/auth/sso/callback', { body: params });
   }
 
   /**
@@ -155,7 +155,7 @@ export class SSONamespace {
    */
   async logout(options?: { everywhere?: boolean }): Promise<SSOLogoutResponse> {
     const body = options?.everywhere ? { everywhere: true } : undefined;
-    return this.client.request<SSOLogoutResponse>('POST', '/auth/sso/logout', body);
+    return this.client.request<SSOLogoutResponse>('POST', '/auth/sso/logout', { body });
   }
 
   /**
