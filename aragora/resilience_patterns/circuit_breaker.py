@@ -22,7 +22,7 @@ Usage:
         try:
             result = call_service()
             cb.record_success()
-        except Exception as e:
+        except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
             cb.record_failure(e)
             raise
 
@@ -414,7 +414,7 @@ def with_circuit_breaker(
                 result = await func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:
+            except Exception as e:  # Intentionally broad: circuit breakers must catch all errors
                 cb.record_failure(e)
                 raise
 
@@ -449,7 +449,7 @@ def with_circuit_breaker_sync(
                 result = func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:
+            except Exception as e:  # Intentionally broad: circuit breakers must catch all errors
                 cb.record_failure(e)
                 raise
 
@@ -492,7 +492,7 @@ def get_circuit_breaker(
             try:
                 result = await call_api()
                 cb.record_success()
-            except Exception as e:
+            except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
                 cb.record_failure(e)
                 raise
     """

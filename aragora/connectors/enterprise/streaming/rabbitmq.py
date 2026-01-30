@@ -619,13 +619,13 @@ class RabbitMQConnector(EnterpriseConnector):
     async def publish(
         self,
         body: Any,
-        routing_key: str = None,
-        headers: dict[str, str] = None,
-        message_id: str = None,
-        correlation_id: str = None,
-        reply_to: str = None,
-        expiration: str = None,
-        priority: int = None,
+        routing_key: str | None = None,
+        headers: dict[str, str] | None = None,
+        message_id: str | None = None,
+        correlation_id: str | None = None,
+        reply_to: str | None = None,
+        expiration: str | None = None,
+        priority: int | None = None,
     ) -> bool:
         """
         Publish a message to RabbitMQ with resilience.

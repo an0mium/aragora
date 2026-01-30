@@ -108,7 +108,7 @@ class WorkspaceManager:
                     workspace = Workspace(**data)
                     self._cache[workspace_id] = workspace
                     return workspace
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.error(f"Failed to get workspace: {e}")
 
         return None
@@ -140,7 +140,7 @@ class WorkspaceManager:
         if self._storage:
             try:
                 await self._storage.save_workspace(workspace)
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.error(f"Failed to save workspace: {e}")
 
         self._cache[workspace.id] = workspace
@@ -167,7 +167,7 @@ class WorkspaceManager:
         if self._storage:
             try:
                 return await self._storage.get_workspace_usage(workspace_id)
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.error(f"Failed to get usage: {e}")
 
         return {

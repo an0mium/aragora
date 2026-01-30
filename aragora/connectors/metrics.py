@@ -388,7 +388,7 @@ def measure_sync(
 
     try:
         yield context
-    except Exception as e:
+    except BaseException as e:
         context["status"] = "failure"
         error_type = type(e).__name__
         record_sync_error(connector_type, error_type)
@@ -550,5 +550,5 @@ def get_connector_metrics() -> dict:
 
     except ImportError:
         return {"error": "prometheus_client not installed"}
-    except Exception as e:
+    except (RuntimeError, ValueError, TypeError, AttributeError) as e:
         return {"error": str(e)}

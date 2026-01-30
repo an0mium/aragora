@@ -326,7 +326,7 @@ class SupabaseAuthValidator:
             # Malformed token structure or payload
             logger.warning(f"JWT structure error: {e}")
             return None
-        except Exception as e:
+        except (RuntimeError, OSError, AttributeError) as e:
             # Unexpected system error - fail closed in production
             env = os.getenv("ARAGORA_ENVIRONMENT", "development").lower()
             if env == "production":
@@ -363,7 +363,7 @@ class SupabaseAuthValidator:
 
             return payload
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, UnicodeDecodeError) as e:
             logger.warning(f"JWT decode failed: {e}")
             return None
 
@@ -444,7 +444,7 @@ class APIKeyValidator:
                         self._cache[key] = (user, time.time())
                         return user
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"API key validation failed: {e}")
 
         return None

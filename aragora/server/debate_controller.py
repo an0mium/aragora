@@ -65,10 +65,10 @@ class DebateRequest:
     consensus: str = DEFAULT_CONSENSUS  # Default consensus configuration
     debate_format: str = "full"  # "light" (~5 min) or "full" (~30 min)
     auto_select: bool = False
-    auto_select_config: dict = None
+    auto_select_config: dict | None = None
     use_trending: bool = False
     trending_category: str | None = None
-    metadata: dict = None  # Custom metadata (e.g., is_onboarding)
+    metadata: dict | None = None  # Custom metadata (e.g., is_onboarding)
 
     def __post_init__(self):
         if self.auto_select_config is None:
@@ -212,7 +212,9 @@ class DebateController:
                     s.strip() if isinstance(s, str) else str(s) for s in agents_str if s
                 )
             specs = AgentSpec.parse_list(str(agents_str))
-        except Exception as e:
+        except (ValueError, TypeError) as e:
+            # ValueError: invalid agent spec format
+            # TypeError: unexpected type in agent spec
             return f"Invalid agent specification: {e}"
 
         try:
@@ -222,7 +224,10 @@ class DebateController:
                 log_filtered=False,
                 min_agents=requested_count,
             )
-        except Exception as e:
+        except (ValueError, RuntimeError, OSError) as e:
+            # ValueError: invalid agent configuration
+            # RuntimeError: agent initialization failure
+            # OSError: credential file/network access issues
             return str(e)
 
         if filtered:
@@ -316,7 +321,12 @@ Return JSON with these exact fields:
         except json.JSONDecodeError as e:
             logger.error(f"[quick_classify] JSON parse error: {e}")
             return _DEFAULT_CLASSIFICATION
-        except Exception as e:
+        except (ImportError, AttributeError, KeyError, RuntimeError, OSError) as e:
+            # ImportError: anthropic SDK not installed
+            # AttributeError: unexpected response structure
+            # KeyError: missing response fields
+            # RuntimeError: API client errors
+            # OSError: network connectivity issues
             logger.error(f"[quick_classify] Failed: {type(e).__name__}: {e}")
             return _DEFAULT_CLASSIFICATION
 
@@ -337,7 +347,10 @@ Return JSON with these exact fields:
                     loop_id=debate_id,
                 )
             )
-        except Exception as e:
+        except (RuntimeError, OSError, KeyError, TypeError) as e:
+            # RuntimeError: async execution issues
+            # OSError: network/system errors
+            # KeyError/TypeError: unexpected classification response format
             logger.warning(f"Failed to emit quick classification: {e}")
 
     def start_debate(self, request: DebateRequest) -> DebateResponse:
@@ -366,7 +379,10 @@ Return JSON with these exact fields:
         if request.auto_select and self.auto_select_fn:
             try:
                 agents_str = self.auto_select_fn(request.question, request.auto_select_config)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
+                # ValueError/TypeError: invalid auto-select config or response
+                # RuntimeError: auto-select execution failure
+                # OSError: network/system errors during selection
                 logger.warning(f"Auto-select failed, using defaults: {e}")
 
         preflight_error = self._preflight_agents(agents_str)
@@ -572,7 +588,11 @@ Return JSON with these exact fields:
                     }
                     self.storage.save_dict(debate_data)
                     logger.info(f"[debate] Persisted debate {debate_id} to storage")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, AttributeError) as e:
+                # OSError: database/file access errors
+                # ValueError: serialization errors
+                # TypeError: unexpected data types during serialization
+                # AttributeError: missing attributes on result object
                 logger.error(f"[debate] Failed to persist debate {debate_id}: {e}")
 
             # Emit leaderboard update

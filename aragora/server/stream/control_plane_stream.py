@@ -296,7 +296,7 @@ class ControlPlaneStreamServer:
         task_id: str,
         task_type: str,
         priority: str = "normal",
-        required_capabilities: list = None,
+        required_capabilities: list | None = None,
     ):
         """Emit task submitted event."""
         await self.broadcast(
@@ -500,7 +500,7 @@ class ControlPlaneStreamServer:
         consensus_reached: bool,
         confidence: float,
         duration_seconds: float,
-        winner: str = None,
+        winner: str | None = None,
     ):
         """Emit deliberation completed event."""
         await self.broadcast(

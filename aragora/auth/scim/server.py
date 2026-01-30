@@ -651,7 +651,7 @@ class SCIMServer:
             logger.info("SCIM: Created user %s (%s)", created_user.id, created_user.user_name)
             return created_user.to_dict(), 201
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error creating user: %s", e)
             error = SCIMError(
                 status=400,
@@ -712,7 +712,7 @@ class SCIMServer:
             logger.info("SCIM: Replaced user %s", user_id)
             return updated_user.to_dict(), 200
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error replacing user %s: %s", user_id, e)
             error = SCIMError(
                 status=400,
@@ -759,7 +759,7 @@ class SCIMServer:
             logger.info("SCIM: Patched user %s", user_id)
             return updated_user.to_dict(), 200
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error patching user %s: %s", user_id, e)
             error = SCIMError(
                 status=400,
@@ -833,7 +833,7 @@ class SCIMServer:
             logger.info("SCIM: Created group %s (%s)", created_group.id, created_group.display_name)
             return created_group.to_dict(), 201
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error creating group: %s", e)
             error = SCIMError(
                 status=400,
@@ -879,7 +879,7 @@ class SCIMServer:
             logger.info("SCIM: Replaced group %s", group_id)
             return updated_group.to_dict(), 200
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error replacing group %s: %s", group_id, e)
             error = SCIMError(
                 status=400,
@@ -940,7 +940,7 @@ class SCIMServer:
             logger.info("SCIM: Patched group %s", group_id)
             return updated_group.to_dict(), 200
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("SCIM: Error patching group %s: %s", group_id, e)
             error = SCIMError(
                 status=400,

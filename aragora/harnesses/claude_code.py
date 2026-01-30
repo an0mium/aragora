@@ -178,7 +178,7 @@ class ClaudeCodeHarness(CodeAnalysisHarness):
                 logger.warning(f"Claude Code CLI check failed: {stderr.decode()}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to initialize Claude Code harness: {e}")
             return False
 
@@ -262,7 +262,7 @@ Respond with a JSON array of findings. Each finding should have:
         except HarnessError as e:
             error_message = str(e)
             logger.error(f"Harness error: {e}")
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             error_message = f"Unexpected error: {e}"
             logger.exception("Unexpected error in analyze_repository")
 
@@ -491,7 +491,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
 
                         if len(files) >= self.config.max_files:
                             break
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             logger.warning(f"Error collecting files: {e}")
 
         return files
@@ -513,7 +513,7 @@ I'll ask you questions about the codebase. Provide helpful, accurate answers."""
                 context_parts.append(file_context)
                 total_size += len(file_context)
 
-            except Exception as e:
+            except (OSError, UnicodeDecodeError) as e:
                 logger.debug(f"Could not read file {file_path}: {e}")
 
         return "\n".join(context_parts)

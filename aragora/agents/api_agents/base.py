@@ -162,7 +162,7 @@ class APIAgent(CritiqueMixin, Agent):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: object = None,
+        sanitize_fn: object | None = None,
     ) -> str:
         """Build context from previous messages.
 

@@ -481,7 +481,7 @@ async def _persist_approval_request(request: OperationApprovalRequest) -> None:
                     ],
                 },
             )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         # In distributed mode, persistence failure is critical
         from aragora.control_plane.leader import (
             DistributedStateError,
@@ -550,7 +550,7 @@ async def _recover_approval_request(request_id: str) -> OperationApprovalRequest
 
         return request
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError, json.JSONDecodeError) as e:
         logger.warning(f"Failed to recover approval request {request_id}: {e}")
         return None
 
@@ -567,7 +567,7 @@ async def _update_approval_state(request: OperationApprovalRequest) -> None:
             approved_by=request.approved_by,
             rejection_reason=request.rejection_reason,
         )
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"Failed to update approval state: {e}")
 
 
@@ -694,7 +694,7 @@ async def recover_pending_approvals() -> int:
                 _pending_approvals[record.approval_id] = request
                 recovered += 1
 
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, json.JSONDecodeError) as e:
                 logger.warning(f"Failed to recover approval {record.approval_id}: {e}")
 
         if recovered > 0 or expired > 0:
@@ -705,7 +705,7 @@ async def recover_pending_approvals() -> int:
     except ImportError:
         logger.debug("GovernanceStore not available, approval recovery skipped")
         return 0
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.warning(f"Failed to recover pending approvals: {e}")
         return 0
 

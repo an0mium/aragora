@@ -402,7 +402,7 @@ class EpicAdapter(EHRAdapter):
 
                         attachment["data"] = base64.b64encode(response.content).decode()
 
-                except Exception as e:
+                except (OSError, RuntimeError, ValueError, TimeoutError) as e:
                     logger.warning(f"Failed to fetch document content: {e}")
 
     async def get_appointments(
@@ -486,7 +486,7 @@ class EpicAdapter(EHRAdapter):
             )
             logger.info(f"Care Everywhere query completed for patient {patient_id}")
             return result
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TimeoutError, KeyError) as e:
             logger.warning(f"Care Everywhere query failed: {e}")
             return {"error": str(e), "available": False}
 

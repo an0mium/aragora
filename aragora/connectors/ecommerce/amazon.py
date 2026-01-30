@@ -389,7 +389,7 @@ class AmazonConnector(EnterpriseConnector):
                 return True
 
             return False
-        except Exception as e:
+        except (ImportError, KeyError, ValueError, RuntimeError) as e:
             logger.error(f"Failed to connect to Amazon SP-API: {e}")
             return False
 
@@ -757,7 +757,7 @@ class AmazonConnector(EnterpriseConnector):
         try:
             async for _ in self.incremental_sync():
                 items_synced += 1
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             errors.append(str(e))
 
         duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000

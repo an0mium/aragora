@@ -241,7 +241,7 @@ class RBACDistributedCache:
             try:
                 self._pubsub.unsubscribe()
                 self._pubsub.close()
-            except Exception as e:  # noqa: BLE001 - Cleanup must not raise
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.debug(f"RBAC pub/sub cleanup error: {e}")
             self._pubsub = None
 
@@ -503,7 +503,7 @@ class RBACDistributedCache:
         for callback in self._invalidation_callbacks:
             try:
                 callback(f"user:{user_id}")
-            except Exception as e:  # noqa: BLE001 - Callbacks must not break invalidation
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.debug(f"RBAC invalidation callback error: {e}")
 
     def invalidate_role(self, role_name: str) -> None:

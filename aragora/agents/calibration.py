@@ -29,6 +29,7 @@ __all__ = [
 
 import logging
 import math
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -376,10 +377,8 @@ class CalibrationTracker(SQLiteStore):
                     )
                     """)
                 conn.commit()
-        except Exception as e:
+        except (OSError, sqlite3.Error) as e:
             # Log but don't fail - the table might already exist or be created elsewhere
-            import logging
-
             logging.getLogger(__name__).warning(f"Failed to ensure temperature_params table: {e}")
 
     def _ensure_predictions_schema(self) -> None:
@@ -411,7 +410,7 @@ class CalibrationTracker(SQLiteStore):
                 safe_add_column(conn, "predictions", "debate_id", "TEXT", "NULL")
                 safe_add_column(conn, "predictions", "position_id", "TEXT", "NULL")
                 safe_add_column(conn, "predictions", "created_at", "TEXT", "CURRENT_TIMESTAMP")
-        except Exception as e:
+        except (OSError, sqlite3.Error) as e:
             logging.getLogger(__name__).warning(f"Failed to ensure predictions schema: {e}")
 
     def record_prediction(
@@ -674,7 +673,7 @@ class CalibrationTracker(SQLiteStore):
                 if summary.temperature_params
                 else 1.0,
             }
-        except Exception as e:
+        except (KeyError, ValueError, sqlite3.Error) as e:
             logger.debug(f"Failed to get calibration export for {agent}: {e}")
             return None
 

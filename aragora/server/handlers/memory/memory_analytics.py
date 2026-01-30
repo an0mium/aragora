@@ -41,9 +41,9 @@ class MemoryAnalyticsHandler(SecureHandler):
         "/api/v1/memory/analytics/snapshot",
     ]
 
-    def __init__(self, ctx: dict = None):
+    def __init__(self, ctx: dict | None = None):
         """Initialize with context."""
-        super().__init__(ctx or {})  # type: ignore[arg-type]
+        super().__init__(ctx or {})
         self._tracker = None
 
     @property

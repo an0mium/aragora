@@ -83,7 +83,7 @@ async def check_org_quota_async(
                     org_id=org_id,
                 )
         return True, None
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Async quota check failed for org {org_id}: {e}")
         return True, None  # Fail open
 
@@ -111,7 +111,7 @@ async def increment_org_usage_async(
         manager = get_quota_manager()
         await manager.consume(resource, count, tenant_id=org_id)
         return True
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Async usage increment failed for org {org_id}: {e}")
         return False
 
@@ -199,7 +199,7 @@ def check_org_quota(
 
         return True, None
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Quota check failed for org {org_id}: {e}")
         # Fail open - don't block on quota check errors
         return True, None
@@ -244,7 +244,7 @@ def increment_org_usage(
             user_store.increment_usage(org_id, count)
             return True
         return True
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Failed to increment usage for org {org_id}: {e}")
         return False
 
@@ -297,7 +297,7 @@ def require_quota(resource: str = "debate") -> Callable:
                     auth_ctx = extract_user_from_request(handler, user_store)
                     if auth_ctx.is_authenticated:
                         org_id = auth_ctx.org_id
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, ImportError) as e:
                 logger.debug(f"Could not extract auth context: {e}")
 
             # Check quota
@@ -377,7 +377,7 @@ def get_quota_status(
             "billing_cycle_start": org.billing_cycle_start.isoformat(),
         }
 
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error(f"Failed to get quota status for org {org_id}: {e}")
         return {"error": str(e)}
 

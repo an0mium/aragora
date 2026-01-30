@@ -259,7 +259,7 @@ class BaseConnector(ABC):
 
         except asyncio.TimeoutError:
             error_msg = f"Health check timed out after {timeout}s"
-        except Exception as e:
+        except (OSError, ConnectionError, RuntimeError) as e:
             error_msg = str(e)
 
         latency_ms = (time.time() - start_time) * 1000
@@ -586,7 +586,7 @@ class BaseConnector(ABC):
                         status_code=status,
                     ) from e
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 # Unexpected error - log and don't retry
                 if "json" in str(e).lower() or "decode" in str(e).lower():
                     if metrics_available:

@@ -314,7 +314,7 @@ class YouTubeUploaderConnector:
 
         except YouTubeAuthError:
             raise
-        except Exception as e:
+        except (httpx.TimeoutException, httpx.RequestError, json.JSONDecodeError, KeyError) as e:
             logger.error(f"Token exchange error: {e}")
             raise YouTubeAuthError(f"Token exchange failed: {e}") from e
 
@@ -587,7 +587,7 @@ class YouTubeUploaderConnector:
 
         except (YouTubeAuthError, YouTubeAPIError):
             raise
-        except Exception as e:
+        except (httpx.TimeoutException, httpx.RequestError, json.JSONDecodeError, KeyError) as e:
             logger.error(f"Failed to get video status: {e}")
             raise YouTubeAPIError(f"Failed to get video status: {e}") from e
 

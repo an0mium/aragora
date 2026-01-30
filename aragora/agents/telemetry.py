@@ -124,7 +124,7 @@ def _emit_telemetry(telemetry: AgentTelemetry) -> None:
     for collector in collectors:
         try:
             collector(telemetry)
-        except Exception as e:
+        except (TypeError, ValueError, AttributeError, RuntimeError) as e:
             logger.warning(
                 f"telemetry_collector_error collector={_get_callable_name(collector)} error={e}"
             )
@@ -272,7 +272,7 @@ def with_telemetry(
                     input_text = extract_input(*args, **kwargs)
                     telemetry.input_chars = len(input_text) if input_text else 0
                     telemetry.input_tokens = AgentTelemetry.estimate_tokens(input_text)
-                except Exception as e:
+                except (TypeError, AttributeError, IndexError, KeyError) as e:
                     logger.debug(f"telemetry_input_extraction_failed: {e}")
 
             try:
@@ -284,7 +284,7 @@ def with_telemetry(
                         output_text = extract_output(result)
                         telemetry.output_chars = len(output_text) if output_text else 0
                         telemetry.output_tokens = AgentTelemetry.estimate_tokens(output_text)
-                    except Exception as e:
+                    except (TypeError, AttributeError, IndexError, KeyError) as e:
                         logger.debug(f"telemetry_output_extraction_failed: {e}")
                 elif isinstance(result, str):
                     telemetry.output_chars = len(result)
@@ -293,7 +293,7 @@ def with_telemetry(
                 telemetry.complete(success=True)
                 return result
 
-            except Exception as e:
+            except BaseException as e:
                 telemetry.complete(success=False, error=e)
                 raise
 
@@ -327,7 +327,7 @@ def with_telemetry(
                     input_text = extract_input(*args, **kwargs)
                     telemetry.input_chars = len(input_text) if input_text else 0
                     telemetry.input_tokens = AgentTelemetry.estimate_tokens(input_text)
-                except Exception as e:
+                except (TypeError, AttributeError, IndexError, KeyError) as e:
                     logger.debug(f"telemetry_input_extraction_failed: {e}")
 
             try:
@@ -338,7 +338,7 @@ def with_telemetry(
                         output_text = extract_output(result)
                         telemetry.output_chars = len(output_text) if output_text else 0
                         telemetry.output_tokens = AgentTelemetry.estimate_tokens(output_text)
-                    except Exception as e:
+                    except (TypeError, AttributeError, IndexError, KeyError) as e:
                         logger.debug(f"telemetry_output_extraction_failed: {e}")
                 elif isinstance(result, str):
                     telemetry.output_chars = len(result)
@@ -347,7 +347,7 @@ def with_telemetry(
                 telemetry.complete(success=True)
                 return result
 
-            except Exception as e:
+            except BaseException as e:
                 telemetry.complete(success=False, error=e)
                 raise
 

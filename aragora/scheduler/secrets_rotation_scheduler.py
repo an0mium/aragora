@@ -608,7 +608,7 @@ class SecretsRotationScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, sqlite3.Error, RuntimeError) as e:
                 logger.error(f"Error in secrets rotation scheduler: {e}")
                 await asyncio.sleep(300)
 
@@ -767,7 +767,7 @@ class SecretsRotationScheduler:
                 rotation.verification_passed = True
                 rotation.status = RotationStatus.COMPLETED
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             rotation.status = RotationStatus.FAILED
             rotation.error_message = str(e)
             logger.error(f"Secret rotation failed: {e}")
@@ -806,7 +806,7 @@ class SecretsRotationScheduler:
             try:
                 success = handler(rotation.secret_id, rotation.old_version)
                 rotation.rolled_back = success
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Rollback failed: {e}")
                 rotation.rolled_back = False
         else:
@@ -843,7 +843,7 @@ class SecretsRotationScheduler:
         for handler in self._notification_handlers:
             try:
                 handler(notification)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error sending notification: {e}")
 
     async def _notify_rotation_completed(self, rotation: RotationResult) -> None:
@@ -863,7 +863,7 @@ class SecretsRotationScheduler:
         for handler in self._notification_handlers:
             try:
                 handler(notification)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error sending notification: {e}")
 
     # =========================================================================

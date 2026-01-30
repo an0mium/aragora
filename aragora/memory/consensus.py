@@ -371,7 +371,7 @@ class ConsensusMemory(SQLiteStore):
             # Cache the results
             _km_consensus_cache.set(cache_key, results)
             return results
-        except Exception as e:
+        except (AttributeError, TypeError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for similar consensus: {e}")
             return []
 

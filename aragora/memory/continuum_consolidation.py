@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+import importlib.util
 from typing import TYPE_CHECKING
 
 from aragora.memory.tier_manager import DEFAULT_TIER_CONFIGS, MemoryTier
@@ -31,10 +32,11 @@ def emit_tier_event(
     if not cms.event_emitter:
         return
 
+    if importlib.util.find_spec("aragora.server.stream") is None:
+        logger.debug("[memory] Stream module not available for tier event emission")
+        return
+
     try:
-        from aragora.server.stream import StreamEvent, StreamEventType
-
-
         event_type_str = (
             "memory_tier_promotion" if event_type == "promotion" else "memory_tier_demotion"
         )
@@ -46,14 +48,11 @@ def emit_tier_event(
             to_tier=to_tier.value,
             surprise_score=surprise_score,
         )
-    except ImportError:
-        # Stream module not available - expected in minimal installations
-        logger.debug("[memory] Stream module not available for tier event emission")
     except (AttributeError, TypeError) as e:
         # event_emitter not properly configured or emit() signature mismatch
         logger.debug(f"[memory] Event emitter configuration error: {e}")
     except (ValueError, KeyError) as e:
-        # Invalid event data or missing StreamEventType
+        # Invalid event data
         logger.warning(f"[memory] Invalid tier event data: {e}")
     except (ConnectionError, OSError) as e:
         # Network/IO errors during event emission - non-critical

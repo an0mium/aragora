@@ -189,7 +189,7 @@ class AWSSecretsManagerProvider:
                 # Binary secret
                 return {"_binary": response["SecretBinary"]}
 
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"Failed to fetch secret {self.secret_name}: {e}")
             raise
 
@@ -216,7 +216,7 @@ class AWSSecretsManagerProvider:
         # Fetch secret
         try:
             secret_data = await self._fetch_secret()
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             logger.error(f"Failed to fetch credentials: {e}")
             return None
 

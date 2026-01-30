@@ -558,7 +558,7 @@ class DecisionRoutingMiddleware:
                 "duration_seconds": duration,
             }
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.error(f"Routing error for {context.request_id}: {e}")
 
             if self._deduplicator:
@@ -590,7 +590,7 @@ class DecisionRoutingMiddleware:
             )
         except ImportError:
             logger.debug("debate_origin not available for origin registration")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError) as e:
             logger.warning(f"Failed to register origin: {e}")
 
     async def _route_via_decision_router(
@@ -710,7 +710,7 @@ class DecisionRoutingMiddleware:
                 "consensus_reached": result.get("consensus_reached", False),
             }
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError, ImportError) as e:
             logger.error(f"Fallback routing failed: {e}")
             return {
                 "success": False,

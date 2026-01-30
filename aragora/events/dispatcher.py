@@ -607,7 +607,7 @@ def dispatch_receipt_ready(
     receipt_id: str,
     verdict: str,
     confidence: float,
-    formats_available: list = None,
+    formats_available: list | None = None,
 ) -> None:
     """
     Dispatch a receipt_ready event when a gauntlet receipt is generated.

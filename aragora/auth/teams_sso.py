@@ -342,8 +342,9 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for OBO flow")
             return None
-        except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"OBO token exchange error: {e}")
+        except Exception as e:
+            # Catch all exceptions including network errors for graceful degradation
+            logger.error(f"OBO token exchange error: {type(e).__name__}: {e}")
             return None
 
     async def get_user_from_graph(
@@ -377,8 +378,9 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for Graph API")
             return None
-        except (OSError, ValueError, TypeError, RuntimeError) as e:
-            logger.error(f"Graph API error: {e}")
+        except Exception as e:
+            # Catch all exceptions including network errors for graceful degradation
+            logger.error(f"Graph API error: {type(e).__name__}: {e}")
             return None
 
 

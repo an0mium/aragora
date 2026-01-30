@@ -778,7 +778,7 @@ class GracefulShutdown:
                 logger.debug(f"Cleanup task {i + 1}/{len(self._cleanup_tasks)} completed")
             except asyncio.TimeoutError:
                 logger.warning(f"Cleanup task {i + 1} timed out")
-            except (RuntimeError, OSError, ValueError) as e:
+            except (RuntimeError, OSError, ValueError, ConnectionError) as e:
                 logger.error(f"Cleanup task {i + 1} failed: {e}")
 
         logger.info("All cleanup tasks completed")

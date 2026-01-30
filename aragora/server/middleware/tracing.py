@@ -262,7 +262,7 @@ def trace_context(
 
     try:
         yield span
-    except Exception as e:
+    except BaseException as e:
         span.set_error(e)
         raise
     finally:
@@ -307,7 +307,7 @@ def traced(operation: str | None = None) -> Callable:
             with trace_context(op_name) as span:
                 try:
                     return await func(*args, **kwargs)
-                except Exception as e:
+                except BaseException as e:
                     span.set_error(e)
                     raise
 
@@ -316,7 +316,7 @@ def traced(operation: str | None = None) -> Callable:
             with trace_context(op_name) as span:
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except BaseException as e:
                     span.set_error(e)
                     raise
 

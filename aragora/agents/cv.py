@@ -391,10 +391,10 @@ class CVBuilder:
                 efficiency = self.elo_system.get_learning_efficiency(cv.agent_id)
                 cv.learning_category = efficiency.get("learning_category", "unknown")
                 cv.elo_gain_rate = efficiency.get("elo_gain_rate", 0.0)
-            except Exception as e:
+            except (KeyError, AttributeError, TypeError) as e:
                 logger.debug(f"Learning efficiency lookup failed for {cv.agent_id}: {e}")
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             logger.warning(f"ELO data lookup failed for {cv.agent_id}: {e}")
 
     def _populate_from_calibration(self, cv: AgentCV) -> None:
@@ -420,10 +420,10 @@ class CVBuilder:
                             calibration_accuracy=domain_summary.accuracy,
                             brier_score=domain_summary.brier_score,
                         )
-            except Exception as e:
+            except (KeyError, AttributeError, TypeError) as e:
                 logger.debug(f"Domain calibration lookup failed for {cv.agent_id}: {e}")
 
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             logger.warning(f"Calibration data lookup failed for {cv.agent_id}: {e}")
 
     def _populate_from_performance(self, cv: AgentCV) -> None:
@@ -441,7 +441,7 @@ class CVBuilder:
                         p50_latency_ms=stats.avg_duration_ms,  # Approximation
                         p99_latency_ms=stats.max_duration_ms,  # Approximation
                     )
-        except Exception as e:
+        except (KeyError, AttributeError, TypeError) as e:
             logger.warning(f"Performance data lookup failed for {cv.agent_id}: {e}")
 
     def build_cvs_batch(self, agent_ids: list[str]) -> dict[str, AgentCV]:
@@ -463,7 +463,7 @@ class CVBuilder:
         if self.elo_system:
             try:
                 elo_ratings = self.elo_system.get_ratings_batch(agent_ids)
-            except Exception as e:
+            except (KeyError, AttributeError, TypeError, ValueError) as e:
                 logger.warning(f"Batch ELO lookup failed: {e}")
 
         # Build individual CVs with pre-fetched data

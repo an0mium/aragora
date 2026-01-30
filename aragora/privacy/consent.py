@@ -259,7 +259,7 @@ class ConsentStore:
 
             logger.debug("Loaded %d users from consent store", len(self._records))
 
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error("Failed to load consent store: %s", e)
             self._records = {}
 
@@ -277,7 +277,7 @@ class ConsentStore:
             with open(self.storage_path, "w") as f:
                 json.dump(data, f, indent=2)
 
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.error("Failed to persist consent store: %s", e)
 
 

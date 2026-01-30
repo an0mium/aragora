@@ -73,7 +73,7 @@ def get_connector(
             _CONNECTOR_INSTANCES[platform] = connector
 
         return connector
-    except Exception as e:
+    except (TypeError, ValueError, KeyError, RuntimeError) as e:
         logger.error(f"Failed to create {platform} connector: {e}")
         return None
 
@@ -282,7 +282,7 @@ class ChatPlatformRegistry:
                     blocks=platform_blocks,
                 )
                 results[platform] = response.success
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TimeoutError) as e:
                 logger.error(f"Broadcast to {platform} failed: {e}")
                 results[platform] = False
 

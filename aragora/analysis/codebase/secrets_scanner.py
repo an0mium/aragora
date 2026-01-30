@@ -446,7 +446,7 @@ class SecretsScanner:
             result.status = "completed"
             result.completed_at = datetime.now()
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now()
@@ -504,7 +504,7 @@ class SecretsScanner:
             result.status = "completed"
             result.completed_at = datetime.now()
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now()
@@ -909,7 +909,7 @@ class SecretsScanner:
             result.status = "completed"
             result.completed_at = datetime.now()
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             result.status = "failed"
             result.error = str(e)
             result.completed_at = datetime.now()

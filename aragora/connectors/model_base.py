@@ -254,7 +254,7 @@ class ConnectorDataclass:
             hints = {}
             for f in fields(cls):
                 hints[f.name] = f.type
-        except Exception:
+        except (TypeError, AttributeError):
             hints = {}
 
         kwargs = {}
@@ -305,7 +305,7 @@ class ConnectorDataclass:
             hints = {}
             for f in fields(self):
                 hints[f.name] = f.type
-        except Exception:
+        except (TypeError, AttributeError):
             hints = {}
 
         for f in fields(self):

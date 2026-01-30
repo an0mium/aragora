@@ -71,7 +71,7 @@ class OAuthRotationHandler(RotationHandler):
 
                 client_id = client_id or get_secret(f"{provider.upper()}_CLIENT_ID")
                 client_secret = client_secret or get_secret(f"{provider.upper()}_CLIENT_SECRET")
-            except Exception as e:
+            except (ImportError, OSError, KeyError) as e:
                 logger.debug(f"Could not load OAuth client credentials from secrets: {e}")
 
         if not client_id or not client_secret:
@@ -118,7 +118,7 @@ class OAuthRotationHandler(RotationHandler):
 
         except ImportError:
             raise RotationError("httpx not installed. Install with: pip install httpx", secret_id)
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             raise RotationError(f"OAuth refresh failed: {e}", secret_id)
 
     def _get_token_url(self, provider: str, metadata: dict[str, Any]) -> str:
@@ -193,7 +193,7 @@ class OAuthRotationHandler(RotationHandler):
         except ImportError:
             logger.warning("httpx not installed, assuming token valid")
             return True
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"OAuth validation error for {secret_id}: {e}")
             return False
 
@@ -262,7 +262,7 @@ class OAuthRotationHandler(RotationHandler):
         except ImportError:
             logger.warning("httpx not installed, skipping revocation")
             return True
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"OAuth revocation error for {secret_id}: {e}")
             return False
 

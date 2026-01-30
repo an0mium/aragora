@@ -652,7 +652,7 @@ class DRDrillScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, sqlite3.Error, RuntimeError) as e:
                 logger.error(f"Error in DR drill scheduler: {e}")
                 await asyncio.sleep(300)
 
@@ -750,7 +750,7 @@ class DRDrillScheduler:
                 if step.action == "verify" and step.status == DrillStatus.COMPLETED:
                     recovery_end = datetime.now(timezone.utc)
 
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 step.status = DrillStatus.FAILED
                 step.error_message = str(e)
                 failed_steps.append(step)
@@ -911,7 +911,7 @@ class DRDrillScheduler:
             try:
                 result = handler()
                 return result
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 return {"success": False, "error": str(e)}
 
         # Default: simulate if no handler
@@ -1002,7 +1002,7 @@ class DRDrillScheduler:
         for handler in self._notification_handlers:
             try:
                 handler(notification)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error sending notification: {e}")
 
     # =========================================================================

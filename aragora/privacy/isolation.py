@@ -290,7 +290,7 @@ class DataIsolationManager:
                     pass
                 else:
                     loop.run_until_complete(rbac.populate_context_permissions(ctx))
-            except Exception as e:
+            except (RuntimeError, AttributeError, ValueError, LookupError) as e:
                 logger.debug(f"Could not populate RBAC permissions: {e}")
 
         return ctx
@@ -338,7 +338,7 @@ class DataIsolationManager:
                     scope_id=org_id,
                     assigned_by="system",
                 )
-            except Exception as e:
+            except (RuntimeError, AttributeError, ValueError, LookupError, PermissionError) as e:
                 logger.warning(f"Could not assign org_admin role: {e}")
 
         await self._log_access(
@@ -371,7 +371,7 @@ class DataIsolationManager:
                 accessible = [
                     self._organizations[oid] for oid in org_ids if oid in self._organizations
                 ]
-            except Exception as e:
+            except (RuntimeError, AttributeError, ValueError, LookupError) as e:
                 logger.debug(f"Could not get org assignments: {e}")
 
         return accessible

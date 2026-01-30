@@ -537,7 +537,7 @@ class ConditionEvaluator:
         if name in self._conditions:
             try:
                 return self._conditions[name].evaluate(expected, context)
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.error(f"Error evaluating condition {name}: {e}")
                 return ConditionResult(
                     satisfied=False,
@@ -554,7 +554,7 @@ class ConditionEvaluator:
                     condition_name=f"custom:{name}",
                     reason="Custom condition " + ("passed" if satisfied else "failed"),
                 )
-            except Exception as e:
+            except (ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.error(f"Error evaluating custom condition {name}: {e}")
                 return ConditionResult(
                     satisfied=False,

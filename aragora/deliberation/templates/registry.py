@@ -143,14 +143,14 @@ class TemplateRegistry:
                     template = DeliberationTemplate.from_dict(template_data)
                     self.register(template)
                     count += 1
-                except Exception as e:
+                except (KeyError, TypeError, ValueError) as e:
                     logger.warning(f"Failed to load template from YAML: {e}")
 
             return count
         except ImportError:
             logger.warning("PyYAML not installed, cannot load YAML templates")
             return 0
-        except Exception as e:
+        except (OSError, IOError, ValueError) as e:
             logger.error(f"Failed to load templates from {yaml_path}: {e}")
             return 0
 

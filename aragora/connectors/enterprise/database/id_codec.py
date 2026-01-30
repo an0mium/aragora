@@ -198,7 +198,7 @@ def parse_evidence_id(evidence_id: str) -> dict[str, Any] | None:
                     "pk_value": pk_value,
                     "is_legacy": False,
                 }
-            except Exception:
+            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError):
                 return None
 
     # New Snowflake 6-part: sf:account:db:table:pk_type:encoded_pk
@@ -216,7 +216,7 @@ def parse_evidence_id(evidence_id: str) -> dict[str, Any] | None:
                     "pk_value": pk_value,
                     "is_legacy": False,
                 }
-            except Exception:
+            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError):
                 return None
 
     return None

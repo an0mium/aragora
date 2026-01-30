@@ -46,9 +46,9 @@ class PolicyViolationError(Exception):
     def __init__(
         self,
         result: "PolicyEvaluationResult",
-        task_type: str = None,
-        agent_id: str = None,
-        region: str = None,
+        task_type: str | None = None,
+        agent_id: str | None = None,
+        region: str | None = None,
     ):
         self.result = result
         self.task_type = task_type

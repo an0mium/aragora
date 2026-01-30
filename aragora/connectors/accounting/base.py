@@ -276,7 +276,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                             continue
                         except (ConnectorAuthError, ConnectorAPIError, asyncio.TimeoutError) as e:
                             logger.warning(f"[{self.PROVIDER_NAME}] Token refresh failed: {e}")
-                        except Exception as e:
+                        except (RuntimeError, ValueError, KeyError) as e:
                             logger.error(
                                 f"[{self.PROVIDER_NAME}] Unexpected error during token refresh: {e}"
                             )
@@ -395,7 +395,7 @@ class AccountingConnectorBase(ABC, Generic[C]):
                     return await response.text()
                 return response.text
             return f"HTTP {response.status_code}"
-        except Exception as e:
+        except (AttributeError, KeyError, RuntimeError) as e:
             logger.warning(f"[{self.PROVIDER_NAME}] Unexpected error parsing response: {e}")
             return f"HTTP {response.status_code}"
 

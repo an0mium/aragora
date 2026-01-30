@@ -170,7 +170,7 @@ class RedisTokenBucket:
             )
             # evalsha returns list, but redis-py stubs don't reflect this accurately
             return bool(result[0])  # type: ignore[index]
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
             logger.warning(f"Redis rate limit error, allowing request: {e}")
             return True  # Fail open on Redis errors
 
@@ -185,7 +185,7 @@ class RedisTokenBucket:
             tokens_needed = 1 - tokens
             minutes_needed = tokens_needed / self.rate_per_minute
             return minutes_needed * 60
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.debug(f"Error getting retry_after, defaulting to 0: {e}")
             return 0
 
@@ -204,7 +204,7 @@ class RedisTokenBucket:
             tokens = min(self.burst_size, tokens + refill_amount)
 
             return max(0, int(tokens))
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
             logger.debug(f"Error getting remaining tokens, defaulting to burst_size: {e}")
             return self.burst_size
 

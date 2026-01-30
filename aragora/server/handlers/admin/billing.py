@@ -458,12 +458,12 @@ class BillingHandler(SecureHandler):
         user_store,
         action: str,
         resource_type: str,
-        resource_id: str = None,
-        user_id: str = None,
-        org_id: str = None,
-        old_value: dict = None,
-        new_value: dict = None,
-        metadata: dict = None,
+        resource_id: str | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+        old_value: dict | None = None,
+        new_value: dict | None = None,
+        metadata: dict | None = None,
         handler=None,
     ) -> None:
         """Log an audit event for billing operations."""

@@ -473,12 +473,15 @@ class AgentsHandler(SecureHandler):
 
         # Get circuit breaker status
         try:
-            from aragora.resilience import get_circuit_breaker
+            from aragora.resilience import get_circuit_breakers
 
-            cb = get_circuit_breaker()  # type: ignore[call-arg]
-            if cb:
-                # Get all tracked agents from circuit breaker
-                states = cb.get_all_states() if hasattr(cb, "get_all_states") else {}
+            circuit_breakers = get_circuit_breakers()
+            if circuit_breakers:
+                # Get all tracked agents from circuit breakers
+                states = {
+                    name: cb.get_status_dict() if hasattr(cb, "get_status_dict") else {}
+                    for name, cb in circuit_breakers.items()
+                }
                 for agent_name, state in states.items():
                     health["circuit_breakers"][agent_name] = {
                         "state": state.get("state", "unknown"),

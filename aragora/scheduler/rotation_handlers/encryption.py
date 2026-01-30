@@ -147,7 +147,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
                 # Basic validation passed
                 return True
 
-        except Exception as e:
+        except (ValueError, TypeError, UnicodeDecodeError) as e:
             logger.error(f"Key validation failed for {secret_id}: {e}")
             return False
 
@@ -180,7 +180,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
         except ImportError:
             logger.warning("cryptography not installed, assuming key valid")
             return True
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             logger.error(f"AES validation error: {e}")
             return False
 
@@ -199,7 +199,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
                 hmac.new(key, message, hashlib.sha256).digest(),
             )
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             logger.error(f"HMAC validation error: {e}")
             return False
 
@@ -237,7 +237,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
 
             return True
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as e:
             logger.error(f"Key archival failed for {secret_id}: {e}")
             return False
 
@@ -273,7 +273,7 @@ class EncryptionKeyRotationHandler(RotationHandler):
                 # In production, this would call store-specific re-encryption
                 logger.info(f"Re-encrypting {store} with new key for {secret_id}")
                 results[store] = {"status": "pending", "message": "Re-encryption queued"}
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError) as e:
                 logger.error(f"Re-encryption failed for {store}: {e}")
                 results[store] = {"status": "failed", "error": str(e)}
 

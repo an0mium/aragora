@@ -296,7 +296,7 @@ class DocumentConnector(Connector):
                 )
                 return doc
 
-        except Exception as e:
+        except (OSError, ValueError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse document {path}: {e}")
 
         return None
@@ -327,7 +327,7 @@ class DocumentConnector(Connector):
                 logger.info(f"Parsed document: {filename} ({len(doc.chunks)} chunks)")
                 return doc
 
-        except Exception as e:
+        except (OSError, ValueError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse document bytes ({filename}): {e}")
 
         return None

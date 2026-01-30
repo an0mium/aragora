@@ -119,7 +119,7 @@ def get_redis_client() -> Optional["redis.Redis"]:
         logger.info(f"Redis rate limiting enabled: {redis_url.split('@')[-1]}")
         return _redis_client
 
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         logger.warning(f"Redis connection failed, using in-memory rate limiting: {e}")
         _redis_client = None
         return None
@@ -131,7 +131,7 @@ def reset_redis_client() -> None:
     if _redis_client is not None:
         try:
             _redis_client.close()
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             # Log but don't fail - we're resetting anyway
             logger.debug(f"Error closing Redis client during reset: {e}")
     _redis_client = None
@@ -433,7 +433,7 @@ class RedisRateLimiter:
                 retry_after=bucket.get_retry_after() if not allowed else 0,
                 key=key,
             )
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError) as e:
             logger.warning(f"Redis rate limit failed, using fallback: {e}")
 
             # Record failure for circuit breaker
@@ -475,7 +475,7 @@ class RedisRateLimiter:
             pipe.expire(instance_key, METRICS_AGGREGATION_INTERVAL * 3)  # TTL 3x interval
             pipe.execute()
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
             logger.debug(f"Failed to sync distributed metrics: {e}")
 
     def get_distributed_metrics(self) -> dict[str, Any]:
@@ -523,7 +523,7 @@ class RedisRateLimiter:
             )
             aggregated["instance_count"] = len(aggregated["instances"])
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
             aggregated["error"] = str(e)
 
         return aggregated
@@ -563,7 +563,7 @@ class RedisRateLimiter:
                 base_stats["distributed"] = self.get_distributed_metrics()
 
             return base_stats
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
             base_stats["error"] = str(e)
             base_stats["fallback_stats"] = self._fallback.get_stats()
             return base_stats
@@ -586,7 +586,7 @@ class RedisRateLimiter:
             keys = list(self.redis.scan_iter(f"{self.key_prefix}*", count=10000))
             if keys:
                 self.redis.delete(*keys)
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError) as e:
             logger.warning(f"Redis reset failed: {e}")
 
         with self._lock:

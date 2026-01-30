@@ -506,7 +506,11 @@ class _InMemoryRedis:
         pass  # No-op for in-memory
 
     async def hset(
-        self, key: str, field: str = None, value: str = None, mapping: dict = None
+        self,
+        key: str,
+        field: str | None = None,
+        value: str | None = None,
+        mapping: dict | None = None,
     ) -> None:
         if key not in self._hashes:
             self._hashes[key] = {}

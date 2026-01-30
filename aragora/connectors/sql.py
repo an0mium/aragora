@@ -303,7 +303,7 @@ class SQLConnector(BaseConnector):
                 column_names = [desc[0] for desc in cursor.description or []]
                 rows = [dict(row) for row in cursor.fetchall()]
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError) as e:
             logger.error(f"SQL query failed: {e}")
             raise
 
@@ -459,7 +459,7 @@ class SQLConnector(BaseConnector):
                         result = self._connection.close()
                         if hasattr(result, "__await__"):
                             await result
-            except Exception as e:
+            except (OSError, RuntimeError) as e:
                 logger.warning(f"Error closing SQL connection: {e}")
             finally:
                 self._connection = None

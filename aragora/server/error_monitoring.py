@@ -150,7 +150,8 @@ def init_monitoring() -> bool:
     except ImportError:
         logger.warning("sentry-sdk not installed, error monitoring disabled")
         _sentry_available = False
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
+        # Configuration errors (invalid DSN, bad sample rates, SDK runtime issues)
         logger.error(f"Failed to initialize Sentry: {e}")
         _sentry_available = False
 
@@ -194,7 +195,7 @@ def capture_exception(
             scope.level = level
             event_id: str | None = sentry_sdk.capture_exception(exception)
             return event_id
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to capture exception: {e}")
         return None
 
@@ -229,7 +230,7 @@ def capture_message(
                     scope.set_extra(key, value)
             event_id: str | None = sentry_sdk.capture_message(message, level=level)
             return event_id
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to capture message: {e}")
         return None
 
@@ -283,7 +284,7 @@ def set_user(
             },
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to set user: {e}")
 
 
@@ -301,7 +302,7 @@ def set_tag(key: str, value: str):
         import sentry_sdk
 
         sentry_sdk.set_tag(key, value)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to set tag: {e}")
 
 
@@ -343,7 +344,7 @@ def set_debate_context(
                 "round": round_number,
             },
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to set debate context: {e}")
 
 
@@ -360,7 +361,7 @@ def monitor_errors(func: F) -> F:
     async def async_wrapper(*args, **kwargs):
         try:
             return await func(*args, **kwargs)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all: decorator captures any exception for monitoring then re-raises
             capture_exception(e, context={"function": func.__name__})
             raise
 
@@ -368,7 +369,7 @@ def monitor_errors(func: F) -> F:
     def sync_wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Intentional catch-all: decorator captures any exception for monitoring then re-raises
             capture_exception(e, context={"function": func.__name__})
             raise
 
@@ -434,7 +435,7 @@ def track_error_recovery(
                 },
             )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to track error recovery: {e}")
 
 
@@ -455,7 +456,7 @@ def start_transaction(name: str, op: str = "task") -> Any:
         import sentry_sdk
 
         return sentry_sdk.start_transaction(name=name, op=op)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Intentional catch-all: error monitoring must never crash the main application
         logger.error(f"Failed to start transaction: {e}")
         return None
 

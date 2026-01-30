@@ -19,7 +19,7 @@ class OAuthUserInfo:
     email_verified: bool = False
 
 
-def _get_param(query_params: dict, name: str, default: str = None) -> str:
+def _get_param(query_params: dict, name: str, default: str | None = None) -> str | None:
     """
     Safely extract a query parameter value.
 

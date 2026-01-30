@@ -122,7 +122,7 @@ class OpenRouterAgent(APIAgent):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: object = None,
+        sanitize_fn: object | None = None,
     ) -> str:
         """Build context prompt from message history.
 

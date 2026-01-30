@@ -614,7 +614,7 @@ class AuthorizationAuditor:
         for handler in self._handlers:
             try:
                 handler(event)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.error(f"Error in audit handler: {e}")
 
         # Buffer for batch processing
@@ -794,7 +794,7 @@ class PersistentAuditHandler:
             try:
                 self._write_event(event)
                 self._events_written += 1
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 self._events_failed += 1
                 logger.error("Failed to persist audit event %s: %s", event.id, e)
 

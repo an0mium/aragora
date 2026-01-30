@@ -370,7 +370,7 @@ class HybridMemorySearch:
                         if tiers is None or tier in tiers:
                             results.append((memory_id, content, score, tier, importance))
                 return results
-            except Exception as e:
+            except (AttributeError, TypeError, RuntimeError) as e:
                 logger.debug(f"Vector search via KM failed: {e}")
 
         # Fallback: use embedder if available
@@ -379,7 +379,7 @@ class HybridMemorySearch:
                 # Would need vector store integration here
                 # For now, return empty and rely on keyword search
                 pass
-            except Exception as e:
+            except (AttributeError, TypeError, RuntimeError) as e:
                 logger.debug(f"Vector search via embedder failed: {e}")
 
         return []

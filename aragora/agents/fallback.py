@@ -202,7 +202,10 @@ class QuotaFallbackMixin:
             from aragora.config import get_api_key
 
             openrouter_key = get_api_key("OPENROUTER_API_KEY", required=False)
-        except Exception as e:
+        except (ImportError, KeyError, OSError) as e:
+            # ImportError: config module not available
+            # KeyError: API key not in config
+            # OSError: file-based config read failure
             logger.debug(f"Config-based API key retrieval failed, using env var: {e}")
             openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if not openrouter_key:
@@ -278,7 +281,7 @@ class QuotaFallbackMixin:
             latency = time.time() - start_time
             record_fallback_success("openrouter", success=True, latency_seconds=latency)
             return result
-        except Exception:
+        except Exception:  # noqa: BLE001 - Intentional catch-all: fallback handler must record metrics for any failure type before re-raising
             latency = time.time() - start_time
             record_fallback_success("openrouter", success=False, latency_seconds=latency)
             raise
@@ -333,7 +336,7 @@ class QuotaFallbackMixin:
                 yield token
             latency = time.time() - start_time
             record_fallback_success("openrouter", success=True, latency_seconds=latency)
-        except Exception:
+        except Exception:  # noqa: BLE001 - Intentional catch-all: fallback handler must record metrics for any failure type before re-raising
             latency = time.time() - start_time
             record_fallback_success("openrouter", success=False, latency_seconds=latency)
             raise
@@ -507,7 +510,10 @@ class AgentFallbackChain:
             agent = factory()
             self._cached_agents[provider] = agent
             return agent
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, OSError) as e:
+            # ValueError/TypeError: invalid factory arguments or return type
+            # RuntimeError: factory execution failure
+            # OSError: network/file access issues during agent creation
             logger.warning(f"Failed to create agent for provider '{provider}': {e}")
             return None
 
@@ -609,7 +615,7 @@ class AgentFallbackChain:
 
                 return result
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional catch-all: fallback chain must handle any provider failure to try next provider
                 call_latency = time.time() - call_start
                 last_error = e
                 self._record_failure(provider_key)
@@ -725,7 +731,7 @@ class AgentFallbackChain:
                 # If we got here, stream completed successfully
                 return
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Intentional catch-all: fallback chain must handle any provider failure to try next provider
                 call_latency = time.time() - call_start
                 last_error = e
                 self._record_failure(provider_key)
@@ -800,7 +806,11 @@ def get_local_fallback_providers() -> list[str]:
     try:
         local_agents = _AgentRegistry.detect_local_agents()
         return [agent["name"] for agent in local_agents if agent.get("available", False)]
-    except Exception as e:
+    except (AttributeError, TypeError, KeyError, OSError) as e:
+        # AttributeError: detect_local_agents not available
+        # TypeError: unexpected return type from detect_local_agents
+        # KeyError: missing expected keys in agent dict
+        # OSError: network issues when probing local LLM servers
         logger.debug(f"Could not detect local LLMs: {e}")
         return []
 
@@ -883,7 +893,11 @@ def is_local_llm_available() -> bool:
     try:
         status = _AgentRegistry.get_local_status()
         return status.get("any_available", False)
-    except Exception as e:
+    except (AttributeError, TypeError, KeyError, OSError) as e:
+        # AttributeError: get_local_status not available
+        # TypeError: unexpected return type
+        # KeyError: missing expected keys
+        # OSError: network issues when probing local LLM servers
         logger.warning(f"Failed to check local LLM availability: {e}")
         return False
 
@@ -910,7 +924,9 @@ def get_default_fallback_enabled() -> bool:
     except (ImportError, AttributeError, KeyError) as e:
         # Expected errors: module not installed, missing attribute, or config key
         logger.debug(f"Settings not available for fallback config, defaulting to disabled: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, OSError) as e:
+        # ValueError/TypeError: invalid config values
+        # OSError: file-based config read failure
         logger.warning(f"Unexpected error loading fallback settings, defaulting to disabled: {e}")
     try:
         from aragora.config.secrets import get_secret
@@ -918,7 +934,11 @@ def get_default_fallback_enabled() -> bool:
 
         explicit_flag = get_secret("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
         secrets_config = SecretsConfig.from_env()
-    except Exception as e:
+    except (ImportError, KeyError, OSError, ValueError) as e:
+        # ImportError: secrets module not available
+        # KeyError: secret not found
+        # OSError: file/network access issues
+        # ValueError: invalid secret value
         logger.debug(f"Could not load secrets config for fallback settings: {e}")
         explicit_flag = None
         secrets_config = None
@@ -936,6 +956,9 @@ def get_default_fallback_enabled() -> bool:
         from aragora.config import get_api_key
 
         return bool(get_api_key("OPENROUTER_API_KEY", required=False))
-    except Exception as e:
+    except (ImportError, KeyError, OSError) as e:
+        # ImportError: config module not available
+        # KeyError: API key not in config
+        # OSError: file/network access issues
         logger.debug(f"Could not load API key config, falling back to env var: {e}")
         return bool(os.environ.get("OPENROUTER_API_KEY"))

@@ -649,7 +649,7 @@ class AccessReviewScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (OSError, sqlite3.Error, RuntimeError) as e:
                 logger.error(f"Error in access review scheduler: {e}")
                 await asyncio.sleep(60)
 
@@ -754,7 +754,7 @@ class AccessReviewScheduler:
             try:
                 access_data = provider()
                 all_access.extend(access_data)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 logger.error(f"Error getting access data from provider: {e}")
 
         # If no providers, use mock data for demo
@@ -995,7 +995,7 @@ class AccessReviewScheduler:
         for handler in self._revocation_handlers:
             try:
                 handler(item.user_id, item.resource_type, item.resource_id)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error executing revocation: {e}")
 
     # =========================================================================
@@ -1017,7 +1017,7 @@ class AccessReviewScheduler:
         for handler in self._notification_handlers:
             try:
                 handler(notification)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error sending notification: {e}")
 
     async def _notify_review_expired(self, review: AccessReview) -> None:
@@ -1033,7 +1033,7 @@ class AccessReviewScheduler:
         for handler in self._notification_handlers:
             try:
                 handler(notification)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Error sending notification: {e}")
 
     # =========================================================================

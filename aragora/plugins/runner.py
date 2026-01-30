@@ -331,7 +331,7 @@ class PluginRunner:
         # Load entry point
         try:
             entry_func = self._load_entry_point()
-        except Exception as e:
+        except (ImportError, AttributeError, ValueError) as e:
             result.errors.append(f"Failed to load plugin: {e}")
             return result
 
@@ -369,7 +369,7 @@ class PluginRunner:
         except PermissionError as e:
             result.errors.append(f"Permission denied: {e}")
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             result.errors.append(f"Plugin error: {type(e).__name__}: {e}")
 
         finally:
@@ -412,7 +412,7 @@ class PluginRegistry:
                     valid, errors = manifest.validate()
                     if valid:
                         self.manifests[manifest.name] = manifest
-                except Exception as e:
+                except (OSError, ValueError, KeyError, TypeError) as e:
                     logger.debug(f"Failed to load plugin manifest {manifest_path}: {e}")
 
     def get(self, name: str) -> PluginManifest | None:

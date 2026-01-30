@@ -113,7 +113,7 @@ async def get_rotation_history(secret_id: str) -> datetime | None:
             return metadata.last_rotated_at
     except ImportError:
         pass
-    except Exception as e:
+    except (OSError, RuntimeError, AttributeError) as e:
         logger.warning(f"Could not get rotation history for {secret_id}: {e}")
 
     return None
@@ -125,7 +125,7 @@ async def get_current_secret_value(secret_id: str) -> str | None:
         from aragora.config.secrets import get_secret
 
         return get_secret(secret_id)
-    except Exception as e:
+    except (ImportError, OSError, KeyError, RuntimeError) as e:
         logger.warning(f"Could not get current value for {secret_id}: {e}")
         return None
 
@@ -169,7 +169,7 @@ async def store_new_secret(
     except ImportError:
         logger.warning("boto3 not installed, skipping AWS Secrets Manager update")
         return True
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError) as e:
         logger.error(f"Failed to store secret {secret_id}: {e}")
         return False
 
@@ -207,7 +207,7 @@ async def send_notification(
                     await client.post(webhook_url, json=payload, timeout=10.0)
                     logger.info(f"Sent Slack notification for {secret_id}")
 
-            except Exception as e:
+            except (ImportError, OSError, RuntimeError, ValueError) as e:
                 logger.error(f"Failed to send Slack notification: {e}")
 
 
@@ -276,7 +276,7 @@ async def rotate_secret(
 
             await send_notification(secret_id, "failure", result["message"], config)
 
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, KeyError, AttributeError) as e:
         logger.exception(f"Error rotating {secret_id}: {e}")
         result["status"] = "error"
         result["message"] = str(e)

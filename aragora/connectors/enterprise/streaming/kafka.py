@@ -516,7 +516,7 @@ class KafkaConnector(EnterpriseConnector):
             timestamp=timestamp,
         )
 
-    async def sync(self, batch_size: int = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync(self, batch_size: int | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
 

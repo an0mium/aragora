@@ -274,7 +274,13 @@ class RetryExecutor:
                 else:
                     return operation()
 
-            except Exception as e:
+            except (
+                OSError,
+                ConnectionError,
+                TimeoutError,
+                asyncio.TimeoutError,
+                RuntimeError,
+            ) as e:
                 last_error = e
 
                 if not self._is_retryable(e):
@@ -708,7 +714,7 @@ class ResilientEmailClient:
             await self._circuit_breaker.record_success()
             return result
 
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError, RuntimeError) as e:
             await self._circuit_breaker.record_failure(e)
             raise
 

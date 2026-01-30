@@ -79,7 +79,7 @@ def check_budget(
             if cost_estimator:
                 try:
                     cost = cost_estimator(*args, **kwargs)
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError) as e:
                     logger.warning(f"Cost estimator failed: {e}")
 
             if cost <= 0:
@@ -124,7 +124,7 @@ def check_budget(
                 pass
             except BudgetExceededError:
                 raise
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Budget check failed: {e}")
                 # Fail open - allow operation if check fails
 
@@ -149,7 +149,7 @@ def check_budget(
             if cost_estimator:
                 try:
                     cost = cost_estimator(*args, **kwargs)
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError) as e:
                     logger.warning(f"Cost estimator failed: {e}")
 
             if cost <= 0:
@@ -190,7 +190,7 @@ def check_budget(
                 pass
             except BudgetExceededError:
                 raise
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Budget check failed: {e}")
 
             return func(*args, **kwargs)
@@ -256,7 +256,7 @@ def record_spend(
             if cost_calculator:
                 try:
                     cost = cost_calculator(result)
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError) as e:
                     logger.warning(f"Cost calculator failed: {e}")
 
             if cost <= 0:
@@ -283,7 +283,7 @@ def record_spend(
                 )
             except ImportError:
                 pass
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to record spend: {e}")
 
             return result
@@ -311,7 +311,7 @@ def record_spend(
             if cost_calculator:
                 try:
                     cost = cost_calculator(result)
-                except Exception as e:
+                except (TypeError, ValueError, KeyError, AttributeError) as e:
                     logger.warning(f"Cost calculator failed: {e}")
 
             if cost <= 0:
@@ -336,7 +336,7 @@ def record_spend(
                 )
             except ImportError:
                 pass
-            except Exception as e:
+            except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to record spend: {e}")
 
             return result

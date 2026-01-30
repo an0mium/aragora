@@ -312,7 +312,7 @@ class RetentionPolicyManager:
                     else:
                         report.items_failed += 1
 
-                except Exception as e:
+                except (KeyError, ValueError, TypeError, RuntimeError) as e:
                     report.items_failed += 1
                     report.errors.append(f"Error processing {item['id']}: {e}")
 
@@ -323,7 +323,7 @@ class RetentionPolicyManager:
             # Update policy
             policy.last_run = datetime.now(timezone.utc)
 
-        except Exception as e:
+        except (KeyError, ValueError, TypeError, RuntimeError) as e:
             report.errors.append(f"Policy execution error: {e}")
             logger.exception(f"Error executing policy {policy_id}")
 
