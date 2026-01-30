@@ -153,6 +153,31 @@ from aragora.observability.metrics.convergence import (  # noqa: E402
     record_rlm_ready_quorum as _record_rlm_ready_quorum_impl,
 )
 
+# Workflow metrics (Phase 2 submodule)
+from aragora.observability.metrics.workflow import (  # noqa: E402
+    init_workflow_metrics,
+    record_workflow_trigger as _record_workflow_trigger_impl,
+    record_workflow_template_created as _record_workflow_template_created_impl,
+    record_workflow_template_execution as _record_workflow_template_execution_impl,
+    track_workflow_template_execution as _track_workflow_template_execution_impl,
+)
+
+# Memory metrics (Phase 2 submodule)
+from aragora.observability.metrics.memory import (  # noqa: E402
+    init_memory_metrics,
+    record_memory_operation as _record_memory_operation_impl,
+    record_memory_coordinator_write as _record_memory_coordinator_write_impl,
+    record_adaptive_round_change as _record_adaptive_round_change_impl,
+)
+
+# Evidence metrics (Phase 2 submodule)
+from aragora.observability.metrics.evidence import (  # noqa: E402
+    init_evidence_metrics,
+    record_evidence_stored as _record_evidence_stored_impl,
+    record_evidence_citation_bonus as _record_evidence_citation_bonus_impl,
+    record_culture_patterns as _record_culture_patterns_impl,
+)
+
 # Task Queue metrics
 from aragora.observability.metrics.task_queue import (  # noqa: E402
     init_task_queue_metrics,
@@ -465,12 +490,20 @@ def _sync_submodule_globals() -> None:
     global RLM_CACHE_HITS, RLM_CACHE_MISSES
     global CONVERGENCE_CHECKS_TOTAL, PROCESS_EVALUATION_BONUSES
     global RLM_READY_QUORUM_EVENTS
+    # Phase 2 submodule globals
+    global WORKFLOW_TRIGGERS, WORKFLOW_TEMPLATES_CREATED
+    global WORKFLOW_TEMPLATE_EXECUTIONS, WORKFLOW_TEMPLATE_EXECUTION_LATENCY
+    global MEMORY_OPERATIONS, MEMORY_COORDINATOR_WRITES, ADAPTIVE_ROUND_CHANGES
+    global EVIDENCE_STORED, EVIDENCE_CITATION_BONUSES, CULTURE_PATTERNS
 
     # Import current values from submodules (they may have been re-assigned
     # during init_*_metrics())
     import aragora.observability.metrics.tts as _tts_mod
     import aragora.observability.metrics.cache as _cache_mod
     import aragora.observability.metrics.convergence as _conv_mod
+    import aragora.observability.metrics.workflow as _workflow_mod
+    import aragora.observability.metrics.memory as _memory_mod
+    import aragora.observability.metrics.evidence as _evidence_mod
 
     TTS_SYNTHESIS_TOTAL = _tts_mod.TTS_SYNTHESIS_TOTAL
     TTS_SYNTHESIS_LATENCY = _tts_mod.TTS_SYNTHESIS_LATENCY
@@ -485,6 +518,22 @@ def _sync_submodule_globals() -> None:
     CONVERGENCE_CHECKS_TOTAL = _conv_mod.CONVERGENCE_CHECKS_TOTAL
     PROCESS_EVALUATION_BONUSES = _conv_mod.PROCESS_EVALUATION_BONUSES
     RLM_READY_QUORUM_EVENTS = _conv_mod.RLM_READY_QUORUM_EVENTS
+
+    # Workflow metrics (Phase 2)
+    WORKFLOW_TRIGGERS = _workflow_mod.WORKFLOW_TRIGGERS
+    WORKFLOW_TEMPLATES_CREATED = _workflow_mod.WORKFLOW_TEMPLATES_CREATED
+    WORKFLOW_TEMPLATE_EXECUTIONS = _workflow_mod.WORKFLOW_TEMPLATE_EXECUTIONS
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY = _workflow_mod.WORKFLOW_TEMPLATE_EXECUTION_LATENCY
+
+    # Memory metrics (Phase 2)
+    MEMORY_OPERATIONS = _memory_mod.MEMORY_OPERATIONS
+    MEMORY_COORDINATOR_WRITES = _memory_mod.MEMORY_COORDINATOR_WRITES
+    ADAPTIVE_ROUND_CHANGES = _memory_mod.ADAPTIVE_ROUND_CHANGES
+
+    # Evidence metrics (Phase 2)
+    EVIDENCE_STORED = _evidence_mod.EVIDENCE_STORED
+    EVIDENCE_CITATION_BONUSES = _evidence_mod.EVIDENCE_CITATION_BONUSES
+    CULTURE_PATTERNS = _evidence_mod.CULTURE_PATTERNS
 
 
 def _init_metrics() -> bool:
@@ -564,12 +613,16 @@ def _init_metrics() -> bool:
         _init_slow_debate_metrics_internal()
         _init_feature_metrics_internal()
         _init_gauntlet_metrics_internal()
-        _init_workflow_metrics_internal()
 
-        # Initialize submodule metrics (new Phase 1 submodules)
+        # Initialize submodule metrics (Phase 1 submodules)
         init_tts_metrics()
         init_cache_metrics()
         init_convergence_metrics()
+
+        # Initialize submodule metrics (Phase 2 submodules)
+        init_workflow_metrics()
+        init_memory_metrics()
+        init_evidence_metrics()
 
         # Sync submodule globals back to facade for backward compatibility
         _sync_submodule_globals()
@@ -1080,9 +1133,12 @@ def set_consensus_rate(rate: float) -> None:
 
 
 def record_memory_operation(operation: str, tier: str) -> None:
-    """Record a memory operation."""
+    """Record a memory operation.
+
+    Delegates to :func:`aragora.observability.metrics.memory.record_memory_operation`.
+    """
     _init_metrics()
-    MEMORY_OPERATIONS.labels(operation=operation, tier=tier).inc()
+    _record_memory_operation_impl(operation, tier)
 
 
 def record_debate_completion(outcome: str, duration_seconds: float, rounds: int) -> None:
@@ -1146,10 +1202,12 @@ def record_knowledge_cache_miss() -> None:
 
 
 def record_memory_coordinator_write(success: bool) -> None:
-    """Record a memory coordinator write."""
+    """Record a memory coordinator write.
+
+    Delegates to :func:`aragora.observability.metrics.memory.record_memory_coordinator_write`.
+    """
     _init_metrics()
-    status = "success" if success else "error"
-    MEMORY_COORDINATOR_WRITES.labels(status=status).inc()
+    _record_memory_coordinator_write_impl(success)
 
 
 def record_selection_feedback_adjustment(agent: str, direction: str) -> None:
@@ -1159,22 +1217,30 @@ def record_selection_feedback_adjustment(agent: str, direction: str) -> None:
 
 
 def record_workflow_trigger(success: bool) -> None:
-    """Record a post-debate workflow trigger."""
+    """Record a post-debate workflow trigger.
+
+    Delegates to :func:`aragora.observability.metrics.workflow.record_workflow_trigger`.
+    """
     _init_metrics()
-    status = "success" if success else "error"
-    WORKFLOW_TRIGGERS.labels(status=status).inc()
+    _record_workflow_trigger_impl(success)
 
 
 def record_evidence_stored(count: int = 1) -> None:
-    """Record an evidence item stored."""
+    """Record an evidence item stored.
+
+    Delegates to :func:`aragora.observability.metrics.evidence.record_evidence_stored`.
+    """
     _init_metrics()
-    EVIDENCE_STORED.inc(count)
+    _record_evidence_stored_impl(count)
 
 
 def record_culture_patterns(count: int = 1) -> None:
-    """Record a culture pattern extraction."""
+    """Record a culture pattern extraction.
+
+    Delegates to :func:`aragora.observability.metrics.evidence.record_culture_patterns`.
+    """
     _init_metrics()
-    CULTURE_PATTERNS.inc(count)
+    _record_culture_patterns_impl(count)
 
 
 # =============================================================================
@@ -1219,9 +1285,12 @@ def record_voting_accuracy_update(result: str) -> None:
 
 
 def record_adaptive_round_change(direction: str) -> None:
-    """Record an adaptive round change."""
+    """Record an adaptive round change.
+
+    Delegates to :func:`aragora.observability.metrics.memory.record_adaptive_round_change`.
+    """
     _init_metrics()
-    ADAPTIVE_ROUND_CHANGES.labels(direction=direction).inc()
+    _record_adaptive_round_change_impl(direction)
 
 
 def record_bridge_sync(bridge: str, success: bool) -> None:
@@ -1317,9 +1386,12 @@ def record_convergence_check(status: str, blocked: bool = False) -> None:
 
 
 def record_evidence_citation_bonus(agent: str) -> None:
-    """Record an evidence citation vote bonus."""
+    """Record an evidence citation vote bonus.
+
+    Delegates to :func:`aragora.observability.metrics.evidence.record_evidence_citation_bonus`.
+    """
     _init_metrics()
-    EVIDENCE_CITATION_BONUSES.labels(agent=agent).inc()
+    _record_evidence_citation_bonus_impl(agent)
 
 
 def record_process_evaluation_bonus(agent: str) -> None:
@@ -1384,9 +1456,12 @@ def track_gauntlet_export(format: str, export_type: str) -> Generator[dict, None
 
 
 def record_workflow_template_created(pattern: str, template_id: str) -> None:
-    """Record a workflow template creation."""
+    """Record a workflow template creation.
+
+    Delegates to :func:`aragora.observability.metrics.workflow.record_workflow_template_created`.
+    """
     _init_metrics()
-    WORKFLOW_TEMPLATES_CREATED.labels(pattern=pattern, template_id=template_id).inc()
+    _record_workflow_template_created_impl(pattern, template_id)
 
 
 def record_workflow_template_execution(
@@ -1394,27 +1469,23 @@ def record_workflow_template_execution(
     success: bool,
     latency_seconds: float,
 ) -> None:
-    """Record a workflow template execution."""
+    """Record a workflow template execution.
+
+    Delegates to :func:`aragora.observability.metrics.workflow.record_workflow_template_execution`.
+    """
     _init_metrics()
-    status = "success" if success else "error"
-    WORKFLOW_TEMPLATE_EXECUTIONS.labels(pattern=pattern, status=status).inc()
-    WORKFLOW_TEMPLATE_EXECUTION_LATENCY.labels(pattern=pattern).observe(latency_seconds)
+    _record_workflow_template_execution_impl(pattern, success, latency_seconds)
 
 
 @contextmanager
 def track_workflow_template_execution(pattern: str) -> Generator[None, None, None]:
-    """Context manager to track workflow template execution."""
+    """Context manager to track workflow template execution.
+
+    Delegates to :func:`aragora.observability.metrics.workflow.track_workflow_template_execution`.
+    """
     _init_metrics()
-    start = time.perf_counter()
-    success = True
-    try:
+    with _track_workflow_template_execution_impl(pattern):
         yield
-    except Exception:
-        success = False
-        raise
-    finally:
-        latency = time.perf_counter() - start
-        record_workflow_template_execution(pattern, success, latency)
 
 
 # =============================================================================

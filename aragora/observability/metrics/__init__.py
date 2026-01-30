@@ -256,6 +256,41 @@ from aragora.observability.metrics.convergence import (  # noqa: F401, E402
     RLM_READY_QUORUM_EVENTS,
 )
 
+# Workflow metrics (new Phase 2 submodule)
+from aragora.observability.metrics.workflow import (  # noqa: F401, E402
+    init_workflow_metrics,
+    record_workflow_trigger as record_workflow_trigger_v2,
+    record_workflow_template_created as record_workflow_template_created_v2,
+    record_workflow_template_execution as record_workflow_template_execution_v2,
+    track_workflow_template_execution as track_workflow_template_execution_v2,
+    WORKFLOW_TRIGGERS,
+    WORKFLOW_TEMPLATES_CREATED,
+    WORKFLOW_TEMPLATE_EXECUTIONS,
+    WORKFLOW_TEMPLATE_EXECUTION_LATENCY,
+)
+
+# Memory metrics (new Phase 2 submodule)
+from aragora.observability.metrics.memory import (  # noqa: F401, E402
+    init_memory_metrics,
+    record_memory_operation as record_memory_operation_v2,
+    record_memory_coordinator_write as record_memory_coordinator_write_v2,
+    record_adaptive_round_change as record_adaptive_round_change_v2,
+    MEMORY_OPERATIONS,
+    MEMORY_COORDINATOR_WRITES,
+    ADAPTIVE_ROUND_CHANGES,
+)
+
+# Evidence metrics (new Phase 2 submodule)
+from aragora.observability.metrics.evidence import (  # noqa: F401, E402
+    init_evidence_metrics,
+    record_evidence_stored as record_evidence_stored_v2,
+    record_evidence_citation_bonus as record_evidence_citation_bonus_v2,
+    record_culture_patterns as record_culture_patterns_v2,
+    EVIDENCE_STORED,
+    EVIDENCE_CITATION_BONUSES,
+    CULTURE_PATTERNS,
+)
+
 # Explicit re-exports for mypy compatibility (dynamic imports aren't tracked)
 from _aragora_metrics_impl import (  # noqa: F401, E402
     # Server/startup
