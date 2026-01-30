@@ -217,31 +217,33 @@ class TestRequestDeduplicator:
             assert is_dup is False, f"First message on {platform} should not be duplicate"
 
     @pytest.mark.asyncio
-    async def test_expired_not_duplicate(self, deduplicator, monkeypatch):
-        now = 1_000_000.0
-        monkeypatch.setattr("aragora.server.middleware.decision_routing.time.time", lambda: now)
+    async def test_expired_not_duplicate(self, deduplicator):
+        import aragora.server.middleware.decision_routing as _mod
 
-        await deduplicator.check_and_mark("test", "user-1", "slack")
+        now = [1_000_000.0]
+        with patch.object(_mod.time, "time", side_effect=lambda: now[0]):
+            await deduplicator.check_and_mark("test", "user-1", "slack")
 
-        # Advance past the 1s window
-        now += 2.0
+            # Advance past the 1s window
+            now[0] += 2.0
 
-        is_dup, _ = await deduplicator.check_and_mark("test", "user-1", "slack")
-        assert is_dup is False
+            is_dup, _ = await deduplicator.check_and_mark("test", "user-1", "slack")
+            assert is_dup is False
 
     @pytest.mark.asyncio
-    async def test_within_window_still_duplicate(self, deduplicator, monkeypatch):
+    async def test_within_window_still_duplicate(self, deduplicator):
         """Request within the dedup window is still a duplicate."""
-        now = 1_000_000.0
-        monkeypatch.setattr("aragora.server.middleware.decision_routing.time.time", lambda: now)
+        import aragora.server.middleware.decision_routing as _mod
 
-        await deduplicator.check_and_mark("test", "user-1", "slack")
+        now = [1_000_000.0]
+        with patch.object(_mod.time, "time", side_effect=lambda: now[0]):
+            await deduplicator.check_and_mark("test", "user-1", "slack")
 
-        # Advance slightly but within window
-        now += 0.5
+            # Advance slightly but within window
+            now[0] += 0.5
 
-        is_dup, _ = await deduplicator.check_and_mark("test", "user-1", "slack")
-        assert is_dup is True
+            is_dup, _ = await deduplicator.check_and_mark("test", "user-1", "slack")
+            assert is_dup is True
 
     @pytest.mark.asyncio
     async def test_complete_resolves_future(self, deduplicator):
@@ -330,14 +332,16 @@ class TestResponseCache:
         assert await cache.get("query", context={"workspace": "ws2"}) == "answer2"
 
     @pytest.mark.asyncio
-    async def test_cache_expiry(self, cache, monkeypatch):
-        now = 1_000_000.0
-        monkeypatch.setattr("aragora.server.middleware.decision_routing.time.time", lambda: now)
-        await cache.set("query", "answer")
+    async def test_cache_expiry(self, cache):
+        import aragora.server.middleware.decision_routing as _mod
 
-        now += 2.0  # past TTL
-        result = await cache.get("query")
-        assert result is None
+        now = [1_000_000.0]
+        with patch.object(_mod.time, "time", side_effect=lambda: now[0]):
+            await cache.set("query", "answer")
+
+            now[0] += 2.0  # past TTL
+            result = await cache.get("query")
+            assert result is None
 
     @pytest.mark.asyncio
     async def test_cache_eviction_oldest(self):
