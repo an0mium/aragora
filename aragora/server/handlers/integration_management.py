@@ -665,27 +665,27 @@ class IntegrationsHandler(BaseHandler):
     async def _check_teams_health(self, workspace) -> dict[str, Any]:
         """Check Teams workspace health."""
         try:
-            import json
-            import urllib.request
+            import httpx
 
             # Test Graph API access
-            request = urllib.request.Request(
-                "https://graph.microsoft.com/v1.0/me",
-                headers={"Authorization": f"Bearer {workspace.access_token}"},
-            )
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://graph.microsoft.com/v1.0/me",
+                    headers={"Authorization": f"Bearer {workspace.access_token}"},
+                )
 
-            with urllib.request.urlopen(request, timeout=10) as response:
-                result = json.loads(response.read().decode())
+            if resp.status_code == 401:
+                return {"status": "token_expired", "error": "Token needs refresh"}
 
+            if resp.status_code >= 400:
+                return {"status": "unhealthy", "error": f"HTTP {resp.status_code}"}
+
+            result = resp.json()
             return {
                 "status": "healthy",
                 "display_name": result.get("displayName"),
             }
 
-        except urllib.error.HTTPError as e:
-            if e.code == 401:
-                return {"status": "token_expired", "error": "Token needs refresh"}
-            return {"status": "unhealthy", "error": str(e)}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -698,16 +698,17 @@ class IntegrationsHandler(BaseHandler):
             return {"status": "not_configured", "error": "No bot token"}
 
         try:
-            import json
-            import urllib.request
+            import httpx
 
-            request = urllib.request.Request(
-                "https://discord.com/api/v10/users/@me",
-                headers={"Authorization": f"Bot {bot_token}"},
-            )
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://discord.com/api/v10/users/@me",
+                    headers={"Authorization": f"Bot {bot_token}"},
+                )
+                result = resp.json()
 
-            with urllib.request.urlopen(request, timeout=10) as response:
-                result = json.loads(response.read().decode())
+            if resp.status_code >= 400:
+                return {"status": "unhealthy", "error": f"HTTP {resp.status_code}"}
 
             return {
                 "status": "healthy",

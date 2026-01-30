@@ -11,6 +11,8 @@ import logging
 import time
 from urllib.parse import urlencode
 
+import httpx
+
 from aragora.audit.unified import audit_action, audit_security
 from aragora.server.handlers.base import HandlerResult, error_response, handle_errors, log_request
 from aragora.server.handlers.oauth.models import OAuthUserInfo, _get_param
@@ -74,7 +76,7 @@ class GoogleOAuthMixin:
 
     @handle_errors("Google OAuth callback")
     @log_request("Google OAuth callback")
-    def _handle_google_callback(self, handler, query_params: dict) -> HandlerResult:
+    async def _handle_google_callback(self, handler, query_params: dict) -> HandlerResult:
         """Handle Google OAuth callback with authorization code."""
         impl = _impl()
 
@@ -116,7 +118,7 @@ class GoogleOAuthMixin:
         # Exchange code for tokens
         try:
             logger.info("OAuth callback: exchanging code for tokens...")
-            token_data = self._exchange_code_for_tokens(code)
+            token_data = await self._exchange_code_for_tokens(code)
             logger.info("OAuth callback: token exchange successful")
         except Exception as e:
             logger.error(f"Token exchange failed: {e}", exc_info=True)
@@ -129,7 +131,7 @@ class GoogleOAuthMixin:
         # Get user info from Google
         try:
             logger.info("OAuth callback: fetching user info from Google...")
-            user_info = self._get_google_user_info(access_token)
+            user_info = await self._get_google_user_info(access_token)
             logger.info(f"OAuth callback: got user info for {user_info.email}")
         except Exception as e:
             logger.error(f"Failed to get user info: {e}", exc_info=True)
@@ -234,48 +236,40 @@ class GoogleOAuthMixin:
         logger.info(f"OAuth callback: redirecting to {redirect_url}")
         return self._redirect_with_tokens(redirect_url, tokens)
 
-    def _exchange_code_for_tokens(self, code: str) -> dict:
+    async def _exchange_code_for_tokens(self, code: str) -> dict:
         """Exchange authorization code for access tokens."""
-        import urllib.error
-        import urllib.request
-
         impl = _impl()
-        data = urlencode(
-            {
-                "code": code,
-                "client_id": impl.GOOGLE_CLIENT_ID,
-                "client_secret": impl._get_google_client_secret(),
-                "redirect_uri": impl._get_google_redirect_uri(),
-                "grant_type": "authorization_code",
-            }
-        ).encode()
+        data = {
+            "code": code,
+            "client_id": impl.GOOGLE_CLIENT_ID,
+            "client_secret": impl._get_google_client_secret(),
+            "redirect_uri": impl._get_google_redirect_uri(),
+            "grant_type": "authorization_code",
+        }
 
-        req = urllib.request.Request(
-            impl.GOOGLE_TOKEN_URL,
-            data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-
-        with urllib.request.urlopen(req, timeout=10) as response:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                impl.GOOGLE_TOKEN_URL,
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
             try:
-                return json.loads(response.read().decode())
+                return response.json()
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from Google token endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e
 
-    def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
+    async def _get_google_user_info(self, access_token: str) -> OAuthUserInfo:
         """Get user info from Google API."""
-        import urllib.request
-
         impl = _impl()
-        req = urllib.request.Request(
-            impl.GOOGLE_USERINFO_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
 
-        with urllib.request.urlopen(req, timeout=10) as response:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                impl.GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
             try:
-                data = json.loads(response.read().decode())
+                data = response.json()
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON from Google userinfo endpoint: {e}")
                 raise ValueError(f"Invalid JSON response from Google: {e}") from e

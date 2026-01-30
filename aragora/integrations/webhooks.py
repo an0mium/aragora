@@ -19,8 +19,6 @@ import random
 import socket
 import threading
 import time
-import urllib.error
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -589,22 +587,24 @@ class WebhookDispatcher:
         if signature:
             headers["X-Aragora-Signature"] = signature
 
+        import httpx
+
         for attempt in range(cfg.max_retries):
             try:
-                req = urllib.request.Request(cfg.url, data=body, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=cfg.timeout_s) as resp:
-                    if 200 <= resp.status < 300:
-                        circuit.record_success()
-                        logger.debug(f"Webhook {cfg.name} delivered: {event_dict.get('type')}")
-                        return True
-                    # Non-2xx but not HTTPError means unexpected success-like response
-                    logger.warning(f"Webhook {cfg.name} got unexpected status {resp.status}")
-
-            except urllib.error.HTTPError as e:
-                # Determine if we should retry
-                if e.code == 429 or (500 <= e.code < 600):
+                resp = httpx.post(
+                    cfg.url,
+                    content=body,
+                    headers=headers,
+                    timeout=cfg.timeout_s,
+                )
+                if 200 <= resp.status_code < 300:
+                    circuit.record_success()
+                    logger.debug(f"Webhook {cfg.name} delivered: {event_dict.get('type')}")
+                    return True
+                # Check if we should retry
+                if resp.status_code == 429 or (500 <= resp.status_code < 600):
                     # Retriable: 429 (rate limit) or 5xx (server error)
-                    retry_after = e.headers.get("Retry-After")
+                    retry_after = resp.headers.get("Retry-After")
                     if retry_after and retry_after.isdigit():
                         backoff = min(float(retry_after), 60.0)  # Cap at 60s
                     else:
@@ -612,21 +612,24 @@ class WebhookDispatcher:
 
                     if attempt < cfg.max_retries - 1:
                         logger.debug(
-                            f"Webhook {cfg.name} attempt {attempt + 1} got {e.code}, "
+                            f"Webhook {cfg.name} attempt {attempt + 1} got {resp.status_code}, "
                             f"retrying in {backoff:.1f}s"
                         )
                         time.sleep(backoff)
                         continue
-                else:
+                elif 400 <= resp.status_code < 500:
                     # Non-retriable 4xx (400, 401, 403, 404, etc.)
                     # Don't record as circuit failure - this is likely a config issue
                     logger.warning(
-                        f"Webhook {cfg.name} failed with non-retriable error {e.code} "
+                        f"Webhook {cfg.name} failed with non-retriable error {resp.status_code} "
                         f"for {event_dict.get('type')}"
                     )
                     return False
+                else:
+                    # Non-2xx but unexpected status
+                    logger.warning(f"Webhook {cfg.name} got unexpected status {resp.status_code}")
 
-            except (urllib.error.URLError, TimeoutError, OSError) as e:
+            except (httpx.TimeoutException, httpx.NetworkError, OSError) as e:
                 # Network errors: retry
                 if attempt < cfg.max_retries - 1:
                     backoff = cfg.backoff_base_s * (2**attempt) + random.uniform(0, 0.5)

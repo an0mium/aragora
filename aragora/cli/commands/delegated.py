@@ -9,6 +9,7 @@ can be imported from a single location.
 import argparse
 import os
 
+
 # Default API URL from environment or localhost fallback
 DEFAULT_API_URL = os.environ.get("ARAGORA_API_URL", "http://localhost:8080")
 
