@@ -618,11 +618,9 @@ _original_print("__RESULT__:" + json.dumps(output))
         input_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Execute JavaScript code via Node.js."""
-        import json
-
         # Create wrapper
         wrapper = f"""
-const inputData = {json.dumps(input_data)};
+const inputData = {_json_module.dumps(input_data)};
 let result;
 try {{
     {code}

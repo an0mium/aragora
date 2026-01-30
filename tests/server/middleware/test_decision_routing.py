@@ -522,13 +522,14 @@ class TestDecisionRoutingMiddleware:
         mock_router.route = slow_route
 
         with patch.object(middleware, "_get_router", return_value=mock_router):
-            task1 = asyncio.create_task(middleware.process("dup query", context1))
-            await asyncio.sleep(0.05)
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                task1 = asyncio.create_task(middleware.process("dup query", context1))
+                await asyncio.sleep(0.05)
 
-            context2 = _make_context(request_id="dup-2")
-            result2 = await middleware.process("dup query", context2)
+                context2 = _make_context(request_id="dup-2")
+                result2 = await middleware.process("dup query", context2)
 
-            result1 = await task1
+                result1 = await task1
 
         assert result1["success"] is True
         assert result2.get("deduplicated") is True or result2.get("success") is True
