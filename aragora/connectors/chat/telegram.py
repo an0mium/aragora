@@ -296,7 +296,7 @@ class TelegramConnector(ChatPlatformConnector):
                     f"[telegram] {operation} network error after {max_retries} attempts: {e}"
                 )
 
-            except Exception as e:
+            except (httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry
                 last_error = f"Unexpected error: {e}"
                 classified = _classify_telegram_error(last_error)

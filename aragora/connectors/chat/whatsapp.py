@@ -230,7 +230,7 @@ class WhatsAppConnector(ChatPlatformConnector):
                     await asyncio.sleep((attempt + 1) * 1)
                     continue
                 return False, None, last_error
-            except Exception as e:
+            except (httpx.RequestError, OSError, ValueError, RuntimeError) as e:
                 last_error = str(e)
                 self._record_failure(e)
                 logger.error(f"WhatsApp API {operation} error: {e}")

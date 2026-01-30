@@ -625,7 +625,7 @@ class Ed25519Verifier(WebhookVerifier):
                 method="ed25519",
                 error="Signature mismatch",
             )
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             return log_verification_attempt(
                 source=self.source,
                 success=False,

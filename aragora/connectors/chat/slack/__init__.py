@@ -394,7 +394,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
                 # Final attempt failed
                 logger.error(f"[slack] {operation} network error after {retries} attempts: {e}")
 
-            except Exception as e:
+            except (_httpx.RequestError, OSError, ValueError, RuntimeError, TypeError) as e:
                 # Unexpected error - don't retry, classify for metrics
                 last_error = f"Unexpected error: {e}"
                 classified = _classify_slack_error(last_error)

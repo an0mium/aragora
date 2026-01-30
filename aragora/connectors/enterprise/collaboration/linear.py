@@ -357,10 +357,13 @@ class LinearConnector(EnterpriseConnector):
     - Labels and workflow states
     """
 
+    _linear_credentials: LinearCredentials
+    _client: httpx.AsyncClient | None
+
     def __init__(self, credentials: LinearCredentials, tenant_id: str = "default"):
         super().__init__(connector_id="linear", tenant_id=tenant_id)
-        self.credentials = credentials  # type: ignore[assignment]
-        self._client: httpx.AsyncClient | None = None
+        self._linear_credentials = credentials
+        self._client = None
 
     @property
     def name(self) -> str:
@@ -377,7 +380,7 @@ class LinearConnector(EnterpriseConnector):
         if self._client is None:
             self._client = httpx.AsyncClient(
                 headers={
-                    "Authorization": self.credentials.api_key,  # type: ignore[attr-defined]
+                    "Authorization": self._linear_credentials.api_key,
                     "Content-Type": "application/json",
                 },
                 timeout=30.0,
@@ -392,7 +395,7 @@ class LinearConnector(EnterpriseConnector):
         """Execute GraphQL query."""
         client = await self._get_client()
         response = await client.post(
-            self.credentials.base_url,  # type: ignore[attr-defined]
+            self._linear_credentials.base_url,
             json={"query": query, "variables": variables or {}},
         )
 
@@ -1057,8 +1060,7 @@ class LinearConnector(EnterpriseConnector):
         results: list[Evidence] = []
 
         try:
-            team_id = kwargs.get("team_id")  # noqa: F841
-            issues = await self.search_issues(query, first=limit)  # type: ignore[call-arg]
+            issues = await self.search_issues(query, first=limit)
 
             for issue in issues:
                 results.append(
@@ -1124,10 +1126,10 @@ class LinearConnector(EnterpriseConnector):
                     return Evidence(
                         id=evidence_id,
                         source_type=self.source_type,
-                        source_id=project.slug_id,  # type: ignore[attr-defined]
+                        source_id=project.id,
                         content=f"{project.name}\n\n{project.description or ''}",
                         title=project.name,
-                        url=project.url,  # type: ignore[attr-defined]
+                        url=None,
                         metadata={"type": "project", "state": project.state},
                     )
 

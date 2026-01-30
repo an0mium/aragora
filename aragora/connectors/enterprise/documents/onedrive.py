@@ -162,11 +162,15 @@ class OneDriveConnector(EnterpriseConnector):
             include_patterns: Glob patterns for files to include
             exclude_patterns: Glob patterns for files to exclude
         """
-        super().__init__()  # type: ignore[call-arg]
+        resolved_tenant_id = tenant_id or os.environ.get("ONEDRIVE_TENANT_ID", "common")
+        super().__init__(
+            connector_id=f"onedrive-{resolved_tenant_id}",
+            tenant_id=resolved_tenant_id,
+        )
 
         self.client_id = client_id or os.environ.get("ONEDRIVE_CLIENT_ID", "")
         self.client_secret = client_secret or os.environ.get("ONEDRIVE_CLIENT_SECRET", "")
-        self.tenant_id = tenant_id or os.environ.get("ONEDRIVE_TENANT_ID", "common")
+        self.tenant_id = resolved_tenant_id
         self._access_token = access_token
         self._refresh_token = refresh_token
         self.drive_id = drive_id
@@ -179,7 +183,7 @@ class OneDriveConnector(EnterpriseConnector):
     @property
     def source_type(self) -> SourceType:
         """Get the provenance source type."""
-        return SourceType.ONEDRIVE  # type: ignore[attr-defined]
+        return SourceType.DOCUMENT
 
     @property
     def is_configured(self) -> bool:
@@ -562,9 +566,10 @@ class OneDriveConnector(EnterpriseConnector):
                 web_url=item.get("webUrl", ""),
             )
 
-    async def sync_items(  # type: ignore[override]
+    async def sync_items(
         self,
-        state: SyncState | None = None,
+        state: SyncState,
+        batch_size: int = 100,
     ) -> AsyncIterator[SyncItem]:
         """
         Incremental sync using delta API.
@@ -577,7 +582,7 @@ class OneDriveConnector(EnterpriseConnector):
         """
         drive_path = self._get_drive_path()
 
-        if state and state.cursor:
+        if state.cursor:
             # Use delta link from previous sync
             endpoint = state.cursor.replace(self.GRAPH_BASE, "")
         else:
@@ -593,10 +598,13 @@ class OneDriveConnector(EnterpriseConnector):
 
                 # Check if deleted
                 if "deleted" in item:
-                    yield SyncItem(  # type: ignore[call-arg]
+                    yield SyncItem(
                         id=item["id"],
-                        name=item.get("name", ""),
-                        action="delete",
+                        content="",
+                        source_type="onedrive",
+                        source_id=item["id"],
+                        title=item.get("name", ""),
+                        metadata={"action": "delete"},
                     )
                     continue
 
@@ -606,13 +614,17 @@ class OneDriveConnector(EnterpriseConnector):
                 if ext not in SUPPORTED_EXTENSIONS:
                     continue
 
-                yield SyncItem(  # type: ignore[call-arg]
+                yield SyncItem(
                     id=item["id"],
-                    name=name,
-                    action="update" if state else "create",
-                    size=item.get("size", 0),
-                    modified=self._parse_datetime(item.get("lastModifiedDateTime")),
+                    content="",  # Content fetched separately via download_file
+                    source_type="onedrive",
+                    source_id=item["id"],
+                    title=name,
+                    url=item.get("webUrl", ""),
+                    updated_at=self._parse_datetime(item.get("lastModifiedDateTime")),
                     metadata={
+                        "action": "update" if state.cursor else "create",
+                        "size": item.get("size", 0),
                         "mime_type": item.get("file", {}).get("mimeType"),
                         "web_url": item.get("webUrl"),
                         "path": item.get("parentReference", {}).get("path", ""),
@@ -627,11 +639,12 @@ class OneDriveConnector(EnterpriseConnector):
                 endpoint = next_link.replace(self.GRAPH_BASE, "")
             elif delta_link:
                 # Store delta link for next sync
-                yield SyncItem(  # type: ignore[call-arg]
+                yield SyncItem(
                     id="__sync_state__",
-                    name="",
-                    action="state",
-                    metadata={"delta_link": delta_link},
+                    content="",
+                    source_type="onedrive",
+                    source_id="__sync_state__",
+                    metadata={"action": "state", "delta_link": delta_link},
                 )
                 endpoint = None
             else:

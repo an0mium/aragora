@@ -154,7 +154,9 @@ class DropboxConnector(EnterpriseConnector):
             include_patterns: Glob patterns for files to include
             exclude_patterns: Glob patterns for files to exclude
         """
-        super().__init__()  # type: ignore[call-arg]
+        # Generate connector_id from app_key or use default
+        connector_id = f"dropbox_{app_key[:8]}" if app_key else "dropbox_default"
+        super().__init__(connector_id=connector_id)
 
         self.app_key = app_key or os.environ.get("DROPBOX_APP_KEY", "")
         self.app_secret = app_secret or os.environ.get("DROPBOX_APP_SECRET", "")
@@ -170,7 +172,7 @@ class DropboxConnector(EnterpriseConnector):
     @property
     def source_type(self) -> SourceType:
         """Get the provenance source type."""
-        return SourceType.DROPBOX  # type: ignore[attr-defined]
+        return SourceType.DOCUMENT
 
     @property
     def is_configured(self) -> bool:
@@ -561,20 +563,22 @@ class DropboxConnector(EnterpriseConnector):
                 content_hash=metadata.get("content_hash"),
             )
 
-    async def sync_items(  # type: ignore[override]
+    async def sync_items(
         self,
-        state: SyncState | None = None,
+        state: SyncState,
+        batch_size: int = 100,
     ) -> AsyncIterator[SyncItem]:
         """
         Incremental sync using cursor.
 
         Args:
             state: Previous sync state with cursor
+            batch_size: Number of items per batch (unused, Dropbox handles pagination)
 
         Yields:
             SyncItem for each changed file
         """
-        if state and state.cursor:
+        if state.cursor:
             # Continue from cursor
             result = await self._api_request(
                 "/files/list_folder/continue",
@@ -599,22 +603,37 @@ class DropboxConnector(EnterpriseConnector):
                 if ext not in SUPPORTED_EXTENSIONS:
                     continue
 
+                file_path = entry.get("path_display", "")
+                modified_time = self._parse_datetime(entry.get("client_modified"))
+
                 if entry[".tag"] == "deleted":
-                    yield SyncItem(  # type: ignore[call-arg]
+                    yield SyncItem(
                         id=entry.get("path_lower", ""),
-                        name=name,
-                        action="delete",
+                        content="",  # Deleted files have no content
+                        source_type="dropbox",
+                        source_id=entry.get("path_lower", ""),
+                        title=name,
+                        url=f"https://www.dropbox.com/home{file_path}",
+                        updated_at=modified_time,
+                        metadata={
+                            "action": "delete",
+                            "path": file_path,
+                        },
                     )
                 else:
-                    yield SyncItem(  # type: ignore[call-arg]
+                    yield SyncItem(
                         id=entry.get("id", ""),
-                        name=name,
-                        action="update" if state else "create",
-                        size=entry.get("size", 0),
-                        modified=self._parse_datetime(entry.get("client_modified")),
+                        content="",  # Content fetched separately via download_file
+                        source_type="dropbox",
+                        source_id=entry.get("id", ""),
+                        title=name,
+                        url=f"https://www.dropbox.com/home{file_path}",
+                        updated_at=modified_time,
+                        content_hash=entry.get("content_hash"),
                         metadata={
-                            "path": entry.get("path_display"),
-                            "content_hash": entry.get("content_hash"),
+                            "action": "update" if state.cursor else "create",
+                            "path": file_path,
+                            "size": entry.get("size", 0),
                         },
                     )
 
@@ -630,11 +649,15 @@ class DropboxConnector(EnterpriseConnector):
         # Yield cursor for next sync
         final_cursor = result.get("cursor")
         if final_cursor:
-            yield SyncItem(  # type: ignore[call-arg]
+            yield SyncItem(
                 id="__sync_state__",
-                name="",
-                action="state",
-                metadata={"cursor": final_cursor},
+                content="",
+                source_type="dropbox",
+                source_id="__sync_state__",
+                metadata={
+                    "action": "state",
+                    "cursor": final_cursor,
+                },
             )
 
     def _parse_datetime(self, dt_str: str | None) -> datetime | None:

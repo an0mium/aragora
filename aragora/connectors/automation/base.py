@@ -408,7 +408,7 @@ class AutomationConnector(ABC):
                 duration_ms=duration_ms,
             )
 
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError) as e:
             duration_ms = (time.time() - start_time) * 1000
             subscription.failure_count += 1
 

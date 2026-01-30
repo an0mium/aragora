@@ -306,7 +306,7 @@ class DeviceConnectorRegistry:
 
                 if connector_health.get("status") == "unhealthy":
                     unhealthy_count += 1
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError, TypeError, KeyError) as e:
                 health["connectors"][platform] = {
                     "status": "error",
                     "error": str(e),

@@ -490,7 +490,7 @@ class TwitterPosterConnector:
 
         except (TwitterAuthError, TwitterMediaError, TwitterAPIError, TwitterRateLimitError):
             raise
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, TypeError) as e:
             logger.error(f"Failed to upload media: {e}")
             raise TwitterMediaError(f"Failed to upload media: {e}") from e
 

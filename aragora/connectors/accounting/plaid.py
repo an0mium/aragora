@@ -888,7 +888,7 @@ Provide:
 
         except ImportError:
             logger.warning("[Plaid] Debate arena not available for categorization")
-        except Exception as e:
+        except (ValueError, RuntimeError, TypeError, KeyError) as e:
             logger.error(f"[Plaid] Agent categorization failed: {e}")
 
         return transactions

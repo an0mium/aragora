@@ -951,7 +951,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
             except ValueError:
                 continue
         return None
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
         return None
 
 
