@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from aragora.server.oauth_state_store import (
     OAuthState,
     InMemoryOAuthStateStore,
+    JWTOAuthStateStore,
     SQLiteOAuthStateStore,
     RedisOAuthStateStore,
     FallbackOAuthStateStore,
@@ -502,3 +503,108 @@ class TestOAuthIntegration:
         # Second use fails
         result2 = validate_oauth_state(state)
         assert result2 is None
+
+
+class TestJWTOAuthStateStore:
+    """Tests for JWT-based OAuth state store."""
+
+    def test_jwt_backend_is_default_in_fallback(self):
+        """Verify JWT is the default fallback backend when Redis is unavailable."""
+        store = FallbackOAuthStateStore(redis_url="", use_sqlite=False, use_jwt=True)
+        active = store._get_active_store()
+        assert isinstance(active, JWTOAuthStateStore)
+
+    def test_jwt_generate_returns_token(self):
+        """Test JWT state generation produces a dot-delimited token."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(user_id="user123", redirect_url="http://localhost/cb")
+        assert isinstance(token, str)
+        assert "." in token
+        parts = token.split(".")
+        assert len(parts) == 2  # payload.signature
+
+    def test_jwt_validate_roundtrip(self):
+        """Test generate + validate roundtrip returns correct data."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(user_id="user456", redirect_url="http://example.com/cb")
+        result = store.validate_and_consume(token)
+        assert result is not None
+        assert result.user_id == "user456"
+        assert result.redirect_url == "http://example.com/cb"
+        assert result.is_expired is False
+
+    def test_jwt_validate_with_metadata(self):
+        """Test JWT preserves metadata through roundtrip."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(
+            user_id="user789",
+            redirect_url="http://localhost",
+            metadata={"provider": "github", "scope": "repo"},
+        )
+        result = store.validate_and_consume(token)
+        assert result is not None
+        assert result.metadata == {"provider": "github", "scope": "repo"}
+
+    def test_jwt_single_use_replay_protection(self):
+        """Test that JWT state can only be consumed once (replay protection)."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(user_id="user123")
+
+        # First use succeeds
+        result1 = store.validate_and_consume(token)
+        assert result1 is not None
+
+        # Second use fails (nonce already consumed)
+        result2 = store.validate_and_consume(token)
+        assert result2 is None
+
+    def test_jwt_expired_token_rejected(self):
+        """Test that expired JWT tokens are rejected."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        token = store.generate(user_id="user123", ttl_seconds=-1)
+        result = store.validate_and_consume(token)
+        assert result is None
+
+    def test_jwt_invalid_signature_rejected(self):
+        """Test that tokens signed with wrong key are rejected."""
+        store1 = JWTOAuthStateStore(secret_key="secret-A")
+        store2 = JWTOAuthStateStore(secret_key="secret-B")
+
+        token = store1.generate(user_id="user123")
+        result = store2.validate_and_consume(token)
+        assert result is None
+
+    def test_jwt_malformed_token_rejected(self):
+        """Test that malformed tokens are rejected."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+
+        assert store.validate_and_consume("not-a-valid-token") is None
+        assert store.validate_and_consume("") is None
+        assert store.validate_and_consume("a.b.c") is None
+
+    def test_jwt_stateless_no_persistence(self):
+        """Test that JWT store does not require persistence - a new instance can validate."""
+        secret = "shared-secret-key"
+        store1 = JWTOAuthStateStore(secret_key=secret)
+        token = store1.generate(user_id="user123")
+
+        # New instance with same secret can validate
+        store2 = JWTOAuthStateStore(secret_key=secret)
+        result = store2.validate_and_consume(token)
+        assert result is not None
+        assert result.user_id == "user123"
+
+    def test_jwt_cleanup_is_noop(self):
+        """Test that cleanup returns 0 (JWT states are self-expiring)."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        store.generate(user_id="user123")
+        assert store.cleanup_expired() == 0
+
+    def test_jwt_size_tracks_nonces(self):
+        """Test that size() returns count of consumed nonces."""
+        store = JWTOAuthStateStore(secret_key="test-secret")
+        assert store.size() == 0
+
+        token = store.generate(user_id="user123")
+        store.validate_and_consume(token)
+        assert store.size() == 1
