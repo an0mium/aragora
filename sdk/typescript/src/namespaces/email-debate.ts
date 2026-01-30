@@ -156,7 +156,7 @@ export class EmailDebateNamespace {
     if (options?.userId) {
       body.user_id = options.userId;
     }
-    return this.client.request<PrioritizationResult>('POST', '/api/v1/email/prioritize', body);
+    return this.client.request<PrioritizationResult>('POST', '/api/v1/email/prioritize', { body });
   }
 
   /**
@@ -180,7 +180,7 @@ export class EmailDebateNamespace {
     return this.client.request<BatchPrioritizationResult>(
       'POST',
       '/api/v1/email/prioritize/batch',
-      body
+      { body }
     );
   }
 
@@ -207,7 +207,7 @@ export class EmailDebateNamespace {
       user_id: options?.userId,
       include_auto_replies: options?.includeAutoReplies ?? false,
     };
-    return this.client.request<InboxTriageResponse>('POST', '/api/v1/email/triage', body);
+    return this.client.request<InboxTriageResponse>('POST', '/api/v1/email/triage', { body });
   }
 
   /**
