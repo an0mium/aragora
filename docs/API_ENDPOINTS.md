@@ -36,7 +36,6 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Devices](#devices)
 - [Docs](#docs)
 - [Dr Handler](#dr-handler)
-- [Email](#email)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
 - [EndpointAnalytics](#endpointanalytics)
@@ -77,7 +76,6 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [RLMContext](#rlmcontext)
 - [SCIM](#scim)
 - [Selection](#selection)
-- [Shared Inbox](#shared-inbox)
 - [Skill Marketplace](#skill-marketplace)
 - [Skills](#skills)
 - [Slack](#slack)
@@ -1114,48 +1112,6 @@ Get RPO/RTO objectives and current status
 ### `POST` `/api/v2/dr/validate`
 
 Validate DR configuration
-
----
-
-## Email
-
-HTTP API Handlers for Email Prioritization.
-
-### `POST` `/api/email/prioritize`
-
-Score a single email
-
-### `POST` `/api/email/rank-inbox`
-
-Rank multiple emails
-
-### `POST` `/api/email/feedback`
-
-Record user action for learning
-
-### `GET` `/api/email/context/:email_address`
-
-Get cross-channel context
-
-### `POST` `/api/email/gmail/oauth/url`
-
-Get Gmail OAuth URL
-
-### `POST` `/api/email/gmail/oauth/callback`
-
-Handle OAuth callback
-
-### `GET` `/api/email/inbox`
-
-Fetch and rank inbox
-
-### `GET` `/api/email/config`
-
-Get prioritization config
-
-### `PUT` `/api/email/config`
-
-Update prioritization config
 
 ---
 
@@ -2541,60 +2497,6 @@ GET /api/v1/team-selection
 
 ---
 
-## Shared Inbox
-
-HTTP API Handlers for Shared Inbox Management.
-
-### `POST` `/api/v1/inbox/shared`
-
-Create shared inbox
-
-### `GET` `/api/v1/inbox/shared`
-
-List shared inboxes
-
-### `GET` `/api/v1/inbox/shared/:id`
-
-Get shared inbox details
-
-### `GET` `/api/v1/inbox/shared/:id/messages`
-
-Get messages in inbox
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/assign`
-
-Assign message
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/status`
-
-Update status
-
-### `POST` `/api/v1/inbox/shared/:id/messages/:msg_id/tag`
-
-Add tag
-
-### `POST` `/api/v1/inbox/routing/rules`
-
-Create routing rule
-
-### `GET` `/api/v1/inbox/routing/rules`
-
-List routing rules
-
-### `PATCH` `/api/v1/inbox/routing/rules/:id`
-
-Update routing rule
-
-### `DELETE` `/api/v1/inbox/routing/rules/:id`
-
-Delete routing rule
-
-### `POST` `/api/v1/inbox/routing/rules/:id/test`
-
-Test routing rule
-
----
-
 ## Skill Marketplace
 
 Skill Marketplace API Handlers.
@@ -3101,7 +3003,7 @@ Execute a template
 
 HTTP request handler for workflow API endpoints.
 
-### `GET` `/api/v1/workflows`
+### `GET` `/api/v1/workflows` 🔒
 
 Handle GET /api/workflows
 
@@ -3113,7 +3015,7 @@ GET /api/v1/workflows/*
 
 GET /api/v1/workflow-templates
 
-### `GET` `/api/v1/workflows/templates`
+### `GET` `/api/v1/workflows/templates` 🔒
 
 Handle GET /api/workflow-templates
 
@@ -3137,7 +3039,7 @@ GET /api/v1/workflow-executions
 
 GET /api/v1/workflow-executions/*
 
-### `GET` `/api/v1/workflows/executions`
+### `GET` `/api/v1/workflows/executions` 🔒
 
 Handle GET /api/workflow-executions
 

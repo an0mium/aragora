@@ -16916,31 +16916,16 @@
     },
     "/api/v1/workflows": {
       "get": {
+        "summary": "List workflows",
         "tags": [
           "Workflows"
         ],
-        "summary": "List workflows",
-        "operationId": "listWorkflows",
-        "description": "Get list of workflows with optional filtering by category, tags, or search term.",
+        "description": "List all workflows with optional filtering by category, tags, or search query.",
+        "operationId": "_handle_list_workflows",
         "parameters": [
           {
             "name": "category",
             "in": "query",
-            "description": "Filter by workflow category",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "debate",
-                "analysis",
-                "integration",
-                "custom"
-              ]
-            }
-          },
-          {
-            "name": "tags",
-            "in": "query",
-            "description": "Filter by tags (comma-separated)",
             "schema": {
               "type": "string"
             }
@@ -16948,7 +16933,6 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Search in workflow name and description",
             "schema": {
               "type": "string"
             }
@@ -16958,8 +16942,7 @@
             "in": "query",
             "schema": {
               "type": "integer",
-              "default": 50,
-              "maximum": 200
+              "default": 50
             }
           },
           {
@@ -16973,121 +16956,85 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflows with pagination",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkflowList"
-                }
-              }
-            }
+            "description": "List of workflows with pagination"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
+        "summary": "Create workflow",
         "tags": [
           "Workflows"
         ],
-        "summary": "Create workflow",
-        "operationId": "createWorkflows",
         "description": "Create a new workflow definition with steps and transitions.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "name",
-                  "steps"
-                ],
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "category": {
-                    "type": "string",
-                    "enum": [
-                      "debate",
-                      "analysis",
-                      "integration",
-                      "custom"
-                    ]
-                  },
-                  "tags": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "steps": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/StepDefinition"
-                    }
-                  },
-                  "transitions": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/TransitionRule"
-                    }
-                  },
-                  "input_schema": {
-                    "type": "object"
-                  },
-                  "output_schema": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
-          }
-        },
+        "operationId": "_handle_create_workflow",
         "responses": {
           "201": {
-            "description": "Workflow created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
+            "description": "Workflow created successfully"
           },
           "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
+            "description": "Invalid workflow definition"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/workflows/{workflow_id}": {
+      "delete": {
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Delete workflow",
+        "description": "Delete a workflow definition.",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow deleted"
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
                 "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
+                  "not_found": {
+                    "summary": "Resource not found",
                     "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
                       "trace_id": "req_abc123xyz"
                     }
                   }
@@ -17095,10 +17042,9 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/workflows/{workflow_id}": {
+        },
+        "deprecated": true
+      },
       "get": {
         "tags": [
           "Workflows"
@@ -17151,160 +17097,29 @@
         },
         "deprecated": true
       },
-      "put": {
+      "patch": {
+        "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
           "Workflows"
         ],
-        "summary": "Update workflow",
-        "description": "Update an existing workflow definition. Creates a new version.",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorkflowUpdate"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Workflow updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           }
         },
-        "deprecated": true
-      },
-      "delete": {
-        "tags": [
-          "Workflows"
-        ],
-        "summary": "Delete workflow",
-        "description": "Delete a workflow definition.",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Workflow deleted"
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
+        "x-autogenerated": true,
+        "x-method-inferred": false,
         "deprecated": true
       }
     },
     "/api/v1/workflows/{workflow_id}": {
       "get": {
+        "summary": "Get workflow",
         "tags": [
           "Workflows"
         ],
-        "summary": "Get workflow",
-        "operationId": "getWorkflow",
-        "description": "Get detailed workflow definition by ID.",
+        "description": "Get a workflow by ID with full definition and metadata.",
+        "operationId": "_handle_get_workflow",
         "parameters": [
           {
             "name": "workflow_id",
@@ -17317,146 +17132,71 @@
         ],
         "responses": {
           "200": {
-            "description": "Workflow definition",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
+            "description": "Workflow details"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           },
           "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Workflows"
-        ],
-        "summary": "Update workflow",
-        "operationId": "updateWorkflow",
-        "description": "Update an existing workflow definition. Creates a new version.",
-        "parameters": [
-          {
-            "name": "workflow_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorkflowUpdate"
-              }
-            }
+            "description": "Workflow not found"
           }
         },
-        "responses": {
-          "200": {
-            "description": "Workflow updated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Workflow"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+        "security": [
+          {
+            "bearerAuth": []
           }
-        }
+        ]
       },
-      "delete": {
+      "patch": {
+        "summary": "Update workflow",
         "tags": [
           "Workflows"
         ],
+        "description": "Update an existing workflow definition. Creates a new version.",
+        "operationId": "_handle_update_workflow",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow updated successfully"
+          },
+          "400": {
+            "description": "Invalid workflow definition"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
         "summary": "Delete workflow",
-        "operationId": "deleteWorkflow",
-        "description": "Delete a workflow definition.",
+        "tags": [
+          "Workflows"
+        ],
+        "description": "Delete a workflow and all its version history.",
+        "operationId": "_handle_delete_workflow",
         "parameters": [
           {
             "name": "workflow_id",
@@ -17471,29 +17211,21 @@
           "200": {
             "description": "Workflow deleted"
           },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
           "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Workflow not found"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/workflows/{workflow_id}/execute": {
@@ -17625,12 +17357,13 @@
     },
     "/api/v1/workflows/{workflow_id}/execute": {
       "post": {
-        "tags": [
-          "Workflows"
-        ],
         "summary": "Execute workflow",
-        "operationId": "createWorkflowsExecute",
-        "description": "Start execution of a workflow with provided inputs.",
+        "tags": [
+          "Workflows",
+          "Executions"
+        ],
+        "description": "Execute a workflow with the given input parameters.",
+        "operationId": "_handle_execute",
         "parameters": [
           {
             "name": "workflow_id",
@@ -17641,113 +17374,28 @@
             }
           }
         ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "inputs": {
-                    "type": "object",
-                    "description": "Input parameters for the workflow"
-                  },
-                  "async": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Run asynchronously and return execution ID"
-                  }
-                }
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Workflow execution result or execution ID"
+            "description": "Execution started/completed"
           },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 12",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           },
           "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Workflow not found"
           },
-          "500": {
-            "description": "Internal server error - Unexpected error occurred",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "internal_error": {
-                    "summary": "Internal server error",
-                    "value": {
-                      "error": "An unexpected error occurred",
-                      "code": "INTERNAL_ERROR",
-                      "trace_id": "req_abc123xyz",
-                      "support_url": "https://github.com/an0mium/aragora/issues"
-                    }
-                  }
-                }
-              }
-            }
+          "503": {
+            "description": "Execution service unavailable"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/workflows/{workflow_id}/versions": {
@@ -17894,17 +17542,17 @@
     },
     "/api/v1/workflow-templates": {
       "get": {
-        "tags": [
-          "Workflows"
-        ],
         "summary": "List workflow templates",
-        "operationId": "listWorkflowTemplatesLegacy",
-        "description": "Get gallery of workflow templates for quick start.",
+        "tags": [
+          "Workflows",
+          "Templates"
+        ],
+        "description": "List available workflow templates for quick workflow creation.",
+        "operationId": "_handle_list_templates",
         "parameters": [
           {
             "name": "category",
             "in": "query",
-            "description": "Filter templates by category",
             "schema": {
               "type": "string"
             }
@@ -17912,16 +17560,20 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflow templates",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkflowTemplateList"
-                }
-              }
-            }
+            "description": "List of workflow templates"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/workflow-templates/{template_id}": {
@@ -18089,17 +17741,17 @@
     },
     "/api/v1/workflow-executions": {
       "get": {
-        "tags": [
-          "Workflows"
-        ],
         "summary": "List workflow executions",
-        "operationId": "listWorkflowExecutions",
-        "description": "Get list of all workflow executions for the runtime dashboard.",
+        "tags": [
+          "Workflows",
+          "Executions"
+        ],
+        "description": "List all workflow executions for runtime monitoring dashboard.",
+        "operationId": "_handle_list_executions",
         "parameters": [
           {
             "name": "workflow_id",
             "in": "query",
-            "description": "Filter by workflow ID",
             "schema": {
               "type": "string"
             }
@@ -18107,16 +17759,8 @@
           {
             "name": "status",
             "in": "query",
-            "description": "Filter by execution status",
             "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "running",
-                "completed",
-                "failed",
-                "cancelled"
-              ]
+              "type": "string"
             }
           },
           {
@@ -18130,16 +17774,20 @@
         ],
         "responses": {
           "200": {
-            "description": "List of workflow executions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExecutionList"
-                }
-              }
-            }
+            "description": "List of workflow executions"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/workflow-executions/{execution_id}": {
@@ -18880,15 +18528,20 @@
     },
     "/api/v1/workflow-approvals": {
       "get": {
-        "tags": [
-          "Workflows"
-        ],
         "summary": "List pending approvals",
-        "operationId": "listWorkflowApprovals",
-        "description": "Get list of workflow steps awaiting human approval.",
-        "security": [
+        "tags": [
+          "Workflows",
+          "Approvals"
+        ],
+        "description": "List workflow steps pending human approval.",
+        "operationId": "_handle_list_approvals",
+        "parameters": [
           {
-            "bearerAuth": []
+            "name": "workflow_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -18896,34 +18549,17 @@
             "description": "List of pending approvals"
           },
           "401": {
-            "description": "Unauthorized - Authentication required or token invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "missing_token": {
-                    "summary": "No authentication token",
-                    "value": {
-                      "error": "Authentication required",
-                      "code": "AUTH_REQUIRED",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_token": {
-                    "summary": "Invalid or expired token",
-                    "value": {
-                      "error": "Invalid or expired authentication token",
-                      "code": "INVALID_TOKEN",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/workflow-approvals/{approval_id}": {
@@ -20290,18 +19926,17 @@
     },
     "/api/v1/gauntlet/{gauntlet_id}": {
       "get": {
+        "summary": "Get gauntlet status",
         "tags": [
           "Gauntlet"
         ],
-        "summary": "Get gauntlet run",
-        "operationId": "getGauntletRun",
-        "description": "Get details of a specific gauntlet run by ID.",
+        "description": "Get the status and results of a gauntlet stress-test run.",
+        "operationId": "_get_status",
         "parameters": [
           {
             "name": "gauntlet_id",
             "in": "path",
             "required": true,
-            "description": "ID of the gauntlet run",
             "schema": {
               "type": "string"
             }
@@ -20309,73 +19944,33 @@
         ],
         "responses": {
           "200": {
-            "description": "Gauntlet run details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GauntletRun"
-                }
-              }
-            }
+            "description": "Gauntlet status and results"
+          },
+          "401": {
+            "description": "Authentication required"
           },
           "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error - Unexpected error occurred",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "internal_error": {
-                    "summary": "Internal server error",
-                    "value": {
-                      "error": "An unexpected error occurred",
-                      "code": "INTERNAL_ERROR",
-                      "trace_id": "req_abc123xyz",
-                      "support_url": "https://github.com/an0mium/aragora/issues"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Gauntlet run not found"
           }
-        }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
+        "summary": "Delete gauntlet result",
         "tags": [
           "Gauntlet"
         ],
-        "summary": "Delete gauntlet run",
-        "operationId": "deleteGauntletRun",
-        "description": "Delete a specific gauntlet run and its associated data.",
+        "description": "Delete a gauntlet stress-test result from storage.",
+        "operationId": "_delete_result",
         "parameters": [
           {
             "name": "gauntlet_id",
             "in": "path",
             "required": true,
-            "description": "ID of the gauntlet run to delete",
             "schema": {
               "type": "string"
             }
@@ -20383,50 +19978,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Gauntlet run deleted"
+            "description": "Gauntlet result deleted"
+          },
+          "401": {
+            "description": "Authentication required"
           },
           "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Gauntlet run not found"
           },
           "500": {
-            "description": "Internal server error - Unexpected error occurred",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "internal_error": {
-                    "summary": "Internal server error",
-                    "value": {
-                      "error": "An unexpected error occurred",
-                      "code": "INTERNAL_ERROR",
-                      "trace_id": "req_abc123xyz",
-                      "support_url": "https://github.com/an0mium/aragora/issues"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Delete failed"
           }
         },
         "security": [
@@ -60642,6 +60203,156 @@
         ]
       }
     },
+    "/api/v1/debates/graph/{debate_id}": {
+      "get": {
+        "summary": "Get graph debate",
+        "tags": [
+          "Debates",
+          "Graph Debates"
+        ],
+        "description": "Get a graph-structured debate by ID, including branches and nodes.",
+        "operationId": "handle_get",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Graph debate details"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Graph debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/graph": {
+      "post": {
+        "summary": "Create graph debate",
+        "tags": [
+          "Debates",
+          "Graph Debates"
+        ],
+        "description": "Run a new graph-structured debate with automatic branching on disagreement.",
+        "operationId": "handle_post",
+        "responses": {
+          "200": {
+            "description": "Graph debate created and executed"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "description": "Graph debate module not available"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/graph/{debate_id}/branches": {
+      "get": {
+        "summary": "Get graph debate branches",
+        "tags": [
+          "Debates",
+          "Graph Debates"
+        ],
+        "description": "Get all branches created during a graph-structured debate.",
+        "operationId": "_get_branches",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of debate branches"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/graph/{debate_id}/nodes": {
+      "get": {
+        "summary": "Get graph debate nodes",
+        "tags": [
+          "Debates",
+          "Graph Debates"
+        ],
+        "description": "Get all nodes in a graph-structured debate.",
+        "operationId": "_get_nodes",
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of debate nodes"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/debates/{slug}": {
       "get": {
         "summary": "Get debate by slug",
@@ -60769,6 +60480,571 @@
           },
           "404": {
             "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/matrix/{matrix_id}": {
+      "get": {
+        "summary": "Get matrix debate",
+        "tags": [
+          "Debates",
+          "Matrix Debates"
+        ],
+        "description": "Get the results of a matrix debate with parallel scenario exploration.",
+        "operationId": "handle_get",
+        "parameters": [
+          {
+            "name": "matrix_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matrix debate results"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Matrix debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/matrix": {
+      "post": {
+        "summary": "Create matrix debate",
+        "tags": [
+          "Debates",
+          "Matrix Debates"
+        ],
+        "description": "Run parallel scenario debates to explore a topic under different conditions.",
+        "operationId": "handle_post",
+        "responses": {
+          "200": {
+            "description": "Matrix debate created and executed"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "description": "Matrix debate failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/matrix/{matrix_id}/scenarios": {
+      "get": {
+        "summary": "Get matrix debate scenarios",
+        "tags": [
+          "Debates",
+          "Matrix Debates"
+        ],
+        "description": "Get all scenario results from a matrix debate.",
+        "operationId": "_get_scenarios",
+        "parameters": [
+          {
+            "name": "matrix_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of scenario results"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/debates/matrix/{matrix_id}/conclusions": {
+      "get": {
+        "summary": "Get matrix debate conclusions",
+        "tags": [
+          "Debates",
+          "Matrix Debates"
+        ],
+        "description": "Get universal and conditional conclusions from a matrix debate.",
+        "operationId": "_get_conclusions",
+        "parameters": [
+          {
+            "name": "matrix_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Universal and conditional conclusions"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Storage not configured"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/personas": {
+      "get": {
+        "summary": "List available personas",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "List all available regulatory personas for gauntlet stress-testing.",
+        "operationId": "_list_personas",
+        "responses": {
+          "200": {
+            "description": "List of available personas"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/run": {
+      "post": {
+        "summary": "Start gauntlet stress-test",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "Start a new adversarial stress-test with regulatory personas.",
+        "operationId": "_start_gauntlet",
+        "responses": {
+          "202": {
+            "description": "Gauntlet started successfully"
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "429": {
+            "description": "Quota exceeded"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/receipt": {
+      "get": {
+        "summary": "Get decision receipt",
+        "tags": [
+          "Gauntlet",
+          "Receipts"
+        ],
+        "description": "Get the cryptographic decision receipt for a completed gauntlet run.",
+        "operationId": "_get_receipt",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html",
+                "md",
+                "sarif",
+                "pdf",
+                "csv"
+              ]
+            }
+          },
+          {
+            "name": "signed",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "true"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decision receipt in requested format"
+          },
+          "400": {
+            "description": "Gauntlet not completed"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/receipt/verify": {
+      "post": {
+        "summary": "Verify decision receipt",
+        "tags": [
+          "Gauntlet",
+          "Receipts"
+        ],
+        "description": "Verify the cryptographic signature and integrity of a signed decision receipt.",
+        "operationId": "_verify_receipt",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification result with detailed status"
+          },
+          "400": {
+            "description": "Invalid or missing request body"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/heatmap": {
+      "get": {
+        "summary": "Get risk heatmap",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "Get the risk heatmap visualization for a completed gauntlet run.",
+        "operationId": "_get_heatmap",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "svg",
+                "ascii"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Risk heatmap in requested format"
+          },
+          "400": {
+            "description": "Gauntlet not completed"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/results": {
+      "get": {
+        "summary": "List gauntlet results",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "List recent gauntlet stress-test results with pagination and filtering.",
+        "operationId": "_list_results",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "verdict",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_severity",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of gauntlet results"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Storage error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/compare/{compare_id}": {
+      "get": {
+        "summary": "Compare gauntlet results",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "Compare two gauntlet stress-test runs to analyze differences.",
+        "operationId": "_compare_results",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "compare_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comparison results"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "One or both gauntlet runs not found"
+          },
+          "500": {
+            "description": "Comparison failed"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/export": {
+      "get": {
+        "summary": "Export gauntlet report",
+        "tags": [
+          "Gauntlet"
+        ],
+        "description": "Export a comprehensive gauntlet report with findings, heatmap, and summary.",
+        "operationId": "_export_report",
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "html",
+                "full_html"
+              ]
+            }
+          },
+          {
+            "name": "include_heatmap",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "true"
+            }
+          },
+          {
+            "name": "include_findings",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "true"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comprehensive report in requested format"
+          },
+          "400": {
+            "description": "Gauntlet not completed or unsupported format"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflow_id}/simulate": {
+      "post": {
+        "summary": "Simulate workflow",
+        "tags": [
+          "Workflows"
+        ],
+        "description": "Dry-run a workflow to validate and preview the execution plan.",
+        "operationId": "_handle_simulate",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Simulation results with execution plan"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Permission denied"
+          },
+          "404": {
+            "description": "Workflow not found"
           }
         },
         "security": [
@@ -61264,63 +61540,7 @@
         ]
       }
     },
-    "/api/v1/debates/graph": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
     "/api/v1/graph-debates": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true
-      }
-    },
-    "/api/v1/debates/matrix": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
@@ -71200,7 +71420,7 @@
       }
     },
     "/api/gauntlet/run": {
-      "get": {
+      "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
           "Gauntlet"
@@ -71213,21 +71433,6 @@
         "x-autogenerated": true,
         "x-method-inferred": false,
         "deprecated": true
-      }
-    },
-    "/api/v1/gauntlet/run": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Gauntlet"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false
       }
     },
     "/api/gauntlet/personas": {
@@ -71246,21 +71451,6 @@
         "deprecated": true
       }
     },
-    "/api/v1/gauntlet/personas": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Gauntlet"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false
-      }
-    },
     "/api/gauntlet/results": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
@@ -71277,23 +71467,8 @@
         "deprecated": true
       }
     },
-    "/api/v1/gauntlet/results": {
-      "get": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Gauntlet"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": false
-      }
-    },
     "/api/gauntlet/{param}/receipt/verify": {
-      "get": {
+      "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
           "Gauntlet"
@@ -71309,7 +71484,7 @@
       }
     },
     "/api/v1/gauntlet/{param}/receipt/verify": {
-      "get": {
+      "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [
           "Gauntlet"
@@ -76133,6 +76308,207 @@
             "type": "number"
           }
         }
+      },
+      "StarterTemplate": {
+        "type": "object",
+        "description": "Template for onboarding debates",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique template identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Template description"
+          },
+          "use_cases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Applicable use cases"
+          },
+          "agents_count": {
+            "type": "integer",
+            "description": "Number of agents"
+          },
+          "rounds": {
+            "type": "integer",
+            "description": "Number of debate rounds"
+          },
+          "estimated_minutes": {
+            "type": "integer",
+            "description": "Estimated duration"
+          },
+          "example_prompt": {
+            "type": "string",
+            "description": "Example prompt"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Categorization tags"
+          },
+          "difficulty": {
+            "type": "string",
+            "description": "Difficulty level"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "use_cases",
+          "agents_count",
+          "rounds",
+          "estimated_minutes",
+          "example_prompt"
+        ]
+      },
+      "GauntletRun": {
+        "type": "object",
+        "description": "Gauntlet verification run result",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Run identifier"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "description": "Run status"
+          },
+          "verdict": {
+            "type": "string",
+            "nullable": true,
+            "description": "Final verdict"
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Confidence score"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "List of findings"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Start timestamp"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Completion timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "GauntletComparison": {
+        "type": "object",
+        "description": "Comparison between two gauntlet runs",
+        "properties": {
+          "run_a": {
+            "$ref": "#/components/schemas/GauntletRun"
+          },
+          "run_b": {
+            "$ref": "#/components/schemas/GauntletRun"
+          },
+          "diff": {
+            "type": "object",
+            "description": "Differences between runs"
+          },
+          "similarity_score": {
+            "type": "number",
+            "description": "Similarity percentage"
+          },
+          "comparison_notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Notes about differences"
+          }
+        }
+      },
+      "Policy": {
+        "type": "object",
+        "description": "Policy definition",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Policy identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Policy name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Policy description"
+          },
+          "type": {
+            "type": "string",
+            "description": "Policy type"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Policy rules"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether policy is enabled"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "Execution priority"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
       },
       "DebateStatus": {
         "type": "string",
@@ -81759,241 +82135,6 @@
           "platform",
           "name",
           "status"
-        ]
-      },
-      "StarterTemplate": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "use_cases": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "agents_count": {
-            "type": "integer"
-          },
-          "rounds": {
-            "type": "integer"
-          },
-          "estimated_minutes": {
-            "type": "integer"
-          },
-          "example_prompt": {
-            "type": "string"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "difficulty": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "use_cases",
-          "agents_count",
-          "rounds",
-          "estimated_minutes",
-          "example_prompt"
-        ]
-      },
-      "GauntletResult": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "verdict": {
-            "type": "string"
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "findings": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "completed_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
-      "PolicyDefinition": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "rules": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "priority": {
-            "type": "integer"
-          }
-        }
-      },
-      "OnboardingTemplate": {
-        "$ref": "#/components/schemas/StarterTemplate"
-      },
-      "GauntletRun": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "running",
-              "completed",
-              "failed"
-            ]
-          },
-          "verdict": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "confidence": {
-            "type": "number"
-          },
-          "findings": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "metadata": {
-            "type": "object"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "started_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "completed_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ]
-      },
-      "GauntletComparison": {
-        "type": "object",
-        "properties": {
-          "run_a": {
-            "$ref": "#/components/schemas/GauntletRun"
-          },
-          "run_b": {
-            "$ref": "#/components/schemas/GauntletRun"
-          },
-          "diff": {
-            "type": "object"
-          },
-          "similarity_score": {
-            "type": "number"
-          },
-          "comparison_notes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "Policy": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "rules": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "priority": {
-            "type": "integer"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "name"
         ]
       }
     },
