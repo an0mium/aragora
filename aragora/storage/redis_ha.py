@@ -621,7 +621,8 @@ async def _create_async_standalone_client(config: RedisHAConfig) -> Any:
             max_connections=config.max_connections,
         )
     else:
-        client = aioredis.Redis(**kwargs)  # type: ignore[arg-type]
+        redis_args: dict[str, Any] = kwargs
+        client = aioredis.Redis(**redis_args)
 
     # Verify connection
     await client.ping()
@@ -725,10 +726,11 @@ async def _create_async_cluster_client(config: RedisHAConfig) -> Any:
         if config.ssl_ca_certs:
             cluster_kwargs["ssl_ca_certs"] = config.ssl_ca_certs
 
-    client = RedisCluster(**cluster_kwargs)  # type: ignore[arg-type]
+    async_cluster_args: dict[str, Any] = cluster_kwargs
+    client = RedisCluster(**async_cluster_args)
 
     # Verify connection
-    await client.ping()  # type: ignore[misc]
+    await client.ping()
     logger.info(f"Connected to async Redis Cluster ({len(cluster_nodes)} startup nodes)")
 
     return client
