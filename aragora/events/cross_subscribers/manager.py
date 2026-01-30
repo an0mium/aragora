@@ -11,7 +11,7 @@ import logging
 import random
 import time
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.events.subscribers.config import (
     AsyncDispatchConfig,
@@ -26,51 +26,86 @@ from .handlers.culture import CultureHandlersMixin
 from .handlers.knowledge_mound import KnowledgeMoundHandlersMixin
 from .handlers.validation import ValidationHandlersMixin
 
+if TYPE_CHECKING:
+    from aragora.config.settings import Settings
+
 # Import settings for feature flags
 try:
-    from aragora.config.settings import get_settings
+    from aragora.config.settings import get_settings as _get_settings
 
     SETTINGS_AVAILABLE = True
+
+    def get_settings() -> Optional[Settings]:
+        """Get settings instance (wrapper for type safety)."""
+        return _get_settings()
+
 except ImportError:
     SETTINGS_AVAILABLE = False
 
-    def get_settings() -> None:  # type: ignore[misc]
+    def get_settings() -> Optional[Settings]:
+        """Fallback when settings module not available."""
         return None
 
 
 # Import metrics (optional - graceful fallback if not available)
 try:
     from aragora.server.prometheus_cross_pollination import (
-        record_event_dispatched,
-        record_handler_call,
-        set_circuit_breaker_state,
+        record_event_dispatched as _record_event_dispatched,
+        record_handler_call as _record_handler_call,
+        set_circuit_breaker_state as _set_circuit_breaker_state,
     )
 
     METRICS_AVAILABLE = True
+
+    def record_event_dispatched(event_type: str) -> None:
+        """Record event dispatch metric."""
+        _record_event_dispatched(event_type)
+
+    def record_handler_call(handler: str, status: str, duration: float) -> None:
+        """Record handler call metric."""
+        _record_handler_call(handler, status, duration)
+
+    def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
+        """Set circuit breaker state metric."""
+        _set_circuit_breaker_state(handler, is_open)
+
 except ImportError:
     METRICS_AVAILABLE = False
 
-    def record_event_dispatched(event_type: str) -> None:  # type: ignore[misc]
+    def record_event_dispatched(event_type: str) -> None:
+        """No-op fallback when prometheus metrics not available."""
         pass
 
-    def record_handler_call(handler: str, status: str, duration: float) -> None:  # type: ignore[misc]
+    def record_handler_call(handler: str, status: str, duration: float) -> None:
+        """No-op fallback when prometheus metrics not available."""
         pass
 
-    def set_circuit_breaker_state(handler: str, is_open: bool) -> None:  # type: ignore[misc]
+    def set_circuit_breaker_state(handler: str, is_open: bool) -> None:
+        """No-op fallback when prometheus metrics not available."""
         pass
 
 
 # Import SLO metrics (optional - graceful fallback)
 try:
-    from aragora.observability.metrics.slo import check_and_record_slo
+    from aragora.observability.metrics.slo import (
+        check_and_record_slo as _check_and_record_slo,
+    )
 
     SLO_METRICS_AVAILABLE = True
+
+    def check_and_record_slo(
+        operation: str, latency_ms: float, percentile: str = "p99"
+    ) -> tuple[bool, str]:
+        """Check and record SLO metric."""
+        return _check_and_record_slo(operation, latency_ms, percentile)
+
 except ImportError:
     SLO_METRICS_AVAILABLE = False
 
-    def check_and_record_slo(  # type: ignore[misc]
+    def check_and_record_slo(
         operation: str, latency_ms: float, percentile: str = "p99"
     ) -> tuple[bool, str]:
+        """Fallback when SLO metrics not available."""
         return True, f"SLO metrics not available for {operation}"
 
 

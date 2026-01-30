@@ -9,10 +9,11 @@ Handles consensus ingestion and validation feedback:
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
+    from aragora.knowledge.mound.facade import KnowledgeMound
 
 # Import metrics stubs - will be overwritten if metrics available
 try:
@@ -209,27 +210,38 @@ class ValidationHandlersMixin:
 
             import asyncio
 
-            async def ingest_consensus_with_enhancements():
+            # Type assertion for the mound after null check
+            assert mound is not None  # Verified above with `if not mound: return`
+
+            async def ingest_consensus_with_enhancements(
+                km: "KnowledgeMound",
+            ) -> None:
                 # ============================================================
                 # EVOLUTION TRACKING: Check for similar prior consensus
                 # ============================================================
-                supersedes_node_id = None
+                supersedes_node_id: str | None = None
                 if supersedes:
                     # Direct supersedes reference provided
                     supersedes_node_id = f"cs_{supersedes}"
                 else:
                     # Search for similar prior consensus on same topic
                     try:
-                        similar_results = await mound.search(  # type: ignore[attr-defined]
-                            query=topic,
-                            node_types=["consensus"],
+                        # Use query_semantic for similarity-based search
+                        similar_results = await km.query_semantic(
+                            text=topic,
                             limit=3,
-                            min_score=0.85,  # High threshold for "same topic"
+                            min_confidence=0.85,  # High threshold for "same topic"
                         )
-                        if similar_results:
+                        # Filter to consensus node types
+                        consensus_results = [
+                            r
+                            for r in similar_results
+                            if (r.metadata or {}).get("node_type") == "consensus"
+                        ]
+                        if consensus_results:
                             # Found similar prior consensus - this new one supersedes it
-                            prior = similar_results[0]
-                            prior_debate_id = prior.metadata.get("debate_id", "")
+                            prior = consensus_results[0]
+                            prior_debate_id = (prior.metadata or {}).get("debate_id", "")
                             if prior_debate_id != debate_id:
                                 supersedes_node_id = prior.id
                                 logger.info(
@@ -242,34 +254,39 @@ class ValidationHandlersMixin:
                 # ============================================================
                 # MAIN CONSENSUS INGESTION
                 # ============================================================
-                request = IngestionRequest(  # type: ignore[call-arg]
+                # Build metadata dict with supersedes info included
+                consensus_metadata: dict[str, Any] = {
+                    "debate_id": debate_id,
+                    "strength": strength,
+                    "topic": topic,
+                    "conclusion": conclusion,
+                    "domain": domain,
+                    "tags": tags,
+                    "key_claims_count": len(key_claims),
+                    "dissent_count": len(dissents),
+                    "agreement_ratio": agreement_ratio,
+                    "agreeing_agents": agreeing_agents,
+                    "dissenting_agents": dissenting_agents,
+                    "participating_agents": participating_agents,
+                    "has_dissent": len(dissents) > 0 or len(dissenting_agents) > 0,
+                    "ingested_at": datetime.now().isoformat(),
+                }
+                # Store supersedes relationship in metadata for tracking
+                if supersedes_node_id:
+                    consensus_metadata["supersedes"] = supersedes_node_id
+
+                request = IngestionRequest(
                     content=content,
-                    workspace_id=mound.workspace_id,
+                    workspace_id=km.workspace_id,
                     source_type=KnowledgeSource.CONSENSUS,
                     debate_id=debate_id,
                     node_type="consensus",
                     confidence=confidence,
                     tier=tier,
-                    supersedes=supersedes_node_id,
-                    metadata={
-                        "debate_id": debate_id,
-                        "strength": strength,
-                        "topic": topic,
-                        "conclusion": conclusion,
-                        "domain": domain,
-                        "tags": tags,
-                        "key_claims_count": len(key_claims),
-                        "dissent_count": len(dissents),
-                        "agreement_ratio": agreement_ratio,
-                        "agreeing_agents": agreeing_agents,
-                        "dissenting_agents": dissenting_agents,
-                        "participating_agents": participating_agents,
-                        "has_dissent": len(dissents) > 0 or len(dissenting_agents) > 0,
-                        "ingested_at": datetime.now().isoformat(),
-                    },
+                    metadata=consensus_metadata,
                 )
 
-                result = await mound.store(request)  # type: ignore[misc]
+                result = await km.store(request)
                 consensus_node_id = result.node_id
 
                 logger.debug(
@@ -319,13 +336,13 @@ class ValidationHandlersMixin:
 
                     dissent_request = IngestionRequest(
                         content=f"[DISSENT from {dissent_agent}] {dissent_content}",
-                        workspace_id=mound.workspace_id,
+                        workspace_id=km.workspace_id,
                         source_type=KnowledgeSource.CONSENSUS,
                         debate_id=debate_id,
                         node_type="dissent",
                         confidence=dissent_confidence,
                         tier="medium",  # Dissents may be reconsidered
-                        derived_from=[consensus_node_id] if consensus_node_id else None,
+                        derived_from=[consensus_node_id] if consensus_node_id else [],
                         metadata={
                             "debate_id": debate_id,
                             "dissent_type": dissent_type,
@@ -341,7 +358,7 @@ class ValidationHandlersMixin:
                         },
                     )
 
-                    dissent_result = await mound.store(dissent_request)  # type: ignore[misc]
+                    dissent_result = await km.store(dissent_request)
                     if dissent_result.node_id:
                         dissent_node_ids.append(dissent_result.node_id)
                         logger.debug(
@@ -362,13 +379,13 @@ class ValidationHandlersMixin:
                     if isinstance(claim, str) and claim.strip():
                         claim_request = IngestionRequest(
                             content=claim,
-                            workspace_id=mound.workspace_id,
+                            workspace_id=km.workspace_id,
                             source_type=KnowledgeSource.CONSENSUS,
                             debate_id=debate_id,
                             node_type="claim",
                             confidence=confidence * 0.9,  # Slightly lower than main consensus
                             tier=tier,
-                            derived_from=[consensus_node_id] if consensus_node_id else None,
+                            derived_from=[consensus_node_id] if consensus_node_id else [],
                             metadata={
                                 "debate_id": debate_id,
                                 "claim_index": i,
@@ -376,7 +393,7 @@ class ValidationHandlersMixin:
                                 "domain": domain,
                             },
                         )
-                        claim_result = await mound.store(claim_request)  # type: ignore[misc]
+                        claim_result = await km.store(claim_request)
                         if claim_result.node_id:
                             claim_node_ids.append(claim_result.node_id)
 
@@ -387,13 +404,13 @@ class ValidationHandlersMixin:
                     if isinstance(evidence, str) and evidence.strip():
                         evidence_request = IngestionRequest(
                             content=evidence,
-                            workspace_id=mound.workspace_id,
+                            workspace_id=km.workspace_id,
                             source_type=KnowledgeSource.CONSENSUS,
                             debate_id=debate_id,
                             node_type="evidence",
                             confidence=confidence * 0.85,
                             tier=tier,
-                            derived_from=[consensus_node_id] if consensus_node_id else None,
+                            derived_from=[consensus_node_id] if consensus_node_id else [],
                             metadata={
                                 "debate_id": debate_id,
                                 "evidence_index": i,
@@ -401,16 +418,16 @@ class ValidationHandlersMixin:
                                 "supports_conclusion": True,
                             },
                         )
-                        await mound.store(evidence_request)
+                        await km.store(evidence_request)
 
                 # ============================================================
                 # UPDATE SUPERSEDED NODE (if applicable)
                 # ============================================================
-                if supersedes_node_id and hasattr(mound, "update_metadata"):
+                if supersedes_node_id and hasattr(km, "update"):
                     try:
-                        await mound.update_metadata(
+                        await km.update(
                             node_id=supersedes_node_id,
-                            updates={"superseded_by": consensus_node_id},
+                            updates={"metadata": {"superseded_by": consensus_node_id}},
                         )
                         logger.debug(
                             f"Marked {supersedes_node_id} as superseded by {consensus_node_id}"
@@ -430,12 +447,12 @@ class ValidationHandlersMixin:
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    asyncio.create_task(ingest_consensus_with_enhancements())
+                    asyncio.create_task(ingest_consensus_with_enhancements(mound))
                 else:
-                    loop.run_until_complete(ingest_consensus_with_enhancements())
+                    loop.run_until_complete(ingest_consensus_with_enhancements(mound))
             except RuntimeError:
                 # No event loop, create one
-                asyncio.run(ingest_consensus_with_enhancements())
+                asyncio.run(ingest_consensus_with_enhancements(mound))
 
         except ImportError as e:
             logger.debug(f"Consensus→KM ingestion import failed: {e}")

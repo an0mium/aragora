@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
+from collections.abc import Generator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
@@ -41,7 +42,7 @@ except ImportError:
     from contextlib import contextmanager
 
     @contextmanager
-    def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
+    def trace_context(operation: str, **kwargs: Any) -> Generator[_MockSpan, None, None]:
         yield _MockSpan()
 
 
@@ -109,6 +110,19 @@ class CRUDProtocol(Protocol):
     async def query(
         self, query: str, filters: Any = None, limit: int = 100, offset: int = 0
     ) -> Any: ...
+
+    # Mixin methods that call each other - included for type checking
+    async def store(self, request: "IngestionRequest") -> "IngestionResult": ...
+    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+    async def add(
+        self,
+        content: str,
+        metadata: Optional[dict[str, Any]] = None,
+        workspace_id: str | None = None,
+        node_type: str = "fact",
+        confidence: float = 0.7,
+        tier: str = "medium",
+    ) -> str: ...
 
 
 class CRUDOperationsMixin:
@@ -353,7 +367,7 @@ class CRUDOperationsMixin:
                 await self._cache.invalidate_node(node_id)
                 span.add_event("cache_invalidated")
 
-            result = await self.get(node_id)  # type: ignore[attr-defined]
+            result = await self.get(node_id)
             span.set_tag("success", result is not None)
             return result
 
@@ -450,7 +464,7 @@ class CRUDOperationsMixin:
             source_type=KnowledgeSource.EXTERNAL,
             metadata=metadata or {},
         )
-        result = await self.store(request)  # type: ignore[attr-defined]
+        result = await self.store(request)
         return result.node_id
 
     async def add_node(self: CRUDProtocol, node: Any) -> str:
@@ -474,7 +488,7 @@ class CRUDOperationsMixin:
         # Convert tier to string if it's an enum
         tier_str = node.tier.value if hasattr(node.tier, "value") else str(node.tier)
 
-        return await self.add(  # type: ignore[attr-defined]
+        return await self.add(
             content=node.content,
             metadata={
                 "provenance": node.provenance.to_dict() if node.provenance else None,
@@ -500,7 +514,7 @@ class CRUDOperationsMixin:
             A dict-like object with node_type, content, etc., or None
         """
 
-        item = await self.get(node_id)  # type: ignore[attr-defined]
+        item = await self.get(node_id)
         if item is None:
             return None
 

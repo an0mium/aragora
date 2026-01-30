@@ -24,17 +24,16 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
-if TYPE_CHECKING:
+try:
     from sentence_transformers import SentenceTransformer
+except ImportError:  # pragma: no cover - optional dependency
+    SentenceTransformer = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
-
-# Lazy import for sentence-transformers
-_sentence_transformer_model = None
 
 
 class EmbeddingModel(str, Enum):
@@ -115,7 +114,7 @@ class LocalEmbeddingService:
             config: Service configuration. Uses defaults if not provided.
         """
         self.config = config or LocalEmbeddingConfig()
-        self._model = None
+        self._model: SentenceTransformer | None = None
         self._dimension: int | None = None
         self._lock = asyncio.Lock()
 
@@ -129,28 +128,29 @@ class LocalEmbeddingService:
         """Get embedding dimension (lazy loaded)."""
         if self._dimension is None:
             self._ensure_model_loaded()
-            self._dimension = self._model.get_sentence_embedding_dimension()  # type: ignore[union-attr,attr-defined]
+            assert self._model is not None  # Guaranteed by _ensure_model_loaded
+            dim = self._model.get_sentence_embedding_dimension()
+            # get_sentence_embedding_dimension can return None, but standard models always have a dimension
+            assert dim is not None, f"Model {self.model_name} returned None for embedding dimension"
+            self._dimension = dim
         return self._dimension
 
     def _ensure_model_loaded(self) -> None:
         """Load the model if not already loaded."""
         if self._model is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-
-                logger.info(f"Loading embedding model: {self.model_name}")
-                self._model = SentenceTransformer(  # type: ignore[assignment]
-                    self.model_name,
-                    device=self.config.device,
-                    cache_folder=self.config.cache_folder,
-                )
-                self._dimension = self._model.get_sentence_embedding_dimension()  # type: ignore[union-attr,attr-defined]
-                logger.info(f"Model loaded: {self.model_name} ({self._dimension} dimensions)")
-            except ImportError:
+            if SentenceTransformer is None:
                 raise ImportError(
                     "sentence-transformers is required for LocalEmbeddingService. "
                     "Install with: pip install sentence-transformers"
                 )
+            logger.info(f"Loading embedding model: {self.model_name}")
+            self._model = SentenceTransformer(
+                self.model_name,
+                device=self.config.device,
+                cache_folder=self.config.cache_folder,
+            )
+            self._dimension = self._model.get_sentence_embedding_dimension()
+            logger.info(f"Model loaded: {self.model_name} ({self._dimension} dimensions)")
 
     def embed(self, text: str) -> list[float]:
         """Generate embedding for a single text.
@@ -162,12 +162,14 @@ class LocalEmbeddingService:
             Embedding vector as list of floats
         """
         self._ensure_model_loaded()
-        embedding = self._model.encode(  # type: ignore[union-attr,attr-defined]
+        assert self._model is not None  # Guaranteed by _ensure_model_loaded
+        embedding = self._model.encode(
             text,
             normalize_embeddings=self.config.normalize,
             show_progress_bar=False,
         )
-        return embedding.tolist()
+        # encode() returns np.ndarray when convert_to_numpy=True (default)
+        return np.asarray(embedding).tolist()
 
     def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
@@ -182,13 +184,15 @@ class LocalEmbeddingService:
             return []
 
         self._ensure_model_loaded()
-        embeddings = self._model.encode(  # type: ignore[union-attr,attr-defined]
+        assert self._model is not None  # Guaranteed by _ensure_model_loaded
+        embeddings = self._model.encode(
             list(texts),
             normalize_embeddings=self.config.normalize,
             batch_size=self.config.batch_size,
             show_progress_bar=self.config.show_progress,
         )
-        return embeddings.tolist()
+        # encode() returns np.ndarray when convert_to_numpy=True (default)
+        return np.asarray(embeddings).tolist()
 
     async def embed_async(self, text: str) -> list[float]:
         """Async version of embed."""

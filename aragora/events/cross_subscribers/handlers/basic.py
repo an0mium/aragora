@@ -11,13 +11,46 @@ Handles core subsystem integrations:
 - Mound → Memory: Structure updates sync
 """
 
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from aragora.events.types import StreamEvent
+    from aragora.memory.continuum import ContinuumMemory
 
 logger = logging.getLogger(__name__)
+
+
+class CompressorProtocol(Protocol):
+    """Protocol for RLM compressor with access pattern recording."""
+
+    def record_access_pattern(
+        self,
+        tier: str,
+        cache_hit: bool,
+        importance: float,
+    ) -> None:
+        """Record a memory access pattern for compression optimization."""
+        ...
+
+
+class AgentPoolProtocol(Protocol):
+    """Protocol for agent pool with ELO and calibration updates."""
+
+    def update_elo_weight(self, agent_name: str, elo: float) -> None:
+        """Update the ELO weight for an agent."""
+        ...
+
+    def update_calibration(
+        self,
+        agent_name: str,
+        score: float,
+        brier_score: float | None = None,
+    ) -> None:
+        """Update calibration data for an agent."""
+        ...
 
 
 class BasicHandlersMixin:
@@ -41,9 +74,14 @@ class BasicHandlersMixin:
 
         # Update RLM compression hints based on access patterns
         try:
-            from aragora.rlm.compressor import get_compressor  # type: ignore[attr-defined]
+            import aragora.rlm.compressor as compressor_module
 
-            compressor = get_compressor()
+            # get_compressor may not exist yet (planned feature)
+            get_compressor = getattr(compressor_module, "get_compressor", None)
+            if get_compressor is None:
+                return
+
+            compressor: CompressorProtocol | None = get_compressor()
             if compressor and hasattr(compressor, "record_access_pattern"):
                 compressor.record_access_pattern(
                     tier=tier,
@@ -51,7 +89,7 @@ class BasicHandlersMixin:
                     importance=importance,
                 )
         except ImportError:
-            pass  # RLM not available
+            pass  # RLM module not available
         except Exception as e:
             logger.debug(f"RLM pattern recording failed: {e}")
 
@@ -77,13 +115,18 @@ class BasicHandlersMixin:
 
         # Update agent pool weights for future team selection
         try:
-            from aragora.debate.agent_pool import get_agent_pool  # type: ignore[attr-defined]
+            import aragora.debate.agent_pool as agent_pool_module
 
-            pool = get_agent_pool()
+            # get_agent_pool may not exist yet (planned feature)
+            get_agent_pool = getattr(agent_pool_module, "get_agent_pool", None)
+            if get_agent_pool is None:
+                return
+
+            pool: AgentPoolProtocol | None = get_agent_pool()
             if pool and hasattr(pool, "update_elo_weight"):
                 pool.update_elo_weight(agent_name, new_elo)
         except ImportError:
-            pass  # AgentPool not available
+            pass  # AgentPool module not available
         except Exception as e:
             logger.debug(f"AgentPool weight update failed: {e}")
 
@@ -106,20 +149,22 @@ class BasicHandlersMixin:
         try:
             from aragora.memory import get_continuum_memory
 
-            memory = get_continuum_memory()
+            memory: ContinuumMemory | None = get_continuum_memory()
             if memory:
                 # Store a reference to the knowledge node in memory
                 memory_content = f"[Knowledge:{node_type}] {content[:500]}"
-                metadata = {
+                entry_metadata: dict[str, Any] = {
                     "source": "knowledge_mound",
                     "node_id": node_id,
                     "node_type": node_type,
                     "workspace_id": workspace_id,
                 }
-                memory.store(  # type: ignore[call-arg,unused-coroutine]
+                # Use synchronous add() since we're in a sync handler
+                memory.add(
+                    id=f"km_{node_id}",
                     content=memory_content,
                     importance=0.6,  # Default importance for knowledge references
-                    metadata=metadata,
+                    metadata=entry_metadata,
                 )
                 logger.debug(f"Created memory reference for knowledge node {node_id}")
         except ImportError:
@@ -147,17 +192,17 @@ class BasicHandlersMixin:
 
         # Update agent pool with calibration data
         try:
-            from aragora.debate.agent_pool import get_agent_pool  # type: ignore[attr-defined]
+            from aragora.debate.agent_pool import get_agent_pool
 
-            pool = get_agent_pool()
+            pool: AgentPoolProtocol | None = get_agent_pool()
             if pool and hasattr(pool, "update_calibration"):
                 pool.update_calibration(
                     agent_name=agent_name,
                     score=calibration_score,
                     brier_score=brier_score,
                 )
-        except ImportError:
-            pass  # AgentPool not available
+        except (ImportError, AttributeError):
+            pass  # AgentPool or get_agent_pool not available
         except Exception as e:
             logger.debug(f"AgentPool calibration update failed: {e}")
 
@@ -185,23 +230,25 @@ class BasicHandlersMixin:
         try:
             from aragora.memory import get_continuum_memory
 
-            memory = get_continuum_memory()
+            memory: ContinuumMemory | None = get_continuum_memory()
             if memory and confidence >= 0.7:  # Only store high-confidence evidence
                 insight_content = (
                     f"[Evidence from {source}] "
                     f"Claim: {claim[:200] if claim else 'N/A'} | "
                     f"Evidence: {content[:300]}"
                 )
-                metadata = {
+                insight_metadata: dict[str, Any] = {
                     "source": source,
                     "evidence_id": evidence_id,
                     "confidence": confidence,
                     "type": "evidence_insight",
                 }
-                memory.store(  # type: ignore[call-arg,unused-coroutine]
+                # Use synchronous add() since we're in a sync handler
+                memory.add(
+                    id=f"evidence_{evidence_id}",
                     content=insight_content,
                     importance=confidence,
-                    metadata=metadata,
+                    metadata=insight_metadata,
                 )
                 logger.debug(f"Stored evidence insight from {source}")
         except ImportError:

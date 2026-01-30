@@ -12,13 +12,44 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.ranking.elo import AgentRating, MatchResult
-    from aragora.ranking.relationships import RelationshipMetrics
 
 logger = logging.getLogger(__name__)
+
+
+class StorableRelationshipMetrics(Protocol):
+    """
+    Protocol for relationship metrics that can be stored.
+
+    This is a structural type that describes the expected interface for
+    relationship metrics passed to store_relationship(). It allows for
+    duck-typed objects (including MagicMock in tests) that have the required
+    attributes.
+    """
+
+    agent_a: str
+    agent_b: str
+    debates_together: int
+    a_wins_vs_b: int
+    b_wins_vs_a: int
+    draws: int
+
+
+class EloStorageHost(Protocol):
+    """Protocol defining what the EloStorageMixin expects from its host class."""
+
+    ELO_PREFIX: str
+    MIN_DEBATES_FOR_RELATIONSHIP: int
+    _ratings: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+    _relationships: dict[str, dict[str, Any]]
+    _agent_ratings: dict[str, list[str]]
+    _agent_matches: dict[str, list[str]]
+    _domain_ratings: dict[str, list[str]]
 
 
 class EloStorageMixin:
@@ -35,6 +66,18 @@ class EloStorageMixin:
     - _agent_matches: dict[str, list[str]]
     - _domain_ratings: dict[str, list[str]]
     """
+
+    # Type hints for attributes provided by the host class (PerformanceAdapter)
+    # These are declared here to satisfy type checkers without requiring Protocol inheritance
+    ELO_PREFIX: str
+    MIN_DEBATES_FOR_RELATIONSHIP: int
+    _ratings: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+    _relationships: dict[str, dict[str, Any]]
+    _agent_ratings: dict[str, list[str]]
+    _agent_matches: dict[str, list[str]]
+    _domain_ratings: dict[str, list[str]]
 
     # =========================================================================
     # Rating Storage Methods
@@ -179,32 +222,38 @@ class EloStorageMixin:
         logger.info(f"Stored calibration: {cal_id} (correct={was_correct})")
         return cal_id
 
-    def store_relationship(self, metrics: "RelationshipMetrics") -> str | None:
+    def store_relationship(self, metrics: StorableRelationshipMetrics) -> str | None:
         """
         Store relationship metrics between agents.
 
         Args:
-            metrics: The RelationshipMetrics to store
+            metrics: An object with relationship metrics attributes. Must have:
+                agent_a, agent_b, debates_together, a_wins_vs_b, b_wins_vs_a, draws.
+                Optionally: avg_elo_diff, synergy_score.
 
         Returns:
             The relationship ID if stored, None if below threshold
         """
-        if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:  # type: ignore[attr-defined]
+        if metrics.debates_together < self.MIN_DEBATES_FOR_RELATIONSHIP:
             logger.debug(f"Relationship {metrics.agent_a}-{metrics.agent_b} below debate threshold")
             return None
 
         rel_id = f"{self.ELO_PREFIX}rel_{metrics.agent_a}_{metrics.agent_b}"
 
+        # Access optional attributes with getattr to support duck-typed objects
+        avg_elo_diff: float = getattr(metrics, "avg_elo_diff", 0.0)
+        synergy_score: float = getattr(metrics, "synergy_score", 0.5)
+
         rel_data = {
             "id": rel_id,
             "agent_a": metrics.agent_a,
             "agent_b": metrics.agent_b,
-            "debates_together": metrics.debates_together,  # type: ignore[attr-defined]
-            "a_wins_vs_b": metrics.a_wins_vs_b,  # type: ignore[attr-defined]
-            "b_wins_vs_a": metrics.b_wins_vs_a,  # type: ignore[attr-defined]
-            "draws": metrics.draws,  # type: ignore[attr-defined]
-            "avg_elo_diff": metrics.avg_elo_diff if hasattr(metrics, "avg_elo_diff") else 0.0,
-            "synergy_score": metrics.synergy_score if hasattr(metrics, "synergy_score") else 0.5,
+            "debates_together": metrics.debates_together,
+            "a_wins_vs_b": metrics.a_wins_vs_b,
+            "b_wins_vs_a": metrics.b_wins_vs_a,
+            "draws": metrics.draws,
+            "avg_elo_diff": avg_elo_diff,
+            "synergy_score": synergy_score,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -396,4 +445,4 @@ class EloStorageMixin:
         return results[:limit]
 
 
-__all__ = ["EloStorageMixin"]
+__all__ = ["EloStorageMixin", "EloStorageHost", "StorableRelationshipMetrics"]

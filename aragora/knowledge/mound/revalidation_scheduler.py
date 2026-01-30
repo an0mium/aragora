@@ -357,7 +357,7 @@ async def handle_revalidation_task(
                 )
             else:
                 # Mark as needing attention (stale but not validated)
-                await knowledge_mound.update(  # type: ignore[misc]
+                await knowledge_mound.update(
                     node_id,
                     {
                         "validation_status": "needs_review",
@@ -427,8 +427,8 @@ async def _revalidate_via_debate(
             }
 
         # Create and run the arena
-        arena = Arena(  # type: ignore[call-arg]
-            env=env,
+        arena = Arena(
+            environment=env,
             agents=agents,
             protocol=protocol,
         )
@@ -437,7 +437,7 @@ async def _revalidate_via_debate(
         result = await arena.run()
 
         # Analyze the debate result
-        conclusion = result.conclusion if result else ""  # type: ignore[attr-defined]
+        conclusion = result.final_answer if result else ""
         consensus_reached = result.consensus_reached if result else False
 
         # Determine validation status from debate conclusion
@@ -454,9 +454,9 @@ async def _revalidate_via_debate(
         # Update the knowledge mound with revalidation result
         if knowledge_mound and validation_status == "valid":
             try:
-                await knowledge_mound.mark_validated(  # type: ignore[call-arg]
+                await knowledge_mound.mark_validated(
                     node_id=node_id,
-                    validation_method="debate",
+                    validator="debate",
                     confidence=result.confidence if result else 0.7,
                 )
             except Exception as e:
@@ -499,8 +499,8 @@ async def _revalidate_via_evidence(
         from aragora.evidence.collector import EvidenceCollector
 
         collector = EvidenceCollector()
-        evidence_pack = await collector.collect_evidence(  # type: ignore[call-arg]
-            query=content_preview[:200],
+        evidence_pack = await collector.collect_evidence(
+            task=content_preview[:200],
             enabled_connectors=["web"],
         )
 

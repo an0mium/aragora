@@ -18,12 +18,29 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.mound.types import KnowledgeItem, QueryResult
 
 logger = logging.getLogger(__name__)
+
+
+class KnowledgeMoundProtocol(Protocol):
+    """Protocol defining the KnowledgeMound interface needed for confidence decay."""
+
+    async def query(
+        self,
+        query: str = "",
+        workspace_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> "QueryResult": ...
+
+    async def get(self, node_id: str) -> Optional["KnowledgeItem"]: ...
+
+    async def update_confidence(self, node_id: str, new_confidence: float) -> bool: ...
 
 
 class DecayModel(str, Enum):
@@ -231,7 +248,7 @@ class ConfidenceDecayManager:
 
     async def apply_decay(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         workspace_id: str,
         force: bool = False,
     ) -> DecayReport:
@@ -335,7 +352,7 @@ class ConfidenceDecayManager:
                 try:
                     if hasattr(mound, "update_confidence"):
                         # KnowledgeMound inherits update_confidence from CRUDMixin
-                        await mound.update_confidence(item.id, new_confidence)  # type: ignore[misc]
+                        await mound.update_confidence(item.id, new_confidence)
                 except Exception as e:
                     logger.warning(f"Failed to update confidence for {item.id}: {e}")
 
@@ -364,7 +381,7 @@ class ConfidenceDecayManager:
 
     async def record_event(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         item_id: str,
         event: ConfidenceEvent,
         reason: str = "",
@@ -383,7 +400,7 @@ class ConfidenceDecayManager:
         import uuid
 
         # Get item
-        item = await mound.get(item_id)  # type: ignore[arg-type,misc]
+        item = await mound.get(item_id)
         if not item:
             return None
 
@@ -409,7 +426,7 @@ class ConfidenceDecayManager:
         try:
             if hasattr(mound, "update_confidence"):
                 # KnowledgeMound inherits update_confidence from CRUDMixin
-                await mound.update_confidence(item_id, new_confidence)  # type: ignore[arg-type, misc]
+                await mound.update_confidence(item_id, new_confidence)
         except Exception as e:
             logger.warning(f"Failed to update confidence for {item_id}: {e}")
 
@@ -473,14 +490,17 @@ class ConfidenceDecayMixin:
 
     _decay_manager: ConfidenceDecayManager | None = None
 
-    def _get_decay_manager(self) -> ConfidenceDecayManager:
+    def _get_decay_manager(self: KnowledgeMoundProtocol) -> ConfidenceDecayManager:
         """Get or create decay manager."""
-        if self._decay_manager is None:
-            self._decay_manager = ConfidenceDecayManager()
-        return self._decay_manager
+        # Access the class attribute via self
+        manager = getattr(self, "_decay_manager", None)
+        if manager is None:
+            manager = ConfidenceDecayManager()
+            object.__setattr__(self, "_decay_manager", manager)
+        return manager
 
     async def apply_confidence_decay(
-        self,
+        self: KnowledgeMoundProtocol,
         workspace_id: str,
         force: bool = False,
     ) -> DecayReport:
@@ -494,10 +514,10 @@ class ConfidenceDecayMixin:
             DecayReport with results
         """
         manager = self._get_decay_manager()
-        return await manager.apply_decay(self, workspace_id, force)  # type: ignore[arg-type]
+        return await manager.apply_decay(self, workspace_id, force)
 
     async def record_confidence_event(
-        self,
+        self: KnowledgeMoundProtocol,
         item_id: str,
         event: ConfidenceEvent,
         reason: str = "",
@@ -513,10 +533,10 @@ class ConfidenceDecayMixin:
             ConfidenceAdjustment if confidence changed
         """
         manager = self._get_decay_manager()
-        return await manager.record_event(self, item_id, event, reason)  # type: ignore[arg-type]
+        return await manager.record_event(self, item_id, event, reason)
 
     async def get_confidence_history(
-        self,
+        self: KnowledgeMoundProtocol,
         item_id: str | None = None,
         event_type: ConfidenceEvent | None = None,
         limit: int = 100,
@@ -525,7 +545,7 @@ class ConfidenceDecayMixin:
         manager = self._get_decay_manager()
         return await manager.get_adjustment_history(item_id, event_type, limit)
 
-    def get_decay_stats(self) -> dict[str, Any]:
+    def get_decay_stats(self: KnowledgeMoundProtocol) -> dict[str, Any]:
         """Get confidence decay statistics."""
         manager = self._get_decay_manager()
         return manager.get_stats()

@@ -37,9 +37,11 @@ import asyncio
 import hashlib
 import logging
 import re
+import sys
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional
 
 from .exceptions import (
     RLMCircuitOpenError,
@@ -47,12 +49,35 @@ from .exceptions import (
     RLMProviderError,
     RLMTimeoutError,
 )
-from .types import RLMResult
+from .types import AbstractionLevel, RLMResult
 
 if TYPE_CHECKING:
     from aragora.resilience import CircuitBreaker
 
     from .compressor import HierarchicalCompressor
+
+# Python 3.11+ has asyncio.timeout, earlier versions need a fallback
+if sys.version_info >= (3, 11):
+    _asyncio_timeout = asyncio.timeout
+else:
+    try:
+        from async_timeout import timeout as _asyncio_timeout
+    except ImportError:
+
+        @asynccontextmanager
+        async def _asyncio_timeout(delay: float | None) -> AsyncIterator[None]:
+            """Fallback timeout context manager using wait_for pattern."""
+            if delay is None:
+                yield
+                return
+            # Note: This is a simplified fallback; for full functionality,
+            # install async-timeout package
+            logger.warning(
+                "async-timeout not installed, timeout not enforced. "
+                "Install with: pip install async-timeout"
+            )
+            yield
+
 
 logger = logging.getLogger(__name__)
 
@@ -358,7 +383,7 @@ Answer (be specific and cite relevant parts):"""
         start_time = time.monotonic()
 
         try:
-            async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
+            async with _asyncio_timeout(timeout):
                 response = await self._agent_call(prompt, "sub_model")
 
             # Record success
@@ -589,7 +614,7 @@ Content:
 {registered.full_content[:4000]}
 
 Summary:"""
-                    async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
+                    async with _asyncio_timeout(timeout):
                         response = await self._agent_call(prompt, "sub_model")
 
                     # Record success
@@ -627,18 +652,16 @@ Summary:"""
         # PRIORITY 2: COMPRESSION - Use compressor if available
         if self._compressor:
             try:
-                async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
+                async with _asyncio_timeout(timeout):
                     result = await self._compressor.compress(
                         registered.full_content,
                         source_type=registered.content_type,
                     )
-                summary = (
-                    result.context.get_at_level(  # type: ignore[attr-defined,union-attr]
-                        result.context.abstraction_levels.get("summary", "SUMMARY")  # type: ignore[attr-defined]
-                    )
-                    if hasattr(result, "context")
-                    else str(result)
-                )
+                # CompressionResult.context is RLMContext, use get_at_level with AbstractionLevel enum
+                if hasattr(result, "context") and result.context is not None:
+                    summary = result.context.get_at_level(AbstractionLevel.SUMMARY)
+                else:
+                    summary = str(result)
                 registered.summary = summary
 
                 if max_chars and len(summary) > max_chars:
