@@ -241,8 +241,7 @@ class TestGetUserStoreFromHandler:
     def test_from_app_user_store(self):
         user_store = MockUserStore()
         handler = MagicMock(spec=[])
-        handler.app = MagicMock()
-        handler.app.ctx = MagicMock(spec=[])  # ctx without get
+        handler.app = MagicMock(spec=["user_store"])  # app without ctx attr
         handler.app.user_store = user_store
 
         result = _get_user_store_from_handler(handler)
@@ -546,7 +545,7 @@ class TestEnforceAdminMfaPolicy:
         assert result is not None
         assert result["enforced"] is False  # Still within grace from the recent start
 
-    @patch("aragora.server.middleware.mfa.get_settings")
+    @patch("aragora.config.settings.get_settings")
     def test_mfa_enforcement_disabled_in_settings(self, mock_settings):
         settings = MagicMock()
         settings.security.admin_mfa_required = False

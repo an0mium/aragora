@@ -149,7 +149,7 @@ class TestRedactSensitive:
         data = {
             "user": {
                 "name": "alice",
-                "credentials": {
+                "login_info": {
                     "password": "secret",
                     "api_key": "key123",
                 },
@@ -157,8 +157,8 @@ class TestRedactSensitive:
         }
         result = redact_sensitive(data)
         assert result["user"]["name"] == "alice"
-        assert result["user"]["credentials"]["password"] == "[REDACTED]"
-        assert result["user"]["credentials"]["api_key"] == "[REDACTED]"
+        assert result["user"]["login_info"]["password"] == "[REDACTED]"
+        assert result["user"]["login_info"]["api_key"] == "[REDACTED]"
 
     def test_redacts_case_insensitive(self):
         data = {"API_KEY": "key", "Password": "pass", "SESSION_KEY": "sess"}
@@ -239,7 +239,9 @@ class TestRedactSensitive:
 
     def test_string_values_checked_for_secret_patterns(self):
         """String values matching secret patterns get redacted even if key is not sensitive."""
-        data = {"some_field": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"}
+        data = {
+            "some_field": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        }
         result = redact_sensitive(data)
         assert "[REDACTED]" in result["some_field"]
 
@@ -279,7 +281,10 @@ class TestRedactString:
         assert redact_string("hello") == "hello"
 
     def test_normal_text_not_redacted(self):
-        assert redact_string("This is a normal log message about debugging.") == "This is a normal log message about debugging."
+        assert (
+            redact_string("This is a normal log message about debugging.")
+            == "This is a normal log message about debugging."
+        )
 
     def test_jwt_token_redacted(self):
         jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
@@ -389,8 +394,13 @@ class TestJsonFormatter:
 
     def test_timestamp_included_when_enabled(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         output = self.formatter.format(record)
         parsed = json.loads(output)
@@ -399,8 +409,13 @@ class TestJsonFormatter:
     def test_timestamp_excluded_when_disabled(self):
         formatter = JsonFormatter(include_timestamp=False, include_hostname=False)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -409,8 +424,13 @@ class TestJsonFormatter:
     def test_hostname_included_when_enabled(self):
         formatter = JsonFormatter(include_hostname=True)
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -418,8 +438,13 @@ class TestJsonFormatter:
 
     def test_context_propagated_from_contextvar(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         with log_context(request_id="req-abc", user_id="user-456"):
             output = self.formatter.format(record)
@@ -429,8 +454,13 @@ class TestJsonFormatter:
 
     def test_extra_fields_included(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         record.event = "request_start"
         record.method = "GET"
@@ -441,8 +471,13 @@ class TestJsonFormatter:
 
     def test_extra_fields_are_redacted(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         record.api_key = "sk-12345"
         record.password = "secret"
@@ -456,11 +491,17 @@ class TestJsonFormatter:
             raise ValueError("test error")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="test.py", lineno=42,
-            msg="Error occurred", args=None, exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="test.py",
+            lineno=42,
+            msg="Error occurred",
+            args=None,
+            exc_info=exc_info,
         )
         output = self.formatter.format(record)
         parsed = json.loads(output)
@@ -471,8 +512,13 @@ class TestJsonFormatter:
 
     def test_source_location_for_errors(self):
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="/app/server.py", lineno=99,
-            msg="Error", args=None, exc_info=None,
+            name="test",
+            level=logging.ERROR,
+            pathname="/app/server.py",
+            lineno=99,
+            msg="Error",
+            args=None,
+            exc_info=None,
         )
         record.funcName = "handle_request"
         output = self.formatter.format(record)
@@ -484,8 +530,13 @@ class TestJsonFormatter:
 
     def test_source_location_not_for_info(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py", lineno=10,
-            msg="Info", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=10,
+            msg="Info",
+            args=None,
+            exc_info=None,
         )
         output = self.formatter.format(record)
         parsed = json.loads(output)
@@ -493,8 +544,13 @@ class TestJsonFormatter:
 
     def test_standard_attrs_excluded_from_extra(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py", lineno=10,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=10,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         output = self.formatter.format(record)
         parsed = json.loads(output)
@@ -519,8 +575,13 @@ class TestTextFormatter:
 
     def test_basic_format(self):
         record = logging.LogRecord(
-            name="test.logger", level=logging.INFO, pathname="", lineno=0,
-            msg="Hello world", args=None, exc_info=None,
+            name="test.logger",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Hello world",
+            args=None,
+            exc_info=None,
         )
         output = self.formatter.format(record)
         assert "INFO" in output
@@ -529,8 +590,13 @@ class TestTextFormatter:
 
     def test_includes_request_id_from_context(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Processing", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Processing",
+            args=None,
+            exc_info=None,
         )
         with log_context(request_id="req-text-123"):
             output = self.formatter.format(record)
@@ -539,16 +605,26 @@ class TestTextFormatter:
     def test_dash_when_no_request_id(self):
         clear_log_context()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="No context", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="No context",
+            args=None,
+            exc_info=None,
         )
         output = self.formatter.format(record)
         assert "[-]" in output
 
     def test_extra_fields_appended(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         record.event = "custom_event"
         output = self.formatter.format(record)
@@ -556,8 +632,13 @@ class TestTextFormatter:
 
     def test_extra_fields_are_redacted(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="msg", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="msg",
+            args=None,
+            exc_info=None,
         )
         record.password = "mysecret"
         output = self.formatter.format(record)
@@ -569,11 +650,17 @@ class TestTextFormatter:
             raise RuntimeError("text error")
         except RuntimeError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="", lineno=0,
-            msg="Error", args=None, exc_info=exc_info,
+            name="test",
+            level=logging.ERROR,
+            pathname="",
+            lineno=0,
+            msg="Error",
+            args=None,
+            exc_info=exc_info,
         )
         output = self.formatter.format(record)
         assert "RuntimeError" in output

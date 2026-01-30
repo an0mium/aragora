@@ -89,9 +89,7 @@ class _patch_router:
         else:
             mock_router.route = AsyncMock(return_value=result or _mock_router_result())
         self._router_patch = patch.object(middleware, "_get_router", return_value=mock_router)
-        self._origin_patch = patch.object(
-            middleware, "_register_origin", new_callable=AsyncMock
-        )
+        self._origin_patch = patch.object(middleware, "_register_origin", new_callable=AsyncMock)
 
     def __enter__(self):
         self._router_patch.__enter__()
@@ -578,14 +576,15 @@ class TestDecisionRoutingMiddleware:
         context = _make_context(request_id="fallback")
 
         with patch.object(middleware, "_get_router", return_value=None):
-            with patch.object(middleware, "_fallback_route") as mock_fb:
-                mock_fb.return_value = {
-                    "success": True,
-                    "answer": "Fallback answer",
-                    "confidence": 0.7,
-                    "consensus_reached": True,
-                }
-                result = await middleware.process("Test fallback", context)
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                with patch.object(middleware, "_fallback_route") as mock_fb:
+                    mock_fb.return_value = {
+                        "success": True,
+                        "answer": "Fallback answer",
+                        "confidence": 0.7,
+                        "consensus_reached": True,
+                    }
+                    result = await middleware.process("Test fallback", context)
 
         mock_fb.assert_called_once()
         assert result["success"] is True
@@ -596,8 +595,11 @@ class TestDecisionRoutingMiddleware:
         context = _make_context(request_id="fb-error")
 
         with patch.object(middleware, "_get_router", return_value=None):
-            with patch.object(middleware, "_fallback_route", side_effect=RuntimeError("fb fail")):
-                result = await middleware.process("Error test", context)
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                with patch.object(
+                    middleware, "_fallback_route", side_effect=RuntimeError("fb fail")
+                ):
+                    result = await middleware.process("Error test", context)
 
         assert result["success"] is False
         assert "fb fail" in result["error"]
@@ -634,11 +636,12 @@ class TestMiddlewareMultiPlatformRouting:
                 return _mock_router_result()
 
             with patch.object(middleware, "_get_router") as mock_get_router:
-                mock_router = MagicMock()
-                mock_router.route = mock_route
-                mock_get_router.return_value = mock_router
+                with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                    mock_router = MagicMock()
+                    mock_router.route = mock_route
+                    mock_get_router.return_value = mock_router
 
-                await middleware.process(f"Test {channel_name}", context)
+                    await middleware.process(f"Test {channel_name}", context)
 
             assert captured_request is not None, f"No request captured for {channel_name}"
             assert captured_request.source.value == expected_source.lower(), (
@@ -659,11 +662,12 @@ class TestMiddlewareMultiPlatformRouting:
             return _mock_router_result()
 
         with patch.object(middleware, "_get_router") as mock_get_router:
-            mock_router = MagicMock()
-            mock_router.route = mock_route
-            mock_get_router.return_value = mock_router
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                mock_router = MagicMock()
+                mock_router.route = mock_route
+                mock_get_router.return_value = mock_router
 
-            await middleware.process("Test", context)
+                await middleware.process("Test", context)
 
         assert captured_request.source.value == "http_api"
 
@@ -685,11 +689,12 @@ class TestDecisionTypeMappings:
                 return _mock_router_result()
 
             with patch.object(middleware, "_get_router") as m:
-                mock_router = MagicMock()
-                mock_router.route = mock_route
-                m.return_value = mock_router
+                with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                    mock_router = MagicMock()
+                    mock_router.route = mock_route
+                    m.return_value = mock_router
 
-                await middleware.process("Test", context, decision_type=dtype)
+                    await middleware.process("Test", context, decision_type=dtype)
 
             assert captured is not None
             assert captured.decision_type.value == dtype
@@ -706,11 +711,12 @@ class TestDecisionTypeMappings:
             return _mock_router_result()
 
         with patch.object(middleware, "_get_router") as m:
-            mock_router = MagicMock()
-            mock_router.route = mock_route
-            m.return_value = mock_router
+            with patch.object(middleware, "_register_origin", new_callable=AsyncMock):
+                mock_router = MagicMock()
+                mock_router.route = mock_route
+                m.return_value = mock_router
 
-            await middleware.process("Test", context, decision_type="nonexistent")
+                await middleware.process("Test", context, decision_type="nonexistent")
 
         assert captured.decision_type.value == "debate"
 
