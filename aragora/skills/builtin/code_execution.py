@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import json as _json_module
 import logging
 import os
+import sys as _sys_module
 import tempfile
 from typing import Any
 

@@ -499,7 +499,7 @@ class TestEmailServicesValidation:
             )
 
             assert result.status_code == 400
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "email_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
@@ -515,7 +515,7 @@ class TestEmailServicesValidation:
             )
 
             assert result.status_code == 400
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "thread_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
@@ -529,7 +529,7 @@ class TestEmailServicesValidation:
         )
 
         assert result.status_code == 400
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "snooze_until" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
@@ -543,7 +543,7 @@ class TestEmailServicesValidation:
         )
 
         assert result.status_code == 400
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "invalid" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
@@ -559,7 +559,7 @@ class TestEmailServicesValidation:
             )
 
             assert result.status_code == 400
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "required" in body.get("error", "").lower()
 
 
@@ -591,7 +591,7 @@ class TestMarkFollowup:
             )
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "followup_id" in body
             assert body["email_id"] == "email_001"
             assert body["thread_id"] == "thread_001"
@@ -614,7 +614,7 @@ class TestGetPendingFollowups:
             )
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "followups" in body
             assert "total" in body
             assert isinstance(body["followups"], list)
@@ -642,7 +642,7 @@ class TestResolveFollowup:
                 )
 
                 assert result.status_code == 200
-                body = json.loads(result.body)
+                body = unwrap_response(json.loads(result.body))
                 assert body["followup_id"] == followup_id
                 assert body["status"] == "resolved"
 
@@ -675,7 +675,7 @@ class TestCheckReplies:
             result = await handle_check_replies(user_id="test_user", auth_context=mock_auth_context)
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "replied" in body
             assert "still_pending" in body
 
@@ -696,7 +696,7 @@ class TestAutoDetectFollowups:
             )
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "detected" in body
             assert "total_detected" in body
 
@@ -723,7 +723,7 @@ class TestGetSnoozeSuggestions:
             )
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert body["email_id"] == "email_123"
             assert "suggestions" in body
             assert isinstance(body["suggestions"], list)
@@ -745,7 +745,7 @@ class TestApplySnooze:
         )
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert body["email_id"] == "email_123"
         assert body["status"] == "snoozed"
         assert body["label"] == "Tomorrow"
@@ -774,7 +774,7 @@ class TestCancelSnooze:
         )
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert body["email_id"] == "email_123"
         assert body["status"] == "unsnooze"
 
@@ -810,7 +810,7 @@ class TestGetSnoozedEmails:
         )
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "snoozed" in body
         assert "total" in body
         assert body["total"] == 1
@@ -836,7 +836,7 @@ class TestProcessDueSnoozes:
         )
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "processed" in body
         assert "count" in body
 
@@ -855,7 +855,7 @@ class TestGetCategories:
         result = await handle_get_categories(user_id="test_user", auth_context=mock_auth_context)
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "categories" in body
         assert isinstance(body["categories"], list)
         assert len(body["categories"]) > 0
@@ -887,7 +887,7 @@ class TestCategoryFeedback:
             )
 
             assert result.status_code == 200
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert body["email_id"] == "email_123"
             assert body["feedback_recorded"] is True
 
@@ -915,7 +915,7 @@ class TestEmailServicesErrors:
             )
 
             assert result.status_code == 500
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "error" in body
 
     @pytest.mark.asyncio
@@ -934,7 +934,7 @@ class TestEmailServicesErrors:
             )
 
             assert result.status_code == 500
-            body = json.loads(result.body)
+            body = unwrap_response(json.loads(result.body))
             assert "error" in body
 
 
@@ -996,7 +996,7 @@ class TestHandlerMethods:
         )
 
         assert result.status_code == 200
-        body = json.loads(result.body)
+        body = unwrap_response(json.loads(result.body))
         assert "categories" in body
 
     @pytest.mark.asyncio

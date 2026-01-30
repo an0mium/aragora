@@ -30,12 +30,42 @@ import time
 from typing import Any, Callable, Optional
 
 from aragora.observability.tracing import get_tracer
-from aragora.knowledge.mound.resilience import ResilientAdapterMixin
+from aragora.knowledge.mound.resilience import (
+    AdapterCircuitBreakerConfig,
+    ResilientAdapterMixin,
+)
 
 logger = logging.getLogger(__name__)
 
 # Type alias for event callback
 EventCallback = Callable[[str, dict[str, Any]], None]
+
+# Per-adapter circuit breaker configurations
+# These are tuned based on each adapter's characteristics:
+# - Fast in-memory adapters: tight thresholds, short timeouts
+# - External/IO-bound adapters: lenient thresholds, longer timeouts
+# - Database-heavy adapters: moderate thresholds
+ADAPTER_CIRCUIT_CONFIGS: dict[str, AdapterCircuitBreakerConfig] = {
+    # Fast adapters - tight thresholds
+    "elo": AdapterCircuitBreakerConfig(failure_threshold=3, timeout_seconds=15.0),
+    "ranking": AdapterCircuitBreakerConfig(failure_threshold=3, timeout_seconds=15.0),
+    # External/slow adapters - lenient
+    "evidence": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0),
+    "pulse": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    # Database-heavy adapters
+    "continuum": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "consensus": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "critique": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    # Analytics/insights adapters
+    "insights": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    "belief": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "cost": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    # Control plane adapters
+    "control_plane": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "receipt": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0),
+    "culture": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+    "rlm": AdapterCircuitBreakerConfig(failure_threshold=5, timeout_seconds=45.0),
+}
 
 
 class KnowledgeMoundAdapter(ResilientAdapterMixin):
