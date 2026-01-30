@@ -239,6 +239,9 @@ import {
   HistoryNamespace,
   RankingNamespace,
   HealthNamespace,
+  SLONamespace,
+  SSONamespace,
+  EmailDebateNamespace,
   QueueAPI,
   ChatAPI,
   FlipsAPI,
@@ -726,6 +729,15 @@ export class AragoraClient {
   /** Health API - System health monitoring and status checks. */
   readonly health: HealthNamespace;
 
+  /** SLO API - Service Level Objective monitoring and error budgets. */
+  readonly slo: SLONamespace;
+
+  /** SSO API - Single Sign-On authentication (SAML/OIDC). */
+  readonly sso: SSONamespace;
+
+  /** Email Debate API - AI-powered email prioritization and triage. */
+  readonly emailDebate: EmailDebateNamespace;
+
   /** Queue API - Background job queue management. */
   readonly queue: QueueAPI;
 
@@ -862,6 +874,9 @@ export class AragoraClient {
     this.history = new HistoryNamespace(this);
     this.ranking = new RankingNamespace(this);
     this.health = new HealthNamespace(this);
+    this.slo = new SLONamespace(this);
+    this.sso = new SSONamespace(this);
+    this.emailDebate = new EmailDebateNamespace(this);
 
     // New namespaces (SDK Parity Sprint - Phase 3)
     this.advertising = new AdvertisingAPI(this);

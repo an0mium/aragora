@@ -247,13 +247,14 @@ class WorkflowCoverageTracker:
         """Create singleton instance."""
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance._initialized = False  # type: ignore[has-type]
+                instance = super().__new__(cls)
+                instance._initialized = False
+                cls._instance = instance
             return cls._instance
 
     def __init__(self) -> None:
         """Initialize tracker (only once due to singleton)."""
-        if self._initialized:  # type: ignore[has-type]
+        if getattr(self, "_initialized", False):
             return
 
         self._data_lock = threading.Lock()
@@ -364,10 +365,10 @@ class WorkflowCoverageTracker:
                 covered_patterns=covered_patterns,
                 covered_templates=covered_templates,
                 covered_configs=covered_configs,
-                missing_steps=missing_steps,  # type: ignore[arg-type]
-                missing_patterns=missing_patterns,  # type: ignore[arg-type]
-                missing_templates=missing_templates,  # type: ignore[arg-type]
-                missing_configs=missing_configs,  # type: ignore[arg-type]
+                missing_steps=set(missing_steps),
+                missing_patterns=set(missing_patterns),
+                missing_templates=set(missing_templates),
+                missing_configs=set(missing_configs),
                 total_tests=len(self._test_names),
             )
 

@@ -152,9 +152,7 @@ class TestCheckTokenBudget:
     async def test_raises_when_exceeds_budget(self, enforcer: TenantLimitsEnforcer):
         """Should raise when request would exceed budget."""
         with pytest.raises(TenantLimitExceededError) as exc_info:
-            await enforcer.check_token_budget(
-                "tenant-1", tokens_used=99000, tokens_requested=2000
-            )
+            await enforcer.check_token_budget("tenant-1", tokens_used=99000, tokens_requested=2000)
 
         error = exc_info.value
         assert error.limit_type == "tokens_per_month"
@@ -174,9 +172,7 @@ class TestCheckTokenBudget:
     async def test_handles_large_request(self, enforcer: TenantLimitsEnforcer):
         """Should reject request exceeding total budget."""
         with pytest.raises(TenantLimitExceededError):
-            await enforcer.check_token_budget(
-                "tenant-1", tokens_used=0, tokens_requested=200000
-            )
+            await enforcer.check_token_budget("tenant-1", tokens_used=0, tokens_requested=200000)
 
 
 class TestCheckStorageQuota:
@@ -429,19 +425,10 @@ class TestEdgeCases:
         result = await enforcer.check_debate_limit("", current_count=5)
         assert result is True
 
-    def test_summary_with_zero_limits(self):
-        """Should handle zero limits gracefully in percentage calculation."""
-        # This tests division by zero protection
-        config = TenantConfig(
-            max_debates_per_day=0,
-            tokens_per_month=0,
-            storage_quota=0,
-        )
-        enforcer = TenantLimitsEnforcer(config)
-
-        # This will raise ZeroDivisionError if not handled
-        # But since the config has defaults, this actually tests with those defaults
-        # Let's test with actual usage instead
-        summary = enforcer.get_usage_summary(debates_today=0)
-        # With default config (100 debates/day), this should be 0%
-        assert summary["debates"]["percentage"] == 0.0
+    def test_over_100_percent_usage(self, enforcer: TenantLimitsEnforcer):
+        """Should handle usage exceeding limits (percentage > 100%)."""
+        # Test when usage exceeds limit
+        summary = enforcer.get_usage_summary(debates_today=20)  # Limit is 10
+        # Percentage should be over 100%
+        assert summary["debates"]["percentage"] == 200.0
+        assert summary["debates"]["remaining"] == 0  # Never negative

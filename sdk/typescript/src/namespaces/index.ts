@@ -1125,3 +1125,38 @@ export {
   type PreflightCheck,
   type IntegrationStatusSummary,
 } from './oauth-wizard';
+
+// SLO (Service Level Objectives)
+export {
+  SLONamespace,
+  type SLOTarget,
+  type SLOStatus,
+  type ErrorBudget,
+  type SLOViolation,
+  type OverallSLOStatus,
+  type SLOAlert,
+} from './slo';
+
+// SSO (Single Sign-On)
+export {
+  SSONamespace,
+  type SSOProviderType,
+  type SSOLoginResponse,
+  type SSOUser,
+  type SSOCallbackResult,
+  type SSOStatus,
+  type SAMLMetadata,
+  type SSOLogoutResponse,
+} from './sso';
+
+// Email Debate (AI-Powered Email Prioritization)
+export {
+  EmailDebateNamespace,
+  type EmailInput,
+  type PriorityLevel,
+  type PrioritizationResult,
+  type BatchPrioritizationResult,
+  type EmailCategory,
+  type TriageResult,
+  type InboxTriageResponse,
+} from './email-debate';

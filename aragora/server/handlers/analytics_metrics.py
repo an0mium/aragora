@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from aragora.config import CACHE_TTL_ANALYTICS
+from aragora.server.validation.query_params import safe_query_int
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
@@ -517,11 +518,7 @@ class AnalyticsMetricsHandler(SecureHandler):
         if time_range not in VALID_TIME_RANGES:
             time_range = "30d"
 
-        try:
-            limit = int(query_params.get("limit", "20"))
-            limit = max(1, min(limit, 100))
-        except (ValueError, TypeError):
-            limit = 20
+        limit = safe_query_int(query_params, "limit", default=20, max_val=100)
 
         org_id = query_params.get("org_id")
 
@@ -794,11 +791,7 @@ class AnalyticsMetricsHandler(SecureHandler):
             "generated_at": "2026-01-23T12:00:00Z"
         }
         """
-        try:
-            limit = int(query_params.get("limit", "20"))
-            limit = max(1, min(limit, 100))
-        except (ValueError, TypeError):
-            limit = 20
+        limit = safe_query_int(query_params, "limit", default=20, max_val=100)
 
         domain = query_params.get("domain")
 
