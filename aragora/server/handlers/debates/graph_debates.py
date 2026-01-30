@@ -98,6 +98,7 @@ class GraphDebatesHandler(SecureHandler):
             "403": {"description": "Permission denied"},
             "404": {"description": "Graph debate not found"},
         },
+        operation_id="get_graph_debate",
     )
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:

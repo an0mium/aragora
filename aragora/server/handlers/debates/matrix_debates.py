@@ -129,6 +129,7 @@ class MatrixDebatesHandler(SecureHandler):
             "403": {"description": "Permission denied"},
             "404": {"description": "Matrix debate not found"},
         },
+        operation_id="get_matrix_debate",
     )
     @handle_errors("matrix debates GET")
     async def handle_get(

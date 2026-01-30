@@ -24406,7 +24406,7 @@ export interface paths {
          * Get graph debate
          * @description Get a graph-structured debate by ID, including branches and nodes.
          */
-        get: operations["handle_get"];
+        get: operations["get_graph_debate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -24566,7 +24566,7 @@ export interface paths {
          * Get matrix debate
          * @description Get the results of a matrix debate with parallel scenario exploration.
          */
-        get: operations["handle_get"];
+        get: operations["get_matrix_debate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -82445,7 +82445,7 @@ export interface operations {
             };
         };
     };
-    handle_get: {
+    get_graph_debate: {
         parameters: {
             query?: never;
             header?: never;
@@ -82722,7 +82722,7 @@ export interface operations {
             };
         };
     };
-    handle_get: {
+    get_matrix_debate: {
         parameters: {
             query?: never;
             header?: never;

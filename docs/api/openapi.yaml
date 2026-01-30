@@ -60211,7 +60211,7 @@
           "Graph Debates"
         ],
         "description": "Get a graph-structured debate by ID, including branches and nodes.",
-        "operationId": "handle_get",
+        "operationId": "get_graph_debate",
         "parameters": [
           {
             "name": "debate_id",
@@ -60497,7 +60497,7 @@
           "Matrix Debates"
         ],
         "description": "Get the results of a matrix debate with parallel scenario exploration.",
-        "operationId": "handle_get",
+        "operationId": "get_matrix_debate",
         "parameters": [
           {
             "name": "matrix_id",
