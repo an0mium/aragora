@@ -47,10 +47,10 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-    def get_encryption_service():  # type: ignore[misc,no-redef]
+    def _fallback_get_encryption_service() -> Any:
         raise RuntimeError("Encryption not available")
 
-    def is_encryption_required() -> bool:  # type: ignore[misc,no-redef]
+    def _fallback_is_encryption_required() -> bool:
         """Fallback when security module unavailable - still check env vars."""
         import os
 
@@ -60,7 +60,7 @@ except ImportError:
             return True
         return False
 
-    class EncryptionError(Exception):  # type: ignore[no-redef]
+    class _FallbackEncryptionError(Exception):
         """Fallback exception when security module unavailable."""
 
         def __init__(self, operation: str, reason: str, store: str = ""):
@@ -71,6 +71,10 @@ except ImportError:
                 f"Encryption {operation} failed in {store}: {reason}. "
                 f"Set ARAGORA_ENCRYPTION_REQUIRED=false to allow plaintext fallback."
             )
+
+    get_encryption_service = _fallback_get_encryption_service
+    is_encryption_required = _fallback_is_encryption_required
+    EncryptionError = _FallbackEncryptionError
 
 
 def _record_user_mapping_operation(operation: str, platform: str, found: bool) -> None:
