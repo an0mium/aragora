@@ -19,6 +19,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.services.email_debate import EmailDebateService, EmailInput
 
 logger = logging.getLogger(__name__)
 

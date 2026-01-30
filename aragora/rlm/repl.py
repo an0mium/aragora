@@ -613,7 +613,11 @@ class RLMEnvironment:
             - Runtime checks detect string concatenation attacks
             - Namespace size limits prevent memory exhaustion
         """
-        # Validate code safety (basic AST check)
+        # Reject oversized code to prevent memory-based attacks
+        if len(code) > self.MAX_CODE_SIZE:
+            return f"SecurityError: Code exceeds maximum size ({self.MAX_CODE_SIZE} bytes)", False
+
+        # Validate code safety (AST-based structural check)
         try:
             tree = ast.parse(code)
             self._validate_ast(tree)
@@ -701,6 +705,9 @@ class RLMEnvironment:
                     logger.debug(f"Could not check collection size: {e}")
                     pass  # Can't check size, allow it
 
+    # Maximum allowed code size to prevent memory-based attacks
+    MAX_CODE_SIZE = 100_000  # 100KB
+
     def _validate_ast(self, tree: ast.AST) -> None:
         """
         Validate AST for security concerns.
@@ -710,6 +717,7 @@ class RLMEnvironment:
         - getattr(func, "__globals__") to access builtins
         - obj.__class__.__bases__[0].__subclasses__() to find dangerous classes
         - String literals containing dunder names passed to functions
+        - global/nonlocal statements to manipulate scope
         """
         # Dangerous function names that can escape the sandbox
         DANGEROUS_FUNCS = frozenset(
@@ -777,6 +785,10 @@ class RLMEnvironment:
                 if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
                     if node.slice.value in self.BLOCKED_DUNDER_NAMES:
                         raise SecurityError(f"Subscript access to blocked name: {node.slice.value}")
+
+            # Block global/nonlocal statements (scope manipulation)
+            if isinstance(node, (ast.Global, ast.Nonlocal)):
+                raise SecurityError("Global/nonlocal statements are not allowed")
 
             # Block f-strings that might construct dangerous names
             if isinstance(node, ast.JoinedStr):

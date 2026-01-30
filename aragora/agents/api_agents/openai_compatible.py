@@ -35,7 +35,7 @@ class _APIAgentProtocol(Protocol):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: Optional["Callable[[str], str]"] = None,
+        sanitize_fn: object | None = None,
     ) -> str: ...
 
     def _parse_critique(
@@ -107,7 +107,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         self,
         context: list[Message] | None = None,
         truncate: bool = False,
-        sanitize_fn: Optional["Callable[[str], str]"] = None,
+        sanitize_fn: object | None = None,
     ) -> str:
         """Build context from previous messages (delegates to CritiqueMixin)."""
         # Cast super() to protocol for proper typing of mixin cooperative inheritance

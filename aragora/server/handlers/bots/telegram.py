@@ -79,9 +79,22 @@ def _verify_telegram_secret(secret_token: str) -> bool:
 
     Telegram sends this header if you configured a secret_token when setting the webhook.
     See: https://core.telegram.org/bots/api#setwebhook
+
+    SECURITY: Fails closed in production if TELEGRAM_WEBHOOK_SECRET is not configured.
     """
     if not TELEGRAM_WEBHOOK_SECRET:
-        # No secret configured, allow all
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+        if is_production:
+            logger.error(
+                "SECURITY: TELEGRAM_WEBHOOK_SECRET not configured in production. "
+                "Rejecting webhook to prevent signature bypass."
+            )
+            return False
+        logger.warning(
+            "TELEGRAM_WEBHOOK_SECRET not set - skipping verification. "
+            "This is only acceptable in development!"
+        )
         return True
 
     return hmac.compare_digest(secret_token, TELEGRAM_WEBHOOK_SECRET)

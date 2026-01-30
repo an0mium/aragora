@@ -78,14 +78,29 @@ def _mock_router_result(
     return result
 
 
-def _patch_router(middleware, result=None, side_effect=None):
-    """Return a context-manager that patches _get_router on *middleware*."""
-    mock_router = MagicMock()
-    if side_effect is not None:
-        mock_router.route = AsyncMock(side_effect=side_effect)
-    else:
-        mock_router.route = AsyncMock(return_value=result or _mock_router_result())
-    return patch.object(middleware, "_get_router", return_value=mock_router)
+class _patch_router:
+    """Context-manager that patches _get_router and _register_origin on *middleware*."""
+
+    def __init__(self, middleware, result=None, side_effect=None):
+        self._middleware = middleware
+        mock_router = MagicMock()
+        if side_effect is not None:
+            mock_router.route = AsyncMock(side_effect=side_effect)
+        else:
+            mock_router.route = AsyncMock(return_value=result or _mock_router_result())
+        self._router_patch = patch.object(middleware, "_get_router", return_value=mock_router)
+        self._origin_patch = patch.object(
+            middleware, "_register_origin", new_callable=AsyncMock
+        )
+
+    def __enter__(self):
+        self._router_patch.__enter__()
+        self._origin_patch.__enter__()
+        return self
+
+    def __exit__(self, *args):
+        self._origin_patch.__exit__(*args)
+        self._router_patch.__exit__(*args)
 
 
 # ===========================================================================

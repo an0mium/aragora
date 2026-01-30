@@ -20,7 +20,7 @@ from aragora.agents.registry import AgentRegistry
     accepts_api_key=True,
     description="Mistral AI - direct API access to Mistral Large, Medium, and Small models",
 )
-class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
+class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):
     """Agent that uses Mistral AI API directly.
 
     Mistral provides high-quality models with excellent reasoning capabilities.

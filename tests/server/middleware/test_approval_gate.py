@@ -1843,7 +1843,7 @@ class TestRecoverPendingApprovals:
     async def test_handles_store_error_gracefully(self, approval_module):
         """Should handle store errors gracefully."""
         mock_store = MagicMock()
-        mock_store.list_approvals.side_effect = Exception("Store error")
+        mock_store.list_approvals.side_effect = RuntimeError("Store error")
 
         with patch.dict(
             "sys.modules",
