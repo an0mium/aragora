@@ -288,7 +288,7 @@ class TestCachingCheckpointStoreDeep:
         await cached.load("cp-001")  # miss -> backend
         await cached.load("cp-001")  # hit
         await cached.load("cp-001")  # hit
-        await cached.load("other")   # miss -> backend
+        await cached.load("other")  # miss -> backend
 
         stats = cached.cache_stats
         assert stats["hits"] == 2
@@ -340,6 +340,7 @@ class TestRedisCheckpointStoreDeep:
             ),
         ):
             from aragora.workflow.checkpoint_store import RedisCheckpointStore
+
             store = RedisCheckpointStore(**kwargs)
             store._redis = mock_redis
             return store
@@ -598,6 +599,7 @@ class TestPostgresCheckpointStoreDeep:
     def _make_store(self, pool):
         with patch("aragora.workflow.checkpoint_store.ASYNCPG_AVAILABLE", True):
             from aragora.workflow.checkpoint_store import PostgresCheckpointStore
+
             store = PostgresCheckpointStore(pool)
             return store
 
@@ -661,7 +663,10 @@ class TestPostgresCheckpointStoreDeep:
         store._initialized = True
 
         import logging
-        with patch.object(logging.getLogger("aragora.workflow.checkpoint_store"), "warning") as mock_warn:
+
+        with patch.object(
+            logging.getLogger("aragora.workflow.checkpoint_store"), "warning"
+        ) as mock_warn:
             result = await store.load("cp-check")
 
         assert result is not None
@@ -875,9 +880,16 @@ class TestFileCheckpointStoreDeep:
                 current_step=f"step_{i}",
             )
             # Use manual file write to control naming
-            data = {"workflow_id": "wf-stems", "definition_id": "d", "current_step": f"s{i}",
-                     "completed_steps": [], "step_outputs": {}, "context_state": {},
-                     "created_at": "2024-01-01T00:00:00", "checksum": ""}
+            data = {
+                "workflow_id": "wf-stems",
+                "definition_id": "d",
+                "current_step": f"s{i}",
+                "completed_steps": [],
+                "step_outputs": {},
+                "context_state": {},
+                "created_at": "2024-01-01T00:00:00",
+                "checksum": "",
+            }
             (Path(temp_dir) / f"wf-stems_{i}.json").write_text(json.dumps(data))
 
         ids = await store.list_checkpoints("wf-stems")
@@ -984,17 +996,19 @@ class TestKnowledgeMoundCheckpointStoreDeep:
 
         node = MagicMock()
         node.node_type = "workflow_checkpoint"
-        node.content = json.dumps({
-            "id": "cp-km",
-            "workflow_id": "wf-km-1",
-            "definition_id": "def-km",
-            "current_step": "step_5",
-            "completed_steps": ["step_1", "step_2", "step_3", "step_4"],
-            "step_outputs": {"step_1": {"val": 42}},
-            "context_state": {"mode": "test"},
-            "created_at": "2024-06-15T10:30:00",
-            "checksum": "km-checksum",
-        })
+        node.content = json.dumps(
+            {
+                "id": "cp-km",
+                "workflow_id": "wf-km-1",
+                "definition_id": "def-km",
+                "current_step": "step_5",
+                "completed_steps": ["step_1", "step_2", "step_3", "step_4"],
+                "step_outputs": {"step_1": {"val": 42}},
+                "context_state": {"mode": "test"},
+                "created_at": "2024-06-15T10:30:00",
+                "checksum": "km-checksum",
+            }
+        )
         mock_mound.get_node.return_value = node
 
         store = KnowledgeMoundCheckpointStore(mock_mound)
@@ -1036,16 +1050,18 @@ class TestKnowledgeMoundCheckpointStoreDeep:
         from aragora.workflow.checkpoint_store import KnowledgeMoundCheckpointStore
 
         node = MagicMock()
-        node.content = json.dumps({
-            "workflow_id": "wf-lat",
-            "definition_id": "def-lat",
-            "current_step": "last",
-            "completed_steps": [],
-            "step_outputs": {},
-            "context_state": {},
-            "created_at": "2024-06-15T12:00:00",
-            "checksum": "",
-        })
+        node.content = json.dumps(
+            {
+                "workflow_id": "wf-lat",
+                "definition_id": "def-lat",
+                "current_step": "last",
+                "completed_steps": [],
+                "step_outputs": {},
+                "context_state": {},
+                "created_at": "2024-06-15T12:00:00",
+                "checksum": "",
+            }
+        )
         mock_mound.query_by_provenance.return_value = [node]
 
         store = KnowledgeMoundCheckpointStore(mock_mound)
@@ -1179,7 +1195,10 @@ class TestGetCheckpointStoreFactoryDeep:
             patch("aragora.workflow.checkpoint_store._default_mound", None),
             patch.dict("os.environ", {"ARAGORA_CHECKPOINT_CACHE": "1"}),
         ):
-            from aragora.workflow.checkpoint_store import CachingCheckpointStore, get_checkpoint_store
+            from aragora.workflow.checkpoint_store import (
+                CachingCheckpointStore,
+                get_checkpoint_store,
+            )
 
             store = get_checkpoint_store(use_default_mound=False)
             assert isinstance(store, CachingCheckpointStore)

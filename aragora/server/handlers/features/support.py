@@ -663,7 +663,7 @@ class SupportHandler(SecureHandler):
 
     async def _get_metrics(self, request: Any) -> dict[str, Any]:
         """Get support metrics overview."""
-        days = int(request.query.get("days", 7))
+        days = safe_query_int(request.query, "days", default=7, min_val=1, max_val=365)
 
         metrics: dict[str, Any] = {
             "period_days": days,

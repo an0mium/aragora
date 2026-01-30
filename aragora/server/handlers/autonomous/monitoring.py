@@ -13,6 +13,7 @@ from aragora.server.handlers.utils.auth import (
     ForbiddenError,
 )
 from aragora.rbac.checker import get_permission_checker
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class MonitoringHandler:
             Trend data
         """
         metric_name = request.match_info.get("metric_name")
-        period_seconds = request.query.get("period_seconds")
+        request.query.get("period_seconds")
 
         try:
             # RBAC check
@@ -154,7 +155,10 @@ class MonitoringHandler:
             trend_monitor = get_trend_monitor()
             trend = trend_monitor.get_trend(
                 metric_name,
-                period_seconds=int(period_seconds) if period_seconds else None,
+                period_seconds=safe_query_int(
+                    request.query, "period_seconds", default=0, min_val=0, max_val=86400
+                )
+                or None,
             )
 
             if not trend:
@@ -269,7 +273,7 @@ class MonitoringHandler:
             if not decision.allowed:
                 raise ForbiddenError(f"Permission denied: {decision.reason}")
 
-            hours = int(request.query.get("hours", "24"))
+            hours = safe_query_int(request.query, "hours", default=24, min_val=1, max_val=720)
             metric_name = request.query.get("metric_name")
 
             anomaly_detector = get_anomaly_detector()

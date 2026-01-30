@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aragora.server.validation.query_params import safe_query_int
+
 logger = logging.getLogger(__name__)
 
 # Try to import handler base
@@ -353,7 +355,7 @@ if HANDLER_BASE_AVAILABLE:
         ) -> HandlerResult:
             """List files in a folder."""
             path = query_params.get("path", "/")
-            page_size = int(query_params.get("limit", 100))
+            page_size = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
 
             files = await list_files(provider, path, page_size)
 

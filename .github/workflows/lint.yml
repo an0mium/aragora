@@ -103,7 +103,7 @@ jobs:
             aragora/debate/orchestrator.py \
             aragora/memory/continuum.py \
             aragora/debate/consensus.py \
-            aragora/resilience.py \
+            aragora/resilience/__init__.py \
             aragora/reasoning/belief.py \
             aragora/debate/team_selector.py \
             aragora/debate/convergence.py \

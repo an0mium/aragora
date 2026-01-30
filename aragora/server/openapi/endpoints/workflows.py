@@ -420,7 +420,13 @@ WORKFLOW_ENDPOINTS = {
                                 "category": {"type": "string"},
                                 "pattern": {
                                     "type": "string",
-                                    "enum": ["hive_mind", "map_reduce", "review_cycle", "pipeline", "parallel"],
+                                    "enum": [
+                                        "hive_mind",
+                                        "map_reduce",
+                                        "review_cycle",
+                                        "pipeline",
+                                        "parallel",
+                                    ],
                                 },
                                 "tags": {"type": "array", "items": {"type": "string"}},
                                 "workflow_definition": {"type": "object"},

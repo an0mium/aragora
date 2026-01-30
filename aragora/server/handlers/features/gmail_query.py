@@ -18,6 +18,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.server.validation.query_params import safe_query_int
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -388,7 +390,7 @@ class GmailQueryHandler(SecureHandler):
         if not state or not getattr(state, "refresh_token", None):
             return error_response("Not connected - please authenticate first", 401)
 
-        limit = int(query_params.get("limit", 20))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
         query = query_params.get("query", "is:unread OR newer_than:7d")
 
         try:

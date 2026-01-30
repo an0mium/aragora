@@ -38,6 +38,7 @@ from aragora.services import (
 )
 from aragora.cache import HybridTTLCache, register_cache
 from aragora.utils.redis_cache import RedisTTLCache
+from aragora.server.validation.query_params import safe_query_int
 
 if TYPE_CHECKING:
     from aragora.connectors.enterprise.communication.gmail import GmailConnector
@@ -248,8 +249,8 @@ class InboxCommandHandler:
             await self._check_permission(request, "inbox:read")
             self._ensure_services()
 
-            limit = int(request.query.get("limit", "50"))
-            offset = int(request.query.get("offset", "0"))
+            limit = safe_query_int(request.query, "limit", default=50, max_val=1000)
+            offset = safe_query_int(request.query, "offset", default=0, max_val=100000)
             priority_filter = request.query.get("priority")
             unread_only = request.query.get("unread_only", "false").lower() == "true"
 

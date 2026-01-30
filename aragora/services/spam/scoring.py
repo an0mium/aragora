@@ -116,9 +116,7 @@ def score_patterns(content: str, compiled_promotional: list[re.Pattern[str]]) ->
         r"earn\s+\$?\d+",
     ]
 
-    phrase_matches = sum(
-        1 for phrase in spam_phrases if re.search(phrase, content, re.IGNORECASE)
-    )
+    phrase_matches = sum(1 for phrase in spam_phrases if re.search(phrase, content, re.IGNORECASE))
     score += min(phrase_matches * 0.15, 0.5)
 
     return min(score, 1.0)

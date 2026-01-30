@@ -822,6 +822,24 @@ ARAGORA_SSO_ALLOWED_DOMAINS=yourcompany.com
 
 See [SSO_SETUP.md](./SSO_SETUP.md) for detailed provider-specific setup instructions.
 
+### SCIM 2.0 Provisioning
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `SCIM_BEARER_TOKEN` | Yes (for SCIM) | Bearer token for SCIM endpoint authentication | _(empty - no auth)_ |
+| `SCIM_TENANT_ID` | Optional | Tenant ID for multi-tenant SCIM deployments | _(none)_ |
+| `SCIM_BASE_URL` | Optional | Base URL for SCIM resource location headers | _(empty)_ |
+
+Example SCIM Configuration:
+```bash
+SCIM_BEARER_TOKEN=scim-secret-token-from-idp
+SCIM_TENANT_ID=acme-corp
+SCIM_BASE_URL=https://api.aragora.ai
+```
+
+SCIM endpoints are available at `/scim/v2/Users` and `/scim/v2/Groups`.
+See [API_REFERENCE.md](./API_REFERENCE.md) for full endpoint documentation.
+
 ## Embedding Providers
 
 For semantic search and memory retrieval.

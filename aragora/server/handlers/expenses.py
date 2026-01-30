@@ -41,6 +41,7 @@ from aragora.server.handlers.base import (
     require_permission,
     success_response,
 )
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -281,8 +282,8 @@ async def handle_list_expenses(
             except ValueError:
                 logger.debug(f"Invalid end_date format '{end_date_str}', ignoring")
 
-        limit = int(query_params.get("limit", 100))
-        offset = int(query_params.get("offset", 0))
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
+        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
 
         expenses, total = await tracker.list_expenses(
             category=category,

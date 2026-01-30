@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.validation.query_params import safe_query_int, safe_query_float
 
 from ...base import HandlerResult, error_response, json_response, require_auth
 from aragora.rbac.checker import get_permission_checker
@@ -338,8 +339,7 @@ class CurationOperationsMixin:
     def _handle_curation_history(self, query_params: dict) -> HandlerResult:
         """Get curation history for a workspace."""
         workspace_id = query_params.get("workspace_id", "default")
-        limit = int(query_params.get("limit", 20))
-        limit = max(1, min(100, limit))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
         mound = self._get_mound()
         if not mound:
@@ -367,10 +367,13 @@ class CurationOperationsMixin:
     def _handle_quality_scores(self, query_params: dict) -> HandlerResult:
         """Get quality scores for knowledge items."""
         workspace_id = query_params.get("workspace_id", "default")
-        limit = int(query_params.get("limit", 50))
-        limit = max(1, min(200, limit))
-        min_score = float(query_params.get("min_score", 0.0))
-        max_score = float(query_params.get("max_score", 1.0))
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=200)
+        min_score = safe_query_float(
+            query_params, "min_score", default=0.0, min_val=0.0, max_val=1.0
+        )
+        max_score = safe_query_float(
+            query_params, "max_score", default=1.0, min_val=0.0, max_val=1.0
+        )
 
         mound = self._get_mound()
         if not mound:

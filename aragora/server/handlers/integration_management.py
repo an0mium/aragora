@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.server.validation.query_params import safe_query_int
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -163,8 +164,8 @@ class IntegrationsHandler(BaseHandler):
             type: Filter by integration type
             status: Filter by status (active, inactive)
         """
-        limit = min(int(query_params.get("limit", "20")), 100)
-        offset = int(query_params.get("offset", "0"))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=10000)
         filter_type = query_params.get("type")
         filter_status = query_params.get("status")
 

@@ -32,6 +32,7 @@ from .base import (
 )
 from .secure import SecureHandler, ForbiddenError, UnauthorizedError
 from .utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.validation.query_params import safe_query_float, safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -260,10 +261,10 @@ class EndpointAnalyticsHandler(SecureHandler):
         """GET /api/analytics/endpoints - List all endpoints with metrics."""
         try:
             # Get window from query params (default 5 minutes)
-            window_seconds = float(query_params.get("window", "300"))
+            window_seconds = safe_query_float(query_params, "window", default=300.0, max_val=86400.0)
             sort_by = query_params.get("sort", "requests")  # requests, latency, errors
             order = query_params.get("order", "desc")
-            limit = min(int(query_params.get("limit", "100")), 500)
+            limit = safe_query_int(query_params, "limit", default=100, max_val=500)
 
             endpoints = _metrics_store.get_all_endpoints(window_seconds)
 

@@ -425,9 +425,7 @@ class TestOrganizationModel:
         assert org.people_count == 0
 
     def test_to_api_full(self):
-        org = Organization(
-            id=10, name="Acme", address="123 Main", owner_id=5, visible_to="3"
-        )
+        org = Organization(id=10, name="Acme", address="123 Main", owner_id=5, visible_to="3")
         result = org.to_api()
         assert result["name"] == "Acme"
         assert result["address"] == "123 Main"
@@ -927,10 +925,11 @@ class TestPipedriveClientInit:
 
     @pytest.mark.asyncio
     async def test_context_manager(self, credentials):
-        with patch("aragora.connectors.crm.pipedrive.httpx") as mock_httpx:
+        import httpx
+
+        with patch.object(httpx, "AsyncClient") as mock_async_client_class:
             mock_async_client = AsyncMock()
-            mock_httpx.AsyncClient.return_value = mock_async_client
-            mock_httpx.Timeout.return_value = MagicMock()
+            mock_async_client_class.return_value = mock_async_client
 
             async with PipedriveClient(credentials) as client:
                 assert client._client is mock_async_client
@@ -939,10 +938,11 @@ class TestPipedriveClientInit:
 
     @pytest.mark.asyncio
     async def test_context_manager_exit_clears_client(self, credentials):
-        with patch("aragora.connectors.crm.pipedrive.httpx") as mock_httpx:
+        import httpx
+
+        with patch.object(httpx, "AsyncClient") as mock_async_client_class:
             mock_async_client = AsyncMock()
-            mock_httpx.AsyncClient.return_value = mock_async_client
-            mock_httpx.Timeout.return_value = MagicMock()
+            mock_async_client_class.return_value = mock_async_client
 
             client = PipedriveClient(credentials)
             await client.__aenter__()
@@ -974,9 +974,7 @@ class TestApiRequest:
 
     @pytest.mark.asyncio
     async def test_request_adds_api_token(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client._request("GET", "/persons")
         call_kwargs = mock_httpx_client.request.call_args
         assert call_kwargs.kwargs["params"]["api_token"] == "test-api-token-123"
@@ -1022,12 +1020,8 @@ class TestApiRequest:
 
     @pytest.mark.asyncio
     async def test_request_with_params(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
-        await pipedrive_client._request(
-            "GET", "/persons", params={"start": 0, "limit": 50}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client._request("GET", "/persons", params={"start": 0, "limit": 50})
         call_kwargs = mock_httpx_client.request.call_args
         assert call_kwargs.kwargs["params"]["start"] == 0
         assert call_kwargs.kwargs["params"]["limit"] == 50
@@ -1064,12 +1058,8 @@ class TestApiRequest:
 
     @pytest.mark.asyncio
     async def test_request_merges_params_with_api_token(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
-        await pipedrive_client._request(
-            "GET", "/persons", params={"filter_id": 5}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client._request("GET", "/persons", params={"filter_id": 5})
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
         assert params["api_token"] == "test-api-token-123"
@@ -1102,17 +1092,13 @@ class TestPersonOperations:
 
     @pytest.mark.asyncio
     async def test_get_persons_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         persons = await pipedrive_client.get_persons()
         assert persons == []
 
     @pytest.mark.asyncio
     async def test_get_persons_with_filters(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client.get_persons(start=10, limit=50, filter_id=5, sort="name ASC")
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
@@ -1236,20 +1222,14 @@ class TestOrganizationOperations:
 
     @pytest.mark.asyncio
     async def test_get_organizations_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         orgs = await pipedrive_client.get_organizations()
         assert orgs == []
 
     @pytest.mark.asyncio
     async def test_get_organizations_with_filters(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
-        await pipedrive_client.get_organizations(
-            start=5, limit=25, filter_id=3, sort="name DESC"
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_organizations(start=5, limit=25, filter_id=3, sort="name DESC")
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
         assert params["start"] == 5
@@ -1340,9 +1320,7 @@ class TestDealOperations:
 
     @pytest.mark.asyncio
     async def test_get_deals_with_filters(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client.get_deals(
             filter_id=3, stage_id=5, status=DealStatus.OPEN, sort="value DESC"
         )
@@ -1355,9 +1333,7 @@ class TestDealOperations:
 
     @pytest.mark.asyncio
     async def test_get_deals_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         deals = await pipedrive_client.get_deals()
         assert deals == []
 
@@ -1513,9 +1489,7 @@ class TestPipelineStageOperations:
 
     @pytest.mark.asyncio
     async def test_get_pipelines_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         pipelines = await pipedrive_client.get_pipelines()
         assert pipelines == []
 
@@ -1544,9 +1518,7 @@ class TestPipelineStageOperations:
 
     @pytest.mark.asyncio
     async def test_get_stages_no_pipeline_filter(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client.get_stages()
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
@@ -1554,9 +1526,7 @@ class TestPipelineStageOperations:
 
     @pytest.mark.asyncio
     async def test_get_stages_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         stages = await pipedrive_client.get_stages()
         assert stages == []
 
@@ -1594,12 +1564,8 @@ class TestActivityOperations:
 
     @pytest.mark.asyncio
     async def test_get_activities_with_filters(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
-        await pipedrive_client.get_activities(
-            type="meeting", user_id=5, done=True
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
+        await pipedrive_client.get_activities(type="meeting", user_id=5, done=True)
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
         assert params["type"] == "meeting"
@@ -1608,9 +1574,7 @@ class TestActivityOperations:
 
     @pytest.mark.asyncio
     async def test_get_activities_done_false(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client.get_activities(done=False)
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
@@ -1618,9 +1582,7 @@ class TestActivityOperations:
 
     @pytest.mark.asyncio
     async def test_get_activities_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         activities = await pipedrive_client.get_activities()
         assert activities == []
 
@@ -1711,9 +1673,7 @@ class TestNoteOperations:
 
     @pytest.mark.asyncio
     async def test_get_notes_filtered(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": []}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": []})
         await pipedrive_client.get_notes(deal_id=100, person_id=1, org_id=10)
         call_kwargs = mock_httpx_client.request.call_args
         params = call_kwargs.kwargs["params"]
@@ -1723,9 +1683,7 @@ class TestNoteOperations:
 
     @pytest.mark.asyncio
     async def test_get_notes_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         notes = await pipedrive_client.get_notes()
         assert notes == []
 
@@ -1811,9 +1769,7 @@ class TestProductOperations:
 
     @pytest.mark.asyncio
     async def test_get_products_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         products = await pipedrive_client.get_products()
         assert products == []
 
@@ -1905,9 +1861,7 @@ class TestUserOperations:
 
     @pytest.mark.asyncio
     async def test_get_users_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         users = await pipedrive_client.get_users()
         assert users == []
 
@@ -1958,9 +1912,7 @@ class TestAssociationOperations:
 
     @pytest.mark.asyncio
     async def test_get_deal_persons_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         persons = await pipedrive_client.get_deal_persons(100)
         assert persons == []
 
@@ -1978,9 +1930,7 @@ class TestAssociationOperations:
 
     @pytest.mark.asyncio
     async def test_get_person_deals_empty(self, pipedrive_client, mock_httpx_client):
-        mock_httpx_client.request.return_value = _make_response(
-            {"success": True, "data": None}
-        )
+        mock_httpx_client.request.return_value = _make_response({"success": True, "data": None})
         deals = await pipedrive_client.get_person_deals(1)
         assert deals == []
 

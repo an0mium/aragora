@@ -29,6 +29,7 @@ from .base import (
     safe_error_message,
 )
 from aragora.server.http_utils import run_async, safe_int
+from aragora.server.validation.query_params import safe_query_int
 from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
@@ -706,12 +707,8 @@ class RLMContextHandler(BaseHandler):
         Returns:
             List of context IDs with metadata
         """
-        limit = int(query_params.get("limit", 50))
-        offset = int(query_params.get("offset", 0))
-
-        # Validate pagination params
-        limit = max(1, min(100, limit))
-        offset = max(0, offset)
+        limit = safe_query_int(query_params, "limit", default=50, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
 
         # Get context list
         all_ids = list(self._contexts.keys())

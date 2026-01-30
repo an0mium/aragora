@@ -33,7 +33,34 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol
+
+
+class _AutoCurationOpsProtocol(Protocol):
+    """Protocol for operations used by AutoCurationMixin."""
+
+    async def _get_node_by_id(self, node_id: str) -> dict[str, Any] | None: ...
+
+    async def _get_staleness_score(self, node_id: str, workspace_id: str) -> float: ...
+
+    async def _get_nodes_for_workspace(
+        self, workspace_id: str, limit: int
+    ) -> list[dict[str, Any]]: ...
+
+    async def _move_to_tier(self, node_id: str, target_tier: str) -> None: ...
+
+    async def _schedule_revalidation(self, node_id: str, priority: str) -> None: ...
+
+    async def _flag_for_review(self, node_id: str, reason: str) -> None: ...
+
+    async def find_duplicates(
+        self, workspace_id: str, similarity_threshold: float
+    ) -> list[Any]: ...
+
+    async def merge_duplicates(self, cluster_id: str) -> Any: ...
+
+    async def prune_workspace(self, workspace_id: str) -> Any: ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -281,12 +308,12 @@ class AutoCurationMixin:
         )
 
         # Get node data using adapter method
-        node = await self._get_node_by_id(node_id)  # type: ignore[attr-defined]
+        node = await self._get_node_by_id(node_id)
         if not node:
             raise ValueError(f"Node {node_id} not found")
 
         # Calculate freshness (inverse of staleness)
-        staleness = await self._get_staleness_score(node_id, workspace_id)  # type: ignore[attr-defined]
+        staleness = await self._get_staleness_score(node_id, workspace_id)
         freshness_score = max(0.0, 1.0 - staleness)
 
         # Get confidence from node metadata
@@ -368,7 +395,7 @@ class AutoCurationMixin:
         candidates = []
 
         # Get all nodes for workspace
-        nodes = await self._get_nodes_for_workspace(  # type: ignore[attr-defined]
+        nodes = await self._get_nodes_for_workspace(
             workspace_id=workspace_id,
             limit=policy.max_items_per_run,
         )
@@ -500,7 +527,7 @@ class AutoCurationMixin:
 
                     if action == CurationAction.PROMOTE and candidate.target_tier:
                         if score.retrieval_count >= policy.min_retrievals_for_promotion:
-                            await self._move_to_tier(  # type: ignore[attr-defined]
+                            await self._move_to_tier(
                                 node_id=candidate.node_id,
                                 target_tier=candidate.target_tier,
                             )
@@ -508,7 +535,7 @@ class AutoCurationMixin:
                             result.promoted_ids.append(candidate.node_id)
 
                     elif action == CurationAction.DEMOTE and candidate.target_tier:
-                        await self._move_to_tier(  # type: ignore[attr-defined]
+                        await self._move_to_tier(
                             node_id=candidate.node_id,
                             target_tier=candidate.target_tier,
                         )
@@ -516,7 +543,7 @@ class AutoCurationMixin:
                         result.demoted_ids.append(candidate.node_id)
 
                     elif action == CurationAction.ARCHIVE:
-                        await self._move_to_tier(  # type: ignore[attr-defined]
+                        await self._move_to_tier(
                             node_id=candidate.node_id,
                             target_tier=TierLevel.GLACIAL.value,
                         )
@@ -524,14 +551,14 @@ class AutoCurationMixin:
                         result.archived_ids.append(candidate.node_id)
 
                     elif action == CurationAction.REFRESH:
-                        await self._schedule_revalidation(  # type: ignore[attr-defined]
+                        await self._schedule_revalidation(
                             node_id=candidate.node_id,
                             priority="high",
                         )
                         result.refreshed_count += 1
 
                     elif action == CurationAction.FLAG:
-                        await self._flag_for_review(  # type: ignore[attr-defined]
+                        await self._flag_for_review(
                             node_id=candidate.node_id,
                             reason="auto_curation_review",
                         )
@@ -545,13 +572,13 @@ class AutoCurationMixin:
             # Run dedup if enabled
             if policy.run_dedup:
                 try:
-                    clusters = await self.find_duplicates(  # type: ignore[attr-defined]
+                    clusters = await self.find_duplicates(
                         workspace_id=workspace_id,
                         similarity_threshold=policy.dedup_similarity_threshold,
                     )
                     for cluster in clusters:
                         if cluster.recommended_action == "merge":
-                            merge_result = await self.merge_duplicates(  # type: ignore[attr-defined]
+                            merge_result = await self.merge_duplicates(
                                 cluster_id=cluster.cluster_id,
                             )
                             result.merged_count += len(merge_result.merged_node_ids)
@@ -564,7 +591,7 @@ class AutoCurationMixin:
             # Run pruning if enabled
             if policy.run_pruning and policy.prune_after_curation:
                 try:
-                    prune_result = await self.prune_workspace(  # type: ignore[attr-defined]
+                    prune_result = await self.prune_workspace(
                         workspace_id=workspace_id,
                     )
                     result.items_pruned = prune_result.items_pruned

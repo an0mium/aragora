@@ -315,7 +315,7 @@ See `docs/ENVIRONMENT.md` for full reference.
 - KM Resilience - ResilientPostgresStore with retry, health monitoring, cache invalidation
 
 **Enterprise (production-ready):**
-- Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management
+- Authentication - OIDC/SAML SSO, MFA (TOTP/HOTP), API key management, SCIM 2.0 provisioning
 - Multi-Tenancy - Tenant isolation, resource quotas, usage metering
 - Security - AES-256-GCM encryption, rate limiting, circuit breakers
 - Compliance - SOC 2 controls, GDPR support, audit trails

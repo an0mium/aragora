@@ -31,6 +31,7 @@ from ..base import (
     safe_error_message,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -449,7 +450,7 @@ class FolderUploadHandler(BaseHandler):
         jobs.sort(key=lambda j: j.created_at, reverse=True)
 
         # Apply limit
-        limit = int(query_params.get("limit", 50))
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=500)
         jobs = jobs[:limit]
 
         return json_response(

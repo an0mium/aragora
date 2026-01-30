@@ -218,9 +218,7 @@ class RateLimiterRegistry:
                         self._limiters[name] = limiter
                         logger.debug(f"Created Redis-backed rate limiter: {name}")
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to create Redis rate limiter for {name}: {e}"
-                        )
+                        logger.warning(f"Failed to create Redis rate limiter for {name}: {e}")
                         self._limiters[name] = RateLimiter(
                             default_limit=requests_per_minute,
                             ip_limit=requests_per_minute,

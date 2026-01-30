@@ -27,6 +27,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +351,7 @@ class DecisionHandler(BaseHandler):
 
     def _list_decisions(self, query_params: dict) -> HandlerResult:
         """List recent decisions."""
-        limit = int(query_params.get("limit", 20))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
 
         store = _get_result_store()
         if store:

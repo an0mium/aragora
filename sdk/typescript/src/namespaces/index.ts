@@ -1112,3 +1112,16 @@ export {
   type IndustryBenchmarks,
   type UsageExport,
 } from './usage';
+
+// OAuth Wizard (SME Onboarding)
+export {
+  OAuthWizardAPI,
+  type ProviderCategory,
+  type ConfigStatus,
+  type OAuthProvider as WizardOAuthProvider,
+  type ProviderStatus,
+  type WizardConfig,
+  type ValidationResult,
+  type PreflightCheck,
+  type IntegrationStatusSummary,
+} from './oauth-wizard';

@@ -541,13 +541,19 @@ CONTROL_PLANE_ENDPOINTS = {
                             "type": "object",
                             "properties": {
                                 "name": {"type": "string", "description": "Policy name"},
-                                "description": {"type": "string", "description": "Policy description"},
+                                "description": {
+                                    "type": "string",
+                                    "description": "Policy description",
+                                },
                                 "rules": {
                                     "type": "array",
                                     "items": {"type": "object"},
                                     "description": "Policy rules",
                                 },
-                                "enabled": {"type": "boolean", "description": "Whether the policy is active"},
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Whether the policy is active",
+                                },
                                 "priority": {
                                     "type": "integer",
                                     "description": "Policy evaluation priority (lower = higher priority)",

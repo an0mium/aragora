@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +214,8 @@ class SharingNotificationsHandler(BaseHandler):
             )
 
             # Parse query params
-            limit = int(query_params.get("limit", 20))
-            offset = int(query_params.get("offset", 0))
+            limit = safe_query_int(query_params, "limit", default=20, max_val=100)
+            offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
             status_str = query_params.get("status")
 
             status = None
@@ -227,7 +228,7 @@ class SharingNotificationsHandler(BaseHandler):
             notifications = get_notifications_for_user(
                 user_id=user_id,
                 status=status,
-                limit=min(limit, 100),  # Cap at 100
+                limit=limit,
                 offset=offset,
             )
 

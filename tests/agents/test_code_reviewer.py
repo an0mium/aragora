@@ -1266,7 +1266,7 @@ subprocess.run(cmd, shell=True)
     async def test_review_dangerously_set_inner_html(self):
         """Review detects React dangerouslySetInnerHTML."""
         reviewer = SecurityReviewer()
-        code = '<div dangerouslySetInnerHTML={{__html: userInput}} />'
+        code = "<div dangerouslySetInnerHTML={{__html: userInput}} />"
         findings = await reviewer.review(code)
 
         assert len(findings) > 0
@@ -1347,7 +1347,7 @@ class TestAdditionalPerformancePatterns:
     async def test_review_read_all(self):
         """Review detects reading entire file at once."""
         reviewer = PerformanceReviewer()
-        code = 'data = file.read()'
+        code = "data = file.read()"
         findings = await reviewer.review(code)
 
         assert len(findings) > 0
@@ -2104,6 +2104,7 @@ class TestPatternConstants:
     def test_all_patterns_are_valid_regex(self):
         """All patterns compile as valid regex."""
         import re
+
         for pattern_list in [SECURITY_PATTERNS, PERFORMANCE_PATTERNS, MAINTAINABILITY_PATTERNS]:
             for pattern, _, _ in pattern_list:
                 re.compile(pattern)  # Should not raise

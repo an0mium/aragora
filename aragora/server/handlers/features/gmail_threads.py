@@ -22,6 +22,8 @@ import base64
 import logging
 from typing import Any, Optional
 
+from aragora.server.validation.query_params import safe_query_int
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -241,7 +243,7 @@ class GmailThreadsHandler(SecureHandler):
         label_ids = (
             query_params.get("label_ids", "").split(",") if query_params.get("label_ids") else None
         )
-        max_results = int(query_params.get("limit", 20))
+        max_results = safe_query_int(query_params, "limit", default=20, max_val=1000)
         page_token = query_params.get("page_token")
 
         try:
@@ -475,7 +477,7 @@ class GmailThreadsHandler(SecureHandler):
 
     async def _list_drafts(self, state: Any, query_params: dict[str, Any]) -> HandlerResult:
         """List Gmail drafts."""
-        max_results = int(query_params.get("limit", 20))
+        max_results = safe_query_int(query_params, "limit", default=20, max_val=1000)
         page_token = query_params.get("page_token")
 
         try:

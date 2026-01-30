@@ -33,6 +33,7 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.utils.url_security import validate_webhook_url
+from aragora.server.validation.query_params import safe_query_int
 
 # RBAC imports - graceful fallback if not available
 try:
@@ -759,8 +760,7 @@ class WebhookHandler(SecureHandler):
             from aragora.webhooks.retry_queue import get_retry_queue
 
             queue = get_retry_queue()
-            limit = int(query_params.get("limit", ["100"])[0])
-            limit = min(limit, 1000)  # Cap at 1000
+            limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
 
             dead_letters = await queue.get_dead_letters(limit)
 

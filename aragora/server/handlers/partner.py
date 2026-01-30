@@ -18,6 +18,7 @@ import json
 import logging
 
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 from .base import (
     BaseHandler,
@@ -293,10 +294,7 @@ class PartnerHandler(BaseHandler):
         if not partner_id:
             return error_response("Partner ID required", 400)
 
-        try:
-            days = int(query_params.get("days", "30"))
-        except ValueError:
-            days = 30
+        days = safe_query_int(query_params, "days", default=30, min_val=1, max_val=365)
 
         try:
             from aragora.billing.partner import get_partner_api

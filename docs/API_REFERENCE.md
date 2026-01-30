@@ -78,6 +78,55 @@ Signup flows are in-memory by default; use a database-backed store for productio
 | GET | `/api/v1/auth/sso/providers` | List available providers |
 | GET | `/api/v1/auth/sso/config` | Get provider configuration |
 
+## SCIM 2.0 Provisioning API
+
+SCIM 2.0 (RFC 7643/7644) endpoints for automated user and group provisioning
+from identity providers (Okta, Azure AD, OneLogin, etc.). Endpoints are
+mounted at `/scim/v2/` and use Bearer token authentication.
+
+**Authentication**: Set `SCIM_BEARER_TOKEN` environment variable. All requests
+must include `Authorization: Bearer <token>` header.
+
+### User Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/scim/v2/Users` | List users with filtering and pagination |
+| POST | `/scim/v2/Users` | Create a new user |
+| GET | `/scim/v2/Users/{id}` | Get user by ID |
+| PUT | `/scim/v2/Users/{id}` | Replace user (full update) |
+| PATCH | `/scim/v2/Users/{id}` | Partial update user |
+| DELETE | `/scim/v2/Users/{id}` | Delete user (soft delete by default) |
+
+### Group Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/scim/v2/Groups` | List groups with filtering and pagination |
+| POST | `/scim/v2/Groups` | Create a new group |
+| GET | `/scim/v2/Groups/{id}` | Get group by ID |
+| PUT | `/scim/v2/Groups/{id}` | Replace group (full update) |
+| PATCH | `/scim/v2/Groups/{id}` | Partial update group (add/remove members) |
+| DELETE | `/scim/v2/Groups/{id}` | Delete group |
+
+### Query Parameters
+
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `startIndex` | int | 1-based pagination offset | 1 |
+| `count` | int | Page size (max 1000) | 100 |
+| `filter` | string | SCIM filter expression | — |
+
+### Supported Filter Operators
+
+`eq`, `ne`, `co`, `sw`, `ew`, `pr`, `gt`, `ge`, `lt`, `le`, `and`, `or`
+
+Example: `filter=userName eq "john@example.com"`
+
+### Content Type
+
+All responses use `application/scim+json` media type per RFC 7644.
+
 ## Dashboard API
 
 Dashboard endpoints return overview stats, activity, and quick actions.

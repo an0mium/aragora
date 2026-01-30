@@ -320,6 +320,50 @@ def check_knowledge_mound_redis_cache() -> dict[str, Any]:
         }
 
 
+def check_codebase_context() -> dict[str, Any]:
+    """Check codebase context availability for TRUE RLM workflows."""
+    try:
+        from pathlib import Path
+
+        root = Path(
+            os.environ.get("ARAGORA_CODEBASE_ROOT")
+            or os.environ.get("ARAGORA_REPO_ROOT")
+            or os.getcwd()
+        ).resolve()
+        context_dir = root / ".nomic" / "context"
+        manifest_path = context_dir / "codebase_manifest.tsv"
+
+        info: dict[str, Any] = {
+            "healthy": True,
+            "status": "available" if manifest_path.exists() else "missing",
+            "root": str(root),
+            "context_dir": str(context_dir),
+            "manifest_path": str(manifest_path) if manifest_path.exists() else None,
+        }
+
+        if manifest_path.exists():
+            try:
+                with manifest_path.open("r", encoding="utf-8") as handle:
+                    header = [handle.readline().strip() for _ in range(3)]
+                for line in header:
+                    if "files=" in line and "lines=" in line:
+                        for part in line.split():
+                            if part.startswith("files="):
+                                info["files"] = int(part.split("=", 1)[1])
+                            if part.startswith("lines="):
+                                info["lines"] = int(part.split("=", 1)[1])
+            except OSError as exc:
+                info["note"] = f"manifest_read_error: {exc}"
+
+        return info
+    except Exception as e:
+        return {
+            "healthy": True,
+            "status": "error",
+            "error": f"{type(e).__name__}: {str(e)[:80]}",
+        }
+
+
 def check_bidirectional_adapters() -> dict[str, Any]:
     """Check bidirectional adapter availability.
 

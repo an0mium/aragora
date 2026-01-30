@@ -33,6 +33,7 @@ from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -647,7 +648,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
 
     async def _get_cross_platform_metrics(self, request: Any) -> dict[str, Any]:
         """Get a unified metrics overview across all platforms."""
-        days = int(request.query.get("days", 7))
+        days = safe_query_int(request.query, "days", default=7, max_val=365)
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
@@ -751,7 +752,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        days = int(request.query.get("days", 7))
+        days = safe_query_int(request.query, "days", default=7, max_val=365)
         event_name = request.query.get("event")
 
         connector = await self._get_connector(platform)

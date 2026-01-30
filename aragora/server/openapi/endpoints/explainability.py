@@ -160,7 +160,11 @@ EXPLAINABILITY_ENDPOINTS = {
                     "name": "format",
                     "in": "query",
                     "description": "Response format: json, markdown, or summary",
-                    "schema": {"type": "string", "default": "json", "enum": ["json", "markdown", "summary"]},
+                    "schema": {
+                        "type": "string",
+                        "default": "json",
+                        "enum": ["json", "markdown", "summary"],
+                    },
                 },
                 {
                     "name": "include_factors",

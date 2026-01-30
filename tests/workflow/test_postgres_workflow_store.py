@@ -133,17 +133,23 @@ class TestSchemaDefinition:
     def test_initial_schema_contains_versions_table(self):
         from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
 
-        assert "CREATE TABLE IF NOT EXISTS workflow_versions" in PostgresWorkflowStore.INITIAL_SCHEMA
+        assert (
+            "CREATE TABLE IF NOT EXISTS workflow_versions" in PostgresWorkflowStore.INITIAL_SCHEMA
+        )
 
     def test_initial_schema_contains_templates_table(self):
         from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
 
-        assert "CREATE TABLE IF NOT EXISTS workflow_templates" in PostgresWorkflowStore.INITIAL_SCHEMA
+        assert (
+            "CREATE TABLE IF NOT EXISTS workflow_templates" in PostgresWorkflowStore.INITIAL_SCHEMA
+        )
 
     def test_initial_schema_contains_executions_table(self):
         from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
 
-        assert "CREATE TABLE IF NOT EXISTS workflow_executions" in PostgresWorkflowStore.INITIAL_SCHEMA
+        assert (
+            "CREATE TABLE IF NOT EXISTS workflow_executions" in PostgresWorkflowStore.INITIAL_SCHEMA
+        )
 
     def test_initial_schema_uses_jsonb(self):
         from aragora.workflow.postgres_workflow_store import PostgresWorkflowStore
@@ -286,9 +292,7 @@ class TestGetWorkflow:
         definition_data = wf.to_dict()
 
         # Return the dict directly (not JSON string)
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": definition_data}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": definition_data})
         result = await store.get_workflow("wf_dict")
         assert result is not None
         assert result.id == "wf_dict"
@@ -306,9 +310,7 @@ class TestGetWorkflow:
     async def test_get_workflow_preserves_steps(self):
         store, mock_conn = _make_store()
         wf = _make_workflow_def(num_steps=3)
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": json.dumps(wf.to_dict())}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": json.dumps(wf.to_dict())})
         result = await store.get_workflow("wf_test")
         assert result is not None
         assert len(result.steps) == 3
@@ -317,9 +319,7 @@ class TestGetWorkflow:
     async def test_get_workflow_preserves_tags(self):
         store, mock_conn = _make_store()
         wf = _make_workflow_def(tags=["urgent", "review"])
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": json.dumps(wf.to_dict())}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": json.dumps(wf.to_dict())})
         result = await store.get_workflow("wf_test")
         assert result is not None
         assert "urgent" in result.tags
@@ -500,18 +500,22 @@ class TestVersionManagement:
         now = datetime.now(timezone.utc)
 
         mock_conn.fetch.return_value = [
-            _make_mock_row({
-                "version": "1.0.0",
-                "created_by": "alice",
-                "created_at": now,
-                "definition": json.dumps({"steps": [{"id": "s1"}]}),
-            }),
-            _make_mock_row({
-                "version": "1.1.0",
-                "created_by": "bob",
-                "created_at": now,
-                "definition": json.dumps({"steps": [{"id": "s1"}, {"id": "s2"}]}),
-            }),
+            _make_mock_row(
+                {
+                    "version": "1.0.0",
+                    "created_by": "alice",
+                    "created_at": now,
+                    "definition": json.dumps({"steps": [{"id": "s1"}]}),
+                }
+            ),
+            _make_mock_row(
+                {
+                    "version": "1.1.0",
+                    "created_by": "bob",
+                    "created_at": now,
+                    "definition": json.dumps({"steps": [{"id": "s1"}, {"id": "s2"}]}),
+                }
+            ),
         ]
 
         versions = await store.get_versions("wf_test")
@@ -542,12 +546,14 @@ class TestVersionManagement:
         """When created_at is a string (not datetime), it should be cast via str()."""
         store, mock_conn = _make_store()
         mock_conn.fetch.return_value = [
-            _make_mock_row({
-                "version": "1.0.0",
-                "created_by": "tester",
-                "created_at": "2024-01-15T10:00:00+00:00",
-                "definition": json.dumps({"steps": []}),
-            }),
+            _make_mock_row(
+                {
+                    "version": "1.0.0",
+                    "created_by": "tester",
+                    "created_at": "2024-01-15T10:00:00+00:00",
+                    "definition": json.dumps({"steps": []}),
+                }
+            ),
         ]
         versions = await store.get_versions("wf_test")
         assert len(versions) == 1
@@ -559,12 +565,14 @@ class TestVersionManagement:
         store, mock_conn = _make_store()
         now = datetime.now(timezone.utc)
         mock_conn.fetch.return_value = [
-            _make_mock_row({
-                "version": "1.0.0",
-                "created_by": "tester",
-                "created_at": now,
-                "definition": {"steps": [{"id": "s1"}, {"id": "s2"}, {"id": "s3"}]},
-            }),
+            _make_mock_row(
+                {
+                    "version": "1.0.0",
+                    "created_by": "tester",
+                    "created_at": now,
+                    "definition": {"steps": [{"id": "s1"}, {"id": "s2"}, {"id": "s3"}]},
+                }
+            ),
         ]
         versions = await store.get_versions("wf_test")
         assert versions[0]["step_count"] == 3
@@ -573,9 +581,7 @@ class TestVersionManagement:
     async def test_get_version_returns_definition(self):
         store, mock_conn = _make_store()
         wf = _make_workflow_def(wf_id="wf_v", version="1.0.0", num_steps=2)
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": json.dumps(wf.to_dict())}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": json.dumps(wf.to_dict())})
         result = await store.get_version("wf_v", "1.0.0")
         assert result is not None
         assert result.version == "1.0.0"
@@ -592,9 +598,7 @@ class TestVersionManagement:
     async def test_get_version_handles_dict_definition(self):
         store, mock_conn = _make_store()
         wf = _make_workflow_def(wf_id="wf_dict_v", version="2.0.0")
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": wf.to_dict()}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": wf.to_dict()})
         result = await store.get_version("wf_dict_v", "2.0.0")
         assert result is not None
         assert result.id == "wf_dict_v"
@@ -632,9 +636,7 @@ class TestTemplateOperations:
     async def test_get_template_returns_definition(self):
         store, mock_conn = _make_store()
         tmpl = _make_workflow_def(wf_id="tmpl_found", name="My Template")
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": json.dumps(tmpl.to_dict())}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": json.dumps(tmpl.to_dict())})
         result = await store.get_template("tmpl_found")
         assert result is not None
         assert result.name == "My Template"
@@ -650,9 +652,7 @@ class TestTemplateOperations:
     async def test_get_template_handles_dict_definition(self):
         store, mock_conn = _make_store()
         tmpl = _make_workflow_def(wf_id="tmpl_dict")
-        mock_conn.fetchrow.return_value = _make_mock_row(
-            {"definition": tmpl.to_dict()}
-        )
+        mock_conn.fetchrow.return_value = _make_mock_row({"definition": tmpl.to_dict()})
         result = await store.get_template("tmpl_dict")
         assert result is not None
         assert result.id == "tmpl_dict"
@@ -791,19 +791,21 @@ class TestExecutionOperations:
     async def test_get_execution_returns_dict(self):
         store, mock_conn = _make_store()
         now = datetime.now(timezone.utc)
-        mock_conn.fetchrow.return_value = _make_mock_row({
-            "id": "exec_1",
-            "workflow_id": "wf_test",
-            "tenant_id": "default",
-            "status": "completed",
-            "inputs": json.dumps({"question": "What?"}),
-            "outputs": json.dumps({"result": 42}),
-            "steps": json.dumps([{"id": "s1"}]),
-            "error": None,
-            "started_at": now,
-            "completed_at": now,
-            "duration_ms": 1234.5,
-        })
+        mock_conn.fetchrow.return_value = _make_mock_row(
+            {
+                "id": "exec_1",
+                "workflow_id": "wf_test",
+                "tenant_id": "default",
+                "status": "completed",
+                "inputs": json.dumps({"question": "What?"}),
+                "outputs": json.dumps({"result": 42}),
+                "steps": json.dumps([{"id": "s1"}]),
+                "error": None,
+                "started_at": now,
+                "completed_at": now,
+                "duration_ms": 1234.5,
+            }
+        )
         result = await store.get_execution("exec_1")
         assert result is not None
         assert result["id"] == "exec_1"
@@ -818,19 +820,21 @@ class TestExecutionOperations:
         """When inputs/outputs/steps are already dicts/lists (not strings)."""
         store, mock_conn = _make_store()
         now = datetime.now(timezone.utc)
-        mock_conn.fetchrow.return_value = _make_mock_row({
-            "id": "exec_dict",
-            "workflow_id": "wf_test",
-            "tenant_id": "default",
-            "status": "completed",
-            "inputs": {"key": "val"},
-            "outputs": {"out": 1},
-            "steps": [{"id": "s1"}],
-            "error": None,
-            "started_at": now,
-            "completed_at": now,
-            "duration_ms": 100.0,
-        })
+        mock_conn.fetchrow.return_value = _make_mock_row(
+            {
+                "id": "exec_dict",
+                "workflow_id": "wf_test",
+                "tenant_id": "default",
+                "status": "completed",
+                "inputs": {"key": "val"},
+                "outputs": {"out": 1},
+                "steps": [{"id": "s1"}],
+                "error": None,
+                "started_at": now,
+                "completed_at": now,
+                "duration_ms": 100.0,
+            }
+        )
         result = await store.get_execution("exec_dict")
         assert result["inputs"] == {"key": "val"}
         assert result["outputs"] == {"out": 1}
@@ -840,19 +844,21 @@ class TestExecutionOperations:
     async def test_get_execution_handles_none_json_fields(self):
         """When inputs/outputs/steps are None."""
         store, mock_conn = _make_store()
-        mock_conn.fetchrow.return_value = _make_mock_row({
-            "id": "exec_none",
-            "workflow_id": "wf_test",
-            "tenant_id": "default",
-            "status": "pending",
-            "inputs": None,
-            "outputs": None,
-            "steps": None,
-            "error": None,
-            "started_at": None,
-            "completed_at": None,
-            "duration_ms": None,
-        })
+        mock_conn.fetchrow.return_value = _make_mock_row(
+            {
+                "id": "exec_none",
+                "workflow_id": "wf_test",
+                "tenant_id": "default",
+                "status": "pending",
+                "inputs": None,
+                "outputs": None,
+                "steps": None,
+                "error": None,
+                "started_at": None,
+                "completed_at": None,
+                "duration_ms": None,
+            }
+        )
         result = await store.get_execution("exec_none")
         assert result["inputs"] == {}
         assert result["outputs"] == {}
@@ -862,19 +868,21 @@ class TestExecutionOperations:
     async def test_get_execution_handles_string_timestamps(self):
         """When started_at/completed_at are strings (not datetime)."""
         store, mock_conn = _make_store()
-        mock_conn.fetchrow.return_value = _make_mock_row({
-            "id": "exec_str_ts",
-            "workflow_id": "wf",
-            "tenant_id": "default",
-            "status": "completed",
-            "inputs": "{}",
-            "outputs": "{}",
-            "steps": "[]",
-            "error": None,
-            "started_at": "2024-01-15T10:00:00",
-            "completed_at": "2024-01-15T10:05:00",
-            "duration_ms": 300000.0,
-        })
+        mock_conn.fetchrow.return_value = _make_mock_row(
+            {
+                "id": "exec_str_ts",
+                "workflow_id": "wf",
+                "tenant_id": "default",
+                "status": "completed",
+                "inputs": "{}",
+                "outputs": "{}",
+                "steps": "[]",
+                "error": None,
+                "started_at": "2024-01-15T10:00:00",
+                "completed_at": "2024-01-15T10:05:00",
+                "duration_ms": 300000.0,
+            }
+        )
         result = await store.get_execution("exec_str_ts")
         assert result["started_at"] == "2024-01-15T10:00:00"
         assert result["completed_at"] == "2024-01-15T10:05:00"
@@ -882,19 +890,21 @@ class TestExecutionOperations:
     @pytest.mark.asyncio
     async def test_get_execution_error_field(self):
         store, mock_conn = _make_store()
-        mock_conn.fetchrow.return_value = _make_mock_row({
-            "id": "exec_err",
-            "workflow_id": "wf",
-            "tenant_id": "default",
-            "status": "failed",
-            "inputs": "{}",
-            "outputs": "{}",
-            "steps": "[]",
-            "error": "Something went wrong",
-            "started_at": None,
-            "completed_at": None,
-            "duration_ms": None,
-        })
+        mock_conn.fetchrow.return_value = _make_mock_row(
+            {
+                "id": "exec_err",
+                "workflow_id": "wf",
+                "tenant_id": "default",
+                "status": "failed",
+                "inputs": "{}",
+                "outputs": "{}",
+                "steps": "[]",
+                "error": "Something went wrong",
+                "started_at": None,
+                "completed_at": None,
+                "duration_ms": None,
+            }
+        )
         result = await store.get_execution("exec_err")
         assert result["error"] == "Something went wrong"
 
@@ -917,18 +927,36 @@ class TestListExecutions:
         now = datetime.now(timezone.utc)
         mock_conn.fetchrow.return_value = _make_mock_row({"cnt": 2})
         mock_conn.fetch.return_value = [
-            _make_mock_row({
-                "id": "e1", "workflow_id": "wf", "tenant_id": "default",
-                "status": "completed", "inputs": "{}", "outputs": "{}",
-                "steps": "[]", "error": None, "started_at": now,
-                "completed_at": now, "duration_ms": 100.0,
-            }),
-            _make_mock_row({
-                "id": "e2", "workflow_id": "wf", "tenant_id": "default",
-                "status": "failed", "inputs": "{}", "outputs": "{}",
-                "steps": "[]", "error": "err", "started_at": now,
-                "completed_at": now, "duration_ms": 200.0,
-            }),
+            _make_mock_row(
+                {
+                    "id": "e1",
+                    "workflow_id": "wf",
+                    "tenant_id": "default",
+                    "status": "completed",
+                    "inputs": "{}",
+                    "outputs": "{}",
+                    "steps": "[]",
+                    "error": None,
+                    "started_at": now,
+                    "completed_at": now,
+                    "duration_ms": 100.0,
+                }
+            ),
+            _make_mock_row(
+                {
+                    "id": "e2",
+                    "workflow_id": "wf",
+                    "tenant_id": "default",
+                    "status": "failed",
+                    "inputs": "{}",
+                    "outputs": "{}",
+                    "steps": "[]",
+                    "error": "err",
+                    "started_at": now,
+                    "completed_at": now,
+                    "duration_ms": 200.0,
+                }
+            ),
         ]
         executions, total = await store.list_executions()
         assert total == 2

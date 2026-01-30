@@ -39,6 +39,7 @@ from ..base import (
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.validation.query_params import safe_query_int
 
 # Gmail permissions
 GMAIL_READ_PERMISSION = "gmail:read"
@@ -599,8 +600,8 @@ class GmailIngestHandler(SecureHandler):
         if not state or not state.refresh_token:
             return error_response("Not connected", 401)
 
-        limit = int(query_params.get("limit", 50))
-        offset = int(query_params.get("offset", 0))
+        limit = safe_query_int(query_params, "limit", default=50, max_val=1000)
+        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
         query = query_params.get("query", "")
 
         try:

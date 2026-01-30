@@ -31,6 +31,7 @@ from ..base import (
     safe_error_message,
 )
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ class SchedulerHandler(BaseHandler):
             elif len(parts) == 6 and parts[5] == "history":
                 # /api/scheduler/jobs/{job_id}/history
                 job_id = parts[4]
-                limit = int(query_params.get("limit", ["10"])[0])
+                limit = safe_query_int(query_params, "limit", default=10, min_val=1, max_val=100)
                 return self._get_job_history(job_id, limit)
 
         return None

@@ -27,6 +27,7 @@ from .knowledge_mound_utils import (
     check_rlm_integration,
     check_debate_integration,
     check_knowledge_mound_redis_cache,
+    check_codebase_context,
     check_bidirectional_adapters,
     check_control_plane_adapter,
     check_km_metrics,
@@ -85,6 +86,7 @@ def knowledge_mound_health(handler) -> HandlerResult:
 
     # 6-11. Check integrations and features
     components["rlm_integration"] = check_rlm_integration()
+    components["codebase_context"] = check_codebase_context()
     components["debate_integration"] = check_debate_integration()
     components["redis_cache"] = check_knowledge_mound_redis_cache()
     components["bidirectional_adapters"] = check_bidirectional_adapters()

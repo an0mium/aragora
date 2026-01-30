@@ -838,7 +838,10 @@ AUTH_ENDPOINTS = {
                                         "properties": {
                                             "resourceType": {"type": "string"},
                                             "created": {"type": "string", "format": "date-time"},
-                                            "lastModified": {"type": "string", "format": "date-time"},
+                                            "lastModified": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                            },
                                             "location": {"type": "string"},
                                         },
                                     },
@@ -1064,7 +1067,10 @@ AUTH_ENDPOINTS = {
                                         "properties": {
                                             "resourceType": {"type": "string"},
                                             "created": {"type": "string", "format": "date-time"},
-                                            "lastModified": {"type": "string", "format": "date-time"},
+                                            "lastModified": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                            },
                                             "location": {"type": "string"},
                                         },
                                     },

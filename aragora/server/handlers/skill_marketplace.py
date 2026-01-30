@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +177,8 @@ class SkillMarketplaceHandler(SecureHandler):
             tags = query_params.get("tags", "").split(",") if query_params.get("tags") else None
             author_id = query_params.get("author")
             sort_by = query_params.get("sort", "rating")
-            limit = min(int(query_params.get("limit", 20)), 100)
-            offset = int(query_params.get("offset", 0))
+            limit = safe_query_int(query_params, "limit", default=20, max_val=100)
+            offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
 
             # Parse enums
             category = SkillCategory(category_str) if category_str else None
@@ -260,8 +261,8 @@ class SkillMarketplaceHandler(SecureHandler):
 
             marketplace = get_marketplace()
 
-            limit = min(int(query_params.get("limit", 20)), 100)
-            offset = int(query_params.get("offset", 0))
+            limit = safe_query_int(query_params, "limit", default=20, max_val=100)
+            offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
 
             ratings = await marketplace.get_ratings(skill_id, limit=limit, offset=offset)
 

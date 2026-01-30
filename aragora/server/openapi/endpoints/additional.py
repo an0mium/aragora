@@ -433,10 +433,19 @@ ADDITIONAL_ENDPOINTS = {
                                 "type": "object",
                                 "properties": {
                                     "agent_id": {"type": "string"},
-                                    "calibration_score": {"type": "number", "description": "How well-calibrated the agent's confidence is (0-1)"},
+                                    "calibration_score": {
+                                        "type": "number",
+                                        "description": "How well-calibrated the agent's confidence is (0-1)",
+                                    },
                                     "mean_confidence": {"type": "number"},
-                                    "epistemic_uncertainty": {"type": "number", "description": "Uncertainty due to lack of knowledge"},
-                                    "aleatoric_uncertainty": {"type": "number", "description": "Irreducible uncertainty in data"},
+                                    "epistemic_uncertainty": {
+                                        "type": "number",
+                                        "description": "Uncertainty due to lack of knowledge",
+                                    },
+                                    "aleatoric_uncertainty": {
+                                        "type": "number",
+                                        "description": "Irreducible uncertainty in data",
+                                    },
                                     "confidence_distribution": {
                                         "type": "object",
                                         "additionalProperties": {"type": "number"},
@@ -478,8 +487,14 @@ ADDITIONAL_ENDPOINTS = {
                                 "properties": {
                                     "debate_id": {"type": "string"},
                                     "aggregate_confidence": {"type": "number"},
-                                    "disagreement_score": {"type": "number", "description": "Degree of disagreement between agents (0-1)"},
-                                    "convergence_rate": {"type": "number", "description": "Rate at which agents converge on consensus"},
+                                    "disagreement_score": {
+                                        "type": "number",
+                                        "description": "Degree of disagreement between agents (0-1)",
+                                    },
+                                    "convergence_rate": {
+                                        "type": "number",
+                                        "description": "Rate at which agents converge on consensus",
+                                    },
                                     "per_agent_uncertainty": {
                                         "type": "array",
                                         "items": {

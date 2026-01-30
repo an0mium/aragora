@@ -11,11 +11,14 @@ Wraps the NomicStateMachine and phase implementations to enable:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
 
 logger = logging.getLogger(__name__)
+
+# Type-only imports for phase classes - using Any at runtime since these may not be available
+_PhaseType = Any  # Type alias for phase instances
 
 
 class NomicLoopStep(BaseStep):
@@ -107,52 +110,76 @@ class NomicLoopStep(BaseStep):
 
             # Map phase names to state machine states
 
-            # Build phase instances
-            phase_instances: dict[str, Any] = {}
+            # Build phase instances - using cast since phase classes have dynamic signatures
+            phase_instances: dict[str, _PhaseType] = {}
 
             if "context" in phases:
-                phase_instances["context"] = ContextPhase(  # type: ignore[call-arg]
-                    workspace_id=workspace_id,
-                    timeout_seconds=timeout_seconds,
+                phase_instances["context"] = cast(
+                    _PhaseType,
+                    ContextPhase(
+                        workspace_id=workspace_id,
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             if "debate" in phases:
-                debate_config = DebateConfig(  # type: ignore[call-arg]
-                    agents=agents,
-                    rounds=config.get("debate_rounds", 3),
-                    consensus_mechanism=config.get("consensus_mechanism", "weighted"),
+                debate_config = cast(
+                    _PhaseType,
+                    DebateConfig(
+                        agents=agents,
+                        rounds=config.get("debate_rounds", 3),
+                        consensus_mechanism=config.get("consensus_mechanism", "weighted"),
+                    ),
                 )
-                phase_instances["debate"] = DebatePhase(  # type: ignore[call-arg]
-                    config=debate_config,
-                    timeout_seconds=timeout_seconds,
+                phase_instances["debate"] = cast(
+                    _PhaseType,
+                    DebatePhase(
+                        config=debate_config,
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             if "design" in phases:
-                design_config = DesignConfig(  # type: ignore[call-arg]
-                    require_approval=require_approval,
-                    max_scope=config.get("max_scope", 3),
+                design_config = cast(
+                    _PhaseType,
+                    DesignConfig(
+                        require_approval=require_approval,
+                        max_scope=config.get("max_scope", 3),
+                    ),
                 )
-                phase_instances["design"] = DesignPhase(  # type: ignore[call-arg]
-                    config=design_config,
-                    timeout_seconds=timeout_seconds,
+                phase_instances["design"] = cast(
+                    _PhaseType,
+                    DesignPhase(
+                        config=design_config,
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             if "implement" in phases:
-                phase_instances["implement"] = ImplementPhase(  # type: ignore[call-arg]
-                    enable_code_execution=enable_code_execution,
-                    require_approval=require_approval,
-                    timeout_seconds=timeout_seconds,
+                phase_instances["implement"] = cast(
+                    _PhaseType,
+                    ImplementPhase(
+                        enable_code_execution=enable_code_execution,
+                        require_approval=require_approval,
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             if "verify" in phases:
-                phase_instances["verify"] = VerifyPhase(  # type: ignore[call-arg]
-                    timeout_seconds=timeout_seconds,
+                phase_instances["verify"] = cast(
+                    _PhaseType,
+                    VerifyPhase(
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             if "commit" in phases:
-                phase_instances["commit"] = CommitPhase(  # type: ignore[call-arg]
-                    require_approval=require_approval,
-                    timeout_seconds=timeout_seconds,
+                phase_instances["commit"] = cast(
+                    _PhaseType,
+                    CommitPhase(
+                        require_approval=require_approval,
+                        timeout_seconds=timeout_seconds,
+                    ),
                 )
 
             # Execute cycles
@@ -182,7 +209,7 @@ class NomicLoopStep(BaseStep):
                         phase_context = self._build_phase_context(context, cycle_result)
 
                         # Execute the phase
-                        phase_result = await phase.execute(phase_context)  # type: ignore[call-arg]
+                        phase_result = await phase.execute(phase_context)
 
                         cycle_result["phases"][phase_name] = {
                             "success": True,
@@ -212,7 +239,7 @@ class NomicLoopStep(BaseStep):
                                 f"Retrying phase {phase_name} (attempt {retries}/{max_retries})"
                             )
                             try:
-                                phase_result = await phase.execute(phase_context)  # type: ignore[call-arg]
+                                phase_result = await phase.execute(phase_context)
                                 cycle_result["phases"][phase_name] = {
                                     "success": True,
                                     "result": phase_result,

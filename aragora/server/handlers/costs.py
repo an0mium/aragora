@@ -30,6 +30,7 @@ from aiohttp import web
 
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -783,7 +784,9 @@ class CostHandler:
         """
         try:
             workspace_id = request.query.get("workspace_id", "default")
-            forecast_days = int(request.query.get("days", "30"))
+            forecast_days = safe_query_int(
+                request.query, "days", default=30, min_val=1, max_val=365
+            )
 
             from aragora.billing.forecaster import get_cost_forecaster
 

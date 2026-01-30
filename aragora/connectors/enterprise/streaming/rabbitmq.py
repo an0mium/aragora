@@ -31,9 +31,13 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
 
 from aragora.connectors.base import Evidence
+
+# Type hint for aio_pika channel (optional import)
+if TYPE_CHECKING:
+    from aio_pika import Channel, Queue, RobustConnection
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -176,9 +180,9 @@ class RabbitMQConnector(EnterpriseConnector):
         """
         super().__init__(connector_id="rabbitmq", **kwargs)
         self.config = config
-        self._connection = None
-        self._channel = None
-        self._queue = None
+        self._connection: RobustConnection | None = None
+        self._channel: Channel | None = None
+        self._queue: Queue | None = None
         self._running = False
         self._consumed_count = 0
         self._error_count = 0
@@ -212,19 +216,21 @@ class RabbitMQConnector(EnterpriseConnector):
             else:
                 self._connection = await aio_pika.connect_robust(url)
 
-            # Create channel with QoS
-            self._channel = await self._connection.channel()  # type: ignore[attr-defined]
-            await self._channel.set_qos(prefetch_count=self.config.prefetch_count)  # type: ignore[attr-defined]
+            # Create channel with QoS - connection is guaranteed to be set at this point
+            assert self._connection is not None
+            self._channel = await self._connection.channel()
+            assert self._channel is not None
+            await self._channel.set_qos(prefetch_count=self.config.prefetch_count)
 
             # Declare exchange if specified
             if self.config.exchange:
-                exchange = await self._channel.declare_exchange(  # type: ignore[attr-defined]
+                exchange = await self._channel.declare_exchange(
                     self.config.exchange,
                     type=self.config.exchange_type,
                     durable=self.config.durable,
                 )
             else:
-                exchange = self._channel.default_exchange  # type: ignore[attr-defined]
+                exchange = self._channel.default_exchange
 
             # Build queue arguments
             queue_args: dict[str, Any] = {}
@@ -236,7 +242,7 @@ class RabbitMQConnector(EnterpriseConnector):
                 queue_args["x-message-ttl"] = self.config.message_ttl
 
             # Declare queue
-            self._queue = await self._channel.declare_queue(  # type: ignore[attr-defined]
+            self._queue = await self._channel.declare_queue(
                 self.config.queue,
                 durable=self.config.durable,
                 auto_delete=self.config.auto_delete,
@@ -246,7 +252,8 @@ class RabbitMQConnector(EnterpriseConnector):
 
             # Bind queue to exchange if specified
             if self.config.exchange:
-                await self._queue.bind(  # type: ignore[attr-defined]
+                assert self._queue is not None
+                await self._queue.bind(
                     exchange,
                     routing_key=self.config.routing_key or self.config.queue,
                 )
@@ -300,9 +307,10 @@ class RabbitMQConnector(EnterpriseConnector):
             await self.start()
 
         messages_consumed = 0
+        assert self._queue is not None
 
         try:
-            async with self._queue.iterator() as queue_iter:  # type: ignore[attr-defined]
+            async with self._queue.iterator() as queue_iter:
                 async for message in queue_iter:
                     try:
                         # Deserialize message

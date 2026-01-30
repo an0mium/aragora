@@ -146,7 +146,9 @@ def cmd_memory(args: argparse.Namespace) -> None:
                     promotions = metrics.get("promotions", 0)
                     demotions = metrics.get("demotions", 0)
                     if promotions or demotions:
-                        print(f"  {tier}: \u2191{promotions} promotions, \u2193{demotions} demotions")
+                        print(
+                            f"  {tier}: \u2191{promotions} promotions, \u2193{demotions} demotions"
+                        )
 
     elif action == "list":
         tier_name = getattr(args, "tier", "fast")

@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.http_utils import run_async
+from aragora.server.validation.query_params import safe_query_int
 
 # RBAC imports
 try:
@@ -209,7 +210,7 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:tasks:read"):
             return error
 
-        limit = int(query_params.get("limit", "20"))
+        limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
         status_filter = query_params.get("status")
 
         tasks = list(self._tasks.values())

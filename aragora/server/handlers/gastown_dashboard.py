@@ -34,6 +34,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.versioning.compat import strip_version_prefix
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +237,7 @@ class GasTownDashboardHandler(SecureHandler):
         - Created/updated timestamps
         - Assigned agents
         """
-        limit = int(query_params.get("limit", 20))
+        limit = safe_query_int(query_params, "limit", default=20, max_val=1000)
         status_filter = query_params.get("status")
 
         try:
@@ -420,7 +421,7 @@ class GasTownDashboardHandler(SecureHandler):
         - Convoy completion rate
         - GUPP recovery events (if available)
         """
-        hours = int(query_params.get("hours", 24))
+        hours = safe_query_int(query_params, "hours", default=24, max_val=8760)
 
         metrics: dict[str, Any] = {
             "period_hours": hours,
