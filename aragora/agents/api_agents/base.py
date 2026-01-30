@@ -7,7 +7,7 @@ from __future__ import annotations
 from aragora.agents.base import CritiqueMixin
 from aragora.core import Agent, Message
 from aragora.core_types import AgentRole
-from aragora.resilience_patterns import BaseCircuitBreaker, get_circuit_breaker
+from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
 
 
 class APIAgent(CritiqueMixin, Agent):

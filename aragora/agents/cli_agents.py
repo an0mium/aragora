@@ -30,7 +30,7 @@ from aragora.agents.errors import (
 from aragora.agents.registry import AgentRegistry
 from aragora.core import Agent, Critique, Message
 from aragora.core_types import AgentRole
-from aragora.resilience_patterns import BaseCircuitBreaker, get_circuit_breaker
+from aragora.resilience import BaseCircuitBreaker, get_v2_circuit_breaker as get_circuit_breaker
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import OpenRouterAgent

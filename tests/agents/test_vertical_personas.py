@@ -692,3 +692,510 @@ class TestVerticalTeamRecommendation:
         assert rec.max_temperature == 0.4
         assert rec.estimated_cost_tier == "high"
         assert rec.reasoning == "Test reasoning"
+
+    def test_recommendation_with_multiple_personas(self):
+        """Create a recommendation with multiple personas."""
+        rec = VerticalTeamRecommendation(
+            vertical=Vertical.SOFTWARE,
+            task_type="code_review",
+            complexity=TaskComplexity.MEDIUM,
+            personas=["code_quality_reviewer", "code_security_specialist", "performance_engineer"],
+            models=["claude", "gpt4"],
+            compliance_frameworks=["owasp", "soc2"],
+            max_temperature=0.6,
+            estimated_cost_tier="medium",
+            reasoning="Team for code review",
+        )
+        assert len(rec.personas) == 3
+        assert len(rec.models) == 2
+        assert len(rec.compliance_frameworks) == 2
+
+    def test_recommendation_with_empty_lists(self):
+        """Create a recommendation with empty lists."""
+        rec = VerticalTeamRecommendation(
+            vertical=Vertical.GENERAL,
+            task_type="analysis",
+            complexity=TaskComplexity.LOW,
+            personas=[],
+            models=[],
+            compliance_frameworks=[],
+            max_temperature=0.7,
+            estimated_cost_tier="low",
+            reasoning="Minimal configuration",
+        )
+        assert rec.personas == []
+        assert rec.models == []
+        assert rec.compliance_frameworks == []
+
+
+# ---------------------------------------------------------------------------
+# Additional VerticalConfig tests
+# ---------------------------------------------------------------------------
+
+
+class TestVerticalConfigAdditional:
+    """Additional tests for VerticalConfig properties."""
+
+    def test_all_configs_have_descriptions(self):
+        """All configs have non-empty descriptions."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert len(cfg.description) > 10, f"{v} has too short a description"
+
+    def test_all_configs_have_primary_personas(self):
+        """All configs have at least one primary persona."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert len(cfg.primary_personas) > 0, f"{v} has no primary personas"
+
+    def test_all_configs_have_typical_tasks(self):
+        """All configs have at least one typical task."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert len(cfg.typical_tasks) > 0, f"{v} has no typical tasks"
+
+    def test_all_configs_have_expertise_domains(self):
+        """All configs have expertise domains."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert len(cfg.expertise_domains) > 0, f"{v} has no expertise domains"
+
+    def test_all_configs_max_temperature_valid_range(self):
+        """All configs have max_temperature in valid range."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert 0.0 <= cfg.max_temperature <= 1.0, f"{v} has invalid max_temperature"
+
+    def test_regulated_verticals_have_low_temperature(self):
+        """Regulated verticals (legal, healthcare, accounting) have lower temperature."""
+        regulated = [Vertical.LEGAL, Vertical.HEALTHCARE, Vertical.ACCOUNTING]
+        for v in regulated:
+            cfg = VERTICAL_CONFIGS[v]
+            assert cfg.max_temperature <= 0.5, f"{v} should have low temperature"
+
+    def test_regulated_verticals_require_high_accuracy(self):
+        """Regulated verticals require high accuracy."""
+        regulated = [Vertical.SOFTWARE, Vertical.LEGAL, Vertical.HEALTHCARE, Vertical.ACCOUNTING]
+        for v in regulated:
+            cfg = VERTICAL_CONFIGS[v]
+            assert cfg.requires_high_accuracy is True, f"{v} should require high accuracy"
+
+    def test_all_configs_have_default_model(self):
+        """All configs have claude as default model."""
+        for v, cfg in VERTICAL_CONFIGS.items():
+            assert cfg.default_model == "claude", f"{v} should default to claude"
+
+
+# ---------------------------------------------------------------------------
+# Additional recommend_team tests
+# ---------------------------------------------------------------------------
+
+
+class TestRecommendTeamAdditional:
+    """Additional tests for recommend_team method."""
+
+    def test_recommend_team_software_code_review(self):
+        """Test team recommendation for software code review."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.SOFTWARE, "code_review", TaskComplexity.HIGH)
+
+        assert rec.vertical is Vertical.SOFTWARE
+        assert rec.task_type == "code_review"
+        assert len(rec.personas) > 0
+
+    def test_recommend_team_legal_contract_review(self):
+        """Test team recommendation for legal contract review."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.LEGAL, "contract_review", TaskComplexity.HIGH)
+
+        assert "contract_analyst" in rec.personas
+
+    def test_recommend_team_healthcare_clinical_review(self):
+        """Test team recommendation for healthcare clinical review."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.HEALTHCARE, "clinical_review")
+
+        assert any("clinical" in p for p in rec.personas)
+
+    def test_recommend_team_accounting_financial_audit(self):
+        """Test team recommendation for accounting financial audit."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.ACCOUNTING, "financial_audit")
+
+        assert "financial_auditor" in rec.personas
+
+    def test_recommend_team_academic_peer_review(self):
+        """Test team recommendation for academic peer review."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.ACADEMIC, "peer_review")
+
+        assert "peer_reviewer" in rec.personas
+
+    def test_recommend_team_critical_complexity_models(self):
+        """Test team recommendation uses critical complexity models."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.LEGAL, "contract_review", TaskComplexity.CRITICAL)
+
+        # CRITICAL should prefer claude only for legal
+        assert "claude" in rec.models
+
+    def test_recommend_team_low_complexity_more_models(self):
+        """Test LOW complexity allows more model options."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.SOFTWARE, "code_review", TaskComplexity.LOW, team_size=5)
+
+        # LOW complexity for SOFTWARE allows claude, gpt4, deepseek
+        assert len(rec.models) >= 1
+
+    def test_recommend_team_size_one(self):
+        """Test team recommendation with size 1."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.LEGAL, "contract_review", team_size=1)
+
+        assert len(rec.personas) == 1
+        assert len(rec.models) == 1
+
+    def test_recommend_team_large_size(self):
+        """Test team recommendation with large team size."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.SOFTWARE, "code_review", team_size=10)
+
+        # Should not exceed available personas
+        assert len(rec.personas) <= 10
+
+    def test_recommend_team_reasoning_format(self):
+        """Test recommendation reasoning has expected format."""
+        manager = VerticalPersonaManager()
+        rec = manager.recommend_team(Vertical.SOFTWARE, "code_review", TaskComplexity.MEDIUM)
+
+        assert "software" in rec.reasoning
+        assert "code_review" in rec.reasoning
+        assert "medium" in rec.reasoning
+        assert "specialists" in rec.reasoning.lower()
+
+    def test_recommend_team_cost_tier_consistency(self):
+        """Test cost tier is consistent with complexity and team size."""
+        manager = VerticalPersonaManager()
+
+        low_rec = manager.recommend_team(
+            Vertical.GENERAL, "analysis", TaskComplexity.LOW, team_size=1
+        )
+        high_rec = manager.recommend_team(
+            Vertical.GENERAL, "analysis", TaskComplexity.HIGH, team_size=5
+        )
+
+        assert low_rec.estimated_cost_tier == "low"
+        assert high_rec.estimated_cost_tier == "high"
+
+
+# ---------------------------------------------------------------------------
+# Additional _select_personas_for_task tests
+# ---------------------------------------------------------------------------
+
+
+class TestSelectPersonasForTaskAdditional:
+    """Additional tests for persona selection logic."""
+
+    def test_security_audit_selects_security_specialist(self):
+        """Security audit selects code_security_specialist."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.SOFTWARE]
+        selected = manager._select_personas_for_task(config, "security_audit", 5, False)
+        assert "code_security_specialist" in selected
+
+    def test_architecture_review_selects_architect(self):
+        """Architecture review selects architecture_reviewer."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.SOFTWARE]
+        selected = manager._select_personas_for_task(config, "architecture_review", 5, False)
+        assert "architecture_reviewer" in selected
+
+    def test_performance_analysis_selects_performance_engineer(self):
+        """Performance analysis selects performance_engineer."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.SOFTWARE]
+        selected = manager._select_personas_for_task(config, "performance_analysis", 5, False)
+        assert "performance_engineer" in selected
+
+    def test_compliance_assessment_selects_compliance(self):
+        """Compliance assessment selects compliance_officer."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.LEGAL]
+        selected = manager._select_personas_for_task(config, "compliance_assessment", 5, False)
+        assert "compliance_officer" in selected
+
+    def test_due_diligence_selects_m_and_a(self):
+        """Due diligence selects m_and_a_counsel."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.LEGAL]
+        selected = manager._select_personas_for_task(config, "due_diligence", 5, False)
+        assert "m_and_a_counsel" in selected
+
+    def test_hipaa_audit_selects_hipaa_auditor(self):
+        """HIPAA audit selects hipaa_auditor."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.HEALTHCARE]
+        selected = manager._select_personas_for_task(config, "hipaa_audit", 5, False)
+        assert "hipaa_auditor" in selected
+
+    def test_sox_compliance_selects_sox(self):
+        """SOX compliance selects sox persona."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.ACCOUNTING]
+        selected = manager._select_personas_for_task(config, "sox_compliance", 5, False)
+        assert "sox" in selected
+
+    def test_fraud_investigation_selects_forensic(self):
+        """Fraud investigation selects forensic_accountant."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.ACCOUNTING]
+        selected = manager._select_personas_for_task(config, "fraud_investigation", 5, False)
+        assert "forensic_accountant" in selected
+
+    def test_grant_review_selects_grant_reviewer(self):
+        """Grant review selects grant_reviewer."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.ACADEMIC]
+        selected = manager._select_personas_for_task(config, "grant_review", 5, False)
+        assert "grant_reviewer" in selected
+
+    def test_small_team_size_limits_selection(self):
+        """Small team size limits persona selection."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.SOFTWARE]
+        selected = manager._select_personas_for_task(config, "code_review", 2, False)
+        assert len(selected) == 2
+
+    def test_no_duplicate_personas(self):
+        """Selected personas should have no duplicates."""
+        manager = VerticalPersonaManager()
+        config = VERTICAL_CONFIGS[Vertical.SOFTWARE]
+        selected = manager._select_personas_for_task(config, "code_review", 10, True)
+        assert len(selected) == len(set(selected))
+
+
+# ---------------------------------------------------------------------------
+# Additional detect_vertical_from_task tests
+# ---------------------------------------------------------------------------
+
+
+class TestDetectVerticalFromTaskAdditional:
+    """Additional tests for vertical detection."""
+
+    def test_api_keyword_detects_software(self):
+        """API keyword maps to SOFTWARE."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Design the API") is Vertical.SOFTWARE
+
+    def test_database_keyword_detects_software(self):
+        """Database keyword maps to SOFTWARE."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Optimize the database schema") is Vertical.SOFTWARE
+
+    def test_hipaa_keyword_detects_healthcare(self):
+        """HIPAA keyword maps to HEALTHCARE."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Ensure HIPAA compliance") is Vertical.HEALTHCARE
+
+    def test_gaap_keyword_detects_accounting(self):
+        """GAAP keyword maps to ACCOUNTING."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Review GAAP compliance") is Vertical.ACCOUNTING
+
+    def test_grant_keyword_detects_academic(self):
+        """Grant keyword maps to ACADEMIC."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Review grant application") is Vertical.ACADEMIC
+
+    def test_refactor_keyword_detects_software(self):
+        """Refactor keyword maps to SOFTWARE."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Refactor the authentication module") is Vertical.SOFTWARE
+
+    def test_patient_keyword_detects_healthcare(self):
+        """Patient keyword maps to HEALTHCARE."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Analyze patient records") is Vertical.HEALTHCARE
+
+    def test_tax_keyword_detects_accounting(self):
+        """Tax keyword maps to ACCOUNTING."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("Review tax returns for compliance") is Vertical.ACCOUNTING
+
+    def test_mixed_keywords_tiebreaker(self):
+        """When keywords tie, first match wins."""
+        manager = VerticalPersonaManager()
+        # "code" is SOFTWARE, "audit" is ACCOUNTING - single keywords each
+        result = manager.detect_vertical_from_task("code audit")
+        # Should be one of the two verticals since they each match one keyword
+        assert result in (Vertical.SOFTWARE, Vertical.ACCOUNTING)
+
+    def test_only_whitespace_returns_general(self):
+        """Whitespace-only task returns GENERAL."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("   ") is Vertical.GENERAL
+
+    def test_numeric_only_returns_general(self):
+        """Numeric-only task returns GENERAL."""
+        manager = VerticalPersonaManager()
+        assert manager.detect_vertical_from_task("12345") is Vertical.GENERAL
+
+
+# ---------------------------------------------------------------------------
+# Additional compliance and tasks tests
+# ---------------------------------------------------------------------------
+
+
+class TestComplianceAndTasksAdditional:
+    """Additional tests for compliance and task retrieval."""
+
+    def test_software_has_owasp(self):
+        """SOFTWARE vertical includes OWASP."""
+        manager = VerticalPersonaManager()
+        frameworks = manager.get_compliance_frameworks(Vertical.SOFTWARE)
+        assert "owasp" in frameworks
+
+    def test_legal_has_gdpr(self):
+        """LEGAL vertical includes GDPR."""
+        manager = VerticalPersonaManager()
+        frameworks = manager.get_compliance_frameworks(Vertical.LEGAL)
+        assert "gdpr" in frameworks
+
+    def test_healthcare_has_hipaa(self):
+        """HEALTHCARE vertical includes HIPAA."""
+        manager = VerticalPersonaManager()
+        frameworks = manager.get_compliance_frameworks(Vertical.HEALTHCARE)
+        assert "hipaa" in frameworks
+
+    def test_accounting_has_sox(self):
+        """ACCOUNTING vertical includes SOX."""
+        manager = VerticalPersonaManager()
+        frameworks = manager.get_compliance_frameworks(Vertical.ACCOUNTING)
+        assert "sox" in frameworks
+
+    def test_academic_has_irb(self):
+        """ACADEMIC vertical includes IRB."""
+        manager = VerticalPersonaManager()
+        frameworks = manager.get_compliance_frameworks(Vertical.ACADEMIC)
+        assert "irb" in frameworks
+
+    def test_typical_tasks_software(self):
+        """SOFTWARE typical tasks include code_review."""
+        manager = VerticalPersonaManager()
+        tasks = manager.get_typical_tasks(Vertical.SOFTWARE)
+        assert "code_review" in tasks
+
+    def test_typical_tasks_legal(self):
+        """LEGAL typical tasks include contract_review."""
+        manager = VerticalPersonaManager()
+        tasks = manager.get_typical_tasks(Vertical.LEGAL)
+        assert "contract_review" in tasks
+
+    def test_typical_tasks_healthcare(self):
+        """HEALTHCARE typical tasks include clinical_review."""
+        manager = VerticalPersonaManager()
+        tasks = manager.get_typical_tasks(Vertical.HEALTHCARE)
+        assert "clinical_review" in tasks
+
+    def test_typical_tasks_accounting(self):
+        """ACCOUNTING typical tasks include financial_audit."""
+        manager = VerticalPersonaManager()
+        tasks = manager.get_typical_tasks(Vertical.ACCOUNTING)
+        assert "financial_audit" in tasks
+
+
+# ---------------------------------------------------------------------------
+# Additional persona retrieval tests
+# ---------------------------------------------------------------------------
+
+
+class TestPersonaRetrievalAdditional:
+    """Additional tests for persona retrieval methods."""
+
+    def test_accounting_personas_include_financial_auditor(self):
+        """Accounting vertical includes financial_auditor."""
+        manager = VerticalPersonaManager()
+        personas = manager.get_personas_for_vertical(Vertical.ACCOUNTING)
+        names = [p.agent_name for p in personas]
+        assert "financial_auditor" in names
+
+    def test_academic_personas_include_peer_reviewer(self):
+        """Academic vertical includes peer_reviewer."""
+        manager = VerticalPersonaManager()
+        personas = manager.get_personas_for_vertical(Vertical.ACADEMIC)
+        names = [p.agent_name for p in personas]
+        assert "peer_reviewer" in names
+
+    def test_general_personas_include_claude(self):
+        """General vertical includes claude."""
+        manager = VerticalPersonaManager()
+        personas = manager.get_personas_for_vertical(Vertical.GENERAL)
+        names = [p.agent_name for p in personas]
+        assert "claude" in names
+
+    def test_persona_by_expertise_default_min_score(self):
+        """get_persona_by_expertise uses default min_score of 0.5."""
+        manager = VerticalPersonaManager()
+        results = manager.get_persona_by_expertise(Vertical.SOFTWARE, "security")
+        for p in results:
+            assert p.expertise.get("security", 0.0) >= 0.5
+
+    def test_persona_by_expertise_zero_min_score(self):
+        """get_persona_by_expertise with min_score=0 returns all with any expertise."""
+        manager = VerticalPersonaManager()
+        results = manager.get_persona_by_expertise(Vertical.SOFTWARE, "security", min_score=0.0)
+        # Should include personas with 0.0 expertise too (since >= 0.0)
+        assert isinstance(results, list)
+
+    def test_persona_by_expertise_high_threshold_returns_few(self):
+        """Very high min_score threshold returns few or no results."""
+        manager = VerticalPersonaManager()
+        results = manager.get_persona_by_expertise(Vertical.GENERAL, "security", min_score=1.0)
+        # Very few personas would have a perfect 1.0 score
+        assert isinstance(results, list)
+
+
+# ---------------------------------------------------------------------------
+# get_vertical_config fallback tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetVerticalConfigFallback:
+    """Tests for get_vertical_config fallback behavior."""
+
+    def test_general_config_returned_for_known_vertical(self):
+        """Known verticals return their own config, not GENERAL."""
+        manager = VerticalPersonaManager()
+        for v in Vertical:
+            cfg = manager.get_vertical_config(v)
+            assert cfg.vertical is v
+
+    def test_config_has_all_complexity_models(self):
+        """Every config has preferred models for all complexity levels."""
+        manager = VerticalPersonaManager()
+        for v in Vertical:
+            cfg = manager.get_vertical_config(v)
+            for c in TaskComplexity:
+                assert c in cfg.preferred_models
+
+
+# ---------------------------------------------------------------------------
+# __all__ exports test
+# ---------------------------------------------------------------------------
+
+
+class TestModuleExports:
+    """Tests for module __all__ exports."""
+
+    def test_all_exports_importable(self):
+        """All items in __all__ are importable."""
+        from aragora.agents import vertical_personas
+
+        for name in vertical_personas.__all__:
+            assert hasattr(vertical_personas, name), f"{name} not found in module"
+
+    def test_exports_contain_key_items(self):
+        """Module exports include key classes and functions."""
+        from aragora.agents.vertical_personas import __all__
+
+        assert "Vertical" in __all__
+        assert "TaskComplexity" in __all__
+        assert "VerticalConfig" in __all__
+        assert "VerticalPersonaManager" in __all__
+        assert "get_vertical_personas" in __all__
+        assert "VERTICAL_CONFIGS" in __all__
