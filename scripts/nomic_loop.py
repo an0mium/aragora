@@ -613,12 +613,16 @@ from aragora.nomic.convoy_executor import GastownConvoyExecutor
 
 # Check if Kilo Code CLI is available for Gemini/Grok codebase exploration
 KILOCODE_AVAILABLE = False
-try:
-    import shutil
+_kilocode_env = os.environ.get("NOMIC_KILOCODE_AVAILABLE")
+if _kilocode_env is not None:
+    KILOCODE_AVAILABLE = _kilocode_env.strip().lower() in {"1", "true", "yes", "on"}
+else:
+    try:
+        import shutil
 
-    KILOCODE_AVAILABLE = shutil.which("kilocode") is not None
-except Exception:
-    pass
+        KILOCODE_AVAILABLE = shutil.which("kilocode") is not None
+    except Exception:
+        pass
 
 # Skip KiloCode agents during context gathering phase (agentic codebase exploration)
 # KiloCode's agentic exploration can be slow; Gemini/Grok still participate in debates via direct API calls.
