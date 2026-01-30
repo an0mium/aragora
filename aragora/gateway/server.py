@@ -423,6 +423,10 @@ class LocalGateway:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
+        from aragora.gateway.protocol import GatewayProtocolAdapter, GatewayWebSocketProtocol
+
+        protocol = GatewayWebSocketProtocol(GatewayProtocolAdapter(self))
+
         # Add to subscribers
         if not hasattr(self, "_ws_subscribers"):
             self._ws_subscribers: set[web.WebSocketResponse] = set()
@@ -433,13 +437,20 @@ class LocalGateway:
         try:
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
-                    # Handle incoming commands (e.g., subscribe to channel)
                     try:
                         data = json.loads(msg.data)
-                        if data.get("type") == "ping":
-                            await ws.send_json({"type": "pong"})
                     except json.JSONDecodeError:
-                        pass
+                        await ws.send_json(
+                            {
+                                "type": "error",
+                                "error": {"code": "invalid_json", "message": "invalid JSON"},
+                            }
+                        )
+                        continue
+
+                    response = await protocol.handle_message(data)
+                    if response is not None:
+                        await ws.send_json(response)
                 elif msg.type == WSMsgType.ERROR:
                     logger.warning(f"WebSocket error: {ws.exception()}")
         finally:

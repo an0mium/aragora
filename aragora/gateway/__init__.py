@@ -32,7 +32,11 @@ from aragora.gateway.device_security import (
 )
 from aragora.gateway.router import AgentRouter, RoutingRule
 from aragora.gateway.capability_router import CapabilityRouter, CapabilityRule, RoutingResult
-from aragora.gateway.protocol import GatewayProtocolAdapter, GatewaySession
+from aragora.gateway.protocol import (
+    GatewayProtocolAdapter,
+    GatewaySession,
+    GatewayWebSocketProtocol,
+)
 from aragora.gateway.persistence import (
     GatewayStore,
     InMemoryGatewayStore,
@@ -62,6 +66,7 @@ __all__ = [
     # Protocol
     "GatewayProtocolAdapter",
     "GatewaySession",
+    "GatewayWebSocketProtocol",
     # Router
     "AgentRouter",
     "RoutingRule",
