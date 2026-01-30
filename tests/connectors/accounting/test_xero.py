@@ -874,8 +874,7 @@ class TestGetClient:
     async def test_get_client_creates_client(self, xero_connector):
         client = await xero_connector._get_client()
         assert client is not None
-        assert isinstance(client, httpx.AsyncClient)
-        # Clean up
+        assert xero_connector._client is client
         await xero_connector.close()
 
     @pytest.mark.asyncio
@@ -887,22 +886,51 @@ class TestGetClient:
 
     @pytest.mark.asyncio
     async def test_get_client_includes_tenant_header(self, xero_connector):
-        client = await xero_connector._get_client()
-        assert "Xero-Tenant-Id" in client.headers
-        assert client.headers["Xero-Tenant-Id"] == "test_tenant_id"
-        await xero_connector.close()
+        """Verify tenant ID is passed when creating the HTTP client."""
+        captured_kwargs = {}
+
+        original_init = httpx.AsyncClient.__init__
+
+        def capture_init(self_client, *args, **kwargs):
+            captured_kwargs.update(kwargs)
+            # Use a minimal init that just stores _base_url so close works
+            self_client._base_url = kwargs.get("base_url", "")
+            self_client._timeout = kwargs.get("timeout", 30)
+
+        with patch.object(httpx.AsyncClient, "__init__", capture_init):
+            client = await xero_connector._get_client()
+
+        # The Xero connector passes headers to AsyncClient
+        assert "headers" in captured_kwargs
+        headers = captured_kwargs["headers"]
+        assert "Xero-Tenant-Id" in headers
+        assert headers["Xero-Tenant-Id"] == "test_tenant_id"
+        # Reset client to avoid cleanup issues
+        xero_connector._client = None
 
     @pytest.mark.asyncio
     async def test_get_client_no_tenant_header_when_none(self):
+        """Verify tenant ID is omitted when credentials have no tenant_id."""
         creds = XeroCredentials(
             client_id="cid",
             client_secret="csecret",
             access_token="token",
         )
         connector = XeroConnector(credentials=creds, enable_circuit_breaker=False)
-        client = await connector._get_client()
-        assert "Xero-Tenant-Id" not in client.headers
-        await connector.close()
+
+        captured_kwargs = {}
+
+        def capture_init(self_client, *args, **kwargs):
+            captured_kwargs.update(kwargs)
+            self_client._base_url = kwargs.get("base_url", "")
+            self_client._timeout = kwargs.get("timeout", 30)
+
+        with patch.object(httpx.AsyncClient, "__init__", capture_init):
+            client = await connector._get_client()
+
+        headers = captured_kwargs.get("headers", {})
+        assert "Xero-Tenant-Id" not in headers
+        connector._client = None
 
 
 # =============================================================================

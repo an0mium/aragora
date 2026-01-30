@@ -1708,5 +1708,1188 @@ class TestCaptureAuthnet:
         assert response.status == 400
 
 
+# ===========================================================================
+# Test Partial Capture
+# ===========================================================================
+
+
+class TestPartialCapture:
+    """Tests for partial capture scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_capture_stripe_partial_amount(self, mock_stripe_connector):
+        """Stripe partial capture passes amount_to_capture in cents."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "transaction_id": "pi_test123",
+                "amount": 50.00,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_capture(request)
+
+        assert response.status == 200
+        mock_stripe_connector.capture_payment_intent.assert_called_once_with(
+            payment_intent_id="pi_test123",
+            amount_to_capture=5000,
+        )
+
+    @pytest.mark.asyncio
+    async def test_capture_stripe_full_without_amount(self, mock_stripe_connector):
+        """Stripe capture without amount captures full authorized amount."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "transaction_id": "pi_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_capture(request)
+
+        assert response.status == 200
+        mock_stripe_connector.capture_payment_intent.assert_called_once_with(
+            payment_intent_id="pi_test123",
+            amount_to_capture=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_capture_authnet_partial_amount(self, mock_authnet_connector):
+        """Authorize.net partial capture passes Decimal amount."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "transaction_id": "123456789",
+                "amount": 75.50,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=mock_authnet_connector,
+        ):
+            response = await handle_capture(request)
+
+        assert response.status == 200
+        mock_authnet_connector.capture.assert_called_once()
+        call_kwargs = mock_authnet_connector.capture.call_args.kwargs
+        assert call_kwargs["transaction_id"] == "123456789"
+        assert call_kwargs["amount"] == Decimal("75.50")
+
+    @pytest.mark.asyncio
+    async def test_capture_authnet_connector_unavailable(self):
+        """Authorize.net capture returns 503 when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "transaction_id": "123456789",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_capture(request)
+
+        assert response.status == 503
+
+
+# ===========================================================================
+# Test Stripe Subscription with Price ID
+# ===========================================================================
+
+
+class TestStripeSubscription:
+    """Tests for Stripe-specific subscription operations."""
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_stripe_with_price_id(self, mock_stripe_connector):
+        """Stripe subscription creation succeeds with price_id."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "customer_id": "cus_test123",
+                "price_id": "price_abc123",
+                "amount": 99.99,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_create_subscription(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is True
+        assert data["subscription_id"] == "sub_test123"
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_stripe_missing_price_id(self, mock_stripe_connector):
+        """Stripe subscription requires price_id."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "customer_id": "cus_test123",
+                "amount": 99.99,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_create_subscription(request)
+
+        assert response.status == 400
+        data = json.loads(response.text)
+        assert "price_id required" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_stripe_invalid_amount(self):
+        """Stripe subscription rejects zero amount."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "customer_id": "cus_test123",
+                "price_id": "price_abc123",
+                "amount": 0,
+            }
+        )
+
+        response = await handle_create_subscription(request)
+        assert response.status == 400
+
+    @pytest.mark.asyncio
+    async def test_create_subscription_stripe_connector_unavailable(self):
+        """Stripe subscription fails when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "customer_id": "cus_test123",
+                "price_id": "price_abc123",
+                "amount": 99.99,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_create_subscription(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_stripe_connector_unavailable(self):
+        """Stripe cancel subscription fails when connector unavailable."""
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"subscription_id": "sub_test123"}
+        request.query = {"provider": "stripe"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_cancel_subscription(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_authnet_connector_unavailable(self):
+        """Authorize.net cancel subscription fails when connector unavailable."""
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"subscription_id": "987654321"}
+        request.query = {"provider": "authorize_net"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_cancel_subscription(request)
+
+        assert response.status == 503
+
+
+# ===========================================================================
+# Test Network Errors and Circuit Breaker
+# ===========================================================================
+
+
+class TestNetworkErrorHandling:
+    """Tests for network error handling and resilient calls."""
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_connection_error(self, mock_stripe_connector):
+        """Stripe charge handles ConnectionError gracefully."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._resilient_stripe_call",
+                side_effect=ConnectionError("Stripe service temporarily unavailable"),
+            ),
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is False
+        assert data["transaction"]["status"] == "error"
+        assert "unavailable" in data["transaction"]["message"].lower()
+
+    @pytest.mark.asyncio
+    async def test_charge_authnet_connection_error(self, mock_authnet_connector):
+        """Authorize.net charge handles ConnectionError gracefully."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "amount": 100.00,
+                "payment_method": {
+                    "card_number": "4111111111111111",
+                    "exp_month": "12",
+                    "exp_year": "2025",
+                },
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_authnet_connector",
+                return_value=mock_authnet_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._resilient_authnet_call",
+                side_effect=ConnectionError("Authorize.net service temporarily unavailable"),
+            ),
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is False
+        assert data["transaction"]["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_generic_exception(self, mock_stripe_connector):
+        """Stripe charge handles unexpected exceptions."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._resilient_stripe_call",
+                side_effect=RuntimeError("Unexpected error"),
+            ),
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is False
+        assert data["transaction"]["status"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_void_stripe_exception(self, mock_stripe_connector):
+        """Void handler returns 500 on unexpected exception."""
+        mock_stripe_connector.cancel_payment_intent = AsyncMock(
+            side_effect=RuntimeError("Unexpected error")
+        )
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "transaction_id": "pi_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_void(request)
+
+        assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_authorize_stripe_exception(self, mock_stripe_connector):
+        """Authorize handler returns 500 on unexpected exception."""
+        mock_stripe_connector.create_payment_intent = AsyncMock(
+            side_effect=RuntimeError("Internal error")
+        )
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+                "payment_method": "pm_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_authorize(request)
+
+        assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_authorize_invalid_json(self):
+        """Authorize with invalid JSON returns 400."""
+        request = create_mock_request(None)
+
+        response = await handle_authorize(request)
+        assert response.status == 400
+
+    @pytest.mark.asyncio
+    async def test_get_transaction_exception(self, mock_stripe_connector):
+        """Get transaction returns 500 on unexpected exception."""
+        mock_stripe_connector.retrieve_payment_intent = AsyncMock(
+            side_effect=RuntimeError("Lookup failed")
+        )
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"transaction_id": "pi_test123"}
+        request.query = {"provider": "stripe"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_get_transaction(request)
+
+        assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_create_customer_exception(self, mock_stripe_connector):
+        """Create customer returns 500 on unexpected exception."""
+        mock_stripe_connector.create_customer = AsyncMock(
+            side_effect=RuntimeError("Customer creation failed")
+        )
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "email": "test@example.com",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_create_customer(request)
+
+        assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_delete_customer_exception(self, mock_stripe_connector):
+        """Delete customer returns 500 on unexpected exception."""
+        mock_stripe_connector.delete_customer = AsyncMock(side_effect=RuntimeError("Delete failed"))
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"customer_id": "cus_test123"}
+        request.query = {"provider": "stripe"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_delete_customer(request)
+
+        assert response.status == 500
+
+
+# ===========================================================================
+# Test Payment Intent Status Mapping
+# ===========================================================================
+
+
+class TestPaymentIntentStatusMapping:
+    """Tests for payment intent status-to-PaymentStatus mapping."""
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_pending_status(self, mock_stripe_connector):
+        """Stripe charge maps 'requires_action' to PENDING."""
+        mock_stripe_connector.create_payment_intent = AsyncMock(
+            return_value=MockStripePaymentIntent(
+                status="requires_action",
+                client_secret="pi_test_secret",
+            )
+        )
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is False
+        assert data["transaction"]["status"] == "pending"
+        assert "client_secret" in data["transaction"]["metadata"]
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_succeeded_maps_approved(self, mock_stripe_connector):
+        """Stripe charge maps 'succeeded' to APPROVED."""
+        mock_stripe_connector.create_payment_intent = AsyncMock(
+            return_value=MockStripePaymentIntent(status="succeeded")
+        )
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is True
+        assert data["transaction"]["status"] == "approved"
+
+
+# ===========================================================================
+# Test Authorize.net Authorize Handler
+# ===========================================================================
+
+
+class TestAuthorizeAuthnet:
+    """Tests for Authorize.net authorization flows."""
+
+    @pytest.mark.asyncio
+    async def test_authorize_authnet_success(self, mock_authnet_connector):
+        """Successful Authorize.net authorization with card details."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "amount": 100.00,
+                "payment_method": {
+                    "card_number": "4111111111111111",
+                    "exp_month": "12",
+                    "exp_year": "2025",
+                    "cvv": "123",
+                },
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=mock_authnet_connector,
+        ):
+            response = await handle_authorize(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is True
+        assert "transaction_id" in data
+
+    @pytest.mark.asyncio
+    async def test_authorize_authnet_connector_unavailable(self):
+        """Authorize.net authorization fails when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "amount": 100.00,
+                "payment_method": {
+                    "card_number": "4111111111111111",
+                    "exp_month": "12",
+                    "exp_year": "2025",
+                },
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_authorize(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_authorize_stripe_connector_unavailable(self):
+        """Stripe authorization fails when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+                "payment_method": "pm_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_authorize(request)
+
+        assert response.status == 503
+
+
+# ===========================================================================
+# Test PCI Compliance - No Raw Card Data in Logs
+# ===========================================================================
+
+
+class TestPCICompliance:
+    """Tests for PCI compliance - ensure raw card data not leaked."""
+
+    @pytest.mark.asyncio
+    async def test_charge_authnet_card_data_not_in_error_message(self, mock_authnet_connector):
+        """Card numbers must not appear in error messages."""
+        card_number = "4111111111111111"
+
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "amount": 100.00,
+                "payment_method": {
+                    "card_number": card_number,
+                    "exp_month": "12",
+                    "exp_year": "2025",
+                    "cvv": "123",
+                },
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_authnet_connector",
+                return_value=mock_authnet_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._resilient_authnet_call",
+                side_effect=RuntimeError("Processing error"),
+            ),
+        ):
+            response = await handle_charge(request)
+
+        data = json.loads(response.text)
+        response_text = json.dumps(data)
+        assert card_number not in response_text
+
+    @pytest.mark.asyncio
+    async def test_refund_does_not_log_full_card_number(self, mock_authnet_connector):
+        """Refund audit trail does not contain full card numbers."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "transaction_id": "123456789",
+                "amount": 50.00,
+                "card_last_four": "1111",
+            }
+        )
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_authnet_connector",
+                return_value=mock_authnet_connector,
+            ),
+            patch("aragora.server.handlers.payments.audit_data") as mock_audit,
+        ):
+            response = await handle_refund(request)
+
+        assert response.status == 200
+        call_str = str(mock_audit.call_args)
+        assert "4111111111111111" not in call_str
+
+    def test_payment_result_does_not_expose_card_data(self):
+        """PaymentResult to_dict does not include raw card fields."""
+        result = PaymentResult(
+            transaction_id="txn_123",
+            provider=PaymentProvider.AUTHORIZE_NET,
+            status=PaymentStatus.APPROVED,
+            amount=Decimal("100.00"),
+            currency="USD",
+        )
+
+        data = result.to_dict()
+        # Raw card fields must never appear; cvv_result is a verification code, not raw CVV
+        sensitive_keys = {"card_number", "card_code", "cvv", "expiration_date"}
+        actual_keys = set(data.keys())
+        assert sensitive_keys.isdisjoint(actual_keys), (
+            f"Found sensitive keys in output: {sensitive_keys & actual_keys}"
+        )
+
+
+# ===========================================================================
+# Test Currency and Amount Validation
+# ===========================================================================
+
+
+class TestCurrencyAndAmountValidation:
+    """Tests for currency and amount edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_charge_with_custom_currency(self, mock_stripe_connector):
+        """Charge accepts alternative currencies like EUR."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 50.00,
+                "currency": "EUR",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["transaction"]["currency"] == "EUR"
+
+    @pytest.mark.asyncio
+    async def test_charge_currency_defaults_to_usd(self, mock_stripe_connector):
+        """Charge defaults to USD when no currency specified."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 50.00,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["transaction"]["currency"] == "USD"
+
+    @pytest.mark.asyncio
+    async def test_charge_amount_precision(self, mock_stripe_connector):
+        """Charge correctly handles decimal amount precision."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 99.99,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["transaction"]["amount"] == "99.99"
+
+    @pytest.mark.asyncio
+    async def test_charge_very_small_amount(self, mock_stripe_connector):
+        """Charge processes very small positive amounts."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 0.01,
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["transaction"]["amount"] == "0.01"
+
+    @pytest.mark.asyncio
+    async def test_refund_negative_amount_rejected(self):
+        """Refund with negative amount returns 400."""
+        request = create_mock_request(
+            {
+                "transaction_id": "pi_test123",
+                "amount": -10.00,
+            }
+        )
+
+        response = await handle_refund(request)
+        assert response.status == 400
+
+
+# ===========================================================================
+# Test Route Registration
+# ===========================================================================
+
+
+class TestRouteRegistration:
+    """Tests for payment route registration."""
+
+    def test_register_payment_routes_creates_v1_routes(self):
+        """All v1 payment routes are registered on the application."""
+        from aragora.server.handlers.payments import register_payment_routes
+
+        app = web.Application()
+        register_payment_routes(app)
+
+        registered_paths = set()
+        for resource in app.router.resources():
+            info = resource.get_info()
+            if "path" in info:
+                registered_paths.add(info["path"])
+            elif "formatter" in info:
+                registered_paths.add(info["formatter"])
+
+        expected_v1_routes = [
+            "/api/v1/payments/charge",
+            "/api/v1/payments/authorize",
+            "/api/v1/payments/capture",
+            "/api/v1/payments/refund",
+            "/api/v1/payments/void",
+            "/api/v1/payments/transaction/{transaction_id}",
+            "/api/v1/payments/customer",
+            "/api/v1/payments/customer/{customer_id}",
+            "/api/v1/payments/subscription",
+            "/api/v1/payments/subscription/{subscription_id}",
+            "/api/v1/payments/webhook/stripe",
+            "/api/v1/payments/webhook/authnet",
+        ]
+
+        for route in expected_v1_routes:
+            assert route in registered_paths, f"Missing v1 route: {route}"
+
+    def test_register_payment_routes_creates_legacy_routes(self):
+        """All legacy payment routes are registered on the application."""
+        from aragora.server.handlers.payments import register_payment_routes
+
+        app = web.Application()
+        register_payment_routes(app)
+
+        registered_paths = set()
+        for resource in app.router.resources():
+            info = resource.get_info()
+            if "path" in info:
+                registered_paths.add(info["path"])
+            elif "formatter" in info:
+                registered_paths.add(info["formatter"])
+
+        expected_legacy_routes = [
+            "/api/payments/charge",
+            "/api/payments/authorize",
+            "/api/payments/capture",
+            "/api/payments/refund",
+            "/api/payments/void",
+            "/api/payments/transaction/{transaction_id}",
+            "/api/payments/customer",
+            "/api/payments/customer/{customer_id}",
+            "/api/payments/subscription",
+            "/api/payments/subscription/{subscription_id}",
+            "/api/payments/webhook/stripe",
+            "/api/payments/webhook/authnet",
+        ]
+
+        for route in expected_legacy_routes:
+            assert route in registered_paths, f"Missing legacy route: {route}"
+
+
+# ===========================================================================
+# Test Stripe Charge Payment Method Handling
+# ===========================================================================
+
+
+class TestChargePaymentMethodHandling:
+    """Tests for payment method parameter handling in charges."""
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_with_string_payment_method(self, mock_stripe_connector):
+        """Stripe charge passes string payment_method directly."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+                "payment_method": "pm_card_visa",
+                "customer_id": "cus_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_with_dict_payment_method(self, mock_stripe_connector):
+        """Stripe charge sets payment_method to None when dict (card details)."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+                "payment_method": {"type": "card", "token": "tok_visa"},
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_charge_stripe_metadata_passed_through(self, mock_stripe_connector):
+        """Stripe charge forwards metadata to payment intent."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "amount": 100.00,
+                "metadata": {"order_id": "order_123", "customer_email": "test@example.com"},
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_charge(request)
+
+        assert response.status == 200
+
+
+# ===========================================================================
+# Test Webhook Connector Unavailable
+# ===========================================================================
+
+
+class TestWebhookConnectorUnavailable:
+    """Tests for webhook handler when connectors are unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_authnet_webhook_connector_unavailable(self):
+        """Authorize.net webhook returns 503 when connector unavailable."""
+        request = create_mock_request(
+            {
+                "eventType": "net.authorize.payment.authcapture.created",
+                "payload": {"id": "123456789"},
+            }
+        )
+        request.headers = {"X-ANET-Signature": "test_sig"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_authnet_webhook(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_stripe_webhook_handles_read_exception(self, mock_stripe_connector):
+        """Stripe webhook returns 500 on unexpected read error."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
+
+        async def read_func():
+            raise RuntimeError("Read failed")
+
+        request.read = read_func
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=mock_stripe_connector,
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 500
+
+    @pytest.mark.asyncio
+    async def test_authnet_webhook_handles_verification_exception(self, mock_authnet_connector):
+        """Authorize.net webhook returns 500 on unexpected verification error."""
+        request = create_mock_request(
+            {
+                "notificationId": "notif_123",
+                "eventType": "net.authorize.payment.authcapture.created",
+                "payload": {"id": "123456789"},
+            }
+        )
+        request.headers = {"X-ANET-Signature": "test_sig"}
+
+        mock_authnet_connector.verify_webhook_signature = AsyncMock(
+            side_effect=RuntimeError("Unexpected error during verification")
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=mock_authnet_connector,
+        ):
+            response = await handle_authnet_webhook(request)
+
+        assert response.status == 500
+
+
+# ===========================================================================
+# Test Customer/Delete Missing Connector
+# ===========================================================================
+
+
+class TestCustomerConnectorUnavailable:
+    """Tests for customer operations when connectors are unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_get_customer_stripe_connector_unavailable(self):
+        """Stripe get customer returns error when connector unavailable."""
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"customer_id": "cus_test123"}
+        request.query = {"provider": "stripe"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_get_customer(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_delete_customer_stripe_connector_unavailable(self):
+        """Stripe delete customer returns error when connector unavailable."""
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"customer_id": "cus_test123"}
+        request.query = {"provider": "stripe"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_delete_customer(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_delete_customer_authnet_connector_unavailable(self):
+        """Authorize.net delete customer returns error when connector unavailable."""
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {"customer_id": "12345678"}
+        request.query = {"provider": "authorize_net"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_delete_customer(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_get_customer_authnet_not_found(self, mock_authnet_connector):
+        """Authorize.net get customer returns 404 when not found."""
+        mock_authnet_connector.get_customer_profile = AsyncMock(return_value=None)
+        request = create_mock_request({}, method="GET")
+        request.match_info = {"customer_id": "nonexistent"}
+        request.query = {"provider": "authorize_net"}
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=mock_authnet_connector,
+        ):
+            response = await handle_get_customer(request)
+
+        assert response.status == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_customer_missing_id(self):
+        """Delete customer returns 400 when customer_id missing."""
+        request = create_mock_request({}, method="DELETE")
+        request.match_info = {}
+        request.query = {"provider": "stripe"}
+
+        response = await handle_delete_customer(request)
+        assert response.status == 400
+
+
+# ===========================================================================
+# Test Data Model Enums
+# ===========================================================================
+
+
+class TestDataModelEnums:
+    """Tests for payment data model enums and dataclasses."""
+
+    def test_payment_provider_values(self):
+        """PaymentProvider enum has expected values."""
+        assert PaymentProvider.STRIPE.value == "stripe"
+        assert PaymentProvider.AUTHORIZE_NET.value == "authorize_net"
+
+    def test_payment_status_values(self):
+        """PaymentStatus enum has expected values."""
+        assert PaymentStatus.PENDING.value == "pending"
+        assert PaymentStatus.APPROVED.value == "approved"
+        assert PaymentStatus.DECLINED.value == "declined"
+        assert PaymentStatus.ERROR.value == "error"
+        assert PaymentStatus.VOID.value == "void"
+        assert PaymentStatus.REFUNDED.value == "refunded"
+
+    def test_payment_request_defaults(self):
+        """PaymentRequest has sensible defaults."""
+        req = PaymentRequest(amount=Decimal("100.00"))
+        assert req.currency == "USD"
+        assert req.provider == PaymentProvider.STRIPE
+        assert req.metadata == {}
+        assert req.customer_id is None
+        assert req.description is None
+
+    def test_payment_result_created_at_auto(self):
+        """PaymentResult auto-sets created_at."""
+        result = PaymentResult(
+            transaction_id="txn_123",
+            provider=PaymentProvider.STRIPE,
+            status=PaymentStatus.APPROVED,
+            amount=Decimal("50.00"),
+            currency="USD",
+        )
+        assert result.created_at is not None
+        assert result.created_at.tzinfo == timezone.utc
+
+    def test_payment_result_to_dict_iso_format(self):
+        """PaymentResult serializes created_at in ISO format."""
+        result = PaymentResult(
+            transaction_id="txn_123",
+            provider=PaymentProvider.STRIPE,
+            status=PaymentStatus.APPROVED,
+            amount=Decimal("50.00"),
+            currency="USD",
+        )
+        data = result.to_dict()
+        assert "T" in data["created_at"]
+
+
+# ===========================================================================
+# Test Void Handler Edge Cases
+# ===========================================================================
+
+
+class TestVoidEdgeCases:
+    """Tests for void handler edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_void_stripe_connector_unavailable(self):
+        """Stripe void returns error when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "stripe",
+                "transaction_id": "pi_test123",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_stripe_connector",
+            return_value=None,
+        ):
+            response = await handle_void(request)
+
+        assert response.status == 503
+
+    @pytest.mark.asyncio
+    async def test_void_authnet_connector_unavailable(self):
+        """Authorize.net void returns error when connector unavailable."""
+        request = create_mock_request(
+            {
+                "provider": "authorize_net",
+                "transaction_id": "123456789",
+            }
+        )
+
+        with patch(
+            "aragora.server.handlers.payments.get_authnet_connector",
+            return_value=None,
+        ):
+            response = await handle_void(request)
+
+        assert response.status == 503
+
+
+# ===========================================================================
+# Test Stripe Webhook Event ID Missing
+# ===========================================================================
+
+
+class TestWebhookMissingEventId:
+    """Tests for webhook handling when event has no ID."""
+
+    @pytest.mark.asyncio
+    async def test_stripe_webhook_no_event_id_skips_idempotency(self, mock_stripe_connector):
+        """Stripe webhook processes events without ID (skips idempotency)."""
+        request = MagicMock(spec=web.Request)
+        request.headers = {"Stripe-Signature": "test_sig"}
+
+        async def read_func():
+            return b'{"type": "payment_intent.succeeded"}'
+
+        request.read = read_func
+
+        mock_event = MagicMock()
+        mock_event.id = None
+        mock_event.type = "payment_intent.succeeded"
+        mock_event.data = MagicMock()
+        mock_event.data.object = MagicMock(id="pi_test123")
+
+        mock_stripe_connector.construct_webhook_event = AsyncMock(return_value=mock_event)
+
+        with (
+            patch(
+                "aragora.server.handlers.payments.get_stripe_connector",
+                return_value=mock_stripe_connector,
+            ),
+            patch(
+                "aragora.server.handlers.payments._mark_webhook_processed",
+            ) as mock_mark,
+        ):
+            response = await handle_stripe_webhook(request)
+
+        assert response.status == 200
+        data = json.loads(response.text)
+        assert data["received"] is True
+        mock_mark.assert_not_called()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

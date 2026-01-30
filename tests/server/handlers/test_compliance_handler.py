@@ -47,6 +47,17 @@ class MockDeletionStatus(Enum):
     HELD = "held"
 
 
+class MockDeletionSystem(str, Enum):
+    """Mock deletion system enum matching DeletionSystem."""
+
+    USER_STORE = "user_store"
+    DEBATE_STORE = "debate_store"
+    KNOWLEDGE_MOUND = "knowledge_mound"
+    MEMORY = "memory"
+    AUDIT_TRAIL = "audit_trail"
+    BACKUP = "backup"
+
+
 @dataclass
 class MockDeletionRequest:
     """Mock deletion request for testing."""
@@ -382,7 +393,9 @@ class MockDeletionCoordinator:
         return MockCascadeReport(
             success=True,
             user_id=user_id,
-            deleted_from=["primary", "backup"] if delete_from_backups else ["primary"],
+            deleted_from=[MockDeletionSystem.USER_STORE, MockDeletionSystem.BACKUP]
+            if delete_from_backups
+            else [MockDeletionSystem.USER_STORE],
             backup_purge_results={"purged": 2} if delete_from_backups else {},
         )
 
@@ -1462,7 +1475,7 @@ class TestConsentRevocation:
         mock_manager = MagicMock()
         mock_manager.bulk_revoke_for_user.return_value = 5
         with patch(
-            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            "aragora.privacy.consent.get_consent_manager",
             return_value=mock_manager,
         ):
             result = await handler._revoke_all_consents("user-123")
@@ -1471,7 +1484,7 @@ class TestConsentRevocation:
     @pytest.mark.asyncio
     async def test_revoke_all_consents_import_error(self, handler):
         with patch(
-            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            "aragora.privacy.consent.get_consent_manager",
             side_effect=ImportError("not found"),
         ):
             result = await handler._revoke_all_consents("user-123")
@@ -1482,7 +1495,7 @@ class TestConsentRevocation:
         mock_manager = MagicMock()
         mock_manager.bulk_revoke_for_user.side_effect = RuntimeError("DB error")
         with patch(
-            "aragora.server.handlers.compliance_handler.get_consent_manager",
+            "aragora.privacy.consent.get_consent_manager",
             return_value=mock_manager,
         ):
             result = await handler._revoke_all_consents("user-123")
@@ -1682,7 +1695,7 @@ class TestFinalExportGeneration:
                 return_value=mock_receipt_store,
             ),
             patch(
-                "aragora.server.handlers.compliance_handler.get_consent_manager",
+                "aragora.privacy.consent.get_consent_manager",
                 side_effect=ImportError("Not available"),
             ),
         ):

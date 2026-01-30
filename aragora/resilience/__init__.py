@@ -80,6 +80,7 @@ _set_metrics_callback(_emit_metrics)
 
 # Retry patterns
 from .retry import (
+    JitterMode,
     RetryConfig,
     RetryStrategy,
     with_retry,
@@ -99,6 +100,7 @@ from .circuit_breaker_v2 import (
     CircuitBreakerConfig,
     CircuitBreakerConfig as CircuitBreakerConfigV2,
     CircuitState,
+    get_circuit_breaker as get_v2_circuit_breaker,
     with_circuit_breaker,
 )
 
@@ -107,6 +109,7 @@ from .health import (
     HealthChecker,
     HealthReport,
     HealthStatus,
+    get_global_health_registry,
 )
 
 __all__ = [
@@ -139,6 +142,7 @@ __all__ = [
     # Decorator
     "with_resilience",
     # Retry patterns
+    "JitterMode",
     "RetryConfig",
     "RetryStrategy",
     "with_retry",
@@ -152,9 +156,11 @@ __all__ = [
     "CircuitBreakerConfig",
     "CircuitBreakerConfigV2",
     "CircuitState",
+    "get_v2_circuit_breaker",
     "with_circuit_breaker",
     # Health monitoring
     "HealthChecker",
     "HealthReport",
     "HealthStatus",
+    "get_global_health_registry",
 ]

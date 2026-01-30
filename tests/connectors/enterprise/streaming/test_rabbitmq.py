@@ -380,6 +380,7 @@ class TestRabbitMQConnection:
         )
 
         config = RabbitMQConfig(
+            url="amqp://guest:guest@localhost/",
             exchange="test-exchange",
             exchange_type="topic",
             routing_key="events.*",
@@ -484,7 +485,7 @@ class TestRabbitMQPublish:
             RabbitMQConfig,
         )
 
-        config = RabbitMQConfig(exchange="test-exchange")
+        config = RabbitMQConfig(url="amqp://guest:guest@localhost/", exchange="test-exchange")
         connector = RabbitMQConnector(config)
 
         mock_exchange = AsyncMock()
@@ -654,6 +655,7 @@ class TestRabbitMQDeadLetterQueue:
         )
 
         config = RabbitMQConfig(
+            url="amqp://guest:guest@localhost/",
             dead_letter_exchange="dlx",
             dead_letter_routing_key="dead-letters",
             message_ttl=60000,  # 1 minute

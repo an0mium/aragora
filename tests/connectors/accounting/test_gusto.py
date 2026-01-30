@@ -752,45 +752,12 @@ class TestGustoOAuth:
             }
         )
 
-        mock_company_response = MagicMock()
-        mock_company_response.status = 200
-        mock_company_response.json = AsyncMock(
-            return_value={
-                "companies": [{"id": "comp_001", "name": "Acme Inc"}],
-            }
+        mock_cls = _make_aiohttp_session(post_response=mock_token_response)
+        gusto_connector._get_current_company = AsyncMock(
+            return_value={"id": "comp_001", "name": "Acme Inc"}
         )
 
-        mock_session = AsyncMock()
-
-        # First call: token exchange, second call: company info via _request
-        call_count = 0
-
-        async def mock_post(url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_token_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.post = mock_post
-
-        # Mock _request for company info
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_company_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
-            # Also patch _get_current_company to simplify
-            gusto_connector._get_current_company = AsyncMock(
-                return_value={"id": "comp_001", "name": "Acme Inc"}
-            )
+        with patch("aiohttp.ClientSession", mock_cls):
             creds = await gusto_connector.exchange_code("auth_code_123")
 
         assert creds.access_token == "new_access_token"
@@ -805,21 +772,9 @@ class TestGustoOAuth:
         mock_response.status = 401
         mock_response.text = AsyncMock(return_value="Invalid authorization code")
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(post_response=mock_response)
 
-        async def mock_post(url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.post = mock_post
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorAuthError, match="Token exchange failed"):
                 await gusto_connector.exchange_code("bad_code")
 
@@ -836,21 +791,9 @@ class TestGustoOAuth:
             }
         )
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(post_response=mock_response)
 
-        async def mock_post(url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.post = mock_post
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             creds = await authenticated_connector.refresh_tokens()
 
         assert creds.access_token == "refreshed_access_token"
@@ -863,21 +806,9 @@ class TestGustoOAuth:
         mock_response.status = 400
         mock_response.text = AsyncMock(return_value="Invalid refresh token")
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(post_response=mock_response)
 
-        async def mock_post(url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.post = mock_post
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorAuthError, match="Token refresh failed"):
                 await authenticated_connector.refresh_tokens()
 
@@ -918,21 +849,9 @@ class TestGustoRequest:
         mock_response.json = AsyncMock(return_value={"data": "ok"})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(mock_response)
 
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             result = await gusto_connector._request("GET", "/v1/test")
 
         gusto_connector.refresh_tokens.assert_called_once()
@@ -944,21 +863,9 @@ class TestGustoRequest:
         mock_response.json = AsyncMock(return_value={"error": "Rate limited"})
         mock_response.headers = {"Retry-After": "30"}
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(mock_response)
 
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorRateLimitError, match="Rate limited"):
                 await authenticated_connector._request("GET", "/v1/test")
 
@@ -969,21 +876,9 @@ class TestGustoRequest:
         mock_response.json = AsyncMock(return_value={"error": "Internal server error"})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(mock_response)
 
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorAPIError, match="server error"):
                 await authenticated_connector._request("GET", "/v1/test")
 
@@ -994,40 +889,17 @@ class TestGustoRequest:
         mock_response.json = AsyncMock(return_value={"error": "Bad request"})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(mock_response)
 
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorAPIError, match="Bad request"):
                 await authenticated_connector._request("GET", "/v1/test")
 
     @pytest.mark.asyncio
     async def test_request_timeout(self, authenticated_connector):
-        import aiohttp
+        mock_cls = _make_aiohttp_session(side_effect=asyncio.TimeoutError())
 
-        mock_session = AsyncMock()
-
-        async def mock_request(method, url, **kwargs):
-            raise asyncio.TimeoutError()
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorTimeoutError, match="timed out"):
                 await authenticated_connector._request("GET", "/v1/test")
 
@@ -1035,18 +907,9 @@ class TestGustoRequest:
     async def test_request_network_error(self, authenticated_connector):
         import aiohttp
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(side_effect=aiohttp.ClientError("Connection refused"))
 
-        async def mock_request(method, url, **kwargs):
-            raise aiohttp.ClientError("Connection refused")
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorNetworkError, match="Network error"):
                 await authenticated_connector._request("GET", "/v1/test")
 
@@ -1067,21 +930,9 @@ class TestGustoRequest:
         mock_response.json = AsyncMock(return_value={"result": "ok"})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
+        mock_cls = _make_aiohttp_session(mock_response)
 
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             result = await gusto_connector._request("GET", "/v1/me", access_token="explicit_token")
         assert result == {"result": "ok"}
 
@@ -1471,26 +1322,14 @@ class TestCircuitBreakerIntegration:
         mock_response.json = AsyncMock(return_value={"error": "Server error"})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
-
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_cls = _make_aiohttp_session(mock_response)
 
         original_record = gusto_connector_with_cb._circuit_breaker.record_failure
         gusto_connector_with_cb._circuit_breaker.record_failure = MagicMock(
             side_effect=original_record
         )
 
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorAPIError):
                 await gusto_connector_with_cb._request("GET", "/v1/test")
 
@@ -1507,26 +1346,14 @@ class TestCircuitBreakerIntegration:
         mock_response.json = AsyncMock(return_value={"ok": True})
         mock_response.headers = {}
 
-        mock_session = AsyncMock()
-
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_cls = _make_aiohttp_session(mock_response)
 
         original_record = gusto_connector_with_cb._circuit_breaker.record_success
         gusto_connector_with_cb._circuit_breaker.record_success = MagicMock(
             side_effect=original_record
         )
 
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             await gusto_connector_with_cb._request("GET", "/v1/test")
 
         gusto_connector_with_cb._circuit_breaker.record_success.assert_called()
@@ -1542,26 +1369,14 @@ class TestCircuitBreakerIntegration:
         mock_response.json = AsyncMock(return_value={"error": "Rate limited"})
         mock_response.headers = {"Retry-After": "60"}
 
-        mock_session = AsyncMock()
-
-        async def mock_request(method, url, **kwargs):
-            ctx = MagicMock()
-            ctx.__aenter__ = AsyncMock(return_value=mock_response)
-            ctx.__aexit__ = AsyncMock(return_value=False)
-            return ctx
-
-        mock_session.request = mock_request
-
-        mock_session_ctx = MagicMock()
-        mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_cls = _make_aiohttp_session(mock_response)
 
         original_record = gusto_connector_with_cb._circuit_breaker.record_failure
         gusto_connector_with_cb._circuit_breaker.record_failure = MagicMock(
             side_effect=original_record
         )
 
-        with patch("aiohttp.ClientSession", return_value=mock_session_ctx):
+        with patch("aiohttp.ClientSession", mock_cls):
             with pytest.raises(ConnectorRateLimitError):
                 await gusto_connector_with_cb._request("GET", "/v1/test")
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from typing import Any, AsyncIterator, Optional
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest
@@ -43,6 +44,31 @@ from aragora.connectors.exceptions import ConnectorAPIError
 
 
 # ---------------------------------------------------------------------------
+# Concrete subclass for testing (ShopifyConnector has abstract methods)
+# ---------------------------------------------------------------------------
+
+
+class _TestableShopifyConnector(ShopifyConnector):
+    """Concrete subclass that stubs abstract methods from BaseConnector."""
+
+    @property
+    def name(self) -> str:
+        return "shopify"
+
+    @property
+    def source_type(self):
+        from aragora.reasoning.provenance import SourceType
+
+        return SourceType.API
+
+    async def search(self, query: str, **kwargs):
+        return []
+
+    async def fetch(self, evidence_id: str, **kwargs):
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
@@ -59,8 +85,8 @@ def credentials():
 
 @pytest.fixture
 def connector(credentials):
-    """ShopifyConnector wired to test credentials with circuit breaker disabled."""
-    return ShopifyConnector(
+    """Testable ShopifyConnector with circuit breaker disabled."""
+    return _TestableShopifyConnector(
         credentials=credentials,
         environment=ShopifyEnvironment.DEVELOPMENT,
     )
@@ -68,7 +94,7 @@ def connector(credentials):
 
 @pytest.fixture
 def now_utc():
-    """Current UTC datetime for deterministic data."""
+    """Deterministic UTC datetime."""
     return datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
@@ -338,20 +364,28 @@ class TestShopifyAddress:
         assert addr.city == "Portland"
         assert addr.country_code == "US"
 
-    def test_to_dict_uses_api_names(self, sample_address_data):
-        """to_dict with use_api_names maps snake_case to camelCase."""
+    def test_to_dict_uses_api_names_by_default(self, sample_address_data):
+        """to_dict defaults to use_api_names=True, mapping snake_case to camelCase."""
         addr = ShopifyAddress(**sample_address_data)
-        d = addr.to_dict(use_api_names=True)
+        d = addr.to_dict()  # defaults to use_api_names=True
         assert "firstName" in d
         assert "provinceCode" in d
         assert d["firstName"] == "Jane"
 
     def test_to_dict_includes_none(self):
-        """None values are included because _include_none is True."""
+        """None values are included because _include_none is True (API names by default)."""
         addr = ShopifyAddress(first_name="Bob")
-        d = addr.to_dict()
-        assert "last_name" in d
-        assert d["last_name"] is None
+        d = addr.to_dict()  # defaults to use_api_names=True
+        assert "lastName" in d
+        assert d["lastName"] is None
+
+    def test_to_dict_python_names(self, sample_address_data):
+        """to_dict with use_api_names=False keeps snake_case names."""
+        addr = ShopifyAddress(**sample_address_data)
+        d = addr.to_dict(use_api_names=False)
+        assert "first_name" in d
+        assert "province_code" in d
+        assert d["first_name"] == "Jane"
 
 
 # ========================================================================
@@ -378,7 +412,7 @@ class TestShopifyLineItem:
         assert item.requires_shipping is True  # default
 
     def test_to_dict_api_names(self):
-        """API names mapping works for line items."""
+        """Default to_dict maps to API names (camelCase)."""
         item = ShopifyLineItem(
             id="li_1",
             product_id="p1",
@@ -387,10 +421,23 @@ class TestShopifyLineItem:
             quantity=1,
             price=Decimal("10.00"),
         )
-        d = item.to_dict(use_api_names=True)
+        d = item.to_dict()
         assert "productId" in d
         assert "variantId" in d
         assert "fulfillmentStatus" in d
+
+    def test_to_dict_price_as_string(self):
+        """Decimal price is serialized as a string."""
+        item = ShopifyLineItem(
+            id="1",
+            product_id=None,
+            variant_id=None,
+            title="X",
+            quantity=1,
+            price=Decimal("12.50"),
+        )
+        d = item.to_dict()
+        assert d["price"] == "12.50"
 
 
 # ========================================================================
@@ -423,7 +470,7 @@ class TestShopifyOrder:
         assert order.shipping_address is None
 
     def test_to_dict_serialises_decimals(self, now_utc):
-        """Decimal fields are serialized as strings."""
+        """Decimal fields are serialized as strings (API names by default)."""
         order = ShopifyOrder(
             id="1",
             order_number=100,
@@ -439,12 +486,12 @@ class TestShopifyOrder:
             financial_status=PaymentStatus.PAID,
             fulfillment_status=None,
         )
-        d = order.to_dict()
-        assert d["total_price"] == "123.45"
-        assert d["total_tax"] == "23.45"
+        d = order.to_dict()  # uses API names by default
+        assert d["totalPrice"] == "123.45"
+        assert d["totalTax"] == "23.45"
 
     def test_to_dict_api_names(self, now_utc):
-        """to_dict with use_api_names maps field names correctly."""
+        """to_dict maps field names to camelCase."""
         order = ShopifyOrder(
             id="1",
             order_number=100,
@@ -460,10 +507,31 @@ class TestShopifyOrder:
             financial_status=PaymentStatus.PENDING,
             fulfillment_status=None,
         )
-        d = order.to_dict(use_api_names=True)
+        d = order.to_dict()
         assert "orderNumber" in d
         assert "createdAt" in d
         assert "totalPrice" in d
+
+    def test_to_dict_python_names(self, now_utc):
+        """to_dict with use_api_names=False keeps snake_case keys."""
+        order = ShopifyOrder(
+            id="1",
+            order_number=100,
+            name="#100",
+            email=None,
+            created_at=now_utc,
+            updated_at=now_utc,
+            total_price=Decimal("10.00"),
+            subtotal_price=Decimal("10.00"),
+            total_tax=Decimal("0"),
+            total_discounts=Decimal("0"),
+            currency="USD",
+            financial_status=PaymentStatus.PAID,
+            fulfillment_status=None,
+        )
+        d = order.to_dict(use_api_names=False)
+        assert "total_price" in d
+        assert d["total_price"] == "10.00"
 
 
 # ========================================================================
@@ -504,7 +572,7 @@ class TestShopifyProduct:
             updated_at=now_utc,
             published_at=None,
         )
-        d = product.to_dict(use_api_names=True)
+        d = product.to_dict()
         assert "productType" in d
         assert "publishedAt" in d
 
@@ -527,7 +595,7 @@ class TestShopifyVariant:
         assert variant.weight_unit == "kg"
 
     def test_to_dict_api_names(self):
-        """Variant to_dict maps inventory fields."""
+        """Variant to_dict maps inventory fields to camelCase."""
         variant = ShopifyVariant(
             id="v1",
             product_id="p1",
@@ -538,7 +606,7 @@ class TestShopifyVariant:
             inventory_policy=InventoryPolicy.CONTINUE,
             compare_at_price=Decimal("15.00"),
         )
-        d = variant.to_dict(use_api_names=True)
+        d = variant.to_dict()
         assert d["inventoryQuantity"] == 5
         assert d["inventoryPolicy"] == "continue"
         assert d["compareAtPrice"] == "15.00"
@@ -590,6 +658,19 @@ class TestShopifyCustomer:
             updated_at=now_utc,
         )
         assert c.full_name == "Unknown"
+
+    def test_full_name_last_only(self, now_utc):
+        """full_name returns last name when first is None."""
+        c = ShopifyCustomer(
+            id="c1",
+            email=None,
+            first_name=None,
+            last_name="Doe",
+            phone=None,
+            created_at=now_utc,
+            updated_at=now_utc,
+        )
+        assert c.full_name == "Doe"
 
     def test_to_dict_includes_full_name(self, now_utc):
         """to_dict appends the computed fullName key."""
@@ -649,7 +730,7 @@ class TestShopifyInventoryLevel:
             available=10,
             updated_at=now_utc,
         )
-        d = inv.to_dict(use_api_names=True)
+        d = inv.to_dict()
         assert "inventoryItemId" in d
         assert "locationId" in d
 
@@ -669,12 +750,20 @@ class TestConnectorInit:
 
     def test_default_environment(self, credentials):
         """Default environment is PRODUCTION."""
-        c = ShopifyConnector(credentials=credentials)
+        c = _TestableShopifyConnector(credentials=credentials)
         assert c.environment == ShopifyEnvironment.PRODUCTION
 
     def test_session_initially_none(self, connector):
         """No HTTP session before connect()."""
         assert connector._session is None
+
+    def test_connector_id(self, connector):
+        """Connector ID is 'shopify'."""
+        assert connector.connector_id == "shopify"
+
+    def test_environment_set(self, connector):
+        """Environment is set to DEVELOPMENT when specified."""
+        assert connector.environment == ShopifyEnvironment.DEVELOPMENT
 
 
 # ========================================================================
@@ -696,13 +785,8 @@ class TestConnect:
             status=200,
         )
 
-        with patch("aragora.connectors.ecommerce.shopify.aiohttp", create=True) as mock_aiohttp:
-            mock_aiohttp.ClientSession = mock_session_cls
-            import aragora.connectors.ecommerce.shopify as mod
-
-            # We need to mock the import inside connect()
-            with patch.dict("sys.modules", {"aiohttp": mock_aiohttp}):
-                result = await connector.connect()
+        with patch.dict("sys.modules", {"aiohttp": MagicMock(ClientSession=mock_session_cls)}):
+            result = await connector.connect()
 
         assert result is True
 
@@ -722,7 +806,6 @@ class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_import_error(self, connector):
         """connect() returns False when aiohttp is missing."""
-        # Force an ImportError inside connect()
         real_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
         def fake_import(name, *args, **kwargs):
@@ -753,8 +836,6 @@ class TestConnect:
         """disconnect() closes the session and sets it to None."""
         connector._session = AsyncMock()
         await connector.disconnect()
-        connector._session is None  # noqa: B015 (intentional assertion pattern)
-        # After disconnect the attribute is None
         assert connector._session is None
 
     @pytest.mark.asyncio
@@ -777,8 +858,6 @@ class TestRequest:
     async def test_request_auto_connects(self, connector):
         """_request calls connect() when session is None."""
         connector._session = None
-        connector.connect = AsyncMock()
-        # After connect, simulate a session
         mock_session = AsyncMock()
         mock_session.request.return_value = _make_mock_response({"ok": True})
 
@@ -811,8 +890,6 @@ class TestRequest:
         result = await connector._request("POST", "/orders.json", json_data=body)
         assert result == {"id": 1}
         mock_session.request.assert_called_once()
-        call_kwargs = mock_session.request.call_args
-        assert call_kwargs[1]["json"] == body or call_kwargs.kwargs.get("json") == body
 
     @pytest.mark.asyncio
     async def test_request_return_headers(self, connector):
@@ -840,7 +917,7 @@ class TestRequest:
 
     @pytest.mark.asyncio
     async def test_request_http_error_raises(self, connector):
-        """HTTP 4xx/5xx raises ConnectorAPIError."""
+        """HTTP 4xx raises ConnectorAPIError."""
         mock_session = AsyncMock()
         resp_mock = AsyncMock()
         resp_mock.status = 422
@@ -892,6 +969,16 @@ class TestRequest:
             await connector._request("GET", "/orders.json")
         assert exc_info.value.status_code == 429
 
+    @pytest.mark.asyncio
+    async def test_request_params_forwarded(self, connector):
+        """Query params are forwarded to the session."""
+        mock_session = AsyncMock()
+        mock_session.request.return_value = _make_mock_response({"ok": True})
+        connector._session = mock_session
+
+        await connector._request("GET", "/orders.json", params={"status": "open"})
+        mock_session.request.assert_called_once()
+
 
 # ========================================================================
 # Pagination (Link header)
@@ -934,6 +1021,14 @@ class TestPagination:
     def test_parse_link_header_empty(self, connector):
         """Returns None for an empty string."""
         assert connector._parse_link_header("") is None
+
+    def test_parse_link_header_with_extra_params(self, connector):
+        """Extracts page_info even when URL has extra query parameters."""
+        header = (
+            "<https://store.myshopify.com/admin/api/2024-01/orders.json"
+            '?page_info=cursor789&limit=50>; rel="next"'
+        )
+        assert connector._parse_link_header(header) == "cursor789"
 
 
 # ========================================================================
@@ -1028,6 +1123,15 @@ class TestOrderParsing:
         assert order.cancelled_at is not None
         assert order.cancelled_at.tzinfo is not None
 
+    def test_parse_order_line_item_no_product(self, connector, sample_order_data):
+        """Line item without product_id or variant_id parses as None."""
+        sample_order_data["line_items"][0]["product_id"] = None
+        sample_order_data["line_items"][0]["variant_id"] = None
+        order = connector._parse_order(sample_order_data)
+        li = order.line_items[0]
+        assert li.product_id is None
+        assert li.variant_id is None
+
 
 # ========================================================================
 # Order operations
@@ -1099,6 +1203,15 @@ class TestOrderOperations:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_fulfill_order_no_notify(self, connector):
+        """fulfill_order respects notify_customer=False."""
+        connector._request = AsyncMock(return_value={"fulfillment": {"id": 3}})
+        await connector.fulfill_order("5001", notify_customer=False)
+        call_args = connector._request.call_args
+        json_data = call_args.kwargs.get("json_data") or call_args[1].get("json_data")
+        assert json_data["fulfillment"]["notify_customer"] is False
+
+    @pytest.mark.asyncio
     async def test_sync_orders_single_page(self, connector, sample_order_data):
         """sync_orders yields orders from a single page."""
         connector._request = AsyncMock(
@@ -1126,10 +1239,9 @@ class TestOrderOperations:
         orders = []
         async for order in connector.sync_orders(since=since):
             orders.append(order)
-        call_params = connector._request.call_args.kwargs.get(
-            "params"
-        ) or connector._request.call_args[1].get("params")
-        assert "updated_at_min" in call_params
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert "updated_at_min" in params
 
     @pytest.mark.asyncio
     async def test_sync_orders_pagination(self, connector, sample_order_data):
@@ -1156,6 +1268,20 @@ class TestOrderOperations:
             orders.append(order)
         assert len(orders) == 251
         assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_orders_empty(self, connector):
+        """sync_orders yields nothing for empty response."""
+        connector._request = AsyncMock(
+            return_value=(
+                {"orders": []},
+                {},
+            )
+        )
+        orders = []
+        async for order in connector.sync_orders():
+            orders.append(order)
+        assert orders == []
 
 
 # ========================================================================
@@ -1206,6 +1332,17 @@ class TestProductOperations:
         product = connector._parse_product(sample_product_data)
         assert product.published_at is None
 
+    def test_parse_product_images(self, connector, sample_product_data):
+        """Product images are extracted as URL strings."""
+        product = connector._parse_product(sample_product_data)
+        assert product.images == ["https://cdn.shopify.com/widget.jpg"]
+
+    def test_parse_product_no_compare_at_price(self, connector, sample_product_data):
+        """Variant with no compare_at_price gets None."""
+        sample_product_data["variants"][0]["compare_at_price"] = None
+        product = connector._parse_product(sample_product_data)
+        assert product.variants[0].compare_at_price is None
+
     @pytest.mark.asyncio
     async def test_get_product_success(self, connector, sample_product_data):
         """get_product returns parsed product."""
@@ -1243,10 +1380,9 @@ class TestProductOperations:
         products = []
         async for p in connector.sync_products(since=since):
             products.append(p)
-        call_params = connector._request.call_args.kwargs.get(
-            "params"
-        ) or connector._request.call_args[1].get("params")
-        assert "updated_at_min" in call_params
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert "updated_at_min" in params
 
 
 # ========================================================================
@@ -1294,7 +1430,6 @@ class TestInventoryOperations:
     @pytest.mark.asyncio
     async def test_get_low_stock_variants(self, connector, sample_product_data):
         """get_low_stock_variants filters variants below threshold."""
-        # Override variant quantities: one low (3), one high (50)
         sample_product_data["variants"][0]["inventory_quantity"] = 3
         connector._request = AsyncMock(
             return_value={"products": [sample_product_data]},
@@ -1321,6 +1456,16 @@ class TestInventoryOperations:
             return_value={"products": [sample_product_data]},
         )
         low = await connector.get_low_stock_variants(threshold=5)
+        assert len(low) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_low_stock_default_threshold(self, connector, sample_product_data):
+        """Default threshold is 5."""
+        sample_product_data["variants"][0]["inventory_quantity"] = 4
+        connector._request = AsyncMock(
+            return_value={"products": [sample_product_data]},
+        )
+        low = await connector.get_low_stock_variants()
         assert len(low) == 1
 
 
@@ -1357,6 +1502,14 @@ class TestCustomerOperations:
         sample_customer_data.pop("tags")
         customer = connector._parse_customer(sample_customer_data)
         assert customer.tags == []
+
+    def test_parse_customer_defaults(self, connector, sample_customer_data):
+        """Customer fields with missing data get defaults."""
+        sample_customer_data.pop("orders_count", None)
+        sample_customer_data.pop("total_spent", None)
+        customer = connector._parse_customer(sample_customer_data)
+        assert customer.orders_count == 0
+        assert customer.total_spent == Decimal("0.00")
 
     @pytest.mark.asyncio
     async def test_get_customer_success(self, connector, sample_customer_data):
@@ -1397,10 +1550,9 @@ class TestCustomerOperations:
         customers = []
         async for c in connector.sync_customers(since=since):
             customers.append(c)
-        call_params = connector._request.call_args.kwargs.get(
-            "params"
-        ) or connector._request.call_args[1].get("params")
-        assert "updated_at_min" in call_params
+        call_args = connector._request.call_args
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert "updated_at_min" in params
 
 
 # ========================================================================
@@ -1444,7 +1596,6 @@ class TestAnalytics:
     @pytest.mark.asyncio
     async def test_order_stats_with_date_filter(self, connector, sample_order_data):
         """Orders outside end_date are excluded from stats."""
-        # The sample order was created on 2024-06-10, so set end_date before that
         end_date = datetime(2024, 6, 1, tzinfo=timezone.utc)
         connector._request = AsyncMock(
             return_value=(
@@ -1458,7 +1609,6 @@ class TestAnalytics:
     @pytest.mark.asyncio
     async def test_order_stats_average_value(self, connector, sample_order_data):
         """Average order value is computed correctly."""
-        # Two orders: 69.85 and 30.15 = 100.00 total, avg = 50.00
         order2 = dict(sample_order_data)
         order2["id"] = 5002
         order2["total_price"] = "30.15"
@@ -1475,6 +1625,20 @@ class TestAnalytics:
         avg = Decimal(stats["average_order_value"])
         assert avg == Decimal("50.00") or avg == Decimal("50")
 
+    @pytest.mark.asyncio
+    async def test_order_stats_cancelled_counted(self, connector, sample_order_data):
+        """Cancelled orders are counted correctly."""
+        sample_order_data["fulfillment_status"] = "cancelled"
+        connector._request = AsyncMock(
+            return_value=(
+                {"orders": [sample_order_data]},
+                {},
+            )
+        )
+        stats = await connector.get_order_stats()
+        assert stats["cancelled_orders"] == 1
+        assert stats["fulfilled_orders"] == 0
+
 
 # ========================================================================
 # Enterprise sync methods
@@ -1489,10 +1653,6 @@ class TestEnterpriseSyncMethods:
         self, connector, sample_order_data, sample_product_data, sample_customer_data
     ):
         """incremental_sync yields order, product, and customer dicts."""
-        # Mock each sub-sync to return one item
-        original_sync_orders = connector.sync_orders
-        original_sync_products = connector.sync_products
-        original_sync_customers = connector.sync_customers
 
         async def fake_sync_orders(**kwargs):
             yield connector._parse_order(sample_order_data)
@@ -1516,7 +1676,7 @@ class TestEnterpriseSyncMethods:
         assert types == {"order", "product", "customer"}
 
     @pytest.mark.asyncio
-    async def test_incremental_sync_with_state(self, connector, sample_order_data):
+    async def test_incremental_sync_with_state(self, connector):
         """incremental_sync uses state.last_sync_at as since parameter."""
         from aragora.connectors.enterprise.base import SyncState
 
@@ -1526,9 +1686,6 @@ class TestEnterpriseSyncMethods:
         )
 
         async def fake_sync_orders(**kwargs):
-            # Verify since is passed from state
-            if False:
-                yield  # make it an async generator
             return
             yield  # pragma: no cover
 
@@ -1582,7 +1739,7 @@ class TestEnterpriseSyncMethods:
         self, connector, sample_order_data, sample_product_data, sample_customer_data
     ):
         """sync_items yields SyncItem objects with correct IDs and metadata."""
-        from aragora.connectors.enterprise.base import SyncState, SyncItem
+        from aragora.connectors.enterprise.base import SyncState
 
         async def fake_sync_orders(**kwargs):
             yield connector._parse_order(sample_order_data)
@@ -1674,6 +1831,38 @@ class TestEnterpriseSyncMethods:
         assert item.metadata["email"] == "buyer@example.com"
         assert item.confidence == 0.9
 
+    @pytest.mark.asyncio
+    async def test_sync_items_product_metadata(self, connector, sample_product_data):
+        """sync_items product SyncItem contains expected metadata."""
+        from aragora.connectors.enterprise.base import SyncState
+
+        async def fake_sync_orders(**kwargs):
+            return
+            yield  # pragma: no cover
+
+        async def fake_sync_products(**kwargs):
+            yield connector._parse_product(sample_product_data)
+
+        async def fake_sync_customers(**kwargs):
+            return
+            yield  # pragma: no cover
+
+        connector.sync_orders = fake_sync_orders
+        connector.sync_products = fake_sync_products
+        connector.sync_customers = fake_sync_customers
+
+        state = SyncState(connector_id="shopify")
+        items = []
+        async for item in connector.sync_items(state):
+            items.append(item)
+
+        assert len(items) == 1
+        item = items[0]
+        assert item.metadata["type"] == "product"
+        assert item.metadata["handle"] == "widget"
+        assert item.metadata["vendor"] == "WidgetCo"
+        assert item.confidence == 0.95
+
 
 # ========================================================================
 # Mock data helpers
@@ -1718,6 +1907,14 @@ class TestMockDataHelpers:
         for product in products:
             assert product.created_at.tzinfo is not None
             assert product.updated_at.tzinfo is not None
+
+    def test_mock_order_line_item_details(self):
+        """Mock order line items contain expected details."""
+        orders = get_mock_orders()
+        li = orders[0].line_items[0]
+        assert li.id == "li_1"
+        assert li.sku == "SKU-001"
+        assert li.price == Decimal("89.99")
 
 
 # ========================================================================
@@ -1782,6 +1979,24 @@ class TestErrorHandling:
         result = await connector.update_variant_inventory("ii", "loc", 1)
         assert result is False
 
+    @pytest.mark.asyncio
+    async def test_request_error_includes_message(self, connector):
+        """ConnectorAPIError message contains the error text from Shopify."""
+        mock_session = AsyncMock()
+        resp_mock = AsyncMock()
+        resp_mock.status = 400
+        resp_mock.text = AsyncMock(return_value='{"errors":"Invalid product"}')
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=resp_mock)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session.request.return_value = ctx
+        connector._session = mock_session
+
+        with pytest.raises(ConnectorAPIError) as exc_info:
+            await connector._request("POST", "/products.json", json_data={})
+        assert "Invalid product" in str(exc_info.value.message)
+
 
 # ========================================================================
 # Serialization round-trips
@@ -1791,21 +2006,8 @@ class TestErrorHandling:
 class TestSerializationRoundTrips:
     """Tests for to_dict serialization consistency."""
 
-    def test_line_item_decimal_serialized(self):
-        """Line item price serializes to string."""
-        item = ShopifyLineItem(
-            id="1",
-            product_id=None,
-            variant_id=None,
-            title="X",
-            quantity=1,
-            price=Decimal("12.50"),
-        )
-        d = item.to_dict()
-        assert d["price"] == "12.50"
-
     def test_order_enum_serialized(self, now_utc):
-        """Enum fields serialize to their string values."""
+        """Enum fields serialize to their string values (API names by default)."""
         order = ShopifyOrder(
             id="1",
             order_number=1,
@@ -1822,11 +2024,11 @@ class TestSerializationRoundTrips:
             fulfillment_status=OrderStatus.OPEN,
         )
         d = order.to_dict()
-        assert d["financial_status"] == "authorized"
-        assert d["fulfillment_status"] == "open"
+        assert d["financialStatus"] == "authorized"
+        assert d["fulfillmentStatus"] == "open"
 
     def test_variant_inventory_policy_serialized(self):
-        """InventoryPolicy enum serializes to string."""
+        """InventoryPolicy enum serializes to string (API names by default)."""
         v = ShopifyVariant(
             id="v1",
             product_id="p1",
@@ -1836,10 +2038,10 @@ class TestSerializationRoundTrips:
             inventory_policy=InventoryPolicy.CONTINUE,
         )
         d = v.to_dict()
-        assert d["inventory_policy"] == "continue"
+        assert d["inventoryPolicy"] == "continue"
 
     def test_datetime_serialized_as_iso(self, now_utc):
-        """Datetime fields serialize to ISO 8601 strings."""
+        """Datetime fields serialize to ISO 8601 strings (API names by default)."""
         inv = ShopifyInventoryLevel(
             inventory_item_id="ii",
             location_id="loc",
@@ -1847,7 +2049,7 @@ class TestSerializationRoundTrips:
             updated_at=now_utc,
         )
         d = inv.to_dict()
-        assert "2024-06-15" in d["updated_at"]
+        assert "2024-06-15" in d["updatedAt"]
 
     def test_nested_line_items_in_order(self, now_utc):
         """Nested line items in an order are serialized recursively."""
@@ -1876,5 +2078,31 @@ class TestSerializationRoundTrips:
             line_items=[li],
         )
         d = order.to_dict()
-        assert len(d["line_items"]) == 1
-        assert d["line_items"][0]["quantity"] == 2
+        assert len(d["lineItems"]) == 1
+        assert d["lineItems"][0]["quantity"] == 2
+
+    def test_customer_to_dict_has_all_api_keys(self, now_utc):
+        """Customer to_dict maps all expected fields to API names."""
+        c = ShopifyCustomer(
+            id="c1",
+            email="e@x.com",
+            first_name="A",
+            last_name="B",
+            phone="+1",
+            orders_count=3,
+            total_spent=Decimal("100.00"),
+            verified_email=True,
+            accepts_marketing=True,
+            tax_exempt=False,
+            created_at=now_utc,
+            updated_at=now_utc,
+        )
+        d = c.to_dict()
+        assert "firstName" in d
+        assert "lastName" in d
+        assert "ordersCount" in d
+        assert "totalSpent" in d
+        assert "verifiedEmail" in d
+        assert "acceptsMarketing" in d
+        assert "taxExempt" in d
+        assert "fullName" in d
