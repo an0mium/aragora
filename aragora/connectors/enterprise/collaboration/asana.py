@@ -311,6 +311,9 @@ class AsanaConnector(EnterpriseConnector):
     BASE_URL = "https://app.asana.com/api/1.0"
     CONNECTOR_TYPE = "asana"
 
+    # Asana-specific credentials (separate from base class CredentialProvider)
+    _asana_credentials: AsanaCredentials
+
     def __init__(
         self,
         credentials: AsanaCredentials,
@@ -323,17 +326,16 @@ class AsanaConnector(EnterpriseConnector):
             credentials: Asana API credentials
             workspace_gid: Optional default workspace GID
         """
-        self.credentials = credentials  # type: ignore[assignment]
+        self._asana_credentials = credentials
         self.default_workspace_gid = workspace_gid
         self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> AsanaConnector:
         """Enter async context."""
-        credentials: AsanaCredentials = self.credentials  # type: ignore[assignment]
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             headers={
-                "Authorization": f"Bearer {credentials.access_token}",
+                "Authorization": f"Bearer {self._asana_credentials.access_token}",
                 "Accept": "application/json",
             },
             timeout=30.0,
@@ -794,15 +796,20 @@ class AsanaConnector(EnterpriseConnector):
         """Disconnect (no-op for token auth)."""
         pass
 
-    async def sync(  # type: ignore[override]
+    async def _iter_sync_items(
         self,
-        state: SyncState | None = None,
         modified_since: datetime | None = None,
     ) -> AsyncIterator[SyncItem]:
         """
-        Sync tasks from Asana.
+        Iterate over tasks from Asana, yielding SyncItems.
 
-        Yields SyncItems for each task, suitable for indexing.
+        Internal method used by sync_items for generating sync items.
+
+        Args:
+            modified_since: Only yield tasks modified after this time
+
+        Yields:
+            SyncItem objects for each task, suitable for indexing.
         """
         workspaces = await self.list_workspaces()
 
@@ -862,7 +869,7 @@ class AsanaConnector(EnterpriseConnector):
             SyncItem objects for Knowledge Mound ingestion
         """
         modified_since = state.last_sync_at if state else None
-        async for item in self.sync(state=state, modified_since=modified_since):
+        async for item in self._iter_sync_items(modified_since=modified_since):
             yield item
 
 

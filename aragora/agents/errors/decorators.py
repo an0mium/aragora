@@ -8,15 +8,20 @@ Provides:
 - Generic error handling decorators
 """
 
+from __future__ import annotations
+
 import asyncio
 import functools
 import logging
 import random
-from typing import Any, Callable, cast
+from typing import Any, Callable, TypeVar, cast
 
 import aiohttp
 
-from aragora.agents.types import T
+# Generic type variables for decorators
+T = TypeVar("T")
+P_args = TypeVar("P_args")
+P_kwargs = TypeVar("P_kwargs")
 from aragora.utils.error_sanitizer import sanitize_error
 
 from .classifier import ErrorAction, ErrorContext

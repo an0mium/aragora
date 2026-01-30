@@ -35,7 +35,16 @@ logger = logging.getLogger(__name__)
 
 
 class BeadStatus(Enum):
-    """Bead lifecycle status."""
+    """Workspace bead lifecycle status.
+
+    Maps to canonical ``aragora.nomic.stores.BeadStatus``:
+        PENDING  -> NomicBeadStatus.PENDING
+        ASSIGNED -> NomicBeadStatus.CLAIMED
+        RUNNING  -> NomicBeadStatus.RUNNING
+        DONE     -> NomicBeadStatus.COMPLETED
+        FAILED   -> NomicBeadStatus.FAILED
+        SKIPPED  -> NomicBeadStatus.CANCELLED
+    """
 
     PENDING = "pending"
     ASSIGNED = "assigned"
@@ -43,6 +52,32 @@ class BeadStatus(Enum):
     DONE = "done"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+    def to_nomic(self) -> NomicBeadStatus:
+        """Convert to canonical nomic status."""
+        mapping = {
+            BeadStatus.PENDING: NomicBeadStatus.PENDING,
+            BeadStatus.ASSIGNED: NomicBeadStatus.CLAIMED,
+            BeadStatus.RUNNING: NomicBeadStatus.RUNNING,
+            BeadStatus.DONE: NomicBeadStatus.COMPLETED,
+            BeadStatus.FAILED: NomicBeadStatus.FAILED,
+            BeadStatus.SKIPPED: NomicBeadStatus.CANCELLED,
+        }
+        return mapping[self]
+
+    @classmethod
+    def from_nomic(cls, nomic_status: NomicBeadStatus) -> "BeadStatus":
+        """Convert from canonical nomic status."""
+        mapping = {
+            NomicBeadStatus.PENDING: cls.PENDING,
+            NomicBeadStatus.CLAIMED: cls.ASSIGNED,
+            NomicBeadStatus.RUNNING: cls.RUNNING,
+            NomicBeadStatus.COMPLETED: cls.DONE,
+            NomicBeadStatus.FAILED: cls.FAILED,
+            NomicBeadStatus.CANCELLED: cls.SKIPPED,
+            NomicBeadStatus.BLOCKED: cls.PENDING,
+        }
+        return mapping.get(nomic_status, cls.PENDING)
 
 
 @dataclass

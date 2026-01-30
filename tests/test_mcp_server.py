@@ -35,6 +35,9 @@ from mcp.types import (
 # and patch() needs the submodule to be loaded first
 import aragora.debate.orchestrator  # noqa: F401
 
+# Import MAX_ROUNDS for test assertions
+from aragora.config import MAX_ROUNDS
+
 
 async def _get_tools(server):
     """Helper to get tools using the correct MCP API."""
@@ -596,10 +599,10 @@ class TestMCPRoundsValidation:
 
             await server._run_debate({"question": "Q?", "rounds": 100})
 
-            # Check that Environment was called with rounds=10
+            # Check that Environment was called with rounds clamped to MAX_ROUNDS
             mock_env.assert_called_once()
             call_kwargs = mock_env.call_args[1]
-            assert call_kwargs["max_rounds"] == 10
+            assert call_kwargs["max_rounds"] == MAX_ROUNDS
 
 
 # ===========================================================================

@@ -14,7 +14,12 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional
+import time
+from typing import TYPE_CHECKING, Any, AsyncIterator, Optional
+
+if TYPE_CHECKING:
+    from aragora.connectors.base import ConnectorHealth
+    from pymysqlreplication import BinLogStreamReader
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -112,8 +117,8 @@ class MySQLConnector(EnterpriseConnector):
         self.server_id = server_id
         self.pool_size = pool_size
 
-        self._pool = None
-        self._binlog_stream = None
+        self._pool: Any = None
+        self._binlog_stream: Optional["BinLogStreamReader"] = None
         self._cdc_task: Optional[asyncio.Task[None]] = None
 
         # CDC support
@@ -249,16 +254,25 @@ class MySQLConnector(EnterpriseConnector):
 
         return "\n".join(parts)
 
-    async def sync_items(self, state: SyncState | None = None) -> AsyncIterator[SyncItem]:  # type: ignore[override]
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
         """
         Sync items from MySQL tables.
 
         Supports incremental sync using timestamp columns.
+
+        Args:
+            state: Current sync state with cursor
+            batch_size: Number of items per batch (unused in MySQL connector,
+                       kept for API compatibility)
         """
         pool = await self._get_pool()
 
         tables = self.tables or await self._discover_tables()
-        last_sync = state.last_sync_at if state else None
+        last_sync = state.last_sync_at
 
         for table in tables:
             # Validate table name to prevent SQL injection
@@ -468,7 +482,9 @@ class MySQLConnector(EnterpriseConnector):
         )
 
         try:
-            for binlog_event in self._binlog_stream:  # type: ignore[attr-defined]
+            if self._binlog_stream is None:
+                return
+            for binlog_event in self._binlog_stream:
                 # Map binlog event to ChangeOperation
                 if isinstance(binlog_event, WriteRowsEvent):
                     operation = ChangeOperation.INSERT
@@ -539,8 +555,21 @@ class MySQLConnector(EnterpriseConnector):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def health_check(self) -> dict[str, Any]:  # type: ignore[override]
-        """Check MySQL connection health."""
+    async def health_check(self, timeout: float = 5.0) -> "ConnectorHealth":
+        """
+        Check MySQL connection health.
+
+        Args:
+            timeout: Maximum time to wait for health check
+
+        Returns:
+            ConnectorHealth with status details
+        """
+        from aragora.connectors.base import ConnectorHealth
+
+        start_time = time.time()
+        error_msg: str | None = None
+
         try:
             pool = await self._get_pool()
             async with pool.acquire() as conn:
@@ -548,15 +577,34 @@ class MySQLConnector(EnterpriseConnector):
                     await cursor.execute("SELECT 1")
                     await cursor.fetchone()
 
-            return {
-                "healthy": True,
-                "database": self.database,
-                "host": self.host,
-                "binlog_cdc_enabled": self.enable_binlog_cdc,
-            }
+            latency_ms = (time.time() - start_time) * 1000
+
+            return ConnectorHealth(
+                name=self.name,
+                is_available=True,
+                is_configured=True,
+                is_healthy=True,
+                latency_ms=latency_ms,
+                last_check=datetime.now(timezone.utc),
+                metadata={
+                    "database": self.database,
+                    "host": self.host,
+                    "binlog_cdc_enabled": self.enable_binlog_cdc,
+                },
+            )
         except (RuntimeError, OSError, ConnectionError) as e:
-            return {
-                "healthy": False,
-                "error": str(e),
-                "database": self.database,
-            }
+            error_msg = str(e)
+            latency_ms = (time.time() - start_time) * 1000
+
+            return ConnectorHealth(
+                name=self.name,
+                is_available=self.is_available,
+                is_configured=self.is_configured,
+                is_healthy=False,
+                latency_ms=latency_ms,
+                error=error_msg,
+                last_check=datetime.now(timezone.utc),
+                metadata={
+                    "database": self.database,
+                },
+            )

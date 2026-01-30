@@ -8,6 +8,7 @@ Handles session-related endpoints:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING
 
@@ -43,11 +44,13 @@ def handle_list_sessions(handler_instance: "AuthHandler", handler) -> HandlerRes
     auth_ctx = extract_user_from_request(handler, user_store)
 
     # Get current token JTI to mark current session
-    current_jti = None
+    # JTI is computed from token hash, matching the session tracking approach
+    current_jti: str | None = None
     token = extract_token(handler)
     if token:
         payload = decode_jwt(token)
-        current_jti = payload.jti if payload else None  # type: ignore[attr-defined]
+        if payload:
+            current_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
 
     # Get sessions from manager
     manager = get_session_manager()
@@ -98,11 +101,13 @@ def handle_revoke_session(
         return error_response("Invalid session ID", 400)
 
     # Check if trying to revoke current session
-    current_jti = None
+    # JTI is computed from token hash, matching the session tracking approach
+    current_jti: str | None = None
     token = extract_token(handler)
     if token:
         payload = decode_jwt(token)
-        current_jti = payload.jti if payload else None  # type: ignore[attr-defined]
+        if payload:
+            current_jti = hashlib.sha256(token.encode()).hexdigest()[:32]
 
     if session_id == current_jti:
         return error_response(

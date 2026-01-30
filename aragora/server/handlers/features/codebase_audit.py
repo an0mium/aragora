@@ -31,16 +31,16 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 from ..base import (
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
-from ..utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -643,17 +643,15 @@ class CodebaseAuditHandler(SecureHandler):
         "/api/v1/codebase/demo",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        super().__init__(server_context if server_context is not None else cast(ServerContext, {}))
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/codebase")
 
-    async def handle(  # type: ignore[override]
-        self, request: Any, path: str, method: str
-    ) -> HandlerResult:
+    async def handle_request(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             # RBAC: Require authentication and appropriate permission
@@ -1255,8 +1253,9 @@ class CodebaseAuditHandler(SecureHandler):
         """Extract JSON body from request."""
         if hasattr(request, "json"):
             if callable(request.json):
-                return await parse_json_body(request, "codebase_audit._get_json_body")
-            return request.json
+                body = await request.json()
+                return body if isinstance(body, dict) else {}
+            return request.json if isinstance(request.json, dict) else {}
         return {}
 
     def _get_query_params(self, request: Any) -> dict[str, str]:
@@ -1286,7 +1285,7 @@ def get_codebase_audit_handler() -> CodebaseAuditHandler:
 async def handle_codebase_audit(request: Any, path: str, method: str) -> HandlerResult:
     """Entry point for codebase audit requests."""
     handler = get_codebase_audit_handler()
-    return await handler.handle(request, path, method)
+    return await handler.handle_request(request, path, method)
 
 
 __all__ = [

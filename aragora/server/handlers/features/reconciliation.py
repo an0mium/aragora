@@ -22,16 +22,15 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
 from aragora.rbac.decorators import require_permission
-from aragora.server.handlers.utils import parse_json_body
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ def get_reconciliation_service(tenant_id: str):
 # =============================================================================
 
 
-class ReconciliationHandler(BaseHandler):
+class ReconciliationHandler:
     """Handler for bank reconciliation API endpoints."""
 
     ROUTES = [
@@ -74,16 +73,18 @@ class ReconciliationHandler(BaseHandler):
         "/api/v1/reconciliation/demo",
     ]
 
+    ctx: ServerContext
+
     def __init__(self, server_context: Optional[dict[str, Any]] = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        self.ctx = cast(ServerContext, server_context or {})
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/reconciliation")
 
     @require_permission("reconciliation:read")
-    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:  # type: ignore[override]
+    async def handle(self, request: Any, path: str, method: str) -> HandlerResult:
         """Route requests to appropriate handler methods."""
         try:
             tenant_id = self._get_tenant_id(request)
@@ -605,8 +606,23 @@ class ReconciliationHandler(BaseHandler):
     # =========================================================================
 
     async def _get_json_body(self, request: Any) -> dict[str, Any]:
-        """Extract JSON body from request."""
-        return await parse_json_body(request, "reconciliation")
+        """Extract JSON body from request.
+
+        Handles both aiohttp web.Request objects and simpler request-like objects
+        that have a .json attribute (either callable or property).
+        """
+        # Try callable json() method first (aiohttp style)
+        if hasattr(request, "json") and callable(request.json):
+            result = request.json()
+            # If it's a coroutine, await it
+            if hasattr(result, "__await__"):
+                return await result
+            return result if isinstance(result, dict) else {}
+        # Try json as a property (some frameworks)
+        if hasattr(request, "json"):
+            result = request.json
+            return result if isinstance(result, dict) else {}
+        return {}
 
     def _get_query_params(self, request: Any) -> dict[str, str]:
         """Extract query parameters from request."""

@@ -21,10 +21,23 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from aragora.routing.selection import AgentProfile
+
+@runtime_checkable
+class AgentProfileLike(Protocol):
+    """Protocol for agent profile-like objects.
+
+    This protocol defines the minimal interface needed for agent assignment
+    in the molecule tracker. Both AgentProfile and AgentProfileWrapper
+    implement this interface.
+    """
+
+    name: str
+    capabilities: set[str]
+    elo_rating: float
+    availability: float
+
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +313,7 @@ class MoleculeTracker:
     def assign_molecule(
         self,
         molecule_id: str,
-        agent: "AgentProfile",
+        agent: AgentProfileLike,
     ) -> bool:
         """Assign a molecule to an agent.
 
@@ -339,8 +352,8 @@ class MoleculeTracker:
     def find_best_agent(
         self,
         molecule: Molecule,
-        available_agents: list["AgentProfile"],
-    ) -> Optional["AgentProfile"]:
+        available_agents: list[AgentProfileLike],
+    ) -> AgentProfileLike | None:
         """Find the best agent for a molecule based on capabilities and affinity."""
         candidates = []
 
@@ -546,6 +559,7 @@ def create_round_molecules(
 
 
 __all__ = [
+    "AgentProfileLike",
     "Molecule",
     "MoleculeStatus",
     "MoleculeTracker",

@@ -291,6 +291,7 @@ def check_stripe_health() -> dict[str, Any]:
 
     try:
         import stripe
+        from stripe.error import APIConnectionError, AuthenticationError
 
         stripe.api_key = stripe_key
         ping_start = time.time()
@@ -306,13 +307,13 @@ def check_stripe_health() -> dict[str, Any]:
 
     except ImportError:
         return {"healthy": True, "configured": True, "warning": "stripe package not installed"}
-    except stripe.error.AuthenticationError as e:  # type: ignore[attr-defined]
+    except AuthenticationError as e:
         return {
             "healthy": False,
             "configured": True,
             "error": f"Authentication failed: {str(e)[:80]}",
         }
-    except stripe.error.APIConnectionError as e:  # type: ignore[attr-defined]
+    except APIConnectionError as e:
         return {
             "healthy": False,
             "configured": True,

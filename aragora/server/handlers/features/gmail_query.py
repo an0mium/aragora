@@ -72,7 +72,7 @@ class GmailQueryHandler(SecureHandler):
         """Check if this handler can process the path."""
         return path.startswith("/api/v1/gmail/query") or path.startswith("/api/v1/gmail/inbox/")
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -99,10 +99,10 @@ class GmailQueryHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        body: dict[str, Any],
+        query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests."""
@@ -114,6 +114,11 @@ class GmailQueryHandler(SecureHandler):
             return error_response("Authentication required", 401)
         except ForbiddenError as e:
             return error_response(str(e), 403)
+
+        # Read JSON body from request
+        body = self.read_json_body(handler)
+        if body is None:
+            body = {}
 
         user_id = body.get("user_id", "default")
 
@@ -477,7 +482,7 @@ class GmailQueryHandler(SecureHandler):
 
         # Sort by priority score
         emails.sort(
-            key=lambda x: float(x.get("priority_score") or 0),  # type: ignore[arg-type]
+            key=lambda x: float(x.get("priority_score", 0) or 0),
             reverse=True,
         )
 

@@ -732,7 +732,7 @@ class AnalyticsDashboard:
 
             findings = []
             for session in auditor._sessions.values():
-                if session.workspace_id != workspace_id:  # type: ignore[attr-defined]
+                if session.org_id != workspace_id:
                     continue
 
                 for finding in session.findings:
@@ -748,11 +748,11 @@ class AnalyticsDashboard:
                     findings.append(
                         {
                             "id": finding.id,
-                            "title": getattr(finding, "title", None),
-                            "message": finding.message,  # type: ignore[attr-defined]
-                            "severity": finding.severity,
+                            "title": finding.title,
+                            "message": finding.description,
+                            "severity": finding.severity.value,
                             "category": finding.category,
-                            "status": getattr(finding, "status", "open"),
+                            "status": finding.status.value,
                             "created_at": finding.created_at,
                             "resolved_at": getattr(finding, "resolved_at", None),
                         }
@@ -781,7 +781,7 @@ class AnalyticsDashboard:
 
             sessions = []
             for session in auditor._sessions.values():
-                if session.workspace_id != workspace_id:  # type: ignore[attr-defined]
+                if session.org_id != workspace_id:
                     continue
 
                 created = session.created_at

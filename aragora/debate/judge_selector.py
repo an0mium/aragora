@@ -40,7 +40,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Awaitable, Callable, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:
     from aragora.core import Agent, Message
@@ -244,19 +244,12 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         try:
             leaderboard = self._elo_system.get_leaderboard(limit=len(agent_names))
             for entry in leaderboard:
-                agent_name = (
-                    getattr(entry, "agent", None) or entry.get("agent")
-                    if hasattr(entry, "get")
-                    else None
-                )  # type: ignore[union-attr]
-                if agent_name in agent_names:
-                    top_name = agent_name
-                    top_elo = getattr(entry, "elo", None) or (
-                        entry.get("elo", 1500) if hasattr(entry, "get") else 1500
-                    )  # type: ignore[union-attr]
-                    judge = next((a for a in agents if a.name == top_name), None)
+                # AgentRating uses agent_name attribute (not agent)
+                entry_agent_name = entry.agent_name
+                if entry_agent_name in agent_names:
+                    judge = next((a for a in agents if a.name == entry_agent_name), None)
                     if judge:
-                        logger.debug(f"Selected {top_name} (ELO: {top_elo}) as judge")
+                        logger.debug(f"Selected {entry_agent_name} (ELO: {entry.elo}) as judge")
                         return judge
         except Exception as e:
             logger.warning(f"ELO query failed: {e}; falling back to random")
@@ -440,7 +433,7 @@ class VotedStrategy(JudgeSelectionStrategy):
 
     def __init__(
         self,
-        generate_fn: Callable[["Agent", str, list["Message"]], str],
+        generate_fn: Callable[["Agent", str, list["Message"]], Awaitable[str]],
         build_vote_prompt_fn: Callable[[list["Agent"], dict[str, str]], str],
         sanitize_fn: Optional[Callable[[str, str], str]] = None,
     ):
@@ -476,7 +469,7 @@ class VotedStrategy(JudgeSelectionStrategy):
             prompt = self._build_prompt(other_agents, proposals)
 
             try:
-                raw_response = await self._generate(agent, prompt, context)  # type: ignore[misc]
+                raw_response = await self._generate(agent, prompt, context)
                 response = self._sanitize(raw_response, agent.name)
 
                 # Parse vote - look for agent names in response

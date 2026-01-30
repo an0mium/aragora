@@ -330,35 +330,48 @@ class CompositeHandler(BaseHandler):
     def _get_circuit_breaker_state(self, agent_id: str) -> dict[str, Any]:
         """Get circuit breaker state for an agent."""
         try:
-            from aragora.resilience import get_circuit_breaker_stats  # type: ignore[attr-defined]
+            from aragora.resilience_patterns.circuit_breaker import get_all_circuit_breakers
 
-            stats = get_circuit_breaker_stats(agent_id)
-            return {
-                "available": True,
-                "state": stats.get("state", "unknown"),
-                "failure_count": stats.get("failure_count", 0),
-                "success_count": stats.get("success_count", 0),
-                "last_failure": stats.get("last_failure"),
-                "reset_timeout": stats.get("reset_timeout"),
-            }
+            all_breakers = get_all_circuit_breakers()
+            # Look for a circuit breaker matching this agent_id
+            cb = all_breakers.get(agent_id)
+            if cb is not None:
+                stats = cb.get_stats()
+                return {
+                    "available": True,
+                    "state": stats.state.value,
+                    "failure_count": stats.failure_count,
+                    "success_count": stats.success_count,
+                    "last_failure": stats.last_failure_time,
+                    "reset_timeout": stats.cooldown_remaining,
+                }
+            return {"available": False, "state": "unknown"}
         except ImportError:
             return {"available": False, "state": "unknown"}
 
     def _get_airlock_metrics(self, agent_id: str) -> dict[str, Any]:
-        """Get airlock proxy metrics for an agent."""
-        try:
-            from aragora.agents.airlock import get_airlock_metrics  # type: ignore[attr-defined]
+        """Get airlock proxy metrics for an agent.
 
-            metrics = get_airlock_metrics(agent_id)
-            return {
-                "available": True,
-                "requests_total": metrics.get("requests_total", 0),
-                "requests_blocked": metrics.get("requests_blocked", 0),
-                "latency_avg_ms": metrics.get("latency_avg_ms", 0),
-                "error_rate": metrics.get("error_rate", 0.0),
-            }
-        except ImportError:
-            return {"available": False}
+        Note: Airlock metrics are tracked per-proxy instance, not globally by agent_id.
+        To get metrics, you need access to the actual AirlockProxy instance.
+        This method checks for a registered proxy in the handler context.
+        """
+        # Check if we have an airlock proxy registry in the context
+        airlock_registry: dict[str, Any] | None = self.ctx.get("airlock_registry")
+        if airlock_registry is not None:
+            proxy = airlock_registry.get(agent_id)
+            if proxy is not None and hasattr(proxy, "metrics"):
+                metrics = proxy.metrics
+                return {
+                    "available": True,
+                    "requests_total": metrics.total_calls,
+                    "requests_blocked": metrics.fallback_responses,
+                    "latency_avg_ms": metrics.avg_latency_ms,
+                    "error_rate": 1.0 - (metrics.success_rate / 100.0)
+                    if metrics.total_calls > 0
+                    else 0.0,
+                }
+        return {"available": False}
 
     def _calculate_availability(self, agent_id: str) -> dict[str, Any]:
         """Calculate availability metrics for an agent."""

@@ -16,6 +16,7 @@ RLM Integration:
 """
 
 import asyncio
+import functools
 import hashlib
 import logging
 import os
@@ -25,25 +26,39 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 if TYPE_CHECKING:
     from aragora.rlm.compressor import HierarchicalCompressor
 
+# Define fallback values before imports to avoid redefinition errors
+_get_rlm: Optional[Callable[[], Any]] = None
+_get_compressor: Optional[Callable[[], Any]] = None
+_KnowledgeMound: Optional[type] = None
+
 # Check for RLM availability (use factory for consistent initialization)
 try:
-    from aragora.rlm import get_rlm, get_compressor, HAS_OFFICIAL_RLM
+    from aragora.rlm import get_rlm as _imported_get_rlm
+    from aragora.rlm import get_compressor as _imported_get_compressor
+    from aragora.rlm import HAS_OFFICIAL_RLM
 
     HAS_RLM = True
+    _get_rlm = _imported_get_rlm
+    _get_compressor = _imported_get_compressor
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm: Any = None  # type: ignore[no-redef]
-    get_compressor: Any = None  # type: ignore[no-redef]
+
+# Alias for cleaner usage
+get_rlm = _get_rlm
+get_compressor = _get_compressor
 
 # Check for Knowledge Mound availability
 try:
-    from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound import KnowledgeMound as _ImportedKnowledgeMound
 
     HAS_KNOWLEDGE_MOUND = True
+    _KnowledgeMound = _ImportedKnowledgeMound
 except ImportError:
     HAS_KNOWLEDGE_MOUND = False
-    KnowledgeMound: Any = None  # type: ignore[no-redef]
+
+# Alias for cleaner usage
+KnowledgeMound = _KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
@@ -65,17 +80,22 @@ MAX_CONTINUUM_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_CONTINUUM_CACHE", "100"))
 MAX_TRENDING_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_TRENDING_CACHE", "50"))
 
 # Check for Threat Intelligence Enrichment availability
+_ThreatIntelEnrichment: Optional[type] = None
+
 try:
     from aragora.security.threat_intel_enrichment import (
-        ThreatIntelEnrichment,
+        ThreatIntelEnrichment as _ImportedThreatIntelEnrichment,
         ENRICHMENT_ENABLED as THREAT_INTEL_ENABLED,
     )
 
     HAS_THREAT_INTEL = True
+    _ThreatIntelEnrichment = _ImportedThreatIntelEnrichment
 except ImportError:
     HAS_THREAT_INTEL = False
     THREAT_INTEL_ENABLED = False
-    ThreatIntelEnrichment: Any = None  # type: ignore[no-redef]
+
+# Alias for cleaner usage
+ThreatIntelEnrichment = _ThreatIntelEnrichment
 
 
 class ContextGatherer:
@@ -238,7 +258,9 @@ class ContextGatherer:
                 except ImportError:
                     # Fallback: instantiate directly if singleton helper unavailable
                     try:
-                        self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
+                        # KnowledgeMound is guaranteed non-None by the outer check
+                        assert KnowledgeMound is not None
+                        self._knowledge_mound = KnowledgeMound(
                             workspace_id=self._knowledge_workspace_id
                         )
                         logger.info(
@@ -612,7 +634,7 @@ class ContextGatherer:
                 doc_path = docs_dir / doc_name
                 content = await loop.run_in_executor(
                     None,
-                    lambda p=doc_path: _read_file_sync(p),  # type: ignore[misc]
+                    functools.partial(_read_file_sync, doc_path),
                 )
                 if content:
                     # Use RLM to compress if content is large

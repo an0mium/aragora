@@ -103,15 +103,13 @@ if TYPE_CHECKING:
     from aragora.agents.calibration import CalibrationTracker
     from aragora.agents.grounded import MomentDetector
     from aragora.agents.personas import PersonaManager
-    from aragora.agents.truth_grounding import (  # type: ignore[attr-defined]
-        PositionLedger,
-        PositionTracker,
-    )
+    from aragora.agents.positions import PositionLedger
+    from aragora.agents.truth_grounding import PositionTracker
     from aragora.connectors.evidence import EvidenceCollector
     from aragora.debate.orchestrator import Arena
     from aragora.insights.store import InsightStore
     from aragora.memory.continuum import ContinuumMemory
-    from aragora.memory.embeddings import DebateEmbeddingsDatabase  # type: ignore[attr-defined]
+    from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.memory.store import CritiqueStore
     from aragora.pulse.ingestor import TrendingTopic
     from aragora.ranking.dissent import DissentRetriever
@@ -251,12 +249,13 @@ class ArenaBuilder:
         self._training_export_min_confidence: float = 0.75
 
         # Extensions: RLM training hook (reads from settings)
+        self._enable_rlm_training: bool = True  # Default fallback
         try:
             from aragora.config.settings import get_settings
 
-            self._enable_rlm_training: bool = get_settings().integration.rlm_training_enabled
+            self._enable_rlm_training = get_settings().integration.rlm_training_enabled
         except (ImportError, AttributeError, KeyError):
-            self._enable_rlm_training = True  # type: ignore[no-redef]  # Fallback to enabled
+            pass  # Keep default (True)
 
         # Multilingual support
         self._multilingual_manager: Any = None

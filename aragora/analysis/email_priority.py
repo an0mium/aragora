@@ -21,13 +21,15 @@ from typing import Any, Optional
 
 # Check for AragoraRLM (routes to TRUE RLM when available)
 try:
-    from aragora.rlm.bridge import AragoraRLM, HAS_OFFICIAL_RLM
+    from aragora.rlm.bridge import AragoraRLM as _AragoraRLM
+    from aragora.rlm.bridge import HAS_OFFICIAL_RLM
 
     HAS_ARAGORA_RLM = True
+    AragoraRLM: type[Any] | None = _AragoraRLM
 except ImportError:
     HAS_ARAGORA_RLM = False
     HAS_OFFICIAL_RLM = False
-    AragoraRLM: Optional[type[Any]] = None  # type: ignore[no-redef]
+    AragoraRLM = None
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +117,6 @@ class EmailPriorityAnalyzer:
 
                 # Note: user_id is tracked via memory entry metadata, not constructor
                 self._memory = ContinuumMemory()
-                await self._memory.initialize()  # type: ignore[attr-defined]
             except ImportError:
                 logger.debug("[EmailPriority] ContinuumMemory not available")
                 return None
@@ -722,7 +723,6 @@ class EmailFeedbackLearner:
 
                 # Note: user_id is tracked via memory entry metadata, not constructor
                 self._memory = ContinuumMemory()
-                await self._memory.initialize()  # type: ignore[attr-defined]
             except ImportError:
                 logger.debug("[EmailFeedback] ContinuumMemory not available")
                 return None

@@ -17,11 +17,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
 )
@@ -177,18 +178,26 @@ class A2AHandler(BaseHandler):
             return error_response("Missing required field: instruction", 400)
 
         # Create task request
-        from aragora.protocols.a2a import TaskRequest, AgentCapability, ContextItem
+        from aragora.protocols.a2a import TaskRequest, AgentCapability, ContextItem, TaskPriority
         import uuid
 
         task_id = data.get("task_id", str(uuid.uuid4()))
-        capability = None
+        capability: AgentCapability | None = None
         if data.get("capability"):
             try:
                 capability = AgentCapability(data["capability"])
             except ValueError:
                 pass
 
-        context = []
+        # Parse priority if provided
+        priority = TaskPriority.NORMAL
+        if data.get("priority"):
+            try:
+                priority = TaskPriority(data["priority"])
+            except ValueError:
+                pass
+
+        context: list[ContextItem] = []
         for ctx in data.get("context", []):
             context.append(
                 ContextItem(
@@ -198,14 +207,18 @@ class A2AHandler(BaseHandler):
                 )
             )
 
-        request = TaskRequest(  # type: ignore[call-arg]
+        # Store deadline in metadata if provided (not a TaskRequest field)
+        metadata: dict[str, Any] = data.get("metadata", {})
+        if data.get("deadline"):
+            metadata["deadline"] = data["deadline"]
+
+        request = TaskRequest(
             task_id=task_id,
             instruction=data["instruction"],
             capability=capability,
             context=context,
-            priority=data.get("priority"),
-            deadline=data.get("deadline"),
-            metadata=data.get("metadata", {}),
+            priority=priority,
+            metadata=metadata,
         )
 
         # Execute task
@@ -262,13 +275,13 @@ class A2AHandler(BaseHandler):
 _a2a_handler: Optional["A2AHandler"] = None
 
 
-def get_a2a_handler(server_context: dict | None = None) -> "A2AHandler":
+def get_a2a_handler(server_context: ServerContext | None = None) -> "A2AHandler":
     """Get or create the A2A handler instance."""
     global _a2a_handler
     if _a2a_handler is None:
         if server_context is None:
-            server_context = {}
-        _a2a_handler = A2AHandler(server_context)  # type: ignore[arg-type]
+            server_context = cast(ServerContext, {})
+        _a2a_handler = A2AHandler(server_context)
     return _a2a_handler
 
 

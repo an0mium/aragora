@@ -19,7 +19,7 @@ import hashlib
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from .config import AttackCategory, GauntletConfig, ProbeCategory
 from .result import (
@@ -31,18 +31,29 @@ from .result import (
     Vulnerability,
 )
 
-# Optional sandbox support for code execution scenarios
-try:
-    from aragora.sandbox.executor import SandboxConfig, SandboxExecutor, ExecutionMode
-    from aragora.sandbox.policies import create_strict_policy
+# Type-only imports for optional sandbox support
+if TYPE_CHECKING:
+    from aragora.sandbox.executor import ExecutionMode, SandboxConfig, SandboxExecutor
 
+# Runtime imports for optional sandbox support
+_sandbox_executor_cls: "type[SandboxExecutor] | None" = None
+_sandbox_config_cls: "type[SandboxConfig] | None" = None
+_execution_mode_cls: "type[ExecutionMode] | None" = None
+_create_strict_policy_fn: Callable[[], Any] | None = None
+
+try:
+    from aragora.sandbox.executor import ExecutionMode as _ExecutionMode
+    from aragora.sandbox.executor import SandboxConfig as _SandboxConfig
+    from aragora.sandbox.executor import SandboxExecutor as _SandboxExecutor
+    from aragora.sandbox.policies import create_strict_policy as _create_strict_policy_impl
+
+    _sandbox_executor_cls = _SandboxExecutor
+    _sandbox_config_cls = _SandboxConfig
+    _execution_mode_cls = _ExecutionMode
+    _create_strict_policy_fn = _create_strict_policy_impl
     SANDBOX_AVAILABLE = True
 except ImportError:
     SANDBOX_AVAILABLE = False
-    SandboxExecutor: Any = None  # type: ignore[no-redef]
-    SandboxConfig: Any = None  # type: ignore[no-redef]
-    ExecutionMode: Any = None  # type: ignore[no-redef]
-    create_strict_policy = None
 
 logger = logging.getLogger(__name__)
 
@@ -82,15 +93,20 @@ class GauntletRunner:
         self._sandbox: Optional["SandboxExecutor"] = None
         self.enable_sandbox = enable_sandbox and SANDBOX_AVAILABLE
 
-        if self.enable_sandbox:
-            policy = create_strict_policy() if create_strict_policy else None
-            sandbox_cfg = sandbox_config or SandboxConfig(
-                mode=ExecutionMode.SUBPROCESS,
+        if (
+            self.enable_sandbox
+            and _sandbox_config_cls
+            and _sandbox_executor_cls
+            and _execution_mode_cls
+        ):
+            policy = _create_strict_policy_fn() if _create_strict_policy_fn else None
+            sandbox_cfg = sandbox_config or _sandbox_config_cls(
+                mode=_execution_mode_cls.SUBPROCESS,
                 policy=policy,
                 network_enabled=False,
                 cleanup_on_complete=True,
             )
-            self._sandbox = SandboxExecutor(sandbox_cfg)
+            self._sandbox = _sandbox_executor_cls(sandbox_cfg)
             logger.info("[gauntlet] Sandbox executor initialized for code execution scenarios")
 
     async def run(

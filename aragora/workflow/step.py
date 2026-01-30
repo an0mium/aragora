@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, cast, runtime_checkable
 
+from aragora.agents.base import AgentType
 from aragora.workflow.safe_eval import SafeEvalError, safe_eval_bool
 
 
@@ -186,7 +187,7 @@ class AgentStep(BaseStep):
             return await self._execute_with_kilocode(prompt, context)
 
         # Create and run agent normally
-        agent = create_agent(self.agent_type)  # type: ignore[arg-type]
+        agent = create_agent(cast(AgentType, self.agent_type))
         response = await agent.generate(prompt)
 
         return {"response": response, "agent_type": self.agent_type}
@@ -257,7 +258,7 @@ class ParallelStep(BaseStep):
             if isinstance(result, Exception):
                 outputs[step_name] = {"error": str(result)}
             else:
-                outputs[step_name] = result  # type: ignore[assignment]
+                outputs[step_name] = cast(dict[str, Any], result)
 
         return outputs
 

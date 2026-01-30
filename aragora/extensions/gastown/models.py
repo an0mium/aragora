@@ -2,6 +2,10 @@
 Gastown Extension Data Models.
 
 Defines the core data structures for developer workspace orchestration.
+
+CANONICAL SOURCE: aragora.nomic.stores
+Gastown provides a domain-specific view of work tracking with its own
+status lifecycle. All persistence delegates to the canonical nomic stores.
 """
 
 from __future__ import annotations
@@ -9,17 +13,29 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
 
 
 class ConvoyStatus(Enum):
-    """Convoy lifecycle status.
+    """Gastown convoy lifecycle status.
 
-    Gastown uses a richer lifecycle than workspace (which has
-    CREATED/ASSIGNING/EXECUTING/MERGING/DONE/FAILED/CANCELLED).
-    Both delegate to ``aragora.nomic.stores`` as the canonical backend.
-    Use ``to_workspace_status()`` / ``from_workspace_status()`` for
-    cross-layer interoperability.
+    CANONICAL SOURCE: aragora.nomic.stores.ConvoyStatus
+
+    Gastown uses a domain-specific lifecycle for developer workflows:
+        PENDING     -> NomicConvoyStatus.PENDING
+        IN_PROGRESS -> NomicConvoyStatus.ACTIVE
+        BLOCKED     -> NomicConvoyStatus.FAILED
+        REVIEW      -> NomicConvoyStatus.ACTIVE (with metadata marker)
+        COMPLETED   -> NomicConvoyStatus.COMPLETED
+        CANCELLED   -> NomicConvoyStatus.CANCELLED
+
+    Workspace layer (aragora.workspace.convoy) has different sub-states:
+        CREATED/ASSIGNING/EXECUTING/MERGING/DONE/FAILED/CANCELLED
+
+    Use conversion methods for cross-layer interoperability.
     """
 
     PENDING = "pending"
@@ -28,6 +44,48 @@ class ConvoyStatus(Enum):
     REVIEW = "review"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+    def to_nomic(self) -> "NomicConvoyStatus":
+        """Convert to canonical nomic status."""
+        from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
+
+        mapping = {
+            ConvoyStatus.PENDING: NomicConvoyStatus.PENDING,
+            ConvoyStatus.IN_PROGRESS: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.BLOCKED: NomicConvoyStatus.FAILED,
+            ConvoyStatus.REVIEW: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.COMPLETED: NomicConvoyStatus.COMPLETED,
+            ConvoyStatus.CANCELLED: NomicConvoyStatus.CANCELLED,
+        }
+        return mapping[self]
+
+    @classmethod
+    def from_nomic(
+        cls,
+        nomic_status: "NomicConvoyStatus",
+        gastown_status: str | None = None,
+    ) -> "ConvoyStatus":
+        """Convert from canonical nomic status.
+
+        If gastown_status is provided (from metadata), use that for
+        finer-grained status like BLOCKED vs REVIEW.
+        """
+        from aragora.nomic.convoys import ConvoyStatus as NomicConvoyStatus
+
+        if gastown_status:
+            try:
+                return cls(gastown_status)
+            except ValueError:
+                pass
+        mapping = {
+            NomicConvoyStatus.PENDING: cls.PENDING,
+            NomicConvoyStatus.ACTIVE: cls.IN_PROGRESS,
+            NomicConvoyStatus.COMPLETED: cls.COMPLETED,
+            NomicConvoyStatus.FAILED: cls.BLOCKED,
+            NomicConvoyStatus.CANCELLED: cls.CANCELLED,
+            NomicConvoyStatus.PARTIAL: cls.IN_PROGRESS,
+        }
+        return mapping.get(nomic_status, cls.PENDING)
 
     def to_workspace_status(self) -> str:
         """Map gastown status to workspace ConvoyStatus value.

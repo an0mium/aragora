@@ -74,8 +74,8 @@ class AudienceManager:
         self._data_lock = threading.Lock()  # Protects votes/suggestions access
         self._lock_timeout = 1.0  # Lock timeout to prevent deadlocks
 
-        # Optional callback for notifications
-        self._notify_callback: Optional[Callable[[str], None]] = None
+        # Optional callback for notifications (accepts event_type: str and **kwargs)
+        self._notify_callback: Optional[Callable[..., None]] = None
 
     def set_notify_callback(self, callback: Callable[..., None]) -> None:
         """Set callback for spectator notifications."""
@@ -156,7 +156,7 @@ class AudienceManager:
             logger.warning(f"[audience] Skipped {skipped_count} events due to lock timeout")
 
         if drained_count > 0 and self._notify_callback:
-            self._notify_callback(  # type: ignore[call-arg]
+            self._notify_callback(
                 "audience_drain",
                 details=f"Processed {drained_count} audience events",
             )

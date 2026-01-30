@@ -31,11 +31,12 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -1395,7 +1396,16 @@ async def handle_test_routing_rule(
         }
 
 
-def _evaluate_rule(rule: RoutingRule, message: SharedInboxMessage) -> bool:
+class MessageLike(Protocol):
+    """Protocol for message-like objects that can be evaluated by routing rules."""
+
+    from_address: str
+    to_addresses: list[str]
+    subject: str
+    priority: str | None
+
+
+def _evaluate_rule(rule: RoutingRule, message: MessageLike) -> bool:
     """Evaluate if a routing rule matches a message."""
     import re
 
@@ -1503,7 +1513,7 @@ async def get_matching_rules_for_email(
         msg = _EmailMessage(email_data)
 
         for rule in rules:
-            if _evaluate_rule(rule, msg):  # type: ignore[arg-type]
+            if _evaluate_rule(rule, msg):
                 matching_rules.append(rule.to_dict())
 
     return matching_rules
@@ -1615,9 +1625,9 @@ class SharedInboxHandler(BaseHandler):
         "/api/v1/inbox/routing/rules/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

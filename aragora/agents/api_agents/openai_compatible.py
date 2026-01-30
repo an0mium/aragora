@@ -14,12 +14,37 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, AsyncGenerator, Optional
+from typing import TYPE_CHECKING, AsyncGenerator, Optional, Protocol
 
 from aragora.core import Critique, Message
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+
+class _APIAgentProtocol(Protocol):
+    """Protocol describing methods expected from APIAgent in the MRO.
+
+    This enables proper typing for super() calls in OpenAICompatibleMixin,
+    which is designed to be used with classes that inherit from APIAgent.
+    """
+
+    def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None: ...
+
+    def _build_context_prompt(
+        self,
+        context: list[Message] | None = None,
+        truncate: bool = False,
+        sanitize_fn: Optional["Callable[[str], str]"] = None,
+    ) -> str: ...
+
+    def _parse_critique(
+        self,
+        response: str,
+        target_agent: str,
+        target_content: str,
+    ) -> Critique: ...
+
 
 from aragora.agents.api_agents.common import (
     AgentAPIError,
@@ -73,7 +98,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
 
     def _record_token_usage(self, tokens_in: int, tokens_out: int) -> None:
         """Record token usage (delegates to APIAgent base class)."""
-        super()._record_token_usage(tokens_in, tokens_out)  # type: ignore[misc]
+        # Cast super() to protocol for proper typing of mixin cooperative inheritance
+        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
+        parent._record_token_usage(tokens_in, tokens_out)
 
     # Methods inherited from CritiqueMixin (via APIAgent) - delegate to parent
     def _build_context_prompt(
@@ -83,8 +110,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         sanitize_fn: Optional["Callable[[str], str]"] = None,
     ) -> str:
         """Build context from previous messages (delegates to CritiqueMixin)."""
-        # Delegate to CritiqueMixin via APIAgent in the MRO
-        return super()._build_context_prompt(context, truncate, sanitize_fn)  # type: ignore[misc]
+        # Cast super() to protocol for proper typing of mixin cooperative inheritance
+        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
+        return parent._build_context_prompt(context, truncate, sanitize_fn)
 
     def _parse_critique(
         self,
@@ -93,8 +121,9 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         target_content: str,
     ) -> Critique:
         """Parse critique response (delegates to CritiqueMixin)."""
-        # Delegate to CritiqueMixin via APIAgent in the MRO
-        return super()._parse_critique(response, target_agent, target_content)  # type: ignore[misc]
+        # Cast super() to protocol for proper typing of mixin cooperative inheritance
+        parent: _APIAgentProtocol = super()  # type: ignore[assignment]
+        return parent._parse_critique(response, target_agent, target_content)
 
     def _build_headers(self) -> dict:
         """Build request headers. Override to add provider-specific headers."""

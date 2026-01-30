@@ -26,10 +26,28 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator
 from uuid import uuid4
 
 from aragora.utils.cache_registry import register_lru_cache
+
+if TYPE_CHECKING:
+    from aragora.agents.base import AgentType
+
+# Map model config strings to AgentType identifiers
+_MODEL_TO_AGENT_TYPE: dict[str, AgentType] = {
+    "claude-3.5-sonnet": "anthropic-api",
+    "claude-3-opus": "anthropic-api",
+    "claude-3-sonnet": "anthropic-api",
+    "claude-sonnet-4": "anthropic-api",
+    "claude-opus-4": "anthropic-api",
+    "gpt-4": "openai-api",
+    "gpt-4-turbo": "openai-api",
+    "gpt-4o": "openai-api",
+    "gemini-1.5-flash": "gemini",
+    "gemini-1.5-pro": "gemini",
+    "gemini-2.0-flash": "gemini",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -607,9 +625,10 @@ ANSWER:"""
         """Call an LLM to generate the answer."""
         # Try primary model
         try:
-            from aragora.agents import get_agent  # type: ignore[attr-defined]
+            from aragora.agents import create_agent
 
-            agent = get_agent(self.config.model)
+            agent_type = _MODEL_TO_AGENT_TYPE.get(self.config.model, "anthropic-api")
+            agent = create_agent(agent_type, model=self.config.model)
             if agent:
                 # Build messages with context
                 messages = context_messages + [{"role": "user", "content": prompt}]
@@ -620,9 +639,10 @@ ANSWER:"""
 
         # Try fallback model
         try:
-            from aragora.agents import get_agent  # type: ignore[attr-defined]
+            from aragora.agents import create_agent
 
-            agent = get_agent(self.config.fallback_model)
+            fallback_type = _MODEL_TO_AGENT_TYPE.get(self.config.fallback_model, "gemini")
+            agent = create_agent(fallback_type, model=self.config.fallback_model)
             if agent:
                 response = await agent.generate(prompt)
                 return response, self.config.fallback_model
@@ -647,9 +667,10 @@ ANSWER:"""
         prompt = self._build_answer_prompt(question, context, QueryMode.FACTUAL)
 
         try:
-            from aragora.agents import get_agent  # type: ignore[attr-defined]
+            from aragora.agents import create_agent
 
-            agent = get_agent(self.config.model)
+            agent_type = _MODEL_TO_AGENT_TYPE.get(self.config.model, "anthropic-api")
+            agent = create_agent(agent_type, model=self.config.model)
             if agent and hasattr(agent, "generate_stream"):
                 async for chunk in agent.generate_stream(prompt):
                     yield chunk

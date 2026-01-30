@@ -52,10 +52,17 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound import (
+        KnowledgeMound as KnowledgeMoundType,
+        MoundConfig as MoundConfigType,
+        MoundBackend as MoundBackendType,
+    )
+    from aragora.documents.ingestion import UnstructuredParser as UnstructuredParserType
 
 from aragora.documents.chunking import (
-    ChunkingConfig,
     auto_select_strategy,
     get_chunking_strategy,
 )
@@ -83,9 +90,9 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound = None  # type: ignore[misc,assignment]
-    MoundConfig = None  # type: ignore[misc,assignment]
-    MoundBackend = None  # type: ignore[misc,assignment]
+    KnowledgeMound: type[KnowledgeMoundType] | None = None
+    MoundConfig: type[MoundConfigType] | None = None
+    MoundBackend: type[MoundBackendType] | None = None
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +104,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser = None  # type: ignore[misc,assignment]
+    UnstructuredParser: type[UnstructuredParserType] | None = None
 
 
 @dataclass
@@ -265,13 +272,14 @@ class KnowledgePipeline:
         # Initialize Knowledge Mound if configured
         if self.config.use_knowledge_mound and MOUND_AVAILABLE and self._knowledge_mound is None:
             try:
-                mound_config = self.config.mound_config or MoundConfig()
-                self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
-                    config=mound_config,
-                    workspace_id=self.config.workspace_id,
-                )
-                await self._knowledge_mound.initialize()
-                logger.info("Knowledge Mound initialized for pipeline")
+                mound_config = self.config.mound_config or (MoundConfig() if MoundConfig else None)
+                if KnowledgeMound is not None and mound_config is not None:
+                    self._knowledge_mound = KnowledgeMound(
+                        config=mound_config,
+                        workspace_id=self.config.workspace_id,
+                    )
+                    await self._knowledge_mound.initialize()
+                    logger.info("Knowledge Mound initialized for pipeline")
             except Exception as e:
                 logger.warning(f"Failed to initialize Knowledge Mound: {e}")
                 self._knowledge_mound = None
@@ -484,12 +492,17 @@ class KnowledgePipeline:
         if strategy_name not in ("semantic", "sliding", "recursive", "fixed"):
             strategy_name = "semantic"
 
-        config = ChunkingConfig(
+        # Cast to the expected literal type - we've validated the value above
+        from typing import cast
+        from aragora.documents.chunking import ChunkingStrategyType
+
+        strategy_type = cast(ChunkingStrategyType, strategy_name)
+
+        strategy = get_chunking_strategy(
+            strategy_type=strategy_type,
             chunk_size=self.config.chunk_size,
             overlap=self.config.chunk_overlap,
         )
-
-        strategy = get_chunking_strategy(strategy_name, **vars(config))  # type: ignore[arg-type]
         chunks = strategy.chunk(text=text, document_id=document.id)
 
         # Update document

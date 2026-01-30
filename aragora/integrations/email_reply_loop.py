@@ -1127,6 +1127,216 @@ def setup_email_reply_loop() -> None:
     # This function initializes any required state
 
 
+async def send_debate_result_email(
+    debate_id: str,
+    result: dict[str, Any],
+    recipient_email: str,
+) -> dict[str, Any] | None:
+    """
+    Send a debate result back to the user via email.
+
+    This is called by the routing worker to deliver debate results
+    to users who initiated debates via email.
+
+    Args:
+        debate_id: The debate ID
+        result: Debate result dictionary
+        recipient_email: Email address to send to
+
+    Returns:
+        Email send result dict, or None if sending failed
+    """
+    try:
+        # Try SendGrid first
+        sendgrid_key = os.environ.get("SENDGRID_API_KEY")
+        if sendgrid_key:
+            return await _send_via_sendgrid(debate_id, result, recipient_email)
+
+        # Try SES
+        ses_region = os.environ.get("AWS_SES_REGION")
+        if ses_region:
+            return await _send_via_ses(debate_id, result, recipient_email)
+
+        # Fallback to SMTP if configured
+        smtp_host = os.environ.get("SMTP_HOST")
+        if smtp_host:
+            return await _send_via_smtp(debate_id, result, recipient_email)
+
+        logger.warning("No email provider configured for sending debate results")
+        return None
+
+    except Exception as e:
+        logger.error(f"Failed to send debate result email: {e}")
+        return None
+
+
+async def _send_via_sendgrid(
+    debate_id: str,
+    result: dict[str, Any],
+    recipient_email: str,
+) -> dict[str, Any] | None:
+    """Send email via SendGrid API."""
+    try:
+        import httpx
+    except ImportError:
+        logger.warning("httpx not installed, cannot send via SendGrid")
+        return None
+
+    api_key = os.environ.get("SENDGRID_API_KEY", "")
+    from_email = os.environ.get("EMAIL_FROM_ADDRESS", "debates@aragora.ai")
+    from_name = os.environ.get("EMAIL_FROM_NAME", "Aragora Debates")
+
+    # Format the result
+    subject = f"Debate Result: {debate_id[:16]}..."
+    consensus = result.get("consensus", {})
+    summary = consensus.get("summary", "No consensus reached")
+
+    body_text = f"""
+Debate Result
+
+Debate ID: {debate_id}
+
+Summary:
+{summary}
+
+Confidence: {consensus.get("confidence", "N/A")}
+Participants: {", ".join(result.get("participants", []))}
+
+---
+Reply to this email to continue the discussion.
+"""
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "personalizations": [{"to": [{"email": recipient_email}]}],
+                "from": {"email": from_email, "name": from_name},
+                "subject": subject,
+                "content": [{"type": "text/plain", "value": body_text}],
+                "headers": {
+                    "X-Aragora-Debate-Id": debate_id,
+                },
+            },
+            timeout=30.0,
+        )
+
+        if response.status_code in (200, 202):
+            return {"status": "sent", "provider": "sendgrid"}
+        else:
+            logger.error(f"SendGrid error: {response.status_code} {response.text}")
+            return None
+
+
+async def _send_via_ses(
+    debate_id: str,
+    result: dict[str, Any],
+    recipient_email: str,
+) -> dict[str, Any] | None:
+    """Send email via AWS SES."""
+    try:
+        import boto3
+    except ImportError:
+        logger.warning("boto3 not installed, cannot send via SES")
+        return None
+
+    from_email = os.environ.get("EMAIL_FROM_ADDRESS", "debates@aragora.ai")
+    region = os.environ.get("AWS_SES_REGION", "us-east-1")
+
+    # Format the result
+    subject = f"Debate Result: {debate_id[:16]}..."
+    consensus = result.get("consensus", {})
+    summary = consensus.get("summary", "No consensus reached")
+
+    body_text = f"""
+Debate Result
+
+Debate ID: {debate_id}
+
+Summary:
+{summary}
+
+Confidence: {consensus.get("confidence", "N/A")}
+Participants: {", ".join(result.get("participants", []))}
+
+---
+Reply to this email to continue the discussion.
+"""
+
+    try:
+        ses = boto3.client("ses", region_name=region)
+        response = ses.send_email(
+            Source=from_email,
+            Destination={"ToAddresses": [recipient_email]},
+            Message={
+                "Subject": {"Data": subject, "Charset": "UTF-8"},
+                "Body": {"Text": {"Data": body_text, "Charset": "UTF-8"}},
+            },
+        )
+        return {"status": "sent", "provider": "ses", "message_id": response["MessageId"]}
+    except Exception as e:
+        logger.error(f"SES error: {e}")
+        return None
+
+
+async def _send_via_smtp(
+    debate_id: str,
+    result: dict[str, Any],
+    recipient_email: str,
+) -> dict[str, Any] | None:
+    """Send email via SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    smtp_host = os.environ.get("SMTP_HOST", "")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    from_email = os.environ.get("EMAIL_FROM_ADDRESS", "debates@aragora.ai")
+
+    # Format the result
+    subject = f"Debate Result: {debate_id[:16]}..."
+    consensus = result.get("consensus", {})
+    summary = consensus.get("summary", "No consensus reached")
+
+    body_text = f"""
+Debate Result
+
+Debate ID: {debate_id}
+
+Summary:
+{summary}
+
+Confidence: {consensus.get("confidence", "N/A")}
+Participants: {", ".join(result.get("participants", []))}
+
+---
+Reply to this email to continue the discussion.
+"""
+
+    try:
+        msg = MIMEText(body_text)
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = recipient_email
+        msg["X-Aragora-Debate-Id"] = debate_id
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_pass:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+
+        return {"status": "sent", "provider": "smtp"}
+    except Exception as e:
+        logger.error(f"SMTP error: {e}")
+        return None
+
+
 __all__ = [
     "InboundEmail",
     "EmailReplyOrigin",
@@ -1140,4 +1350,5 @@ __all__ = [
     "register_reply_handler",
     "handle_email_reply",
     "setup_email_reply_loop",
+    "send_debate_result_email",
 ]

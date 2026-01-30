@@ -5,7 +5,7 @@ Provides user management, organization handling, subscription tiers,
 usage tracking, and Stripe integration for monetization.
 """
 
-from typing import Any
+from typing import Any, Callable, Optional
 
 from aragora.billing.jwt_auth import (
     JWTPayload,
@@ -90,6 +90,14 @@ from aragora.billing.multi_org import (
 )
 
 # Invoice export requires reportlab (optional dependency)
+# Declare with explicit Optional types for proper type checking
+InvoiceExporter: Optional[type[Any]]
+InvoiceCompanyInfo: Optional[type[Any]]
+InvoiceCustomerInfo: Optional[type[Any]]
+InvoiceExportConfig: Optional[type[Any]]
+export_invoice_pdf: Optional[Callable[..., Any]]
+export_invoice_html: Optional[Callable[..., Any]]
+
 try:
     from aragora.billing.invoice_export import (
         InvoiceExporter,
@@ -100,12 +108,12 @@ try:
         export_invoice_html,
     )
 except ImportError:
-    InvoiceExporter: Any = None  # type: ignore[no-redef]
-    InvoiceCompanyInfo: Any = None  # type: ignore[no-redef]
-    InvoiceCustomerInfo: Any = None  # type: ignore[no-redef]
-    InvoiceExportConfig: Any = None  # type: ignore[no-redef]
-    export_invoice_pdf: Any = None  # type: ignore[no-redef]
-    export_invoice_html: Any = None  # type: ignore[no-redef]
+    InvoiceExporter = None
+    InvoiceCompanyInfo = None
+    InvoiceCustomerInfo = None
+    InvoiceExportConfig = None
+    export_invoice_pdf = None
+    export_invoice_html = None
 from aragora.billing.discounts import (
     DiscountType,
     DiscountCodeStatus,

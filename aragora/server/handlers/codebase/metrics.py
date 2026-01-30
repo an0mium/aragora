@@ -29,6 +29,7 @@ from aragora.analysis.codebase import (
 )
 from aragora.server.handlers.base import (
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -458,9 +459,9 @@ class MetricsHandler(SecureHandler):
         "/api/v1/codebase/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
@@ -471,7 +472,7 @@ class MetricsHandler(SecureHandler):
                     return True
         return False
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route metrics endpoint requests."""

@@ -289,6 +289,12 @@ class EvidenceGrounder:
         except ImportError:
             return 0, 0  # Formal verification not available
 
+        from aragora.reasoning.citations import (
+            CitationQuality,
+            CitationType,
+            ScholarlyEvidence,
+        )
+
         try:
             manager = get_formal_verification_manager()
             status = manager.status_report()
@@ -312,22 +318,38 @@ class EvidenceGrounder:
                     if proof_result and proof_result.status == FormalProofStatus.PROOF_FOUND:
                         claim.grounding_score = 1.0  # Formally verified
                         claim.citations.append(
-                            {  # type: ignore[arg-type]
-                                "type": "formal_proof",
-                                "prover": proof_result.language.value,
-                                "verified": True,
-                            }
+                            ScholarlyEvidence(
+                                id=f"formal_proof_{claim.claim_id}",
+                                citation_type=CitationType.DOCUMENTATION,
+                                title=f"Formal Proof ({proof_result.language.value})",
+                                excerpt="Formally verified claim",
+                                quality=CitationQuality.PEER_REVIEWED,
+                                verified=True,
+                                metadata={
+                                    "type": "formal_proof",
+                                    "prover": proof_result.language.value,
+                                    "verified": True,
+                                },
+                            )
                         )
                         verified_count += 1
                     elif proof_result and proof_result.status == FormalProofStatus.PROOF_FAILED:
                         claim.grounding_score = 0.0  # Disproven
                         claim.citations.append(
-                            {  # type: ignore[arg-type]
-                                "type": "formal_proof",
-                                "prover": proof_result.language.value,
-                                "verified": False,
-                                "counterexample": proof_result.proof_text,
-                            }
+                            ScholarlyEvidence(
+                                id=f"formal_disproof_{claim.claim_id}",
+                                citation_type=CitationType.DOCUMENTATION,
+                                title=f"Formal Disproof ({proof_result.language.value})",
+                                excerpt=proof_result.proof_text or "Counterexample found",
+                                quality=CitationQuality.PEER_REVIEWED,
+                                verified=True,
+                                metadata={
+                                    "type": "formal_proof",
+                                    "prover": proof_result.language.value,
+                                    "verified": False,
+                                    "counterexample": proof_result.proof_text,
+                                },
+                            )
                         )
                         disproven_count += 1
 

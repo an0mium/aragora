@@ -29,10 +29,11 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, cast
 
 from ..base import (
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
     success_response,
@@ -119,9 +120,13 @@ class DevOpsHandler(SecureHandler):
         "/api/v1/devops/status",
     ]
 
-    def __init__(self, server_context: Optional[dict[str, Any]] = None):
+    def __init__(self, server_context: ServerContext | None = None):
         """Initialize handler with optional server context."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        # ServerContext is a TypedDict with total=False, so empty dict is valid
+        ctx: ServerContext = (
+            server_context if server_context is not None else cast(ServerContext, {})
+        )
+        super().__init__(ctx)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
@@ -133,10 +138,31 @@ class DevOpsHandler(SecureHandler):
             or path.startswith("/api/v1/devops")
         )
 
-    async def handle(  # type: ignore[override]
-        self, request: Any, path: str, method: str
+    async def handle(
+        self,
+        path_or_request: Any,
+        query_params_or_path: dict[str, Any] | str = "",
+        handler_or_method: Any = "GET",
     ) -> HandlerResult:
-        """Route requests to appropriate handler methods."""
+        """Route requests to appropriate handler methods.
+
+        This method has a flexible signature to support both:
+        - Legacy pattern: handle(path, query_params, handler)
+        - Async pattern: handle(request, path, method)
+
+        The implementation detects which pattern is being used.
+        """
+        # Detect calling pattern based on argument types
+        if isinstance(query_params_or_path, str):
+            # Async pattern: handle(request, path, method)
+            request = path_or_request
+            path = query_params_or_path
+            method = str(handler_or_method) if handler_or_method else "GET"
+        else:
+            # Legacy pattern: handle(path, query_params, handler) - not used for DevOps
+            # For this handler, we expect the async pattern
+            raise TypeError("DevOpsHandler.handle expects (request, path, method) signature")
+
         # RBAC: Require authentication and appropriate permission
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)
@@ -925,7 +951,7 @@ class DevOpsHandler(SecureHandler):
 
 
 def create_devops_handler(
-    server_context: Optional[dict[str, Any]] = None,
+    server_context: ServerContext | None = None,
 ) -> DevOpsHandler:
     """Create a devops handler instance."""
     return DevOpsHandler(server_context)

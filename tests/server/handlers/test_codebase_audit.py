@@ -222,7 +222,7 @@ class TestComprehensiveScan:
             }
         )
 
-        result = await handler.handle(request, "/api/v1/codebase/scan", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/scan", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -244,7 +244,7 @@ class TestComprehensiveScan:
             }
         )
 
-        result = await handler.handle(request, "/api/v1/codebase/scan", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/scan", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -262,7 +262,7 @@ class TestIndividualScans:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"target_path": "."})
 
-        result = await handler.handle(request, "/api/v1/codebase/sast", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/sast", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -277,7 +277,7 @@ class TestIndividualScans:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"target_path": "."})
 
-        result = await handler.handle(request, "/api/v1/codebase/bugs", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/bugs", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -291,7 +291,7 @@ class TestIndividualScans:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"target_path": "."})
 
-        result = await handler.handle(request, "/api/v1/codebase/secrets", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/secrets", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -305,7 +305,7 @@ class TestIndividualScans:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"target_path": "."})
 
-        result = await handler.handle(request, "/api/v1/codebase/dependencies", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/dependencies", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -319,7 +319,7 @@ class TestIndividualScans:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"target_path": "."})
 
-        result = await handler.handle(request, "/api/v1/codebase/metrics", "POST")
+        result = await handler.handle_request(request, "/api/v1/codebase/metrics", "POST")
 
         assert result is not None
         assert result.status_code == 200
@@ -338,7 +338,7 @@ class TestListScans:
         request.tenant_id = "new_tenant"
         request.query = {}
 
-        result = await handler.handle(request, "/api/v1/codebase/scans", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/scans", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -353,7 +353,7 @@ class TestListScans:
         request.tenant_id = "test_tenant"
         request.query = {"type": "sast", "status": "completed", "limit": "10"}
 
-        result = await handler.handle(request, "/api/v1/codebase/scans", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/scans", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -370,7 +370,7 @@ class TestGetScan:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(request, "/api/v1/codebase/scan/nonexistent", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/scan/nonexistent", "GET")
 
         assert result is not None
         assert result.status_code == 404
@@ -388,7 +388,7 @@ class TestListFindings:
         request.tenant_id = "empty_tenant"
         request.query = {}
 
-        result = await handler.handle(request, "/api/v1/codebase/findings", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/findings", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -408,7 +408,7 @@ class TestListFindings:
             "limit": "20",
         }
 
-        result = await handler.handle(request, "/api/v1/codebase/findings", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/findings", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -432,7 +432,7 @@ class TestDismissFinding:
             }
         )
 
-        result = await handler.handle(
+        result = await handler.handle_request(
             request, "/api/v1/codebase/findings/nonexistent/dismiss", "POST"
         )
 
@@ -452,7 +452,7 @@ class TestCreateIssue:
         request.tenant_id = "test_tenant"
         request.json = AsyncMock(return_value={"repo": "org/repo"})
 
-        result = await handler.handle(
+        result = await handler.handle_request(
             request, "/api/v1/codebase/findings/nonexistent/create-issue", "POST"
         )
 
@@ -471,7 +471,7 @@ class TestDashboard:
         request = MagicMock()
         request.tenant_id = "dashboard_tenant"
 
-        result = await handler.handle(request, "/api/v1/codebase/dashboard", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/dashboard", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -490,7 +490,7 @@ class TestDemoEndpoint:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(request, "/api/v1/codebase/demo", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/demo", "GET")
 
         assert result is not None
         assert result.status_code == 200
@@ -568,7 +568,7 @@ class TestNotFoundRoute:
         request = MagicMock()
         request.tenant_id = "test_tenant"
 
-        result = await handler.handle(request, "/api/v1/codebase/unknown/path", "GET")
+        result = await handler.handle_request(request, "/api/v1/codebase/unknown/path", "GET")
 
         assert result is not None
         assert result.status_code == 404

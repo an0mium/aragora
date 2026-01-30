@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, AsyncIterator, Optional
 
+from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
     SyncItem,
@@ -1177,9 +1178,10 @@ class HL7v2Connector(EnterpriseConnector):
         ack_raw = "\r".join(ack_lines)
         return self.parser.parse(ack_raw)
 
-    async def sync_items(  # type: ignore[override]
+    async def sync_items(
         self,
-        state: SyncState | None = None,
+        state: SyncState,
+        batch_size: int = 100,
     ) -> AsyncIterator[SyncItem]:
         """
         Sync HL7 messages from configured source.
@@ -1325,22 +1327,21 @@ class HL7v2Connector(EnterpriseConnector):
             except OSError as e:
                 logger.error(f"Failed to write audit log: {e}")
 
-    async def search(  # type: ignore[override]
+    async def search(
         self,
         query: str,
         limit: int = 10,
-        **kwargs,
-    ) -> list[SyncItem]:
+        **kwargs: Any,
+    ) -> list[Evidence]:
         """Search processed HL7 messages (placeholder for Knowledge Mound integration)."""
         # This would typically query the Knowledge Mound
         logger.warning("HL7v2Connector.search() requires Knowledge Mound integration")
         return []
 
-    async def fetch(  # type: ignore[override]
+    async def fetch(
         self,
-        item_id: str,
-        **kwargs,
-    ) -> SyncItem | None:
+        evidence_id: str,
+    ) -> Evidence | None:
         """Fetch a specific HL7 message by ID (placeholder for Knowledge Mound integration)."""
         logger.warning("HL7v2Connector.fetch() requires Knowledge Mound integration")
         return None

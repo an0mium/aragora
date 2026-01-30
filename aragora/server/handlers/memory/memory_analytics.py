@@ -10,9 +10,14 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from aragora.memory.tier_analytics import TierAnalyticsTracker
 
 from ..base import (
     HandlerResult,
+    ServerContext,
     error_response,
     get_clamped_int_param,
     handle_errors,
@@ -41,13 +46,15 @@ class MemoryAnalyticsHandler(SecureHandler):
         "/api/v1/memory/analytics/snapshot",
     ]
 
-    def __init__(self, ctx: dict | None = None):
+    _tracker: TierAnalyticsTracker | None
+
+    def __init__(self, ctx: ServerContext | None = None) -> None:
         """Initialize with context."""
-        super().__init__(ctx or {})
+        super().__init__(ctx if ctx is not None else cast(ServerContext, {}))
         self._tracker = None
 
     @property
-    def tracker(self):
+    def tracker(self) -> TierAnalyticsTracker | None:
         """Lazy-load analytics tracker."""
         if self._tracker is None:
             try:
@@ -68,8 +75,8 @@ class MemoryAnalyticsHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler=None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
         # Rate limit check
@@ -99,8 +106,8 @@ class MemoryAnalyticsHandler(SecureHandler):
 
         return None
 
-    async def handle_post(  # type: ignore[override]
-        self, path: str, body: dict, handler=None
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
     ) -> HandlerResult | None:
         """Handle POST requests with RBAC."""
         # RBAC: Require authentication and memory:read permission for POST too

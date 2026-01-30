@@ -26,40 +26,73 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 
 from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
+
+# Stub classes defined at module level for consistent typing
+class _BaseToolStub:
+    """Stub BaseTool when LangChain not installed."""
+
+    name: str = ""
+    description: str = ""
+
+    def __init__(self, **kwargs: Any) -> None:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class _BaseModelStub:
+    """Stub BaseModel when pydantic not available via LangChain."""
+
+    pass
+
+
+def _FieldStub(*args: Any, **kwargs: Any) -> Any:
+    """Stub Field when pydantic not available via LangChain."""
+    return kwargs.get("default", None)
+
+
+# Type aliases for the module - allows type checkers to understand both possibilities
+BaseToolType = type[_BaseToolStub] | type[Any]
+BaseModelType = type[_BaseModelStub] | type[Any]
+FieldType = Callable[..., Any]
+
+# Module-level type declarations
+BaseTool: BaseToolType
+BaseModel: BaseModelType
+Field: FieldType
+AsyncCallbackManagerForToolRun: Optional[type[Any]]
+CallbackManagerForToolRun: Optional[type[Any]]
+
 # LangChain imports with fallback
 try:
-    from langchain.tools import BaseTool
+    from langchain.tools import BaseTool as _LCBaseTool
     from langchain.callbacks.manager import (
-        AsyncCallbackManagerForToolRun,
-        CallbackManagerForToolRun,
+        AsyncCallbackManagerForToolRun as _LCAsyncCBManager,
+        CallbackManagerForToolRun as _LCCBManager,
     )
-    from pydantic import BaseModel, Field
+    from pydantic import BaseModel as _PydanticBaseModel, Field as _PydanticField
 
+    BaseTool = _LCBaseTool
+    BaseModel = _PydanticBaseModel
+    Field = _PydanticField
+    AsyncCallbackManagerForToolRun = _LCAsyncCBManager
+    CallbackManagerForToolRun = _LCCBManager
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
 
-    # Provide stub classes for type hints
-    class BaseTool:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub BaseTool when LangChain not installed."""
-
-        pass
-
-    class BaseModel:  # type: ignore[no-redef]  # Stub when LangChain not installed
-        """Stub BaseModel."""
-
-        pass
-
-    def Field(*args: Any, **kwargs: Any) -> Any:  # type: ignore[no-redef]
-        """Stub Field."""
-        return None
+    # Use stubs when LangChain is not installed
+    BaseTool = _BaseToolStub
+    BaseModel = _BaseModelStub
+    Field = _FieldStub
+    AsyncCallbackManagerForToolRun = None
+    CallbackManagerForToolRun = None
 
 
 def get_langchain_version() -> str | None:

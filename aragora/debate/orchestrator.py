@@ -652,7 +652,7 @@ class Arena:
             loop_id=self.loop_id,
             strict_loop_scoping=self.strict_loop_scoping,
         )
-        self.audience_manager.set_notify_callback(self._notify_spectator)  # type: ignore[arg-type]
+        self.audience_manager.set_notify_callback(self._notify_spectator)
 
         # Subscribe to user participation events if emitter provided
         if self.event_emitter:
@@ -974,7 +974,7 @@ class Arena:
         self.prompt_builder.current_role_assignments = self.current_role_assignments
         self.prompt_builder._historical_context_cache = self._cache.historical_context
         self.prompt_builder._continuum_context_cache = self._get_continuum_context()
-        self.prompt_builder.user_suggestions = self.user_suggestions  # type: ignore[assignment]
+        self.prompt_builder.user_suggestions = list(self.user_suggestions)
 
     async def compress_debate_messages(
         self,
@@ -1688,7 +1688,7 @@ class Arena:
             if self.debate_embeddings:
                 await self.debate_embeddings.index_debate(artifact)
         except (AttributeError, TypeError, ValueError, RuntimeError, OSError, ConnectionError) as e:
-            logger.warning("Async debate indexing failed: %s", e)  # type: ignore[misc,call-arg]
+            logger.warning(f"Async debate indexing failed: {e}")
 
     def _group_similar_votes(self, votes: list[Vote]) -> dict[str, list[str]]:
         """Group semantically similar vote choices. Delegates to VotingPhase."""

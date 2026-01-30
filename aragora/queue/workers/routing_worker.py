@@ -218,7 +218,7 @@ class RoutingWorker:
 
     async def _route_email_result(self, job: QueuedJob) -> bool:
         """Route a result via email reply."""
-        from aragora.integrations.email_reply_loop import send_debate_result_email  # type: ignore[attr-defined]
+        from aragora.integrations.email_reply_loop import send_debate_result_email
 
         payload = job.payload
         debate_id = payload.get("debate_id")
@@ -300,20 +300,15 @@ async def recover_interrupted_routing() -> int:
     recovered = 0
 
     try:
-        job_types = [
-            JOB_TYPE_ROUTING,
-            JOB_TYPE_ROUTING_DEBATE,
-            JOB_TYPE_ROUTING_EMAIL,
-        ]
-
-        for job_type in job_types:
-            stale_recovered = await store.recover_stale_jobs(  # type: ignore[call-arg]
-                stale_threshold_seconds=300.0,
-                job_types=[job_type],
-            )
-            if stale_recovered:
-                logger.info(f"Recovered {stale_recovered} stale {job_type} jobs")
-                recovered += stale_recovered
+        # Recover all stale jobs - the store interface doesn't support
+        # filtering by job type, so we recover all stale jobs at once.
+        # The worker will only process routing job types when dequeuing.
+        stale_recovered = await store.recover_stale_jobs(
+            stale_threshold_seconds=300.0,
+        )
+        if stale_recovered:
+            logger.info(f"Recovered {stale_recovered} stale jobs")
+            recovered = stale_recovered
 
     except Exception as e:
         logger.error(f"Error recovering routing jobs: {e}", exc_info=True)

@@ -36,7 +36,21 @@ logger = logging.getLogger(__name__)
 
 
 class ConvoyStatus(Enum):
-    """Convoy lifecycle status."""
+    """Workspace convoy lifecycle status.
+
+    Maps to canonical ``aragora.nomic.stores.ConvoyStatus``:
+        CREATED   -> NomicConvoyStatus.PENDING
+        ASSIGNING -> NomicConvoyStatus.ACTIVE
+        EXECUTING -> NomicConvoyStatus.ACTIVE
+        MERGING   -> NomicConvoyStatus.ACTIVE
+        DONE      -> NomicConvoyStatus.COMPLETED
+        FAILED    -> NomicConvoyStatus.FAILED
+        CANCELLED -> NomicConvoyStatus.CANCELLED
+
+    Note: Workspace has finer-grained ACTIVE states (ASSIGNING, EXECUTING, MERGING)
+    that all map to NomicConvoyStatus.ACTIVE. The specific sub-state is preserved
+    in metadata["workspace_status"].
+    """
 
     CREATED = "created"
     ASSIGNING = "assigning"
@@ -45,6 +59,45 @@ class ConvoyStatus(Enum):
     DONE = "done"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+    def to_nomic(self) -> NomicConvoyStatus:
+        """Convert to canonical nomic status."""
+        mapping = {
+            ConvoyStatus.CREATED: NomicConvoyStatus.PENDING,
+            ConvoyStatus.ASSIGNING: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.EXECUTING: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.MERGING: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.DONE: NomicConvoyStatus.COMPLETED,
+            ConvoyStatus.FAILED: NomicConvoyStatus.FAILED,
+            ConvoyStatus.CANCELLED: NomicConvoyStatus.CANCELLED,
+        }
+        return mapping[self]
+
+    @classmethod
+    def from_nomic(
+        cls,
+        nomic_status: NomicConvoyStatus,
+        workspace_status: str | None = None,
+    ) -> "ConvoyStatus":
+        """Convert from canonical nomic status.
+
+        If workspace_status is provided (from metadata), use that for
+        finer-grained ACTIVE sub-states.
+        """
+        if workspace_status:
+            try:
+                return cls(workspace_status)
+            except ValueError:
+                pass
+        mapping = {
+            NomicConvoyStatus.PENDING: cls.CREATED,
+            NomicConvoyStatus.ACTIVE: cls.EXECUTING,
+            NomicConvoyStatus.COMPLETED: cls.DONE,
+            NomicConvoyStatus.FAILED: cls.FAILED,
+            NomicConvoyStatus.CANCELLED: cls.CANCELLED,
+            NomicConvoyStatus.PARTIAL: cls.EXECUTING,
+        }
+        return mapping.get(nomic_status, cls.CREATED)
 
 
 @dataclass

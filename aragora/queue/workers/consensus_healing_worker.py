@@ -22,7 +22,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -204,9 +204,9 @@ class ConsensusHealingWorker:
 
         try:
             # Try to use consensus memory if available
-            from aragora.memory.consensus import get_consensus_memory  # type: ignore[attr-defined]
+            from aragora.memory.consensus import ConsensusMemory
 
-            memory = get_consensus_memory()
+            memory: ConsensusMemory = ConsensusMemory()
 
             # Find debates without consensus
             # This is a simplified implementation - in production, query the database
@@ -260,7 +260,7 @@ class ConsensusHealingWorker:
                 )
                 # Ensure we return a properly typed list
                 if isinstance(result, list):
-                    return result  # type: ignore[return-value]
+                    return cast(list[dict[str, Any]], result)
                 return []
             return []
         except Exception:

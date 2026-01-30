@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Cross-pollination health check implementations.
 
@@ -15,14 +14,30 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
 
-def cross_pollination_health(handler) -> HandlerResult:
+@runtime_checkable
+class _EloSystem(Protocol):
+    """Protocol for ELO system interface."""
+
+    def get_leaderboard(self, limit: int = 10) -> list[Any]: ...
+
+
+@runtime_checkable
+class _HandlerWithContext(Protocol):
+    """Protocol for handler with context and ELO system."""
+
+    ctx: dict[str, Any]
+
+    def get_elo_system(self) -> _EloSystem | None: ...
+
+
+def cross_pollination_health(handler: _HandlerWithContext) -> HandlerResult:
     """Check health of cross-pollination feature integrations.
 
     Returns status of:
@@ -151,15 +166,23 @@ def cross_pollination_health(handler) -> HandlerResult:
 
     # Check Knowledge Mound
     try:
-        from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
+        from aragora.debate import knowledge_mound_ops
 
-        km_stats = get_knowledge_mound_stats()
-        features["knowledge_mound"] = {
-            "healthy": True,
-            "status": "active",
-            "facts_count": km_stats.get("facts_count", 0),
-            "consensus_stored": km_stats.get("consensus_stored", 0),
-        }
+        get_stats_fn = getattr(knowledge_mound_ops, "get_knowledge_mound_stats", None)
+        if get_stats_fn is not None:
+            km_stats: dict[str, Any] = get_stats_fn()
+            features["knowledge_mound"] = {
+                "healthy": True,
+                "status": "active",
+                "facts_count": km_stats.get("facts_count", 0),
+                "consensus_stored": km_stats.get("consensus_stored", 0),
+            }
+        else:
+            features["knowledge_mound"] = {
+                "healthy": True,
+                "status": "partial",
+                "note": "KnowledgeMoundOperations class available but stats function not found",
+            }
     except ImportError:
         features["knowledge_mound"] = {
             "healthy": True,
@@ -175,14 +198,22 @@ def cross_pollination_health(handler) -> HandlerResult:
 
     # Check trending topics (Pulse)
     try:
-        from aragora.pulse import get_pulse_stats  # type: ignore[attr-defined]
+        from aragora import pulse
 
-        pulse_stats = get_pulse_stats()
-        features["trending_topics"] = {
-            "healthy": True,
-            "status": "active",
-            "topics_tracked": pulse_stats.get("topics_count", 0),
-        }
+        get_stats_fn = getattr(pulse, "get_pulse_stats", None)
+        if get_stats_fn is not None:
+            pulse_stats: dict[str, Any] = get_stats_fn()
+            features["trending_topics"] = {
+                "healthy": True,
+                "status": "active",
+                "topics_tracked": pulse_stats.get("topics_count", 0),
+            }
+        else:
+            features["trending_topics"] = {
+                "healthy": True,
+                "status": "partial",
+                "note": "Pulse module available but stats function not found",
+            }
     except ImportError:
         features["trending_topics"] = {
             "healthy": True,
