@@ -752,7 +752,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         Interface compatibility method for OutcomeMemoryBridge.
         """
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 """
                 UPDATE continuum_memory
@@ -764,13 +764,13 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             conn.commit()
             return cursor.rowcount > 0
 
-    def demote_entry(self, memory_id: str, new_tier: "MemoryTier") -> bool:
+    def demote_entry(self, memory_id: str, new_tier: MemoryTier) -> bool:
         """Demote an entry to a specific tier.
 
         Interface compatibility method for OutcomeMemoryBridge.
         """
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 """
                 UPDATE continuum_memory
