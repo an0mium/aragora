@@ -665,35 +665,59 @@ console.log("__RESULT__:" + JSON.stringify({{result}}));
         code: str,
         timeout: float,
     ) -> dict[str, Any]:
-        """Execute shell commands (restricted)."""
-        # Block dangerous commands
-        dangerous = ["rm -rf", "mkfs", "dd if=", ":(){", "fork", "wget", "curl"]
-        for cmd in dangerous:
-            if cmd in code.lower():
+        """Execute shell commands using sandboxed subprocess runner.
+
+        Uses the secure subprocess_runner module which enforces:
+        - Command whitelist validation
+        - Blocked command rejection
+        - Shell metacharacter detection
+        - Sanitized environment
+        """
+        import shlex
+
+        from aragora.utils.subprocess_runner import SandboxError, run_sandboxed
+
+        try:
+            # Parse the command string into arguments
+            args = shlex.split(code)
+            if not args:
                 return {
                     "language": "shell",
                     "exit_code": 1,
                     "stdout": "",
-                    "stderr": f"Blocked dangerous command: {cmd}",
+                    "stderr": "Empty command",
                 }
 
-        proc = await asyncio.create_subprocess_shell(
-            code,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+            # Use the secure sandboxed runner (validates against allowlist)
+            result = await run_sandboxed(
+                args,
+                timeout=min(timeout, 60.0),  # Cap at 60 seconds for shell commands
+                capture_output=True,
+            )
 
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(),
-            timeout=timeout,
-        )
+            return {
+                "language": "shell",
+                "exit_code": result.returncode,
+                "stdout": result.stdout[: self._max_output_size],
+                "stderr": result.stderr[: self._max_output_size],
+            }
 
-        return {
-            "language": "shell",
-            "exit_code": proc.returncode,
-            "stdout": stdout.decode()[: self._max_output_size],
-            "stderr": stderr.decode()[: self._max_output_size],
-        }
+        except SandboxError as e:
+            # Command failed allowlist validation
+            return {
+                "language": "shell",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Security: {e}",
+            }
+        except ValueError as e:
+            # shlex.split failed (malformed command)
+            return {
+                "language": "shell",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Invalid command syntax: {e}",
+            }
 
 
 # Skill instance for registration

@@ -34,7 +34,7 @@ from ..base import (
     safe_error_message,
 )
 from ..secure import SecureHandler
-from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 # Rate limiters for memory endpoints
 _retrieve_limiter = RateLimiter(requests_per_minute=60)  # Read operations
@@ -189,6 +189,7 @@ class MemoryHandler(SecureHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("continuum memories retrieval")
     def _get_continuum_memories(self, params: dict) -> HandlerResult:
         """Retrieve memories from the continuum memory system."""
@@ -250,6 +251,7 @@ class MemoryHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=20, limiter_name="memory_write")
     @handle_errors("memory consolidation")
     def _trigger_consolidation(self) -> HandlerResult:
         """Trigger memory consolidation process."""
@@ -277,6 +279,7 @@ class MemoryHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=10, limiter_name="memory_delete")
     @handle_errors("memory cleanup")
     def _trigger_cleanup(self, params: dict) -> HandlerResult:
         """Trigger memory cleanup with optional parameters."""
@@ -330,6 +333,7 @@ class MemoryHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("tier stats retrieval")
     def _get_tier_stats(self) -> HandlerResult:
         """Get statistics for each memory tier."""
@@ -349,6 +353,7 @@ class MemoryHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("archive stats retrieval")
     def _get_archive_stats(self) -> HandlerResult:
         """Get statistics for archived memories."""
@@ -362,6 +367,7 @@ class MemoryHandler(SecureHandler):
         stats = continuum.get_archive_stats()
         return json_response(stats)
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("memory pressure retrieval")
     def _get_memory_pressure(self) -> HandlerResult:
         """Get current memory pressure and per-tier utilization.
@@ -459,6 +465,7 @@ class MemoryHandler(SecureHandler):
             return self._delete_memory(memory_id)
         return None
 
+    @rate_limit(requests_per_minute=10, limiter_name="memory_delete")
     @handle_errors("memory deletion")
     def _delete_memory(self, memory_id: str) -> HandlerResult:
         """Delete a memory by ID."""
@@ -484,6 +491,7 @@ class MemoryHandler(SecureHandler):
         except Exception as e:
             return error_response(safe_error_message(e, "delete memory"), 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("get all tiers")
     def _get_all_tiers(self) -> HandlerResult:
         """Get comprehensive information about all memory tiers.
@@ -577,6 +585,7 @@ class MemoryHandler(SecureHandler):
         else:
             return f"{seconds // 86400}d"
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("search memories")
     def _search_memories(self, params: dict) -> HandlerResult:
         """Search memories across all tiers with filtering.
@@ -660,6 +669,7 @@ class MemoryHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_read")
     @handle_errors("get critiques")
     def _get_critiques(self, params: dict) -> HandlerResult:
         """Browse critique store entries.

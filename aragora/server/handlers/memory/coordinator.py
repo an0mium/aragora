@@ -19,7 +19,7 @@ from ..base import (
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 if TYPE_CHECKING:
     from aragora.memory.coordinator import MemoryCoordinator as MemoryCoordinatorType
@@ -104,6 +104,7 @@ class CoordinatorHandler(SecureHandler):
         result: MemoryCoordinatorType = coordinator
         return result
 
+    @rate_limit(requests_per_minute=60, limiter_name="coordinator_read")
     @handle_errors("coordinator metrics")
     def _get_metrics(self) -> HandlerResult:
         """Get coordinator metrics including success rate and rollback stats."""
@@ -152,6 +153,7 @@ class CoordinatorHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="coordinator_read")
     @handle_errors("coordinator config")
     def _get_config(self) -> HandlerResult:
         """Get current coordinator configuration."""

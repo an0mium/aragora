@@ -166,6 +166,7 @@ class FolderUploadHandler(BaseHandler):
 
         return None
 
+    @require_permission("upload:delete")
     def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE folder requests."""
         if path.startswith("/api/v1/documents/folders/"):

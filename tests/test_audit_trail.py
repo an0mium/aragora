@@ -22,12 +22,14 @@ from aragora.export.audit_trail import (
     AuditTrail,
     AuditTrailGenerator,
 )
-from aragora.modes.gauntlet import (
-    GauntletResult,
+
+# Use canonical aragora.gauntlet package (not deprecated modes.gauntlet)
+from aragora.gauntlet import (
     InputType,
     Verdict,
     Finding,
 )
+from aragora.gauntlet import OrchestratorResult as GauntletResult
 
 
 # Test Fixtures

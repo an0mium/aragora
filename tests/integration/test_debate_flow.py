@@ -733,7 +733,7 @@ class TestDebateWithResiliencePatterns:
     async def test_circuit_breaker_recovery(self):
         """Circuit breaker should recover after cooldown."""
         from aragora.resilience import CircuitBreaker
-        import time
+        import asyncio
 
         cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=0.1)
 
@@ -743,7 +743,7 @@ class TestDebateWithResiliencePatterns:
         assert cb.get_status("agent") == "open"
 
         # Wait for cooldown
-        time.sleep(0.15)
+        await asyncio.sleep(0.15)
 
         # Should now be half-open
         assert cb.is_available("agent")

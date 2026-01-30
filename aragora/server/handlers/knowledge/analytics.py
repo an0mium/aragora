@@ -18,7 +18,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 
 # =============================================================================
@@ -188,6 +188,7 @@ class AnalyticsHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
     async def _get_mound_stats(self, workspace_id: str | None) -> HandlerResult:
         """Get Knowledge Mound statistics."""
         try:
@@ -232,6 +233,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get mound stats: {e}")
             return error_response("Failed to get mound stats", 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
     def _get_sharing_stats(
         self,
         workspace_id: str | None,
@@ -286,6 +288,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get sharing stats: {e}")
             return error_response("Failed to get sharing stats", 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
     def _get_federation_stats(self, workspace_id: str | None) -> HandlerResult:
         """Get federation statistics."""
         try:
@@ -341,6 +344,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get federation stats: {e}")
             return error_response("Failed to get federation stats", 500)
 
+    @rate_limit(requests_per_minute=5, limiter_name="knowledge_analytics_expensive")
     async def _get_summary(
         self,
         workspace_id: str | None,
@@ -379,6 +383,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get analytics summary: {e}")
             return error_response("Failed to get analytics summary", 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="knowledge_analytics_read")
     def _get_learning_stats(
         self,
         workspace_id: str | None,

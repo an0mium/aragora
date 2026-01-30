@@ -15,10 +15,9 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
-from aragora.modes.gauntlet import (
+# Use canonical aragora.gauntlet package (not deprecated modes.gauntlet)
+from aragora.gauntlet import (
     GauntletOrchestrator,
-    GauntletConfig,
-    GauntletResult,
     Finding,
     VerifiedClaim,
     InputType,
@@ -29,6 +28,10 @@ from aragora.modes.gauntlet import (
     CODE_REVIEW_GAUNTLET,
     POLICY_GAUNTLET,
 )
+
+# OrchestratorConfig is exported as GauntletConfig for backward compat
+from aragora.gauntlet import OrchestratorConfig as GauntletConfig
+from aragora.gauntlet import OrchestratorResult as GauntletResult
 from aragora.export.decision_receipt import (
     DecisionReceipt,
     DecisionReceiptGenerator,

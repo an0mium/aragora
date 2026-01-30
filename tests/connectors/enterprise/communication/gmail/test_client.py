@@ -230,6 +230,29 @@ class TestOAuthUrlGeneration:
 # =============================================================================
 
 
+class MockHttpPoolSession:
+    """Mock HTTP pool session context manager."""
+
+    def __init__(self, mock_client):
+        self.mock_client = mock_client
+
+    async def __aenter__(self):
+        return self.mock_client
+
+    async def __aexit__(self, *args):
+        pass
+
+
+class MockHttpPool:
+    """Mock HTTP client pool."""
+
+    def __init__(self, mock_client):
+        self.mock_client = mock_client
+
+    def get_session(self, name: str):
+        return MockHttpPoolSession(self.mock_client)
+
+
 class TestAuthentication:
     """Tests for authentication methods."""
 
@@ -242,6 +265,10 @@ class TestAuthentication:
             "expires_in": 3600,
         }
 
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response(200, token_response))
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -249,15 +276,10 @@ class TestAuthentication:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(200, token_response)
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 result = await client_mixin.authenticate(
                     code="auth_code_123",
                     redirect_uri="https://example.com/callback",
@@ -276,6 +298,10 @@ class TestAuthentication:
             "expires_in": 3600,
         }
 
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response(200, token_response))
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -283,15 +309,10 @@ class TestAuthentication:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(200, token_response)
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 result = await client_mixin.authenticate(
                     refresh_token="existing_refresh_token",
                 )
@@ -328,6 +349,12 @@ class TestAuthentication:
     @pytest.mark.asyncio
     async def test_authenticate_api_error(self, client_mixin, mock_httpx_response):
         """Test authentication handles API errors."""
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(
+            return_value=mock_httpx_response(401, {"error": "invalid_grant"})
+        )
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -335,15 +362,10 @@ class TestAuthentication:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(401, {"error": "invalid_grant"})
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 result = await client_mixin.authenticate(
                     code="invalid_code",
                     redirect_uri="https://example.com/callback",
@@ -362,6 +384,10 @@ class TestAuthentication:
             # No refresh_token in response
         }
 
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response(200, token_response))
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -369,15 +395,10 @@ class TestAuthentication:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(200, token_response)
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 await client_mixin.authenticate(refresh_token="original_refresh_token")
 
                 assert client_mixin._refresh_token == "original_refresh_token"
@@ -410,6 +431,10 @@ class TestTokenManagement:
             "expires_in": 3600,
         }
 
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response(200, token_response))
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -417,15 +442,10 @@ class TestTokenManagement:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(200, token_response)
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 token = await authenticated_mixin._get_access_token()
 
                 assert token == "new_access_token"
@@ -456,6 +476,10 @@ class TestTokenManagement:
                 },
             )
 
+        mock_client = AsyncMock()
+        mock_client.post = mock_post
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -463,13 +487,10 @@ class TestTokenManagement:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = mock_post
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 # Simulate concurrent token requests
                 results = await asyncio.gather(
                     authenticated_mixin._get_access_token(),
@@ -488,6 +509,10 @@ class TestTokenManagement:
             "expires_in": 3600,
         }
 
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response(200, token_response))
+        mock_pool = MockHttpPool(mock_client)
+
         with patch.dict(
             "os.environ",
             {
@@ -495,15 +520,10 @@ class TestTokenManagement:
                 "GMAIL_CLIENT_SECRET": "test_secret",
             },
         ):
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_instance = AsyncMock()
-                mock_instance.post = AsyncMock(
-                    return_value=mock_httpx_response(200, token_response)
-                )
-                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-                mock_instance.__aexit__ = AsyncMock()
-                mock_client.return_value = mock_instance
-
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                return_value=mock_pool,
+            ):
                 token = await authenticated_mixin._refresh_access_token()
 
                 assert token == "refreshed_token"
@@ -529,13 +549,14 @@ class TestApiRequests:
         """Test successful API request."""
         response_data = {"messages": [{"id": "msg_1"}]}
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, response_data))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, response_data))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             result = await authenticated_mixin._api_request("/messages")
 
             assert result == response_data
@@ -543,34 +564,37 @@ class TestApiRequests:
     @pytest.mark.asyncio
     async def test_api_request_builds_correct_url(self, authenticated_mixin, mock_httpx_response):
         """Test API request builds correct URL."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, {}))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, {}))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await authenticated_mixin._api_request("/messages")
 
-            call_args = mock_instance.request.call_args
-            url = call_args[1]["url"] if "url" in call_args[1] else call_args[0][1]
+            call_args = mock_client.request.call_args
+            # The URL is the second positional argument
+            url = call_args[0][1] if len(call_args[0]) > 1 else call_args.kwargs.get("url", "")
             assert "gmail.googleapis.com" in url
             assert "/users/me/messages" in url
 
     @pytest.mark.asyncio
     async def test_api_request_includes_auth_header(self, authenticated_mixin, mock_httpx_response):
         """Test API request includes authorization header."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, {}))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, {}))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await authenticated_mixin._api_request("/messages")
 
-            call_args = mock_instance.request.call_args
-            headers = call_args[1].get("headers", {})
+            call_args = mock_client.request.call_args
+            headers = call_args.kwargs.get("headers", {})
             assert "Authorization" in headers
             assert "Bearer test_access_token" in headers["Authorization"]
 
@@ -583,34 +607,40 @@ class TestApiRequests:
             await authenticated_mixin._api_request("/messages")
 
     @pytest.mark.asyncio
-    async def test_api_request_records_failure_on_5xx(self, authenticated_mixin, mock_httpx_response):
+    async def test_api_request_records_failure_on_5xx(
+        self, authenticated_mixin, mock_httpx_response
+    ):
         """Test 5xx errors record failures for circuit breaker."""
         error_response = mock_httpx_response(500, {"error": "Server error"})
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=error_response)
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=error_response)
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             with pytest.raises(Exception):
                 await authenticated_mixin._api_request("/messages")
 
             assert authenticated_mixin._failure_count == 1
 
     @pytest.mark.asyncio
-    async def test_api_request_records_failure_on_429(self, authenticated_mixin, mock_httpx_response):
+    async def test_api_request_records_failure_on_429(
+        self, authenticated_mixin, mock_httpx_response
+    ):
         """Test rate limit errors record failures."""
         error_response = mock_httpx_response(429, {"error": "Rate limit"})
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=error_response)
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=error_response)
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             with pytest.raises(Exception):
                 await authenticated_mixin._api_request("/messages")
 
@@ -619,13 +649,14 @@ class TestApiRequests:
     @pytest.mark.asyncio
     async def test_api_request_records_success(self, authenticated_mixin, mock_httpx_response):
         """Test successful requests record success."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, {}))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, {}))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await authenticated_mixin._api_request("/messages")
 
             assert authenticated_mixin._success_count == 1
@@ -633,56 +664,57 @@ class TestApiRequests:
     @pytest.mark.asyncio
     async def test_api_request_with_params(self, authenticated_mixin, mock_httpx_response):
         """Test API request passes query parameters."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, {}))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, {}))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await authenticated_mixin._api_request(
                 "/messages",
                 params={"maxResults": 10, "q": "from:test@example.com"},
             )
 
-            call_args = mock_instance.request.call_args
-            params = call_args[1].get("params", {})
+            call_args = mock_client.request.call_args
+            params = call_args.kwargs.get("params", {})
             assert params["maxResults"] == 10
             assert params["q"] == "from:test@example.com"
 
     @pytest.mark.asyncio
     async def test_api_request_with_json_data(self, authenticated_mixin, mock_httpx_response):
         """Test API request passes JSON data."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(return_value=mock_httpx_response(200, {}))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_httpx_response(200, {}))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             await authenticated_mixin._api_request(
                 "/messages/msg_1/modify",
                 method="POST",
                 json_data={"addLabelIds": ["STARRED"]},
             )
 
-            call_args = mock_instance.request.call_args
-            json_data = call_args[1].get("json", {})
+            call_args = mock_client.request.call_args
+            json_data = call_args.kwargs.get("json", {})
             assert json_data["addLabelIds"] == ["STARRED"]
 
     @pytest.mark.asyncio
     async def test_api_request_timeout_records_failure(self, authenticated_mixin):
         """Test timeout errors record failures."""
-        import httpx
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(side_effect=TimeoutError("Timeout"))
+        mock_pool = MockHttpPool(mock_client)
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
-
-            with pytest.raises(httpx.TimeoutException):
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
+            with pytest.raises(TimeoutError):
                 await authenticated_mixin._api_request("/messages")
 
             assert authenticated_mixin._failure_count == 1
@@ -690,13 +722,14 @@ class TestApiRequests:
     @pytest.mark.asyncio
     async def test_api_request_connection_error_records_failure(self, authenticated_mixin):
         """Test connection errors record failures."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.request = AsyncMock(side_effect=ConnectionError("Network error"))
-            mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-            mock_instance.__aexit__ = AsyncMock()
-            mock_client.return_value = mock_instance
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(side_effect=ConnectionError("Network error"))
+        mock_pool = MockHttpPool(mock_client)
 
+        with patch(
+            "aragora.server.http_client_pool.get_http_pool",
+            return_value=mock_pool,
+        ):
             with pytest.raises(ConnectionError):
                 await authenticated_mixin._api_request("/messages")
 

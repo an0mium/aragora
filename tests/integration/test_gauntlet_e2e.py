@@ -18,10 +18,10 @@ from pathlib import Path
 from typing import Optional
 
 from aragora.core import Agent, Critique, Message
-from aragora.modes.gauntlet import (
+
+# Use canonical aragora.gauntlet package (not deprecated modes.gauntlet)
+from aragora.gauntlet import (
     GauntletOrchestrator,
-    GauntletConfig,
-    GauntletResult,
     InputType,
     Verdict,
     Finding,
@@ -30,6 +30,8 @@ from aragora.modes.gauntlet import (
     CODE_REVIEW_GAUNTLET,
     POLICY_GAUNTLET,
 )
+from aragora.gauntlet import OrchestratorConfig as GauntletConfig
+from aragora.gauntlet import OrchestratorResult as GauntletResult
 from aragora.export.decision_receipt import (
     DecisionReceipt,
     DecisionReceiptGenerator,

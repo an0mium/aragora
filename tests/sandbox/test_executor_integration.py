@@ -428,3 +428,490 @@ class TestExecutionCancel:
             await exec_task
         except asyncio.CancelledError:
             pass
+
+
+class TestExecutionIsolation:
+    """Tests for sandbox execution isolation."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode."""
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            cleanup_on_complete=True,
+        )
+        return SandboxExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_separate_workspaces(self, subprocess_executor):
+        """Test that each execution has separate workspace."""
+        import asyncio
+
+        # Run two executions that write files
+        result1 = await subprocess_executor.execute(
+            code='with open("test1.txt", "w") as f: f.write("exec1")',
+            language="python",
+            timeout=10.0,
+        )
+        result2 = await subprocess_executor.execute(
+            code='with open("test2.txt", "w") as f: f.write("exec2")',
+            language="python",
+            timeout=10.0,
+        )
+
+        # Both should complete
+        assert result1.status == ExecutionStatus.COMPLETED
+        assert result2.status == ExecutionStatus.COMPLETED
+
+        # They should have different execution IDs
+        assert result1.execution_id != result2.execution_id
+
+    @pytest.mark.asyncio
+    async def test_environment_isolation(self, subprocess_executor):
+        """Test that environment variables are isolated."""
+        # Set an env variable in one execution
+        result1 = await subprocess_executor.execute(
+            code='import os; os.environ["TEST_VAR"] = "test_value"; print("set")',
+            language="python",
+            timeout=10.0,
+        )
+
+        # Try to read it in another
+        result2 = await subprocess_executor.execute(
+            code='import os; print(os.environ.get("TEST_VAR", "not_found"))',
+            language="python",
+            timeout=10.0,
+        )
+
+        assert result1.status == ExecutionStatus.COMPLETED
+        assert result2.status == ExecutionStatus.COMPLETED
+        assert "not_found" in result2.stdout
+
+    @pytest.mark.asyncio
+    async def test_custom_environment_passed(self, subprocess_executor):
+        """Test that custom environment is passed to execution."""
+        result = await subprocess_executor.execute(
+            code='import os; print(os.environ.get("CUSTOM_VAR", "missing"))',
+            language="python",
+            timeout=10.0,
+            env={"CUSTOM_VAR": "custom_value"},
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "custom_value" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_concurrent_executions_isolated(self, subprocess_executor):
+        """Test that concurrent executions are isolated."""
+        import asyncio
+
+        async def run_execution(value: str):
+            return await subprocess_executor.execute(
+                code=f'import time; time.sleep(0.1); print("{value}")',
+                language="python",
+                timeout=10.0,
+            )
+
+        # Run multiple executions concurrently
+        results = await asyncio.gather(
+            run_execution("exec1"),
+            run_execution("exec2"),
+            run_execution("exec3"),
+        )
+
+        # All should complete successfully
+        assert all(r.status == ExecutionStatus.COMPLETED for r in results)
+
+        # Each should have its own output
+        assert "exec1" in results[0].stdout
+        assert "exec2" in results[1].stdout
+        assert "exec3" in results[2].stdout
+
+
+class TestTimeoutHandling:
+    """Tests for execution timeout handling."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode."""
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            cleanup_on_complete=True,
+        )
+        return SandboxExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_short_timeout(self, subprocess_executor):
+        """Test very short timeout."""
+        result = await subprocess_executor.execute(
+            code="import time; time.sleep(10)",
+            language="python",
+            timeout=0.2,
+        )
+
+        assert result.status == ExecutionStatus.TIMEOUT
+        assert "timed out" in result.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_timeout_message_includes_duration(self, subprocess_executor):
+        """Test that timeout message includes the timeout duration."""
+        timeout = 0.3
+        result = await subprocess_executor.execute(
+            code="import time; time.sleep(10)",
+            language="python",
+            timeout=timeout,
+        )
+
+        assert result.status == ExecutionStatus.TIMEOUT
+        assert str(timeout) in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_execution_within_timeout(self, subprocess_executor):
+        """Test execution that completes within timeout."""
+        result = await subprocess_executor.execute(
+            code="import time; time.sleep(0.1); print('done')",
+            language="python",
+            timeout=5.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "done" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_default_timeout_from_policy(self):
+        """Test that default timeout comes from policy."""
+        from aragora.sandbox.policies import ResourceLimit
+
+        policy = create_default_policy()
+        policy.resource_limits = ResourceLimit(max_execution_seconds=1)
+
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            policy=policy,
+        )
+        executor = SandboxExecutor(config)
+
+        result = await executor.execute(
+            code="import time; time.sleep(10)",
+            language="python",
+            # No explicit timeout - should use policy default
+        )
+
+        assert result.status == ExecutionStatus.TIMEOUT
+
+    @pytest.mark.asyncio
+    async def test_explicit_timeout_overrides_policy(self):
+        """Test that explicit timeout overrides policy."""
+        from aragora.sandbox.policies import ResourceLimit
+
+        policy = create_default_policy()
+        policy.resource_limits = ResourceLimit(max_execution_seconds=10)
+
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            policy=policy,
+        )
+        executor = SandboxExecutor(config)
+
+        result = await executor.execute(
+            code="import time; time.sleep(5)",
+            language="python",
+            timeout=0.2,  # Much shorter than policy
+        )
+
+        assert result.status == ExecutionStatus.TIMEOUT
+
+
+class TestResourceLimitEnforcement:
+    """Tests for resource limit enforcement."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode."""
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            cleanup_on_complete=True,
+        )
+        return SandboxExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_cpu_intensive_code(self, subprocess_executor):
+        """Test CPU-intensive code execution."""
+        result = await subprocess_executor.execute(
+            code="sum(range(10000)); print('done')",
+            language="python",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "done" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_file_creation_tracked(self, subprocess_executor):
+        """Test that created files are tracked."""
+        result = await subprocess_executor.execute(
+            code="""
+with open("output.txt", "w") as f:
+    f.write("test")
+with open("data.json", "w") as f:
+    f.write("{}")
+print("done")
+""",
+            language="python",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        # Files should be tracked
+        assert len(result.files_created) >= 2
+
+
+class TestLanguageSupport:
+    """Tests for multi-language support."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode and permissive policy for all languages."""
+        from aragora.sandbox.policies import create_permissive_policy
+
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            cleanup_on_complete=True,
+            policy=create_permissive_policy(),
+        )
+        return SandboxExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_python_execution(self, subprocess_executor):
+        """Test Python code execution."""
+        result = await subprocess_executor.execute(
+            code='print("Hello from Python")',
+            language="python",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "Hello from Python" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_bash_execution(self, subprocess_executor):
+        """Test bash script execution."""
+        result = await subprocess_executor.execute(
+            code='echo "Hello from Bash"',
+            language="bash",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "Hello from Bash" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_shell_execution(self, subprocess_executor):
+        """Test shell script execution."""
+        result = await subprocess_executor.execute(
+            code='echo "Hello from Shell"',
+            language="shell",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "Hello from Shell" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_unsupported_language(self, subprocess_executor):
+        """Test execution with unsupported language."""
+        result = await subprocess_executor.execute(
+            code='fn main() { println!("Hello from Rust"); }',
+            language="rust",
+            timeout=10.0,
+        )
+
+        assert result.status == ExecutionStatus.FAILED
+        assert "Unsupported language" in result.error_message
+
+
+class TestAdditionalFileSupport:
+    """Tests for additional file support in execution."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode."""
+        config = SandboxConfig(
+            mode=ExecutionMode.SUBPROCESS,
+            cleanup_on_complete=True,
+        )
+        return SandboxExecutor(config)
+
+    @pytest.mark.asyncio
+    async def test_additional_files_created(self, subprocess_executor):
+        """Test that additional files are created in workspace."""
+        result = await subprocess_executor.execute(
+            code="""
+with open("input.txt", "r") as f:
+    print(f.read())
+""",
+            language="python",
+            timeout=10.0,
+            files={"input.txt": "Hello from input file"},
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "Hello from input file" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_nested_additional_files(self, subprocess_executor):
+        """Test that nested additional files are created."""
+        result = await subprocess_executor.execute(
+            code="""
+with open("subdir/data.txt", "r") as f:
+    print(f.read())
+""",
+            language="python",
+            timeout=10.0,
+            files={"subdir/data.txt": "Nested file content"},
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "Nested file content" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_multiple_additional_files(self, subprocess_executor):
+        """Test multiple additional files."""
+        result = await subprocess_executor.execute(
+            code="""
+with open("file1.txt", "r") as f1:
+    with open("file2.txt", "r") as f2:
+        print(f1.read() + " " + f2.read())
+""",
+            language="python",
+            timeout=10.0,
+            files={
+                "file1.txt": "First",
+                "file2.txt": "Second",
+            },
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert "First Second" in result.stdout
+
+
+class TestExecutionModeEnum:
+    """Tests for ExecutionMode enum."""
+
+    def test_execution_modes(self):
+        """Test execution mode values."""
+        assert ExecutionMode.DOCKER.value == "docker"
+        assert ExecutionMode.SUBPROCESS.value == "subprocess"
+        assert ExecutionMode.MOCK.value == "mock"
+
+
+class TestExecutionStatusEnum:
+    """Tests for ExecutionStatus enum."""
+
+    def test_execution_statuses(self):
+        """Test execution status values."""
+        assert ExecutionStatus.PENDING.value == "pending"
+        assert ExecutionStatus.RUNNING.value == "running"
+        assert ExecutionStatus.COMPLETED.value == "completed"
+        assert ExecutionStatus.FAILED.value == "failed"
+        assert ExecutionStatus.TIMEOUT.value == "timeout"
+        assert ExecutionStatus.POLICY_DENIED.value == "policy_denied"
+
+
+class TestWriteCodeFile:
+    """Tests for code file writing."""
+
+    @pytest.fixture
+    def subprocess_executor(self):
+        """Create executor with subprocess mode."""
+        return SandboxExecutor(SandboxConfig(mode=ExecutionMode.SUBPROCESS))
+
+    def test_write_python_file(self, subprocess_executor, tmp_path):
+        """Test writing Python code file."""
+        code = 'print("test")'
+        result = subprocess_executor._write_code_file(tmp_path, code, "python")
+
+        assert result.suffix == ".py"
+        assert result.read_text() == code
+
+    def test_write_javascript_file(self, subprocess_executor, tmp_path):
+        """Test writing JavaScript code file."""
+        code = 'console.log("test")'
+        result = subprocess_executor._write_code_file(tmp_path, code, "javascript")
+
+        assert result.suffix == ".js"
+        assert result.read_text() == code
+
+    def test_write_bash_file(self, subprocess_executor, tmp_path):
+        """Test writing bash code file."""
+        code = 'echo "test"'
+        result = subprocess_executor._write_code_file(tmp_path, code, "bash")
+
+        assert result.suffix == ".sh"
+        assert result.read_text() == code
+
+    def test_write_unknown_language_file(self, subprocess_executor, tmp_path):
+        """Test writing file for unknown language."""
+        code = "unknown code"
+        result = subprocess_executor._write_code_file(tmp_path, code, "unknown")
+
+        assert result.suffix == ".txt"
+        assert result.read_text() == code
+
+
+class TestMockExecution:
+    """Tests for mock execution mode."""
+
+    @pytest.fixture
+    def mock_executor(self):
+        """Create executor with mock mode."""
+        return SandboxExecutor(SandboxConfig(mode=ExecutionMode.MOCK))
+
+    @pytest.mark.asyncio
+    async def test_mock_returns_completed(self, mock_executor):
+        """Test mock mode returns completed status."""
+        result = await mock_executor.execute(
+            code='print("test")',
+            language="python",
+        )
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert result.exit_code == 0
+
+    @pytest.mark.asyncio
+    async def test_mock_includes_code_preview(self, mock_executor):
+        """Test mock mode includes code preview in output."""
+        code = 'print("Hello, World!")'
+        result = await mock_executor.execute(
+            code=code,
+            language="python",
+        )
+
+        assert "[MOCK]" in result.stdout
+        assert "print" in result.stdout
+
+    @pytest.mark.asyncio
+    async def test_mock_truncates_long_code(self, mock_executor):
+        """Test mock mode truncates long code in preview."""
+        long_code = "x = " + "1" * 1000
+        result = await mock_executor.execute(
+            code=long_code,
+            language="python",
+        )
+
+        assert len(result.stdout) < len(long_code) + 50
+
+    @pytest.mark.asyncio
+    async def test_mock_fast_execution(self, mock_executor):
+        """Test mock mode executes quickly."""
+        import time
+
+        start = time.time()
+        result = await mock_executor.execute(
+            code="import time; time.sleep(100)",  # Would take forever in real mode
+            language="python",
+        )
+        duration = time.time() - start
+
+        assert result.status == ExecutionStatus.COMPLETED
+        assert duration < 1.0  # Should be nearly instant

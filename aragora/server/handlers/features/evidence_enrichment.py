@@ -69,6 +69,7 @@ class EvidenceEnrichmentHandler(BaseHandler):
                 return self._get_finding_evidence(finding_id)
         return None
 
+    @require_permission("evidence:write")
     def handle_post(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/findings/batch-evidence":

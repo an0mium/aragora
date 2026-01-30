@@ -24,7 +24,7 @@ from ..base import (
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,7 @@ class MemoryAnalyticsHandler(SecureHandler):
             return self._take_snapshot()
         return None
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_analytics_read")
     @handle_errors("memory analytics")
     def _get_analytics(self, days: int) -> HandlerResult:
         """Get comprehensive memory analytics.
@@ -139,6 +140,7 @@ class MemoryAnalyticsHandler(SecureHandler):
 
         return json_response(analytics.to_dict())
 
+    @rate_limit(requests_per_minute=60, limiter_name="memory_analytics_read")
     @handle_errors("tier stats")
     def _get_tier_stats(self, tier_name: str, days: int) -> HandlerResult:
         """Get stats for a specific memory tier.
@@ -172,6 +174,7 @@ class MemoryAnalyticsHandler(SecureHandler):
         except ImportError:
             return error_response("Memory tier module not available", 503)
 
+    @rate_limit(requests_per_minute=20, limiter_name="memory_analytics_write")
     @handle_errors("snapshot")
     def _take_snapshot(self) -> HandlerResult:
         """Take a manual analytics snapshot.

@@ -17,6 +17,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -785,7 +786,7 @@ class TestAPIKeyValidator:
         # First call
         await validator.validate_key(key)
         # Wait for cache to expire
-        time.sleep(0.01)
+        await asyncio.sleep(0.01)
         # Second call should re-validate
         await validator.validate_key(key)
 

@@ -883,7 +883,7 @@ class DebateRoundsPhase:
                 base_phase_timeout = max(
                     float(getattr(a, "timeout", AGENT_TIMEOUT_SECONDS)) for a in revision_agents
                 )
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 base_phase_timeout = AGENT_TIMEOUT_SECONDS
         phase_timeout = _calculate_phase_timeout(len(revision_agents), base_phase_timeout)
 

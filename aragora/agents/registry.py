@@ -45,9 +45,10 @@ if TYPE_CHECKING:
     Agent = APIAgent | CLIAgent
 
 
-# Module-level cache for agent instances
+# Module-level cache for agent instances with LRU eviction
 # Key: (model_type, name, role, model, api_key) -> Agent
 _agent_cache: dict[tuple[str, str, str, str | None, str | None], "Agent"] = {}
+_agent_access_order: list[tuple[str, str, str, str | None, str | None]] = []
 _CACHE_MAX_SIZE = 32
 
 
@@ -198,6 +199,10 @@ class AgentRegistry:
         if use_cache and not kwargs:
             cache_key = (model_type, resolved_name, role, resolved_model, api_key)
             if cache_key in _agent_cache:
+                # LRU: Move to end of access order
+                if cache_key in _agent_access_order:
+                    _agent_access_order.remove(cache_key)
+                _agent_access_order.append(cache_key)
                 return _agent_cache[cache_key]
 
         # Build constructor arguments
@@ -220,11 +225,17 @@ class AgentRegistry:
         # Store in cache if enabled
         if use_cache and not kwargs:
             cache_key = (model_type, resolved_name, role, resolved_model, api_key)
-            # Evict oldest if at capacity
+            # LRU eviction: remove least recently used if at capacity
             if len(_agent_cache) >= _CACHE_MAX_SIZE:
-                oldest_key = next(iter(_agent_cache))
-                del _agent_cache[oldest_key]
+                if _agent_access_order:
+                    lru_key = _agent_access_order.pop(0)
+                    _agent_cache.pop(lru_key, None)
+                else:
+                    # Fallback: FIFO if access order is empty
+                    oldest_key = next(iter(_agent_cache))
+                    del _agent_cache[oldest_key]
             _agent_cache[cache_key] = agent
+            _agent_access_order.append(cache_key)
 
         return agent
 
@@ -306,6 +317,7 @@ class AgentRegistry:
     def clear_cache(cls) -> None:
         """Clear the agent instance cache."""
         _agent_cache.clear()
+        _agent_access_order.clear()
 
     @classmethod
     def cache_stats(cls) -> dict[str, Any]:

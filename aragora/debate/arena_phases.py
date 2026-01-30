@@ -480,7 +480,7 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
             max_agent_timeout = max(
                 float(getattr(agent, "timeout", AGENT_TIMEOUT_SECONDS)) for agent in arena.agents
             )
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             max_agent_timeout = AGENT_TIMEOUT_SECONDS
 
     # Minimum time: (agents / concurrent) × timeout × 2 phases × rounds + buffer

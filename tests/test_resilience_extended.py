@@ -628,7 +628,7 @@ class TestProtectedCallAsync:
         cb = CircuitBreaker(failure_threshold=1, cooldown_seconds=10.0)
         cb.record_failure()
 
-        time.sleep(0.1)  # Wait a bit
+        await asyncio.sleep(0.1)  # Wait a bit
 
         with pytest.raises(CircuitOpenError) as exc_info:
             async with cb.protected_call():

@@ -129,6 +129,7 @@ class DocumentBatchHandler(BaseHandler):
             return await self._upload_batch(handler)
         return None
 
+    @require_permission("documents:delete")
     async def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests."""
         if path.startswith("/api/v1/documents/batch/"):

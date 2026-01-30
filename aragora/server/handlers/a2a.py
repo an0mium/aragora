@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Optional, cast
 
 from aragora.server.handlers.base import (
@@ -30,6 +31,181 @@ from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
+
+# Validation patterns for A2A protocol
+# Agent names: alphanumeric, hyphens, underscores, dots (for versioning), 1-64 chars
+AGENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
+
+# Task IDs: UUID format or alphanumeric with hyphens, 1-128 chars
+TASK_ID_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$")
+
+# Maximum lengths for input validation
+MAX_INSTRUCTION_LENGTH = 10000
+MAX_CONTEXT_ITEMS = 50
+MAX_CONTEXT_CONTENT_LENGTH = 100000
+MAX_METADATA_KEYS = 20
+MAX_METADATA_VALUE_LENGTH = 1000
+MAX_BODY_SIZE = 1024 * 1024  # 1 MB
+
+
+def validate_agent_name(name: str) -> tuple[bool, str | None]:
+    """Validate an A2A agent name.
+
+    Args:
+        name: Agent name to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not name:
+        return False, "Agent name is required"
+    if len(name) > 64:
+        return False, "Agent name must be 64 characters or less"
+    if not AGENT_NAME_PATTERN.match(name):
+        return (
+            False,
+            "Agent name must start with alphanumeric and contain only letters, numbers, dots, hyphens, or underscores",
+        )
+    return True, None
+
+
+def validate_task_id(task_id: str) -> tuple[bool, str | None]:
+    """Validate an A2A task ID.
+
+    Args:
+        task_id: Task ID to validate
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not task_id:
+        return False, "Task ID is required"
+    if len(task_id) > 128:
+        return False, "Task ID must be 128 characters or less"
+    if not TASK_ID_PATTERN.match(task_id):
+        return (
+            False,
+            "Task ID must start with alphanumeric and contain only letters, numbers, hyphens, or underscores",
+        )
+    return True, None
+
+
+def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
+    """Validate the task submission request body.
+
+    Args:
+        data: Parsed JSON body
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # Check required fields
+    if not isinstance(data, dict):
+        return False, "Request body must be a JSON object"
+
+    instruction = data.get("instruction")
+    if not instruction:
+        return False, "Missing required field: instruction"
+    if not isinstance(instruction, str):
+        return False, "instruction must be a string"
+    if len(instruction) > MAX_INSTRUCTION_LENGTH:
+        return False, f"instruction must be {MAX_INSTRUCTION_LENGTH} characters or less"
+
+    # Validate optional task_id if provided
+    if "task_id" in data:
+        task_id = data["task_id"]
+        if not isinstance(task_id, str):
+            return False, "task_id must be a string"
+        is_valid, err = validate_task_id(task_id)
+        if not is_valid:
+            return False, err
+
+    # Validate capability if provided
+    if "capability" in data:
+        capability = data["capability"]
+        if not isinstance(capability, str):
+            return False, "capability must be a string"
+        valid_capabilities = {
+            "debate",
+            "consensus",
+            "critique",
+            "synthesis",
+            "audit",
+            "verification",
+            "code_review",
+            "document_analysis",
+            "research",
+            "reasoning",
+        }
+        if capability.lower() not in valid_capabilities:
+            return (
+                False,
+                f"Invalid capability: {capability}. Must be one of: {', '.join(sorted(valid_capabilities))}",
+            )
+
+    # Validate priority if provided
+    if "priority" in data:
+        priority = data["priority"]
+        if not isinstance(priority, str):
+            return False, "priority must be a string"
+        valid_priorities = {"low", "normal", "high", "urgent"}
+        if priority.lower() not in valid_priorities:
+            return (
+                False,
+                f"Invalid priority: {priority}. Must be one of: {', '.join(sorted(valid_priorities))}",
+            )
+
+    # Validate context if provided
+    if "context" in data:
+        context = data["context"]
+        if not isinstance(context, list):
+            return False, "context must be an array"
+        if len(context) > MAX_CONTEXT_ITEMS:
+            return False, f"context must have {MAX_CONTEXT_ITEMS} items or fewer"
+
+        for i, ctx in enumerate(context):
+            if not isinstance(ctx, dict):
+                return False, f"context[{i}] must be an object"
+            if "type" in ctx and not isinstance(ctx.get("type"), str):
+                return False, f"context[{i}].type must be a string"
+            if "content" in ctx:
+                content = ctx["content"]
+                if not isinstance(content, str):
+                    return False, f"context[{i}].content must be a string"
+                if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                    return (
+                        False,
+                        f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                    )
+            if "metadata" in ctx and not isinstance(ctx.get("metadata"), dict):
+                return False, f"context[{i}].metadata must be an object"
+
+    # Validate metadata if provided
+    if "metadata" in data:
+        metadata = data["metadata"]
+        if not isinstance(metadata, dict):
+            return False, "metadata must be an object"
+        if len(metadata) > MAX_METADATA_KEYS:
+            return False, f"metadata must have {MAX_METADATA_KEYS} keys or fewer"
+        for key, value in metadata.items():
+            if not isinstance(key, str):
+                return False, "metadata keys must be strings"
+            if isinstance(value, str) and len(value) > MAX_METADATA_VALUE_LENGTH:
+                return (
+                    False,
+                    f"metadata value for '{key}' exceeds maximum length of {MAX_METADATA_VALUE_LENGTH}",
+                )
+
+    # Validate timeout_ms if provided
+    if "timeout_ms" in data:
+        timeout = data["timeout_ms"]
+        if not isinstance(timeout, int):
+            return False, "timeout_ms must be an integer"
+        if timeout < 1000 or timeout > 3600000:  # 1 second to 1 hour
+            return False, "timeout_ms must be between 1000 and 3600000"
+
+    return True, None
+
 
 # Singleton A2A server
 _a2a_server: Any | None = None
@@ -155,6 +331,11 @@ class A2AHandler(BaseHandler):
 
     def _handle_get_agent(self, name: str) -> HandlerResult:
         """Get agent by name."""
+        # Validate agent name
+        is_valid, err = validate_agent_name(name)
+        if not is_valid:
+            return error_response(err, 400)
+
         server = get_a2a_server()
         agent = server.get_agent(name)
 
@@ -166,16 +347,28 @@ class A2AHandler(BaseHandler):
     @require_permission("a2a:create")
     async def _handle_submit_task(self, handler: Any) -> HandlerResult:
         """Submit a task for execution."""
+        # Validate Content-Type
+        content_type = handler.headers.get("Content-Type", "")
+        if content_type and not content_type.startswith("application/json"):
+            return error_response("Content-Type must be application/json", 415)
+
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
+            if content_length > MAX_BODY_SIZE:
+                return error_response(
+                    f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
+                )
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
         except (json.JSONDecodeError, ValueError) as e:
             return error_response(f"Invalid JSON: {e}", 400)
+        except UnicodeDecodeError:
+            return error_response("Request body must be valid UTF-8", 400)
 
-        # Validate required fields
-        if "instruction" not in data:
-            return error_response("Missing required field: instruction", 400)
+        # Validate request body schema
+        is_valid, err = validate_task_request_body(data)
+        if not is_valid:
+            return error_response(err, 400)
 
         # Create task request
         from aragora.protocols.a2a import TaskRequest, AgentCapability, ContextItem, TaskPriority
@@ -233,6 +426,11 @@ class A2AHandler(BaseHandler):
 
     def _handle_get_task(self, task_id: str) -> HandlerResult:
         """Get task status."""
+        # Validate task ID
+        is_valid, err = validate_task_id(task_id)
+        if not is_valid:
+            return error_response(err, 400)
+
         server = get_a2a_server()
         result = server.get_task_status(task_id)
 
@@ -243,6 +441,11 @@ class A2AHandler(BaseHandler):
 
     async def _handle_cancel_task(self, task_id: str) -> HandlerResult:
         """Cancel a running task."""
+        # Validate task ID
+        is_valid, err = validate_task_id(task_id)
+        if not is_valid:
+            return error_response(err, 400)
+
         server = get_a2a_server()
 
         try:
@@ -261,6 +464,11 @@ class A2AHandler(BaseHandler):
 
     def _handle_stream_task(self, task_id: str, handler: Any) -> HandlerResult:
         """Handle streaming task request (returns upgrade required)."""
+        # Validate task ID
+        is_valid, err = validate_task_id(task_id)
+        if not is_valid:
+            return error_response(err, 400)
+
         # Note: Actual streaming requires WebSocket which is handled separately
         return json_response(
             {

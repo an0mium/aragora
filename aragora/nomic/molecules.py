@@ -364,27 +364,58 @@ class AgentStepExecutor(StepExecutor):
 
 
 class ShellStepExecutor(StepExecutor):
-    """Execute steps as shell commands."""
+    """Execute steps as shell commands using sandboxed subprocess runner.
+
+    Security: Uses subprocess_runner module which enforces command allowlisting
+    and blocks dangerous operations.
+    """
 
     async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
-        """Execute step as shell command."""
+        """Execute step as shell command with security validation."""
+        import shlex
+
+        from aragora.utils.subprocess_runner import SandboxError, run_sandboxed
+
         command = step.config.get("command", "echo 'No command'")
         logger.info(f"Shell executing: {command}")
 
         try:
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # Parse command string into arguments for secure execution
+            args = shlex.split(command)
+            if not args:
+                return {
+                    "returncode": 1,
+                    "stdout": "",
+                    "stderr": "Empty command",
+                }
+
+            # Use sandboxed runner with command whitelist validation
+            result = await run_sandboxed(
+                args,
+                timeout=min(step.timeout_seconds, 300.0),  # Cap at 5 minutes
+                capture_output=True,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=step.timeout_seconds,
-            )
+
             return {
-                "returncode": proc.returncode,
-                "stdout": stdout.decode(),
-                "stderr": stderr.decode(),
+                "returncode": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+            }
+
+        except SandboxError as e:
+            # Command failed security validation
+            logger.warning(f"Step {step.name} blocked by sandbox: {e}")
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": f"Security: {e}",
+            }
+        except ValueError as e:
+            # shlex.split failed
+            return {
+                "returncode": 1,
+                "stdout": "",
+                "stderr": f"Invalid command syntax: {e}",
             }
         except asyncio.TimeoutError:
             raise TimeoutError(f"Step {step.name} timed out after {step.timeout_seconds}s")

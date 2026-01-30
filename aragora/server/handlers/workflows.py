@@ -935,6 +935,7 @@ from aragora.server.handlers.base import (
     get_int_param,
     get_string_param,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 
 class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
@@ -1308,6 +1309,24 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
     # Request Handlers
     # =========================================================================
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows",
+        summary="List workflows",
+        description="List all workflows with optional filtering by category, tags, or search query.",
+        tags=["Workflows"],
+        parameters=[
+            {"name": "category", "in": "query", "schema": {"type": "string"}},
+            {"name": "search", "in": "query", "schema": {"type": "string"}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+        ],
+        responses={
+            "200": {"description": "List of workflows with pagination"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+        },
+    )
     def _handle_list_workflows(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflows."""
         # RBAC check
@@ -1331,6 +1350,22 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing workflows: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Get workflow",
+        description="Get a workflow by ID with full definition and metadata.",
+        tags=["Workflows"],
+        parameters=[
+            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Workflow details"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Workflow not found"},
+        },
+    )
     def _handle_get_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1354,6 +1389,19 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error getting workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows",
+        summary="Create workflow",
+        description="Create a new workflow definition with steps and transitions.",
+        tags=["Workflows"],
+        responses={
+            "201": {"description": "Workflow created successfully"},
+            "400": {"description": "Invalid workflow definition"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+        },
+    )
     def _handle_create_workflow(
         self, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1389,6 +1437,23 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error creating workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="PATCH",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Update workflow",
+        description="Update an existing workflow definition. Creates a new version.",
+        tags=["Workflows"],
+        parameters=[
+            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Workflow updated successfully"},
+            "400": {"description": "Invalid workflow definition"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Workflow not found"},
+        },
+    )
     def _handle_update_workflow(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1418,6 +1483,22 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error updating workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/workflows/{workflow_id}",
+        summary="Delete workflow",
+        description="Delete a workflow and all its version history.",
+        tags=["Workflows"],
+        parameters=[
+            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Workflow deleted"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Workflow not found"},
+        },
+    )
     def _handle_delete_workflow(
         self, workflow_id: str, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1444,6 +1525,23 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error deleting workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows/{workflow_id}/execute",
+        summary="Execute workflow",
+        description="Execute a workflow with the given input parameters.",
+        tags=["Workflows", "Executions"],
+        parameters=[
+            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Execution started/completed"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Workflow not found"},
+            "503": {"description": "Execution service unavailable"},
+        },
+    )
     def _handle_execute(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:
@@ -1474,6 +1572,22 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error executing workflow: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/workflows/{workflow_id}/simulate",
+        summary="Simulate workflow",
+        description="Dry-run a workflow to validate and preview the execution plan.",
+        tags=["Workflows"],
+        parameters=[
+            {"name": "workflow_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Simulation results with execution plan"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Workflow not found"},
+        },
+    )
     def _handle_simulate(
         self, workflow_id: str, body: dict, query_params: dict, handler: Any
     ) -> HandlerResult:

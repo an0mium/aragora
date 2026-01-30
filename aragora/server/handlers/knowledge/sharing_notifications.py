@@ -22,7 +22,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
-from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip
+from aragora.server.handlers.utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -201,6 +201,7 @@ class SharingNotificationsHandler(BaseHandler):
 
         return None
 
+    @rate_limit(requests_per_minute=60, limiter_name="notifications_read")
     def _get_notifications(
         self,
         user_id: str,
@@ -245,6 +246,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to get notifications: {e}")
             return error_response("Failed to get notifications", 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="notifications_read")
     def _get_unread_count(self, user_id: str) -> HandlerResult:
         """Get count of unread notifications."""
         try:
@@ -257,6 +259,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to get unread count: {e}")
             return error_response("Failed to get unread count", 500)
 
+    @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
     def _mark_read(self, user_id: str, notification_id: str) -> HandlerResult:
         """Mark a notification as read."""
         try:
@@ -272,6 +275,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to mark notification read: {e}")
             return error_response("Failed to mark notification read", 500)
 
+    @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
     def _mark_all_read(self, user_id: str) -> HandlerResult:
         """Mark all notifications as read."""
         try:
@@ -284,6 +288,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to mark all notifications read: {e}")
             return error_response("Failed to mark all notifications read", 500)
 
+    @rate_limit(requests_per_minute=10, limiter_name="notifications_delete")
     def _dismiss(self, user_id: str, notification_id: str) -> HandlerResult:
         """Dismiss a notification."""
         try:
@@ -300,6 +305,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to dismiss notification: {e}")
             return error_response("Failed to dismiss notification", 500)
 
+    @rate_limit(requests_per_minute=60, limiter_name="notifications_read")
     def _get_preferences(self, user_id: str) -> HandlerResult:
         """Get notification preferences."""
         try:
@@ -324,6 +330,7 @@ class SharingNotificationsHandler(BaseHandler):
             logger.error(f"Failed to get preferences: {e}")
             return error_response("Failed to get preferences", 500)
 
+    @rate_limit(requests_per_minute=20, limiter_name="notifications_write")
     def _update_preferences(self, user_id: str, handler: Any) -> HandlerResult:
         """Update notification preferences."""
         try:

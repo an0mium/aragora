@@ -27,7 +27,7 @@ from ..base import (
     json_response,
 )
 from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
-from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ class LearningHandler(SecureHandler):
             return Path(nomic_dir)
         return None
 
+    @rate_limit(requests_per_minute=60, limiter_name="learning_read")
     @handle_errors("cycle summaries")
     def _get_cycle_summaries(self, limit: int) -> HandlerResult:
         """Get summaries of all nomic loop cycles."""
@@ -153,6 +154,7 @@ class LearningHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="learning_read")
     @handle_errors("learned patterns")
     def _get_learned_patterns(self) -> HandlerResult:
         """Get patterns learned across cycles from consensus memory."""
@@ -250,6 +252,7 @@ class LearningHandler(SecureHandler):
 
         return json_response(patterns)
 
+    @rate_limit(requests_per_minute=5, limiter_name="learning_expensive")
     @handle_errors("agent evolution")
     def _get_agent_evolution(self) -> HandlerResult:
         """Get agent performance evolution over cycles."""
@@ -338,6 +341,7 @@ class LearningHandler(SecureHandler):
             }
         )
 
+    @rate_limit(requests_per_minute=60, limiter_name="learning_read")
     @handle_errors("aggregated insights")
     def _get_aggregated_insights(self, limit: int) -> HandlerResult:
         """Get insights aggregated from all cycles."""

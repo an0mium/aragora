@@ -28,11 +28,40 @@ logger = logging.getLogger(__name__)
 
 
 def _get_allowed_origins() -> list[str]:
-    """Get allowed CORS origins from environment."""
-    origins_str = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "*")
+    """Get allowed CORS origins from environment.
+
+    SECURITY: Wildcard '*' is not allowed because allow_credentials=True is used.
+    In development, defaults to localhost origins. In production, explicit origins required.
+    """
+    origins_str = os.environ.get("ARAGORA_ALLOWED_ORIGINS", "")
+
+    # Reject wildcard - incompatible with allow_credentials=True
     if origins_str == "*":
-        return ["*"]
-    return [o.strip() for o in origins_str.split(",") if o.strip()]
+        logger.warning(
+            "SECURITY: ARAGORA_ALLOWED_ORIGINS='*' is not allowed with credentials. "
+            "Using localhost defaults. Set explicit origins for production."
+        )
+        origins_str = ""
+
+    if not origins_str:
+        # Development defaults - localhost only
+        return [
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8080",
+        ]
+
+    origins = [o.strip() for o in origins_str.split(",") if o.strip()]
+
+    # Validate no wildcards sneaked in
+    if "*" in origins:
+        raise ValueError(
+            "SECURITY: Wildcard origin '*' is not allowed with allow_credentials=True. "
+            "Specify explicit origins in ARAGORA_ALLOWED_ORIGINS."
+        )
+
+    return origins
 
 
 def _build_server_context(nomic_dir: Path | None = None) -> dict[str, Any]:
