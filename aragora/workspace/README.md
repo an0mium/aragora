@@ -4,7 +4,7 @@ Per-repo project containers with work batch tracking and merge queue capabilitie
 
 ## Storage Paths
 
-Bead and convoy persistence is stored under the canonical store root:
+Bead and convoy persistence uses the canonical store root when persistence is enabled:
 
 ```
 <workspace_root>/.aragora_beads
@@ -12,6 +12,11 @@ Bead and convoy persistence is stored under the canonical store root:
 
 Legacy `.gt` stores are still supported for existing workspaces, but new
 workspaces should rely on the canonical store root.
+
+Persistence control:
+- Set `ARAGORA_CANONICAL_STORE_PERSIST=1` to enable persistent storage
+- Or set `ARAGORA_STORE_DIR=/path/to/.aragora_beads` for explicit location
+- Otherwise, local runs use an ephemeral temp directory by default
 
 ## Quick Start
 

@@ -331,6 +331,9 @@ async def on_message(message: InboxMessage):
     await ws.start_convoy(convoy.convoy_id)
 ```
 
+Note: Workspace convoys/beads persist only when `ARAGORA_CANONICAL_STORE_PERSIST=1`
+or `ARAGORA_STORE_DIR` is set; otherwise local runs use an ephemeral temp store.
+
 ### With Agent Fabric
 
 ```python

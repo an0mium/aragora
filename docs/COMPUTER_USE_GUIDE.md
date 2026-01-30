@@ -322,6 +322,9 @@ convoy = await ws.create_convoy(
 )
 ```
 
+Note: Workspace storage persists only when `ARAGORA_CANONICAL_STORE_PERSIST=1`
+or `ARAGORA_STORE_DIR` is set. Otherwise, the canonical store uses a temp dir.
+
 ## Examples
 
 ### Basic Screenshot
