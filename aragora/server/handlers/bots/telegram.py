@@ -104,8 +104,19 @@ def _verify_webhook_token(token: str) -> bool:
     """Verify token in webhook URL path.
 
     Alternative to secret header - embed token in URL.
+
+    SECURITY: Fails closed in production if TELEGRAM_BOT_TOKEN is not configured
+    (since the webhook token is derived from it).
     """
     if not TELEGRAM_WEBHOOK_TOKEN:
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+        if is_production:
+            logger.error(
+                "SECURITY: TELEGRAM_BOT_TOKEN not configured in production. "
+                "Cannot derive webhook token. Rejecting request."
+            )
+            return False
         return True
 
     return hmac.compare_digest(token, TELEGRAM_WEBHOOK_TOKEN)

@@ -5,21 +5,33 @@ This document describes how to configure Cloudflare Load Balancer for `api.arago
 ## Architecture Overview
 
 ```
-                    ┌─────────────────┐
-                    │  Cloudflare LB  │
-                    │ api.aragora.ai  │
-                    │  (HTTP mode)    │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-    │   EC2 #1    │  │   EC2 #2    │  │  (Future)   │
-    │  Primary    │  │  Secondary  │  │   EC2 #3    │
-    └─────────────┘  └─────────────┘  └─────────────┘
-         nginx           nginx           nginx
-         :80             :80             :80
+                         ┌─────────────────┐
+                         │  Cloudflare LB  │
+                         │ api.aragora.ai  │
+                         │  (HTTP mode)    │
+                         └────────┬────────┘
+                                  │
+         ┌────────────────────────┼────────────────────────┐
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│    us-east-2    │     │    us-east-2    │     │    eu-west-1    │
+│     Primary     │     │    Secondary    │     │       DR        │
+│   Weight: 1.0   │     │   Weight: 1.0   │     │   Weight: 0.5   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+       nginx                  nginx                   nginx
+        :80                    :80                     :80
 ```
+
+### Multi-Region Deployment
+
+| Instance | Region | Role | Weight | Purpose |
+|----------|--------|------|--------|---------|
+| ec2-primary | us-east-2 | Primary | 1.0 | Main traffic handler |
+| ec2-secondary | us-east-2 | Secondary | 1.0 | Load distribution |
+| ec2-dr-eu | eu-west-1 | DR | 0.5 | Disaster recovery |
+
+The DR instance provides resilience against single-region AWS outages.
 
 **Key Points:**
 - Cloudflare handles TLS termination (proxied mode)
@@ -210,13 +222,133 @@ The `/api/health` response includes the server's nomic_dir path:
 
 ## Adding a New EC2 Origin
 
-1. Launch new EC2 with same AMI/setup as existing instances
-2. Configure nginx using `deploy/configure-nginx.sh`
-3. Start aragora service
-4. Add EC2 IP to security group for Cloudflare IPs
-5. Add origin to Cloudflare pool (Dashboard > Traffic > Load Balancing > Pools)
-6. Wait for health check to pass
-7. Update `deploy.yml` to include new instance (optional for automated deploys)
+### Using Terraform (Recommended)
+
+```bash
+cd deploy/terraform/ec2-multiregion
+terraform workspace new <region>-<role>
+terraform apply -var="region=<region>" -var="role=<role>"
+```
+
+See `deploy/terraform/ec2-multiregion/README.md` for full instructions.
+
+### Manual Setup
+
+1. Launch new EC2 with Amazon Linux 2023
+2. Run bootstrap script:
+   ```bash
+   curl -O https://raw.githubusercontent.com/aragora/aragora/main/deploy/scripts/al2023-bootstrap.sh
+   chmod +x al2023-bootstrap.sh
+   sudo ./al2023-bootstrap.sh production <role> <region>
+   ```
+3. Configure secrets: `sudo nano /etc/aragora/env`
+4. Start services: `sudo systemctl start aragora aragora-ws`
+5. Add EC2 IP to security group for Cloudflare IPs
+6. Add origin to Cloudflare pool (Dashboard > Traffic > Load Balancing > Pools)
+7. Wait for health check to pass
+
+## Disaster Recovery (DR) Setup
+
+### Adding DR Instance to Cloudflare Pool
+
+After deploying the DR instance in `eu-west-1`:
+
+**Via Cloudflare Dashboard:**
+
+1. Go to **Traffic > Load Balancing > Pools**
+2. Select `aragora-api-pool`
+3. Click **Add Origin**
+4. Configure:
+
+| Setting | Value |
+|---------|-------|
+| Origin Name | `ec2-dr-eu` |
+| Origin Address | `<DR Elastic IP>` |
+| Port | 80 |
+| Weight | 0.5 |
+| Host Header | `api.aragora.ai` |
+
+**Via Cloudflare API:**
+
+```bash
+curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/{account_id}/load_balancers/pools/{pool_id}" \
+  -H "Authorization: Bearer {api_token}" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "origins": [
+      {"name": "ec2-primary", "address": "<PRIMARY_IP>", "enabled": true, "weight": 1.0},
+      {"name": "ec2-secondary", "address": "<SECONDARY_IP>", "enabled": true, "weight": 1.0},
+      {"name": "ec2-dr-eu", "address": "<DR_IP>", "enabled": true, "weight": 0.5}
+    ]
+  }'
+```
+
+### Failover Testing
+
+Test DR failover regularly to ensure readiness:
+
+1. **Disable primary origins** in Cloudflare Dashboard:
+   - Traffic > Load Balancing > Pools > aragora-api-pool
+   - Toggle off `ec2-primary` and `ec2-secondary`
+
+2. **Verify traffic routes to DR**:
+   ```bash
+   # Multiple requests should all go to DR
+   for i in {1..5}; do
+     curl -s https://api.aragora.ai/api/health | jq -r '.server'
+   done
+   ```
+
+3. **Test application functionality**:
+   - API endpoints respond correctly
+   - WebSocket connections establish
+   - Database connectivity works
+
+4. **Re-enable primary origins**:
+   - Toggle on `ec2-primary` and `ec2-secondary`
+   - Verify traffic distribution returns to normal
+
+### Recovery Procedures
+
+**If Primary Region (us-east-2) Fails:**
+
+1. Cloudflare automatically routes 100% traffic to DR
+2. Monitor DR instance health and capacity
+3. Scale DR instance if needed:
+   ```bash
+   # Via AWS CLI
+   aws ec2 modify-instance-attribute --instance-id <DR_INSTANCE_ID> \
+     --instance-type '{"Value": "t3.xlarge"}' --region eu-west-1
+   ```
+4. Deploy additional DR instances if extended outage expected
+5. Notify stakeholders of degraded redundancy
+
+**When Primary Region Recovers:**
+
+1. Verify primary instances are healthy:
+   ```bash
+   curl http://<PRIMARY_IP>/api/health
+   curl http://<SECONDARY_IP>/api/health
+   ```
+2. Re-enable origins in Cloudflare pool
+3. Monitor traffic distribution
+4. Scale down DR instance if it was scaled up
+
+### DR Health Verification
+
+Check all origins are healthy:
+
+```bash
+# Test each origin directly
+for origin in "PRIMARY_IP" "SECONDARY_IP" "DR_IP"; do
+  echo "Testing $origin..."
+  response=$(curl -s -o /dev/null -w "%{http_code}" -H "Host: api.aragora.ai" "http://$origin/api/health")
+  echo "Status: $response"
+done
+
+# Test through load balancer
+curl -s https://api.aragora.ai/api/health | jq
+```
 
 ## Removing Lightsail (Migration)
 

@@ -475,8 +475,24 @@ class IMessageConnector(ChatPlatformConnector):
 
         BlueBubbles webhooks can be verified via the password parameter
         or custom headers configured in the server.
+
+        Note: BlueBubbles is a local-only service. Verification relies on
+        network-level security. In production, this returns False unless
+        ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS is explicitly set.
         """
-        # Basic verification - check for password in query or body
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+        if is_production:
+            if os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() not in (
+                "1",
+                "true",
+                "yes",
+            ):
+                logger.error(
+                    "SECURITY: iMessage/BlueBubbles webhook has no cryptographic verification. "
+                    "Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=true if network-level security is in place."
+                )
+                return False
         return True
 
     def parse_webhook_event(

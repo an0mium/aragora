@@ -440,8 +440,8 @@ class TestTelegramWebhook:
             "Content-Length": "100",
             "X-Telegram-Bot-Api-Secret-Token": "",
         }
-        # Simulate read error
-        mock_request.rfile.read.side_effect = Exception("Read error")
+        # Simulate read error (use OSError which the handler catches)
+        mock_request.rfile.read.side_effect = OSError("Read error")
 
         with patch("aragora.server.handlers.bots.telegram.TELEGRAM_WEBHOOK_SECRET", ""):
             result = handler.handle_post("/api/v1/bots/telegram/webhook", {}, mock_request)

@@ -1823,3 +1823,51 @@ PERM_ORG_USAGE_READ = _permission(
 PERM_ORG_MEMBERS = _permission(
     ResourceType.ORGANIZATION, Action.READ, "View Org Members", "View organization members"
 )
+
+# Features - additional actions
+PERM_FEATURES_WRITE = _permission(
+    ResourceType.FEATURES, Action.WRITE, "Manage Features", "Enable/disable feature flags"
+)
+PERM_FEATURES_DELETE = _permission(
+    ResourceType.FEATURES, Action.DELETE, "Delete Features", "Remove feature flag configurations"
+)
+
+# Knowledge - additional actions
+PERM_KNOWLEDGE_WRITE = _permission(
+    ResourceType.KNOWLEDGE, Action.WRITE, "Write Knowledge", "Create and update knowledge entries"
+)
+PERM_KNOWLEDGE_DELETE = _permission(
+    ResourceType.KNOWLEDGE, Action.DELETE, "Delete Knowledge", "Delete knowledge entries"
+)
+PERM_KNOWLEDGE_SHARE = _permission(
+    ResourceType.KNOWLEDGE, Action.SHARE, "Share Knowledge", "Share knowledge with others"
+)
+
+# Inbox - delete action
+PERM_INBOX_DELETE = _permission(
+    ResourceType.INBOX, Action.DELETE, "Delete Inbox Items", "Delete items from inbox"
+)
+
+# Canvas - additional actions
+PERM_CANVAS_WRITE = _permission(
+    ResourceType.CANVAS, Action.WRITE, "Write Canvas", "Full write access to canvas"
+)
+PERM_CANVAS_SHARE = _permission(
+    ResourceType.CANVAS, Action.SHARE, "Share Canvas", "Share canvas with others"
+)
+
+# Codebase - write action
+PERM_CODEBASE_WRITE = _permission(
+    ResourceType.CODEBASE, Action.WRITE, "Modify Codebase", "Modify codebase analysis settings"
+)
+
+# ============================================================================
+# EVOLUTION PERMISSIONS
+# ============================================================================
+
+PERM_EVOLUTION_READ = _permission(
+    ResourceType.EVOLUTION,
+    Action.READ,
+    "View Evolution",
+    "View prompt evolution history, patterns, and summaries",
+)

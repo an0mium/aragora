@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncIterator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,7 @@ class BaseCrawler(ABC):
     async def crawl(
         self,
         source: str,
-    ) -> AsyncIterator[CrawlResult]:
+    ) -> AsyncGenerator[CrawlResult, None]:
         """
         Crawl the source and yield results.
 

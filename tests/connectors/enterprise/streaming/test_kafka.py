@@ -477,7 +477,7 @@ class TestKafkaSync:
 
         # Sync
         items = []
-        async for item in connector.sync(batch_size=3):
+        async for item in connector.sync_stream(batch_size=3):
             items.append(item)
 
         assert len(items) == 3

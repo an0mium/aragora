@@ -222,7 +222,6 @@ class InMemoryGatewayStore:
         self._devices: dict[str, DeviceNode] = {}
         self._rules: dict[str, RoutingRule] = {}
         self._sessions: dict[str, dict[str, Any]] = {}
-        self._sessions: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     async def save_message(self, message: InboxMessage) -> None:
@@ -310,9 +309,7 @@ class InMemoryGatewayStore:
         """Load gateway sessions."""
         async with self._lock:
             sessions = list(self._sessions.values())
-            sessions.sort(
-                key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True
-            )
+            sessions.sort(key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True)
             return sessions[:limit]
 
     async def delete_session(self, session_id: str) -> bool:
@@ -382,6 +379,7 @@ class FileGatewayStore:
         self._messages: dict[str, InboxMessage] = {}
         self._devices: dict[str, DeviceNode] = {}
         self._rules: dict[str, RoutingRule] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}
 
         self._lock = asyncio.Lock()
         self._dirty = False
@@ -603,9 +601,7 @@ class FileGatewayStore:
         async with self._lock:
             await self._ensure_loaded()
             sessions = list(self._sessions.values())
-            sessions.sort(
-                key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True
-            )
+            sessions.sort(key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True)
             return sessions[:limit]
 
     async def delete_session(self, session_id: str) -> bool:

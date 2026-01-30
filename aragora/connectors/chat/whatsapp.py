@@ -950,7 +950,18 @@ class WhatsAppConnector(ChatPlatformConnector):
             True if signature is valid
         """
         if not self.signing_secret:
-            # No secret configured - skip verification
+            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    "SECURITY: WhatsApp signing_secret not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "WhatsApp signing_secret not set - skipping verification. "
+                "This is only acceptable in development!"
+            )
             return True
 
         signature = headers.get("X-Hub-Signature-256", headers.get("x-hub-signature-256", ""))
@@ -984,7 +995,11 @@ class WhatsAppConnector(ChatPlatformConnector):
 
         Returns challenge if verification succeeds, None otherwise.
         """
-        if mode == "subscribe" and token == self.verify_token:
+        if (
+            mode == "subscribe"
+            and self.verify_token
+            and hmac.compare_digest(token, self.verify_token)
+        ):
             logger.info("WhatsApp webhook verified")
             return challenge
         logger.warning("WhatsApp webhook verification failed")

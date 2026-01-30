@@ -518,8 +518,9 @@ class KafkaConnector(EnterpriseConnector):
             timestamp=timestamp,
         )
 
-    async def sync(  # type: ignore[override]  # Streaming connector redefines sync as async generator
-        self, batch_size: int | None = None,
+    async def sync_stream(
+        self,
+        batch_size: int | None = None,
     ) -> AsyncGenerator[SyncItem, None]:
         """
         Sync messages as SyncItems for Knowledge Mound ingestion.
@@ -623,7 +624,7 @@ class KafkaConnector(EnterpriseConnector):
         Yields:
             SyncItem objects for Knowledge Mound ingestion
         """
-        async for item in self.sync(batch_size=batch_size):
+        async for item in self.sync_stream(batch_size=batch_size):
             yield item
 
 

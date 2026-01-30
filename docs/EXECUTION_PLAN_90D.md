@@ -53,7 +53,7 @@ mapping, gap analysis, and build-vs-integrate recommendations.
 ┌─────────────────────────────────────────────────────────────┐
 │                    Extension Layer                           │
 │  ┌──────────────────────┐  ┌──────────────────────────────┐ │
-│  │ Gastown Extension    │  │ Moltbot Extension            │ │
+│  │ Gastown Extension    │  │ OpenClaw Extension            │ │
 │  │ (Dev Orchestration)  │  │ (Consumer/Device Interface)  │ │
 │  │                      │  │                              │ │
 │  │ workspace/manager    │  │ gateway/server               │ │
@@ -332,7 +332,7 @@ tests/workspace/
 
 ---
 
-## Phase 3: Moltbot Parity Prototype (Weeks 7-8) - IN PROGRESS (30%)
+## Phase 3: OpenClaw Parity Prototype (Weeks 7-8) - IN PROGRESS (30%)
 
 **Goal:** Local gateway, device registry, and unified inbox. Proves that
 Aragora can serve as a personal AI assistant runtime.
@@ -514,7 +514,7 @@ tests/integration/
 |--------|--------|-------------|
 | Agent Fabric supports 50+ concurrent agents | Pool manager + queue + limits working | Benchmark test |
 | Gastown extension runs a convoy | Hook persistence + workspace + convoy tracker | Integration test |
-| Moltbot extension accepts input | Local gateway + inbox + device registry | Integration test |
+| OpenClaw extension accepts input | Local gateway + inbox + device registry | Integration test |
 | Computer use MVP is auditable | Sandbox + policy + audit logging | Security review |
 | Test coverage for extensions | >80% per module | Coverage report |
 | Zero regressions in core | All existing tests pass | CI/CD |
@@ -561,7 +561,7 @@ tests/integration/
 - `aragora/workspace/refinery.py`
 - `aragora/workspace/cli.py`
 
-### Phase 3 (Moltbot Extension)
+### Phase 3 (OpenClaw Extension)
 - `aragora/gateway/server.py`
 - `aragora/gateway/inbox.py`
 - `aragora/gateway/device_registry.py`

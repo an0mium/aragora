@@ -147,6 +147,7 @@ class ResourceType(str, Enum):
     RECONCILIATION = "reconciliation"  # Financial reconciliation
     FEATURES = "features"  # Feature flag management
     DR = "dr"  # Disaster recovery (alias for handlers)
+    EVOLUTION = "evolution"  # Prompt evolution operations
 
 
 class Action(str, Enum):

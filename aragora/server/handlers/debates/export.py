@@ -220,7 +220,8 @@ class ExportOperationsMixin:
             for debate_id in debate_ids:
                 try:
                     debates_map[debate_id] = storage.get_debate(debate_id)
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Failed to fetch debate {debate_id}: {type(e).__name__}: {e}")
                     debates_map[debate_id] = None
 
         for i, item in enumerate(job.items):

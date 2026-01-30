@@ -78417,6 +78417,2156 @@
           }
         ]
       }
+    },
+    "/api/v1/agent/{agent_name}/head-to-head/{opponent_name}": {
+      "get": {
+        "operationId": "getAgentHeadToHead",
+        "summary": "Get head-to-head statistics between two agents",
+        "description": "Get head-to-head statistics and comparison between two agents including win rates and performance metrics.",
+        "tags": [
+          "agents"
+        ],
+        "parameters": [
+          {
+            "name": "agent_name",
+            "in": "path",
+            "required": true,
+            "description": "Agent name or identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "opponent_name",
+            "in": "path",
+            "required": true,
+            "description": "Opponent agent name or identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Head-to-head statistics"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/{agent_name}/opponent-briefing/{opponent_name}": {
+      "get": {
+        "operationId": "getAgentOpponentBriefing",
+        "summary": "Get strategic briefing about an opponent",
+        "description": "Get strategic briefing about an opponent including position history, debate patterns, and win rates.",
+        "tags": [
+          "agents"
+        ],
+        "parameters": [
+          {
+            "name": "agent_name",
+            "in": "path",
+            "required": true,
+            "description": "Agent name or identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "opponent_name",
+            "in": "path",
+            "required": true,
+            "description": "Opponent agent name or identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opponent briefing data"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/api-keys/{prefix}": {
+      "delete": {
+        "operationId": "revokeApiKeyByPrefix",
+        "summary": "Revoke an API key by prefix",
+        "description": "Revoke an API key identified by its prefix.",
+        "tags": [
+          "auth"
+        ],
+        "parameters": [
+          {
+            "name": "prefix",
+            "in": "path",
+            "required": true,
+            "description": "API key prefix",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "API key revoked"
+          },
+          "404": {
+            "description": "API key not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/compliance/violations/{violation_id}": {
+      "get": {
+        "operationId": "getComplianceViolation",
+        "summary": "Get violation details",
+        "description": "Get detailed information about a specific compliance violation.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "violation_id",
+            "in": "path",
+            "required": true,
+            "description": "Violation identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Violation details"
+          },
+          "404": {
+            "description": "Violation not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateComplianceViolation",
+        "summary": "Update violation status",
+        "description": "Update the status or resolution of a compliance violation.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "violation_id",
+            "in": "path",
+            "required": true,
+            "description": "Violation identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Violation updated"
+          },
+          "404": {
+            "description": "Violation not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/explain/{decision_id}": {
+      "get": {
+        "operationId": "getDecisionExplanation",
+        "summary": "Get decision explanation",
+        "description": "Get comprehensive decision explanation with votes, claims, evidence, and counterfactuals.",
+        "tags": [
+          "explainability"
+        ],
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "description": "Decision or debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decision explanation"
+          },
+          "404": {
+            "description": "Decision not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}": {
+      "get": {
+        "operationId": "getGauntletRun",
+        "summary": "Get gauntlet run status and results",
+        "description": "Get the status and results of a gauntlet stress-test run.",
+        "tags": [
+          "gauntlet"
+        ],
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "description": "Gauntlet run identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gauntlet run details"
+          },
+          "404": {
+            "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/compare/{compare_id}": {
+      "get": {
+        "operationId": "compareGauntletRuns",
+        "summary": "Compare two gauntlet runs",
+        "description": "Compare results between two gauntlet stress-test runs.",
+        "tags": [
+          "gauntlet"
+        ],
+        "parameters": [
+          {
+            "name": "gauntlet_id",
+            "in": "path",
+            "required": true,
+            "description": "First gauntlet run identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "compare_id",
+            "in": "path",
+            "required": true,
+            "description": "Second gauntlet run identifier to compare against",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comparison results"
+          },
+          "404": {
+            "description": "Gauntlet run not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/genesis/descendants/{genome_id}": {
+      "get": {
+        "operationId": "getGenomeDescendants",
+        "summary": "Get genome descendants",
+        "description": "Get descendants (evolved variants) of a specific genome.",
+        "tags": [
+          "genesis"
+        ],
+        "parameters": [
+          {
+            "name": "genome_id",
+            "in": "path",
+            "required": true,
+            "description": "Parent genome identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Descendant genomes"
+          },
+          "404": {
+            "description": "Genome not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/genesis/genomes/{genome_id}": {
+      "get": {
+        "operationId": "getGenome",
+        "summary": "Get genome details",
+        "description": "Get detailed information about a specific genome including traits and evolution history.",
+        "tags": [
+          "genesis"
+        ],
+        "parameters": [
+          {
+            "name": "genome_id",
+            "in": "path",
+            "required": true,
+            "description": "Genome identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Genome details"
+          },
+          "404": {
+            "description": "Genome not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gmail/drafts": {
+      "get": {
+        "operationId": "listGmailDrafts",
+        "summary": "List Gmail drafts",
+        "description": "List Gmail drafts for the authenticated user.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of drafts"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createGmailDraft",
+        "summary": "Create a Gmail draft",
+        "description": "Create a new Gmail draft message.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "201": {
+            "description": "Draft created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gmail/filters": {
+      "get": {
+        "operationId": "listGmailFilters",
+        "summary": "List Gmail filters",
+        "description": "List Gmail filters for the authenticated user.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of filters"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createGmailFilter",
+        "summary": "Create a Gmail filter",
+        "description": "Create a new Gmail filter rule.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "201": {
+            "description": "Filter created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gmail/labels": {
+      "get": {
+        "operationId": "listGmailLabels",
+        "summary": "List Gmail labels",
+        "description": "List Gmail labels for the authenticated user.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of labels"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createGmailLabel",
+        "summary": "Create a Gmail label",
+        "description": "Create a new Gmail label.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "201": {
+            "description": "Label created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gmail/threads": {
+      "get": {
+        "operationId": "listGmailThreads",
+        "summary": "List Gmail threads",
+        "description": "List Gmail threads for the authenticated user.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of threads"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createGmailThread",
+        "summary": "Create a Gmail thread",
+        "description": "Start a new Gmail thread.",
+        "tags": [
+          "gmail"
+        ],
+        "responses": {
+          "201": {
+            "description": "Thread created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/graph-debates/{debate_id}": {
+      "get": {
+        "operationId": "getGraphDebate",
+        "summary": "Get graph-structured debate",
+        "description": "Get a graph-structured debate with branching argument paths and relationships.",
+        "tags": [
+          "debates"
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Graph debate data"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/integrations/config/{integration_type}": {
+      "get": {
+        "operationId": "getIntegrationConfig",
+        "summary": "Get integration configuration",
+        "description": "Get configuration for a specific integration type.",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "name": "integration_type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type (slack, discord, telegram, email, teams, whatsapp, matrix)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integration configuration"
+          },
+          "404": {
+            "description": "Integration not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateIntegrationConfig",
+        "summary": "Update integration configuration",
+        "description": "Update the configuration for a specific integration.",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "name": "integration_type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration updated"
+          },
+          "400": {
+            "description": "Invalid configuration"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteIntegrationConfig",
+        "summary": "Remove integration configuration",
+        "description": "Remove the configuration for a specific integration.",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "name": "integration_type",
+            "in": "path",
+            "required": true,
+            "description": "Integration type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration removed"
+          },
+          "404": {
+            "description": "Integration not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/knowledge/mound/culture/{workspace_id}": {
+      "get": {
+        "operationId": "getKnowledgeMoundCulture",
+        "summary": "Get organizational culture profile",
+        "description": "Get the organizational culture profile for a workspace from the Knowledge Mound.",
+        "tags": [
+          "knowledge-mound"
+        ],
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "required": true,
+            "description": "Workspace identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Culture profile data"
+          },
+          "404": {
+            "description": "Workspace not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/knowledge/mound/revalidate/{node_id}": {
+      "post": {
+        "operationId": "revalidateKnowledgeNode",
+        "summary": "Revalidate a knowledge node",
+        "description": "Trigger revalidation of a specific knowledge node to update its freshness and confidence.",
+        "tags": [
+          "knowledge-mound"
+        ],
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "description": "Knowledge node identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Node revalidated"
+          },
+          "404": {
+            "description": "Node not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/knowledge/mound/sync/{sync_type}": {
+      "post": {
+        "operationId": "syncKnowledgeMound",
+        "summary": "Sync Knowledge Mound with memory systems",
+        "description": "Sync the Knowledge Mound with a specific memory system (continuum, consensus, or facts).",
+        "tags": [
+          "knowledge-mound"
+        ],
+        "parameters": [
+          {
+            "name": "sync_type",
+            "in": "path",
+            "required": true,
+            "description": "Sync type (continuum, consensus, or facts)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "continuum",
+                "consensus",
+                "facts"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync completed"
+          },
+          "400": {
+            "description": "Invalid sync type"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/matrix-debates/{debate_id}": {
+      "get": {
+        "operationId": "getMatrixDebate",
+        "summary": "Get matrix debate results",
+        "description": "Get matrix debate results for parallel scenario exploration with multi-dimensional analysis.",
+        "tags": [
+          "debates"
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matrix debate data"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/analytics": {
+      "get": {
+        "operationId": "getOnboardingAnalytics",
+        "summary": "Get onboarding analytics",
+        "description": "Get onboarding funnel analytics including step completion rates, dropoff analysis, and conversion metrics.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "Onboarding analytics data"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/first-debate": {
+      "post": {
+        "operationId": "createFirstDebate",
+        "summary": "Start a guided first debate",
+        "description": "Start a guided first debate with optional template selection for new users.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "201": {
+            "description": "First debate created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/flow": {
+      "get": {
+        "operationId": "getOnboardingFlow",
+        "summary": "Get current onboarding state",
+        "description": "Get the current onboarding flow state and progress for the authenticated user.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "Onboarding flow state"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "initOnboardingFlow",
+        "summary": "Initialize onboarding flow",
+        "description": "Initialize a new onboarding flow for the authenticated user.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "201": {
+            "description": "Onboarding flow initialized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/quick-debate": {
+      "post": {
+        "operationId": "createQuickDebate",
+        "summary": "Create a quick debate",
+        "description": "One-click quick debate creation with express template for 2-minute debates.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "201": {
+            "description": "Quick debate created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/quick-start": {
+      "post": {
+        "operationId": "applyQuickStart",
+        "summary": "Apply quick-start configuration",
+        "description": "Apply a quick-start configuration profile (developer, security, executive, product, compliance, sme).",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "Quick-start applied"
+          },
+          "400": {
+            "description": "Invalid profile"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/onboarding/templates": {
+      "get": {
+        "operationId": "listOnboardingTemplates",
+        "summary": "Get recommended starter templates",
+        "description": "Get recommended starter templates filtered by use case or profile.",
+        "tags": [
+          "onboarding"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of starter templates"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/policies/{policy_id}": {
+      "get": {
+        "operationId": "getPolicy",
+        "summary": "Get a compliance policy",
+        "description": "Get detailed information about a specific compliance policy.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy details"
+          },
+          "404": {
+            "description": "Policy not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updatePolicy",
+        "summary": "Update a compliance policy",
+        "description": "Update fields on a specific compliance policy.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy updated"
+          },
+          "404": {
+            "description": "Policy not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deletePolicy",
+        "summary": "Delete a compliance policy",
+        "description": "Delete a specific compliance policy.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy deleted"
+          },
+          "404": {
+            "description": "Policy not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/reviews/{review_id}": {
+      "get": {
+        "operationId": "getReview",
+        "summary": "Get a code review",
+        "description": "Get a specific code review by ID.",
+        "tags": [
+          "reviews"
+        ],
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "required": true,
+            "description": "Review identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review details"
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tournaments/{tournament_id}": {
+      "get": {
+        "operationId": "getTournament",
+        "summary": "Get tournament details",
+        "description": "Get detailed information about a specific tournament including standings and matches.",
+        "tags": [
+          "tournaments"
+        ],
+        "parameters": [
+          {
+            "name": "tournament_id",
+            "in": "path",
+            "required": true,
+            "description": "Tournament identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tournament details"
+          },
+          "404": {
+            "description": "Tournament not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteTournament",
+        "summary": "Delete a tournament",
+        "description": "Delete a specific tournament.",
+        "tags": [
+          "tournaments"
+        ],
+        "parameters": [
+          {
+            "name": "tournament_id",
+            "in": "path",
+            "required": true,
+            "description": "Tournament identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tournament deleted"
+          },
+          "404": {
+            "description": "Tournament not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transcription/status/{job_id}": {
+      "get": {
+        "operationId": "getTranscriptionStatus",
+        "summary": "Get transcription job status",
+        "description": "Get the status and progress of a transcription job.",
+        "tags": [
+          "transcription"
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "description": "Transcription job identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcription status"
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uncertainty/agent/{agent_id}": {
+      "get": {
+        "operationId": "getAgentCalibration",
+        "summary": "Get agent calibration profile",
+        "description": "Get calibration profile and confidence metrics for a specific agent.",
+        "tags": [
+          "uncertainty"
+        ],
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "description": "Agent identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent calibration profile"
+          },
+          "404": {
+            "description": "Agent not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/uncertainty/debate/{debate_id}": {
+      "get": {
+        "operationId": "getDebateUncertainty",
+        "summary": "Get debate uncertainty metrics",
+        "description": "Get uncertainty metrics for a specific debate including disagreement analysis.",
+        "tags": [
+          "uncertainty"
+        ],
+        "parameters": [
+          {
+            "name": "debate_id",
+            "in": "path",
+            "required": true,
+            "description": "Debate identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Debate uncertainty metrics"
+          },
+          "404": {
+            "description": "Debate not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workflows/executions/{execution_id}": {
+      "get": {
+        "operationId": "getWorkflowExecution",
+        "summary": "Get workflow execution details",
+        "description": "Get status and details of a workflow execution.",
+        "tags": [
+          "workflows"
+        ],
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "description": "Workflow execution identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution details"
+          },
+          "404": {
+            "description": "Execution not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "terminateWorkflowExecution",
+        "summary": "Terminate a workflow execution",
+        "description": "Terminate a running workflow execution.",
+        "tags": [
+          "workflows"
+        ],
+        "parameters": [
+          {
+            "name": "execution_id",
+            "in": "path",
+            "required": true,
+            "description": "Workflow execution identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution terminated"
+          },
+          "404": {
+            "description": "Execution not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workflows/templates/{template_id}": {
+      "get": {
+        "operationId": "getWorkflowTemplate",
+        "summary": "Get a workflow template",
+        "description": "Get a specific workflow template by ID.",
+        "tags": [
+          "workflows"
+        ],
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "description": "Workflow template identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow template details"
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/backups": {
+      "get": {
+        "operationId": "listBackups",
+        "summary": "List backups",
+        "description": "List backups with optional filters for source, status, and date range.",
+        "tags": [
+          "backups"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of backups"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createBackup",
+        "summary": "Create a new backup",
+        "description": "Create a new backup of the system data.",
+        "tags": [
+          "backups"
+        ],
+        "responses": {
+          "201": {
+            "description": "Backup created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/backups/{backup_id}": {
+      "get": {
+        "operationId": "getBackup",
+        "summary": "Get backup details",
+        "description": "Get metadata and status of a specific backup.",
+        "tags": [
+          "backups"
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "description": "Backup identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup details"
+          },
+          "404": {
+            "description": "Backup not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "verifyBackup",
+        "summary": "Verify backup integrity",
+        "description": "Verify the integrity of a backup or run a test restore.",
+        "tags": [
+          "backups"
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "description": "Backup identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification result"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteBackup",
+        "summary": "Delete a backup",
+        "description": "Delete a specific backup.",
+        "tags": [
+          "backups"
+        ],
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "description": "Backup identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backup deleted"
+          },
+          "404": {
+            "description": "Backup not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/compliance": {
+      "get": {
+        "operationId": "getComplianceStatus",
+        "summary": "Get overall compliance status",
+        "description": "Get overall compliance status across frameworks (SOC 2, GDPR, HIPAA).",
+        "tags": [
+          "compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance status"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/compliance/{request_id}": {
+      "get": {
+        "operationId": "getComplianceRequest",
+        "summary": "Get compliance request details",
+        "description": "Get details of a compliance request including GDPR exports, deletions, and audit reports.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Compliance request identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compliance request details"
+          },
+          "404": {
+            "description": "Request not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "executeComplianceAction",
+        "summary": "Execute compliance action",
+        "description": "Execute a compliance action such as GDPR export, right-to-be-forgotten, or audit verification.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Compliance request identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action executed"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "cancelComplianceRequest",
+        "summary": "Cancel compliance request",
+        "description": "Cancel a pending compliance request.",
+        "tags": [
+          "compliance"
+        ],
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "description": "Compliance request identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request cancelled"
+          },
+          "404": {
+            "description": "Request not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dr": {
+      "get": {
+        "operationId": "getDrStatus",
+        "summary": "Get disaster recovery readiness status",
+        "description": "Get disaster recovery readiness status including RPO/RTO objectives.",
+        "tags": [
+          "disaster-recovery"
+        ],
+        "responses": {
+          "200": {
+            "description": "DR readiness status"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/dr/{action}": {
+      "get": {
+        "operationId": "getDrAction",
+        "summary": "Get DR action details",
+        "description": "Get details for a DR action such as drill results, RPO/RTO objectives, or configuration validation.",
+        "tags": [
+          "disaster-recovery"
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "description": "DR action (drill, objectives, validate)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DR action details"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "executeDrAction",
+        "summary": "Execute DR action",
+        "description": "Execute a DR action such as running a drill or validating configuration.",
+        "tags": [
+          "disaster-recovery"
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "description": "DR action (drill, objectives, validate)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action executed"
+          },
+          "400": {
+            "description": "Invalid action"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/integrations/wizard/{provider}": {
+      "get": {
+        "operationId": "getIntegrationWizard",
+        "summary": "Get integration wizard configuration",
+        "description": "Get wizard configuration, list providers, or get integration status for a provider.",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "description": "Integration provider (slack, teams, discord, email, gmail, github)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wizard configuration"
+          },
+          "404": {
+            "description": "Provider not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "executeIntegrationWizardAction",
+        "summary": "Execute wizard action",
+        "description": "Execute a wizard action such as validating configuration, testing connection, or disconnecting a provider.",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "description": "Integration provider",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action result"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/receipts": {
+      "get": {
+        "operationId": "listReceipts",
+        "summary": "List decision receipts",
+        "description": "List decision receipts with optional filters for audit trails.",
+        "tags": [
+          "receipts"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of receipts"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createReceipt",
+        "summary": "Create a decision receipt",
+        "description": "Create a new cryptographic decision receipt for audit purposes.",
+        "tags": [
+          "receipts"
+        ],
+        "responses": {
+          "201": {
+            "description": "Receipt created"
+          },
+          "400": {
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v2/receipts/{receipt_id}": {
+      "get": {
+        "operationId": "getReceipt",
+        "summary": "Get a decision receipt",
+        "description": "Get a specific decision receipt including cryptographic verification data.",
+        "tags": [
+          "receipts"
+        ],
+        "parameters": [
+          {
+            "name": "receipt_id",
+            "in": "path",
+            "required": true,
+            "description": "Receipt identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt details"
+          },
+          "404": {
+            "description": "Receipt not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/verticals/{vertical_id}": {
+      "get": {
+        "operationId": "getVertical",
+        "summary": "Get vertical configuration",
+        "description": "Get configuration and details for a specific industry vertical.",
+        "tags": [
+          "verticals"
+        ],
+        "parameters": [
+          {
+            "name": "vertical_id",
+            "in": "path",
+            "required": true,
+            "description": "Vertical identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vertical configuration"
+          },
+          "404": {
+            "description": "Vertical not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/audio/{session_id}": {
+      "get": {
+        "operationId": "getAudioSession",
+        "summary": "Get audio session",
+        "description": "Get audio streaming session for voice debate output.",
+        "tags": [
+          "audio"
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "description": "Audio session identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audio session data"
+          },
+          "404": {
+            "description": "Session not found"
+          }
+        }
+      }
+    },
+    "/scim/v2/Groups/{group_id}": {
+      "get": {
+        "operationId": "getScimGroup",
+        "summary": "Get SCIM group",
+        "description": "Get a SCIM group by ID for enterprise directory integration.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM group identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SCIM group resource"
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateScimGroup",
+        "summary": "Replace SCIM group",
+        "description": "Replace a SCIM group resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM group identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group replaced"
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchScimGroup",
+        "summary": "Patch SCIM group",
+        "description": "Partially update a SCIM group resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM group identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group updated"
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteScimGroup",
+        "summary": "Delete SCIM group",
+        "description": "Delete a SCIM group resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM group identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group deleted"
+          },
+          "404": {
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/scim/v2/Users/{user_id}": {
+      "get": {
+        "operationId": "getScimUser",
+        "summary": "Get SCIM user",
+        "description": "Get a SCIM user by ID for enterprise directory integration.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM user identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SCIM user resource"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateScimUser",
+        "summary": "Replace SCIM user",
+        "description": "Replace a SCIM user resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM user identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User replaced"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "patchScimUser",
+        "summary": "Patch SCIM user",
+        "description": "Partially update a SCIM user resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM user identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User updated"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteScimUser",
+        "summary": "Delete SCIM user",
+        "description": "Delete a SCIM user resource.",
+        "tags": [
+          "scim"
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "description": "SCIM user identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "User deleted"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {

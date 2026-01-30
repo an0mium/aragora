@@ -397,12 +397,14 @@ from .permissions import (
     PERM_RECONCILIATION_READ,
     # Features
     PERM_FEATURES_READ,
-    # DR (alias)
+    PERM_FEATURES_WRITE,
+    PERM_FEATURES_DELETE,
     PERM_DR_ALIAS_READ,
     PERM_DR_DRILL,
     # Additional missing for existing resources
     PERM_INBOX_CREATE,
     PERM_INBOX_WRITE,
+    PERM_INBOX_DELETE,
     PERM_SKILLS_INVOKE,
     PERM_MEMORY_WRITE,
     PERM_DOCUMENTS_DELETE,
@@ -414,6 +416,15 @@ from .permissions import (
     PERM_RECEIPT_SIGN,
     PERM_ORG_USAGE_READ,
     PERM_ORG_MEMBERS,
+    # Knowledge - additional
+    PERM_KNOWLEDGE_WRITE,
+    PERM_KNOWLEDGE_DELETE,
+    PERM_KNOWLEDGE_SHARE,
+    # Canvas - additional
+    PERM_CANVAS_WRITE,
+    PERM_CANVAS_SHARE,
+    # Codebase - additional
+    PERM_CODEBASE_WRITE,
 )
 
 
@@ -823,6 +834,20 @@ _ALL_PERMISSIONS = [
     PERM_RECEIPT_SIGN,
     PERM_ORG_USAGE_READ,
     PERM_ORG_MEMBERS,
+    # Features - additional
+    PERM_FEATURES_WRITE,
+    PERM_FEATURES_DELETE,
+    # Knowledge - additional
+    PERM_KNOWLEDGE_WRITE,
+    PERM_KNOWLEDGE_DELETE,
+    PERM_KNOWLEDGE_SHARE,
+    # Inbox - additional
+    PERM_INBOX_DELETE,
+    # Canvas - additional
+    PERM_CANVAS_WRITE,
+    PERM_CANVAS_SHARE,
+    # Codebase - additional
+    PERM_CODEBASE_WRITE,
 ]
 
 # Build SYSTEM_PERMISSIONS dictionary

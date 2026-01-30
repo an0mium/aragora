@@ -522,8 +522,23 @@ class SignalConnector(ChatPlatformConnector):
 
         signal-cli REST API doesn't have built-in webhook signing.
         Verification should be done via network security (e.g., firewall rules).
+
+        SECURITY: In production, returns False unless ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS
+        is explicitly set, indicating network-level security is in place.
         """
-        # No built-in verification - rely on network security
+        env = os.environ.get("ARAGORA_ENV", "development").lower()
+        is_production = env not in ("development", "dev", "local", "test")
+        if is_production:
+            if os.environ.get("ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS", "").lower() not in (
+                "1",
+                "true",
+                "yes",
+            ):
+                logger.error(
+                    "SECURITY: Signal webhook has no cryptographic verification. "
+                    "Set ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS=true if network-level security is in place."
+                )
+                return False
         return True
 
     def parse_webhook_event(

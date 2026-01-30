@@ -1,0 +1,72 @@
+# =============================================================================
+# Aragora EC2 Multi-Region Terraform Variables
+# Copy this file to terraform.tfvars and customize for your deployment
+# =============================================================================
+
+# AWS region to deploy in
+# Primary: us-east-2, DR: eu-west-1, Alternative: ap-south-1
+region = "us-east-2"
+
+# Instance role - determines naming and Cloudflare weight
+# Options: primary, secondary, dr
+role = "primary"
+
+# Environment name
+# Options: production, staging, development
+environment = "production"
+
+# EC2 instance type
+# Recommended: t3.large (2 vCPU, 8 GB RAM) for production
+# Use t3.medium for staging/development
+instance_type = "t3.large"
+
+# Root EBS volume size in GB
+# Minimum 30 GB recommended, 50 GB for production
+root_volume_size = 50
+
+# VPC ID - leave empty to use default VPC
+# Set this if you have a custom VPC
+vpc_id = ""
+
+# Subnet ID - leave empty for auto-selection
+# Set this to deploy in a specific availability zone
+subnet_id = ""
+
+# SSH access CIDR blocks (optional - prefer SSM Session Manager)
+# Example: ["203.0.113.0/24", "198.51.100.10/32"]
+# Leave empty to disable SSH access (recommended)
+admin_cidr_blocks = []
+
+# EC2 key pair name for SSH access (optional - prefer SSM)
+# Create via: aws ec2 create-key-pair --key-name aragora-key
+# Leave empty to skip (recommended - use SSM instead)
+key_name = ""
+
+# =============================================================================
+# Example Configurations
+# =============================================================================
+
+# Primary (us-east-2):
+#   region = "us-east-2"
+#   role = "primary"
+#   environment = "production"
+#   instance_type = "t3.large"
+
+# Secondary (us-east-2):
+#   region = "us-east-2"
+#   role = "secondary"
+#   environment = "production"
+#   instance_type = "t3.large"
+
+# DR (eu-west-1):
+#   region = "eu-west-1"
+#   role = "dr"
+#   environment = "production"
+#   instance_type = "t3.large"
+
+# Staging:
+#   region = "us-east-2"
+#   role = "primary"
+#   environment = "staging"
+#   instance_type = "t3.medium"
+#   root_volume_size = 30

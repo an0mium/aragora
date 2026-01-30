@@ -15,7 +15,7 @@ Tests the Dropbox integration including:
 import base64
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -36,6 +36,38 @@ from aragora.connectors.exceptions import (
 
 
 # =============================================================================
+# Test Subclass for Abstract Methods
+# =============================================================================
+
+
+class TestableDropboxConnector(DropboxConnector):
+    """
+    Concrete implementation of DropboxConnector for testing.
+
+    Implements abstract methods required by BaseConnector.
+    """
+
+    @property
+    def name(self) -> str:
+        """Human-readable name."""
+        return "Dropbox"
+
+    async def search(self, query: str, limit: int = 10, **kwargs) -> list:
+        """Search for evidence."""
+        results = []
+        async for file in self.search_files(query, max_results=limit):
+            results.append(file)
+        return results
+
+    async def fetch(self, evidence_id: str) -> Optional[Any]:
+        """Fetch specific evidence."""
+        try:
+            return await self.get_file_metadata(evidence_id)
+        except Exception:
+            return None
+
+
+# =============================================================================
 # Fixtures
 # =============================================================================
 
@@ -43,7 +75,7 @@ from aragora.connectors.exceptions import (
 @pytest.fixture
 def dropbox_connector():
     """Create a Dropbox connector for testing."""
-    return DropboxConnector(
+    return TestableDropboxConnector(
         app_key="test_app_key",
         app_secret="test_app_secret",
         access_token="test_access_token",
@@ -53,7 +85,7 @@ def dropbox_connector():
 @pytest.fixture
 def dropbox_connector_with_refresh():
     """Create a Dropbox connector with refresh token."""
-    return DropboxConnector(
+    return TestableDropboxConnector(
         app_key="test_app_key",
         app_secret="test_app_secret",
         refresh_token="test_refresh_token",
@@ -141,7 +173,7 @@ class TestDropboxConnectorInit:
 
     def test_init_with_app_credentials(self):
         """Test initialization with app key and secret."""
-        connector = DropboxConnector(
+        connector = TestableDropboxConnector(
             app_key="my_app_key",
             app_secret="my_app_secret",
         )
@@ -152,7 +184,7 @@ class TestDropboxConnectorInit:
 
     def test_init_with_access_token(self):
         """Test initialization with pre-existing access token."""
-        connector = DropboxConnector(
+        connector = TestableDropboxConnector(
             app_key="my_app_key",
             app_secret="my_app_secret",
             access_token="preexisting_token",
@@ -161,7 +193,7 @@ class TestDropboxConnectorInit:
 
     def test_init_with_refresh_token(self):
         """Test initialization with refresh token."""
-        connector = DropboxConnector(
+        connector = TestableDropboxConnector(
             app_key="my_app_key",
             app_secret="my_app_secret",
             refresh_token="my_refresh_token",
@@ -170,7 +202,7 @@ class TestDropboxConnectorInit:
 
     def test_init_with_root_path(self):
         """Test initialization with custom root path."""
-        connector = DropboxConnector(
+        connector = TestableDropboxConnector(
             app_key="my_app_key",
             app_secret="my_app_secret",
             root_path="/Team/Projects",
@@ -179,7 +211,7 @@ class TestDropboxConnectorInit:
 
     def test_init_with_patterns(self):
         """Test initialization with include/exclude patterns."""
-        connector = DropboxConnector(
+        connector = TestableDropboxConnector(
             app_key="my_app_key",
             app_secret="my_app_secret",
             include_patterns=["*.txt", "*.pdf"],
@@ -199,7 +231,7 @@ class TestDropboxConnectorInit:
         assert dropbox_connector.is_configured is True
 
         # Not configured without credentials
-        empty_connector = DropboxConnector()
+        empty_connector = TestableDropboxConnector()
         assert empty_connector.is_configured is False
 
     def test_connector_type(self, dropbox_connector):
@@ -231,7 +263,11 @@ class TestDropboxAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             result = await connector.authenticate()
@@ -254,7 +290,11 @@ class TestDropboxAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
             result = await dropbox_connector.authenticate(
@@ -282,7 +322,11 @@ class TestDropboxAuthentication:
         mock_response.text = AsyncMock(return_value='{"error": "invalid_grant"}')
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             result = await connector.authenticate()
@@ -294,7 +338,9 @@ class TestDropboxAuthentication:
         """Test token is refreshed when expired."""
         connector = dropbox_connector_with_refresh
         connector._access_token = "expired_token"
-        connector._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        connector._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+            hours=1
+        )
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -306,7 +352,11 @@ class TestDropboxAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             await connector._ensure_valid_token()
@@ -341,17 +391,32 @@ class TestDropboxAuthentication:
 class TestDropboxApiRequest:
     """Test Dropbox API requests."""
 
+    @staticmethod
+    def _create_mock_session(status: int, json_data: Any = None, text: str = ""):
+        """Helper to create a properly mocked aiohttp session."""
+        mock_response = MagicMock()
+        mock_response.status = status
+        mock_response.json = AsyncMock(return_value=json_data or {})
+        mock_response.text = AsyncMock(return_value=text)
+        mock_response.read = AsyncMock(return_value=text.encode())
+
+        # Create async context manager for the response
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_cm)
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        return mock_session
+
     @pytest.mark.asyncio
     async def test_api_request_success(self, dropbox_connector):
         """Test successful API request."""
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"entries": [], "has_more": False})
+        mock_session = self._create_mock_session(200, {"entries": [], "has_more": False})
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             result = await dropbox_connector._api_request("/files/list_folder", {"path": ""})
 
             assert result == {"entries": [], "has_more": False}
@@ -359,56 +424,36 @@ class TestDropboxApiRequest:
     @pytest.mark.asyncio
     async def test_api_request_auth_error(self, dropbox_connector):
         """Test API request with authentication error."""
-        mock_response = MagicMock()
-        mock_response.status = 401
-        mock_response.text = AsyncMock(return_value="Unauthorized")
+        mock_session = self._create_mock_session(401, text="Unauthorized")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorAuthError):
                 await dropbox_connector._api_request("/files/list_folder", {"path": ""})
 
     @pytest.mark.asyncio
     async def test_api_request_rate_limit(self, dropbox_connector):
         """Test API request with rate limit error."""
-        mock_response = MagicMock()
-        mock_response.status = 429
-        mock_response.text = AsyncMock(return_value="Too Many Requests")
+        mock_session = self._create_mock_session(429, text="Too Many Requests")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorRateLimitError):
                 await dropbox_connector._api_request("/files/list_folder", {"path": ""})
 
     @pytest.mark.asyncio
     async def test_api_request_not_found(self, dropbox_connector):
         """Test API request with not found error."""
-        mock_response = MagicMock()
-        mock_response.status = 404
-        mock_response.text = AsyncMock(return_value="Not Found")
+        mock_session = self._create_mock_session(404, text="Not Found")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorNotFoundError):
                 await dropbox_connector._api_request("/files/list_folder", {"path": "/nonexistent"})
 
     @pytest.mark.asyncio
     async def test_api_request_server_error(self, dropbox_connector):
         """Test API request with server error."""
-        mock_response = MagicMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
+        mock_session = self._create_mock_session(500, text="Internal Server Error")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorAPIError) as exc_info:
                 await dropbox_connector._api_request("/files/list_folder", {"path": ""})
 
@@ -455,6 +500,7 @@ class TestDropboxFileOperations:
         }
 
         call_count = 0
+
         async def mock_api_request(endpoint, data=None):
             nonlocal call_count
             call_count += 1
@@ -478,7 +524,9 @@ class TestDropboxFileOperations:
             "has_more": False,
         }
 
-        with patch.object(dropbox_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            dropbox_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             files = []
             async for file in dropbox_connector.list_files("/", recursive=True):
                 files.append(file)
@@ -488,7 +536,9 @@ class TestDropboxFileOperations:
             assert call_args[1]["recursive"] is True
 
     @pytest.mark.asyncio
-    async def test_list_files_skips_folders(self, dropbox_connector, sample_dropbox_files, sample_dropbox_folders):
+    async def test_list_files_skips_folders(
+        self, dropbox_connector, sample_dropbox_files, sample_dropbox_folders
+    ):
         """Test listing files skips folder entries."""
         mixed_entries = sample_dropbox_files + sample_dropbox_folders
         mock_response = {
@@ -506,19 +556,31 @@ class TestDropboxFileOperations:
             for file in files:
                 assert isinstance(file, DropboxFile)
 
+    @staticmethod
+    def _create_download_mock_session(status: int, content: bytes = b"", text: str = ""):
+        """Helper to create a properly mocked aiohttp session for downloads."""
+        mock_response = MagicMock()
+        mock_response.status = status
+        mock_response.read = AsyncMock(return_value=content)
+        mock_response.text = AsyncMock(return_value=text)
+
+        # Create async context manager for the response
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_cm)
+
+        return mock_session
+
     @pytest.mark.asyncio
     async def test_download_file_success(self, dropbox_connector):
         """Test downloading a file."""
         file_content = b"File content here"
+        mock_session = self._create_download_mock_session(200, content=file_content)
 
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.read = AsyncMock(return_value=file_content)
-
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             content = await dropbox_connector.download_file("/documents/test.txt")
 
             assert content == file_content
@@ -526,14 +588,9 @@ class TestDropboxFileOperations:
     @pytest.mark.asyncio
     async def test_download_file_not_found(self, dropbox_connector):
         """Test downloading a non-existent file."""
-        mock_response = MagicMock()
-        mock_response.status = 404
-        mock_response.text = AsyncMock(return_value="File not found")
+        mock_session = self._create_download_mock_session(404, text="File not found")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorNotFoundError) as exc_info:
                 await dropbox_connector.download_file("/nonexistent.txt")
 
@@ -542,14 +599,9 @@ class TestDropboxFileOperations:
     @pytest.mark.asyncio
     async def test_download_file_rate_limit(self, dropbox_connector):
         """Test download with rate limit."""
-        mock_response = MagicMock()
-        mock_response.status = 429
-        mock_response.text = AsyncMock(return_value="Rate limited")
+        mock_session = self._create_download_mock_session(429, text="Rate limited")
 
-        mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(dropbox_connector, "_get_session", return_value=mock_session):
+        with patch.object(dropbox_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorRateLimitError):
                 await dropbox_connector.download_file("/test.txt")
 
@@ -584,7 +636,9 @@ class TestDropboxFolderOperations:
     """Test folder listing operations."""
 
     @pytest.mark.asyncio
-    async def test_list_folders(self, dropbox_connector, sample_dropbox_folders, sample_dropbox_files):
+    async def test_list_folders(
+        self, dropbox_connector, sample_dropbox_folders, sample_dropbox_files
+    ):
         """Test listing folders."""
         mixed_entries = sample_dropbox_files + sample_dropbox_folders
         mock_response = {
@@ -617,6 +671,7 @@ class TestDropboxFolderOperations:
         }
 
         call_count = 0
+
         async def mock_api_request(endpoint, data=None):
             nonlocal call_count
             call_count += 1
@@ -687,7 +742,9 @@ class TestDropboxSearch:
         """Test searching with file extension filter."""
         mock_response = {"matches": []}
 
-        with patch.object(dropbox_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            dropbox_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             results = []
             async for result in dropbox_connector.search_files(
                 "document",
@@ -750,7 +807,11 @@ class TestDropboxSync:
         state = SyncState(connector_id="dropbox", status=SyncStatus.IDLE)
 
         # Filter to only supported extensions
-        supported_files = [f for f in sample_dropbox_files if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)]
+        supported_files = [
+            f
+            for f in sample_dropbox_files
+            if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+        ]
         mock_response = {
             "entries": supported_files,
             "has_more": False,
@@ -779,14 +840,20 @@ class TestDropboxSync:
             status=SyncStatus.IDLE,
         )
 
-        supported_files = [f for f in sample_dropbox_files if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)]
+        supported_files = [
+            f
+            for f in sample_dropbox_files
+            if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+        ]
         mock_response = {
             "entries": supported_files,
             "has_more": False,
             "cursor": "new_cursor_456",
         }
 
-        with patch.object(dropbox_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            dropbox_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             items = []
             async for item in dropbox_connector.sync_items(state):
                 items.append(item)

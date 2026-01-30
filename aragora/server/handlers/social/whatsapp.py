@@ -203,9 +203,9 @@ class WhatsAppHandler(BaseHandler):
                 # Webhook verification from Meta - no RBAC (Meta callback)
                 return self._verify_webhook(query_params)
             elif handler.command == "POST":
-                # Verify signature if app secret is configured
+                # Verify webhook signature
                 # Note: No RBAC for webhook - uses signature verification instead
-                if WHATSAPP_APP_SECRET and not self._verify_signature(handler):
+                if not self._verify_signature(handler):
                     logger.warning("WhatsApp signature verification failed")
                     return error_response("Unauthorized", 401)
                 return self._handle_webhook(handler)
@@ -221,8 +221,22 @@ class WhatsAppHandler(BaseHandler):
 
         Meta signs webhooks using HMAC-SHA256 with the app secret.
         Signature is in X-Hub-Signature-256 header.
+
+        SECURITY: Fails closed in production if WHATSAPP_APP_SECRET is not configured.
         """
         if not WHATSAPP_APP_SECRET:
+            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    "SECURITY: WHATSAPP_APP_SECRET not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "WHATSAPP_APP_SECRET not set - skipping signature verification. "
+                "This is only acceptable in development!"
+            )
             return True
 
         try:
@@ -286,9 +300,14 @@ class WhatsAppHandler(BaseHandler):
             else query_params.get("hub.challenge", "")
         )
 
-        logger.info(f"WhatsApp webhook verification: mode={mode}, token={token[:10]}...")
+        logger.info(f"WhatsApp webhook verification: mode={mode}, token={(token or '')[:10]}...")
 
-        if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
+        if (
+            mode == "subscribe"
+            and WHATSAPP_VERIFY_TOKEN
+            and token
+            and hmac.compare_digest(token, WHATSAPP_VERIFY_TOKEN)
+        ):
             logger.info("WhatsApp webhook verified successfully")
             # Return challenge as plain text using HandlerResult
             return HandlerResult(

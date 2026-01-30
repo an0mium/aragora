@@ -6,10 +6,13 @@ Based on concepts from arXiv:2512.24601.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class RLMMode(Enum):
@@ -201,7 +204,10 @@ class RLMContext:
                 if max_bytes is None:
                     return path.read_text(errors="replace")
                 return path.read_text(errors="replace")[:max_bytes]
-            except Exception:
+            except Exception as e:
+                logger.debug(
+                    f"Failed to read source file {self.source_path}: {type(e).__name__}: {e}"
+                )
                 return ""
         return ""
 

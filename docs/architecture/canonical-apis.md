@@ -10,7 +10,7 @@
 
 Define the **single source of truth** for core orchestration primitives and the
 compatibility adapters that sit on top. This prevents duplication and ensures
-consistent behavior across enterprise and parity layers (Gastown/Moltbot).
+consistent behavior across enterprise and parity layers (Gastown/OpenClaw).
 
 ---
 
@@ -64,7 +64,7 @@ consistent behavior across enterprise and parity layers (Gastown/Moltbot).
 
 ### Adapters
 - `aragora/extensions/moltbot/*`  
-  Compatibility adapter for Moltbot protocols; **no core logic**.
+  Compatibility adapter for OpenClaw protocols; **no core logic**.
 - `aragora/server/handlers/features/unified_inbox.py`  
   Delegates to gateway storage.
 
@@ -92,4 +92,3 @@ consistent behavior across enterprise and parity layers (Gastown/Moltbot).
 2. Replace extension logic with adapter calls.
 3. Add deprecation warnings in legacy modules.
 4. Remove legacy paths after stable cutover.
-

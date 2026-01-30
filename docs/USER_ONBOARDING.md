@@ -92,7 +92,7 @@ The dashboard shows:
 - Consensus visualization
 - Historical debates
 
-### Device Onboarding (Moltbot Pattern)
+### Device Onboarding (OpenClaw Pattern)
 
 For device-based deployments (gateway + device registry), onboarding uses
 capability-driven steps (pairing, voice, display, automation permissions)

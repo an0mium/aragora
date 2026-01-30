@@ -39,24 +39,24 @@ Implementation approach:
 
 ### OpenClaw (Consumer/Device Extension)
 
-**Option A: Integrate Moltbot directly**
+**Option A: Integrate OpenClaw directly**
 - Pros: Full-featured consumer assistant, proven UX
 - Cons: Different architecture (local-first vs server-centric), unclear licensing
 
 **Option B: Build inspired implementation**
 - Pros: Aragora-native, enterprise integration, customizable security model
-- Cons: More development effort, may miss Moltbot UX nuances
+- Cons: More development effort, may miss OpenClaw UX nuances
 
 **Decision: Build (inspired by)**
 
 Rationale:
-1. Moltbot is designed as a standalone consumer assistant
+1. OpenClaw (formerly Moltbot) is designed as a standalone consumer assistant
 2. Aragora's extension needs to integrate with enterprise core (RBAC, audit, tenancy)
 3. Security model must be Aragora-native (policy engine, approvals)
 4. Key concepts (gateway, inbox, voice) are well-defined and implementable
 
 Implementation approach:
-- Study Moltbot's gateway/inbox/voice/canvas architecture
+- Study OpenClaw's gateway/inbox/voice/canvas architecture
 - Build Aragora-native implementations with enterprise integration
 - Support both consumer and enterprise deployment profiles
 - Ensure full audit trail and policy enforcement
@@ -91,9 +91,9 @@ Implementation approach:
 | Convoys | `aragora/extensions/gastown/convoy.py` - Work tracking |
 | Beads | `aragora/extensions/gastown/ledger.py` - Issue ledger |
 
-### Moltbot Concepts -> Aragora Implementation
+### OpenClaw Concepts -> Aragora Implementation
 
-| Moltbot | Aragora Implementation |
+| OpenClaw | Aragora Implementation |
 |---------|----------------------|
 | Gateway | `aragora/extensions/moltbot/gateway.py` - Local routing service |
 | Inbox | `aragora/extensions/moltbot/inbox.py` - Channel aggregator |
@@ -113,7 +113,7 @@ Building custom implementations adds ~2-4 weeks vs direct integration, but:
 
 ## Open Questions
 
-1. Should we reach out to Gastown/Moltbot authors for collaboration?
+1. Should we reach out to Gastown/OpenClaw authors for collaboration?
 2. What's the minimum viable subset for each extension?
 3. How do we handle divergence from source projects over time?
 

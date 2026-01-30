@@ -20,7 +20,7 @@ Aragora currently contains duplicated implementations of:
   - `aragora/extensions/moltbot/*`
   - `aragora/server/handlers/features/unified_inbox.py` and storage
 
-This duplication blocks consistent behavior, makes auditing difficult, and prevents a clean Gastown/Moltbot parity layer.
+This duplication blocks consistent behavior, makes auditing difficult, and prevents a clean Gastown/OpenClaw parity layer.
 
 ---
 
@@ -57,7 +57,7 @@ This duplication blocks consistent behavior, makes auditing difficult, and preve
 - Server handlers can delegate to gateway primitives.
 
 **Adapters**
-- `aragora/extensions/moltbot/*` becomes a compatibility adapter for Moltbot protocols.
+- `aragora/extensions/moltbot/*` becomes a compatibility adapter for OpenClaw protocols.
 - `aragora/server/handlers/features/unified_inbox.py` delegates to gateway storage.
 
 ---
@@ -81,7 +81,7 @@ This duplication blocks consistent behavior, makes auditing difficult, and preve
 ## Migration Plan
 
 1. **Define canonical APIs** in Nomic and Gateway modules.
-2. **Add adapters** for Gastown + Moltbot extensions.
+2. **Add adapters** for Gastown + OpenClaw extensions.
 3. **Deprecate old paths** with warnings + doc updates.
 4. **Remove legacy modules** after migrations complete.
 
@@ -99,4 +99,3 @@ This duplication blocks consistent behavior, makes auditing difficult, and preve
 - Create API boundary docs for canonical layers.
 - Add test coverage to guarantee adapter behavior.
 - Update routing so server handlers call gateway primitives directly.
-

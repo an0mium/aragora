@@ -81,7 +81,7 @@ Parity with Gastown and OpenClaw is treated as **opt-in extension layers**, gate
 - **Goal:** Developer workflow parity (workspaces, hooks, convoys, beads).
 - **Acceptance:** End-to-end multi-agent dev workflow with persistence.
 
-**M11. Moltbot Parity MVP**
+**M11. OpenClaw Parity MVP**
 - **Goal:** Gateway protocol compatibility + device node skeletons + canvas/voice/browser control v1.
 - **Acceptance:** Local assistant flow works with device pairing + routing.
 
@@ -118,7 +118,7 @@ Parity with Gastown and OpenClaw is treated as **opt-in extension layers**, gate
 - **E2:** Convoy/Bead lifecycle + handoff.
 - **E3:** CLI flows + dashboard endpoints.
 
-### Epic F — Moltbot Parity (Consumer Profile)
+### Epic F — OpenClaw Parity (Consumer Profile)
 - **F1:** Gateway protocol adapter.
 - **F2:** Device node pairing + registry.
 - **F3:** Canvas + voice + browser control compatibility.

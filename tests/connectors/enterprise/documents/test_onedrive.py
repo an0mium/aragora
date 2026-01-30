@@ -13,7 +13,7 @@ Tests the OneDrive integration including:
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import quote
 
@@ -36,6 +36,38 @@ from aragora.connectors.exceptions import (
 
 
 # =============================================================================
+# Test Subclass for Abstract Methods
+# =============================================================================
+
+
+class TestableOneDriveConnector(OneDriveConnector):
+    """
+    Concrete implementation of OneDriveConnector for testing.
+
+    Implements abstract methods required by BaseConnector.
+    """
+
+    @property
+    def name(self) -> str:
+        """Human-readable name."""
+        return "Microsoft OneDrive"
+
+    async def search(self, query: str, limit: int = 10, **kwargs) -> list:
+        """Search for evidence."""
+        results = []
+        async for file in self.search_files(query, max_results=limit):
+            results.append(file)
+        return results
+
+    async def fetch(self, evidence_id: str) -> Optional[Any]:
+        """Fetch specific evidence."""
+        try:
+            return await self.get_file_metadata(evidence_id)
+        except Exception:
+            return None
+
+
+# =============================================================================
 # Fixtures
 # =============================================================================
 
@@ -43,7 +75,7 @@ from aragora.connectors.exceptions import (
 @pytest.fixture
 def onedrive_connector():
     """Create a OneDrive connector for testing."""
-    return OneDriveConnector(
+    return TestableOneDriveConnector(
         client_id="test_client_id",
         client_secret="test_client_secret",
         tenant_id="test_tenant",
@@ -54,7 +86,7 @@ def onedrive_connector():
 @pytest.fixture
 def onedrive_connector_with_refresh():
     """Create a OneDrive connector with refresh token."""
-    return OneDriveConnector(
+    return TestableOneDriveConnector(
         client_id="test_client_id",
         client_secret="test_client_secret",
         tenant_id="test_tenant",
@@ -65,7 +97,7 @@ def onedrive_connector_with_refresh():
 @pytest.fixture
 def onedrive_connector_with_drive_id():
     """Create a OneDrive connector with specific drive ID."""
-    return OneDriveConnector(
+    return TestableOneDriveConnector(
         client_id="test_client_id",
         client_secret="test_client_secret",
         tenant_id="test_tenant",
@@ -171,7 +203,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_credentials(self):
         """Test initialization with client credentials."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
             tenant_id="my_tenant",
@@ -183,7 +215,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_common_tenant(self):
         """Test initialization with common (multi-tenant) tenant ID."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
         )
@@ -191,7 +223,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_access_token(self):
         """Test initialization with pre-existing access token."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
             access_token="preexisting_token",
@@ -200,7 +232,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_refresh_token(self):
         """Test initialization with refresh token."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
             refresh_token="my_refresh_token",
@@ -209,7 +241,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_drive_id(self):
         """Test initialization with specific drive ID."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
             drive_id="specific_drive",
@@ -218,7 +250,7 @@ class TestOneDriveConnectorInit:
 
     def test_init_with_patterns(self):
         """Test initialization with include/exclude patterns."""
-        connector = OneDriveConnector(
+        connector = TestableOneDriveConnector(
             client_id="my_client_id",
             client_secret="my_client_secret",
             include_patterns=["*.txt", "*.pdf"],
@@ -238,7 +270,7 @@ class TestOneDriveConnectorInit:
         assert onedrive_connector.is_configured is True
 
         # Not configured without credentials
-        empty_connector = OneDriveConnector()
+        empty_connector = TestableOneDriveConnector()
         assert empty_connector.is_configured is False
 
     def test_connector_type(self, onedrive_connector):
@@ -281,7 +313,11 @@ class TestOneDriveAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             result = await connector.authenticate()
@@ -305,7 +341,11 @@ class TestOneDriveAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
             result = await onedrive_connector.authenticate(
@@ -333,7 +373,11 @@ class TestOneDriveAuthentication:
         mock_response.text = AsyncMock(return_value='{"error": "invalid_grant"}')
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             result = await connector.authenticate()
@@ -345,7 +389,9 @@ class TestOneDriveAuthentication:
         """Test token is refreshed when expired."""
         connector = onedrive_connector_with_refresh
         connector._access_token = "expired_token"
-        connector._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        connector._token_expires = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+            hours=1
+        )
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -357,7 +403,11 @@ class TestOneDriveAuthentication:
         )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()
+            )
+        )
 
         with patch.object(connector, "_get_session", return_value=mock_session):
             await connector._ensure_valid_token()
@@ -392,17 +442,32 @@ class TestOneDriveAuthentication:
 class TestOneDriveApiRequest:
     """Test OneDrive API requests."""
 
+    @staticmethod
+    def _create_mock_session(status: int, json_data: Any = None, text: str = ""):
+        """Helper to create a properly mocked aiohttp session."""
+        mock_response = MagicMock()
+        mock_response.status = status
+        mock_response.json = AsyncMock(return_value=json_data or {})
+        mock_response.text = AsyncMock(return_value=text)
+        mock_response.read = AsyncMock(return_value=text.encode())
+
+        # Create async context manager for the response
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.request = MagicMock(return_value=mock_cm)
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        return mock_session
+
     @pytest.mark.asyncio
     async def test_api_request_success(self, onedrive_connector):
         """Test successful API request."""
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={"value": [], "@odata.nextLink": None})
+        mock_session = self._create_mock_session(200, {"value": [], "@odata.nextLink": None})
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             result = await onedrive_connector._api_request("GET", "/me/drive/root/children")
 
             assert result == {"value": [], "@odata.nextLink": None}
@@ -410,13 +475,9 @@ class TestOneDriveApiRequest:
     @pytest.mark.asyncio
     async def test_api_request_204_no_content(self, onedrive_connector):
         """Test API request with 204 No Content response."""
-        mock_response = MagicMock()
-        mock_response.status = 204
+        mock_session = self._create_mock_session(204)
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             result = await onedrive_connector._api_request("DELETE", "/me/drive/items/file-001")
 
             assert result == {}
@@ -424,56 +485,36 @@ class TestOneDriveApiRequest:
     @pytest.mark.asyncio
     async def test_api_request_auth_error(self, onedrive_connector):
         """Test API request with authentication error."""
-        mock_response = MagicMock()
-        mock_response.status = 401
-        mock_response.text = AsyncMock(return_value="Unauthorized")
+        mock_session = self._create_mock_session(401, text="Unauthorized")
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorAuthError):
                 await onedrive_connector._api_request("GET", "/me/drive")
 
     @pytest.mark.asyncio
     async def test_api_request_rate_limit(self, onedrive_connector):
         """Test API request with rate limit error."""
-        mock_response = MagicMock()
-        mock_response.status = 429
-        mock_response.text = AsyncMock(return_value="Too Many Requests")
+        mock_session = self._create_mock_session(429, text="Too Many Requests")
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorRateLimitError):
                 await onedrive_connector._api_request("GET", "/me/drive")
 
     @pytest.mark.asyncio
     async def test_api_request_not_found(self, onedrive_connector):
         """Test API request with not found error."""
-        mock_response = MagicMock()
-        mock_response.status = 404
-        mock_response.text = AsyncMock(return_value="Not Found")
+        mock_session = self._create_mock_session(404, text="Not Found")
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorNotFoundError):
                 await onedrive_connector._api_request("GET", "/me/drive/items/nonexistent")
 
     @pytest.mark.asyncio
     async def test_api_request_server_error(self, onedrive_connector):
         """Test API request with server error."""
-        mock_response = MagicMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
+        mock_session = self._create_mock_session(500, text="Internal Server Error")
 
-        mock_session = AsyncMock()
-        mock_session.request = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorAPIError) as exc_info:
                 await onedrive_connector._api_request("GET", "/me/drive")
 
@@ -513,7 +554,9 @@ class TestOneDriveFileOperations:
             "value": sample_onedrive_files,
         }
 
-        with patch.object(onedrive_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            onedrive_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             files = []
             async for file in onedrive_connector.list_files("/Documents"):
                 files.append(file)
@@ -534,6 +577,7 @@ class TestOneDriveFileOperations:
         }
 
         call_count = 0
+
         async def mock_api_request(method, endpoint, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -550,7 +594,9 @@ class TestOneDriveFileOperations:
             assert call_count == 2
 
     @pytest.mark.asyncio
-    async def test_list_files_skips_folders(self, onedrive_connector, sample_onedrive_files, sample_onedrive_folders):
+    async def test_list_files_skips_folders(
+        self, onedrive_connector, sample_onedrive_files, sample_onedrive_folders
+    ):
         """Test listing files skips folder entries."""
         mixed_items = sample_onedrive_files + sample_onedrive_folders
         mock_response = {
@@ -567,19 +613,30 @@ class TestOneDriveFileOperations:
             for file in files:
                 assert isinstance(file, OneDriveFile)
 
+    @staticmethod
+    def _create_download_mock_session(status: int, content: bytes = b""):
+        """Helper to create a properly mocked aiohttp session for downloads."""
+        mock_response = MagicMock()
+        mock_response.status = status
+        mock_response.read = AsyncMock(return_value=content)
+
+        # Create async context manager for the response
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_cm.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_cm)
+
+        return mock_session
+
     @pytest.mark.asyncio
     async def test_download_file_success(self, onedrive_connector):
         """Test downloading a file."""
         file_content = b"File content here"
+        mock_session = self._create_download_mock_session(200, content=file_content)
 
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.read = AsyncMock(return_value=file_content)
-
-        mock_session = AsyncMock()
-        mock_session.get = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             content = await onedrive_connector.download_file("file-001")
 
             assert content == file_content
@@ -587,13 +644,9 @@ class TestOneDriveFileOperations:
     @pytest.mark.asyncio
     async def test_download_file_not_found(self, onedrive_connector):
         """Test downloading a non-existent file."""
-        mock_response = MagicMock()
-        mock_response.status = 404
+        mock_session = self._create_download_mock_session(404)
 
-        mock_session = AsyncMock()
-        mock_session.get = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorNotFoundError) as exc_info:
                 await onedrive_connector.download_file("nonexistent")
 
@@ -602,13 +655,9 @@ class TestOneDriveFileOperations:
     @pytest.mark.asyncio
     async def test_download_file_rate_limit(self, onedrive_connector):
         """Test download with rate limit."""
-        mock_response = MagicMock()
-        mock_response.status = 429
+        mock_session = self._create_download_mock_session(429)
 
-        mock_session = AsyncMock()
-        mock_session.get = MagicMock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_response), __aexit__=AsyncMock()))
-
-        with patch.object(onedrive_connector, "_get_session", return_value=mock_session):
+        with patch.object(onedrive_connector, "_get_session", AsyncMock(return_value=mock_session)):
             with pytest.raises(ConnectorRateLimitError):
                 await onedrive_connector.download_file("file-001")
 
@@ -622,7 +671,10 @@ class TestOneDriveFileOperations:
 
             assert metadata.name == "document.docx"
             assert metadata.size == 25000
-            assert metadata.mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            assert (
+                metadata.mime_type
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
 
 # =============================================================================
@@ -634,7 +686,9 @@ class TestOneDriveFolderOperations:
     """Test folder listing operations."""
 
     @pytest.mark.asyncio
-    async def test_list_folders(self, onedrive_connector, sample_onedrive_folders, sample_onedrive_files):
+    async def test_list_folders(
+        self, onedrive_connector, sample_onedrive_folders, sample_onedrive_files
+    ):
         """Test listing folders."""
         mixed_items = sample_onedrive_files + sample_onedrive_folders
         mock_response = {
@@ -664,6 +718,7 @@ class TestOneDriveFolderOperations:
         }
 
         call_count = 0
+
         async def mock_api_request(method, endpoint, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -743,7 +798,8 @@ class TestOneDriveSearch:
     async def test_search_skips_folders(self, onedrive_connector, sample_onedrive_folders):
         """Test search skips folder results."""
         mock_response = {
-            "value": sample_onedrive_folders + [
+            "value": sample_onedrive_folders
+            + [
                 {
                     "id": "file-001",
                     "name": "result.pdf",
@@ -765,7 +821,9 @@ class TestOneDriveSearch:
         """Test search respects max_results."""
         mock_response = {"value": []}
 
-        with patch.object(onedrive_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            onedrive_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             results = []
             async for result in onedrive_connector.search_files("test", max_results=25):
                 results.append(result)
@@ -789,7 +847,11 @@ class TestOneDriveDeltaSync:
         state = SyncState(connector_id="onedrive", status=SyncStatus.IDLE)
 
         # Filter to only supported extensions
-        supported_files = [f for f in sample_onedrive_files if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)]
+        supported_files = [
+            f
+            for f in sample_onedrive_files
+            if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+        ]
         mock_response = {
             "value": supported_files,
             "@odata.deltaLink": "https://graph.microsoft.com/v1.0/delta?token=new_delta_token",
@@ -818,13 +880,19 @@ class TestOneDriveDeltaSync:
             status=SyncStatus.IDLE,
         )
 
-        supported_files = [f for f in sample_onedrive_files if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)]
+        supported_files = [
+            f
+            for f in sample_onedrive_files
+            if any(f["name"].endswith(ext) for ext in SUPPORTED_EXTENSIONS)
+        ]
         mock_response = {
             "value": supported_files,
             "@odata.deltaLink": "https://graph.microsoft.com/v1.0/delta?token=new_token",
         }
 
-        with patch.object(onedrive_connector, "_api_request", return_value=mock_response) as mock_request:
+        with patch.object(
+            onedrive_connector, "_api_request", return_value=mock_response
+        ) as mock_request:
             items = []
             async for item in onedrive_connector.sync_items(state):
                 items.append(item)
@@ -1040,9 +1108,20 @@ class TestOneDriveConstants:
 
     def test_office_mimes(self):
         """Test Office MIME type mappings."""
-        assert OFFICE_MIMES["application/vnd.openxmlformats-officedocument.wordprocessingml.document"] == "docx"
-        assert OFFICE_MIMES["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"] == "xlsx"
-        assert OFFICE_MIMES["application/vnd.openxmlformats-officedocument.presentationml.presentation"] == "pptx"
+        assert (
+            OFFICE_MIMES["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+            == "docx"
+        )
+        assert (
+            OFFICE_MIMES["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+            == "xlsx"
+        )
+        assert (
+            OFFICE_MIMES[
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            ]
+            == "pptx"
+        )
 
     def test_api_endpoints(self):
         """Test API endpoint constants."""

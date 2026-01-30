@@ -12,9 +12,12 @@ Provides OpenMetrics-compliant metrics for monitoring:
 
 from __future__ import annotations
 
+import logging
 import time
 from functools import wraps
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 # Try to import prometheus_client, fall back gracefully
 try:
@@ -357,8 +360,9 @@ def with_webhook_metrics(platform: str) -> Callable:
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception:
+            except Exception as e:
                 status = "error"
+                logger.warning(f"Webhook handler exception on {platform}: {type(e).__name__}: {e}")
                 record_error(platform, "handler_exception")
                 raise
             finally:
@@ -382,8 +386,9 @@ def with_api_metrics(platform: str, method: str) -> Callable:
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception:
+            except Exception as e:
                 status = "error"
+                logger.warning(f"API call exception ({platform}.{method}): {type(e).__name__}: {e}")
                 raise
             finally:
                 latency = time.time() - start_time

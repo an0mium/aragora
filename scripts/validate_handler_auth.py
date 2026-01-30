@@ -45,6 +45,7 @@ INLINE_AUTH_PATTERNS: tuple[str, ...] = (
     "extract_user_from_request(",
     "_check_rbac_permission(",
     "require_auth_or_error(",
+    "require_permission_or_error(",
     "_require_admin(",
     "admin_secure_endpoint",
     "check_permission(",
@@ -261,10 +262,7 @@ def main() -> int:
         for v in sorted(violations):
             print(f"  - {v}")
         print()
-        print(
-            "If a file intentionally does not need RBAC, add it to the "
-            "allowlist in this script."
-        )
+        print("If a file intentionally does not need RBAC, add it to the allowlist in this script.")
         print()
         return 1
 

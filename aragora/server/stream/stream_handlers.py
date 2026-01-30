@@ -25,11 +25,11 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+import aiohttp.web as web
+
 from aragora.server.validation import safe_query_float, safe_query_int
 
 if TYPE_CHECKING:
-    import aiohttp.web
-
     from aragora.agents.personas import PersonaManager
     from aragora.debate.embeddings import DebateEmbeddingsDatabase
     from aragora.insights.flip_detector import FlipDetector
@@ -80,9 +80,8 @@ class StreamAPIHandlersMixin:
     # CORS Handler
     # =========================================================================
 
-    async def _handle_options(self, request) -> "aiohttp.web.Response":
+    async def _handle_options(self, request) -> web.Response:
         """Handle CORS preflight requests."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
         return web.Response(status=204, headers=self._cors_headers(origin))
@@ -91,9 +90,8 @@ class StreamAPIHandlersMixin:
     # Leaderboard and Matches (ELO System)
     # =========================================================================
 
-    async def _handle_leaderboard(self, request) -> "aiohttp.web.Response":
+    async def _handle_leaderboard(self, request) -> web.Response:
         """GET /api/leaderboard - Agent rankings."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -126,9 +124,8 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_matches_recent(self, request) -> "aiohttp.web.Response":
+    async def _handle_matches_recent(self, request) -> web.Response:
         """GET /api/matches/recent - Recent ELO matches."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -153,9 +150,8 @@ class StreamAPIHandlersMixin:
     # Insights and Flips
     # =========================================================================
 
-    async def _handle_insights_recent(self, request) -> "aiohttp.web.Response":
+    async def _handle_insights_recent(self, request) -> web.Response:
         """GET /api/insights/recent - Recent debate insights."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -182,9 +178,8 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_flips_summary(self, request) -> "aiohttp.web.Response":
+    async def _handle_flips_summary(self, request) -> web.Response:
         """GET /api/flips/summary - Position flip summary."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -207,9 +202,8 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_flips_recent(self, request) -> "aiohttp.web.Response":
+    async def _handle_flips_recent(self, request) -> web.Response:
         """GET /api/flips/recent - Recent position flips."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -234,9 +228,8 @@ class StreamAPIHandlersMixin:
     # Tournaments
     # =========================================================================
 
-    async def _handle_tournaments(self, request) -> "aiohttp.web.Response":
+    async def _handle_tournaments(self, request) -> web.Response:
         """GET /api/tournaments - Tournament list with real data."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -282,11 +275,9 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_tournament_details(self, request) -> "aiohttp.web.Response":
+    async def _handle_tournament_details(self, request) -> web.Response:
         """GET /api/tournaments/{tournament_id} - Tournament details with standings."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -368,11 +359,9 @@ class StreamAPIHandlersMixin:
     # Agent Analysis
     # =========================================================================
 
-    async def _handle_agent_consistency(self, request) -> "aiohttp.web.Response":
+    async def _handle_agent_consistency(self, request) -> web.Response:
         """GET /api/agent/{name}/consistency - Agent consistency score from FlipDetector."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -435,11 +424,9 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_agent_network(self, request) -> "aiohttp.web.Response":
+    async def _handle_agent_network(self, request) -> web.Response:
         """GET /api/agent/{name}/network - Agent relationship network (rivals, allies)."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -538,9 +525,8 @@ class StreamAPIHandlersMixin:
     # Memory and Laboratory
     # =========================================================================
 
-    async def _handle_memory_tier_stats(self, request) -> "aiohttp.web.Response":
+    async def _handle_memory_tier_stats(self, request) -> web.Response:
         """GET /api/memory/tier-stats - Continuum memory statistics."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -568,9 +554,8 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_laboratory_emergent_traits(self, request) -> "aiohttp.web.Response":
+    async def _handle_laboratory_emergent_traits(self, request) -> web.Response:
         """GET /api/laboratory/emergent-traits - Discovered agent traits."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -598,9 +583,8 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_laboratory_cross_pollinations(self, request) -> "aiohttp.web.Response":
+    async def _handle_laboratory_cross_pollinations(self, request) -> web.Response:
         """GET /api/laboratory/cross-pollinations/suggest - Trait transfer suggestions."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -631,11 +615,9 @@ class StreamAPIHandlersMixin:
     # Nomic State
     # =========================================================================
 
-    async def _handle_health(self, request) -> "aiohttp.web.Response":
+    async def _handle_health(self, request) -> web.Response:
         """GET /api/health - Health check endpoint."""
         from datetime import datetime
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -646,9 +628,8 @@ class StreamAPIHandlersMixin:
         }
         return web.json_response(health, headers=self._cors_headers(origin))
 
-    async def _handle_metrics(self, request) -> "aiohttp.web.Response":
+    async def _handle_metrics(self, request) -> web.Response:
         """GET /metrics - Prometheus-format metrics."""
-        import aiohttp.web as web
 
         try:
             from aragora.server.prometheus import CONTENT_TYPE_LATEST, get_prometheus_metrics
@@ -664,9 +645,8 @@ class StreamAPIHandlersMixin:
                 content_type="text/plain",
             )
 
-    async def _handle_nomic_state(self, request) -> "aiohttp.web.Response":
+    async def _handle_nomic_state(self, request) -> web.Response:
         """GET /api/nomic/state - Current nomic loop state."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -688,11 +668,9 @@ class StreamAPIHandlersMixin:
     # Graph Visualization (ArgumentCartographer)
     # =========================================================================
 
-    async def _handle_graph_json(self, request) -> "aiohttp.web.Response":
+    async def _handle_graph_json(self, request) -> web.Response:
         """GET /api/debate/{loop_id}/graph - Debate argument graph as JSON."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -726,11 +704,9 @@ class StreamAPIHandlersMixin:
                 {"error": "Failed to export graph"}, status=500, headers=self._cors_headers(origin)
             )
 
-    async def _handle_graph_mermaid(self, request) -> "aiohttp.web.Response":
+    async def _handle_graph_mermaid(self, request) -> web.Response:
         """GET /api/debate/{loop_id}/graph/mermaid - Debate argument graph as Mermaid diagram."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -769,11 +745,9 @@ class StreamAPIHandlersMixin:
                 headers=self._cors_headers(origin),
             )
 
-    async def _handle_graph_stats(self, request) -> "aiohttp.web.Response":
+    async def _handle_graph_stats(self, request) -> web.Response:
         """GET /api/debate/{loop_id}/graph/stats - Debate argument graph statistics."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -810,11 +784,9 @@ class StreamAPIHandlersMixin:
     # Audience
     # =========================================================================
 
-    async def _handle_audience_clusters(self, request) -> "aiohttp.web.Response":
+    async def _handle_audience_clusters(self, request) -> web.Response:
         """GET /api/debate/{loop_id}/audience/clusters - Clustered audience suggestions."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -880,9 +852,8 @@ class StreamAPIHandlersMixin:
     # Replays
     # =========================================================================
 
-    async def _handle_replays(self, request) -> "aiohttp.web.Response":
+    async def _handle_replays(self, request) -> web.Response:
         """GET /api/replays - List available debate replays."""
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 
@@ -942,11 +913,9 @@ class StreamAPIHandlersMixin:
                 {"error": "Failed to list replays"}, status=500, headers=self._cors_headers(origin)
             )
 
-    async def _handle_replay_html(self, request) -> "aiohttp.web.Response":
+    async def _handle_replay_html(self, request) -> web.Response:
         """GET /api/replays/{replay_id}/html - Get HTML replay visualization."""
         import re
-
-        import aiohttp.web as web
 
         origin = request.headers.get("Origin")
 

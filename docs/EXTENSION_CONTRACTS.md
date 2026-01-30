@@ -186,7 +186,7 @@ Outbound inbox notification (gateway → client):
 
 ### Gateway WS protocol draft (compatibility target)
 
-These fields are proposed for Moltbot parity and are not yet enforced.
+These fields are proposed for OpenClaw parity and are not yet enforced.
 
 - Envelope:
   - `type`: string
@@ -240,7 +240,7 @@ Device registry contract:
   `tests/extensions/test_gastown.py`.
 - Gateway sessions: `tests/gateway/test_protocol_adapter.py`.
 - Device runtime: `tests/gateway/test_device_node_runtime.py`.
-- Moltbot surface: `tests/extensions/moltbot/test_canvas.py`,
+- OpenClaw surface (moltbot module paths): `tests/extensions/moltbot/test_canvas.py`,
   `tests/extensions/moltbot/test_voice_wake.py`.
 
 ## Stability guidelines

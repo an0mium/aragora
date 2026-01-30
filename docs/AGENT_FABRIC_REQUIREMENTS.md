@@ -243,7 +243,7 @@ class PolicyRule:
 
 - **Aragora Core**: Uses fabric for debate agent orchestration
 - **Gastown Extension**: Uses fabric for workspace agents and convoys
-- **Moltbot Extension**: Uses fabric for device-initiated agents
+- **OpenClaw Extension**: Uses fabric for device-initiated agents
 - **Computer Use**: Uses fabric policy for action approvals
 
 ## Implementation Plan

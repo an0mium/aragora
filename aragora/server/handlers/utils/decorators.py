@@ -510,6 +510,8 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     # Queue permissions
     "queue:read": ["member", "admin", "owner"],
     "queue:create": ["admin", "owner"],
+    # Evolution permissions
+    "evolution:read": ["member", "admin", "owner"],
 }
 
 

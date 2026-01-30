@@ -145,7 +145,7 @@ These modules provide the foundation for both parity extensions:
 | **Convoy tracking** | Build | Extends existing workflow engine and task decomposer |
 | **Mayor-style coordinator** | Build | Extends existing Arena and AutonomousOrchestrator |
 | **Refinery merge queue** | Build | Specialized; extends existing consensus patterns |
-| **Local gateway** | Build or Fork | May warrant separate service; evaluate Moltbot gateway as starting point |
+| **Local gateway** | Build or Fork | May warrant separate service; evaluate OpenClaw gateway as starting point |
 | **Live Canvas** | Integrate | Complex UI; evaluate existing open-source canvas solutions |
 | **Voice wake** | Integrate | Specialized hardware/ML; use existing speech frameworks |
 | **Onboarding wizard** | Build | Product-specific; must match Aragora's identity |

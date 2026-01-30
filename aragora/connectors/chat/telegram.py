@@ -11,6 +11,7 @@ Environment Variables:
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -1026,16 +1027,32 @@ class TelegramConnector(ChatPlatformConnector):
     ) -> bool:
         """Verify Telegram webhook request.
 
-        Telegram uses a secret_token query parameter for verification,
-        which is set when configuring the webhook URL. Since this is
-        URL-based verification, this method always returns True.
+        Telegram sends the X-Telegram-Bot-Api-Secret-Token header if a
+        secret_token was configured when setting the webhook URL via setWebhook.
 
-        For enhanced security, the webhook URL itself should contain
-        a secret token that the server validates.
+        SECURITY: Fails closed in production if TELEGRAM_WEBHOOK_SECRET is not configured.
         """
-        # Telegram webhook verification is done via secret_token in URL
-        # This is different from signature-based verification used by Slack
-        return True
+        webhook_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+        if not webhook_secret:
+            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    "SECURITY: TELEGRAM_WEBHOOK_SECRET not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "TELEGRAM_WEBHOOK_SECRET not set - skipping verification. "
+                "This is only acceptable in development!"
+            )
+            return True
+
+        secret_header = headers.get(
+            "X-Telegram-Bot-Api-Secret-Token",
+            headers.get("x-telegram-bot-api-secret-token", ""),
+        )
+        return hmac.compare_digest(secret_header, webhook_secret)
 
     def parse_webhook_event(
         self,

@@ -192,9 +192,9 @@ class TelegramHandler(BaseHandler):
             if handler.command != "POST":
                 return error_response("Method not allowed", 405)
 
-            # Verify webhook secret if configured
+            # Verify webhook secret
             # Note: No RBAC for webhook - uses signature verification instead
-            if TELEGRAM_WEBHOOK_SECRET and not self._verify_secret(handler):
+            if not self._verify_secret(handler):
                 logger.warning("Telegram webhook secret verification failed")
                 return error_response("Unauthorized", 401)
 
@@ -211,8 +211,22 @@ class TelegramHandler(BaseHandler):
 
         Telegram supports a secret_token parameter in setWebhook that is sent
         in the X-Telegram-Bot-Api-Secret-Token header.
+
+        SECURITY: Fails closed in production if TELEGRAM_WEBHOOK_SECRET is not configured.
         """
         if not TELEGRAM_WEBHOOK_SECRET:
+            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    "SECURITY: TELEGRAM_WEBHOOK_SECRET not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "TELEGRAM_WEBHOOK_SECRET not set - skipping verification. "
+                "This is only acceptable in development!"
+            )
             return True
 
         try:
