@@ -135,6 +135,47 @@ EXPLAINABILITY_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/explain/{decision_id}": {
+        "get": {
+            "tags": ["Explainability"],
+            "summary": "Get decision explanation",
+            "operationId": "getDecisionExplanation",
+            "description": """Get a detailed explanation for a specific decision.
+
+**Response includes:**
+- Natural language summary of the decision rationale
+- Key contributing factors with weights
+- Agent positions and voting breakdown
+- Evidence citations used in reaching the decision
+- Confidence assessment and uncertainty indicators""",
+            "parameters": [
+                {
+                    "name": "decision_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the decision to explain",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "description": "Response format: json, markdown, or summary",
+                    "schema": {"type": "string", "default": "json", "enum": ["json", "markdown", "summary"]},
+                },
+                {
+                    "name": "include_factors",
+                    "in": "query",
+                    "description": "Include detailed factor decomposition",
+                    "schema": {"type": "boolean", "default": True},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Decision explanation", "DecisionExplanation"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/v1/explainability/batch": {
         "post": {
             "tags": ["Explainability"],

@@ -139,6 +139,74 @@ KNOWLEDGE_MOUND_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/knowledge/mound/culture/{workspace_id}": {
+        "get": {
+            "tags": ["Knowledge Mound"],
+            "summary": "Get culture patterns",
+            "operationId": "getKnowledgeMoundCulture",
+            "description": "Get culture patterns for a workspace.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "workspace_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Culture patterns", "StandardSuccessResponse"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/knowledge/mound/revalidate/{node_id}": {
+        "post": {
+            "tags": ["Knowledge Mound"],
+            "summary": "Revalidate knowledge node",
+            "operationId": "createKnowledgeMoundRevalidate",
+            "description": "Revalidate a knowledge node.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "node_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Node revalidated", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/knowledge/mound/sync/{adapter_name}": {
+        "post": {
+            "tags": ["Knowledge Mound"],
+            "summary": "Trigger adapter sync",
+            "operationId": "createKnowledgeMoundSync",
+            "description": "Trigger sync for a knowledge mound adapter.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "adapter_name",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Sync triggered", "StandardSuccessResponse"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
 }
 
 

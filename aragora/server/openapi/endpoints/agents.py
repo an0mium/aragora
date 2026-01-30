@@ -481,6 +481,76 @@ Expertise is determined by debate performance in specific topic areas.""",
             "responses": {"200": _ok_response("Accuracy metrics")},
         },
     },
+    "/api/v1/agent/{agent_id}/head-to-head/{opponent_id}": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "Head-to-head comparison",
+            "description": """Get head-to-head comparison between two agents.
+
+**Response includes:**
+- Win/loss/draw record between the two agents
+- Per-domain performance comparison
+- ELO delta history
+- Recent matchup results""",
+            "operationId": "getAgentHeadToHead",
+            "parameters": [
+                {
+                    "name": "agent_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the primary agent",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "opponent_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the opponent agent",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Head-to-head comparison data"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/agent/{agent_id}/opponent-briefing/{opponent_id}": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "Opponent briefing",
+            "description": """Get a strategic briefing about an opponent agent.
+
+**Response includes:**
+- Opponent strengths and weaknesses
+- Preferred argumentation styles
+- Historical vulnerability patterns
+- Recommended counter-strategies""",
+            "operationId": "getAgentOpponentBriefing",
+            "parameters": [
+                {
+                    "name": "agent_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the agent requesting the briefing",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "opponent_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the opponent agent",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Opponent briefing data"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/agent/compare": {
         "get": {
             "tags": ["Agents"],

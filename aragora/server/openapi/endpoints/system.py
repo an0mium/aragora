@@ -1,6 +1,6 @@
 """System endpoint definitions."""
 
-from aragora.server.openapi.helpers import _ok_response
+from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
 SYSTEM_ENDPOINTS = {
     "/api/health": {
@@ -506,6 +506,85 @@ SYSTEM_ENDPOINTS = {
             "responses": {
                 "200": {"description": "OpenAPI schema", "content": {"application/json": {}}}
             },
+        },
+    },
+    # =========================================================================
+    # Transcription
+    # =========================================================================
+    "/api/v1/transcription/status/{task_id}": {
+        "get": {
+            "tags": ["System", "Transcription"],
+            "summary": "Get transcription task status",
+            "operationId": "getTranscriptionStatus",
+            "description": """Get the current status and progress of a transcription task.
+
+**Task states:**
+- `pending`: Task queued for processing
+- `processing`: Transcription in progress
+- `completed`: Transcription finished successfully
+- `failed`: Transcription failed
+
+**Response includes:**
+- Current task state and progress percentage
+- Result URL when completed
+- Error details on failure""",
+            "parameters": [
+                {
+                    "name": "task_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Transcription task ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Transcription task status",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "task_id": {"type": "string"},
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["pending", "processing", "completed", "failed"],
+                                    },
+                                    "progress": {
+                                        "type": "number",
+                                        "description": "Progress percentage (0-100)",
+                                        "minimum": 0,
+                                        "maximum": 100,
+                                    },
+                                    "result_url": {
+                                        "type": "string",
+                                        "nullable": True,
+                                        "description": "URL to download the transcription result when completed",
+                                    },
+                                    "transcript": {
+                                        "type": "string",
+                                        "nullable": True,
+                                        "description": "Transcribed text when completed",
+                                    },
+                                    "error": {
+                                        "type": "string",
+                                        "nullable": True,
+                                        "description": "Error message if task failed",
+                                    },
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                    "completed_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": True,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
 }

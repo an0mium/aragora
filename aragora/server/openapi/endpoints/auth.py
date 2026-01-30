@@ -1,9 +1,11 @@
 """Authentication endpoint definitions for OpenAPI documentation.
 
-Handles user registration, login, session management, MFA, and API keys.
+Handles user registration, login, session management, MFA, API keys, and SCIM provisioning.
 """
 
 from typing import Any
+
+from aragora.server.openapi.helpers import STANDARD_ERRORS
 
 
 def _user_schema() -> dict[str, Any]:
@@ -433,6 +435,99 @@ AUTH_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/v1/auth/api-keys/{key_id}": {
+        "get": {
+            "tags": ["Authentication"],
+            "summary": "Get API key details",
+            "operationId": "getApiKey",
+            "description": "Get details of a specific API key by ID. Does not return the full key value.",
+            "parameters": [
+                {
+                    "name": "key_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "API key ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "API key details",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "prefix": {
+                                        "type": "string",
+                                        "description": "Key prefix for identification",
+                                    },
+                                    "scopes": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Assigned permission scopes",
+                                    },
+                                    "created_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                    },
+                                    "expires_at": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": True,
+                                    },
+                                    "last_used": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "nullable": True,
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+                "401": {"description": "Not authenticated"},
+                "404": {"description": "API key not found"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["Authentication"],
+            "summary": "Delete API key by ID",
+            "operationId": "deleteApiKeyById",
+            "description": "Permanently delete a specific API key. This action cannot be undone.",
+            "parameters": [
+                {
+                    "name": "key_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "API key ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "API key deleted",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "deleted": {"type": "boolean"},
+                                    "key_id": {"type": "string"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "401": {"description": "Not authenticated"},
+                "404": {"description": "API key not found"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     # =========================================================================
     # MFA (Multi-Factor Authentication)
     # =========================================================================
@@ -694,5 +789,446 @@ AUTH_ENDPOINTS = {
             },
             "security": [{"bearerAuth": []}],
         }
+    },
+    # =========================================================================
+    # SCIM v2 - Groups (RFC 7643/7644)
+    # =========================================================================
+    "/scim/v2/Groups/{group_id}": {
+        "get": {
+            "tags": ["SCIM"],
+            "summary": "Get SCIM group",
+            "operationId": "scimGetGroup",
+            "description": "Retrieve a SCIM group resource by ID per RFC 7644 Section 3.4.1.",
+            "parameters": [
+                {
+                    "name": "group_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM group resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "SCIM Group resource",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "id": {"type": "string"},
+                                    "displayName": {"type": "string"},
+                                    "members": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {"type": "string"},
+                                                "display": {"type": "string"},
+                                                "$ref": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                    "meta": {
+                                        "type": "object",
+                                        "properties": {
+                                            "resourceType": {"type": "string"},
+                                            "created": {"type": "string", "format": "date-time"},
+                                            "lastModified": {"type": "string", "format": "date-time"},
+                                            "location": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "put": {
+            "tags": ["SCIM"],
+            "summary": "Replace SCIM group",
+            "operationId": "scimReplaceGroup",
+            "description": "Replace a SCIM group resource per RFC 7644 Section 3.5.1. Full replacement of the group resource.",
+            "parameters": [
+                {
+                    "name": "group_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM group resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/scim+json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["schemas", "displayName"],
+                            "properties": {
+                                "schemas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "displayName": {"type": "string"},
+                                "members": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "string"},
+                                            "display": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "SCIM Group resource replaced",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {"type": "object"},
+                        },
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "patch": {
+            "tags": ["SCIM"],
+            "summary": "Patch SCIM group",
+            "operationId": "scimPatchGroup",
+            "description": "Partially update a SCIM group resource per RFC 7644 Section 3.5.2. Supports add, remove, and replace operations.",
+            "parameters": [
+                {
+                    "name": "group_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM group resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/scim+json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["schemas", "Operations"],
+                            "properties": {
+                                "schemas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "Operations": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["op"],
+                                        "properties": {
+                                            "op": {
+                                                "type": "string",
+                                                "enum": ["add", "remove", "replace"],
+                                            },
+                                            "path": {"type": "string"},
+                                            "value": {},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "SCIM Group resource patched",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {"type": "object"},
+                        },
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["SCIM"],
+            "summary": "Delete SCIM group",
+            "operationId": "scimDeleteGroup",
+            "description": "Delete a SCIM group resource per RFC 7644 Section 3.6.",
+            "parameters": [
+                {
+                    "name": "group_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM group resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "204": {"description": "Group deleted successfully"},
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    # =========================================================================
+    # SCIM v2 - Users (RFC 7643/7644)
+    # =========================================================================
+    "/scim/v2/Users/{user_id}": {
+        "get": {
+            "tags": ["SCIM"],
+            "summary": "Get SCIM user",
+            "operationId": "scimGetUser",
+            "description": "Retrieve a SCIM user resource by ID per RFC 7644 Section 3.4.1.",
+            "parameters": [
+                {
+                    "name": "user_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM user resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "SCIM User resource",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "schemas": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "id": {"type": "string"},
+                                    "userName": {"type": "string"},
+                                    "name": {
+                                        "type": "object",
+                                        "properties": {
+                                            "givenName": {"type": "string"},
+                                            "familyName": {"type": "string"},
+                                            "formatted": {"type": "string"},
+                                        },
+                                    },
+                                    "emails": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {"type": "string", "format": "email"},
+                                                "type": {"type": "string"},
+                                                "primary": {"type": "boolean"},
+                                            },
+                                        },
+                                    },
+                                    "active": {"type": "boolean"},
+                                    "groups": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "value": {"type": "string"},
+                                                "display": {"type": "string"},
+                                                "$ref": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                    "meta": {
+                                        "type": "object",
+                                        "properties": {
+                                            "resourceType": {"type": "string"},
+                                            "created": {"type": "string", "format": "date-time"},
+                                            "lastModified": {"type": "string", "format": "date-time"},
+                                            "location": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "put": {
+            "tags": ["SCIM"],
+            "summary": "Replace SCIM user",
+            "operationId": "scimReplaceUser",
+            "description": "Replace a SCIM user resource per RFC 7644 Section 3.5.1. Full replacement of the user resource.",
+            "parameters": [
+                {
+                    "name": "user_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM user resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/scim+json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["schemas", "userName"],
+                            "properties": {
+                                "schemas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "userName": {"type": "string"},
+                                "name": {
+                                    "type": "object",
+                                    "properties": {
+                                        "givenName": {"type": "string"},
+                                        "familyName": {"type": "string"},
+                                    },
+                                },
+                                "emails": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "string", "format": "email"},
+                                            "type": {"type": "string"},
+                                            "primary": {"type": "boolean"},
+                                        },
+                                    },
+                                },
+                                "active": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "SCIM User resource replaced",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {"type": "object"},
+                        },
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "patch": {
+            "tags": ["SCIM"],
+            "summary": "Patch SCIM user",
+            "operationId": "scimPatchUser",
+            "description": "Partially update a SCIM user resource per RFC 7644 Section 3.5.2. Supports add, remove, and replace operations.",
+            "parameters": [
+                {
+                    "name": "user_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM user resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/scim+json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["schemas", "Operations"],
+                            "properties": {
+                                "schemas": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "Operations": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["op"],
+                                        "properties": {
+                                            "op": {
+                                                "type": "string",
+                                                "enum": ["add", "remove", "replace"],
+                                            },
+                                            "path": {"type": "string"},
+                                            "value": {},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "SCIM User resource patched",
+                    "content": {
+                        "application/scim+json": {
+                            "schema": {"type": "object"},
+                        },
+                    },
+                },
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["SCIM"],
+            "summary": "Delete SCIM user",
+            "operationId": "scimDeleteUser",
+            "description": "Delete a SCIM user resource per RFC 7644 Section 3.6.",
+            "parameters": [
+                {
+                    "name": "user_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "SCIM user resource ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "204": {"description": "User deleted successfully"},
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
     },
 }

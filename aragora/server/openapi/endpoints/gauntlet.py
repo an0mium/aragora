@@ -184,6 +184,84 @@ GAUNTLET_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/gauntlet/{gauntlet_id}": {
+        "get": {
+            "tags": ["Gauntlet"],
+            "summary": "Get gauntlet run",
+            "operationId": "getGauntletRun",
+            "description": "Get details of a specific gauntlet run by ID.",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the gauntlet run",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Gauntlet run details", "GauntletRun"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Gauntlet"],
+            "summary": "Delete gauntlet run",
+            "operationId": "deleteGauntletRun",
+            "description": "Delete a specific gauntlet run and its associated data.",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the gauntlet run to delete",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Gauntlet run deleted"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/gauntlet/{gauntlet_id}/compare/{other_id}": {
+        "get": {
+            "tags": ["Gauntlet"],
+            "summary": "Compare gauntlet runs",
+            "operationId": "compareGauntletRuns",
+            "description": """Compare two gauntlet runs side-by-side.
+
+**Response includes:**
+- Finding overlap and differences
+- Severity distribution comparison
+- Agent performance deltas
+- Consensus divergence analysis""",
+            "parameters": [
+                {
+                    "name": "gauntlet_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the first gauntlet run",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "other_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the second gauntlet run to compare against",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Gauntlet comparison results", "GauntletComparison"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/gauntlet/heatmaps": {
         "get": {
             "tags": ["Gauntlet"],

@@ -1,6 +1,6 @@
 """Additional endpoint definitions (tournaments, genesis, evolution, etc.)."""
 
-from aragora.server.openapi.helpers import _ok_response
+from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
 ADDITIONAL_ENDPOINTS = {
     "/api/tournaments": {
@@ -64,6 +64,193 @@ ADDITIONAL_ENDPOINTS = {
                 {"name": "agent", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "responses": {"200": _ok_response("Tree data")},
+        },
+    },
+    "/api/v1/tournaments/{tournament_id}": {
+        "get": {
+            "tags": ["Tournaments"],
+            "summary": "Get tournament",
+            "description": "Get details of a specific tournament by ID, including configuration, participants, and current status.",
+            "operationId": "getTournament",
+            "parameters": [
+                {
+                    "name": "tournament_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Tournament ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Tournament details"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Tournaments"],
+            "summary": "Delete tournament",
+            "description": "Delete a specific tournament and its associated data.",
+            "operationId": "deleteTournament",
+            "parameters": [
+                {
+                    "name": "tournament_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Tournament ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Tournament deleted"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/genesis/descendants/{genome_id}": {
+        "get": {
+            "tags": ["Genesis"],
+            "summary": "Get genome descendants",
+            "description": """Get all descendant genomes derived from a specific genome.
+
+**Response includes:**
+- Direct child genomes
+- Full descendant tree with depth levels
+- Mutation history for each descendant
+- Performance comparison across generations""",
+            "operationId": "getGenesisDescendants",
+            "parameters": [
+                {
+                    "name": "genome_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "ID of the parent genome",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Descendant genomes"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/genesis/genomes/{genome_id}": {
+        "get": {
+            "tags": ["Genesis"],
+            "summary": "Get genome",
+            "description": """Get details of a specific genome by ID.
+
+**Response includes:**
+- Genome configuration and parameters
+- Parent genome reference
+- Mutation history
+- Performance metrics and fitness score""",
+            "operationId": "getGenesisGenome",
+            "parameters": [
+                {
+                    "name": "genome_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Genome ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Genome details"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/reviews/{review_id}": {
+        "get": {
+            "tags": ["Reviews"],
+            "summary": "Get review",
+            "description": "Get a specific code review by ID, including findings, agent critiques, and agreement scores.",
+            "operationId": "getReview",
+            "parameters": [
+                {
+                    "name": "review_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Review ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Review details"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "put": {
+            "tags": ["Reviews"],
+            "summary": "Update review",
+            "description": "Update a specific code review, such as marking findings as resolved or adding annotations.",
+            "operationId": "updateReview",
+            "parameters": [
+                {
+                    "name": "review_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Review ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["open", "resolved", "dismissed"],
+                                    "description": "Updated review status",
+                                },
+                                "annotations": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Additional annotations",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _ok_response("Review updated"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["Reviews"],
+            "summary": "Delete review",
+            "description": "Delete a specific code review and its associated data.",
+            "operationId": "deleteReview",
+            "parameters": [
+                {
+                    "name": "review_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Review ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Review deleted"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
         },
     },
     "/api/evolution/{agent}/history": {
@@ -217,6 +404,232 @@ ADDITIONAL_ENDPOINTS = {
                 {"name": "name", "in": "path", "required": True, "schema": {"type": "string"}}
             ],
             "responses": {"200": _ok_response("Agent introspection")},
+        },
+    },
+    # =========================================================================
+    # Uncertainty Quantification
+    # =========================================================================
+    "/api/v1/uncertainty/agent/{agent_id}": {
+        "get": {
+            "tags": ["Uncertainty"],
+            "summary": "Get agent uncertainty metrics",
+            "operationId": "getAgentUncertainty",
+            "description": "Get uncertainty quantification metrics for a specific agent, including calibration scores, confidence distributions, and epistemic vs aleatoric uncertainty breakdowns.",
+            "parameters": [
+                {
+                    "name": "agent_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Agent ID to retrieve uncertainty metrics for",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Agent uncertainty metrics",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "agent_id": {"type": "string"},
+                                    "calibration_score": {"type": "number", "description": "How well-calibrated the agent's confidence is (0-1)"},
+                                    "mean_confidence": {"type": "number"},
+                                    "epistemic_uncertainty": {"type": "number", "description": "Uncertainty due to lack of knowledge"},
+                                    "aleatoric_uncertainty": {"type": "number", "description": "Irreducible uncertainty in data"},
+                                    "confidence_distribution": {
+                                        "type": "object",
+                                        "additionalProperties": {"type": "number"},
+                                    },
+                                    "total_predictions": {"type": "integer"},
+                                    "computed_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/uncertainty/debate/{debate_id}": {
+        "get": {
+            "tags": ["Uncertainty"],
+            "summary": "Get debate uncertainty metrics",
+            "operationId": "getDebateUncertainty",
+            "description": "Get uncertainty quantification metrics for a specific debate, including aggregate confidence levels, disagreement measures, and per-agent uncertainty breakdowns.",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Debate ID to retrieve uncertainty metrics for",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Debate uncertainty metrics",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "debate_id": {"type": "string"},
+                                    "aggregate_confidence": {"type": "number"},
+                                    "disagreement_score": {"type": "number", "description": "Degree of disagreement between agents (0-1)"},
+                                    "convergence_rate": {"type": "number", "description": "Rate at which agents converge on consensus"},
+                                    "per_agent_uncertainty": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "agent_id": {"type": "string"},
+                                                "confidence": {"type": "number"},
+                                                "uncertainty": {"type": "number"},
+                                            },
+                                        },
+                                    },
+                                    "rounds_analyzed": {"type": "integer"},
+                                    "computed_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    # =========================================================================
+    # Verticals
+    # =========================================================================
+    "/api/verticals/{vertical_id}": {
+        "get": {
+            "tags": ["Verticals"],
+            "summary": "Get vertical configuration",
+            "operationId": "getVertical",
+            "description": "Get configuration details for a specific industry vertical, including domain settings, agent preferences, and compliance requirements.",
+            "parameters": [
+                {
+                    "name": "vertical_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Vertical configuration ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Vertical configuration",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "domain": {"type": "string"},
+                                    "agent_preferences": {
+                                        "type": "object",
+                                        "description": "Preferred agent configuration for this vertical",
+                                    },
+                                    "compliance_requirements": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "enabled": {"type": "boolean"},
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                    "updated_at": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+        "put": {
+            "tags": ["Verticals"],
+            "summary": "Update vertical configuration",
+            "operationId": "updateVertical",
+            "description": "Update the configuration for a specific industry vertical.",
+            "parameters": [
+                {
+                    "name": "vertical_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Vertical configuration ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"},
+                                "domain": {"type": "string"},
+                                "agent_preferences": {"type": "object"},
+                                "compliance_requirements": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "enabled": {"type": "boolean"},
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _ok_response("Vertical configuration updated"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    # =========================================================================
+    # Audio
+    # =========================================================================
+    "/audio/{audio_id}": {
+        "get": {
+            "tags": ["Audio"],
+            "summary": "Get audio file",
+            "operationId": "getAudioFile",
+            "description": "Retrieve an audio file by ID. Returns the audio binary data with appropriate content type headers.",
+            "parameters": [
+                {
+                    "name": "audio_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Audio file ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Audio file binary data",
+                    "content": {
+                        "audio/mpeg": {
+                            "schema": {"type": "string", "format": "binary"},
+                        },
+                        "audio/wav": {
+                            "schema": {"type": "string", "format": "binary"},
+                        },
+                        "audio/ogg": {
+                            "schema": {"type": "string", "format": "binary"},
+                        },
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+            },
         },
     },
 }

@@ -370,6 +370,46 @@ DEBATE_ENDPOINTS = {
             "responses": {"200": _ok_response("Red team results")},
         },
     },
+    "/api/v1/graph-debates/{debate_id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get graph debate details",
+            "operationId": "getGraphDebateById",
+            "description": "Retrieve details for a graph-structured debate by its unique identifier.",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Graph debate details"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
+    "/api/v1/matrix-debates/{debate_id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get matrix debate details",
+            "operationId": "getMatrixDebateById",
+            "description": "Retrieve details for a matrix-structured debate by its unique identifier.",
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Matrix debate details"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+    },
     "/api/search": {
         "get": {
             "tags": ["Debates"],

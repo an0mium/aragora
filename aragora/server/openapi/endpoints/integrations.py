@@ -130,6 +130,76 @@ INTEGRATION_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/integrations/config/{integration_id}": {
+        "get": {
+            "tags": ["Integrations"],
+            "summary": "Get integration config",
+            "description": "Get configuration for a specific integration by ID.",
+            "operationId": "getIntegrationConfigV1",
+            "parameters": [
+                {
+                    "name": "integration_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response("Integration config", {"type": "object"}),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "put": {
+            "tags": ["Integrations"],
+            "summary": "Update integration config",
+            "description": "Replace the configuration for a specific integration by ID.",
+            "operationId": "updateIntegrationConfigV1",
+            "parameters": [
+                {
+                    "name": "integration_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _response("Integration config updated", {"type": "object"}),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Integrations"],
+            "summary": "Delete integration config",
+            "description": "Delete the configuration for a specific integration by ID.",
+            "operationId": "deleteIntegrationConfigV1",
+            "parameters": [
+                {
+                    "name": "integration_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response("Integration config deleted", {"type": "object"}),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/v1/integrations/{type}/test": {
         "post": {
             "tags": ["Integrations"],

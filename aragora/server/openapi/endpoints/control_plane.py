@@ -491,6 +491,121 @@ CONTROL_PLANE_ENDPOINTS = {
             },
         }
     },
+    # -------------------------------------------------------------------------
+    # Policies
+    # -------------------------------------------------------------------------
+    "/api/v1/policies/{policy_id}": {
+        "get": {
+            "tags": ["Control Plane", "Policies"],
+            "summary": "Get policy by ID",
+            "operationId": "getPolicy",
+            "description": "Retrieve a specific governance policy by its unique identifier.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "policy_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Policy ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Policy details", "Policy"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "put": {
+            "tags": ["Control Plane", "Policies"],
+            "summary": "Update policy",
+            "operationId": "updatePolicy",
+            "description": "Update an existing governance policy. Validates for conflicts with other active policies.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "policy_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Policy ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "description": "Policy name"},
+                                "description": {"type": "string", "description": "Policy description"},
+                                "rules": {
+                                    "type": "array",
+                                    "items": {"type": "object"},
+                                    "description": "Policy rules",
+                                },
+                                "enabled": {"type": "boolean", "description": "Whether the policy is active"},
+                                "priority": {
+                                    "type": "integer",
+                                    "description": "Policy evaluation priority (lower = higher priority)",
+                                },
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Policy updated", "Policy"),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "409": {
+                    "description": "Policy conflict detected with existing policies",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                        },
+                    },
+                },
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Control Plane", "Policies"],
+            "summary": "Delete policy",
+            "operationId": "deletePolicy",
+            "description": "Delete a governance policy by ID. Active policies must be disabled before deletion.",
+            "security": AUTH_REQUIREMENTS["required"]["security"],
+            "parameters": [
+                {
+                    "name": "policy_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Policy ID",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Policy deleted"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "409": {
+                    "description": "Cannot delete an active policy - disable it first",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/Error"},
+                        },
+                    },
+                },
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/control-plane/deliberations/{request_id}/status": {
         "get": {
             "tags": ["Control Plane"],

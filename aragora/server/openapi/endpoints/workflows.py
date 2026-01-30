@@ -331,6 +331,135 @@ WORKFLOW_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/workflows/executions/{execution_id}": {
+        "get": {
+            "tags": ["Workflows"],
+            "summary": "Get workflow execution",
+            "operationId": "getWorkflowExecutionV1",
+            "description": "Get detailed status and results of a specific workflow execution by ID.",
+            "parameters": [
+                {
+                    "name": "execution_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workflow execution ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Workflow execution details"),
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["Workflows"],
+            "summary": "Delete workflow execution",
+            "operationId": "deleteWorkflowExecutionV1",
+            "description": "Cancel and delete a workflow execution. Running executions will be cancelled before deletion.",
+            "parameters": [
+                {
+                    "name": "execution_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workflow execution ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Workflow execution deleted"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/workflows/templates/{template_id}": {
+        "get": {
+            "tags": ["Workflows"],
+            "summary": "Get workflow template",
+            "operationId": "getWorkflowTemplateV1",
+            "description": "Get detailed information about a specific workflow template including its definition, metadata, and configuration.",
+            "parameters": [
+                {
+                    "name": "template_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workflow template ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Workflow template details", "WorkflowTemplate"),
+                "404": STANDARD_ERRORS["404"],
+            },
+        },
+        "put": {
+            "tags": ["Workflows"],
+            "summary": "Update workflow template",
+            "operationId": "updateWorkflowTemplateV1",
+            "description": "Update an existing workflow template. Replaces the template definition with the provided data.",
+            "parameters": [
+                {
+                    "name": "template_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workflow template ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"},
+                                "category": {"type": "string"},
+                                "pattern": {
+                                    "type": "string",
+                                    "enum": ["hive_mind", "map_reduce", "review_cycle", "pipeline", "parallel"],
+                                },
+                                "tags": {"type": "array", "items": {"type": "string"}},
+                                "workflow_definition": {"type": "object"},
+                                "input_schema": {"type": "object"},
+                                "output_schema": {"type": "object"},
+                            },
+                        },
+                    },
+                },
+            },
+            "responses": {
+                "200": _ok_response("Workflow template updated", "WorkflowTemplate"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["Workflows"],
+            "summary": "Delete workflow template",
+            "operationId": "deleteWorkflowTemplateV1",
+            "description": "Delete a workflow template. Templates in use by active workflows cannot be deleted.",
+            "parameters": [
+                {
+                    "name": "template_id",
+                    "in": "path",
+                    "required": True,
+                    "description": "Workflow template ID",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response("Workflow template deleted"),
+                "400": STANDARD_ERRORS["400"],
+                "404": STANDARD_ERRORS["404"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/workflow-approvals": {
         "get": {
             "tags": ["Workflows"],
