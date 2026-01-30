@@ -44,6 +44,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -248,8 +249,8 @@ async def handle_list_invoices(
             except ValueError:
                 pass
 
-        limit = int(query_params.get("limit", 100))
-        offset = int(query_params.get("offset", 0))
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
+        offset = safe_query_int(query_params, "offset", default=0, max_val=100000)
 
         invoices, total = await processor.list_invoices(
             status=status,

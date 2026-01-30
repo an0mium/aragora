@@ -20,6 +20,7 @@ from typing import Any, Optional
 from aiohttp import web
 
 from aragora.rbac.checker import get_permission_checker
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -392,8 +393,8 @@ class QuickScanHandler:
             return auth_error
 
         try:
-            limit = int(request.query.get("limit", "20"))
-            offset = int(request.query.get("offset", "0"))
+            limit = safe_query_int(request.query, "limit", default=20, max_val=1000)
+            offset = safe_query_int(request.query, "offset", default=0, max_val=100000)
 
             result = await list_quick_scans(limit=limit, offset=offset)
             return web.json_response({"success": True, **result})
