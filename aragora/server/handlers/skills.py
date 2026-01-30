@@ -49,10 +49,10 @@ try:
     SKILLS_AVAILABLE = True
 except ImportError:
     SKILLS_AVAILABLE = False
-    get_skill_registry = None  # type: ignore[misc,assignment]
-    SkillRegistry = None  # type: ignore[misc,assignment]
-    SkillContext = None  # type: ignore[misc,assignment]
-    SkillStatus = None  # type: ignore[misc,assignment]
+    get_skill_registry: Any = None
+    SkillRegistry: Any = None
+    SkillContext: Any = None
+    SkillStatus: Any = None
 
 
 class SkillsHandler(BaseHandler):

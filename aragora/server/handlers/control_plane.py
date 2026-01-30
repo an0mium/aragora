@@ -1373,7 +1373,9 @@ class ControlPlaneHandler(BaseHandler):
                     else None
                 ),
                 limit=safe_query_int(query_params, "limit", default=100, max_val=1000),
-                offset=safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000),
+                offset=safe_query_int(
+                    query_params, "offset", default=0, min_val=0, max_val=1000000
+                ),
             )
 
             entries = _run_async(audit_log.query(query))  # type: ignore[attr-defined]
@@ -1438,8 +1440,16 @@ class ControlPlaneHandler(BaseHandler):
             if not audit_log:
                 return error_response("Audit log not configured", 503)
 
-            start_seq = safe_query_int(query_params, "start_seq", default=0, min_val=0, max_val=9223372036854775807)
-            end_seq = safe_query_int(query_params, "end_seq", default=0, min_val=0, max_val=9223372036854775807) if query_params.get("end_seq") else None
+            start_seq = safe_query_int(
+                query_params, "start_seq", default=0, min_val=0, max_val=9223372036854775807
+            )
+            end_seq = (
+                safe_query_int(
+                    query_params, "end_seq", default=0, min_val=0, max_val=9223372036854775807
+                )
+                if query_params.get("end_seq")
+                else None
+            )
 
             is_valid = _run_async(audit_log.verify_integrity(start_seq, end_seq))  # type: ignore[attr-defined]
 

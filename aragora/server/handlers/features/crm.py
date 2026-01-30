@@ -35,6 +35,7 @@ from typing import Any
 from aragora.server.handlers.base import HandlerResult, json_response
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -431,7 +432,7 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_contacts(self, request: Any) -> HandlerResult:
         """List contacts from all connected platforms."""
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         email = request.query.get("email")
 
         all_contacts: list[dict[str, Any]] = []
@@ -490,7 +491,7 @@ class CRMHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         email = request.query.get("email")
 
         contacts = await self._fetch_platform_contacts(platform, limit, email)
@@ -606,7 +607,7 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_companies(self, request: Any) -> HandlerResult:
         """List companies from all connected platforms."""
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
 
         all_companies: list[dict[str, Any]] = []
 
@@ -656,7 +657,7 @@ class CRMHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         companies = await self._fetch_platform_companies(platform, limit)
 
         return self._json_response(
@@ -724,7 +725,7 @@ class CRMHandler(SecureHandler):
 
     async def _list_all_deals(self, request: Any) -> HandlerResult:
         """List deals from all connected platforms."""
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         stage = request.query.get("stage")
 
         all_deals: list[dict[str, Any]] = []
@@ -779,7 +780,7 @@ class CRMHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         stage = request.query.get("stage")
         deals = await self._fetch_platform_deals(platform, limit, stage)
 

@@ -14,7 +14,9 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from .base import (
@@ -26,6 +28,7 @@ from .base import (
     require_auth,
     safe_error_message,
 )
+from aragora.server.http_utils import run_async, safe_int
 from .utils.decorators import require_permission
 from .utils.rate_limit import rate_limit
 
@@ -55,6 +58,7 @@ class RLMContextHandler(BaseHandler):
         "/api/v1/rlm/contexts": "handle_list_contexts",
         "/api/v1/rlm/stream": "handle_stream",
         "/api/v1/rlm/stream/modes": "handle_stream_modes",
+        "/api/v1/rlm/codebase/health": "handle_codebase_health",
     }
 
     # Dynamic routes for context operations
@@ -124,6 +128,8 @@ class RLMContextHandler(BaseHandler):
             return self.handle_list_contexts(path, query_params, handler)
         elif path == "/api/v1/rlm/stream/modes":
             return self.handle_stream_modes(path, query_params, handler)
+        elif path == "/api/v1/rlm/codebase/health":
+            return self.handle_codebase_health(path, query_params, handler)
 
         # Handle context-specific routes (GET)
         if path.startswith(self.CONTEXT_ROUTE_PREFIX):
@@ -310,6 +316,110 @@ class RLMContextHandler(BaseHandler):
                 "documentation": "https://github.com/alexzhang13/rlm",
             }
         )
+
+    @rate_limit(rpm=20, limiter_name="rlm_codebase_health")
+    @handle_errors("get RLM codebase health")
+    def handle_codebase_health(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """Return health and readiness info for codebase RLM context."""
+        from aragora.rlm import HAS_OFFICIAL_RLM
+        from aragora.rlm.codebase_context import CodebaseContextBuilder
+
+        def _parse_bool(value: Any) -> bool | None:
+            if value is None:
+                return None
+            if isinstance(value, str):
+                lowered = value.strip().lower()
+                if lowered in {"1", "true", "yes", "y"}:
+                    return True
+                if lowered in {"0", "false", "no", "n"}:
+                    return False
+            return None
+
+        root = Path(
+            os.environ.get("ARAGORA_CODEBASE_ROOT")
+            or os.environ.get("ARAGORA_REPO_ROOT")
+            or os.getcwd()
+        ).resolve()
+        if not root.exists():
+            return error_response(f"Codebase root not found: {root}", 404)
+
+        refresh = _parse_bool(query_params.get("refresh")) is True
+        include_tests = _parse_bool(query_params.get("include_tests"))
+        full_corpus = _parse_bool(query_params.get("full_corpus"))
+        build_rlm = _parse_bool(query_params.get("rlm")) is True
+        max_bytes = safe_int(query_params.get("max_bytes"), 0)
+
+        builder = CodebaseContextBuilder(
+            root_path=root,
+            max_context_bytes=max_bytes or 0,
+            include_tests=include_tests,
+            full_corpus=full_corpus,
+        )
+
+        context_dir = root / ".nomic" / "context"
+        manifest_path = context_dir / "codebase_manifest.tsv"
+
+        manifest_info: dict[str, Any] = {
+            "exists": manifest_path.exists(),
+            "path": str(manifest_path) if manifest_path.exists() else None,
+        }
+        if manifest_path.exists():
+            try:
+                header_lines = []
+                with manifest_path.open("r", encoding="utf-8") as handle:
+                    for _ in range(5):
+                        line = handle.readline()
+                        if not line or not line.startswith("#"):
+                            break
+                        header_lines.append(line.strip())
+                for line in header_lines:
+                    if "files=" in line and "lines=" in line:
+                        parts = line.split()
+                        for part in parts:
+                            if part.startswith("files="):
+                                manifest_info["files"] = safe_int(part.split("=", 1)[1], 0)
+                            if part.startswith("lines="):
+                                manifest_info["lines"] = safe_int(part.split("=", 1)[1], 0)
+            except OSError as exc:
+                manifest_info["error"] = str(exc)
+
+        index_info: dict[str, Any] | None = None
+        if refresh:
+            index = run_async(builder.build_index())
+            index_info = {
+                "files": index.total_files,
+                "lines": index.total_lines,
+                "bytes": index.total_bytes,
+                "tokens_estimate": index.total_tokens_estimate,
+                "build_time_seconds": index.build_time_seconds,
+            }
+
+        rlm_context_ready = None
+        if build_rlm:
+            context = run_async(builder.build_rlm_context())
+            rlm_context_ready = context is not None
+
+        status = "available" if manifest_info.get("exists") or index_info else "missing"
+        response = {
+            "status": status,
+            "root": str(root),
+            "context_dir": str(context_dir),
+            "manifest": manifest_info,
+            "index": index_info,
+            "rlm": {
+                "has_official_rlm": HAS_OFFICIAL_RLM,
+                "rlm_available": self._get_rlm() is not None,
+                "context_ready": rlm_context_ready,
+                "max_content_bytes": max_bytes or None,
+            },
+            "timestamp": datetime.now().isoformat(),
+        }
+        return json_response(response)
 
     @require_auth
     @rate_limit(rpm=20, limiter_name="rlm_compress")

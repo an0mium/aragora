@@ -907,8 +907,8 @@ class DevOpsHandler(SecureHandler):
             )
 
             # If we have a server context with an emitter, emit the event
-            if self.ctx and "emitter" in self.ctx:
-                emitter = self.ctx["emitter"]  # type: ignore[typeddict-item]
+            if self.ctx and isinstance(self.ctx, dict) and "emitter" in self.ctx:
+                emitter = self.ctx["emitter"]
                 emitter.emit(
                     StreamEventType.CONNECTOR_PAGERDUTY_INCIDENT.value,
                     event_data,

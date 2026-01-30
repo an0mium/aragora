@@ -27,6 +27,7 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_float, safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -210,10 +211,10 @@ class TrainingHandler(BaseHandler):
 
         try:
             # Parse parameters
-            min_confidence = float(query_params.get("min_confidence", 0.7))
-            min_success_rate = float(query_params.get("min_success_rate", 0.6))
-            limit = int(query_params.get("limit", 1000))
-            offset = int(query_params.get("offset", 0))
+            min_confidence = safe_query_float(query_params, "min_confidence", default=0.7)
+            min_success_rate = safe_query_float(query_params, "min_success_rate", default=0.6)
+            limit = safe_query_int(query_params, "limit", default=1000, max_val=10000)
+            offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
             include_critiques = query_params.get("include_critiques", "true").lower() == "true"
             include_patterns = query_params.get("include_patterns", "true").lower() == "true"
             include_debates = query_params.get("include_debates", "true").lower() == "true"
@@ -310,8 +311,8 @@ class TrainingHandler(BaseHandler):
 
         try:
             # Parse parameters
-            min_confidence_diff = float(query_params.get("min_confidence_diff", 0.1))
-            limit = int(query_params.get("limit", 500))
+            min_confidence_diff = safe_query_float(query_params, "min_confidence_diff", default=0.1)
+            limit = safe_query_int(query_params, "limit", default=500, max_val=5000)
             output_format = query_params.get("format", "json")
 
             # Validate
@@ -397,8 +398,8 @@ class TrainingHandler(BaseHandler):
         try:
             # Parse parameters
             persona = query_params.get("persona", "all")
-            min_severity = float(query_params.get("min_severity", 0.5))
-            limit = int(query_params.get("limit", 500))
+            min_severity = safe_query_float(query_params, "min_severity", default=0.5)
+            limit = safe_query_int(query_params, "limit", default=500, max_val=5000)
             output_format = query_params.get("format", "json")
 
             # Validate
@@ -624,8 +625,8 @@ class TrainingHandler(BaseHandler):
         try:
             status_filter = query_params.get("status")
             vertical_filter = query_params.get("vertical")
-            limit = int(query_params.get("limit", 50))
-            offset = int(query_params.get("offset", 0))
+            limit = safe_query_int(query_params, "limit", default=50, max_val=500)
+            offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
             # Get all models from registry
             registry = pipeline._registry
@@ -821,7 +822,7 @@ class TrainingHandler(BaseHandler):
                 except (json.JSONDecodeError, ValueError) as e:
                     logger.debug(f"Could not parse completion body: {e}, using defaults")
 
-            final_loss = float(body.get("final_loss", 0.0))
+            final_loss = safe_query_float(body, "final_loss", default=0.0, max_val=100.0)
             checkpoint_path = body.get("checkpoint_path", "")
 
             import asyncio

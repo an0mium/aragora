@@ -43,7 +43,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc]
+    AuthorizationContext: Any = None
 
 # Computer Use imports
 try:
@@ -57,7 +57,7 @@ try:
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
-    ComputerUseOrchestrator = None  # type: ignore[misc]
+    ComputerUseOrchestrator: Any = None
 
 logger = logging.getLogger(__name__)
 

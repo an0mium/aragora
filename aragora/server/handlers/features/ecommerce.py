@@ -33,6 +33,7 @@ from typing import Any
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -371,8 +372,8 @@ class EcommerceHandler(SecureHandler):
     async def _list_all_orders(self, request: Any) -> dict[str, Any]:
         """List orders from all connected platforms."""
         status = request.query.get("status")
-        limit = int(request.query.get("limit", 100))
-        days = int(request.query.get("days", 30))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
+        days = safe_query_int(request.query, "days", default=30, max_val=365)
 
         all_orders: list[dict[str, Any]] = []
 
@@ -446,8 +447,8 @@ class EcommerceHandler(SecureHandler):
             return self._error_response(404, f"Platform {platform} is not connected")
 
         status = request.query.get("status")
-        limit = int(request.query.get("limit", 100))
-        days = int(request.query.get("days", 30))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
+        days = safe_query_int(request.query, "days", default=30, max_val=365)
 
         orders = await self._fetch_platform_orders(platform, status, limit, days)
 
@@ -491,7 +492,7 @@ class EcommerceHandler(SecureHandler):
 
     async def _list_all_products(self, request: Any) -> dict[str, Any]:
         """List products from all connected platforms."""
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         status = request.query.get("status")
 
         all_products: list[dict[str, Any]] = []
@@ -546,7 +547,7 @@ class EcommerceHandler(SecureHandler):
         if platform not in _platform_credentials:
             return self._error_response(404, f"Platform {platform} is not connected")
 
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, max_val=1000)
         status = request.query.get("status")
 
         products = await self._fetch_platform_products(platform, status, limit)
@@ -826,7 +827,7 @@ class EcommerceHandler(SecureHandler):
 
     async def _get_metrics(self, request: Any) -> dict[str, Any]:
         """Get e-commerce metrics overview."""
-        days = int(request.query.get("days", 30))
+        days = safe_query_int(request.query, "days", default=30, max_val=365)
 
         metrics: dict[str, Any] = {
             "period_days": days,

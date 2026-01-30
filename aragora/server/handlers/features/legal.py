@@ -617,8 +617,8 @@ class LegalHandler(BaseHandler):
             )
 
             # If we have a server context with an emitter, emit the event
-            if self.ctx and "emitter" in self.ctx:  # type: ignore[operator]
-                emitter = self.ctx["emitter"]  # type: ignore[typeddict-item]
+            if self.ctx and isinstance(self.ctx, dict) and "emitter" in self.ctx:
+                emitter = self.ctx["emitter"]
                 emitter.emit(
                     StreamEventType.CONNECTOR_DOCUSIGN_ENVELOPE_STATUS.value,
                     event_data,

@@ -47,8 +47,8 @@ try:
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
-    BroadcastPipeline = None  # type: ignore[misc,assignment]
-    BroadcastOptions = None  # type: ignore[misc,assignment]
+    BroadcastPipeline: Any = None
+    BroadcastOptions: Any = None
 
 try:
     from mutagen.mp3 import MP3

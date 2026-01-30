@@ -16,6 +16,8 @@ Endpoints:
 
 from __future__ import annotations
 
+from typing import Any
+
 import logging
 import time
 
@@ -52,8 +54,8 @@ try:
     CONTINUUM_AVAILABLE = True
 except ImportError:
     CONTINUUM_AVAILABLE = False
-    ContinuumMemory = None  # type: ignore[misc,assignment]
-    MemoryTier = None  # type: ignore[misc,assignment]
+    ContinuumMemory: Any = None
+    MemoryTier: Any = None
 
 # Optional import for critique store
 try:
@@ -62,7 +64,7 @@ try:
     CRITIQUE_STORE_AVAILABLE = True
 except ImportError:
     CRITIQUE_STORE_AVAILABLE = False
-    CritiqueStore = None  # type: ignore[misc,assignment]
+    CritiqueStore: Any = None
 
 
 class MemoryHandler(SecureHandler):

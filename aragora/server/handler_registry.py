@@ -1385,6 +1385,7 @@ class HandlerRegistryMixin:
     persona_manager: Optional["PersonaManager"]
     position_ledger: Optional["PositionLedger"]
     wfile: BinaryIO
+    _auth_context: Any
 
     # Type stubs for methods expected from parent class
     _add_cors_headers: Callable[[], None]
@@ -1666,10 +1667,10 @@ class HandlerRegistryMixin:
                         permissions=set(),  # Permissions loaded by checker
                     )
                 else:
-                    self._auth_context = None  # type: ignore[assignment]
+                    self._auth_context = None
             except Exception as auth_err:
                 logger.debug(f"[handlers] Auth context extraction failed: {auth_err}")
-                self._auth_context = None  # type: ignore[assignment]
+                self._auth_context = None
 
             # Use matched path if available, otherwise fall back to normalized path
             dispatch_path = matched_path or normalized_path

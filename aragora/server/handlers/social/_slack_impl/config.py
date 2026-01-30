@@ -249,8 +249,8 @@ try:
 except ImportError as e:
     logger.warning(f"Failed to import handler utilities: {e}")
     # Define stubs to prevent import errors
-    HandlerResult = None  # type: ignore[assignment]
-    SecureHandler = None  # type: ignore[assignment]
+    HandlerResult: Any = None
+    SecureHandler: Any = None
     ForbiddenError = Exception
     UnauthorizedError = Exception
 

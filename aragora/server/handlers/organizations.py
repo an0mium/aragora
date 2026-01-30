@@ -20,6 +20,8 @@ Endpoints:
 
 from __future__ import annotations
 
+from typing import Any
+
 import logging
 import re
 from datetime import datetime, timezone, timedelta
@@ -37,7 +39,7 @@ try:
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
-    AuthorizationContext = None  # type: ignore[misc]
+    AuthorizationContext: Any = None
     check_permission = None
 
 from .base import (

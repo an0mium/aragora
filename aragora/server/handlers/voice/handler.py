@@ -31,7 +31,7 @@ try:
     HAS_TWILIO_VALIDATOR = True
 except ImportError:
     HAS_TWILIO_VALIDATOR = False
-    RequestValidator = None  # type: ignore[assignment]
+    RequestValidator: Any = None
 
 if TYPE_CHECKING:
     from aiohttp.web import Application, Request, Response

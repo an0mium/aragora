@@ -116,11 +116,53 @@ async def get_auth_context(
         )
 
 
-def _extract_workspace_id(request: Any) -> str | None:
-    """Extract workspace ID from request headers."""
-    if hasattr(request, "headers"):
-        return request.headers.get("X-Workspace-ID")
-    return None
+def _extract_workspace_id(request: Any, user_id: str | None = None) -> str | None:
+    """Extract workspace ID from request headers with optional membership validation.
+
+    If user_id is provided and is not anonymous, validates that the workspace
+    belongs to the user's memberships (when a workspace_store is available).
+    """
+    if not hasattr(request, "headers"):
+        return None
+
+    workspace_id = request.headers.get("X-Workspace-ID")
+    if workspace_id is None:
+        return None
+
+    # Anonymous users or no user_id: return header value as-is
+    if not user_id or user_id == "anonymous":
+        return workspace_id
+
+    # Authenticated user: validate workspace membership if store is available
+    try:
+        store = request.app.get("workspace_store")
+    except Exception:
+        return workspace_id
+
+    if store is None:
+        return workspace_id
+
+    try:
+        memberships = store.get_user_workspaces(user_id)
+        allowed_ids = set()
+        for m in memberships:
+            if isinstance(m, dict):
+                allowed_ids.add(m.get("workspace_id") or m.get("id"))
+            else:
+                allowed_ids.add(getattr(m, "workspace_id", None) or getattr(m, "id", None))
+
+        if workspace_id in allowed_ids:
+            return workspace_id
+
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "User %s attempted workspace %s not in memberships", user_id, workspace_id
+        )
+        return None
+    except Exception:
+        # Graceful degradation: on store errors, allow header through
+        return workspace_id
 
 
 def _get_user_permissions(user_ctx: Any) -> set[str]:

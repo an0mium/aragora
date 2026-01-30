@@ -47,6 +47,7 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -209,8 +210,8 @@ class ReceiptsHandler(BaseHandler):
         store = self._get_store()
 
         # Parse pagination
-        limit = min(int(query_params.get("limit", "20")), 100)
-        offset = int(query_params.get("offset", "0"))
+        limit = safe_query_int(query_params, "limit", default=20, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
         # Parse filters
         verdict = query_params.get("verdict")
@@ -288,8 +289,8 @@ class ReceiptsHandler(BaseHandler):
         store = self._get_store()
 
         # Parse pagination
-        limit = min(int(query_params.get("limit", "50")), 100)
-        offset = int(query_params.get("offset", "0"))
+        limit = safe_query_int(query_params, "limit", default=50, max_val=100)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
         # Optional filters
         verdict = query_params.get("verdict")
@@ -771,8 +772,8 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Valid user_id required (minimum 3 characters)", 400)
 
         store = self._get_store()
-        limit = min(int(query_params.get("limit", "100")), 1000)
-        offset = int(query_params.get("offset", "0"))
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
+        offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
 
         receipts, total = store.get_by_user(user_id=user_id, limit=limit, offset=offset)
         receipt_data = [r.to_full_dict() for r in receipts]
@@ -810,7 +811,7 @@ class ReceiptsHandler(BaseHandler):
             return error_response("Receipt not found", 404)
 
         # Parse options
-        expires_in_hours = min(int(body.get("expires_in_hours", 24)), 720)
+        expires_in_hours = safe_query_int(body, "expires_in_hours", default=24, max_val=720)
         max_accesses = body.get("max_accesses")
 
         # Generate share token
@@ -1081,7 +1082,7 @@ class ReceiptsHandler(BaseHandler):
         try:
             # Try as unix timestamp
             return float(value)
-        except ValueError:
+        except (ValueError, TypeError):
             pass
 
         try:

@@ -113,8 +113,8 @@ class BeliefHandler(BaseHandler):
             return self._km_adapter
 
         # Check if adapter exists in context
-        if "belief_km_adapter" in self.ctx:
-            self._km_adapter = self.ctx["belief_km_adapter"]  # type: ignore[typeddict-item]
+        if isinstance(self.ctx, dict) and "belief_km_adapter" in self.ctx:
+            self._km_adapter = self.ctx["belief_km_adapter"]
             return self._km_adapter
 
         # Try to create adapter if KM is available
@@ -133,7 +133,8 @@ class BeliefHandler(BaseHandler):
                 )
 
             # Store in context for sharing
-            self.ctx["belief_km_adapter"] = self._km_adapter  # type: ignore[typeddict-item]
+            if isinstance(self.ctx, dict):
+                self.ctx["belief_km_adapter"] = self._km_adapter
             logger.info("Belief KM adapter initialized")
             return self._km_adapter
 
