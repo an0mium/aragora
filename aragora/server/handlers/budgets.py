@@ -33,6 +33,7 @@ from .base import (
     json_response,
 )
 from .utils.rate_limit import rate_limit
+from aragora.observability.metrics import track_handler
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class BudgetHandler(BaseHandler):
             return True
         return False
 
+    @track_handler("budgets/main", method="GET")
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self,
