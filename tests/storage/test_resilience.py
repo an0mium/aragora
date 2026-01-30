@@ -150,9 +150,7 @@ class TestResilientConnectionDelayCalculation:
 
     def test_calculate_delay_capped_at_max(self, tmp_path: Path):
         """Delay should be capped at max_delay."""
-        conn = ResilientConnection(
-            str(tmp_path / "test.db"), base_delay=0.1, max_delay=0.5
-        )
+        conn = ResilientConnection(str(tmp_path / "test.db"), base_delay=0.1, max_delay=0.5)
         assert conn._calculate_delay(10) == 0.5  # Would be 102.4 without cap
 
 
@@ -185,9 +183,7 @@ class TestResilientConnectionTransaction:
         with pytest.raises(sqlite3.IntegrityError):
             with conn.transaction() as cursor:
                 cursor.execute("INSERT INTO test (id, value) VALUES (1, 'first')")
-                cursor.execute(
-                    "INSERT INTO test (id, value) VALUES (1, 'duplicate')"
-                )  # Will fail
+                cursor.execute("INSERT INTO test (id, value) VALUES (1, 'duplicate')")  # Will fail
 
     def test_retries_on_transient_error(self, tmp_path: Path):
         """Should retry on transient errors."""

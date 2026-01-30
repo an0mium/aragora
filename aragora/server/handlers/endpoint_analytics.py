@@ -261,7 +261,9 @@ class EndpointAnalyticsHandler(SecureHandler):
         """GET /api/analytics/endpoints - List all endpoints with metrics."""
         try:
             # Get window from query params (default 5 minutes)
-            window_seconds = safe_query_float(query_params, "window", default=300.0, max_val=86400.0)
+            window_seconds = safe_query_float(
+                query_params, "window", default=300.0, max_val=86400.0
+            )
             sort_by = query_params.get("sort", "requests")  # requests, latency, errors
             order = query_params.get("order", "desc")
             limit = safe_query_int(query_params, "limit", default=100, max_val=500)
@@ -295,7 +297,7 @@ class EndpointAnalyticsHandler(SecureHandler):
     def _get_slowest_endpoints(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/slowest - Top N slowest endpoints."""
         try:
-            limit = min(int(query_params.get("limit", "10")), 100)
+            limit = safe_query_int(query_params, "limit", default=10, max_val=100)
             percentile = query_params.get("percentile", "p95")  # p50, p95, p99
 
             endpoints = _metrics_store.get_all_endpoints()
