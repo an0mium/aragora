@@ -395,7 +395,7 @@ class SupportHandler(SecureHandler):
 
         status = request.query.get("status")
         priority = request.query.get("priority")
-        limit = int(request.query.get("limit", 100))
+        limit = safe_query_int(request.query, "limit", default=100, min_val=1, max_val=1000)
 
         tickets = await self._fetch_platform_tickets(platform, status, priority, limit)
 

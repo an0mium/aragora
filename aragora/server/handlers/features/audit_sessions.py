@@ -409,8 +409,8 @@ class AuditSessionsHandler(SecureHandler):
         severity = request.query.get("severity")
         audit_type = request.query.get("audit_type")
         status = request.query.get("status")
-        limit = int(request.query.get("limit", 100))
-        offset = int(request.query.get("offset", 0))
+        limit = safe_query_int(request.query, "limit", default=100, min_val=1, max_val=1000)
+        offset = safe_query_int(request.query, "offset", default=0, min_val=0, max_val=1000000)
 
         # Apply filters
         if severity:
