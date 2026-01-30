@@ -188,6 +188,7 @@ class VoiceSession:
     audio_format: str = "pcm_16khz"
     last_heartbeat: float = field(default_factory=time.time)
     created_at: float = field(default_factory=time.time)
+    expires_at: float | None = None  # Session expiration timestamp
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

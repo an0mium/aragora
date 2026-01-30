@@ -35,6 +35,7 @@ from aragora.server.handlers.base import (
     require_permission,
     success_response,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,19 @@ def _log_activity(
 # =============================================================================
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/inbox/shared/{inbox_id}/team",
+    summary="Get team members",
+    description="Get team members for a shared inbox.",
+    tags=["Inbox", "Team"],
+    parameters=[{"name": "inbox_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+    responses={
+        "200": {"description": "List of team members"},
+        "400": {"description": "inbox_id is required"},
+        "401": {"description": "Authentication required"},
+    },
+)
 @require_permission("inbox:read")
 async def handle_get_team_members(
     data: dict[str, Any],
@@ -147,6 +161,19 @@ async def handle_get_team_members(
         return error_response(f"Get team members failed: {str(e)}", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/shared/{inbox_id}/team",
+    summary="Add team member",
+    description="Add a team member to a shared inbox with role assignment.",
+    tags=["Inbox", "Team"],
+    parameters=[{"name": "inbox_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+    responses={
+        "200": {"description": "Team member added"},
+        "400": {"description": "Missing required fields"},
+        "401": {"description": "Authentication required"},
+    },
+)
 @require_permission("inbox:create")
 async def handle_add_team_member(
     data: dict[str, Any],
@@ -606,6 +633,24 @@ async def handle_add_note(
 # =============================================================================
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/inbox/mentions",
+    summary="Get mentions",
+    description="Get @mentions for the current user.",
+    tags=["Inbox", "Mentions"],
+    parameters=[
+        {
+            "name": "unacknowledged_only",
+            "in": "query",
+            "schema": {"type": "boolean", "default": False},
+        }
+    ],
+    responses={
+        "200": {"description": "List of mentions"},
+        "401": {"description": "Authentication required"},
+    },
+)
 @require_permission("inbox:read")
 async def handle_get_mentions(
     data: dict[str, Any],
@@ -642,6 +687,22 @@ async def handle_get_mentions(
         return error_response(f"Get mentions failed: {str(e)}", status=500)
 
 
+@api_endpoint(
+    method="POST",
+    path="/api/v1/inbox/mentions/{mention_id}/acknowledge",
+    summary="Acknowledge mention",
+    description="Mark a mention as acknowledged.",
+    tags=["Inbox", "Mentions"],
+    parameters=[
+        {"name": "mention_id", "in": "path", "required": True, "schema": {"type": "string"}}
+    ],
+    responses={
+        "200": {"description": "Mention acknowledged"},
+        "400": {"description": "mention_id is required"},
+        "401": {"description": "Authentication required"},
+        "404": {"description": "Mention not found"},
+    },
+)
 @require_permission("inbox:write")
 async def handle_acknowledge_mention(
     data: dict[str, Any],
@@ -683,6 +744,23 @@ async def handle_acknowledge_mention(
 # =============================================================================
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/inbox/shared/{inbox_id}/activity",
+    summary="Get activity feed",
+    description="Get activity feed for a shared inbox.",
+    tags=["Inbox", "Activity"],
+    parameters=[
+        {"name": "inbox_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+        {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+    ],
+    responses={
+        "200": {"description": "Activity feed items"},
+        "400": {"description": "inbox_id is required"},
+        "401": {"description": "Authentication required"},
+    },
+)
 @require_permission("inbox:read")
 async def handle_get_activity_feed(
     data: dict[str, Any],

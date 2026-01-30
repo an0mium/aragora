@@ -737,5 +737,5 @@ def create_fine_tuner(
     """
     if method == "dpo":
         dpo_config = config if isinstance(config, DPOConfig) else DPOConfig()
-    return DPOFineTuner(dpo_config)
+        return DPOFineTuner(dpo_config)
     return LocalFineTuner(config or FineTuneConfig())

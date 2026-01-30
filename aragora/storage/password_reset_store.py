@@ -507,6 +507,7 @@ class PasswordResetStore:
 
 # Global store instance
 _password_reset_store: PasswordResetStore | None = None
+_password_reset_store_lock = threading.Lock()  # Protects singleton initialization
 
 
 def get_password_reset_store() -> PasswordResetStore:
@@ -519,8 +520,15 @@ def get_password_reset_store() -> PasswordResetStore:
     - ARAGORA_DATA_DIR: Directory for SQLite database
     """
     global _password_reset_store
+    # Fast path: return existing instance without lock
     if _password_reset_store is not None:
         return _password_reset_store
+
+    # Slow path: acquire lock for initialization
+    with _password_reset_store_lock:
+        # Double-check after acquiring lock (another thread may have initialized)
+        if _password_reset_store is not None:
+            return _password_reset_store
 
     backend_type = os.environ.get("ARAGORA_PASSWORD_RESET_BACKEND")
     if not backend_type:

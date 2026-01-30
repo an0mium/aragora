@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack messaging utilities.
 

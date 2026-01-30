@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Kubernetes liveness and readiness probe implementations.
 
@@ -24,7 +23,7 @@ from ...base import HandlerResult, json_response
 logger = logging.getLogger(__name__)
 
 
-def liveness_probe(handler) -> HandlerResult:
+def liveness_probe(handler: Any) -> HandlerResult:
     """Kubernetes liveness probe - lightweight check that server is alive.
 
     Returns 200 if the server process is running and can respond.
@@ -56,7 +55,7 @@ def liveness_probe(handler) -> HandlerResult:
     return json_response({"status": "ok"})
 
 
-def readiness_probe_fast(handler) -> HandlerResult:
+def readiness_probe_fast(handler: Any) -> HandlerResult:
     """Fast Kubernetes readiness probe - check if ready to serve traffic.
 
     Optimized for K8s probes (<10ms latency requirement).
@@ -165,7 +164,7 @@ def readiness_probe_fast(handler) -> HandlerResult:
     return json_response(result, status=status_code)
 
 
-def readiness_dependencies(handler) -> HandlerResult:
+def readiness_dependencies(handler: Any) -> HandlerResult:
     """Full dependency validation probe - checks all external connections.
 
     SLOW: May take 2-5 seconds due to network validation.

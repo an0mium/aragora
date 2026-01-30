@@ -372,11 +372,35 @@ class DebateProtocol:
     enable_molecule_tracking: bool = True  # Enable molecule-based phase tracking
     molecule_max_attempts: int = 3  # Max retry attempts per molecule
 
+    # Checkpointing: Pause/resume for long-running debates
+    # When enabled, checkpoints are created at key milestones for crash recovery.
+    # Checkpoints enable debate resumption from the last saved state.
+    # Uses CheckpointManager from ArenaConfig (auto-created with DatabaseCheckpointStore)
+    checkpoint_after_rounds: bool = True  # Save checkpoint after each round
+    checkpoint_before_consensus: bool = True  # Save checkpoint before consensus phase
+    checkpoint_interval_rounds: int = 1  # Create checkpoint every N rounds
+    checkpoint_cleanup_on_success: bool = True  # Delete checkpoints after successful completion
+    checkpoint_keep_on_success: int = (
+        0  # Number of checkpoints to keep after success (0 = delete all)
+    )
+
     # Agent channels: Peer-to-peer messaging between agents during debates
     # When enabled, agents can communicate directly via broadcast/direct messages
     # Supports threaded conversations, message handlers, and context injection
     enable_agent_channels: bool = True  # Enable peer messaging during debates
     agent_channel_max_history: int = 100  # Max messages to retain in channel history
+
+    # Multi-language support: Translate debates for international audiences
+    # When enabled, debate messages and conclusions can be translated to target languages
+    # Uses LLM-based translation with caching for efficiency
+    enable_translation: bool = False  # Enable multi-language debate support
+    default_language: str = "en"  # Default language code (ISO 639-1)
+    target_languages: list[str] = field(
+        default_factory=list
+    )  # Languages to translate conclusions to (e.g., ["es", "fr", "de"])
+    auto_detect_language: bool = True  # Auto-detect source language of messages
+    translate_messages: bool = True  # Translate messages between rounds
+    translate_conclusions: bool = True  # Translate final conclusions
 
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.

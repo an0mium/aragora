@@ -335,14 +335,19 @@ class TestGetResultStore:
 
     def test_caches_store_instance(self):
         """Store instance is cached after first retrieval."""
-        mock_store = MagicMock()
+        import aragora.core.decision_results as module
 
-        with patch(
-            "aragora.core.decision_results.get_decision_result_store",
-            return_value=mock_store,
-        ):
-            # Note: Need to patch within the module
-            pass  # This test verifies caching behavior in real usage
+        # Reset to start fresh
+        module._decision_result_store = None
+
+        # First call may create the store if available
+        store1 = module._get_result_store()
+
+        # Second call should return the same instance (cached)
+        store2 = module._get_result_store()
+
+        # Both should be the same instance or both None
+        assert store1 is store2
 
     def test_returns_none_on_import_error(self):
         """Returns None when store module unavailable."""

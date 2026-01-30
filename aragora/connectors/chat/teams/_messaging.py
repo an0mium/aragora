@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams messaging operations mixin.
 
@@ -10,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from aragora.connectors.exceptions import (
     ConnectorNetworkError,
@@ -33,14 +32,62 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class TeamsMessagingMixin:
-    """Mixin providing messaging operations for TeamsConnector."""
+class _TeamsConnectorProtocol(Protocol):
+    """Protocol for methods expected by TeamsMessagingMixin from the main connector."""
 
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]: ...
+
+    async def _get_access_token(self) -> str: ...
+
+    async def _http_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = ...,
+        json: dict[str, Any] | None = ...,
+        operation: str = ...,
+    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]: ...
+
+    def _record_failure(self, error: Exception | None = ...) -> None: ...
+
+    # Methods from the mixin itself that are called internally
     async def send_message(
         self,
         channel_id: str,
         text: str,
-        blocks: list[dict] | None = None,
+        blocks: list[dict[str, Any]] | None = ...,
+        thread_id: str | None = ...,
+        service_url: str | None = ...,
+        conversation_id: str | None = ...,
+        **kwargs: Any,
+    ) -> SendMessageResponse: ...
+
+    async def update_message(
+        self,
+        channel_id: str,
+        message_id: str,
+        text: str,
+        blocks: list[dict[str, Any]] | None = ...,
+        service_url: str | None = ...,
+        **kwargs: Any,
+    ) -> SendMessageResponse: ...
+
+    async def _send_to_response_url(
+        self,
+        response_url: str,
+        text: str,
+        blocks: list[dict[str, Any]] | None = ...,
+    ) -> SendMessageResponse: ...
+
+
+class TeamsMessagingMixin:
+    """Mixin providing messaging operations for TeamsConnector."""
+
+    async def send_message(
+        self: _TeamsConnectorProtocol,
+        channel_id: str,
+        text: str,
+        blocks: list[dict[str, Any]] | None = None,
         thread_id: str | None = None,
         service_url: str | None = None,
         conversation_id: str | None = None,
@@ -103,7 +150,7 @@ class TeamsMessagingMixin:
                 operation="send_message",
             )
 
-            if success and data:
+            if success and data and isinstance(data, dict):
                 return SendMessageResponse(
                     success=True,
                     message_id=data.get("id"),
@@ -142,11 +189,11 @@ class TeamsMessagingMixin:
             )
 
     async def update_message(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         message_id: str,
         text: str,
-        blocks: list[dict] | None = None,
+        blocks: list[dict[str, Any]] | None = None,
         service_url: str | None = None,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -233,7 +280,7 @@ class TeamsMessagingMixin:
             return SendMessageResponse(success=False, error=str(e))
 
     async def delete_message(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         message_id: str,
         service_url: str | None = None,
@@ -275,7 +322,7 @@ class TeamsMessagingMixin:
             return False
 
     async def send_typing_indicator(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         service_url: str | None = None,
         **kwargs: Any,
@@ -319,10 +366,10 @@ class TeamsMessagingMixin:
             return False
 
     async def respond_to_command(
-        self,
+        self: _TeamsConnectorProtocol,
         command: BotCommand,
         text: str,
-        blocks: list[dict] | None = None,
+        blocks: list[dict[str, Any]] | None = None,
         ephemeral: bool = True,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -350,10 +397,10 @@ class TeamsMessagingMixin:
         )
 
     async def respond_to_interaction(
-        self,
+        self: _TeamsConnectorProtocol,
         interaction: UserInteraction,
         text: str,
-        blocks: list[dict] | None = None,
+        blocks: list[dict[str, Any]] | None = None,
         replace_original: bool = False,
         **kwargs: Any,
     ) -> SendMessageResponse:
@@ -385,10 +432,10 @@ class TeamsMessagingMixin:
         return SendMessageResponse(success=False, error="No response target available")
 
     async def _send_to_response_url(
-        self,
+        self: _TeamsConnectorProtocol,
         response_url: str,
         text: str,
-        blocks: list[dict] | None = None,
+        blocks: list[dict[str, Any]] | None = None,
     ) -> SendMessageResponse:
         """
         Send response to a Bot Framework response URL.

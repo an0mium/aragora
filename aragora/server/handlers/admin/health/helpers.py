@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Shared health check utilities and helper endpoints.
 
@@ -14,13 +13,14 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 
 
-def sync_status(handler) -> HandlerResult:
+def sync_status(handler: Any) -> HandlerResult:
     """Get Supabase sync service status.
 
     Returns status of the background sync service including:
@@ -75,7 +75,7 @@ def sync_status(handler) -> HandlerResult:
         )
 
 
-def slow_debates_status(handler) -> HandlerResult:
+def slow_debates_status(handler: Any) -> HandlerResult:
     """Get status of slow-running debates.
 
     Returns debates that have been running longer than the slow threshold
@@ -173,7 +173,7 @@ def slow_debates_status(handler) -> HandlerResult:
     )
 
 
-def circuit_breakers_status(handler) -> HandlerResult:
+def circuit_breakers_status(handler: Any) -> HandlerResult:
     """Get detailed circuit breaker status for all registered breakers.
 
     Returns comprehensive metrics including:
@@ -223,7 +223,7 @@ def circuit_breakers_status(handler) -> HandlerResult:
         )
 
 
-def component_health_status(handler) -> HandlerResult:
+def component_health_status(handler: Any) -> HandlerResult:
     """Get health status from the resilience patterns HealthRegistry.
 
     Returns status of all registered health checkers including:

@@ -109,6 +109,12 @@ class PhaseConfig:
     # Metrics
     metrics_callback: Optional[Callable[[str, float], None]] = None
 
+    # Checkpoint hooks - called before/after phases
+    # pre_phase_callback: async (phase_name, context) -> None
+    pre_phase_callback: Optional[Callable[[str, Any], Any]] = None
+    # post_phase_callback: async (phase_name, context, result) -> None
+    post_phase_callback: Optional[Callable[[str, Any, PhaseResult], Any]] = None
+
 
 # Phase ordering for standard debate flow
 STANDARD_PHASE_ORDER = [
@@ -290,6 +296,15 @@ class PhaseExecutor:
                 error=f"Phase '{phase_name}' not found",
             )
 
+        # Execute pre-phase callback (e.g., checkpoint creation)
+        if self._config.pre_phase_callback:
+            try:
+                result = self._config.pre_phase_callback(phase_name, context)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                logger.debug(f"Pre-phase callback failed for '{phase_name}': {e}")
+
         started_at = datetime.now(timezone.utc)
         start_time = time.time()
 
@@ -297,13 +312,24 @@ class PhaseExecutor:
 
         # Use OpenTelemetry tracing when enabled
         if self._config.enable_tracing:
-            return await self._execute_with_tracing(
+            result = await self._execute_with_tracing(
                 phase, phase_name, context, debate_id, started_at, start_time
             )
         else:
-            return await self._execute_without_tracing(
+            result = await self._execute_without_tracing(
                 phase, phase_name, context, started_at, start_time
             )
+
+        # Execute post-phase callback
+        if self._config.post_phase_callback:
+            try:
+                post_result = self._config.post_phase_callback(phase_name, context, result)
+                if asyncio.iscoroutine(post_result):
+                    await post_result
+            except Exception as e:
+                logger.debug(f"Post-phase callback failed for '{phase_name}': {e}")
+
+        return result
 
     async def _execute_with_tracing(
         self,

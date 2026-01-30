@@ -555,16 +555,25 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def list_pending_approval(self) -> list[dict[str, Any]]:
+    async def list_pending_approval(self, limit: int = 500) -> list[dict[str, Any]]:
+        """List invoices pending approval.
+
+        Args:
+            limit: Maximum number of invoices to return (default 500)
+        """
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT data_json FROM invoices
                     WHERE status = 'pending_approval' OR requires_approval = 1
                     ORDER BY created_at ASC
-                    """)
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
                 ]
@@ -575,7 +584,15 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
         self,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
+        limit: int = 500,
     ) -> list[dict[str, Any]]:
+        """List scheduled payments within a date range.
+
+        Args:
+            start_date: Start of date range (optional)
+            end_date: End of date range (optional)
+            limit: Maximum number of invoices to return (default 500)
+        """
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
             try:
@@ -596,8 +613,9 @@ class SQLiteInvoiceStore(InvoiceStoreBackend):
                     SELECT data_json FROM invoices
                     WHERE {" AND ".join(where_parts)}
                     ORDER BY scheduled_payment_date ASC
+                    LIMIT ?
                     """,
-                    params,
+                    params + [limit],
                 )
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()

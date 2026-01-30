@@ -13,7 +13,13 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Any
 
-import numpy as np
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    HAS_NUMPY = False
 
 from aragora.debate.cache.embeddings_lru import (
     EmbeddingCache,

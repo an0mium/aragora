@@ -142,9 +142,14 @@ class ConsensusProof:
     rounds_to_consensus: int = 0
     metadata: dict = field(default_factory=dict)
 
+    # Cached checksum (computed on first access, excluded from repr/compare)
+    _cached_checksum: str | None = field(default=None, repr=False, compare=False)
+
     @property
     def checksum(self) -> str:
-        """Generate checksum for proof integrity."""
+        """Generate checksum for proof integrity (cached after first computation)."""
+        if self._cached_checksum is not None:
+            return self._cached_checksum
 
         def enum_dict_factory(data: list) -> dict:
             """Convert Enum values to their string values for JSON serialization."""
@@ -158,7 +163,11 @@ class ConsensusProof:
             },
             sort_keys=True,
         )
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        # Cache the computed checksum
+        object.__setattr__(
+            self, "_cached_checksum", hashlib.sha256(content.encode()).hexdigest()[:16]
+        )
+        return self._cached_checksum
 
     @property
     def agreement_ratio(self) -> float:

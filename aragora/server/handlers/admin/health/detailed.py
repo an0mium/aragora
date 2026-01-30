@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Detailed and deep health check implementations.
 

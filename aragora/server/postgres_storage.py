@@ -318,25 +318,38 @@ class PostgresDebateStorage(PostgresStore):
         org_id: str | None = None,
         verify_ownership: bool = False,
     ) -> dict | None:
-        """Get debate by slug, incrementing view count."""
+        """Get debate by slug, incrementing view count atomically.
+
+        Uses UPDATE ... RETURNING for atomic read-modify-write to prevent
+        lost updates on concurrent access.
+        """
         if not slug or len(slug) > 500:
             return None
 
         async with self.connection() as conn:
+            # Use UPDATE ... RETURNING for atomic read-modify-write
+            # This prevents lost updates on concurrent access
             if verify_ownership and org_id:
                 row = await conn.fetchrow(
-                    "SELECT artifact_json FROM debates WHERE slug = $1 AND org_id = $2",
+                    """
+                    UPDATE debates SET view_count = view_count + 1
+                    WHERE slug = $1 AND org_id = $2
+                    RETURNING artifact_json
+                    """,
                     slug,
                     org_id,
                 )
             else:
-                row = await conn.fetchrow("SELECT artifact_json FROM debates WHERE slug = $1", slug)
-
-            if row:
-                await conn.execute(
-                    "UPDATE debates SET view_count = view_count + 1 WHERE slug = $1",
+                row = await conn.fetchrow(
+                    """
+                    UPDATE debates SET view_count = view_count + 1
+                    WHERE slug = $1
+                    RETURNING artifact_json
+                    """,
                     slug,
                 )
+
+            if row:
                 artifact_json = row["artifact_json"]
                 if isinstance(artifact_json, str):
                     return json.loads(artifact_json)

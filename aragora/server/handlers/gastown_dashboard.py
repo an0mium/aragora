@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Gas Town Dashboard API Handlers.
 
@@ -17,7 +16,7 @@ Endpoints:
 - GET /api/v1/dashboard/gastown/metrics - Get throughput metrics
 
 Note: This module uses Gas Town APIs that are still being developed.
-Type checking is disabled due to API signature mismatches.
+Some APIs may have signature mismatches that require type: ignore comments.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from __future__ import annotations
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -46,7 +45,7 @@ _gt_dashboard_cache_lock = threading.Lock()
 CACHE_TTL = 15
 
 
-def _get_cached_data(key: str) -> Optional[dict[str, Any]]:
+def _get_cached_data(key: str) -> dict[str, Any] | None:
     """Get cached dashboard data if not expired."""
     with _gt_dashboard_cache_lock:
         cached = _gt_dashboard_cache.get(key)
@@ -155,7 +154,7 @@ class GasTownDashboardHandler(SecureHandler):
                 NomicConvoyStatus as ConvoyStatus,
             )
 
-            manager = ConvoyManager()
+            manager = ConvoyManager()  # type: ignore[call-arg]
             convoys = await manager.list_convoys()
             overview["convoys"]["total"] = len(convoys)
             for c in convoys:
@@ -174,9 +173,9 @@ class GasTownDashboardHandler(SecureHandler):
         try:
             from aragora.extensions.gastown.beads import BeadManager, BeadStatus
 
-            manager = BeadManager()
+            bead_manager = BeadManager()  # type: ignore[call-arg]
             for status in BeadStatus:
-                beads = await manager.list_beads(status=status)
+                beads = await bead_manager.list_beads(status=status)  # type: ignore[attr-defined]
                 count = len(beads)
                 overview["beads"][status.value] = count
                 overview["beads"]["total"] += count
@@ -191,7 +190,7 @@ class GasTownDashboardHandler(SecureHandler):
 
             hierarchy = AgentHierarchy()
             for role in AgentRole:
-                agents = await hierarchy.list_agents(role=role)
+                agents = await hierarchy.list_agents(role=role)  # type: ignore[attr-defined]
                 count = len(agents)
                 overview["agents"][role.value] = count
                 overview["agents"]["total"] += count
@@ -246,7 +245,7 @@ class GasTownDashboardHandler(SecureHandler):
                 NomicConvoyStatus as ConvoyStatus,
             )
 
-            manager = ConvoyManager()
+            convoy_manager = ConvoyManager()  # type: ignore[call-arg]
 
             filter_status = None
             if status_filter:
@@ -255,13 +254,15 @@ class GasTownDashboardHandler(SecureHandler):
                 except ValueError:
                     return error_response(f"Invalid status: {status_filter}", 400)
 
-            convoys = await manager.list_convoys(status=filter_status)
+            convoys = await convoy_manager.list_convoys(status=filter_status)
 
             result = []
             for c in convoys[:limit]:
                 progress_pct = 0.0
-                if c.total_beads > 0:
-                    progress_pct = (c.completed_beads / c.total_beads) * 100
+                total_beads: int = getattr(c, "total_beads", 0)
+                completed_beads: int = getattr(c, "completed_beads", 0)
+                if total_beads > 0:
+                    progress_pct = (completed_beads / total_beads) * 100
 
                 result.append(
                     {
@@ -269,8 +270,8 @@ class GasTownDashboardHandler(SecureHandler):
                         "title": c.title,
                         "description": getattr(c, "description", ""),
                         "status": c.status.value,
-                        "total_beads": c.total_beads,
-                        "completed_beads": c.completed_beads,
+                        "total_beads": total_beads,
+                        "completed_beads": completed_beads,
                         "failed_beads": getattr(c, "failed_beads", 0),
                         "progress_percentage": round(progress_pct, 1),
                         "created_at": c.created_at.isoformat() if c.created_at else None,
@@ -311,7 +312,7 @@ class GasTownDashboardHandler(SecureHandler):
             agents_by_role: dict[str, list[dict[str, Any]]] = {role.value: [] for role in AgentRole}
 
             for role in AgentRole:
-                agents = await hierarchy.list_agents(role=role)
+                agents = await hierarchy.list_agents(role=role)  # type: ignore[attr-defined]
                 for a in agents:
                     agents_by_role[role.value].append(
                         {
@@ -363,7 +364,7 @@ class GasTownDashboardHandler(SecureHandler):
                 NomicBeadStatus as BeadStatus,
             )
 
-            manager = BeadManager()
+            bead_mgr = BeadManager()  # type: ignore[call-arg]
 
             stats: dict[str, Any] = {
                 "by_status": {},
@@ -374,7 +375,7 @@ class GasTownDashboardHandler(SecureHandler):
 
             total = 0
             for status in BeadStatus:
-                beads = await manager.list_beads(status=status, limit=1000)
+                beads = await bead_mgr.list_beads(status=status, limit=1000)  # type: ignore[attr-defined]
                 count = len(beads)
                 stats["by_status"][status.value] = count
                 total += count
@@ -391,7 +392,7 @@ class GasTownDashboardHandler(SecureHandler):
                 from aragora.extensions.gastown.beads import BeadPriority
 
                 for priority in BeadPriority:
-                    beads = await manager.list_beads(priority=priority, limit=1000)
+                    beads = await bead_mgr.list_beads(priority=priority, limit=1000)  # type: ignore[attr-defined]
                     stats["by_priority"][priority.value] = len(beads)
             except (ImportError, AttributeError):
                 pass
@@ -452,8 +453,8 @@ class GasTownDashboardHandler(SecureHandler):
                     NomicConvoyStatus as ConvoyStatus,
                 )
 
-                manager = ConvoyManager()
-                convoys = await manager.list_convoys()
+                mgr = ConvoyManager()  # type: ignore[call-arg]
+                convoys = await mgr.list_convoys()
                 completed = sum(1 for c in convoys if c.status == ConvoyStatus.COMPLETED)
                 total = len(convoys)
                 if total > 0:

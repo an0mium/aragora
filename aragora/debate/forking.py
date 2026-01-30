@@ -12,7 +12,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from copy import deepcopy
+
+# Note: We use list.copy() instead of deepcopy for messages since Message
+# dataclass fields are all immutable (str, datetime, int)
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable
@@ -300,7 +302,7 @@ class DebateForker:
                 fork_round=fork_round,
                 hypothesis=branch_spec["hypothesis"],
                 lead_agent=branch_spec["lead_agent"],
-                messages=deepcopy(messages_so_far),  # Copy history
+                messages=list(messages_so_far),  # Shallow copy (Message fields are immutable)
             )
             branches.append(branch)
 

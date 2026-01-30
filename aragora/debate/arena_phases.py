@@ -456,6 +456,42 @@ def init_phases(arena: "Arena") -> None:
     )
 
 
+def _create_checkpoint_callbacks(arena: "Arena") -> tuple:
+    """Create pre/post phase callbacks for checkpointing.
+
+    Returns:
+        Tuple of (pre_phase_callback, post_phase_callback) or (None, None) if disabled
+    """
+    # Check if checkpointing is enabled
+    if not arena.checkpoint_manager:
+        return None, None
+
+    checkpoint_before_consensus = getattr(arena.protocol, "checkpoint_before_consensus", True)
+
+    async def pre_phase_callback(phase_name: str, context: Any) -> None:
+        """Create checkpoint before critical phases (e.g., consensus)."""
+        if phase_name == "consensus" and checkpoint_before_consensus:
+            try:
+                debate_id = getattr(context, "debate_id", "unknown")
+                result = getattr(context, "result", None)
+                current_round = getattr(result, "rounds_used", 0) if result else 0
+                messages = getattr(result, "messages", []) if result else []
+
+                await arena.save_checkpoint(
+                    debate_id=debate_id,
+                    phase="pre_consensus",
+                    messages=messages,
+                    current_round=current_round,
+                )
+                logger.debug(
+                    f"[checkpoint] Created pre-consensus checkpoint for debate {debate_id}"
+                )
+            except Exception as e:
+                logger.debug(f"[checkpoint] Pre-consensus checkpoint failed: {e}")
+
+    return pre_phase_callback, None
+
+
 def create_phase_executor(arena: "Arena") -> PhaseExecutor:
     """Create and configure the PhaseExecutor for debate execution.
 
@@ -522,6 +558,9 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
         "feedback": arena.feedback_phase,
     }
 
+    # Create checkpoint callbacks
+    pre_phase_callback, post_phase_callback = _create_checkpoint_callbacks(arena)
+
     return PhaseExecutor(
         phases=phases_dict,
         config=PhaseConfig(
@@ -530,5 +569,7 @@ def create_phase_executor(arena: "Arena") -> PhaseExecutor:
             # Higher percentage (was 80%) ensures slow agents complete within phase budget
             phase_timeout_seconds=max(300.0, timeout * 0.9),
             enable_tracing=True,
+            pre_phase_callback=pre_phase_callback,
+            post_phase_callback=post_phase_callback,
         ),
     )

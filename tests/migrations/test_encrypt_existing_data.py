@@ -251,9 +251,9 @@ class TestCheckPrerequisites:
     def test_encryption_key_present(self, mock_encryption_env):
         from aragora.migrations.encrypt_existing_data import EncryptionMigration
 
-        # Mock the encryption availability check
+        # Mock the encryption availability check - the import happens inside check_prerequisites
         with patch(
-            "aragora.migrations.encrypt_existing_data.is_encryption_available",
+            "aragora.storage.encrypted_fields.is_encryption_available",
             return_value=True,
         ):
             migration = EncryptionMigration(data_dir=str(mock_encryption_env))
@@ -276,9 +276,10 @@ class TestCheckPrerequisites:
         from aragora.migrations.encrypt_existing_data import EncryptionMigration
 
         with patch.dict(os.environ, {"ARAGORA_ENCRYPTION_KEY": "test-key"}, clear=False):
-            with patch(
-                "aragora.migrations.encrypt_existing_data.is_encryption_available",
-                side_effect=ImportError("Module not found"),
+            # Patch the import that happens inside check_prerequisites
+            with patch.dict(
+                "sys.modules",
+                {"aragora.storage.encrypted_fields": None},
             ):
                 migration = EncryptionMigration(data_dir=str(temp_data_dir))
                 result = migration.check_prerequisites()
@@ -540,11 +541,32 @@ class TestMigrationRun:
 
         migration = EncryptionMigration(data_dir=str(mock_encryption_env))
 
+        # Mock methods that also update stats
+        def mock_migrate_integrations():
+            migration.stats["integrations_migrated"] = 2
+            return 2
+
+        def mock_migrate_webhooks():
+            migration.stats["webhooks_migrated"] = 1
+            return 1
+
+        def mock_migrate_tokens():
+            migration.stats["tokens_migrated"] = 3
+            return 3
+
+        def mock_migrate_sync_configs():
+            migration.stats["sync_configs_migrated"] = 1
+            return 1
+
         with patch.object(migration, "check_prerequisites", return_value=True):
-            with patch.object(migration, "migrate_integrations", return_value=2):
-                with patch.object(migration, "migrate_webhooks", return_value=1):
-                    with patch.object(migration, "migrate_tokens", return_value=3):
-                        with patch.object(migration, "migrate_sync_configs", return_value=1):
+            with patch.object(
+                migration, "migrate_integrations", side_effect=mock_migrate_integrations
+            ):
+                with patch.object(migration, "migrate_webhooks", side_effect=mock_migrate_webhooks):
+                    with patch.object(migration, "migrate_tokens", side_effect=mock_migrate_tokens):
+                        with patch.object(
+                            migration, "migrate_sync_configs", side_effect=mock_migrate_sync_configs
+                        ):
                             result = migration.run()
 
         assert result["success"] is True
@@ -727,7 +749,22 @@ class TestErrorHandling:
 
         migration = EncryptionMigration(data_dir=str(mock_encryption_env))
 
-        with patch("sqlite3.connect", side_effect=sqlite3.Error("Database error")):
+        # Create a mock cursor that raises an error during execute
+        mock_cursor = MagicMock()
+        mock_cursor.execute.side_effect = sqlite3.Error("Database error")
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        # Patch sqlite3.connect after the initial path check
+        original_connect = sqlite3.connect
+
+        def mock_connect(path, *args, **kwargs):
+            # Return mock for the target database
+            if "integrations.db" in str(path):
+                return mock_conn
+            return original_connect(path, *args, **kwargs)
+
+        with patch("sqlite3.connect", side_effect=mock_connect):
             count = migration.migrate_integrations()
 
         # Should handle database errors

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack event handling: webhook verification, event parsing, slash commands, interactions.
 
@@ -9,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +23,25 @@ from aragora.connectors.chat.models import (
 )
 
 
+class _SlackConnectorProtocol(Protocol):
+    """Protocol for methods expected by SlackEventsMixin from the main connector."""
+
+    signing_secret: str | None
+
+    @property
+    def platform_name(self) -> str: ...
+
+    # Internal methods from the mixin itself
+    def _parse_slash_command(self, parsed: dict[str, Any]) -> WebhookEvent: ...
+    def _parse_interaction_payload(self, payload: dict[str, Any]) -> WebhookEvent: ...
+    def _parse_event_callback(self, payload: dict[str, Any]) -> WebhookEvent: ...
+
+
 class SlackEventsMixin:
     """Mixin providing webhook verification and event parsing for Slack."""
 
     def verify_webhook(
-        self,
+        self: _SlackConnectorProtocol,
         headers: dict[str, str],
         body: bytes,
     ) -> bool:
@@ -48,7 +61,7 @@ class SlackEventsMixin:
         return result.verified
 
     def parse_webhook_event(
-        self,
+        self: _SlackConnectorProtocol,
         headers: dict[str, str],
         body: bytes,
     ) -> WebhookEvent:
@@ -98,7 +111,7 @@ class SlackEventsMixin:
             raw_payload=payload,
         )
 
-    def _parse_slash_command(self, parsed: dict[str, Any]) -> WebhookEvent:
+    def _parse_slash_command(self: _SlackConnectorProtocol, parsed: dict[str, Any]) -> WebhookEvent:
         """Parse slash command from form data."""
 
         def get_first(key: str, default: str = "") -> str:
@@ -137,7 +150,9 @@ class SlackEventsMixin:
             ),
         )
 
-    def _parse_interaction_payload(self, payload: dict[str, Any]) -> WebhookEvent:
+    def _parse_interaction_payload(
+        self: _SlackConnectorProtocol, payload: dict[str, Any]
+    ) -> WebhookEvent:
         """Parse interactive component payload."""
         interaction_type = payload.get("type", "")
 
@@ -198,7 +213,9 @@ class SlackEventsMixin:
 
         return event
 
-    def _parse_event_callback(self, payload: dict[str, Any]) -> WebhookEvent:
+    def _parse_event_callback(
+        self: _SlackConnectorProtocol, payload: dict[str, Any]
+    ) -> WebhookEvent:
         """Parse Events API callback."""
         event_data = payload.get("event", {})
         event_type = event_data.get("type", "")

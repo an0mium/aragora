@@ -16,19 +16,20 @@ from aragora.agents.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
 
-# Patterns that indicate web search would be helpful
-WEB_SEARCH_INDICATORS = [
-    r"https?://",  # URLs
-    r"github\.com",  # GitHub repos
-    r"\brepo\b",  # Repository mentions
-    r"\bwebsite\b",  # Website mentions
-    r"\bweb\s*page\b",  # Web page mentions
-    r"\bonline\b",  # Online content
-    r"\blatest\b",  # Latest information (might need fresh data)
-    r"\bcurrent\b",  # Current information
-    r"\brecent\b",  # Recent information
-    r"\bnews\b",  # News
-    r"\barticle\b",  # Articles
+# Pre-compiled patterns that indicate web search would be helpful
+# Compiled at module load time for performance (avoids recompilation on each call)
+_WEB_SEARCH_PATTERNS = [
+    re.compile(r"https?://", re.IGNORECASE),  # URLs
+    re.compile(r"github\.com", re.IGNORECASE),  # GitHub repos
+    re.compile(r"\brepo\b", re.IGNORECASE),  # Repository mentions
+    re.compile(r"\bwebsite\b", re.IGNORECASE),  # Website mentions
+    re.compile(r"\bweb\s*page\b", re.IGNORECASE),  # Web page mentions
+    re.compile(r"\bonline\b", re.IGNORECASE),  # Online content
+    re.compile(r"\blatest\b", re.IGNORECASE),  # Latest information (might need fresh data)
+    re.compile(r"\bcurrent\b", re.IGNORECASE),  # Current information
+    re.compile(r"\brecent\b", re.IGNORECASE),  # Recent information
+    re.compile(r"\bnews\b", re.IGNORECASE),  # News
+    re.compile(r"\barticle\b", re.IGNORECASE),  # Articles
 ]
 
 
@@ -102,8 +103,9 @@ class OpenAIAPIAgent(OpenAICompatibleMixin, APIAgent):
         if not self.enable_web_search:
             return False
 
-        for pattern in WEB_SEARCH_INDICATORS:
-            if re.search(pattern, prompt, re.IGNORECASE):
+        # Use pre-compiled patterns for performance
+        for pattern in _WEB_SEARCH_PATTERNS:
+            if pattern.search(prompt):
                 return True
         return False
 

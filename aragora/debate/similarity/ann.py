@@ -26,9 +26,21 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    HAS_NUMPY = False
 
 logger = logging.getLogger(__name__)
+
+
+def _require_numpy(operation: str) -> None:
+    """Raise ImportError with helpful message if numpy is not available."""
+    if not HAS_NUMPY:
+        raise ImportError(f"numpy is required for {operation}. Install with: pip install numpy")
 
 
 def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
@@ -44,7 +56,11 @@ def compute_pairwise_matrix(embeddings: np.ndarray) -> np.ndarray:
 
     Returns:
         Similarity matrix of shape (n, n) with values in [-1, 1]
+
+    Raises:
+        ImportError: If numpy is not installed
     """
+    _require_numpy("compute_pairwise_matrix")
     if len(embeddings) == 0:
         return np.array([])
 

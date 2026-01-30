@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams event handling mixin.
 
@@ -10,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from aragora.connectors.chat.models import (
     BotCommand,
@@ -24,6 +23,15 @@ from aragora.connectors.chat.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _TeamsConnectorProtocol(Protocol):
+    """Protocol for methods expected by TeamsEventsMixin from the main connector."""
+
+    app_id: str
+
+    @property
+    def platform_name(self) -> str: ...
 
 
 class TeamsEventsMixin:
@@ -111,7 +119,7 @@ class TeamsEventsMixin:
         return action
 
     def verify_webhook(
-        self,
+        self: _TeamsConnectorProtocol,
         headers: dict[str, str],
         body: bytes,
     ) -> bool:
@@ -153,7 +161,7 @@ class TeamsEventsMixin:
             return False
 
     def parse_webhook_event(
-        self,
+        self: _TeamsConnectorProtocol,
         headers: dict[str, str],
         body: bytes,
     ) -> WebhookEvent:

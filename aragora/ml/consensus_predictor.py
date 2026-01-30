@@ -21,11 +21,18 @@ Usage:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Optional, Sequence
 from collections import defaultdict
 
-import numpy as np
+try:
+    import numpy as np
+
+    HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore[assignment]
+    HAS_NUMPY = False
 
 logger = logging.getLogger(__name__)
 
@@ -513,11 +520,22 @@ class ConsensusPredictor:
 
 # Global instance
 _consensus_predictor: ConsensusPredictor | None = None
+_consensus_predictor_lock = threading.Lock()  # Protects singleton initialization
 
 
 def get_consensus_predictor() -> ConsensusPredictor:
-    """Get or create the global consensus predictor instance."""
+    """Get or create the global consensus predictor instance.
+
+    Thread-safe singleton pattern using double-checked locking.
+    """
     global _consensus_predictor
-    if _consensus_predictor is None:
-        _consensus_predictor = ConsensusPredictor()
-    return _consensus_predictor
+    # Fast path: return existing instance without lock
+    if _consensus_predictor is not None:
+        return _consensus_predictor
+
+    # Slow path: acquire lock for initialization
+    with _consensus_predictor_lock:
+        # Double-check after acquiring lock
+        if _consensus_predictor is None:
+            _consensus_predictor = ConsensusPredictor()
+        return _consensus_predictor

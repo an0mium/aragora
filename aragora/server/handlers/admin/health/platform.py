@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Platform health, encryption, and startup check implementations.
 
@@ -20,7 +19,7 @@ from ...base import HandlerResult, json_response
 logger = logging.getLogger(__name__)
 
 
-def startup_health(handler) -> HandlerResult:
+def startup_health(handler: Any) -> HandlerResult:
     """Startup health status - reports server startup information.
 
     Returns:
@@ -96,7 +95,7 @@ def startup_health(handler) -> HandlerResult:
         )
 
 
-def encryption_health(handler) -> HandlerResult:
+def encryption_health(handler: Any) -> HandlerResult:
     """Encryption health check - verifies encryption service status.
 
     Checks:
@@ -221,7 +220,7 @@ def encryption_health(handler) -> HandlerResult:
     )
 
 
-def platform_health(handler) -> HandlerResult:
+def platform_health(handler: Any) -> HandlerResult:
     """Platform resilience health check for chat integrations.
 
     Checks:

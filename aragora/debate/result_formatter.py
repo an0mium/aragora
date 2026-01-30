@@ -79,6 +79,9 @@ class ResultFormatter:
         # Debate cruxes (key disagreement points)
         self._add_cruxes(lines, result)
 
+        # Translations (if multi-language support enabled)
+        self._add_translations(lines, result)
+
         lines.append("\n" + "=" * 60)
         return "\n".join(lines)
 
@@ -140,6 +143,37 @@ class ResultFormatter:
             claim = crux.get("claim", "unknown")[:80]
             uncertainty = crux.get("uncertainty", 0)
             lines.append(f"  - {claim}... (uncertainty: {uncertainty:.2f})")
+
+    def _add_translations(self, lines: list[str], result: "DebateResult") -> None:
+        """Add translations section if present."""
+        if not (hasattr(result, "translations") and result.translations):
+            return
+
+        lines.append("\n## TRANSLATIONS")
+
+        # Get language names for display
+        try:
+            from aragora.debate.translation import Language
+
+            for lang_code, translation in result.translations.items():
+                lang = Language.from_code(lang_code)
+                lang_name = lang.name_english if lang else lang_code.upper()
+                # Truncate translation for display
+                if len(translation) > self.max_answer_length:
+                    translation_display = translation[: self.max_answer_length] + "..."
+                else:
+                    translation_display = translation
+                lines.append(f"\n### {lang_name} ({lang_code})")
+                lines.append(translation_display)
+        except ImportError:
+            # Fallback if translation module not available
+            for lang_code, translation in result.translations.items():
+                if len(translation) > self.max_answer_length:
+                    translation_display = translation[: self.max_answer_length] + "..."
+                else:
+                    translation_display = translation
+                lines.append(f"\n### {lang_code.upper()}")
+                lines.append(translation_display)
 
     def validate_compliance(
         self,

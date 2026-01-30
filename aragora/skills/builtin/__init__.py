@@ -6,6 +6,12 @@ These skills provide core functionality:
 - code_execution: Execute code in a sandboxed environment
 - knowledge_query: Query the Knowledge Mound
 - evidence_fetch: Collect evidence from various sources
+- summarization: Summarize long text content
+- calculation: Perform safe mathematical calculations
+- data_extraction: Extract structured data from text
+- fact_check: Verify claims against knowledge base
+- file_analysis: Analyze file contents
+- translation: Translate text between languages
 """
 
 from ..base import Skill
@@ -19,7 +25,7 @@ def register_skills() -> list[Skill]:
     """
     skills: list[Skill] = []
 
-    # Try to import each builtin skill
+    # Original skills
     try:
         from .web_search import WebSearchSkill
 
@@ -45,6 +51,49 @@ def register_skills() -> list[Skill]:
         from .evidence_fetch import EvidenceFetchSkill
 
         skills.append(EvidenceFetchSkill())
+    except ImportError:
+        pass
+
+    # New skills
+    try:
+        from .summarization import SummarizationSkill
+
+        skills.append(SummarizationSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .calculation import CalculationSkill
+
+        skills.append(CalculationSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .data_extraction import DataExtractionSkill
+
+        skills.append(DataExtractionSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .fact_check import FactCheckSkill
+
+        skills.append(FactCheckSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .file_analysis import FileAnalysisSkill
+
+        skills.append(FileAnalysisSkill())
+    except ImportError:
+        pass
+
+    try:
+        from .translation import TranslationSkill
+
+        skills.append(TranslationSkill())
     except ImportError:
         pass
 

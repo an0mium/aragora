@@ -43,6 +43,7 @@ from aiohttp import web
 from aragora.audit.unified import audit_data, audit_security
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
+from aragora.server.handlers.utils.rate_limit import RateLimiter
 from aragora.resilience import (
     JitterMode,
     RetryConfig,
@@ -72,6 +73,53 @@ _payment_retry_config = RetryConfig(
     jitter_mode=JitterMode.MULTIPLICATIVE,
     retryable_exceptions=(ConnectionError, TimeoutError, OSError),
 )
+
+# Rate limiters for payment endpoints (strict limits for financial operations)
+# Charge/refund operations: 10 per minute (prevents abuse)
+_payment_write_limiter = RateLimiter(requests_per_minute=10)
+# Read operations: 30 per minute (less sensitive)
+_payment_read_limiter = RateLimiter(requests_per_minute=30)
+# Webhooks: higher limit since they're server-to-server (idempotency handles dupes)
+_webhook_limiter = RateLimiter(requests_per_minute=100)
+
+
+def _get_client_identifier(request: web.Request) -> str:
+    """Extract client identifier for rate limiting.
+
+    Uses X-Forwarded-For if behind proxy, otherwise uses peer IP.
+    Falls back to user_id if available for authenticated requests.
+    """
+    # Try user_id first for authenticated requests
+    user_id = request.get("user_id")
+    if user_id:
+        return f"user:{user_id}"
+
+    # Try X-Forwarded-For for proxied requests
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # Take first IP in chain (original client)
+        return forwarded.split(",")[0].strip()
+
+    # Fall back to peer IP
+    peername = request.transport.get_extra_info("peername") if request.transport else None
+    if peername:
+        return peername[0]
+
+    return "unknown"
+
+
+def _check_rate_limit(request: web.Request, limiter: RateLimiter) -> web.Response | None:
+    """Check rate limit and return error response if exceeded, None if allowed."""
+    client_id = _get_client_identifier(request)
+    if not limiter.is_allowed(client_id):
+        logger.warning(f"Rate limit exceeded for payment endpoint: {client_id}")
+        return web.json_response(
+            {"error": "Rate limit exceeded. Please try again later."},
+            status=429,
+            headers={"Retry-After": "60"},
+        )
+    return None
+
 
 # =============================================================================
 # Webhook Idempotency
@@ -185,10 +233,12 @@ async def get_stripe_connector(request: web.Request) -> Any | None:
         try:
             from aragora.connectors.payments.stripe import StripeConnector, StripeCredentials
 
-            _stripe_connector = StripeConnector(StripeCredentials(
-                secret_key=os.environ.get("STRIPE_SECRET_KEY", ""),
-                webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET"),
-            ))
+            _stripe_connector = StripeConnector(
+                StripeCredentials(
+                    secret_key=os.environ.get("STRIPE_SECRET_KEY", ""),
+                    webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET"),
+                )
+            )
             logger.info("Stripe connector initialized")
         except ImportError:
             logger.warning("Stripe connector not available")
@@ -330,6 +380,11 @@ async def handle_charge(request: web.Request) -> web.Response:
         "metadata": {}
     }
     """
+    # Rate limit check for financial operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_charge")
         if err:
@@ -543,6 +598,11 @@ async def handle_authorize(request: web.Request) -> web.Response:
 
     Authorize a payment (capture later).
     """
+    # Rate limit check for financial operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_authorize")
         if err:
@@ -627,6 +687,11 @@ async def handle_capture(request: web.Request) -> web.Response:
         "amount": 100.00  // Optional, for partial capture
     }
     """
+    # Rate limit check for financial operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_capture")
         if err:
@@ -697,6 +762,11 @@ async def handle_refund(request: web.Request) -> web.Response:
         "card_last_four": "1111"  // Required for Authorize.net
     }
     """
+    # Rate limit check for financial operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     body = None
     try:
         body, err = await parse_json_body(request, context="handle_refund")
@@ -805,6 +875,11 @@ async def handle_void(request: web.Request) -> web.Response:
         "transaction_id": "..."
     }
     """
+    # Rate limit check for financial operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_void")
         if err:
@@ -859,6 +934,11 @@ async def handle_get_transaction(request: web.Request) -> web.Response:
 
     Get transaction details.
     """
+    # Rate limit check for read operations
+    rate_limit_response = _check_rate_limit(request, _payment_read_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         transaction_id = request.match_info.get("transaction_id")
         provider_str = request.query.get("provider", "stripe")
@@ -932,6 +1012,11 @@ async def handle_create_customer(request: web.Request) -> web.Response:
         "payment_method": {...}  // Optional
     }
     """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_create_customer")
         if err:
@@ -995,6 +1080,11 @@ async def handle_get_customer(request: web.Request) -> web.Response:
 
     Get customer profile.
     """
+    # Rate limit check for read operations
+    rate_limit_response = _check_rate_limit(request, _payment_read_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         customer_id = request.match_info.get("customer_id")
         provider_str = request.query.get("provider", "stripe")
@@ -1063,6 +1153,11 @@ async def handle_delete_customer(request: web.Request) -> web.Response:
 
     Delete customer profile.
     """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         customer_id = request.match_info.get("customer_id")
         provider_str = request.query.get("provider", "stripe")
@@ -1124,6 +1219,11 @@ async def handle_create_subscription(request: web.Request) -> web.Response:
         "start_date": "2025-02-01"  // Optional
     }
     """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         body, err = await parse_json_body(request, context="handle_create_subscription")
         if err:
@@ -1207,6 +1307,11 @@ async def handle_cancel_subscription(request: web.Request) -> web.Response:
 
     Cancel a subscription.
     """
+    # Rate limit check for write operations
+    rate_limit_response = _check_rate_limit(request, _payment_write_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         subscription_id = request.match_info.get("subscription_id")
         provider_str = request.query.get("provider", "stripe")
@@ -1263,6 +1368,11 @@ async def handle_stripe_webhook(request: web.Request) -> web.Response:
 
     Handle Stripe webhook events.
     """
+    # Rate limit check for webhooks (higher limit, server-to-server)
+    rate_limit_response = _check_rate_limit(request, _webhook_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         payload = await request.read()
         sig_header = request.headers.get("Stripe-Signature")
@@ -1321,6 +1431,11 @@ async def handle_authnet_webhook(request: web.Request) -> web.Response:
 
     Handle Authorize.net webhook events.
     """
+    # Rate limit check for webhooks (higher limit, server-to-server)
+    rate_limit_response = _check_rate_limit(request, _webhook_limiter)
+    if rate_limit_response:
+        return rate_limit_response
+
     try:
         payload, err = await parse_json_body(request, context="handle_authnet_webhook")
         if err:

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams channel operations mixin.
 
@@ -11,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from aragora.connectors.chat.models import (
     ChatChannel,
@@ -30,11 +29,39 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class _TeamsConnectorProtocol(Protocol):
+    """Protocol for methods expected by TeamsChannelsMixin from the main connector."""
+
+    @property
+    def platform_name(self) -> str: ...
+
+    def _check_circuit_breaker(self) -> tuple[bool, str | None]: ...
+
+    async def _graph_api_request(
+        self,
+        endpoint: str,
+        method: str = ...,
+        operation: str = ...,
+    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
+
+    def _record_failure(self, error: Exception | None = ...) -> None: ...
+
+    def _compute_message_relevance(self, msg: ChatMessage, query: str | None) -> float: ...
+
+    async def get_channel_history(
+        self,
+        channel_id: str,
+        limit: int = ...,
+        team_id: str | None = ...,
+        **kwargs: Any,
+    ) -> list[ChatMessage]: ...
+
+
 class TeamsChannelsMixin:
     """Mixin providing channel operations for TeamsConnector."""
 
     async def get_channel_history(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         limit: int = 100,
         oldest: str | None = None,
@@ -205,7 +232,7 @@ class TeamsChannelsMixin:
             return []
 
     async def collect_evidence(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         query: str | None = None,
         limit: int = 100,
@@ -276,7 +303,7 @@ class TeamsChannelsMixin:
         return evidence_list
 
     async def get_channel_info(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         team_id: str | None = None,
         **kwargs: Any,
@@ -327,7 +354,7 @@ class TeamsChannelsMixin:
             return None
 
     async def list_channels(
-        self,
+        self: _TeamsConnectorProtocol,
         team_id: str,
         include_private: bool = False,
         **kwargs: Any,
@@ -386,7 +413,7 @@ class TeamsChannelsMixin:
             return channels
 
     async def get_user_info(
-        self,
+        self: _TeamsConnectorProtocol,
         user_id: str,
         **kwargs: Any,
     ) -> ChatUser | None:

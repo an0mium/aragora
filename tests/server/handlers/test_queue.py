@@ -1,142 +1,149 @@
 """
-Tests for Queue Handler - Job Queue Management API.
+Comprehensive tests for aragora.server.handlers.queue - Queue Management Handler.
 
 Tests cover:
-- Job submission
-- Job listing and filtering
-- Job status retrieval
-- Job retry functionality
-- Job cancellation
-- Queue statistics
-- Worker status
-- Path validation (security)
+1. Job submission endpoints (POST /api/queue/jobs)
+2. Job status queries (GET /api/queue/jobs/:id)
+3. Job listing with pagination
+4. Worker status management
+5. Retry logic and failure handling
+6. Job cancellation
+7. Queue statistics endpoints
+8. Input validation for job submissions
+9. Error handling for invalid jobs
+10. Authentication/authorization checks
+11. Dead-letter queue (DLQ) operations
+12. Job cleanup operations
+13. Stale job detection
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from enum import Enum
 
 import pytest
 
-
-class MockJobStatus(Enum):
-    """Mock job status enum."""
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    RETRYING = "retrying"
+from aragora.queue.base import JobStatus
+from aragora.server.handlers.queue import QueueHandler, _get_queue
 
 
+# ===========================================================================
+# Test Fixtures and Helpers
+# ===========================================================================
+
+
+@dataclass
 class MockJob:
     """Mock job for testing."""
 
-    def __init__(
-        self,
-        id: str = "job-123",
-        status: MockJobStatus = MockJobStatus.PENDING,
-        job_type: str = "debate",
-        created_at: float = 1704067200.0,  # 2024-01-01 00:00:00
-        started_at: Optional[float] = None,
-        completed_at: Optional[float] = None,
-        failed_at: Optional[float] = None,
-        attempts: int = 0,
-        max_attempts: int = 3,
-        priority: int = 0,
-        error: Optional[str] = None,
-        worker_id: Optional[str] = None,
-        payload: dict[str, Any] = None,
-        metadata: dict[str, Any] = None,
-    ):
-        self.id = id
-        self.status = status
-        self.job_type = job_type
-        self.created_at = created_at
-        self.failed_at = failed_at
-        self.started_at = started_at
-        self.completed_at = completed_at
-        self.attempts = attempts
-        self.max_attempts = max_attempts
-        self.priority = priority
-        self.error = error
-        self.worker_id = worker_id
-        self.payload = payload or {}
-        self.metadata = metadata or {}
+    id: str = "job-123"
+    status: JobStatus = JobStatus.PENDING
+    payload: dict = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    started_at: float | None = None
+    completed_at: float | None = None
+    attempts: int = 0
+    max_attempts: int = 3
+    priority: int = 0
+    error: str | None = None
+    worker_id: str | None = None
+    metadata: dict = field(default_factory=dict)
+    job_type: str = "debate"
+
+
+class MockStatusTracker:
+    """Mock status tracker for testing."""
+
+    def __init__(self, jobs: list[MockJob] | None = None):
+        self.jobs = jobs or []
+
+    async def list_jobs(self, status=None, limit=100):
+        result = self.jobs
+        if status is not None:
+            result = [j for j in self.jobs if j.status == status]
+        return result[:limit]
+
+    async def get_counts_by_status(self):
+        counts = {}
+        for job in self.jobs:
+            status = job.status.value if hasattr(job.status, "value") else str(job.status)
+            counts[status] = counts.get(status, 0) + 1
+        return counts
 
 
 class MockQueue:
     """Mock queue for testing."""
 
-    def __init__(self):
-        self.jobs: dict[str, MockJob] = {}
-        self.stream_key = "aragora:jobs"
-        self._redis = AsyncMock()
-        self._status_tracker = MagicMock()
+    def __init__(self, jobs: list[MockJob] | None = None):
+        self.jobs = {j.id: j for j in (jobs or [])}
+        self._status_tracker = MockStatusTracker(jobs or [])
+        self._redis = MagicMock()
+        self.stream_key = "aragora:queue:stream"
+        self.enqueued = []
+        self.cancelled = []
+        self.deleted = []
 
-    async def enqueue(self, job, priority: int = 0) -> str:
-        job_id = getattr(job, "id", f"job-{len(self.jobs)}")
-        self.jobs[job_id] = job
-        return job_id
-
-    async def get_status(self, job_id: str) -> Optional[MockJob]:
-        return self.jobs.get(job_id)
-
-    async def cancel(self, job_id: str) -> bool:
-        job = self.jobs.get(job_id)
-        if job and job.status in (MockJobStatus.PENDING, MockJobStatus.RETRYING):
-            job.status = MockJobStatus.CANCELLED
-            return True
-        return False
-
-    async def get_queue_stats(self) -> dict[str, int]:
+    async def get_queue_stats(self):
         return {
             "pending": 5,
             "processing": 2,
-            "completed": 100,
-            "failed": 3,
-            "cancelled": 1,
-            "retrying": 0,
-            "stream_length": 111,
-            "pending_in_group": 5,
+            "completed": 10,
+            "failed": 1,
+            "cancelled": 0,
+            "retrying": 1,
+            "stream_length": 19,
+            "pending_in_group": 3,
         }
 
-    async def list_jobs(self, status=None, limit: int = 100, offset: int = 0) -> list[MockJob]:
-        """List jobs, optionally filtered by status."""
-        jobs = list(self.jobs.values())
-        if status is not None:
-            jobs = [j for j in jobs if j.status == status]
-        return jobs[offset : offset + limit]
+    async def get_status(self, job_id: str):
+        return self.jobs.get(job_id)
+
+    async def enqueue(self, job, priority=0):
+        self.enqueued.append(job)
+        return job.id if hasattr(job, "id") else "new-job-id"
+
+    async def cancel(self, job_id: str):
+        job = self.jobs.get(job_id)
+        if job is None:
+            return False
+        if job.status not in (JobStatus.PENDING, JobStatus.RETRYING):
+            return False
+        self.cancelled.append(job_id)
+        job.status = JobStatus.CANCELLED
+        return True
+
+    async def list_jobs(self, status=None, limit=100):
+        return await self._status_tracker.list_jobs(status=status, limit=limit)
+
+    async def delete(self, job_id: str):
+        self.deleted.append(job_id)
+        return True
 
 
-def create_mock_handler(
-    method: str = "GET", body: Optional[dict] = None, path: str = "/api/v1/queue/jobs"
-) -> MagicMock:
-    """Create a mock HTTP handler."""
-    handler = MagicMock()
-    handler.command = method
-    handler.path = path
-    handler.headers = {"Content-Type": "application/json"}
+@dataclass
+class MockAuthContext:
+    """Mock authentication context."""
 
-    if body:
-        body_bytes = json.dumps(body).encode("utf-8")
-        handler.rfile = BytesIO(body_bytes)
-        handler.headers["Content-Length"] = str(len(body_bytes))
-    else:
-        handler.rfile = BytesIO(b"")
-        handler.headers["Content-Length"] = "0"
-
-    return handler
+    is_authenticated: bool = True
+    user_id: str = "user-123"
+    email: str = "test@example.com"
+    org_id: str | None = "org-123"
+    role: str = "admin"
+    permissions: list = field(default_factory=lambda: ["queue:read", "queue:manage", "queue:admin"])
+    workspace_id: str | None = None
 
 
 def get_status(result) -> int:
     """Extract status code from HandlerResult."""
+    if result is None:
+        return 0
     if hasattr(result, "status_code"):
         return result.status_code
     return result[1]
@@ -146,467 +153,1366 @@ def get_body(result) -> dict:
     """Extract body from HandlerResult."""
     if hasattr(result, "body"):
         body = result.body
-    else:
-        body = result[0]
-
+        if isinstance(body, bytes):
+            return json.loads(body.decode("utf-8"))
+        return json.loads(body)
+    body = result[0]
     if isinstance(body, dict):
         return body
-    if isinstance(body, bytes):
-        return json.loads(body.decode("utf-8"))
     return json.loads(body)
 
 
-@pytest.fixture(autouse=True)
-def disable_rate_limits():
-    """Disable rate limits for all tests."""
+def make_mock_handler(
+    body: dict | None = None,
+    method: str = "GET",
+    headers: dict | None = None,
+    path: str = "/api/queue/jobs",
+):
+    """Create a mock HTTP handler."""
+    handler = MagicMock()
+    handler.command = method
+    handler.headers = headers or {}
+    handler.path = path
+    handler.client_address = ("127.0.0.1", 12345)
 
-    def _always_allowed(key: str) -> bool:
-        return True
-
-    import sys
-
-    if "aragora.server.handlers.utils.rate_limit" in sys.modules:
-        rl_module = sys.modules["aragora.server.handlers.utils.rate_limit"]
-        original = {}
-        for name, limiter in rl_module._limiters.items():
-            original[name] = limiter.is_allowed
-            limiter.is_allowed = _always_allowed
-        yield
-        for name, orig in original.items():
-            if name in rl_module._limiters:
-                rl_module._limiters[name].is_allowed = orig
+    if body is not None:
+        body_bytes = json.dumps(body).encode("utf-8")
+        handler.headers["Content-Length"] = str(len(body_bytes))
+        handler.headers["Content-Type"] = "application/json"
+        handler.rfile = BytesIO(body_bytes)
     else:
-        yield
+        handler.headers["Content-Length"] = "0"
+        handler.rfile = BytesIO(b"")
+
+    return handler
+
+
+@pytest.fixture
+def server_context():
+    """Create a mock server context."""
+    return {}
+
+
+@pytest.fixture
+def queue_handler(server_context):
+    """Create a QueueHandler instance."""
+    handler = QueueHandler(server_context)
+    return handler
+
+
+@pytest.fixture
+def mock_auth_context():
+    """Create a mock auth context."""
+    return MockAuthContext()
 
 
 @pytest.fixture
 def mock_queue():
     """Create a mock queue."""
-    return MockQueue()
+    jobs = [
+        MockJob(
+            id="job-1",
+            status=JobStatus.PENDING,
+            payload={"question": "Test question 1"},
+            created_at=time.time() - 3600,
+        ),
+        MockJob(
+            id="job-2",
+            status=JobStatus.PROCESSING,
+            payload={"question": "Test question 2"},
+            created_at=time.time() - 1800,
+            started_at=time.time() - 900,
+            worker_id="worker-1",
+        ),
+        MockJob(
+            id="job-3",
+            status=JobStatus.COMPLETED,
+            payload={"question": "Test question 3"},
+            created_at=time.time() - 7200,
+            completed_at=time.time() - 3600,
+        ),
+    ]
+    return MockQueue(jobs)
 
 
-@pytest.fixture
-def queue_handler():
-    """Create queue handler instance."""
-    from aragora.server.handlers.queue import QueueHandler
-
-    return QueueHandler({})
+# ===========================================================================
+# Test: Handler Structure and Routing
+# ===========================================================================
 
 
-class TestCanHandle:
-    """Tests for route matching."""
+class TestQueueHandlerStructure:
+    """Tests for QueueHandler class structure."""
 
-    def test_handles_jobs_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/queue/jobs") is True
+    def test_handler_has_routes(self, queue_handler):
+        """Handler should have ROUTES defined."""
+        assert hasattr(QueueHandler, "ROUTES")
+        assert len(QueueHandler.ROUTES) > 0
 
-    def test_handles_specific_job_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/queue/jobs/job-123") is True
+    def test_routes_include_all_endpoints(self, queue_handler):
+        """Routes should include all queue endpoints."""
+        routes = QueueHandler.ROUTES
+        assert "/api/queue/jobs" in routes
+        assert "/api/queue/stats" in routes
+        assert "/api/queue/workers" in routes
+        assert "/api/queue/dlq" in routes
 
-    def test_handles_retry_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/queue/jobs/job-123/retry") is True
+    def test_can_handle_queue_paths(self, queue_handler):
+        """Handler should match queue paths."""
+        assert queue_handler.can_handle("/api/queue/jobs", "GET")
+        assert queue_handler.can_handle("/api/queue/stats", "GET")
+        assert queue_handler.can_handle("/api/queue/workers", "GET")
+        assert queue_handler.can_handle("/api/v1/queue/jobs", "GET")
 
-    def test_handles_stats_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/queue/stats") is True
+    def test_rejects_non_queue_paths(self, queue_handler):
+        """Handler should reject non-queue paths."""
+        assert not queue_handler.can_handle("/api/debates", "GET")
+        assert not queue_handler.can_handle("/api/agents", "GET")
+        assert not queue_handler.can_handle("/health", "GET")
 
-    def test_handles_workers_endpoint(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/queue/workers") is True
+    def test_resource_type_is_queue(self, queue_handler):
+        """Handler should have resource_type set to queue."""
+        assert queue_handler.RESOURCE_TYPE == "queue"
 
-    def test_does_not_handle_other_routes(self, queue_handler):
-        assert queue_handler.can_handle("/api/v1/debates") is False
-        assert queue_handler.can_handle("/api/v1/users") is False
+
+# ===========================================================================
+# Test: Authentication and Authorization
+# ===========================================================================
+
+
+class TestQueueAuthentication:
+    """Tests for authentication requirements."""
+
+    @pytest.mark.asyncio
+    async def test_unauthenticated_returns_401(self, queue_handler):
+        """Requests without auth should return 401."""
+        handler = make_mock_handler()
+        from aragora.server.handlers.utils.auth import UnauthorizedError
+
+        with patch.object(
+            queue_handler,
+            "get_auth_context",
+            side_effect=UnauthorizedError("Not authenticated"),
+        ):
+            result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+            assert get_status(result) == 401
+
+    @pytest.mark.asyncio
+    async def test_missing_permission_returns_403(self, queue_handler):
+        """Requests without proper permission should return 403."""
+        handler = make_mock_handler()
+        auth = MockAuthContext(permissions=[])
+        from aragora.server.handlers.utils.auth import ForbiddenError
+
+        with patch.object(queue_handler, "get_auth_context", return_value=auth):
+            with patch.object(
+                queue_handler,
+                "check_permission",
+                side_effect=ForbiddenError("Permission denied"),
+            ):
+                result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                assert get_status(result) == 403
+
+    @pytest.mark.asyncio
+    async def test_read_permission_for_stats(self, queue_handler, mock_auth_context):
+        """Stats endpoint should require queue:read permission."""
+        handler = make_mock_handler(path="/api/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission") as mock_check:
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    mock_check.assert_called_once()
+                    args = mock_check.call_args[0]
+                    assert args[1] == "queue:read"
+
+    @pytest.mark.asyncio
+    async def test_read_permission_for_job_list(self, queue_handler, mock_auth_context):
+        """Job listing endpoint should require queue:read permission."""
+        handler = make_mock_handler(
+            method="GET",
+            path="/api/queue/jobs",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission") as mock_check:
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    mock_check.assert_called_once()
+                    args = mock_check.call_args[0]
+                    # Job listing is a read operation
+                    assert args[1] == "queue:read"
+
+    @pytest.mark.asyncio
+    async def test_manage_permission_for_job_retry(
+        self, queue_handler, mock_auth_context, mock_queue
+    ):
+        """Job retry should require queue:manage permission."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/job-1/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission") as mock_check:
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/jobs/job-1/retry", "POST", handler
+                        )
+                        mock_check.assert_called_once()
+                        args = mock_check.call_args[0]
+                        # Retry is a manage operation
+                        assert args[1] == "queue:manage"
+
+    @pytest.mark.asyncio
+    async def test_admin_permission_for_dlq(self, queue_handler, mock_auth_context):
+        """DLQ endpoint should require queue:admin permission."""
+        handler = make_mock_handler(path="/api/queue/dlq")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission") as mock_check:
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/dlq", "GET", handler)
+                    mock_check.assert_called_once()
+                    args = mock_check.call_args[0]
+                    assert args[1] == "queue:admin"
+
+
+# ===========================================================================
+# Test: Queue Statistics Endpoint
+# ===========================================================================
 
 
 class TestQueueStats:
-    """Tests for queue statistics endpoint."""
+    """Tests for GET /api/queue/stats endpoint."""
 
     @pytest.mark.asyncio
-    async def test_stats_returns_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue is not available."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/stats", "GET")
-
-            assert get_status(result) == 503
-            body = get_body(result)
-            assert "error" in body
-
-    @pytest.mark.asyncio
-    async def test_stats_returns_counts(self, queue_handler, mock_queue):
+    async def test_get_stats_success(self, queue_handler, mock_auth_context, mock_queue):
         """Should return queue statistics."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/stats", "GET")
+        handler = make_mock_handler(path="/api/queue/stats")
 
-            assert get_status(result) == 200
-            body = get_body(result)
-            assert "stats" in body
-            assert body["stats"]["pending"] == 5
-            assert body["stats"]["completed"] == 100
-
-
-class TestJobSubmission:
-    """Tests for job submission endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_submit_requires_question(self, queue_handler, mock_queue):
-        """Should require question field."""
-        mock_handler = create_mock_handler("POST", {"agents": ["claude"]})
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
-
-            assert get_status(result) == 400
-            body = get_body(result)
-            assert "question" in body.get("error", "").lower()
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "stats" in body
+                    assert body["stats"]["pending"] == 5
+                    assert body["stats"]["processing"] == 2
+                    assert "timestamp" in body
 
     @pytest.mark.asyncio
-    async def test_submit_creates_job(self, queue_handler, mock_queue):
-        """Should create and enqueue a job."""
-        mock_handler = create_mock_handler(
-            "POST", {"question": "What is the meaning of life?", "rounds": 3}
-        )
+    async def test_get_stats_queue_unavailable(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue is unavailable."""
+        handler = make_mock_handler(path="/api/queue/stats")
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.create_debate_job") as mock_create:
-                mock_job = MockJob()
-                mock_create.return_value = mock_job
-
-                result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
-
-                assert get_status(result) == 202
-                body = get_body(result)
-                assert "job_id" in body
-                assert body["status"] == "pending"
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 503
+                    body = get_body(result)
+                    assert "error" in body
+                    assert "stats" in body  # Should still have empty stats
 
     @pytest.mark.asyncio
-    async def test_submit_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue unavailable."""
-        mock_handler = create_mock_handler("POST", {"question": "test?"})
+    async def test_get_stats_connection_error(self, queue_handler, mock_auth_context):
+        """Should handle connection errors gracefully."""
+        handler = make_mock_handler(path="/api/queue/stats")
+        mock_q = MagicMock()
+        mock_q.get_queue_stats = AsyncMock(side_effect=ConnectionError("Redis down"))
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/jobs", "POST", mock_handler)
-
-            assert get_status(result) == 503
-
-
-class TestJobListing:
-    """Tests for job listing endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_list_jobs_returns_jobs(self, queue_handler, mock_queue):
-        """Should return list of jobs."""
-        mock_queue.jobs["job-1"] = MockJob(id="job-1")
-        mock_queue.jobs["job-2"] = MockJob(id="job-2")
-        mock_queue._status_tracker.list_jobs = AsyncMock(
-            return_value=[
-                MockJob(id="job-1"),
-                MockJob(id="job-2"),
-            ]
-        )
-        mock_queue._status_tracker.get_counts_by_status = AsyncMock(
-            return_value={"pending": 2, "completed": 0}
-        )
-
-        mock_handler = create_mock_handler("GET")
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/jobs", "GET", mock_handler)
-
-                assert get_status(result) == 200
-                body = get_body(result)
-                assert "jobs" in body
-                assert len(body["jobs"]) == 2
-
-    @pytest.mark.asyncio
-    async def test_list_jobs_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue unavailable."""
-        mock_handler = create_mock_handler("GET")
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/jobs", "GET", mock_handler)
-
-            assert get_status(result) == 503
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 503
 
 
-class TestJobRetrieval:
-    """Tests for getting specific job status."""
-
-    @pytest.mark.asyncio
-    async def test_get_job_returns_status(self, queue_handler, mock_queue):
-        """Should return job details."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.COMPLETED,
-            completed_at=1704153600.0,
-        )
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "GET")
-
-            assert get_status(result) == 200
-            body = get_body(result)
-            assert body["job_id"] == "job-123"
-            assert body["status"] == "completed"
-
-    @pytest.mark.asyncio
-    async def test_get_job_not_found(self, queue_handler, mock_queue):
-        """Should return 404 for missing job."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent", "GET")
-
-            assert get_status(result) == 404
-
-
-class TestJobRetry:
-    """Tests for job retry endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_retry_failed_job(self, queue_handler, mock_queue):
-        """Should retry failed jobs."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.FAILED,
-            error="Network timeout",
-        )
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/jobs/job-123/retry", "POST")
-
-                assert get_status(result) == 200
-                body = get_body(result)
-                assert body["status"] == "pending"
-
-    @pytest.mark.asyncio
-    async def test_retry_non_failed_job_rejected(self, queue_handler, mock_queue):
-        """Should reject retry of non-failed jobs."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.PROCESSING,
-        )
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/jobs/job-123/retry", "POST")
-
-                assert get_status(result) == 400
-
-    @pytest.mark.asyncio
-    async def test_retry_not_found(self, queue_handler, mock_queue):
-        """Should return 404 for missing job."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent/retry", "POST")
-
-                assert get_status(result) == 404
-
-
-class TestJobCancellation:
-    """Tests for job cancellation endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_cancel_pending_job(self, queue_handler, mock_queue):
-        """Should cancel pending jobs."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.PENDING,
-        )
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "DELETE")
-
-            assert get_status(result) == 200
-            body = get_body(result)
-            assert body["status"] == "cancelled"
-
-    @pytest.mark.asyncio
-    async def test_cancel_processing_job_rejected(self, queue_handler, mock_queue):
-        """Should reject cancellation of processing jobs."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.PROCESSING,
-        )
-
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs/job-123", "DELETE")
-
-            assert get_status(result) == 400
-
-    @pytest.mark.asyncio
-    async def test_cancel_not_found(self, queue_handler, mock_queue):
-        """Should return 404 for missing job."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/jobs/nonexistent", "DELETE")
-
-            assert get_status(result) == 404
-
-
-class TestPathValidation:
-    """Tests for path segment validation (security)."""
-
-    @pytest.mark.asyncio
-    async def test_rejects_path_traversal_in_job_id(self, queue_handler, mock_queue):
-        """Should reject path traversal attempts.
-
-        Note: Paths with too many segments don't match routes (return None).
-        This tests a job_id that contains '..' but matches the route pattern.
-        """
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            # Use a job_id with path traversal characters that matches route length
-            result = await queue_handler.handle("/api/v1/queue/jobs/..passwd", "GET")
-
-            assert get_status(result) == 400
-
-    @pytest.mark.asyncio
-    async def test_rejects_special_chars_in_job_id(self, queue_handler, mock_queue):
-        """Should reject special characters in job ID."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            # Use a job_id with invalid characters that matches route length
-            result = await queue_handler.handle("/api/v1/queue/jobs/job@invalid", "GET")
-
-            assert get_status(result) == 400
+# ===========================================================================
+# Test: Worker Status Endpoint
+# ===========================================================================
 
 
 class TestWorkerStatus:
-    """Tests for worker status endpoint."""
+    """Tests for GET /api/queue/workers endpoint."""
 
     @pytest.mark.asyncio
-    async def test_workers_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue unavailable."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/workers", "GET")
-
-            assert get_status(result) == 503
-            body = get_body(result)
-            assert body["total"] == 0
-
-    @pytest.mark.asyncio
-    async def test_workers_returns_list(self, queue_handler, mock_queue):
-        """Should return worker list."""
-        mock_queue._redis.xinfo_groups = AsyncMock(
-            return_value=[{"name": "workers", "consumers": 2}]
-        )
-        mock_queue._redis.xinfo_consumers = AsyncMock(
+    async def test_get_workers_success(self, queue_handler, mock_auth_context):
+        """Should return worker information."""
+        handler = make_mock_handler(path="/api/queue/workers")
+        mock_q = MockQueue()
+        mock_q._redis.xinfo_groups = AsyncMock(
             return_value=[
-                {"name": "worker-1", "pending": 1, "idle": 1000},
-                {"name": "worker-2", "pending": 0, "idle": 5000},
+                {"name": "workers"},
+            ]
+        )
+        mock_q._redis.xinfo_consumers = AsyncMock(
+            return_value=[
+                {"name": "worker-1", "pending": 2, "idle": 1000},
+                {"name": "worker-2", "pending": 1, "idle": 500},
             ]
         )
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            result = await queue_handler.handle("/api/v1/queue/workers", "GET")
-
-            assert get_status(result) == 200
-            body = get_body(result)
-            assert "workers" in body
-            assert body["total"] == 2
-
-
-class TestDeadLetterQueue:
-    """Tests for dead-letter queue (DLQ) endpoints."""
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/workers", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "workers" in body
+                    assert body["total"] == 2
 
     @pytest.mark.asyncio
-    async def test_list_dlq(self, queue_handler, mock_queue):
-        """Should list failed jobs in DLQ."""
-        # Add a failed job with max retries exceeded
-        mock_queue.jobs["dlq-job-1"] = MockJob(
-            id="dlq-job-1",
-            status=MockJobStatus.FAILED,
-            attempts=3,
-            max_attempts=3,
+    async def test_get_workers_queue_unavailable(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue is unavailable."""
+        handler = make_mock_handler(path="/api/queue/workers")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/workers", "GET", handler)
+                    assert get_status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_get_workers_handles_connection_error(self, queue_handler, mock_auth_context):
+        """Should handle connection errors gracefully."""
+        handler = make_mock_handler(path="/api/queue/workers")
+        mock_q = MockQueue()
+        mock_q._redis.xinfo_groups = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/workers", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["workers"] == []
+
+
+# ===========================================================================
+# Test: Job Submission (POST /api/queue/jobs)
+# ===========================================================================
+
+
+class TestJobSubmission:
+    """Tests for POST /api/queue/jobs endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_submit_job_success(self, queue_handler, mock_auth_context, mock_queue):
+        """Should submit a job successfully."""
+        handler = make_mock_handler(
+            body={"question": "What is the best programming language?"},
+            method="POST",
+            path="/api/queue/jobs",
         )
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/dlq", "GET")
+        mock_job = MagicMock()
+        mock_job.id = "new-job-id"
 
-                assert get_status(result) == 200
-                body = get_body(result)
-                assert "jobs" in body
-                assert "total" in body
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    with patch(
+                        "aragora.queue.create_debate_job", return_value=mock_job
+                    ) as mock_create:
+                        with patch("aragora.server.handlers.queue.audit_data"):
+                            result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                            assert get_status(result) == 202
+                            body = get_body(result)
+                            assert body["job_id"] == "new-job-id"
+                            assert body["status"] == "pending"
 
     @pytest.mark.asyncio
-    async def test_list_dlq_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue unavailable."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/dlq", "GET")
+    async def test_submit_job_with_all_options(self, queue_handler, mock_auth_context, mock_queue):
+        """Should accept all job options."""
+        handler = make_mock_handler(
+            body={
+                "question": "Test question",
+                "agents": ["claude", "gpt"],
+                "rounds": 5,
+                "consensus": "unanimous",
+                "protocol": "adversarial",
+                "priority": 10,
+                "max_attempts": 5,
+                "timeout_seconds": 600,
+                "webhook_url": "https://example.com/webhook",
+                "user_id": "user-456",
+                "organization_id": "org-789",
+                "metadata": {"custom": "data"},
+            },
+            method="POST",
+            path="/api/queue/jobs",
+        )
 
-            assert get_status(result) == 503
+        mock_job = MagicMock()
+        mock_job.id = "new-job-id"
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    with patch(
+                        "aragora.queue.create_debate_job", return_value=mock_job
+                    ) as mock_create:
+                        with patch("aragora.server.handlers.queue.audit_data"):
+                            result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                            assert get_status(result) == 202
+                            mock_create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_requeue_dlq_job(self, queue_handler, mock_queue):
+    async def test_submit_job_missing_question(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 400 when question is missing."""
+        handler = make_mock_handler(
+            body={"agents": ["claude", "gpt"]},
+            method="POST",
+            path="/api/queue/jobs",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                    assert get_status(result) == 400
+                    body = get_body(result)
+                    assert "question" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_submit_job_invalid_body(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 400 for invalid JSON body."""
+        handler = make_mock_handler(method="POST", path="/api/queue/jobs")
+        handler.headers["Content-Length"] = "10"
+        handler.rfile = BytesIO(b"not json{}")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_submit_job_queue_unavailable(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue is unavailable."""
+        handler = make_mock_handler(
+            body={"question": "Test question"},
+            method="POST",
+            path="/api/queue/jobs",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                    assert get_status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_submit_job_connection_error(self, queue_handler, mock_auth_context):
+        """Should handle connection errors during enqueue."""
+        handler = make_mock_handler(
+            body={"question": "Test question"},
+            method="POST",
+            path="/api/queue/jobs",
+        )
+        mock_q = MagicMock()
+        mock_q.enqueue = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        mock_job = MagicMock()
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    with patch("aragora.queue.create_debate_job", return_value=mock_job):
+                        result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                        assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test: Job Listing (GET /api/queue/jobs)
+# ===========================================================================
+
+
+class TestJobListing:
+    """Tests for GET /api/queue/jobs endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_success(self, queue_handler, mock_auth_context, mock_queue):
+        """Should list jobs with pagination."""
+        handler = make_mock_handler(path="/api/queue/jobs")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "jobs" in body
+                    assert "total" in body
+                    assert "limit" in body
+                    assert "offset" in body
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_with_status_filter(self, queue_handler, mock_auth_context, mock_queue):
+        """Should filter jobs by status."""
+        handler = make_mock_handler(path="/api/queue/jobs?status=pending")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_invalid_status(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 400 for invalid status filter."""
+        handler = make_mock_handler(path="/api/queue/jobs?status=invalid")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_with_pagination(self, queue_handler, mock_auth_context, mock_queue):
+        """Should handle pagination parameters."""
+        handler = make_mock_handler(path="/api/queue/jobs?limit=10&offset=5")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["limit"] == 10
+                    assert body["offset"] == 5
+
+    @pytest.mark.asyncio
+    async def test_list_jobs_queue_unavailable(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue is unavailable."""
+        handler = make_mock_handler(path="/api/queue/jobs")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test: Get Job Status (GET /api/queue/jobs/:id)
+# ===========================================================================
+
+
+class TestGetJobStatus:
+    """Tests for GET /api/queue/jobs/:id endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_job_success(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return job details."""
+        handler = make_mock_handler(path="/api/queue/jobs/job-1")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs/job-1", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["job_id"] == "job-1"
+                    assert "status" in body
+                    assert "created_at" in body
+
+    @pytest.mark.asyncio
+    async def test_get_job_not_found(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 404 for non-existent job."""
+        handler = make_mock_handler(path="/api/queue/jobs/nonexistent")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/nonexistent", "GET", handler
+                    )
+                    assert get_status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_get_job_with_valid_uuid(self, queue_handler, mock_auth_context, mock_queue):
+        """Should accept valid UUID job IDs."""
+        handler = make_mock_handler(path="/api/queue/jobs/123e4567-e89b-12d3-a456-426614174000")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/123e4567-e89b-12d3-a456-426614174000", "GET", handler
+                    )
+                    # Should be 404 not found (not 400 invalid ID)
+                    assert get_status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_get_job_queue_unavailable(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue is unavailable."""
+        handler = make_mock_handler(path="/api/queue/jobs/job-1")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/jobs/job-1", "GET", handler)
+                    assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test: Job Retry (POST /api/queue/jobs/:id/retry)
+# ===========================================================================
+
+
+class TestJobRetry:
+    """Tests for POST /api/queue/jobs/:id/retry endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_retry_failed_job_success(self, queue_handler, mock_auth_context):
+        """Should retry a failed job."""
+        failed_job = MockJob(id="failed-job", status=JobStatus.FAILED, error="Previous error")
+        mock_q = MockQueue([failed_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/failed-job/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/jobs/failed-job/retry", "POST", handler
+                        )
+                        assert get_status(result) == 200
+                        body = get_body(result)
+                        assert body["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_retry_cancelled_job_success(self, queue_handler, mock_auth_context):
+        """Should retry a cancelled job."""
+        cancelled_job = MockJob(id="cancelled-job", status=JobStatus.CANCELLED)
+        mock_q = MockQueue([cancelled_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/cancelled-job/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/jobs/cancelled-job/retry", "POST", handler
+                        )
+                        assert get_status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_retry_completed_job_fails(self, queue_handler, mock_auth_context):
+        """Should not allow retrying a completed job."""
+        completed_job = MockJob(id="completed-job", status=JobStatus.COMPLETED)
+        mock_q = MockQueue([completed_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/completed-job/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/completed-job/retry", "POST", handler
+                    )
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_retry_processing_job_fails(self, queue_handler, mock_auth_context):
+        """Should not allow retrying a processing job."""
+        processing_job = MockJob(id="processing-job", status=JobStatus.PROCESSING)
+        mock_q = MockQueue([processing_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/processing-job/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/processing-job/retry", "POST", handler
+                    )
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_retry_nonexistent_job(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 404 for non-existent job."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/jobs/nonexistent/retry",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/nonexistent/retry", "POST", handler
+                    )
+                    assert get_status(result) == 404
+
+
+# ===========================================================================
+# Test: Job Cancellation (DELETE /api/queue/jobs/:id)
+# ===========================================================================
+
+
+class TestJobCancellation:
+    """Tests for DELETE /api/queue/jobs/:id endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_pending_job_success(self, queue_handler, mock_auth_context, mock_queue):
+        """Should cancel a pending job."""
+        handler = make_mock_handler(
+            method="DELETE",
+            path="/api/queue/jobs/job-1",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/jobs/job-1", "DELETE", handler
+                        )
+                        assert get_status(result) == 200
+                        body = get_body(result)
+                        assert body["status"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_cancel_processing_job_fails(self, queue_handler, mock_auth_context, mock_queue):
+        """Should not allow cancelling a processing job."""
+        handler = make_mock_handler(
+            method="DELETE",
+            path="/api/queue/jobs/job-2",  # This is processing
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs/job-2", "DELETE", handler)
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_cancel_nonexistent_job(self, queue_handler, mock_auth_context, mock_queue):
+        """Should return 404 for non-existent job."""
+        handler = make_mock_handler(
+            method="DELETE",
+            path="/api/queue/jobs/nonexistent",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/nonexistent", "DELETE", handler
+                    )
+                    assert get_status(result) == 404
+
+    @pytest.mark.asyncio
+    async def test_cancel_job_special_chars(self, queue_handler, mock_auth_context, mock_queue):
+        """Should handle job IDs with special characters."""
+        handler = make_mock_handler(
+            method="DELETE",
+            path="/api/queue/jobs/test-job-123",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/test-job-123", "DELETE", handler
+                    )
+                    # Should get 404 not found (valid ID format but doesn't exist)
+                    assert get_status(result) == 404
+
+
+# ===========================================================================
+# Test: Dead-Letter Queue (DLQ) Operations
+# ===========================================================================
+
+
+class TestDLQOperations:
+    """Tests for DLQ endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_dlq_success(self, queue_handler, mock_auth_context):
+        """Should list DLQ jobs."""
+        dlq_job = MockJob(
+            id="dlq-job",
+            status=JobStatus.FAILED,
+            attempts=3,
+            max_attempts=3,
+            error="Max retries exceeded",
+            completed_at=time.time() - 3600,
+        )
+        mock_q = MockQueue([dlq_job])
+
+        handler = make_mock_handler(path="/api/queue/dlq")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/dlq", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "jobs" in body
+                    assert "total" in body
+
+    @pytest.mark.asyncio
+    async def test_list_dlq_with_pagination(self, queue_handler, mock_auth_context):
+        """Should paginate DLQ results."""
+        dlq_jobs = [
+            MockJob(
+                id=f"dlq-job-{i}",
+                status=JobStatus.FAILED,
+                attempts=3,
+                max_attempts=3,
+                completed_at=time.time() - 3600,
+            )
+            for i in range(10)
+        ]
+        mock_q = MockQueue(dlq_jobs)
+
+        handler = make_mock_handler(path="/api/queue/dlq?limit=5&offset=2")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/dlq", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["limit"] == 5
+                    assert body["offset"] == 2
+
+    @pytest.mark.asyncio
+    async def test_requeue_dlq_job_success(self, queue_handler, mock_auth_context):
         """Should requeue a specific DLQ job."""
-        mock_queue.jobs["dlq-job-1"] = MockJob(
-            id="dlq-job-1",
-            status=MockJobStatus.FAILED,
+        dlq_job = MockJob(
+            id="dlq-job",
+            status=JobStatus.FAILED,
             attempts=3,
             max_attempts=3,
+            metadata={},
+        )
+        mock_q = MockQueue([dlq_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/dlq/dlq-job/requeue",
         )
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/dlq/dlq-job-1/requeue", "POST")
-
-                assert get_status(result) == 200
-                body = get_body(result)
-                assert body["status"] == "pending"
-
-    @pytest.mark.asyncio
-    async def test_requeue_dlq_job_not_found(self, queue_handler, mock_queue):
-        """Should return 404 for missing DLQ job."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/dlq/nonexistent/requeue", "POST")
-
-                assert get_status(result) == 404
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/dlq/dlq-job/requeue", "POST", handler
+                        )
+                        assert get_status(result) == 200
+                        body = get_body(result)
+                        assert body["status"] == "pending"
 
     @pytest.mark.asyncio
-    async def test_requeue_dlq_job_not_in_dlq(self, queue_handler, mock_queue):
-        """Should reject requeue of non-DLQ job."""
-        mock_queue.jobs["job-123"] = MockJob(
-            id="job-123",
-            status=MockJobStatus.PENDING,
+    async def test_requeue_non_failed_job_fails(self, queue_handler, mock_auth_context):
+        """Should not requeue a non-failed job."""
+        pending_job = MockJob(id="pending-job", status=JobStatus.PENDING)
+        mock_q = MockQueue([pending_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/dlq/pending-job/requeue",
         )
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/dlq/job-123/requeue", "POST")
-
-                assert get_status(result) == 400
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle(
+                        "/api/queue/dlq/pending-job/requeue", "POST", handler
+                    )
+                    assert get_status(result) == 400
 
     @pytest.mark.asyncio
-    async def test_requeue_all_dlq(self, queue_handler, mock_queue):
+    async def test_requeue_all_dlq_success(self, queue_handler, mock_auth_context):
         """Should requeue all DLQ jobs."""
-        mock_queue.jobs["dlq-job-1"] = MockJob(
-            id="dlq-job-1",
-            status=MockJobStatus.FAILED,
-            attempts=3,
-            max_attempts=3,
-        )
-        mock_queue.jobs["dlq-job-2"] = MockJob(
-            id="dlq-job-2",
-            status=MockJobStatus.FAILED,
-            attempts=3,
-            max_attempts=3,
+        dlq_jobs = [
+            MockJob(
+                id=f"dlq-job-{i}",
+                status=JobStatus.FAILED,
+                attempts=3,
+                max_attempts=3,
+                metadata={},
+            )
+            for i in range(3)
+        ]
+        mock_q = MockQueue(dlq_jobs)
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/dlq/requeue",
         )
 
-        with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
-            with patch("aragora.queue.JobStatus", MockJobStatus):
-                result = await queue_handler.handle("/api/v1/queue/dlq/requeue", "POST")
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    with patch("aragora.server.handlers.queue.audit_admin"):
+                        result = await queue_handler.handle(
+                            "/api/queue/dlq/requeue", "POST", handler
+                        )
+                        assert get_status(result) == 200
+                        body = get_body(result)
+                        assert body["requeued"] == 3
 
-                assert get_status(result) == 200
-                body = get_body(result)
-                assert "requeued" in body
+
+# ===========================================================================
+# Test: Job Cleanup Operations
+# ===========================================================================
+
+
+class TestJobCleanup:
+    """Tests for POST /api/queue/cleanup endpoint."""
 
     @pytest.mark.asyncio
-    async def test_requeue_all_dlq_queue_unavailable(self, queue_handler):
-        """Should return 503 when queue unavailable."""
-        with patch("aragora.server.handlers.queue._get_queue", return_value=None):
-            result = await queue_handler.handle("/api/v1/queue/dlq/requeue", "POST")
+    async def test_cleanup_old_completed_jobs(self, queue_handler, mock_auth_context):
+        """Should cleanup old completed jobs."""
+        old_job = MockJob(
+            id="old-job",
+            status=JobStatus.COMPLETED,
+            completed_at=time.time() - (8 * 86400),  # 8 days old
+        )
+        mock_q = MockQueue([old_job])
 
-            assert get_status(result) == 503
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/cleanup?older_than_days=7",
+        )
 
-    def test_handles_dlq_endpoints(self, queue_handler):
-        """Should recognize DLQ endpoints."""
-        assert queue_handler.can_handle("/api/v1/queue/dlq") is True
-        assert queue_handler.can_handle("/api/v1/queue/dlq/requeue") is True
-        assert queue_handler.can_handle("/api/v1/queue/dlq/job-123/requeue") is True
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/cleanup", "POST", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["deleted"] == 1
+
+    @pytest.mark.asyncio
+    async def test_cleanup_dry_run(self, queue_handler, mock_auth_context):
+        """Should support dry run mode."""
+        old_job = MockJob(
+            id="old-job",
+            status=JobStatus.COMPLETED,
+            completed_at=time.time() - (8 * 86400),
+        )
+        mock_q = MockQueue([old_job])
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/cleanup?dry_run=true",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/cleanup", "POST", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["deleted"] == 0
+                    assert body["would_delete"] == 1
+
+    @pytest.mark.asyncio
+    async def test_cleanup_status_filter(self, queue_handler, mock_auth_context):
+        """Should filter by status."""
+        jobs = [
+            MockJob(
+                id="completed-job",
+                status=JobStatus.COMPLETED,
+                completed_at=time.time() - (8 * 86400),
+            ),
+            MockJob(
+                id="failed-job",
+                status=JobStatus.FAILED,
+                completed_at=time.time() - (8 * 86400),
+            ),
+        ]
+        mock_q = MockQueue(jobs)
+
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/cleanup?status=failed",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/cleanup", "POST", handler)
+                    assert get_status(result) == 200
+
+    @pytest.mark.asyncio
+    async def test_cleanup_invalid_status(self, queue_handler, mock_auth_context, mock_queue):
+        """Should reject invalid status filter."""
+        handler = make_mock_handler(
+            method="POST",
+            path="/api/queue/cleanup?status=invalid",
+        )
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/cleanup", "POST", handler)
+                    assert get_status(result) == 400
+
+
+# ===========================================================================
+# Test: Stale Job Detection
+# ===========================================================================
+
+
+class TestStaleJobDetection:
+    """Tests for GET /api/queue/stale endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_stale_jobs_success(self, queue_handler, mock_auth_context):
+        """Should list stale jobs."""
+        stale_job = MockJob(
+            id="stale-job",
+            status=JobStatus.PROCESSING,
+            started_at=time.time() - (2 * 3600),  # 2 hours ago
+            worker_id="dead-worker",
+        )
+        mock_q = MockQueue([stale_job])
+
+        handler = make_mock_handler(path="/api/queue/stale?stale_minutes=60")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stale", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "jobs" in body
+                    assert len(body["jobs"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_stale_jobs_no_stale(self, queue_handler, mock_auth_context):
+        """Should return empty list when no stale jobs."""
+        recent_job = MockJob(
+            id="recent-job",
+            status=JobStatus.PROCESSING,
+            started_at=time.time() - 60,  # 1 minute ago
+            worker_id="active-worker",
+        )
+        mock_q = MockQueue([recent_job])
+
+        handler = make_mock_handler(path="/api/queue/stale?stale_minutes=60")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stale", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert len(body["jobs"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_list_stale_jobs_sorted_by_duration(self, queue_handler, mock_auth_context):
+        """Should sort stale jobs by duration (longest first)."""
+        jobs = [
+            MockJob(
+                id="stale-1",
+                status=JobStatus.PROCESSING,
+                started_at=time.time() - (2 * 3600),  # 2 hours
+                worker_id="worker-1",
+            ),
+            MockJob(
+                id="stale-2",
+                status=JobStatus.PROCESSING,
+                started_at=time.time() - (4 * 3600),  # 4 hours (longest)
+                worker_id="worker-2",
+            ),
+        ]
+        mock_q = MockQueue(jobs)
+
+        handler = make_mock_handler(path="/api/queue/stale?stale_minutes=60")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stale", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert len(body["jobs"]) == 2
+                    # Longest duration first
+                    assert body["jobs"][0]["job_id"] == "stale-2"
+
+
+# ===========================================================================
+# Test: Input Validation
+# ===========================================================================
+
+
+class TestInputValidation:
+    """Tests for input validation across endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_sql_injection_protection(self, queue_handler, mock_auth_context, mock_queue):
+        """Should reject SQL injection attempts in job IDs."""
+        handler = make_mock_handler(path="/api/queue/jobs/'; DROP TABLE jobs;--")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/'; DROP TABLE jobs;--", "GET", handler
+                    )
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_oversized_body_rejection(self, queue_handler, mock_auth_context, mock_queue):
+        """Should reject oversized request bodies."""
+        handler = make_mock_handler(method="POST", path="/api/queue/jobs")
+        # Simulate large body
+        handler.headers["Content-Length"] = str(20 * 1024 * 1024)  # 20MB
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/queue/jobs", "POST", handler)
+                    assert get_status(result) == 400
+
+    @pytest.mark.asyncio
+    async def test_valid_job_id_formats(self, queue_handler, mock_auth_context, mock_queue):
+        """Should accept valid job ID formats."""
+        valid_ids = [
+            "job-123",
+            "abc123",
+            "test_job",
+            "123e4567-e89b-12d3-a456-426614174000",  # UUID
+        ]
+        for job_id in valid_ids:
+            handler = make_mock_handler(path=f"/api/queue/jobs/{job_id}")
+
+            with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+                with patch.object(queue_handler, "check_permission"):
+                    with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                        result = await queue_handler.handle(
+                            f"/api/queue/jobs/{job_id}", "GET", handler
+                        )
+                        # Should return 404 (not found), not 400 (invalid ID)
+                        assert get_status(result) == 404, f"Job ID {job_id} should be valid"
+
+
+# ===========================================================================
+# Test: Error Handling
+# ===========================================================================
+
+
+class TestErrorHandling:
+    """Tests for error handling."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_error_handling(self, queue_handler, mock_auth_context):
+        """Should handle timeout errors gracefully."""
+        mock_q = MagicMock()
+        mock_q.get_queue_stats = AsyncMock(side_effect=TimeoutError("Connection timed out"))
+
+        handler = make_mock_handler(path="/api/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 503
+
+    @pytest.mark.asyncio
+    async def test_attribute_error_handling(self, queue_handler, mock_auth_context):
+        """Should handle attribute errors gracefully."""
+        mock_q = MagicMock()
+        mock_q.get_queue_stats = AsyncMock(side_effect=AttributeError("Missing attribute"))
+
+        handler = make_mock_handler(path="/api/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 500
+
+    @pytest.mark.asyncio
+    async def test_os_error_handling(self, queue_handler, mock_auth_context):
+        """Should handle OS errors gracefully."""
+        mock_q = MagicMock()
+        mock_q.get_queue_stats = AsyncMock(side_effect=OSError("File system error"))
+
+        handler = make_mock_handler(path="/api/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test: Version Prefix Handling
+# ===========================================================================
+
+
+class TestVersionPrefixHandling:
+    """Tests for API version prefix handling."""
+
+    def test_can_handle_v1_paths(self, queue_handler):
+        """Should handle /api/v1/ prefixed paths."""
+        assert queue_handler.can_handle("/api/v1/queue/jobs", "GET")
+        assert queue_handler.can_handle("/api/v1/queue/stats", "GET")
+        assert queue_handler.can_handle("/api/v1/queue/workers", "GET")
+
+    @pytest.mark.asyncio
+    async def test_v1_stats_endpoint(self, queue_handler, mock_auth_context, mock_queue):
+        """Should process /api/v1/queue/stats correctly."""
+        handler = make_mock_handler(path="/api/v1/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_queue):
+                    result = await queue_handler.handle("/api/v1/queue/stats", "GET", handler)
+                    assert get_status(result) == 200
+
+
+# ===========================================================================
+# Test: Queue Instance Management
+# ===========================================================================
+
+
+class TestQueueInstanceManagement:
+    """Tests for queue instance caching and management."""
+
+    @pytest.mark.asyncio
+    async def test_queue_unavailable_returns_503(self, queue_handler, mock_auth_context):
+        """Should return 503 when queue cannot be created."""
+        handler = make_mock_handler(path="/api/queue/stats")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=None):
+                    result = await queue_handler.handle("/api/queue/stats", "GET", handler)
+                    assert get_status(result) == 503
+
+
+# ===========================================================================
+# Test: Module-Level Functionality
+# ===========================================================================
+
+
+class TestModuleExports:
+    """Tests for module-level exports."""
+
+    def test_handler_can_be_imported(self):
+        """Should be able to import QueueHandler."""
+        from aragora.server.handlers.queue import QueueHandler
+
+        assert QueueHandler is not None
+
+    def test_get_queue_function_exported(self):
+        """Should export _get_queue function."""
+        assert callable(_get_queue)
+
+    def test_job_status_can_be_imported(self):
+        """Should be able to use JobStatus from queue module."""
+        from aragora.queue.base import JobStatus
+
+        assert JobStatus.PENDING.value == "pending"
+        assert JobStatus.COMPLETED.value == "completed"
+
+
+# ===========================================================================
+# Test: Edge Cases
+# ===========================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    @pytest.mark.asyncio
+    async def test_empty_job_list(self, queue_handler, mock_auth_context):
+        """Should handle empty job list gracefully."""
+        mock_q = MockQueue([])
+
+        handler = make_mock_handler(path="/api/queue/jobs")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/jobs", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["jobs"] == []
+
+    @pytest.mark.asyncio
+    async def test_empty_dlq(self, queue_handler, mock_auth_context):
+        """Should handle empty DLQ gracefully."""
+        mock_q = MockQueue([])
+
+        handler = make_mock_handler(path="/api/queue/dlq")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle("/api/queue/dlq", "GET", handler)
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["jobs"] == []
+                    assert body["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_job_with_no_metadata(self, queue_handler, mock_auth_context):
+        """Should handle jobs with empty metadata."""
+        job = MockJob(id="no-meta-job", metadata={})
+        mock_q = MockQueue([job])
+
+        handler = make_mock_handler(path="/api/queue/jobs/no-meta-job")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/no-meta-job", "GET", handler
+                    )
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert body["metadata"] == {}
+
+    @pytest.mark.asyncio
+    async def test_job_with_internal_metadata_hidden(self, queue_handler, mock_auth_context):
+        """Should hide internal metadata fields (starting with _)."""
+        job = MockJob(
+            id="internal-meta-job",
+            metadata={"visible": "yes", "_internal": "hidden", "_secret": "also hidden"},
+        )
+        mock_q = MockQueue([job])
+
+        handler = make_mock_handler(path="/api/queue/jobs/internal-meta-job")
+
+        with patch.object(queue_handler, "get_auth_context", return_value=mock_auth_context):
+            with patch.object(queue_handler, "check_permission"):
+                with patch("aragora.server.handlers.queue._get_queue", return_value=mock_q):
+                    result = await queue_handler.handle(
+                        "/api/queue/jobs/internal-meta-job", "GET", handler
+                    )
+                    assert get_status(result) == 200
+                    body = get_body(result)
+                    assert "visible" in body["metadata"]
+                    assert "_internal" not in body["metadata"]
+                    assert "_secret" not in body["metadata"]

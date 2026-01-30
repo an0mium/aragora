@@ -703,8 +703,9 @@ class TestSlackInteractionHandler:
 
         assert result.status_code == 200
         response_body = json.loads(result.body)
-        # The text contains "Fetching summary for debate `debate123...`"
-        assert "debate123" in response_body["text"]
+        # The text truncates ID to 8 chars: "Fetching summary for debate `debate12...`"
+        assert "debate12" in response_body["text"]
+        assert "Fetching summary" in response_body["text"]
 
     @pytest.mark.asyncio
     async def test_handle_shortcut_start_debate(self):

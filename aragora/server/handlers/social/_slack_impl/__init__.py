@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack integration endpoint handlers.
 

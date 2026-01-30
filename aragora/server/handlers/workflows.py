@@ -1751,6 +1751,19 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error terminating execution: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-templates",
+        summary="List workflow templates",
+        description="List available workflow templates for quick workflow creation.",
+        tags=["Workflows", "Templates"],
+        parameters=[{"name": "category", "in": "query", "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "List of workflow templates"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+        },
+    )
     def _handle_list_templates(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-templates."""
         # RBAC check - templates require read permission
@@ -1771,6 +1784,19 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing templates: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-approvals",
+        summary="List pending approvals",
+        description="List workflow steps pending human approval.",
+        tags=["Workflows", "Approvals"],
+        parameters=[{"name": "workflow_id", "in": "query", "schema": {"type": "string"}}],
+        responses={
+            "200": {"description": "List of pending approvals"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+        },
+    )
     def _handle_list_approvals(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-approvals."""
         # RBAC check - approvals require read permission
@@ -1793,6 +1819,23 @@ class WorkflowHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Data error listing approvals: {e}")
             return error_response("Internal data error", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/workflow-executions",
+        summary="List workflow executions",
+        description="List all workflow executions for runtime monitoring dashboard.",
+        tags=["Workflows", "Executions"],
+        parameters=[
+            {"name": "workflow_id", "in": "query", "schema": {"type": "string"}},
+            {"name": "status", "in": "query", "schema": {"type": "string"}},
+            {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 50}},
+        ],
+        responses={
+            "200": {"description": "List of workflow executions"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+        },
+    )
     def _handle_list_executions(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/workflow-executions.
 

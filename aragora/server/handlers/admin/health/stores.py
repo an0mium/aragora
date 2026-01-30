@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """Database stores health check mixin.
 
 Provides health checking for all database stores in the system.
@@ -8,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from ...base import HandlerResult, json_response
@@ -36,7 +36,7 @@ class StoresMixin:
         """Get ELO ranking system. Subclasses must implement."""
         raise NotImplementedError
 
-    def get_nomic_dir(self) -> Any:
+    def get_nomic_dir(self) -> Path | None:
         """Get nomic directory path. Subclasses must implement."""
         raise NotImplementedError
 
@@ -342,7 +342,7 @@ class StoresMixin:
     def _check_integration_store(self) -> dict[str, Any]:
         """Check integration store health."""
         try:
-            from aragora.storage.integration_store import IntegrationStore  # noqa: F401
+            from aragora.storage.integration_store import IntegrationStoreBackend  # noqa: F401
 
             integration_store = self.ctx.get("integration_store")
             if integration_store is not None:
@@ -371,7 +371,7 @@ class StoresMixin:
     def _check_gmail_token_store(self) -> dict[str, Any]:
         """Check Gmail token store health."""
         try:
-            from aragora.storage.gmail_token_store import GmailTokenStore  # noqa: F401
+            from aragora.storage.gmail_token_store import GmailTokenStoreBackend  # noqa: F401
 
             gmail_token_store = self.ctx.get("gmail_token_store")
             if gmail_token_store is not None:

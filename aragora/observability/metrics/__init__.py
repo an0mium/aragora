@@ -23,10 +23,10 @@ _metrics_module = importlib.util.module_from_spec(_spec)
 sys.modules["_aragora_metrics_impl"] = _metrics_module
 _spec.loader.exec_module(_metrics_module)
 
-# Re-export everything from the parent metrics module
-from _aragora_metrics_impl import *  # noqa: F401, F403, E402
+# Note: We avoid 'from module import *' to enable static analysis.
+# All needed symbols are explicitly imported below (lines 331-404).
 
-# Explicitly re-export private functions used by tests (not included in * import)
+# Explicitly re-export private functions used by tests
 from _aragora_metrics_impl import _init_metrics as _impl_init_metrics  # noqa: F401, E402
 from _aragora_metrics_impl import _init_noop_metrics as _impl_init_noop_metrics  # noqa: F401, E402
 from _aragora_metrics_impl import _normalize_endpoint as _impl_normalize_endpoint  # noqa: F401, E402

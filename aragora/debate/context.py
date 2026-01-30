@@ -462,3 +462,12 @@ class DebateContext:
         if self.cancellation_token is None:
             return False
         return self.cancellation_token.is_cancelled
+
+    @property
+    def critiques(self) -> list:
+        """Backwards-compatible alias for round_critiques.
+
+        Some code (e.g., synthesis_generator) expects ctx.critiques.
+        This property provides that while the canonical attribute is round_critiques.
+        """
+        return self.round_critiques

@@ -293,7 +293,8 @@ class SynthesisGenerator:
             Formatted synthesis prompt string
         """
         proposals = ctx.proposals
-        critiques = getattr(ctx, "critiques", []) or []
+        # DebateContext uses 'round_critiques', not 'critiques'
+        critiques = getattr(ctx, "round_critiques", []) or getattr(ctx, "critiques", []) or []
         task = ctx.env.task if ctx.env else "Unknown task"
 
         # Format proposals

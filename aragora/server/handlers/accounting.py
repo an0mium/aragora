@@ -38,6 +38,7 @@ from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.params import get_pagination_params
 from aragora.server.handlers.utils.responses import error_dict
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,18 @@ def _parse_iso_date(value: str | None, field_name: str) -> date | None:
         raise ValueError(f"Invalid {field_name}: {value}") from exc
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/status",
+    summary="Get accounting status",
+    description="Check QuickBooks Online connection status and return dashboard data.",
+    tags=["Accounting", "QuickBooks"],
+    responses={
+        "200": {"description": "Accounting status and dashboard data"},
+        "401": {"description": "Authentication required"},
+        "500": {"description": "Error getting status"},
+    },
+)
 @require_permission("finance:read")
 async def handle_accounting_status(request: web.Request) -> web.Response:
     """
@@ -403,6 +416,23 @@ async def handle_accounting_disconnect(request: web.Request) -> web.Response:
         )
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/customers",
+    summary="List customers",
+    description="List all customers from QuickBooks Online.",
+    tags=["Accounting", "QuickBooks"],
+    parameters=[
+        {"name": "active", "in": "query", "schema": {"type": "boolean", "default": True}},
+        {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}},
+        {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+    ],
+    responses={
+        "200": {"description": "List of customers"},
+        "401": {"description": "Authentication required"},
+        "500": {"description": "Error listing customers"},
+    },
+)
 @require_permission("finance:read")
 async def handle_accounting_customers(request: web.Request) -> web.Response:
     """
@@ -458,6 +488,27 @@ async def handle_accounting_customers(request: web.Request) -> web.Response:
         )
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/transactions",
+    summary="List transactions",
+    description="List transactions (invoices, expenses, payments) from QuickBooks.",
+    tags=["Accounting", "QuickBooks"],
+    parameters=[
+        {
+            "name": "type",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["all", "invoice", "expense"]},
+        },
+        {"name": "start_date", "in": "query", "schema": {"type": "string", "format": "date"}},
+        {"name": "end_date", "in": "query", "schema": {"type": "string", "format": "date"}},
+    ],
+    responses={
+        "200": {"description": "List of transactions"},
+        "401": {"description": "Authentication required"},
+        "500": {"description": "Error listing transactions"},
+    },
+)
 @require_permission("finance:read")
 async def handle_accounting_transactions(request: web.Request) -> web.Response:
     """
@@ -709,6 +760,18 @@ def _generate_mock_report(
         return error_dict(f"Unknown report type: {report_type}", code="VALIDATION_ERROR")
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/gusto/status",
+    summary="Get Gusto status",
+    description="Check Gusto payroll connection status.",
+    tags=["Accounting", "Gusto"],
+    responses={
+        "200": {"description": "Gusto connection status"},
+        "401": {"description": "Authentication required"},
+        "500": {"description": "Error getting status"},
+    },
+)
 @require_permission("hr:read")
 async def handle_gusto_status(request: web.Request) -> web.Response:
     """
@@ -863,6 +926,19 @@ async def handle_gusto_disconnect(request: web.Request) -> web.Response:
         )
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/gusto/employees",
+    summary="List employees",
+    description="List employees from Gusto payroll.",
+    tags=["Accounting", "Gusto"],
+    parameters=[{"name": "active", "in": "query", "schema": {"type": "boolean", "default": True}}],
+    responses={
+        "200": {"description": "List of employees"},
+        "401": {"description": "Authentication required"},
+        "503": {"description": "Gusto not connected"},
+    },
+)
 @require_permission("hr:read")
 async def handle_gusto_employees(request: web.Request) -> web.Response:
     """
@@ -900,6 +976,24 @@ async def handle_gusto_employees(request: web.Request) -> web.Response:
         )
 
 
+@api_endpoint(
+    method="GET",
+    path="/api/v1/accounting/gusto/payrolls",
+    summary="List payrolls",
+    description="List payroll runs from Gusto.",
+    tags=["Accounting", "Gusto"],
+    parameters=[
+        {"name": "start_date", "in": "query", "schema": {"type": "string", "format": "date"}},
+        {"name": "end_date", "in": "query", "schema": {"type": "string", "format": "date"}},
+        {"name": "processed", "in": "query", "schema": {"type": "boolean", "default": True}},
+    ],
+    responses={
+        "200": {"description": "List of payroll runs"},
+        "400": {"description": "Invalid date format"},
+        "401": {"description": "Authentication required"},
+        "503": {"description": "Gusto not connected"},
+    },
+)
 @require_permission("hr:read")
 async def handle_gusto_payrolls(request: web.Request) -> web.Response:
     """

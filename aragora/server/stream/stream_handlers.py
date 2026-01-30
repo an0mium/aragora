@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 HTTP API handlers for the streaming server.
 
@@ -245,7 +244,7 @@ class StreamAPIHandlersMixin:
             if tournaments_dir.exists():
                 for db_file in sorted(tournaments_dir.glob("*.db")):
                     try:
-                        from aragora.ranking.tournaments import TournamentManager
+                        from aragora.tournaments.tournament import TournamentManager
 
                         manager = TournamentManager(db_path=str(db_file))
 
@@ -308,7 +307,7 @@ class StreamAPIHandlersMixin:
                     headers=self._cors_headers(origin),
                 )
 
-            from aragora.ranking.tournaments import TournamentManager
+            from aragora.tournaments.tournament import TournamentManager
 
             manager = TournamentManager(db_path=str(tournament_db))
 

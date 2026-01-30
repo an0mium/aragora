@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams thread management.
 
@@ -361,7 +360,7 @@ class TeamsThreadManager:
         participants = set()
 
         for msg in messages:
-            if msg.user_id:
-                participants.add(msg.user_id)
+            if msg.author and msg.author.id:
+                participants.add(msg.author.id)
 
         return list(participants)

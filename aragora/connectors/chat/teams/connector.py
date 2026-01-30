@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams Chat Connector.
 
@@ -128,7 +127,7 @@ class TeamsConnector(
             operation="get_access_token",
         )
 
-        if not success or not data:
+        if not success or not data or not isinstance(data, dict):
             raise RuntimeError(f"Failed to get Bot Framework token: {error}")
 
         self._access_token = data["access_token"]
@@ -171,7 +170,7 @@ class TeamsConnector(
             operation="get_graph_token",
         )
 
-        if not success or not data:
+        if not success or not data or not isinstance(data, dict):
             raise RuntimeError(f"Failed to get Graph API token: {error}")
 
         self._graph_token = data["access_token"]
@@ -183,12 +182,12 @@ class TeamsConnector(
         self,
         endpoint: str,
         method: str = "GET",
-        json_data: dict | None = None,
+        json_data: dict[str, Any] | None = None,
         data: bytes | None = None,
         content_type: str | None = None,
         operation: str = "graph_api",
         **kwargs: Any,
-    ) -> tuple[bool, dict | None, str | None]:
+    ) -> tuple[bool, dict[str, Any] | None, str | None]:
         """
         Make a Microsoft Graph API request with auth and circuit breaker.
 
@@ -220,7 +219,7 @@ class TeamsConnector(
         # Build the full URL
         url = f"{_tc.GRAPH_API_BASE}{endpoint}"
 
-        return await self._http_request(
+        success, response_data, error = await self._http_request(
             method=method,
             url=url,
             headers=headers,
@@ -228,3 +227,7 @@ class TeamsConnector(
             data=data,
             operation=operation,
         )
+        # Filter to only return dict (or None), not bytes
+        if isinstance(response_data, dict):
+            return success, response_data, error
+        return success, None, error

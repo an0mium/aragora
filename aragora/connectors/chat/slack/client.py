@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack API client, token management, and resilience utilities.
 
@@ -220,7 +219,7 @@ class WorkspaceRateLimitRegistry:
     in multi-workspace deployments.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._limits: dict[str, WorkspaceRateLimit] = {}
 
     def get(self, workspace_id: str) -> WorkspaceRateLimit:

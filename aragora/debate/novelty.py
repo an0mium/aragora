@@ -134,11 +134,24 @@ class NoveltyTracker:
         Returns:
             NoveltyResult with per-agent scores and aggregate metrics
         """
+        # Debug logging for novelty computation
+        logger.debug(
+            f"compute_novelty round={round_num} "
+            f"history_rounds={len(self.history)} "
+            f"current_agents={list(current_proposals.keys())}"
+        )
+
         # Flatten history into list of (agent, proposal) tuples
         prior_proposals: list[tuple[str, str]] = []
         for round_history in self.history:
             for agent, text in round_history.items():
                 prior_proposals.append((agent, text))
+
+        logger.debug(
+            f"novelty_history_check round={round_num} "
+            f"prior_proposal_count={len(prior_proposals)} "
+            f"should_be_novel={len(prior_proposals) == 0}"
+        )
 
         # Compute novelty for each current proposal
         details: dict[str, NoveltyScore] = {}
@@ -167,6 +180,16 @@ class NoveltyTracker:
                         most_similar_to = prior_agent
 
                 novelty = 1.0 - max_similarity
+
+                # Debug: log high-similarity comparisons
+                if max_similarity > 0.8:
+                    logger.debug(
+                        f"novelty_high_similarity agent={agent} "
+                        f"max_sim={max_similarity:.3f} "
+                        f"similar_to={most_similar_to} "
+                        f"proposal_len={len(proposal)} "
+                        f"prior_len={len(prior_text) if prior_text else 0}"
+                    )
 
                 score = NoveltyScore(
                     agent=agent,

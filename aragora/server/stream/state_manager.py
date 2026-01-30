@@ -363,6 +363,7 @@ def get_state_manager() -> DebateStateManager:
 # =============================================================================
 
 _cleanup_task: asyncio.Task | None = None
+_cleanup_task_lock = threading.Lock()  # Protects _cleanup_task from race conditions
 _default_cleanup_interval = 300  # 5 minutes
 
 
@@ -399,6 +400,8 @@ def start_cleanup_task(
     """Start the periodic cleanup background task.
 
     Safe to call multiple times - will only start one task.
+    Uses lock to prevent race condition where multiple callers
+    could create duplicate tasks.
 
     Args:
         manager: The DebateStateManager instance to clean
@@ -408,22 +411,25 @@ def start_cleanup_task(
         The asyncio.Task running the cleanup loop
     """
     global _cleanup_task
-    if _cleanup_task is None or _cleanup_task.done():
-        _cleanup_task = asyncio.create_task(periodic_state_cleanup(manager, interval_seconds))
-        logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
-    return _cleanup_task
+    with _cleanup_task_lock:
+        if _cleanup_task is None or _cleanup_task.done():
+            _cleanup_task = asyncio.create_task(periodic_state_cleanup(manager, interval_seconds))
+            logger.debug(f"Started periodic state cleanup task (interval={interval_seconds}s)")
+        return _cleanup_task
 
 
 def stop_cleanup_task() -> None:
     """Stop the periodic cleanup task gracefully.
 
     Safe to call even if no task is running.
+    Uses lock to prevent race condition with start_cleanup_task.
     """
     global _cleanup_task
-    if _cleanup_task and not _cleanup_task.done():
-        _cleanup_task.cancel()
-        logger.debug("Stopped periodic state cleanup task")
-    _cleanup_task = None
+    with _cleanup_task_lock:
+        if _cleanup_task and not _cleanup_task.done():
+            _cleanup_task.cancel()
+            logger.debug("Stopped periodic state cleanup task")
+        _cleanup_task = None
 
 
 __all__ = [

@@ -120,7 +120,12 @@ class TestDecisionReceipt:
     def test_receipt_from_mode_result(self):
         """Test receipt generation from gauntlet mode result."""
         from aragora.gauntlet.receipt import DecisionReceipt
-        from aragora.modes.gauntlet import GauntletResult, InputType, Verdict, Finding
+        from aragora.gauntlet import (
+            OrchestratorResult as GauntletResult,
+            InputType,
+            Verdict,
+            Finding,
+        )
 
         result = GauntletResult(
             gauntlet_id="gauntlet-mode-001",
@@ -234,7 +239,12 @@ class TestRiskHeatmap:
     def test_heatmap_from_mode_result(self):
         """Test heatmap generation from gauntlet mode result."""
         from aragora.gauntlet.heatmap import RiskHeatmap
-        from aragora.modes.gauntlet import GauntletResult, InputType, Verdict, Finding
+        from aragora.gauntlet import (
+            OrchestratorResult as GauntletResult,
+            InputType,
+            Verdict,
+            Finding,
+        )
 
         result = GauntletResult(
             gauntlet_id="gauntlet-mode-002",
@@ -472,7 +482,7 @@ class TestGauntletPersonaIntegration:
 
     def test_gauntlet_config_persona_string_resolution(self):
         """Test that persona strings are resolved to instances."""
-        from aragora.modes.gauntlet import GauntletConfig
+        from aragora.gauntlet import OrchestratorConfig as GauntletConfig
 
         config = GauntletConfig(
             input_content="Test content",
@@ -485,7 +495,7 @@ class TestGauntletPersonaIntegration:
 
     def test_gauntlet_config_persona_instance(self):
         """Test that persona instances are preserved."""
-        from aragora.modes.gauntlet import GauntletConfig
+        from aragora.gauntlet import OrchestratorConfig as GauntletConfig
         from aragora.gauntlet.personas import HIPAAPersona
 
         persona = HIPAAPersona()
@@ -499,7 +509,7 @@ class TestGauntletPersonaIntegration:
 
     def test_compliance_gauntlet_profiles(self):
         """Test pre-configured compliance gauntlet profiles."""
-        from aragora.modes.gauntlet import (
+        from aragora.gauntlet import (
             GDPR_GAUNTLET,
             HIPAA_GAUNTLET,
             AI_ACT_GAUNTLET,
@@ -525,7 +535,7 @@ class TestGauntletPersonaIntegration:
 
     def test_gauntlet_orchestrator_persona_parsing(self):
         """Test persona response parsing."""
-        from aragora.modes.gauntlet import GauntletOrchestrator, Finding
+        from aragora.gauntlet import GauntletOrchestrator, Finding
         from aragora.gauntlet.personas import GDPRPersona
         from aragora.core import Agent
 
@@ -555,7 +565,7 @@ class TestGauntletPersonaIntegration:
 
     def test_gauntlet_orchestrator_persona_no_finding(self):
         """Test persona response parsing with no findings."""
-        from aragora.modes.gauntlet import GauntletOrchestrator
+        from aragora.gauntlet import GauntletOrchestrator
         from aragora.gauntlet.personas import GDPRPersona
         from aragora.core import Agent
 
@@ -582,7 +592,7 @@ class TestGauntletPersonaIntegration:
 
     def test_gauntlet_orchestrator_persona_severity_weights(self):
         """Test that persona severity weights are applied."""
-        from aragora.modes.gauntlet import GauntletOrchestrator
+        from aragora.gauntlet import GauntletOrchestrator
         from aragora.gauntlet.personas import GDPRPersona
         from aragora.core import Agent
 
@@ -613,7 +623,7 @@ class TestGauntletPersonaIntegration:
     @pytest.mark.asyncio
     async def test_gauntlet_run_with_persona_mock(self):
         """Test running gauntlet with persona (mock agents)."""
-        from aragora.modes.gauntlet import GauntletConfig, GauntletOrchestrator
+        from aragora.gauntlet import OrchestratorConfig as GauntletConfig, GauntletOrchestrator
         from aragora.core import Agent
 
         class MockAgent(Agent):

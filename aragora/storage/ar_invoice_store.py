@@ -595,7 +595,12 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def list_overdue(self) -> list[dict[str, Any]]:
+    async def list_overdue(self, limit: int = 500) -> list[dict[str, Any]]:
+        """List overdue invoices.
+
+        Args:
+            limit: Maximum number of invoices to return (default 500)
+        """
         now = datetime.now(timezone.utc).isoformat()
         with self._lock:
             conn = sqlite3.connect(str(self._db_path))
@@ -608,8 +613,9 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
                       AND due_date IS NOT NULL
                       AND due_date < ?
                     ORDER BY due_date ASC
+                    LIMIT ?
                     """,
-                    (now,),
+                    (now, limit),
                 )
                 return [
                     json.loads(row[0], object_hook=decimal_decoder) for row in cursor.fetchall()
@@ -617,7 +623,15 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             finally:
                 conn.close()
 
-    async def get_aging_buckets(self) -> dict[str, list[dict[str, Any]]]:
+    async def get_aging_buckets(
+        self, limit_per_bucket: int = 100, total_limit: int = 1000
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Get invoices organized by aging buckets.
+
+        Args:
+            limit_per_bucket: Maximum invoices per bucket (default 100)
+            total_limit: Maximum total invoices to process (default 1000)
+        """
         now = datetime.now(timezone.utc)
         buckets: dict[str, list[dict[str, Any]]] = {
             "current": [],
@@ -631,32 +645,43 @@ class SQLiteARInvoiceStore(ARInvoiceStoreBackend):
             conn = sqlite3.connect(str(self._db_path))
             try:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT data_json, due_date FROM ar_invoices
                     WHERE status NOT IN ('paid', 'void')
-                    """)
+                    ORDER BY due_date ASC
+                    LIMIT ?
+                    """,
+                    (total_limit,),
+                )
 
                 for row in cursor.fetchall():
                     inv = json.loads(row[0], object_hook=decimal_decoder)
                     due_date_str = row[1]
 
                     if not due_date_str:
-                        buckets["current"].append(inv)
+                        if len(buckets["current"]) < limit_per_bucket:
+                            buckets["current"].append(inv)
                         continue
 
                     due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
                     days_overdue = (now - due_date).days
 
                     if days_overdue <= 0:
-                        buckets["current"].append(inv)
+                        if len(buckets["current"]) < limit_per_bucket:
+                            buckets["current"].append(inv)
                     elif days_overdue <= 30:
-                        buckets["1_30"].append(inv)
+                        if len(buckets["1_30"]) < limit_per_bucket:
+                            buckets["1_30"].append(inv)
                     elif days_overdue <= 60:
-                        buckets["31_60"].append(inv)
+                        if len(buckets["31_60"]) < limit_per_bucket:
+                            buckets["31_60"].append(inv)
                     elif days_overdue <= 90:
-                        buckets["61_90"].append(inv)
+                        if len(buckets["61_90"]) < limit_per_bucket:
+                            buckets["61_90"].append(inv)
                     else:
-                        buckets["90_plus"].append(inv)
+                        if len(buckets["90_plus"]) < limit_per_bucket:
+                            buckets["90_plus"].append(inv)
 
             finally:
                 conn.close()

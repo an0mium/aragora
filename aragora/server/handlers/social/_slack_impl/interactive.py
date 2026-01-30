@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack interactive component handlers.
 

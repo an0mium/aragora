@@ -9,7 +9,6 @@ Provides a single entry point for:
 
 import asyncio
 import os
-import re
 import signal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,14 +36,11 @@ if TYPE_CHECKING:
     from aragora.persistence.supabase import SupabaseClient
     from aragora.ranking.elo import EloSystem
     from aragora.server.documents import DocumentStore
-    from aragora.server.middleware.rate_limit import RateLimitResult
     from aragora.server.stream.canvas_stream import CanvasStreamServer
     from aragora.storage import UserStore
 import logging
 import time
-from urllib.parse import urlparse
 
-from .auth import auth_config, check_auth
 from .middleware.tracing import TracingMiddleware
 from aragora.rbac.middleware import RBACMiddleware, RBACMiddlewareConfig, DEFAULT_ROUTE_PERMISSIONS
 from .storage import DebateStorage
@@ -59,30 +55,28 @@ from .stream import (
 logger = logging.getLogger(__name__)
 
 # Import centralized config and error utilities
-from aragora.server.debate_controller import DebateController
-from aragora.server.debate_factory import DebateFactory
 
 # Import utilities from extracted modules
 from aragora.server.http_utils import validate_query_params as _validate_query_params
-from aragora.server.validation import safe_query_float, safe_query_int
 
 # Import extracted modules
-from aragora.server.agent_selection import auto_select_agents
 from aragora.server.request_lifecycle import create_lifecycle_manager
 from aragora.server.response_utils import ResponseHelpersMixin
 from aragora.server.shutdown_sequence import create_server_shutdown_sequence
 from aragora.server.static_file_handler import StaticFileHandler
-from aragora.server.upload_rate_limit import get_upload_limiter
+
+# Import extracted mixins for focused handler responsibilities
+from aragora.server.auth_checks import AuthChecksMixin
+from aragora.server.request_utils import RequestUtilsMixin
+from aragora.server.request_logging import RequestLoggingMixin
+from aragora.server.debate_controller_mixin import DebateControllerMixin
 
 # DoS protection limits
 MAX_MULTIPART_PARTS: int = 10
 MAX_CONTENT_LENGTH: int = 100 * 1024 * 1024  # 100MB for uploads
-MAX_JSON_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10MB for JSON API
+# Note: MAX_JSON_CONTENT_LENGTH is imported from request_utils
 
-# Trusted proxies for X-Forwarded-For header validation
-TRUSTED_PROXIES: frozenset[str] = frozenset(
-    p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
-)
+# Note: TRUSTED_PROXIES is imported from request_logging
 
 # Import from initialization module
 from aragora.server.handler_registry import HandlerRegistryMixin
@@ -103,11 +97,24 @@ class _UnifiedHandlerBase(BaseHTTPRequestHandler):
     pass
 
 
-class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, _UnifiedHandlerBase):
+class UnifiedHandler(
+    ResponseHelpersMixin,
+    HandlerRegistryMixin,
+    AuthChecksMixin,
+    RequestUtilsMixin,
+    RequestLoggingMixin,
+    DebateControllerMixin,
+    _UnifiedHandlerBase,
+):
     """HTTP handler with API endpoints and static file serving.
 
-    Handler routing is provided by HandlerRegistryMixin from handler_registry.py.
-    Response helpers are provided by ResponseHelpersMixin from response_utils.py.
+    Responsibilities are split across focused mixins:
+    - ResponseHelpersMixin: JSON responses, CORS, security headers
+    - HandlerRegistryMixin: Modular handler routing and dispatch
+    - AuthChecksMixin: Rate limiting and RBAC permission checks
+    - RequestUtilsMixin: Parameter parsing and content validation
+    - RequestLoggingMixin: Request logging and metrics
+    - DebateControllerMixin: Debate controller lifecycle management
     """
 
     storage: DebateStorage | None = None
@@ -193,16 +200,10 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, _UnifiedHandler
     usage_tracker: Optional["UsageTracker"] = None
     decision_router: Optional["DecisionRouter"] = None
 
-    # Debate controller and factory (initialized lazily)
-    _debate_controller: DebateController | None = None
-    _debate_factory: DebateFactory | None = None
-
-    # Request logging for observability
-    _request_log_enabled: bool = True
-    _slow_request_threshold_ms: int = 1000
-
-    # Per-request rate limit result (set by _check_tier_rate_limit)
-    _rate_limit_result: Optional["RateLimitResult"] = None
+    # Note: The following class attributes are inherited from mixins:
+    # - _debate_controller, _debate_factory (from DebateControllerMixin)
+    # - _request_log_enabled, _slow_request_threshold_ms (from RequestLoggingMixin)
+    # - _rate_limit_result (from AuthChecksMixin)
 
     def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
         """Override send_error to return JSON instead of HTML.
@@ -230,484 +231,13 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, _UnifiedHandler
         # Use _send_json which handles CORS headers
         self._send_json(error_body, status=code)
 
-    def _log_request(
-        self,
-        method: str,
-        path: str,
-        status: int,
-        duration_ms: float,
-        extra: dict[str, Any] | None = None,
-    ) -> None:
-        """Log request details for observability.
-
-        Args:
-            method: HTTP method (GET, POST, etc.)
-            path: Request path
-            status: HTTP status code
-            duration_ms: Request duration in milliseconds
-            extra: Additional context to log
-        """
-        if not self._request_log_enabled:
-            return
-
-        # Determine log level based on status and duration
-        if status >= 500:
-            log_fn = logger.error
-        elif status >= 400:
-            log_fn = logger.warning
-        elif duration_ms > self._slow_request_threshold_ms:
-            log_fn = logger.warning
-        else:
-            log_fn = logger.info
-
-        # Build log message
-        client_ip = self._get_client_ip()
-        msg_parts = [
-            f"{method} {path}",
-            f"status={status}",
-            f"duration={duration_ms:.1f}ms",
-            f"ip={client_ip}",
-        ]
-
-        if extra:
-            for k, v in extra.items():
-                msg_parts.append(f"{k}={v}")
-
-        if duration_ms > self._slow_request_threshold_ms:
-            msg_parts.append("SLOW")
-
-        log_fn(f"[request] {' '.join(msg_parts)}")
-
-    def _normalize_endpoint(self, path: str) -> str:
-        """Normalize API endpoint path for metrics by replacing dynamic IDs.
-
-        Replaces UUIDs, numeric IDs, and other dynamic segments with placeholders
-        to avoid high cardinality in Prometheus metrics.
-
-        Args:
-            path: Raw request path (e.g., "/api/debates/abc123/messages")
-
-        Returns:
-            Normalized path (e.g., "/api/debates/{id}/messages")
-        """
-        # UUID pattern (e.g., 550e8400-e29b-41d4-a716-446655440000)
-        uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-        # Short ID pattern (alphanumeric, 8-32 chars, likely an ID)
-        short_id_pattern = r"/[a-zA-Z0-9]{8,32}(?=/|$)"
-        # Numeric ID pattern
-        numeric_pattern = r"/\d+(?=/|$)"
-
-        normalized = path
-        # Replace UUIDs first (most specific)
-        normalized = re.sub(uuid_pattern, "{id}", normalized)
-        # Replace numeric IDs
-        normalized = re.sub(numeric_pattern, "/{id}", normalized)
-        # Replace remaining short alphanumeric IDs in path segments
-        # Only if they're surrounded by slashes or at end
-        normalized = re.sub(short_id_pattern, "/{id}", normalized)
-
-        return normalized
-
-    def _get_client_ip(self) -> str:
-        """Get client IP address, respecting trusted proxy headers."""
-        remote_ip = self.client_address[0] if hasattr(self, "client_address") else "unknown"
-        client_ip = remote_ip
-        if remote_ip in TRUSTED_PROXIES:
-            forwarded = self.headers.get("X-Forwarded-For", "")
-            if forwarded:
-                first_ip = forwarded.split(",")[0].strip()
-                if first_ip:
-                    client_ip = first_ip
-        return client_ip
-
-    def _safe_int(self, query: dict[str, Any], key: str, default: int, max_val: int = 100) -> int:
-        """Safely parse integer query param with bounds checking.
-
-        Delegates to shared safe_query_int from validation module.
-        """
-        return safe_query_int(query, key, default, min_val=1, max_val=max_val)
-
-    def _safe_float(
-        self,
-        query: dict[str, Any],
-        key: str,
-        default: float,
-        min_val: float = 0.0,
-        max_val: float = 1.0,
-    ) -> float:
-        """Safely parse float query param with bounds checking.
-
-        Delegates to shared safe_query_float from validation module.
-        """
-        return safe_query_float(query, key, default, min_val=min_val, max_val=max_val)
-
-    def _safe_string(
-        self, value: str, max_len: int = 500, pattern: str | None = None
-    ) -> str | None:
-        """Safely validate string parameter with length and pattern checks.
-
-        Args:
-            value: The string to validate
-            max_len: Maximum allowed length (default 500)
-            pattern: Optional regex pattern to match (e.g., r'^[a-zA-Z0-9_-]+$')
-
-        Returns:
-            Validated string or None if invalid
-        """
-        import re
-
-        if not value or not isinstance(value, str):
-            return None
-        # Truncate to max length
-        value = value[:max_len]
-        # Validate pattern if provided
-        if pattern and not re.match(pattern, value):
-            return None
-        return value
-
-    def _extract_path_segment(self, path: str, index: int, segment_name: str = "id") -> str | None:
-        """Safely extract path segment with bounds checking.
-
-        Returns None and sends 400 error if segment is missing.
-        """
-        parts = path.split("/")
-        if len(parts) <= index or not parts[index]:
-            self._send_json({"error": f"Missing {segment_name} in path"}, status=400)
-            return None
-        return parts[index]
-
-    # Note: _init_handlers(), _log_resource_availability(), and _try_modular_handler()
-    # are inherited from HandlerRegistryMixin (handler_registry.py)
-
-    def _validate_content_length(self, max_size: int | None = None) -> int | None:
-        """Validate Content-Length header for DoS protection.
-
-        Returns content length if valid, None if invalid (error already sent).
-        """
-        max_size = max_size or MAX_JSON_CONTENT_LENGTH
-
-        try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            self._send_json({"error": "Invalid Content-Length header"}, status=400)
-            return None
-
-        if content_length < 0:
-            self._send_json({"error": "Invalid Content-Length: negative value"}, status=400)
-            return None
-
-        if content_length > max_size:
-            size_mb = max_size / (1024 * 1024)
-            self._send_json({"error": f"Content too large. Max: {size_mb:.0f}MB"}, status=413)
-            return None
-
-        return content_length
-
-    # Paths exempt from authentication (health checks, probes, OAuth flow, public read-only)
-    AUTH_EXEMPT_PATHS: frozenset[str] = frozenset(
-        [
-            # Health checks (needed for load balancers, monitoring)
-            "/healthz",
-            "/readyz",
-            "/api/health",
-            "/api/health/detailed",
-            "/api/health/deep",
-            "/api/health/stores",
-            "/api/v1/health",
-            "/api/v1/health/detailed",
-            "/api/v1/health/deep",
-            "/api/v1/health/stores",
-            # OAuth
-            "/api/auth/oauth/providers",  # Login page needs to show available providers
-            "/api/v1/auth/oauth/providers",  # v1 route
-            # API documentation (public)
-            "/api/openapi",
-            "/api/openapi.json",
-            "/api/openapi.yaml",
-            "/api/postman.json",
-            "/api/docs",
-            "/api/docs/",
-            "/api/redoc",
-            "/api/redoc/",
-            "/api/v1/openapi",
-            "/api/v1/openapi.json",
-            "/api/v1/docs",
-            "/api/v1/docs/",
-            # Read-only public endpoints
-            "/api/insights/recent",
-            "/api/flips/recent",
-            "/api/evidence",
-            "/api/evidence/statistics",
-            "/api/verification/status",
-            "/api/v1/insights/recent",
-            "/api/v1/flips/recent",
-            "/api/v1/evidence",
-            "/api/v1/evidence/statistics",
-            "/api/v1/verification/status",
-            # Agent/ranking public data
-            "/api/leaderboard",
-            "/api/leaderboard-view",
-            "/api/agents",
-            "/api/v1/leaderboard",
-            "/api/v1/leaderboard-view",
-            "/api/v1/agents",
-            # Public dashboard base paths (without trailing slash)
-            # These match exact requests like /api/features that don't have a subpath
-            "/api/features",
-            "/api/v1/features",
-            "/api/analytics",
-            "/api/v1/analytics",
-            "/api/replays",
-            "/api/v1/replays",
-            "/api/tournaments",
-            "/api/v1/tournaments",
-            "/api/reviews",
-            "/api/v1/reviews",
-            "/api/verticals",
-            "/api/v1/verticals",
-            "/api/evolution",
-            "/api/v1/evolution",
-            "/api/debates",
-            "/api/v1/debates",
-        ]
-    )
-
-    # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
-    # Note: These endpoints bypass the legacy API token check (ARAGORA_API_TOKEN).
-    # JWT authentication is still enforced via RBAC middleware for protected endpoints.
-    AUTH_EXEMPT_PREFIXES: tuple[str, ...] = (
-        "/api/auth/",  # All auth endpoints (JWT auth via RBAC, not API token)
-        "/api/v1/auth/",  # All v1 auth endpoints (JWT auth via RBAC, not API token)
-        "/api/agent/",  # Agent profiles (read-only)
-        "/api/v1/agent/",  # Agent profiles v1 routes
-        "/api/routing/",  # Domain detection and routing (read-only)
-        "/api/v1/routing/",  # Domain routing v1 routes
-    )
-
-    # Path prefixes exempt ONLY for GET requests (read-only access)
-    # These are public dashboard data endpoints that don't require auth for viewing
-    AUTH_EXEMPT_GET_PREFIXES: tuple[str, ...] = (
-        "/api/evidence/",  # Evidence read-only access
-        "/api/evolution/",  # Public evolution data
-        "/api/v1/evolution/",  # Public evolution data (v1)
-        "/api/analytics/",  # Public analytics dashboards (stubbed when unauthenticated)
-        "/api/v1/analytics/",  # Public analytics dashboards (v1)
-        "/api/replays/",  # Public replay browsing
-        "/api/v1/replays/",  # Public replay browsing (v1)
-        "/api/learning/",  # Public learning evolution data
-        "/api/v1/learning/",  # Public learning evolution data (v1)
-        "/api/meta-learning/",  # Public meta-learning stats
-        "/api/v1/meta-learning/",  # Public meta-learning stats (v1)
-        "/api/tournaments/",  # Public tournament data
-        "/api/v1/tournaments/",  # Public tournament data (v1)
-        "/api/reviews/",  # Public reviews
-        "/api/v1/reviews/",  # Public reviews (v1)
-        "/api/consensus/",  # Public consensus read-only data
-        "/api/v1/consensus/",  # Public consensus read-only data (v1)
-        "/api/moments/",  # Public moments summaries
-        "/api/v1/moments/",  # Public moments summaries (v1)
-        "/api/flips/",  # Public flip summaries
-        "/api/v1/flips/",  # Public flip summaries (v1)
-        "/api/belief-network/",  # Public belief network summaries
-        "/api/v1/belief-network/",  # Public belief network summaries (v1)
-        "/api/verticals/",  # Public verticals list
-        "/api/v1/verticals/",  # Public verticals list (v1)
-        "/api/features/",  # Public feature config
-        "/api/v1/features/",  # Public feature config (v1)
-        "/api/gauntlet/personas",  # Public gauntlet personas list
-        "/api/v1/gauntlet/personas",  # Public gauntlet personas list (v1)
-        "/api/debates/",  # Public debate browsing
-        "/api/v1/debates/",  # Public debate browsing (v1)
-    )
-
-    def _check_rate_limit(self) -> bool:
-        """Check auth and rate limit. Returns True if allowed, False if blocked.
-
-        Sends appropriate error response if blocked.
-        """
-        if not auth_config.enabled:
-            return True
-
-        # Skip auth for health endpoints (needed for load balancers, monitoring)
-        # and OAuth flow (login/callback need to work before user is authenticated)
-        parsed = urlparse(self.path)
-        if parsed.path in self.AUTH_EXEMPT_PATHS:
-            return True
-        if any(parsed.path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
-            return True
-        # For GET-only exempt paths, check method
-        if self.command == "GET" and any(
-            parsed.path.startswith(prefix) for prefix in self.AUTH_EXEMPT_GET_PREFIXES
-        ):
-            return True
-
-        # Convert headers to dict
-        headers = {k: v for k, v in self.headers.items()}
-
-        authenticated, remaining = check_auth(headers, parsed.query)
-
-        if not authenticated:
-            if remaining == 0:
-                # Rate limited
-                self._send_json({"error": "Rate limit exceeded. Try again later."}, status=429)
-            else:
-                # Auth failed
-                self._send_json({"error": "Authentication required"}, status=401)
-            return False
-
-        # Note: Rate limit headers are now added by individual handlers
-        # that need to include them in their responses
-        return True
-
-    def _check_tier_rate_limit(self) -> bool:
-        """Check tier-aware rate limit based on user's subscription.
-
-        Returns True if allowed, False if blocked.
-        Sends 429 error response if rate limited.
-        Also stores the result for inclusion in response headers.
-        """
-        from aragora.server.middleware.rate_limit import check_tier_rate_limit
-
-        result = check_tier_rate_limit(self, UnifiedHandler.user_store)
-
-        # Store result for response headers (used by _add_rate_limit_headers)
-        self._rate_limit_result = result
-
-        if not result.allowed:
-            self._send_json(
-                {
-                    "error": "Rate limit exceeded for your subscription tier",
-                    "code": "tier_rate_limit",
-                    "limit": result.limit,
-                    "retry_after": int(result.retry_after) + 1,
-                    "upgrade_url": "/pricing",
-                },
-                status=429,
-            )
-            return False
-
-        return True
-
-    def _check_rbac(self, path: str, method: str) -> bool:
-        """Check RBAC permission for the request.
-
-        Returns True if allowed, False if blocked.
-        Sends 401/403 error response if denied.
-        """
-        from aragora.billing.auth import extract_user_from_request
-        from aragora.rbac import AuthorizationContext, get_role_permissions
-
-        if path in self.AUTH_EXEMPT_PATHS:
-            return True
-        if any(path.startswith(prefix) for prefix in self.AUTH_EXEMPT_PREFIXES):
-            return True
-        if method.upper() == "GET" and any(
-            path.startswith(prefix) for prefix in self.AUTH_EXEMPT_GET_PREFIXES
-        ):
-            return True
-
-        logger.debug(f"RBAC auth check: {method} {path}")
-
-        # Build authorization context from JWT
-        auth_ctx = None
-        try:
-            user_ctx = extract_user_from_request(self, UnifiedHandler.user_store)
-            logger.debug(
-                f"RBAC user context: authenticated={user_ctx.authenticated}, user_id={user_ctx.user_id}"
-            )
-            if user_ctx.authenticated and user_ctx.user_id:
-                roles = {user_ctx.role} if user_ctx.role else {"member"}
-                permissions: set[str] = set()
-                for role in roles:
-                    permissions |= get_role_permissions(role, include_inherited=True)
-
-                auth_ctx = AuthorizationContext(
-                    user_id=user_ctx.user_id,
-                    org_id=user_ctx.org_id,
-                    roles=roles,
-                    permissions=permissions,
-                    ip_address=user_ctx.client_ip,
-                )
-                logger.debug(f"RBAC auth context created for user {user_ctx.user_id}")
-        except (ValueError, KeyError, AttributeError, TypeError) as e:
-            logger.debug(f"RBAC context extraction failed: {e}")
-
-        # Check permission
-        allowed, reason, permission_key = self.rbac.check_request(path, method, auth_ctx)
-
-        if not allowed:
-            if auth_ctx is None:
-                self._send_json(
-                    {"error": "Authentication required", "code": "auth_required"},
-                    status=401,
-                )
-            else:
-                self._send_json(
-                    {
-                        "error": f"Permission denied: {reason}",
-                        "code": "permission_denied",
-                        "required_permission": permission_key,
-                    },
-                    status=403,
-                )
-            return False
-
-        return True
-
-    def _check_upload_rate_limit(self) -> bool:
-        """Check IP-based upload rate limit. Returns True if allowed, False if blocked."""
-        limiter = get_upload_limiter()
-        client_ip = limiter.get_client_ip(self)
-        allowed, error_info = limiter.check_allowed(client_ip)
-
-        if not allowed and error_info:
-            self._send_json(
-                {"error": error_info["message"], "retry_after": error_info["retry_after"]},
-                status=429,
-            )
-            return False
-
-        return True
-
-    def _get_debate_controller(self) -> DebateController:
-        """Get or create the debate controller (lazy initialization).
-
-        Returns:
-            DebateController instance
-        """
-        if UnifiedHandler._debate_controller is None:
-            # Create factory with all subsystems
-            factory = DebateFactory(
-                elo_system=self.elo_system,
-                persona_manager=self.persona_manager,
-                debate_embeddings=self.debate_embeddings,
-                position_tracker=self.position_tracker,
-                position_ledger=self.position_ledger,
-                flip_detector=self.flip_detector,
-                dissent_retriever=self.dissent_retriever,
-                moment_detector=self.moment_detector,
-                stream_emitter=self.stream_emitter,
-            )
-            UnifiedHandler._debate_factory = factory
-
-            # Create controller with storage for debate persistence
-            UnifiedHandler._debate_controller = DebateController(
-                factory=factory,
-                emitter=self.stream_emitter,
-                elo_system=self.elo_system,
-                auto_select_fn=self._auto_select_agents,
-                storage=self.storage,
-            )
-        return UnifiedHandler._debate_controller
-
-    def _auto_select_agents(self, question: str, config: dict[str, Any]) -> str:
-        """Select optimal agents using question classification and AgentSelector."""
-        return auto_select_agents(
-            question=question,
-            config=config,
-            elo_system=self.elo_system,
-            persona_manager=self.persona_manager,
-        )
+    # Note: The following methods are inherited from mixins:
+    # - _log_request, _normalize_endpoint, _get_client_ip (from RequestLoggingMixin)
+    # - _safe_int, _safe_float, _safe_string, _extract_path_segment, _validate_content_length (from RequestUtilsMixin)
+    # - AUTH_EXEMPT_PATHS, AUTH_EXEMPT_PREFIXES, AUTH_EXEMPT_GET_PREFIXES (from AuthChecksMixin)
+    # - _check_rate_limit, _check_tier_rate_limit, _check_rbac, _check_upload_rate_limit (from AuthChecksMixin)
+    # - _get_debate_controller, _auto_select_agents (from DebateControllerMixin)
+    # - _init_handlers(), _log_resource_availability(), _try_modular_handler() (from HandlerRegistryMixin)
 
     def do_GET(self) -> None:
         """Handle GET requests."""

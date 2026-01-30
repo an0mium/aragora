@@ -14,7 +14,14 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.core import Agent, Critique, DebateResult, Environment, Message, Vote
-from aragora.debate.arena_config import ArenaConfig
+from aragora.debate.arena_config import (
+    ArenaConfig,
+    AgentConfig,
+    DebateConfig,
+    MemoryConfig,
+    ObservabilityConfig,
+    StreamingConfig,
+)
 from aragora.debate.arena_initializer import ArenaInitializer
 from aragora.debate.arena_phases import create_phase_executor, init_phases
 from aragora.debate.batch_loaders import debate_loader_context
@@ -130,6 +137,44 @@ class Arena:
     3. Proposers revise based on critique
     4. Repeat for configured rounds
     5. Consensus mechanism selects final answer
+
+    Configuration Patterns
+    ----------------------
+    Arena supports two configuration patterns:
+
+    1. **Config Objects (Recommended)** - Group related parameters for cleaner code::
+
+        from aragora.debate.arena_config import (
+            DebateConfig, AgentConfig, MemoryConfig,
+            StreamingConfig, ObservabilityConfig
+        )
+
+        arena = Arena(
+            environment=env,
+            agents=agents,
+            debate_config=DebateConfig(rounds=5, consensus_threshold=0.8),
+            agent_config=AgentConfig(use_airlock=True),
+            memory_config=MemoryConfig(enable_knowledge_retrieval=True),
+            streaming_config=StreamingConfig(loop_id="debate-123"),
+            observability_config=ObservabilityConfig(enable_telemetry=True),
+        )
+        result = await arena.run()
+
+    2. **Individual Parameters (Legacy)** - Still supported for backward compatibility::
+
+        arena = Arena(
+            environment=env,
+            agents=agents,
+            protocol=protocol,
+            use_airlock=True,
+            enable_knowledge_retrieval=True,
+            loop_id="debate-123",
+        )
+
+    Factory Methods
+    ---------------
+    - ``Arena.from_configs()`` - Create from config objects (preferred)
+    - ``Arena.from_config()`` - Create from ArenaConfig (legacy)
     """
 
     # Phase class attributes (initialized by init_phases)
@@ -151,6 +196,21 @@ class Arena:
         environment: Environment,
         agents: list[Agent],
         protocol: Optional[DebateProtocol] = None,
+        # =====================================================================
+        # Config Objects (Preferred - cleaner interface)
+        # =====================================================================
+        # Pass these config objects instead of individual parameters for cleaner code.
+        # Individual params below are deprecated but maintained for backward compatibility.
+        debate_config: Optional["DebateConfig"] = None,  # Debate protocol settings
+        agent_config: Optional["AgentConfig"] = None,  # Agent management settings
+        memory_config: Optional["MemoryConfig"] = None,  # Memory/knowledge settings
+        streaming_config: Optional["StreamingConfig"] = None,  # WebSocket/event settings
+        observability_config: Optional["ObservabilityConfig"] = None,  # Telemetry settings
+        # =====================================================================
+        # Individual Parameters (Deprecated - use config objects instead)
+        # =====================================================================
+        # These are maintained for backward compatibility. When config objects
+        # are provided, these values are ignored (config objects take precedence).
         memory: Any = None,  # CritiqueStore instance
         event_hooks: Optional[dict[str, Any]] = None,  # Optional hooks for streaming events
         hook_manager: Any = None,  # Optional HookManager for extended lifecycle hooks
@@ -293,11 +353,157 @@ class Arena:
         See inline parameter comments for subsystem descriptions.
         Initialization delegates to ArenaInitializer for core/tracker setup.
 
+        Config Objects (Preferred):
+            Pass grouped config objects for cleaner code:
+            - debate_config: DebateConfig for protocol settings
+            - agent_config: AgentConfig for agent management
+            - memory_config: MemoryConfig for memory/knowledge systems
+            - streaming_config: StreamingConfig for WebSocket/events
+            - observability_config: ObservabilityConfig for telemetry
+
+            Example::
+
+                arena = Arena(
+                    env, agents,
+                    debate_config=DebateConfig(rounds=5, consensus_threshold=0.8),
+                    agent_config=AgentConfig(use_airlock=True),
+                    memory_config=MemoryConfig(enable_knowledge_retrieval=True),
+                )
+
+        Backward Compatibility:
+            Individual parameters are still supported but deprecated.
+            Config objects take precedence when both are provided.
+
         Fabric Integration:
             When fabric and fabric_config are provided, agents are obtained from the
             specified fabric pool instead of the agents parameter. This enables
             high-scale orchestration with 50+ concurrent agents.
         """
+        # =====================================================================
+        # Config Object Merging (config objects take precedence over individual params)
+        # =====================================================================
+        # This enables both new config-based and legacy individual param patterns.
+
+        # Merge DebateConfig
+        if debate_config is not None:
+            enable_adaptive_rounds = debate_config.enable_adaptive_rounds
+            debate_strategy = debate_config.debate_strategy
+            enable_agent_hierarchy = debate_config.enable_agent_hierarchy
+            hierarchy_config = debate_config.hierarchy_config
+            # Apply protocol overrides if protocol is provided
+            if protocol is not None:
+                debate_config.apply_to_protocol(protocol)
+
+        # Merge AgentConfig
+        if agent_config is not None:
+            agent_weights = agent_config.agent_weights or agent_weights
+            agent_selector = agent_config.agent_selector or agent_selector
+            use_performance_selection = agent_config.use_performance_selection
+            circuit_breaker = agent_config.circuit_breaker or circuit_breaker
+            use_airlock = agent_config.use_airlock
+            airlock_config = agent_config.airlock_config or airlock_config
+            position_tracker = agent_config.position_tracker or position_tracker
+            position_ledger = agent_config.position_ledger or position_ledger
+            enable_position_ledger = agent_config.enable_position_ledger
+            elo_system = agent_config.elo_system or elo_system
+            calibration_tracker = agent_config.calibration_tracker or calibration_tracker
+            relationship_tracker = agent_config.relationship_tracker or relationship_tracker
+            persona_manager = agent_config.persona_manager or persona_manager
+            vertical = agent_config.vertical or vertical
+            vertical_persona_manager = (
+                agent_config.vertical_persona_manager or vertical_persona_manager
+            )
+            auto_detect_vertical = agent_config.auto_detect_vertical
+            fabric = agent_config.fabric or fabric
+            fabric_config = agent_config.fabric_config or fabric_config
+
+        # Merge MemoryConfig
+        if memory_config is not None:
+            memory = memory_config.memory or memory
+            continuum_memory = memory_config.continuum_memory or continuum_memory
+            consensus_memory = memory_config.consensus_memory or consensus_memory
+            debate_embeddings = memory_config.debate_embeddings or debate_embeddings
+            insight_store = memory_config.insight_store or insight_store
+            dissent_retriever = memory_config.dissent_retriever or dissent_retriever
+            flip_detector = memory_config.flip_detector or flip_detector
+            moment_detector = memory_config.moment_detector or moment_detector
+            tier_analytics_tracker = memory_config.tier_analytics_tracker or tier_analytics_tracker
+            cross_debate_memory = memory_config.cross_debate_memory or cross_debate_memory
+            enable_cross_debate_memory = memory_config.enable_cross_debate_memory
+            knowledge_mound = memory_config.knowledge_mound or knowledge_mound
+            auto_create_knowledge_mound = memory_config.auto_create_knowledge_mound
+            enable_knowledge_retrieval = memory_config.enable_knowledge_retrieval
+            enable_knowledge_ingestion = memory_config.enable_knowledge_ingestion
+            enable_knowledge_extraction = memory_config.enable_knowledge_extraction
+            extraction_min_confidence = memory_config.extraction_min_confidence
+            enable_belief_guidance = memory_config.enable_belief_guidance
+            enable_auto_revalidation = memory_config.enable_auto_revalidation
+            revalidation_staleness_threshold = memory_config.revalidation_staleness_threshold
+            revalidation_check_interval_seconds = memory_config.revalidation_check_interval_seconds
+            revalidation_scheduler = memory_config.revalidation_scheduler or revalidation_scheduler
+            use_rlm_limiter = memory_config.use_rlm_limiter
+            rlm_limiter = memory_config.rlm_limiter or rlm_limiter
+            rlm_compression_threshold = memory_config.rlm_compression_threshold
+            rlm_max_recent_messages = memory_config.rlm_max_recent_messages
+            rlm_summary_level = memory_config.rlm_summary_level
+            rlm_compression_round_threshold = memory_config.rlm_compression_round_threshold
+            checkpoint_manager = memory_config.checkpoint_manager or checkpoint_manager
+            enable_checkpointing = memory_config.enable_checkpointing
+
+        # Merge StreamingConfig
+        if streaming_config is not None:
+            event_hooks = streaming_config.event_hooks or event_hooks
+            hook_manager = streaming_config.hook_manager or hook_manager
+            event_emitter = streaming_config.event_emitter or event_emitter
+            spectator = streaming_config.spectator or spectator
+            recorder = streaming_config.recorder or recorder
+            loop_id = streaming_config.loop_id or loop_id
+            strict_loop_scoping = streaming_config.strict_loop_scoping
+            skill_registry = streaming_config.skill_registry or skill_registry
+            enable_skills = streaming_config.enable_skills
+            propulsion_engine = streaming_config.propulsion_engine or propulsion_engine
+            enable_propulsion = streaming_config.enable_propulsion
+
+        # Merge ObservabilityConfig
+        if observability_config is not None:
+            performance_monitor = observability_config.performance_monitor or performance_monitor
+            enable_performance_monitor = observability_config.enable_performance_monitor
+            enable_telemetry = observability_config.enable_telemetry
+            prompt_evolver = observability_config.prompt_evolver or prompt_evolver
+            enable_prompt_evolution = observability_config.enable_prompt_evolution
+            breakpoint_manager = observability_config.breakpoint_manager or breakpoint_manager
+            trending_topic = observability_config.trending_topic or trending_topic
+            pulse_manager = observability_config.pulse_manager or pulse_manager
+            auto_fetch_trending = observability_config.auto_fetch_trending
+            population_manager = observability_config.population_manager or population_manager
+            auto_evolve = observability_config.auto_evolve
+            breeding_threshold = observability_config.breeding_threshold
+            evidence_collector = observability_config.evidence_collector or evidence_collector
+            org_id = observability_config.org_id or org_id
+            user_id = observability_config.user_id or user_id
+            usage_tracker = observability_config.usage_tracker or usage_tracker
+            broadcast_pipeline = observability_config.broadcast_pipeline or broadcast_pipeline
+            auto_broadcast = observability_config.auto_broadcast
+            broadcast_min_confidence = observability_config.broadcast_min_confidence
+            training_exporter = observability_config.training_exporter or training_exporter
+            auto_export_training = observability_config.auto_export_training
+            training_export_min_confidence = observability_config.training_export_min_confidence
+            enable_ml_delegation = observability_config.enable_ml_delegation
+            ml_delegation_strategy = (
+                observability_config.ml_delegation_strategy or ml_delegation_strategy
+            )
+            ml_delegation_weight = observability_config.ml_delegation_weight
+            enable_quality_gates = observability_config.enable_quality_gates
+            quality_gate_threshold = observability_config.quality_gate_threshold
+            enable_consensus_estimation = observability_config.enable_consensus_estimation
+            consensus_early_termination_threshold = (
+                observability_config.consensus_early_termination_threshold
+            )
+            post_debate_workflow = observability_config.post_debate_workflow or post_debate_workflow
+            enable_post_debate_workflow = observability_config.enable_post_debate_workflow
+            post_debate_workflow_threshold = observability_config.post_debate_workflow_threshold
+            initial_messages = observability_config.initial_messages or initial_messages
+
         # Handle fabric integration - get agents from fabric pool if configured
         if fabric is not None and fabric_config is not None:
             if agents:
@@ -554,6 +760,60 @@ class Arena:
             agents=agents,
             protocol=protocol,
             **config.to_arena_kwargs(),
+        )
+
+    @classmethod
+    def from_configs(
+        cls,
+        environment: Environment,
+        agents: list[Agent],
+        protocol: Optional[DebateProtocol] = None,
+        *,
+        debate_config: Optional["DebateConfig"] = None,
+        agent_config: Optional["AgentConfig"] = None,
+        memory_config: Optional["MemoryConfig"] = None,
+        streaming_config: Optional["StreamingConfig"] = None,
+        observability_config: Optional["ObservabilityConfig"] = None,
+    ) -> "Arena":
+        """Create an Arena from grouped config objects.
+
+        This is the preferred factory method for creating Arena instances
+        with the new configuration pattern. Config objects group related
+        parameters for cleaner code.
+
+        Args:
+            environment: Debate environment (task, constraints, etc.)
+            agents: List of agents to participate in the debate
+            protocol: Optional DebateProtocol for debate settings
+            debate_config: Protocol/consensus settings
+            agent_config: Agent management settings
+            memory_config: Memory/knowledge systems
+            streaming_config: WebSocket/event settings
+            observability_config: Telemetry/monitoring settings
+
+        Returns:
+            Configured Arena instance
+
+        Example::
+
+            arena = Arena.from_configs(
+                environment=env,
+                agents=agents,
+                debate_config=DebateConfig(rounds=5),
+                agent_config=AgentConfig(use_airlock=True),
+                memory_config=MemoryConfig(enable_knowledge_retrieval=True),
+            )
+            result = await arena.run()
+        """
+        return cls(
+            environment=environment,
+            agents=agents,
+            protocol=protocol,
+            debate_config=debate_config,
+            agent_config=agent_config,
+            memory_config=memory_config,
+            streaming_config=streaming_config,
+            observability_config=observability_config,
         )
 
     def _apply_core_components(self, core) -> None:
@@ -1258,6 +1518,57 @@ class Arena:
         """Format debate conclusion. Delegates to ResultFormatter."""
         return ResultFormatter().format_conclusion(result)
 
+    async def _translate_conclusions(self, result: "DebateResult") -> None:
+        """
+        Translate debate conclusions to configured target languages.
+
+        Uses the translation module to provide multi-language support.
+        Translations are stored in result.translations dict.
+        """
+        if not result.final_answer:
+            return
+
+        target_languages = getattr(self.protocol, "target_languages", [])
+        if not target_languages:
+            return
+
+        try:
+            from aragora.debate.translation import (
+                Language,
+                get_translation_service,
+            )
+
+            service = get_translation_service()
+            default_lang = getattr(self.protocol, "default_language", "en")
+
+            # Detect or use configured source language
+            source_lang = Language.from_code(default_lang) or Language.ENGLISH
+
+            for target_code in target_languages:
+                target_lang = Language.from_code(target_code)
+                if not target_lang or target_lang == source_lang:
+                    continue
+
+                try:
+                    translation_result = await service.translate(
+                        result.final_answer,
+                        target_lang,
+                        source_lang,
+                    )
+                    if translation_result.confidence > 0.5:
+                        result.translations[target_code] = translation_result.translated_text
+                        logger.debug(
+                            f"Translated conclusion to {target_lang.name_english} "
+                            f"(confidence: {translation_result.confidence:.2f})"
+                        )
+                except (ConnectionError, OSError, ValueError, TypeError) as e:
+                    logger.warning(f"Translation to {target_code} failed: {e}")
+
+        except ImportError as e:
+            logger.debug(f"Translation module not available: {e}")
+        except (AttributeError, RuntimeError) as e:
+            logger.warning(f"Translation failed (non-critical): {e}")
+
     def _assign_roles(self) -> None:
         """Assign roles to agents based on protocol. Delegates to RolesManager."""
         self.roles_manager.assign_initial_roles()
@@ -1279,6 +1590,261 @@ class Arena:
         await self._checkpoint_ops.create_checkpoint(
             ctx, round_num, self.env, self.agents, self.protocol
         )
+
+    # =========================================================================
+    # Public Checkpoint API
+    # =========================================================================
+
+    async def save_checkpoint(
+        self,
+        debate_id: str,
+        phase: str = "manual",
+        messages: Optional[list[Message]] = None,
+        critiques: Optional[list[Critique]] = None,
+        votes: Optional[list[Vote]] = None,
+        current_round: int = 0,
+        current_consensus: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Save a checkpoint for the current debate state.
+
+        This allows manual checkpoint creation at any point during or after debate.
+        Checkpoints enable debate resumption and crash recovery.
+
+        Args:
+            debate_id: Unique identifier for the debate
+            phase: Current phase name (e.g., "proposal", "critique", "consensus", "manual")
+            messages: Message history to checkpoint
+            critiques: Critique history to checkpoint
+            votes: Vote history to checkpoint
+            current_round: Current round number
+            current_consensus: Current consensus text if available
+
+        Returns:
+            Checkpoint ID if successful, None otherwise
+
+        Example::
+
+            # Manual checkpoint during debate
+            checkpoint_id = await arena.save_checkpoint(
+                debate_id="debate-123",
+                phase="mid-round",
+                messages=ctx.result.messages,
+                current_round=3,
+            )
+        """
+        if not self.checkpoint_manager:
+            logger.debug("[checkpoint] No checkpoint manager configured")
+            return None
+
+        try:
+            checkpoint = await self.checkpoint_manager.create_checkpoint(
+                debate_id=debate_id,
+                task=self.env.task if self.env else "",
+                current_round=current_round,
+                total_rounds=self.protocol.rounds if self.protocol else 0,
+                phase=phase,
+                messages=messages or [],
+                critiques=critiques or [],
+                votes=votes or [],
+                agents=self.agents or [],
+                current_consensus=current_consensus,
+            )
+            logger.info(
+                f"[checkpoint] Saved checkpoint {checkpoint.checkpoint_id} for debate {debate_id}"
+            )
+            return checkpoint.checkpoint_id
+
+        except (IOError, OSError, ValueError, TypeError, RuntimeError) as e:
+            logger.warning(f"[checkpoint] Failed to save checkpoint: {e}")
+            return None
+
+    async def restore_from_checkpoint(
+        self,
+        checkpoint_id: str,
+        resumed_by: str = "system",
+    ) -> Optional["DebateContext"]:
+        """
+        Restore debate state from a checkpoint.
+
+        Loads a checkpoint and reconstructs the debate context, enabling
+        resumption of interrupted debates.
+
+        Args:
+            checkpoint_id: ID of the checkpoint to restore from
+            resumed_by: Identifier for who/what is resuming (for audit)
+
+        Returns:
+            DebateContext if restoration successful, None otherwise
+
+        Example::
+
+            # Resume an interrupted debate
+            ctx = await arena.restore_from_checkpoint("cp-abc123-003-def4")
+            if ctx:
+                # Continue debate from checkpoint
+                result = await arena.run()
+        """
+        if not self.checkpoint_manager:
+            logger.debug("[checkpoint] No checkpoint manager configured")
+            return None
+
+        try:
+            resumed = await self.checkpoint_manager.resume_from_checkpoint(
+                checkpoint_id=checkpoint_id,
+                resumed_by=resumed_by,
+            )
+
+            if not resumed:
+                logger.warning(f"[checkpoint] Checkpoint {checkpoint_id} not found or corrupted")
+                return None
+
+            # Reconstruct DebateContext from checkpoint
+            ctx = DebateContext(
+                env=self.env,
+                agents=self.agents,
+                start_time=time.time(),
+                debate_id=resumed.original_debate_id,
+                correlation_id=f"resumed-{checkpoint_id[:8]}",
+                domain=self._extract_debate_domain()
+                if hasattr(self, "_extract_debate_domain")
+                else "",
+                hook_manager=self.hook_manager if hasattr(self, "hook_manager") else None,
+                org_id=self.org_id if hasattr(self, "org_id") else "",
+            )
+
+            # Restore result state
+            ctx.result = DebateResult(
+                task=resumed.checkpoint.task,
+                messages=resumed.messages,
+                critiques=[],  # Critiques stored as dicts in checkpoint
+                votes=resumed.votes,
+                rounds_used=resumed.checkpoint.current_round,
+                consensus_reached=False,
+                confidence=resumed.checkpoint.consensus_confidence,
+                final_answer=resumed.checkpoint.current_consensus or "",
+            )
+
+            # Reconstruct critiques from checkpoint data
+            for c_dict in resumed.checkpoint.critiques:
+                ctx.result.critiques.append(
+                    Critique(
+                        agent=c_dict.get("agent", ""),
+                        target_agent=c_dict.get("target_agent", ""),
+                        target_content=c_dict.get("target_content", ""),
+                        issues=c_dict.get("issues", []),
+                        suggestions=c_dict.get("suggestions", []),
+                        severity=c_dict.get("severity", 0.0),
+                        reasoning=c_dict.get("reasoning", ""),
+                    )
+                )
+
+            # Store checkpoint reference for tracking
+            ctx._restored_from_checkpoint = checkpoint_id
+            ctx._checkpoint_resume_round = resumed.checkpoint.current_round
+
+            logger.info(
+                f"[checkpoint] Restored from checkpoint {checkpoint_id} "
+                f"at round {resumed.checkpoint.current_round}"
+            )
+            return ctx
+
+        except (IOError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
+            logger.warning(f"[checkpoint] Failed to restore checkpoint: {e}")
+            return None
+
+    async def list_checkpoints(
+        self,
+        debate_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
+        """
+        List available checkpoints.
+
+        Args:
+            debate_id: Filter by debate ID (None for all checkpoints)
+            limit: Maximum number of checkpoints to return
+
+        Returns:
+            List of checkpoint metadata dicts with keys:
+            - checkpoint_id: Unique checkpoint identifier
+            - debate_id: Associated debate ID
+            - task: Debate task (truncated)
+            - current_round: Round number at checkpoint
+            - created_at: Checkpoint creation timestamp
+            - status: Checkpoint status (complete, resuming, etc.)
+
+        Example::
+
+            # List all checkpoints
+            checkpoints = await arena.list_checkpoints()
+
+            # List checkpoints for a specific debate
+            debate_checkpoints = await arena.list_checkpoints(debate_id="debate-123")
+        """
+        if not self.checkpoint_manager:
+            logger.debug("[checkpoint] No checkpoint manager configured")
+            return []
+
+        try:
+            return await self.checkpoint_manager.store.list_checkpoints(
+                debate_id=debate_id,
+                limit=limit,
+            )
+        except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"[checkpoint] Failed to list checkpoints: {e}")
+            return []
+
+    async def cleanup_checkpoints(
+        self,
+        debate_id: str,
+        keep_latest: int = 1,
+    ) -> int:
+        """
+        Clean up old checkpoints for a completed debate.
+
+        Removes checkpoints beyond the keep_latest count, freeing storage.
+        Should be called after successful debate completion.
+
+        Args:
+            debate_id: Debate ID to clean up checkpoints for
+            keep_latest: Number of most recent checkpoints to keep
+
+        Returns:
+            Number of checkpoints deleted
+
+        Example::
+
+            # After successful debate
+            deleted = await arena.cleanup_checkpoints("debate-123", keep_latest=0)
+            print(f"Cleaned up {deleted} checkpoints")
+        """
+        if not self.checkpoint_manager:
+            return 0
+
+        try:
+            checkpoints = await self.checkpoint_manager.store.list_checkpoints(
+                debate_id=debate_id,
+                limit=1000,  # Get all
+            )
+
+            # Sort by creation time (newest first)
+            checkpoints.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+            # Delete extras beyond keep_latest
+            deleted = 0
+            for cp in checkpoints[keep_latest:]:
+                if await self.checkpoint_manager.store.delete(cp["checkpoint_id"]):
+                    deleted += 1
+                    logger.debug(f"[checkpoint] Deleted checkpoint {cp['checkpoint_id']}")
+
+            if deleted > 0:
+                logger.info(f"[checkpoint] Cleaned up {deleted} checkpoints for debate {debate_id}")
+            return deleted
+
+        except (IOError, OSError, ValueError, TypeError, AttributeError) as e:
+            logger.warning(f"[checkpoint] Cleanup failed: {e}")
+            return 0
 
     # =========================================================================
     # Async Context Manager Protocol
@@ -1664,11 +2230,33 @@ class Arena:
         # This enables cloud persistence when SUPABASE_SYNC_ENABLED=true
         self._queue_for_supabase_sync(ctx, ctx.result)
 
+        # Clean up checkpoints after successful completion
+        # Keeps a configurable number of checkpoints for debugging (default 0 = delete all)
+        if debate_status == "completed" and getattr(
+            self.protocol, "checkpoint_cleanup_on_success", True
+        ):
+            try:
+                keep_count = getattr(self.protocol, "checkpoint_keep_on_success", 0)
+                deleted = await self.cleanup_checkpoints(debate_id, keep_latest=keep_count)
+                if deleted > 0:
+                    logger.debug(
+                        f"[checkpoint] Cleaned up {deleted} checkpoints for completed debate"
+                    )
+            except Exception as e:
+                logger.debug(f"[checkpoint] Cleanup failed (non-critical): {e}")
+
         # Cleanup debate-scoped embedding cache to free memory
         self._cleanup_convergence_cache()
         await self._teardown_agent_channels()
 
-        return ctx.finalize_result()
+        # Finalize the result
+        result = ctx.finalize_result()
+
+        # Translate conclusions if multi-language support is enabled
+        if result and getattr(self.protocol, "enable_translation", False):
+            await self._translate_conclusions(result)
+
+        return result
 
     # NOTE: Legacy _run_inner code (1,300+ lines) removed after successful phase integration.
     # The debate execution is now handled by phase classes:

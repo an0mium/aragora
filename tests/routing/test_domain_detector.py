@@ -60,14 +60,15 @@ class TestDomainDetectorInit:
             if "ANTHROPIC_API_KEY" in os.environ:
                 del os.environ["ANTHROPIC_API_KEY"]
             detector = DomainDetector(use_llm=True)
-            # LLM should be disabled if no API key
-            assert detector.use_llm is False
+            # LLM should be disabled if no API key (use_llm stores falsy value)
+            assert not detector.use_llm
 
     def test_llm_enabled_with_api_key(self):
         """Should enable LLM if API key is set."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
             detector = DomainDetector(use_llm=True)
-            assert detector.use_llm is True
+            # use_llm stores the API key value (truthy) when enabled
+            assert detector.use_llm
 
     def test_cache_disabled(self):
         """Should respect cache disable option."""
@@ -274,11 +275,14 @@ class TestDomainDetectorDetect:
 
     def test_detect_with_mock_llm(self):
         """detect() should use LLM when available."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_text_block = MagicMock()
-        mock_text_block.text = '{"domains": [{"name": "security", "confidence": 0.9}]}'
-        mock_response.content = [mock_text_block]
+        text_block = TextBlock(
+            type="text", text='{"domains": [{"name": "security", "confidence": 0.9}]}'
+        )
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
@@ -461,11 +465,16 @@ class TestDomainDetectorLLMIntegration:
 
     def test_llm_response_json_parsing(self):
         """Should parse JSON from LLM response."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_text_block = MagicMock()
-        mock_text_block.text = '{"domains": [{"name": "security", "confidence": 0.9}, {"name": "api", "confidence": 0.7}]}'
-        mock_response.content = [mock_text_block]
+        # Create a real TextBlock to pass the isinstance check
+        text_block = TextBlock(
+            type="text",
+            text='{"domains": [{"name": "security", "confidence": 0.9}, {"name": "api", "confidence": 0.7}]}',
+        )
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
@@ -476,11 +485,14 @@ class TestDomainDetectorLLMIntegration:
 
     def test_llm_response_with_markdown_code_block(self):
         """Should extract JSON from markdown code blocks."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_text_block = MagicMock()
-        mock_text_block.text = '```json\n{"domains": [{"name": "testing", "confidence": 0.8}]}\n```'
-        mock_response.content = [mock_text_block]
+        text_block = TextBlock(
+            type="text", text='```json\n{"domains": [{"name": "testing", "confidence": 0.8}]}\n```'
+        )
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
@@ -491,11 +503,15 @@ class TestDomainDetectorLLMIntegration:
 
     def test_llm_filters_invalid_domains(self):
         """Should filter out invalid domain names."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_text_block = MagicMock()
-        mock_text_block.text = '{"domains": [{"name": "invalid_domain", "confidence": 0.9}, {"name": "security", "confidence": 0.7}]}'
-        mock_response.content = [mock_text_block]
+        text_block = TextBlock(
+            type="text",
+            text='{"domains": [{"name": "invalid_domain", "confidence": 0.9}, {"name": "security", "confidence": 0.7}]}',
+        )
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
@@ -509,11 +525,14 @@ class TestDomainDetectorLLMIntegration:
 
     def test_llm_clamps_confidence_values(self):
         """Should clamp confidence values to 0-1 range."""
+        from anthropic.types import TextBlock
+
         mock_client = MagicMock()
         mock_response = MagicMock()
-        mock_text_block = MagicMock()
-        mock_text_block.text = '{"domains": [{"name": "security", "confidence": 1.5}]}'
-        mock_response.content = [mock_text_block]
+        text_block = TextBlock(
+            type="text", text='{"domains": [{"name": "security", "confidence": 1.5}]}'
+        )
+        mock_response.content = [text_block]
         mock_client.messages.create.return_value = mock_response
 
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):

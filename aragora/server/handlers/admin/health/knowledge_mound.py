@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Knowledge Mound health check implementations.
 
@@ -37,7 +36,7 @@ from .knowledge_mound_utils import (
 logger = logging.getLogger(__name__)
 
 
-def knowledge_mound_health(handler) -> HandlerResult:
+def knowledge_mound_health(handler: Any) -> HandlerResult:
     """Comprehensive health check for Knowledge Mound subsystem.
 
     Returns detailed status of:
@@ -123,7 +122,7 @@ def knowledge_mound_health(handler) -> HandlerResult:
     )
 
 
-def decay_health(handler) -> HandlerResult:
+def decay_health(handler: Any) -> HandlerResult:
     """Confidence decay scheduler health - dedicated endpoint for decay monitoring.
 
     Provides focused status for the confidence decay scheduler including:

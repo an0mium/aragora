@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Skill Installer.
 
@@ -256,11 +255,17 @@ class SkillInstaller:
         """Get user permissions from RBAC system."""
         try:
             from aragora.rbac.checker import PermissionChecker
+            from aragora.rbac.defaults import get_role_permissions
 
             checker = PermissionChecker()
-            # Get all permissions for user in tenant context
-            permissions = await checker.get_user_permissions(user_id, tenant_id)
-            return permissions
+            # Get all roles for user in tenant context
+            user_roles = checker.get_user_roles(user_id, tenant_id)
+            # Resolve permissions from roles
+            all_permissions: set[str] = set()
+            for role_name in user_roles:
+                permissions = get_role_permissions(role_name, include_inherited=True)
+                all_permissions |= permissions
+            return list(all_permissions)
 
         except ImportError:
             # RBAC not available, return default permissions

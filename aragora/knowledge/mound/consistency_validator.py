@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Unified Consistency Validator for Knowledge Mound.
 
@@ -24,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.unified.types import KnowledgeItem
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +194,35 @@ class ConsistencyValidator:
         self._contradiction_threshold = self._config.get("contradiction_threshold", 0.7)
         self._max_content_size = self._config.get("max_content_size", 100_000)
 
+    async def _query_nodes(self, workspace_id: str, limit: int = 10000) -> list[dict[str, Any]]:
+        """Query nodes and convert to dictionaries for processing."""
+        result = await self._mound.query(
+            query="",
+            sources=("all",),
+            limit=limit,
+            workspace_id=workspace_id,
+        )
+        # Convert KnowledgeItem objects to dicts for easier processing
+        return [self._item_to_dict(item) for item in result.items]
+
+    def _item_to_dict(self, item: "KnowledgeItem") -> dict[str, Any]:
+        """Convert a KnowledgeItem to a dict with all relevant fields."""
+        if hasattr(item, "to_dict"):
+            return item.to_dict()
+        # Fallback for items that don't have to_dict
+        return {
+            "id": getattr(item, "id", ""),
+            "node_id": getattr(item, "id", ""),
+            "content": getattr(item, "content", ""),
+            "workspace_id": getattr(item, "metadata", {}).get("workspace_id", ""),
+            "parent_id": getattr(item, "metadata", {}).get("parent_id"),
+            "relationships": getattr(item, "metadata", {}).get("relationships", []),
+            "updated_at": getattr(item, "updated_at", None),
+            "confidence": getattr(item, "importance", 1.0),
+            "confidence_score": getattr(item, "importance", 1.0),
+            "metadata": getattr(item, "metadata", {}),
+        }
+
     async def validate(
         self,
         workspace_id: str,
@@ -253,7 +282,7 @@ class ConsistencyValidator:
                     error=str(result),
                 )
                 report.add_result(error_result)
-            else:
+            elif isinstance(result, ConsistencyCheckResult):
                 report.add_result(result)
 
         report.duration_ms = (time.perf_counter() - start_time) * 1000
@@ -269,7 +298,7 @@ class ConsistencyValidator:
 
         try:
             # Get all nodes
-            nodes = await self._mound.query(workspace_id, "", limit=10000)
+            nodes = await self._query_nodes(workspace_id, limit=10000)
             items_checked = len(nodes)
 
             node_ids: set[str] = {n.get("id", n.get("node_id", "")) for n in nodes if n}
@@ -374,7 +403,7 @@ class ConsistencyValidator:
         items_checked = 0
 
         try:
-            nodes = await self._mound.query(workspace_id, "", limit=10000)
+            nodes = await self._query_nodes(workspace_id, limit=10000)
             items_checked = len(nodes)
 
             for node in nodes:
@@ -469,7 +498,7 @@ class ConsistencyValidator:
 
             detector = ContradictionDetector()
             report = await detector.detect_contradictions(
-                self._mound,
+                self._mound,  # type: ignore[arg-type]
                 workspace_id,
             )
 
@@ -546,7 +575,7 @@ class ConsistencyValidator:
         items_checked = 0
 
         try:
-            nodes = await self._mound.query(workspace_id, "", limit=10000)
+            nodes = await self._query_nodes(workspace_id, limit=10000)
             items_checked = len(nodes)
             cutoff = datetime.now(timezone.utc) - timedelta(days=self._max_stale_days)
 
@@ -618,7 +647,7 @@ class ConsistencyValidator:
         items_checked = 0
 
         try:
-            nodes = await self._mound.query(workspace_id, "", limit=10000)
+            nodes = await self._query_nodes(workspace_id, limit=10000)
             items_checked = len(nodes)
 
             for node in nodes:
@@ -772,31 +801,33 @@ class ConsistencyValidator:
                     try:
                         # Apply fix based on issue type
                         if issue.check_type == ConsistencyCheckType.REFERENTIAL:
-                            if "Broken parent reference" in issue.message:
-                                await self._mound.update(
-                                    workspace_id,
+                            if issue.item_id and "Broken parent reference" in issue.message:
+                                # Update uses (node_id, updates) signature
+                                await self._mound.update(  # type: ignore[misc]
                                     issue.item_id,
-                                    {"parent_id": None},
+                                    {"metadata": {"parent_id": None}},
                                 )
-                            elif "Broken relationship" in issue.message:
+                            elif issue.item_id and "Broken relationship" in issue.message:
                                 # Remove broken relationship
-                                node = await self._mound.get(workspace_id, issue.item_id)
+                                # Get uses (node_id) signature
+                                node = await self._mound.get(issue.item_id)  # type: ignore[misc]
                                 if node:
-                                    relationships = node.get("relationships", [])
+                                    node_dict = self._item_to_dict(node)
+                                    relationships = node_dict.get("relationships", [])
                                     relationships = [
                                         r
                                         for r in relationships
                                         if r.get("target_id") not in issue.related_items
                                     ]
-                                    await self._mound.update(
-                                        workspace_id,
+                                    await self._mound.update(  # type: ignore[misc]
                                         issue.item_id,
-                                        {"relationships": relationships},
+                                        {"metadata": {"relationships": relationships}},
                                     )
 
                         elif issue.check_type == ConsistencyCheckType.CONTENT:
-                            if "Empty content" in issue.message:
-                                await self._mound.delete(workspace_id, issue.item_id)
+                            if issue.item_id and "Empty content" in issue.message:
+                                # Delete uses (node_id, archive) signature
+                                await self._mound.delete(issue.item_id, archive=False)  # type: ignore[misc]
 
                         fixes_applied.append(
                             {

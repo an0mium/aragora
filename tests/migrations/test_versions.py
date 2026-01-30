@@ -258,20 +258,32 @@ class TestLoadMigrations:
     def test_load_migrations_handles_missing_package(self):
         """Test that _load_migrations handles missing versions package gracefully."""
         from aragora.migrations.runner import MigrationRunner, _load_migrations
+        import sys
 
         from tests.migrations.test_runner import InMemorySQLiteBackend
 
         backend = InMemorySQLiteBackend()
         runner = MigrationRunner(backend=backend)
 
-        # Mock import to raise ImportError
-        with patch(
-            "aragora.migrations.runner.importlib.import_module",
-            side_effect=ImportError("No module"),
-        ):
-            with patch.dict("sys.modules", {"aragora.migrations.versions": None}):
+        # Temporarily remove the versions module from sys.modules
+        saved_module = sys.modules.get("aragora.migrations.versions")
+        try:
+            # Remove the module to simulate it not being available
+            sys.modules["aragora.migrations.versions"] = None
+
+            # Mock the import to raise ImportError
+            with patch(
+                "aragora.migrations.runner.importlib.import_module",
+                side_effect=ImportError("No module"),
+            ):
                 # Should not raise, just log debug message
                 _load_migrations(runner)
+        finally:
+            # Restore the module
+            if saved_module is not None:
+                sys.modules["aragora.migrations.versions"] = saved_module
+            else:
+                sys.modules.pop("aragora.migrations.versions", None)
 
         backend.close()
 

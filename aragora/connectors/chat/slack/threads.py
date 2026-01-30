@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack thread management: thread info, replies, participants, stats.
 
@@ -203,7 +202,8 @@ class SlackThreadManager:
             channel_id=channel_id, text=message, thread_id=thread_ts, blocks=kwargs.get("blocks")
         )
         channel = ChatChannel(id=channel_id, platform="slack")
-        user = ChatUser(id=response.author_id or "", platform="slack", is_bot=True)
+        # Bot messages don't include author_id in response; use empty string for bot user
+        user = ChatUser(id="", platform="slack", is_bot=True)
         return ChatMessage(
             id=response.message_id,
             platform="slack",

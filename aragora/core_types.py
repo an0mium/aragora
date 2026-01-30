@@ -209,6 +209,9 @@ class DebateResult:
     budget_limit_usd: float | None = None
     # Bead tracking - links debate decision to git-backed work unit
     bead_id: str | None = None
+    # Multi-language translations - maps language code to translated final_answer
+    # Example: {"es": "Spanish translation...", "fr": "French translation..."}
+    translations: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.debate_id:
@@ -254,6 +257,9 @@ class DebateResult:
             result["per_agent_cost"] = dict(self.per_agent_cost)
             if self.budget_limit_usd is not None:
                 result["budget_limit_usd"] = self.budget_limit_usd
+        # Include translations if present
+        if self.translations:
+            result["translations"] = dict(self.translations)
         return result
 
     @classmethod
@@ -274,6 +280,7 @@ class DebateResult:
             proposals=data.get("proposals", {}),
             duration_seconds=data.get("duration_seconds", 0.0),
             winner=data.get("winner"),
+            translations=data.get("translations", {}),
         )
 
     def summary(self) -> str:

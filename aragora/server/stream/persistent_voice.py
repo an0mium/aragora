@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Persistent Voice Manager.
 
@@ -156,13 +155,13 @@ class PersistentVoiceManager:
     - Session state persistence (Redis-backed for scaling)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the voice manager."""
         self._sessions: dict[str, PersistentVoiceSession] = {}
         self._reconnect_tokens: dict[str, str] = {}  # token -> session_id
-        self._heartbeat_task: asyncio.Task | None = None
-        self._cleanup_task: asyncio.Task | None = None
-        self._running = False
+        self._heartbeat_task: asyncio.Task[None] | None = None
+        self._cleanup_task: asyncio.Task[None] | None = None
+        self._running: bool = False
 
         # Callbacks
         self._on_session_expired: Optional[Callable[[PersistentVoiceSession], None]] = None

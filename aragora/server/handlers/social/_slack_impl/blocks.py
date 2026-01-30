@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack Block Kit formatting and message construction.
 

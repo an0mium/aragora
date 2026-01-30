@@ -497,6 +497,54 @@ def init_verification_manager() -> Any | None:
         return None
 
 
+def init_translation_service(
+    cache_max_entries: int = 10000,
+    cache_ttl_seconds: float = 3600.0,
+) -> tuple[Any | None, Any | None]:
+    """
+    Initialize translation service and multilingual debate manager.
+
+    Returns:
+        Tuple of (TranslationService, MultilingualDebateManager) or (None, None)
+    """
+    try:
+        from aragora.debate.translation import (
+            TranslationCache,
+            TranslationService,
+            MultilingualDebateManager,
+            MultilingualDebateConfig,
+        )
+
+        # Initialize cache with configurable settings
+        cache = TranslationCache(
+            max_entries=cache_max_entries,
+            ttl_seconds=cache_ttl_seconds,
+        )
+
+        # Initialize translation service
+        service = TranslationService(cache=cache)
+
+        # Initialize multilingual manager
+        config = MultilingualDebateConfig()
+        manager = MultilingualDebateManager(
+            translation_service=service,
+            config=config,
+        )
+
+        logger.info(
+            f"[init] Translation service initialized "
+            f"(cache: {cache_max_entries} entries, {cache_ttl_seconds}s TTL)"
+        )
+        return service, manager
+
+    except ImportError as e:
+        logger.debug(f"[init] Translation module not available: {e}")
+        return None, None
+    except (OSError, RuntimeError, ValueError, TypeError) as e:
+        logger.warning(f"[init] Translation service initialization failed: {e}")
+        return None, None
+
+
 # =============================================================================
 # Batch Initialization
 # =============================================================================
@@ -523,6 +571,8 @@ class SubsystemRegistry:
         self.position_tracker = None
         self.continuum_memory = None
         self.verification_manager = None
+        self.translation_service = None
+        self.multilingual_manager = None
 
     def initialize_all(
         self,
@@ -564,6 +614,7 @@ class SubsystemRegistry:
 
         # Standalone subsystems
         self.verification_manager = init_verification_manager()
+        self.translation_service, self.multilingual_manager = init_translation_service()
 
         return self
 

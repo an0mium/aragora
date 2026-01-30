@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Deployment diagnostics and production readiness checklist.
 
@@ -19,14 +18,17 @@ import concurrent.futures
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...base import HandlerResult, json_response, error_response
+
+if TYPE_CHECKING:
+    from aragora.ops.deployment_validator import ValidationResult
 
 logger = logging.getLogger(__name__)
 
 
-def _check_diagnostics_permission(handler) -> HandlerResult | None:
+def _check_diagnostics_permission(handler: Any) -> HandlerResult | None:
     """Check admin:diagnostics permission for diagnostics endpoints.
 
     This endpoint exposes sensitive deployment information and must be
@@ -55,12 +57,15 @@ def _check_diagnostics_permission(handler) -> HandlerResult | None:
         if checker and hasattr(user_ctx, "user_id"):
             from aragora.rbac.models import AuthorizationContext
 
+            raw_roles = getattr(user_ctx, "roles", [])
+            roles_set = set(raw_roles) if raw_roles else set()
             auth_ctx = AuthorizationContext(
                 user_id=user_ctx.user_id,
                 org_id=getattr(user_ctx, "org_id", None),
-                roles=getattr(user_ctx, "roles", []),
+                roles=roles_set,
             )
-            if not checker.has_permission(auth_ctx, "admin:diagnostics"):
+            result = checker.check_permission(auth_ctx, "admin:diagnostics")
+            if not result.allowed:
                 return error_response("Permission denied: admin:diagnostics required", 403)
     except ImportError:
         # RBAC module not available, fall back to auth-only check
@@ -69,7 +74,7 @@ def _check_diagnostics_permission(handler) -> HandlerResult | None:
     return None
 
 
-def deployment_diagnostics(handler) -> HandlerResult:
+def deployment_diagnostics(handler: Any) -> HandlerResult:
     """Comprehensive deployment diagnostics endpoint.
 
     Requires: admin:diagnostics permission
@@ -196,7 +201,7 @@ def deployment_diagnostics(handler) -> HandlerResult:
         )
 
 
-def _generate_checklist(result) -> dict[str, Any]:
+def _generate_checklist(result: "ValidationResult") -> dict[str, Any]:
     """Generate a production readiness checklist from validation results.
 
     Args:

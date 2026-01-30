@@ -297,35 +297,45 @@ class TestTeamBuilderAssignRoles:
         assert "synthesizer" in roles.values()
 
     def test_assigns_security_critic(self):
-        """Should assign security_critic to agent with security trait."""
+        """Should assign security_critic to agent with security trait that's not proposer/synthesizer."""
         builder = TeamBuilder()
 
+        # Need 3+ agents so security agent isn't taken for proposer or synthesizer
         team = [
             AgentProfile(
-                name="sec", agent_type="claude", traits=["security"], expertise={"backend": 0.5}
+                name="proposer", agent_type="claude", traits=[], expertise={"backend": 0.9}
             ),
-            AgentProfile(name="other", agent_type="gemini", traits=[], expertise={"backend": 0.9}),
+            AgentProfile(
+                name="sec", agent_type="gemini", traits=["security"], expertise={"backend": 0.3}
+            ),
+            AgentProfile(name="synth", agent_type="codex", traits=[], expertise={"backend": 0.5}),
         ]
         req = TaskRequirements(task_id="test", description="Test", primary_domain="backend")
 
         roles = builder.assign_roles(team, req)
 
+        # Security trait agent should get security_critic (if not assigned proposer/synthesizer)
         assert roles["sec"] == "security_critic"
 
     def test_assigns_performance_critic(self):
-        """Should assign performance_critic to agent with performance trait."""
+        """Should assign performance_critic to agent with performance trait that's not proposer/synthesizer."""
         builder = TeamBuilder()
 
+        # Need 3+ agents so performance agent isn't taken for proposer or synthesizer
         team = [
             AgentProfile(
-                name="perf", agent_type="claude", traits=["performance"], expertise={"backend": 0.5}
+                name="proposer", agent_type="claude", traits=[], expertise={"backend": 0.9}
             ),
-            AgentProfile(name="other", agent_type="gemini", traits=[], expertise={"backend": 0.9}),
+            AgentProfile(
+                name="perf", agent_type="gemini", traits=["performance"], expertise={"backend": 0.3}
+            ),
+            AgentProfile(name="synth", agent_type="codex", traits=[], expertise={"backend": 0.5}),
         ]
         req = TaskRequirements(task_id="test", description="Test", primary_domain="backend")
 
         roles = builder.assign_roles(team, req)
 
+        # Performance trait agent should get performance_critic
         assert roles["perf"] == "performance_critic"
 
     def test_assigns_generic_critic(self):

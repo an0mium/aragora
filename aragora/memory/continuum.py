@@ -157,11 +157,17 @@ class ContinuumMemoryEntry:
             self.cross_references = refs
 
     def remove_cross_reference(self, ref_id: str) -> None:
-        """Remove a cross-reference from this entry."""
+        """Remove a cross-reference from this entry.
+
+        Uses try/except (EAFP) instead of check-then-remove to avoid
+        O(n) in check followed by O(n) remove. Now just O(n) total.
+        """
         refs = self.cross_references
-        if ref_id in refs:
+        try:
             refs.remove(ref_id)
             self.cross_references = refs
+        except ValueError:
+            pass  # ref_id was not in refs, which is fine
 
     @property
     def knowledge_mound_id(self) -> str:
@@ -1236,11 +1242,14 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                         modified = True
 
                     # Remove from cross_references if present
+                    # Use try/except (EAFP) to avoid O(n) in check + O(n) remove
                     cross_refs: list[str] = metadata.get("cross_references", [])
-                    if node_id in cross_refs:
+                    try:
                         cross_refs.remove(node_id)
                         metadata["cross_references"] = cross_refs
                         modified = True
+                    except ValueError:
+                        pass  # node_id was not in cross_refs
 
                     if modified:
                         updates.append((json.dumps(metadata), entry_id))

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams connector constants and error classification.
 

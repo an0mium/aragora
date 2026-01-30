@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Slack message operations: send, update, delete, format, upload/download files.
 
@@ -39,7 +38,59 @@ from .client import (
 
 
 class SlackMessagesMixin:
-    """Mixin providing message send/update/delete, formatting, and file operations."""
+    """Mixin providing message send/update/delete, formatting, and file operations.
+
+    This mixin expects to be combined with SlackConnector which provides
+    the declared attributes and methods below.
+    """
+
+    # Declare expected attributes from the concrete class for type checking
+    bot_token: str | None
+    _circuit_breaker: Any
+    _max_retries: int
+    _timeout: float
+
+    @property
+    def platform_name(self) -> str: ...
+
+    def _get_headers(self) -> dict[str, str]: ...
+
+    async def _slack_api_request(
+        self,
+        endpoint: str,
+        payload: dict[str, Any] | None = None,
+        operation: str = "api_call",
+        *,
+        method: str = "POST",
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        form_data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
+
+    async def _http_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        data: Any | None = None,
+        content: bytes | None = None,
+        files: dict[str, Any] | None = None,
+        max_retries: int = 3,
+        base_delay: float = 1.0,
+        timeout: float | None = None,
+        return_raw: bool = False,
+        operation: str = "http_request",
+    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]: ...
+
+    def _compute_message_relevance(
+        self,
+        message: ChatMessage,
+        query: str | None = None,
+    ) -> float: ...
 
     async def send_message(
         self,

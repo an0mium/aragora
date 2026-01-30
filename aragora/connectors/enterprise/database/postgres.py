@@ -76,6 +76,7 @@ class PostgreSQLConnector(EnterpriseConnector):
 
         self._pool = None
         self._listener_task = None
+        self._stop_event = asyncio.Event()  # For graceful shutdown of listener loop
 
         # CDC support
         self._cdc_manager: CDCStreamManager | None = None
@@ -458,9 +459,14 @@ class PostgreSQLConnector(EnterpriseConnector):
                 await conn.add_listener(self.notify_channel, self._handle_notification)
                 logger.info(f"[{self.name}] Listening on channel: {self.notify_channel}")
 
-                # Keep connection alive
-                while True:
-                    await asyncio.sleep(60)
+                # Keep connection alive until stop event is set
+                while not self._stop_event.is_set():
+                    try:
+                        # Use wait with timeout for responsive shutdown
+                        await asyncio.wait_for(self._stop_event.wait(), timeout=60.0)
+                    except asyncio.TimeoutError:
+                        pass  # Continue loop, check stop event again
+                logger.info(f"[{self.name}] Listener loop stopped gracefully")
 
         self._listener_task = asyncio.create_task(listener_loop())
 
@@ -491,14 +497,25 @@ class PostgreSQLConnector(EnterpriseConnector):
             logger.warning(f"[{self.name}] Notification handler error: {e}")
 
     async def stop_listener(self):
-        """Stop the LISTEN/NOTIFY listener."""
+        """Stop the LISTEN/NOTIFY listener gracefully."""
+        # Signal the listener loop to stop
+        self._stop_event.set()
+
         if self._listener_task:
-            self._listener_task.cancel()
+            # Give the loop a chance to exit gracefully
             try:
-                await self._listener_task
-            except asyncio.CancelledError:
-                logger.debug("[%s] Listener task cancelled during stop", self.name)
+                await asyncio.wait_for(self._listener_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                # Force cancel if graceful shutdown times out
+                self._listener_task.cancel()
+                try:
+                    await self._listener_task
+                except asyncio.CancelledError:
+                    logger.debug("[%s] Listener task cancelled during stop", self.name)
             self._listener_task = None
+
+        # Reset stop event for potential restart
+        self._stop_event.clear()
 
     async def close(self):
         """Close connection pool."""

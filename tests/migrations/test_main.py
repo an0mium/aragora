@@ -369,39 +369,17 @@ class TestCmdCreate:
         """Test create command generates a migration file."""
         from aragora.migrations.__main__ import cmd_create
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            versions_dir = Path(tmpdir) / "versions"
-            versions_dir.mkdir()
+        args = argparse.Namespace(name="Add users table")
 
-            args = argparse.Namespace(name="Add users table")
-
-            with patch(
-                "aragora.migrations.__main__.Path.__file__",
-                str(Path(tmpdir) / "__main__.py"),
-            ):
-                # Mock the file path calculation
-                with patch.object(Path, "parent", new_callable=lambda: MagicMock()):
-                    # Use a more direct approach - mock write_text
-                    written_content = []
-
-                    def mock_write_text(content):
-                        written_content.append(content)
-
-                    mock_filepath = MagicMock()
-                    mock_filepath.write_text = mock_write_text
-
-                    with patch(
-                        "aragora.migrations.__main__.Path.__truediv__",
-                        return_value=mock_filepath,
-                    ):
-                        # Directly test the command with full mocking
-                        with patch("builtins.open", mock_open()):
-                            with patch("pathlib.Path.write_text") as mock_write:
-                                mock_write.return_value = None
-                                result = cmd_create(args)
+        # Just mock the write_text to prevent actual file creation
+        with patch("pathlib.Path.write_text") as mock_write:
+            mock_write.return_value = None
+            result = cmd_create(args)
 
         # The command itself should return 0 on success
         assert result == 0
+        # Verify write was called
+        mock_write.assert_called_once()
 
     def test_create_sanitizes_name(self):
         """Test create command sanitizes the migration name."""

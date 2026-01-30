@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams Chat Connector.
 

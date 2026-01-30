@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Microsoft Teams file operations mixin.
 
@@ -10,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from aragora.connectors.chat.models import FileAttachment
 
@@ -24,11 +23,42 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class _TeamsConnectorProtocol(Protocol):
+    """Protocol for methods expected by TeamsFilesMixin from the main connector."""
+
+    _upload_timeout: float
+
+    async def _graph_api_request(
+        self,
+        endpoint: str,
+        method: str,
+        operation: str,
+        json_data: dict[str, Any] | None = ...,
+        data: bytes | None = ...,
+        content_type: str | None = ...,
+        params: dict[str, str] | None = ...,
+        use_full_url: bool = ...,
+    ) -> tuple[bool, dict[str, Any] | None, str | None]: ...
+
+    async def _http_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str] | None = ...,
+        content: bytes | None = ...,
+        timeout: float | None = ...,
+        return_raw: bool = ...,
+        operation: str = ...,
+    ) -> tuple[bool, dict[str, Any] | bytes | None, str | None]: ...
+
+    def _record_failure(self, error: Exception | None = ...) -> None: ...
+
+
 class TeamsFilesMixin:
     """Mixin providing file upload/download operations for TeamsConnector."""
 
     async def upload_file(
-        self,
+        self: _TeamsConnectorProtocol,
         channel_id: str,
         content: bytes,
         filename: str,
@@ -119,7 +149,7 @@ class TeamsFilesMixin:
             # For small files (<4MB), use direct upload
             # For large files, use upload session
             file_size = len(content)
-            upload_data = None
+            upload_data: dict[str, Any] | bytes | None = None
 
             if file_size < 4 * 1024 * 1024:  # 4MB threshold
                 # Direct upload for small files
@@ -179,7 +209,7 @@ class TeamsFilesMixin:
                             metadata={"error": error or "Upload failed"},
                         )
 
-            if success and upload_data:
+            if success and upload_data and isinstance(upload_data, dict):
                 file_id = upload_data.get("id", "")
                 web_url = upload_data.get("webUrl")
 
@@ -251,7 +281,7 @@ class TeamsFilesMixin:
             )
 
     async def download_file(
-        self,
+        self: _TeamsConnectorProtocol,
         file_id: str,
         drive_id: str | None = None,
         **kwargs: Any,
