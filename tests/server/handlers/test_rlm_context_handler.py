@@ -103,6 +103,10 @@ class TestRLMContextHandlerCanHandle:
         """Test can_handle returns True for context/{id} endpoint."""
         assert rlm_context_handler.can_handle("/api/v1/rlm/context/ctx_abc123")
 
+    def test_can_handle_codebase_health(self, rlm_context_handler):
+        """Test can_handle returns True for codebase health endpoint."""
+        assert rlm_context_handler.can_handle("/api/v1/rlm/codebase/health")
+
     def test_cannot_handle_unknown(self, rlm_context_handler):
         """Test can_handle returns False for unknown endpoint."""
         assert not rlm_context_handler.can_handle("/api/v1/unknown")
@@ -160,6 +164,30 @@ class TestRLMContextHandlerStrategies:
             assert strategy in strategies, f"Missing strategy: {strategy}"
             assert "description" in strategies[strategy]
             assert "use_case" in strategies[strategy]
+
+
+class TestRLMContextHandlerCodebaseHealth:
+    """Test GET /api/v1/rlm/codebase/health endpoint."""
+
+    def test_codebase_health_returns_manifest_status(
+        self, rlm_context_handler, mock_http_handler, tmp_path, monkeypatch
+    ):
+        context_dir = tmp_path / ".nomic" / "context"
+        context_dir.mkdir(parents=True)
+        manifest_path = context_dir / "codebase_manifest.tsv"
+        manifest_path.write_text(
+            "# Aragora codebase manifest\n# root=/tmp\n# files=2 lines=20\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_CODEBASE_ROOT", str(tmp_path))
+
+        result = rlm_context_handler.handle("/api/v1/rlm/codebase/health", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "available"
+        assert body["manifest"]["exists"] is True
 
 
 class TestRLMContextHandlerCompress:

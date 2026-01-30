@@ -101,6 +101,10 @@ class TestRLMContextHandlerCanHandle:
         """Test can_handle returns True for context by ID endpoint."""
         assert rlm_handler.can_handle("/api/v1/rlm/context/ctx_abc123")
 
+    def test_can_handle_codebase_health(self, rlm_handler):
+        """Test can_handle returns True for codebase health endpoint."""
+        assert rlm_handler.can_handle("/api/v1/rlm/codebase/health")
+
     def test_cannot_handle_unknown(self, rlm_handler):
         """Test can_handle returns False for unknown endpoint."""
         assert not rlm_handler.can_handle("/api/v1/unknown")
@@ -143,6 +147,31 @@ class TestRLMContextHandlerStatsEndpoint:
         assert "cache" in body
         # When import fails, we get the fallback response
         assert body["system"]["compressor_available"] is False or "error" in body["cache"]
+
+
+class TestRLMContextHandlerCodebaseHealthEndpoint:
+    """Test GET /api/v1/rlm/codebase/health endpoint."""
+
+    def test_codebase_health_uses_manifest(
+        self, rlm_handler, mock_http_handler, tmp_path, monkeypatch
+    ):
+        context_dir = tmp_path / ".nomic" / "context"
+        context_dir.mkdir(parents=True)
+        manifest_path = context_dir / "codebase_manifest.tsv"
+        manifest_path.write_text(
+            "# Aragora codebase manifest\n# root=/tmp\n# files=1 lines=10\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("ARAGORA_CODEBASE_ROOT", str(tmp_path))
+
+        result = rlm_handler.handle("/api/v1/rlm/codebase/health", {}, mock_http_handler)
+
+        assert result is not None
+        assert result.status_code == 200
+        body = json.loads(result.body)
+        assert body["status"] == "available"
+        assert body["root"] == str(tmp_path)
+        assert body["manifest"]["exists"] is True
 
 
 class TestRLMContextHandlerStrategiesEndpoint:
