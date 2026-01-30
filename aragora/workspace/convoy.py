@@ -218,6 +218,11 @@ class ConvoyTracker:
         self._convoys: dict[str, Convoy] = {}
         default_use = should_use_canonical_store(default=True) or bool(bead_store)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
+        if not self._use_nomic_store:
+            logger.warning(
+                "Workspace ConvoyTracker fallback store is deprecated; using canonical store."
+            )
+            self._use_nomic_store = True
         if self._use_nomic_store and bead_store is None:
             bead_store = NomicBeadStore(
                 resolve_runtime_store_dir(), git_enabled=False, auto_commit=False

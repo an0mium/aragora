@@ -148,6 +148,11 @@ class BeadManager:
         self._storage_dir = Path(storage_dir) if storage_dir else None
         default_use = should_use_canonical_store(default=True) or bool(storage_dir)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
+        if not self._use_nomic_store:
+            logger.warning(
+                "Workspace BeadManager fallback store is deprecated; using canonical store."
+            )
+            self._use_nomic_store = True
         self._nomic_store = nomic_store
         self._nomic_initialized = False
         if self._storage_dir:

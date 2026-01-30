@@ -69,6 +69,11 @@ class ConvoyTracker:
         self._lock = asyncio.Lock()
         default_use = should_use_canonical_store(default=True) or bool(storage_path)
         self._use_nomic_store = use_nomic_store if use_nomic_store is not None else default_use
+        if not self._use_nomic_store:
+            logger.warning(
+                "Gastown ConvoyTracker fallback store is deprecated; using canonical store."
+            )
+            self._use_nomic_store = True
         self._bead_store: NomicBeadStore | None = None
         if self._use_nomic_store and self._storage_path is None:
             self._storage_path = resolve_runtime_store_dir()
