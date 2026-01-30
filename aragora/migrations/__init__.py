@@ -16,6 +16,14 @@ Usage:
 
     # Create a new migration
     python -m aragora.migrations create "Add user preferences table"
+
+Zero-Downtime Patterns:
+    from aragora.migrations.patterns import (
+        safe_add_nullable_column,  # Expand phase
+        backfill_column,           # Data migration
+        safe_set_not_null,         # Contract phase
+        validate_migration_safety, # Pre-migration validation
+    )
 """
 
 from .runner import (
@@ -26,12 +34,38 @@ from .runner import (
     get_migration_status,
     rollback_migration,
 )
+from .patterns import (
+    MigrationRisk,
+    MigrationValidation,
+    safe_add_column,
+    safe_add_nullable_column,
+    safe_drop_column,
+    safe_rename_column,
+    backfill_column,
+    safe_set_not_null,
+    safe_create_index,
+    safe_drop_index,
+    validate_migration_safety,
+)
 
 __all__ = [
+    # Runner
     "MigrationRunner",
     "Migration",
     "get_migration_runner",
     "apply_migrations",
     "rollback_migration",
     "get_migration_status",
+    # Zero-downtime patterns
+    "MigrationRisk",
+    "MigrationValidation",
+    "safe_add_column",
+    "safe_add_nullable_column",
+    "safe_drop_column",
+    "safe_rename_column",
+    "backfill_column",
+    "safe_set_not_null",
+    "safe_create_index",
+    "safe_drop_index",
+    "validate_migration_safety",
 ]

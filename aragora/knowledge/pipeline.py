@@ -84,9 +84,9 @@ try:
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound = None  # type: ignore[misc]  # Optional module fallback
-    MoundConfig = None  # type: ignore[misc]  # Optional module fallback
-    MoundBackend = None  # type: ignore[misc]  # Optional module fallback
+    KnowledgeMound = None  # Optional module fallback
+    MoundConfig = None  # Optional module fallback
+    MoundBackend = None  # Optional module fallback
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser = None  # type: ignore[misc]  # Optional module fallback
+    UnstructuredParser = None  # Optional module fallback
 
 
 @dataclass
@@ -267,7 +267,7 @@ class KnowledgePipeline:
         if self.config.use_knowledge_mound and MOUND_AVAILABLE and self._knowledge_mound is None:
             try:
                 mound_config = self.config.mound_config or MoundConfig()
-                self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
+                self._knowledge_mound = KnowledgeMound(
                     config=mound_config,
                     workspace_id=self.config.workspace_id,
                 )
@@ -490,7 +490,7 @@ class KnowledgePipeline:
             overlap=self.config.chunk_overlap,
         )
 
-        strategy = get_chunking_strategy(strategy_name, **config.__dict__)  # type: ignore[arg-type]
+        strategy = get_chunking_strategy(strategy_name, **vars(config))
         chunks = strategy.chunk(text=text, document_id=document.id)
 
         # Update document
@@ -619,11 +619,11 @@ Include dates, numbers, names, and specific claims where possible."""
         synced = 0
         try:
             # Store the document as a knowledge item
-            doc_request = IngestionRequest(  # type: ignore[call-arg]
+            doc_request = IngestionRequest(
                 content=document.text or "",
                 source=KnowledgeSource.DOCUMENT,
                 workspace_id=self.config.workspace_id,
-                confidence=ConfidenceLevel.HIGH,  # type: ignore[arg-type]
+                confidence=ConfidenceLevel.HIGH,
                 metadata={
                     "document_id": document.id,
                     "filename": document.filename,
@@ -639,11 +639,11 @@ Include dates, numbers, names, and specific claims where possible."""
 
             # Store each chunk as a knowledge item linked to the document
             for chunk in chunks[:50]:  # Limit chunks to avoid overload
-                chunk_request = IngestionRequest(  # type: ignore[call-arg]
+                chunk_request = IngestionRequest(
                     content=chunk.content,
                     source=KnowledgeSource.DOCUMENT,
                     workspace_id=self.config.workspace_id,
-                    confidence=ConfidenceLevel.HIGH,  # type: ignore[arg-type]
+                    confidence=ConfidenceLevel.HIGH,
                     metadata={
                         "chunk_id": chunk.id,
                         "document_id": document.id,
@@ -658,11 +658,15 @@ Include dates, numbers, names, and specific claims where possible."""
 
             # Store each fact as a knowledge item
             for fact in facts:
-                fact_request = IngestionRequest(  # type: ignore[call-arg]
+                # Convert confidence score to ConfidenceLevel
+                confidence_level = ConfidenceLevel.HIGH
+                if hasattr(ConfidenceLevel, "from_score"):
+                    confidence_level = ConfidenceLevel.from_score(fact.confidence)
+                fact_request = IngestionRequest(
                     content=fact.statement,
                     source=KnowledgeSource.EXTRACTION,
                     workspace_id=self.config.workspace_id,
-                    confidence=ConfidenceLevel.from_score(fact.confidence),  # type: ignore[attr-defined]
+                    confidence=confidence_level,
                     metadata={
                         "fact_id": fact.id,
                         "document_id": document.id,

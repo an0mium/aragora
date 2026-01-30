@@ -112,6 +112,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
+from aragora.server.validation.query_params import safe_query_float, safe_query_int
 
 from ...base import (
     BaseHandler,
@@ -618,8 +619,8 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_get_duplicate_clusters(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/dedup/clusters."""
         workspace_id = query_params.get("workspace_id", "default")
-        similarity_threshold = float(query_params.get("similarity_threshold", 0.9))
-        limit = int(query_params.get("limit", 100))
+        similarity_threshold = safe_query_float(query_params, "similarity_threshold", default=0.9)
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
         return _run_async(
             self.get_duplicate_clusters(
                 workspace_id=workspace_id,
@@ -631,7 +632,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_get_dedup_report(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/dedup/report."""
         workspace_id = query_params.get("workspace_id", "default")
-        similarity_threshold = float(query_params.get("similarity_threshold", 0.9))
+        similarity_threshold = safe_query_float(query_params, "similarity_threshold", default=0.9)
         return _run_async(
             self.get_dedup_report(
                 workspace_id=workspace_id,
@@ -693,9 +694,9 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_get_prunable_items(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/pruning/items."""
         workspace_id = query_params.get("workspace_id", "default")
-        staleness_threshold = float(query_params.get("staleness_threshold", 0.9))
-        min_age_days = int(query_params.get("min_age_days", 30))
-        limit = int(query_params.get("limit", 100))
+        staleness_threshold = safe_query_float(query_params, "staleness_threshold", default=0.9)
+        min_age_days = safe_query_int(query_params, "min_age_days", default=30, max_val=3650)
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
         return _run_async(
             self.get_prunable_items(
                 workspace_id=workspace_id,
@@ -744,8 +745,8 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
         workspace_id = body.get("workspace_id", "default")
         policy_id = body.get("policy_id")
-        staleness_threshold = float(body.get("staleness_threshold", 0.9))
-        min_age_days = int(body.get("min_age_days", 30))
+        staleness_threshold = safe_query_float(body, "staleness_threshold", default=0.9)
+        min_age_days = safe_query_int(body, "min_age_days", default=30, max_val=3650)
         action = body.get("action", "archive")
         dry_run = body.get("dry_run", True)
 
@@ -763,7 +764,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_get_prune_history(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/pruning/history."""
         workspace_id = query_params.get("workspace_id", "default")
-        limit = int(query_params.get("limit", 50))
+        limit = safe_query_int(query_params, "limit", default=50, max_val=1000)
         since = query_params.get("since")
         return _run_async(
             self.get_prune_history(
@@ -807,8 +808,8 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
-        decay_rate = float(body.get("decay_rate", 0.01))
-        min_confidence = float(body.get("min_confidence", 0.1))
+        decay_rate = safe_query_float(body, "decay_rate", default=0.01)
+        min_confidence = safe_query_float(body, "min_confidence", default=0.1)
 
         return _run_async(
             self.apply_confidence_decay(
@@ -1006,7 +1007,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         actor_id = query_params.get("actor_id")
         action = query_params.get("action")
         workspace_id = query_params.get("workspace_id")
-        limit = int(query_params.get("limit", 100))
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
 
         return _run_async(
             self.query_audit_trail(
@@ -1019,7 +1020,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
 
     def _handle_get_user_activity(self, user_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/governance/audit/user/:user_id."""
-        days = int(query_params.get("days", 30))
+        days = safe_query_int(query_params, "days", default=30, max_val=365)
 
         return _run_async(
             self.get_user_activity(
@@ -1035,7 +1036,9 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_analyze_coverage(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/analytics/coverage."""
         workspace_id = query_params.get("workspace_id", "default")
-        stale_threshold_days = int(query_params.get("stale_threshold_days", 90))
+        stale_threshold_days = safe_query_int(
+            query_params, "stale_threshold_days", default=90, max_val=3650
+        )
 
         return _run_async(
             self.analyze_coverage(
@@ -1047,7 +1050,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_analyze_usage(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/analytics/usage."""
         workspace_id = query_params.get("workspace_id", "default")
-        days = int(query_params.get("days", 30))
+        days = safe_query_int(query_params, "days", default=30, max_val=365)
 
         return _run_async(
             self.analyze_usage(
@@ -1106,7 +1109,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     def _handle_get_quality_trend(self, query_params: dict) -> HandlerResult:
         """Handle GET /api/knowledge/mound/analytics/quality/trend."""
         workspace_id = query_params.get("workspace_id", "default")
-        days = int(query_params.get("days", 30))
+        days = safe_query_int(query_params, "days", default=30, max_val=365)
 
         return _run_async(
             self.get_quality_trend(
@@ -1160,7 +1163,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
             body = {}
 
         workspace_id = body.get("workspace_id", "default")
-        min_confidence = float(body.get("min_confidence", 0.6))
+        min_confidence = safe_query_float(body, "min_confidence", default=0.6)
 
         return _run_async(
             self.promote_extracted_knowledge(
@@ -1225,7 +1228,7 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         """Handle GET /api/knowledge/mound/confidence/history."""
         item_id = query_params.get("item_id")
         event_type = query_params.get("event_type")
-        limit = int(query_params.get("limit", 100))
+        limit = safe_query_int(query_params, "limit", default=100, max_val=1000)
 
         return _run_async(
             self.get_confidence_history(

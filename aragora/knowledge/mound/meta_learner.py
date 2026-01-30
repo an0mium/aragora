@@ -152,8 +152,8 @@ class KnowledgeMoundMetaLearner:
         entry = await self._semantic_store.get_entry(km_id)
         if entry and entry.source_type == "continuum":
             # Fetch from ContinuumMemory
-            if self._continuum:
-                return self._continuum.get_by_id(entry.source_id)  # type: ignore[attr-defined]
+            if self._continuum and hasattr(self._continuum, "get_by_id"):
+                return self._continuum.get_by_id(entry.source_id)
         return None
 
     async def _record_continuum_access(self, entry_id: str, was_useful: bool | None) -> None:
@@ -163,11 +163,11 @@ class KnowledgeMoundMetaLearner:
 
         # ContinuumMemory should have a method to record successful/failed access
         try:
-            if was_useful is True:
-                self._continuum.record_success(entry_id)  # type: ignore[attr-defined]
-            elif was_useful is False:
-                self._continuum.record_failure(entry_id)  # type: ignore[attr-defined]
-            else:
+            if was_useful is True and hasattr(self._continuum, "record_success"):
+                self._continuum.record_success(entry_id)
+            elif was_useful is False and hasattr(self._continuum, "record_failure"):
+                self._continuum.record_failure(entry_id)
+            elif hasattr(self._continuum, "record_access"):
                 self._continuum.record_access(entry_id)
         except AttributeError:
             # Methods may not exist in all versions
@@ -277,20 +277,23 @@ class KnowledgeMoundMetaLearner:
             current_demo = hyperparams.get(f"{tier}_demotion_threshold", 0.3)
 
             # Calculate recommended thresholds based on retrieval patterns
+            # Convert to float to ensure proper types
+            current_promo_f = float(current_promo) if current_promo is not None else 0.7
+            current_demo_f = float(current_demo) if current_demo is not None else 0.3
             rec_promo, rec_demo, reasoning = self._calculate_tier_recommendations(
                 tier,
                 metrics,
-                current_promo,  # type: ignore[arg-type]
-                current_demo,  # type: ignore[arg-type]
+                current_promo_f,
+                current_demo_f,
             )
 
-            if abs(rec_promo - current_promo) > 0.05 or abs(rec_demo - current_demo) > 0.05:  # type: ignore[operator]
+            if abs(rec_promo - current_promo_f) > 0.05 or abs(rec_demo - current_demo_f) > 0.05:
                 recommendations.append(
-                    TierOptimizationRecommendation(  # type: ignore[arg-type]
+                    TierOptimizationRecommendation(
                         tier=tier,
-                        current_promotion_threshold=current_promo,  # type: ignore[arg-type]
+                        current_promotion_threshold=current_promo_f,
                         recommended_promotion_threshold=rec_promo,
-                        current_demotion_threshold=current_demo,  # type: ignore[arg-type]
+                        current_demotion_threshold=current_demo_f,
                         recommended_demotion_threshold=rec_demo,
                         reasoning=reasoning,
                         confidence=metrics.get("confidence", 0.5),
@@ -318,7 +321,8 @@ class KnowledgeMoundMetaLearner:
 
         for tier in ["fast", "medium", "slow", "glacial"]:
             # Get entries in this tier
-            entries = self._continuum.get_by_tier(tier, limit=1000)  # type: ignore[attr-defined]
+            get_by_tier = getattr(self._continuum, "get_by_tier", None)
+            entries = get_by_tier(tier, limit=1000) if get_by_tier else []
 
             if not entries:
                 continue
@@ -405,12 +409,13 @@ class KnowledgeMoundMetaLearner:
             return False
 
         try:
+            hyperparams = getattr(self._continuum, "hyperparams", {})
             for rec in recommendations:
                 if rec.confidence >= 0.5:  # Only apply high-confidence recommendations
-                    self._continuum.hyperparams[f"{rec.tier}_promotion_threshold"] = (  # type: ignore[literal-required]
+                    hyperparams[f"{rec.tier}_promotion_threshold"] = (
                         rec.recommended_promotion_threshold
                     )
-                    self._continuum.hyperparams[f"{rec.tier}_demotion_threshold"] = (  # type: ignore[literal-required]
+                    hyperparams[f"{rec.tier}_demotion_threshold"] = (
                         rec.recommended_demotion_threshold
                     )
 

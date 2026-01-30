@@ -51,7 +51,8 @@ class RelationshipOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
-            node = _run_async(mound.get_node(node_id))  # type: ignore[attr-defined,misc]
+            get_node = getattr(mound, "get_node", None)
+            node = _run_async(get_node(node_id)) if get_node else None
         except Exception as e:
             logger.error(f"Failed to get node: {e}")
             return error_response(f"Failed to get node: {e}", 500)
@@ -68,8 +69,11 @@ class RelationshipOperationsMixin:
             return error_response("direction must be 'outgoing', 'incoming', or 'both'", 400)
 
         try:
+            get_relationships = getattr(mound, "get_relationships", None)
+            if not get_relationships:
+                return error_response("get_relationships not available on mound", 503)
             relationships = _run_async(
-                mound.get_relationships(  # type: ignore[attr-defined,misc]
+                get_relationships(
                     node_id=node_id,
                     relationship_type=relationship_type,
                     direction=direction,
@@ -84,14 +88,16 @@ class RelationshipOperationsMixin:
                 "node_id": node_id,
                 "relationships": [
                     {
-                        "id": rel.id,  # type: ignore[attr-defined]
-                        "from_node_id": rel.from_node_id,  # type: ignore[attr-defined]
-                        "to_node_id": rel.to_node_id,  # type: ignore[attr-defined]
-                        "relationship_type": rel.relationship_type,  # type: ignore[attr-defined]
-                        "strength": rel.strength,  # type: ignore[attr-defined]
-                        "created_at": rel.created_at.isoformat() if rel.created_at else None,  # type: ignore[attr-defined]
-                        "created_by": rel.created_by,  # type: ignore[attr-defined]
-                        "metadata": rel.metadata,  # type: ignore[attr-defined]
+                        "id": getattr(rel, "id", None),
+                        "from_node_id": getattr(rel, "from_node_id", None),
+                        "to_node_id": getattr(rel, "to_node_id", None),
+                        "relationship_type": getattr(rel, "relationship_type", None),
+                        "strength": getattr(rel, "strength", None),
+                        "created_at": getattr(rel, "created_at", None).isoformat()
+                        if getattr(rel, "created_at", None)
+                        else None,
+                        "created_by": getattr(rel, "created_by", None),
+                        "metadata": getattr(rel, "metadata", None),
                     }
                     for rel in relationships
                 ],
@@ -140,8 +146,11 @@ class RelationshipOperationsMixin:
             return error_response("Knowledge Mound not available", 503)
 
         try:
+            add_relationship = getattr(mound, "add_relationship", None)
+            if not add_relationship:
+                return error_response("add_relationship not available on mound", 503)
             rel_id = _run_async(
-                mound.add_relationship(  # type: ignore[attr-defined,call-arg,misc]
+                add_relationship(
                     from_node_id=from_node_id,
                     to_node_id=to_node_id,
                     relationship_type=relationship_type,

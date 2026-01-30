@@ -48,8 +48,13 @@ if TYPE_CHECKING:
     from aragora.knowledge.fact_store import FactStore
     from aragora.evidence.store import EvidenceStore
     from aragora.memory.store import CritiqueStore
-    from aragora.knowledge.mound.culture import OrganizationCultureManager  # type: ignore[attr-defined]
     from aragora.types.protocols import EventEmitterProtocol
+
+# Import conditionally for optional culture manager
+try:
+    from aragora.knowledge.mound.culture import OrganizationCultureManager
+except ImportError:
+    OrganizationCultureManager = None  # type: ignore[misc]
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +132,7 @@ class KnowledgeMoundCore:
         # Staleness detector and culture accumulator
         self._staleness_detector: Any | None = None
         self._culture_accumulator: Any | None = None
-        self._org_culture_manager: Optional["OrganizationCultureManager"] = None
+        self._org_culture_manager: Any | None = None
 
         # State
         self._initialized = False
