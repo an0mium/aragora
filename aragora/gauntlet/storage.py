@@ -24,6 +24,7 @@ from aragora.storage.backends import (
     PostgreSQLBackend,
     SQLiteBackend,
 )
+from aragora.utils.datetime_helpers import parse_timestamp, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -1010,18 +1011,6 @@ class GauntletStorage:
 
     def _row_to_inflight(self, row: tuple) -> GauntletInflightRun:
         """Convert a database row to GauntletInflightRun."""
-
-        # Parse datetime
-        def parse_dt(val: Any) -> datetime:
-            if isinstance(val, datetime):
-                return val
-            if isinstance(val, str):
-                try:
-                    return datetime.fromisoformat(val)
-                except ValueError:
-                    pass
-            return datetime.now()
-
         return GauntletInflightRun(
             gauntlet_id=row[0],
             status=row[1],
@@ -1036,8 +1025,8 @@ class GauntletStorage:
             error=row[10],
             org_id=row[11],
             config_json=row[12],
-            created_at=parse_dt(row[13]),
-            updated_at=parse_dt(row[14]),
+            created_at=parse_timestamp(row[13], default=utc_now()),
+            updated_at=parse_timestamp(row[14], default=utc_now()),
         )
 
 

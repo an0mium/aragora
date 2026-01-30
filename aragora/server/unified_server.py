@@ -17,6 +17,8 @@ from threading import Thread
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from types import FrameType
+
     from aragora.agents.grounded import MomentDetector, PositionLedger
     from aragora.agents.personas import PersonaManager
     from aragora.agents.truth_grounding import PositionTracker
@@ -216,7 +218,12 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         self._send_json(error_body, status=code)
 
     def _log_request(
-        self, method: str, path: str, status: int, duration_ms: float, extra: dict | None = None
+        self,
+        method: str,
+        path: str,
+        status: int,
+        duration_ms: float,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         """Log request details for observability.
 
@@ -300,7 +307,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
                     client_ip = first_ip
         return client_ip
 
-    def _safe_int(self, query: dict, key: str, default: int, max_val: int = 100) -> int:
+    def _safe_int(self, query: dict[str, Any], key: str, default: int, max_val: int = 100) -> int:
         """Safely parse integer query param with bounds checking.
 
         Delegates to shared safe_query_int from validation module.
@@ -308,7 +315,12 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         return safe_query_int(query, key, default, min_val=1, max_val=max_val)
 
     def _safe_float(
-        self, query: dict, key: str, default: float, min_val: float = 0.0, max_val: float = 1.0
+        self,
+        query: dict[str, Any],
+        key: str,
+        default: float,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
     ) -> float:
         """Safely parse float query param with bounds checking.
 
@@ -675,7 +687,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
             )
         return UnifiedHandler._debate_controller
 
-    def _auto_select_agents(self, question: str, config: dict) -> str:
+    def _auto_select_agents(self, question: str, config: dict[str, Any]) -> str:
         """Select optimal agents using question classification and AgentSelector."""
         return auto_select_agents(
             question=question,
@@ -689,7 +701,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         lifecycle = create_lifecycle_manager(self)
         lifecycle.handle_request("GET", self._do_GET_internal, with_query=True)
 
-    def _do_GET_internal(self, path: str, query: dict) -> None:
+    def _do_GET_internal(self, path: str, query: dict[str, Any]) -> None:
         """Internal GET handler with actual routing logic."""
         # Validate query parameters against whitelist (security)
         if query and path.startswith("/api/"):
@@ -861,7 +873,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     # Note: _send_json, _add_cors_headers, _add_security_headers, _add_rate_limit_headers,
     # and _add_trace_headers are inherited from ResponseHelpersMixin
 
-    def log_message(self, format: str, *args) -> None:
+    def log_message(self, format: str, *args: Any) -> None:
         """Suppress default logging."""
         pass
 
@@ -927,39 +939,43 @@ class UnifiedServer:
             - ConsensusMemory/DissentRetriever: Minority view tracking
             - MomentDetector: Narrative moment detection
         """
-        self.http_port = http_port
-        self.ws_port = ws_port
-        self.control_plane_port = control_plane_port
-        self.nomic_loop_port = nomic_loop_port
-        self.canvas_port = canvas_port
-        self.ws_host = ws_host
-        self.http_host = http_host
-        self.static_dir = static_dir
-        self.nomic_dir = nomic_dir
-        self.storage = storage
-        self.ssl_cert = ssl_cert
-        self.ssl_key = ssl_key
-        self.ssl_enabled = bool(ssl_cert and ssl_key)
+        self.http_port: int = http_port
+        self.ws_port: int = ws_port
+        self.control_plane_port: int = control_plane_port
+        self.nomic_loop_port: int = nomic_loop_port
+        self.canvas_port: int = canvas_port
+        self.ws_host: str = ws_host
+        self.http_host: str = http_host
+        self.static_dir: Path | None = static_dir
+        self.nomic_dir: Path | None = nomic_dir
+        self.storage: DebateStorage | None = storage
+        self.ssl_cert: str | None = ssl_cert
+        self.ssl_key: str | None = ssl_key
+        self.ssl_enabled: bool = bool(ssl_cert and ssl_key)
 
         # HTTP server reference for graceful shutdown
-        self._http_server: Any = None
+        self._http_server: ThreadingHTTPServer | None = None
 
         # Create WebSocket servers
-        self.stream_server = DebateStreamServer(host=ws_host, port=ws_port)
-        self.control_plane_stream = ControlPlaneStreamServer(host=ws_host, port=control_plane_port)
-        self.nomic_loop_stream = NomicLoopStreamServer(host=ws_host, port=nomic_loop_port)
+        self.stream_server: DebateStreamServer = DebateStreamServer(host=ws_host, port=ws_port)
+        self.control_plane_stream: ControlPlaneStreamServer = ControlPlaneStreamServer(
+            host=ws_host, port=control_plane_port
+        )
+        self.nomic_loop_stream: NomicLoopStreamServer = NomicLoopStreamServer(
+            host=ws_host, port=nomic_loop_port
+        )
 
         # Create Canvas WebSocket server
+        self.canvas_stream: Optional["CanvasStreamServer"] = None
         try:
             from aragora.server.stream.canvas_stream import CanvasStreamServer
 
             self.canvas_stream = CanvasStreamServer(host=ws_host, port=canvas_port)
         except ImportError:
             logger.warning("Canvas stream server not available")
-            self.canvas_stream = None
 
         # Initialize Supabase persistence if available
-        self.persistence = init_persistence(enable_persistence)
+        self.persistence: Optional["SupabaseClient"] = init_persistence(enable_persistence)
 
         # Setup HTTP handler with base resources
         UnifiedHandler.storage = storage
@@ -1267,7 +1283,7 @@ class UnifiedServer:
     def _setup_signal_handlers(self) -> None:
         """Set up signal handlers for graceful shutdown."""
 
-        def signal_handler(signum, frame):
+        def signal_handler(signum: int, frame: "FrameType | None") -> None:
             signame = signal.Signals(signum).name
             logger.info(f"Received {signame}, initiating graceful shutdown...")
             asyncio.create_task(self.graceful_shutdown())

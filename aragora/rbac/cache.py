@@ -29,6 +29,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import threading
 import time
 from collections import OrderedDict
@@ -246,7 +247,15 @@ class RBACDistributedCache:
             self._pubsub = None
 
     def _pubsub_listener(self) -> None:
-        """Listen for invalidation messages from other instances."""
+        """Listen for invalidation messages from other instances.
+
+        Uses exponential backoff with jitter on connection errors to avoid
+        thundering herd problems when Redis recovers.
+        """
+        backoff = 1.0  # Initial backoff in seconds
+        max_backoff = 60.0  # Maximum backoff
+        consecutive_errors = 0
+
         while self._running and self._pubsub:
             try:
                 message = self._pubsub.get_message(timeout=1.0)
@@ -255,10 +264,18 @@ class RBACDistributedCache:
                     key = message.get("data", "")
                     if key:
                         self._invalidate_local(key)
+                # Reset backoff on successful operation
+                if consecutive_errors > 0:
+                    consecutive_errors = 0
+                    backoff = 1.0
             except (OSError, ConnectionError, TimeoutError) as e:
                 if self._running:
-                    logger.debug(f"RBAC pub/sub error: {e}")
-                    time.sleep(1)
+                    consecutive_errors += 1
+                    logger.debug(f"RBAC pub/sub error (attempt {consecutive_errors}): {e}")
+                    # Exponential backoff with jitter: base * 2^(errors-1) * (0.5 to 1.5)
+                    sleep_time = min(backoff * (2 ** (consecutive_errors - 1)), max_backoff)
+                    jitter = random.uniform(0.5, 1.5)
+                    time.sleep(sleep_time * jitter)
 
     def _redis_key(self, key_type: str, *parts: str) -> str:
         """Build Redis key with prefix."""

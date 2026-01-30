@@ -91,6 +91,7 @@ logger = get_structured_logger(__name__)
 
 # TYPE_CHECKING imports for type hints without runtime import overhead
 if TYPE_CHECKING:
+    from aragora.debate.checkpoint_manager import CheckpointManager
     from aragora.debate.context_gatherer import ContextGatherer
     from aragora.debate.memory_manager import MemoryManager
     from aragora.debate.phases import (
@@ -103,10 +104,20 @@ if TYPE_CHECKING:
         VotingPhase,
     )
     from aragora.debate.prompt_builder import PromptBuilder
+    from aragora.debate.revalidation_scheduler import RevalidationScheduler
+    from aragora.debate.strategy import DebateStrategy
     from aragora.events.security_events import SecurityEvent
+    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.memory.consensus import ConsensusMemory
+    from aragora.memory.continuum import ContinuumMemory
+    from aragora.ml.delegation import MLDelegationStrategy
+    from aragora.ranking.elo import EloSystem
+    from aragora.reasoning.belief import BeliefNetwork
     from aragora.reasoning.citations import CitationExtractor
     from aragora.reasoning.evidence_grounding import EvidenceGrounder
+    from aragora.rlm.cognitive_limiter import RLMCognitiveLoadLimiter
     from aragora.types.protocols import EventEmitterProtocol
+    from aragora.workflow.engine import Workflow
 
 
 class Arena:
@@ -139,36 +150,47 @@ class Arena:
         self,
         environment: Environment,
         agents: list[Agent],
-        protocol: DebateProtocol = None,
-        memory=None,  # CritiqueStore instance
-        event_hooks: dict = None,  # Optional hooks for streaming events
-        hook_manager=None,  # Optional HookManager for extended lifecycle hooks
-        event_emitter: "EventEmitterProtocol"
-        | None = None,  # Optional event emitter for subscribing to user events
-        spectator: SpectatorStream = None,  # Optional spectator stream for real-time events
-        debate_embeddings=None,  # DebateEmbeddingsDatabase for historical context
-        insight_store=None,  # Optional InsightStore for extracting learnings from debates
-        recorder=None,  # Optional ReplayRecorder for debate recording
-        agent_weights: (
-            dict[str, float] | None
-        ) = None,  # Optional reliability weights from capability probing
-        position_tracker=None,  # Optional PositionTracker for truth-grounded personas
-        position_ledger=None,  # Optional PositionLedger for grounded personas
+        protocol: Optional[DebateProtocol] = None,
+        memory: Any = None,  # CritiqueStore instance
+        event_hooks: Optional[dict[str, Any]] = None,  # Optional hooks for streaming events
+        hook_manager: Any = None,  # Optional HookManager for extended lifecycle hooks
+        event_emitter: Optional[
+            "EventEmitterProtocol"
+        ] = None,  # Optional event emitter for subscribing to user events
+        spectator: Optional[
+            SpectatorStream
+        ] = None,  # Optional spectator stream for real-time events
+        debate_embeddings: Any = None,  # DebateEmbeddingsDatabase for historical context
+        insight_store: Any = None,  # Optional InsightStore for extracting learnings from debates
+        recorder: Any = None,  # Optional ReplayRecorder for debate recording
+        agent_weights: Optional[
+            dict[str, float]
+        ] = None,  # Optional reliability weights from capability probing
+        position_tracker: Any = None,  # Optional PositionTracker for truth-grounded personas
+        position_ledger: Any = None,  # Optional PositionLedger for grounded personas
         enable_position_ledger: bool = False,  # Auto-create PositionLedger if True
-        elo_system=None,  # Optional EloSystem for relationship tracking
-        persona_manager=None,  # Optional PersonaManager for agent specialization
-        vertical=None,  # Industry vertical: "software", "legal", "healthcare", etc.
-        vertical_persona_manager=None,  # Optional VerticalPersonaManager for industry-specific personas
+        elo_system: Optional["EloSystem"] = None,  # Optional EloSystem for relationship tracking
+        persona_manager: Any = None,  # Optional PersonaManager for agent specialization
+        vertical: Optional[
+            str
+        ] = None,  # Industry vertical: "software", "legal", "healthcare", etc.
+        vertical_persona_manager: Any = None,  # Optional VerticalPersonaManager for industry-specific personas
         auto_detect_vertical: bool = True,  # Auto-detect vertical from task description
-        dissent_retriever=None,  # Optional DissentRetriever for historical minority views
-        consensus_memory=None,  # Optional ConsensusMemory for historical outcomes
-        flip_detector=None,  # Optional FlipDetector for position reversal detection
-        calibration_tracker=None,  # Optional CalibrationTracker for prediction accuracy
-        continuum_memory=None,  # Optional ContinuumMemory for cross-debate learning
-        relationship_tracker=None,  # Optional RelationshipTracker for agent relationships
-        moment_detector=None,  # Optional MomentDetector for significant moments
-        tier_analytics_tracker=None,  # Optional TierAnalyticsTracker for memory ROI
-        knowledge_mound=None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
+        dissent_retriever: Any = None,  # Optional DissentRetriever for historical minority views
+        consensus_memory: Optional[
+            "ConsensusMemory"
+        ] = None,  # Optional ConsensusMemory for historical outcomes
+        flip_detector: Any = None,  # Optional FlipDetector for position reversal detection
+        calibration_tracker: Any = None,  # Optional CalibrationTracker for prediction accuracy
+        continuum_memory: Optional[
+            "ContinuumMemory"
+        ] = None,  # Optional ContinuumMemory for cross-debate learning
+        relationship_tracker: Any = None,  # Optional RelationshipTracker for agent relationships
+        moment_detector: Any = None,  # Optional MomentDetector for significant moments
+        tier_analytics_tracker: Any = None,  # Optional TierAnalyticsTracker for memory ROI
+        knowledge_mound: Optional[
+            "KnowledgeMound"
+        ] = None,  # Optional KnowledgeMound for unified knowledge queries/ingestion
         auto_create_knowledge_mound: bool = True,  # Auto-create KM if not provided (recommended)
         enable_knowledge_retrieval: bool = True,  # Query mound before debates
         enable_knowledge_ingestion: bool = True,  # Store consensus outcomes in mound
@@ -178,52 +200,62 @@ class Arena:
         enable_auto_revalidation: bool = False,  # Auto-trigger revalidation for stale knowledge
         revalidation_staleness_threshold: float = 0.8,  # Score threshold for staleness
         revalidation_check_interval_seconds: int = 3600,  # Interval for staleness checks
-        revalidation_scheduler=None,  # Optional RevalidationScheduler instance
+        revalidation_scheduler: Optional[
+            "RevalidationScheduler"
+        ] = None,  # Optional RevalidationScheduler instance
         loop_id: str = "",  # Loop ID for multi-loop scoping
         strict_loop_scoping: bool = False,  # Drop events without loop_id when True
-        circuit_breaker: CircuitBreaker = None,  # Optional CircuitBreaker for agent failure handling
-        initial_messages: list = None,  # Optional initial conversation history (for fork debates)
-        trending_topic=None,  # Optional TrendingTopic to seed debate context
-        pulse_manager=None,  # Optional PulseManager for auto-fetching trending topics
+        circuit_breaker: Optional[
+            CircuitBreaker
+        ] = None,  # Optional CircuitBreaker for agent failure handling
+        initial_messages: Optional[
+            list[Message]
+        ] = None,  # Optional initial conversation history (for fork debates)
+        trending_topic: Any = None,  # Optional TrendingTopic to seed debate context
+        pulse_manager: Any = None,  # Optional PulseManager for auto-fetching trending topics
         auto_fetch_trending: bool = False,  # Auto-fetch trending topics if none provided
-        population_manager=None,  # Optional PopulationManager for genome evolution
+        population_manager: Any = None,  # Optional PopulationManager for genome evolution
         auto_evolve: bool = False,  # Trigger evolution after high-quality debates
         breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
-        evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
-        skill_registry=None,  # Optional SkillRegistry for extensible capabilities
+        evidence_collector: Any = None,  # Optional EvidenceCollector for auto-collecting evidence
+        skill_registry: Any = None,  # Optional SkillRegistry for extensible capabilities
         enable_skills: bool = False,  # Enable skills during evidence collection
-        propulsion_engine=None,  # Optional PropulsionEngine for push-based work assignment
+        propulsion_engine: Any = None,  # Optional PropulsionEngine for push-based work assignment
         enable_propulsion: bool = False,  # Enable propulsion events at stage transitions
-        breakpoint_manager=None,  # Optional BreakpointManager for human-in-the-loop
-        checkpoint_manager=None,  # Optional CheckpointManager for debate resume
+        breakpoint_manager: Any = None,  # Optional BreakpointManager for human-in-the-loop
+        checkpoint_manager: Optional[
+            "CheckpointManager"
+        ] = None,  # Optional CheckpointManager for debate resume
         enable_checkpointing: bool = True,  # Auto-create CheckpointManager if True (enables debate resume)
-        performance_monitor=None,  # Optional AgentPerformanceMonitor for telemetry
+        performance_monitor: Any = None,  # Optional AgentPerformanceMonitor for telemetry
         enable_performance_monitor: bool = True,  # Auto-create PerformanceMonitor if True
         enable_telemetry: bool = False,  # Enable Prometheus/Blackbox telemetry emission
         use_airlock: bool = False,  # Wrap agents with AirlockProxy for timeout protection
-        airlock_config=None,  # Optional AirlockConfig for customization
-        agent_selector=None,  # Optional AgentSelector for performance-based team selection
+        airlock_config: Any = None,  # Optional AirlockConfig for customization
+        agent_selector: Any = None,  # Optional AgentSelector for performance-based team selection
         use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
         # Gastown-inspired agent hierarchy (orchestrator/monitor/worker roles)
         enable_agent_hierarchy: bool = True,  # Assign roles based on capabilities
-        hierarchy_config: HierarchyConfig = None,  # Optional custom hierarchy config
-        prompt_evolver=None,  # Optional PromptEvolver for extracting winning patterns
+        hierarchy_config: Optional[HierarchyConfig] = None,  # Optional custom hierarchy config
+        prompt_evolver: Any = None,  # Optional PromptEvolver for extracting winning patterns
         enable_prompt_evolution: bool = False,  # Auto-create PromptEvolver if True
         # Billing/usage tracking
         org_id: str = "",  # Organization ID for multi-tenancy
         user_id: str = "",  # User ID for usage attribution
-        usage_tracker=None,  # UsageTracker instance for recording token usage
+        usage_tracker: Any = None,  # UsageTracker instance for recording token usage
         # Broadcast auto-trigger
-        broadcast_pipeline=None,  # BroadcastPipeline for audio/video generation
+        broadcast_pipeline: Any = None,  # BroadcastPipeline for audio/video generation
         auto_broadcast: bool = False,  # Auto-trigger broadcast after high-quality debates
         broadcast_min_confidence: float = 0.8,  # Minimum confidence to trigger broadcast
         # Training data export (Tinker integration)
-        training_exporter=None,  # DebateTrainingExporter for auto-export
+        training_exporter: Any = None,  # DebateTrainingExporter for auto-export
         auto_export_training: bool = False,  # Auto-export training data after debates
         training_export_min_confidence: float = 0.75,  # Min confidence to export
         # ML Integration (local ML models for routing, quality, consensus)
         enable_ml_delegation: bool = False,  # Use ML-based agent selection
-        ml_delegation_strategy=None,  # Optional custom MLDelegationStrategy
+        ml_delegation_strategy: Optional[
+            "MLDelegationStrategy"
+        ] = None,  # Optional custom MLDelegationStrategy
         ml_delegation_weight: float = 0.3,  # Weight for ML scoring vs ELO (0.0-1.0)
         enable_quality_gates: bool = False,  # Filter low-quality responses via QualityGate
         quality_gate_threshold: float = 0.6,  # Minimum quality score (0.0-1.0)
@@ -231,25 +263,31 @@ class Arena:
         consensus_early_termination_threshold: float = 0.85,  # Probability threshold
         # RLM Cognitive Load Limiter (for long debates)
         use_rlm_limiter: bool = True,  # Use RLM-enhanced cognitive limiter for context compression (auto after round 3)
-        rlm_limiter=None,  # Pre-configured RLMCognitiveLoadLimiter
+        rlm_limiter: Optional[
+            "RLMCognitiveLoadLimiter"
+        ] = None,  # Pre-configured RLMCognitiveLoadLimiter
         rlm_compression_threshold: int = 3000,  # Chars above which to trigger RLM compression
         rlm_max_recent_messages: int = 5,  # Keep N most recent messages at full detail
         rlm_summary_level: str = "SUMMARY",  # Abstraction level for older content
         rlm_compression_round_threshold: int = 3,  # Start auto-compression after this many rounds
         # Adaptive rounds (Memory-based debate strategy)
         enable_adaptive_rounds: bool = False,  # Use memory-based strategy to determine rounds
-        debate_strategy=None,  # Optional pre-configured DebateStrategy instance
+        debate_strategy: Optional[
+            "DebateStrategy"
+        ] = None,  # Optional pre-configured DebateStrategy instance
         # Cross-debate institutional memory
-        cross_debate_memory=None,  # Optional CrossDebateMemory for institutional knowledge
+        cross_debate_memory: Any = None,  # Optional CrossDebateMemory for institutional knowledge
         enable_cross_debate_memory: bool = True,  # Inject institutional knowledge from past debates
         # Post-debate workflow automation
-        post_debate_workflow=None,  # Workflow DAG to trigger after high-confidence debates
+        post_debate_workflow: Optional[
+            "Workflow"
+        ] = None,  # Workflow DAG to trigger after high-confidence debates
         enable_post_debate_workflow: bool = False,  # Auto-trigger workflow after debates
         post_debate_workflow_threshold: float = 0.7,  # Min confidence to trigger workflow
         # Agent Fabric integration (for high-scale orchestration)
-        fabric=None,  # Optional AgentFabric instance
-        fabric_config=None,  # Optional FabricDebateConfig
-    ):
+        fabric: Any = None,  # Optional AgentFabric instance
+        fabric_config: Any = None,  # Optional FabricDebateConfig
+    ) -> None:
         """Initialize the Arena with environment, agents, and optional subsystems.
 
         See inline parameter comments for subsystem descriptions.
@@ -599,11 +637,11 @@ class Arena:
         self.vertical = trackers.vertical
         self.vertical_persona_manager = trackers.vertical_persona_manager
 
-    def _broadcast_health_event(self, event: dict) -> None:
+    def _broadcast_health_event(self, event: dict[str, Any]) -> None:
         """Broadcast health events. Delegates to EventEmitter."""
         self._event_emitter.broadcast_health_event(event)
 
-    def _get_fabric_agents_sync(self, fabric: Any, fabric_config: Any) -> list:
+    def _get_fabric_agents_sync(self, fabric: Any, fabric_config: Any) -> list[Agent]:
         """Get agents from fabric pool. Delegates to orchestrator_agents."""
         return _agents_get_fabric_agents_sync(fabric, fabric_config)
 
@@ -633,12 +671,12 @@ class Arena:
         )
 
     @property
-    def user_votes(self) -> deque[dict]:
+    def user_votes(self) -> deque[dict[str, Any]]:
         """Get user votes from AudienceManager (backward compatibility)."""
         return self.audience_manager._votes
 
     @property
-    def user_suggestions(self) -> deque[dict]:
+    def user_suggestions(self) -> deque[dict[str, Any]]:
         """Get user suggestions from AudienceManager (backward compatibility)."""
         return self.audience_manager._suggestions
 
@@ -805,7 +843,7 @@ class Arena:
         self._km_coordinator = self._km_manager._km_coordinator
         self._km_adapters = self._km_manager._km_adapters
 
-    def _knowledge_notify_callback(self, event_type: str, data: dict) -> None:
+    def _knowledge_notify_callback(self, event_type: str, data: dict[str, Any]) -> None:
         """Callback for knowledge mound notifications."""
         self._notify_spectator(event_type, **data)
 
@@ -882,11 +920,11 @@ class Arena:
             protocol=self.protocol,
         )
 
-    def _get_culture_hints(self, debate_id: str) -> dict:
+    def _get_culture_hints(self, debate_id: str) -> dict[str, Any]:
         """Retrieve culture hints. Delegates to ArenaKnowledgeManager."""
         return self._km_manager.get_culture_hints(debate_id)
 
-    def _apply_culture_hints(self, hints: dict) -> None:
+    def _apply_culture_hints(self, hints: dict[str, Any]) -> None:
         """Apply culture-derived hints. Delegates to ArenaKnowledgeManager."""
         self._km_manager.apply_culture_hints(hints)
         self._culture_consensus_hint = self._km_manager.culture_consensus_hint
@@ -899,14 +937,14 @@ class Arena:
         debate_id: str,
         topic: str,
         seed_from_km: bool = True,
-    ) -> Any:
+    ) -> Optional["BeliefNetwork"]:
         """Initialize BeliefNetwork. Delegates to orchestrator_memory."""
         return _mem_setup_belief_network(debate_id, topic, seed_from_km)
 
     def _init_rlm_limiter(
         self,
         use_rlm_limiter: bool,
-        rlm_limiter,
+        rlm_limiter: Optional["RLMCognitiveLoadLimiter"],
         rlm_compression_threshold: int,
         rlm_max_recent_messages: int,
         rlm_summary_level: str,

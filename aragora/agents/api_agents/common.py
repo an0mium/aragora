@@ -14,7 +14,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import AsyncGenerator, Callable, Optional
+from typing import Any, AsyncGenerator, Callable, Optional
 
 import aiohttp
 
@@ -52,23 +52,23 @@ logger: logging.Logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Per-host connection limit (prevents overwhelming single provider)
-DEFAULT_CONNECTIONS_PER_HOST = 10
+DEFAULT_CONNECTIONS_PER_HOST: int = 10
 
 # Total connection limit across all hosts
-DEFAULT_TOTAL_CONNECTIONS = 100
+DEFAULT_TOTAL_CONNECTIONS: int = 100
 
 # Connection timeout for establishing new connections
-DEFAULT_CONNECT_TIMEOUT = 30.0
+DEFAULT_CONNECT_TIMEOUT: float = 30.0
 
 # Total request timeout (for full request/response cycle)
-DEFAULT_REQUEST_TIMEOUT = 120.0
+DEFAULT_REQUEST_TIMEOUT: float = 120.0
 
 
 def _get_connection_limits() -> tuple[int, int]:
     """Get connection limits from settings or defaults."""
     settings = get_settings()
-    per_host = getattr(settings.agent, "connections_per_host", DEFAULT_CONNECTIONS_PER_HOST)
-    total = getattr(settings.agent, "total_connections", DEFAULT_TOTAL_CONNECTIONS)
+    per_host: int = getattr(settings.agent, "connections_per_host", DEFAULT_CONNECTIONS_PER_HOST)
+    total: int = getattr(settings.agent, "total_connections", DEFAULT_TOTAL_CONNECTIONS)
     return per_host, total
 
 
@@ -86,9 +86,9 @@ class ConnectionPoolState:
         lock: Thread lock for synchronizing access to pool state
     """
 
-    connector: aiohttp.TCPConnector | None = None
-    loop_id: int | None = None
-    pending_close_tasks: set = field(default_factory=set)
+    connector: Optional[aiohttp.TCPConnector] = None
+    loop_id: Optional[int] = None
+    pending_close_tasks: set[asyncio.Task[None]] = field(default_factory=set)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def reset(self) -> None:
@@ -99,13 +99,13 @@ class ConnectionPoolState:
 
 
 # Global connection pool state
-_pool_state = ConnectionPoolState()
+_pool_state: ConnectionPoolState = ConnectionPoolState()
 
 # Legacy aliases for backward compatibility
-_session_lock = _pool_state.lock
-_shared_connector: aiohttp.TCPConnector | None = None  # Updated via _pool_state
-_connector_loop_id: int | None = None  # Updated via _pool_state
-_pending_close_tasks: set[asyncio.Task] = _pool_state.pending_close_tasks
+_session_lock: threading.Lock = _pool_state.lock
+_shared_connector: Optional[aiohttp.TCPConnector] = None  # Updated via _pool_state
+_connector_loop_id: Optional[int] = None  # Updated via _pool_state
+_pending_close_tasks: set[asyncio.Task[Any]] = _pool_state.pending_close_tasks
 
 
 async def _close_connector_async(connector: aiohttp.TCPConnector) -> None:
@@ -138,14 +138,14 @@ def get_shared_connector() -> aiohttp.TCPConnector:
     with _pool_state.lock:
         # Get current event loop id (if any)
         try:
-            current_loop = asyncio.get_running_loop()
-            current_loop_id = id(current_loop)
+            current_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+            current_loop_id: Optional[int] = id(current_loop)
         except RuntimeError:
             # No running loop - connector will be created for whatever loop uses it first
             current_loop_id = None
 
         # Recreate connector if it's closed, None, or bound to a different loop
-        need_new_connector = (
+        need_new_connector: bool = (
             _pool_state.connector is None
             or _pool_state.connector.closed
             or (current_loop_id is not None and _pool_state.loop_id != current_loop_id)
@@ -153,12 +153,12 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
         if need_new_connector:
             # Close old connector if it exists and is still open
-            old_connector = _pool_state.connector
+            old_connector: Optional[aiohttp.TCPConnector] = _pool_state.connector
             if old_connector is not None and not old_connector.closed:
                 try:
                     if current_loop_id is not None:
                         # Schedule close as a tracked task
-                        task = asyncio.get_running_loop().create_task(
+                        task: asyncio.Task[None] = asyncio.get_running_loop().create_task(
                             _close_connector_async(old_connector),
                             name="close_old_connector",
                         )
@@ -170,6 +170,8 @@ def get_shared_connector() -> aiohttp.TCPConnector:
                 except (OSError, RuntimeError, asyncio.CancelledError) as e:
                     logger.debug(f"Error scheduling connector close: {e}")
 
+            per_host: int
+            total: int
             per_host, total = _get_connection_limits()
             _pool_state.connector = aiohttp.TCPConnector(
                 limit=total,
@@ -186,8 +188,8 @@ def get_shared_connector() -> aiohttp.TCPConnector:
 
 
 def create_client_session(
-    timeout: float | None = None,
-    connector: aiohttp.TCPConnector | None = None,
+    timeout: Optional[float] = None,
+    connector: Optional[aiohttp.TCPConnector] = None,
 ) -> aiohttp.ClientSession:
     """Create an aiohttp ClientSession with proper connection limits.
 
@@ -217,7 +219,7 @@ def create_client_session(
     if timeout is None:
         timeout = DEFAULT_REQUEST_TIMEOUT
 
-    client_timeout = aiohttp.ClientTimeout(
+    client_timeout: aiohttp.ClientTimeout = aiohttp.ClientTimeout(
         total=timeout,
         connect=DEFAULT_CONNECT_TIMEOUT,
     )
@@ -236,7 +238,7 @@ def get_trace_headers() -> dict[str, str]:
     is enabled, or an empty dict if tracing is not available.
 
     These headers should be included in all outgoing API requests to
-    enable end-to-end trace correlation across Aragora → Agent → AI Model.
+    enable end-to-end trace correlation across Aragora -> Agent -> AI Model.
 
     Returns:
         Dictionary of trace headers to include in HTTP requests.
@@ -260,7 +262,7 @@ def is_openrouter_fallback_available() -> bool:
     return bool(get_api_key("OPENROUTER_API_KEY", required=False))
 
 
-def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> str | None:
+def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> Optional[str]:
     """Get primary provider API key, optionally allowing OpenRouter fallback.
 
     When fallback is allowed and OpenRouter is configured, this returns None
@@ -281,7 +283,7 @@ async def close_shared_connector() -> None:
     """
     # First, await any pending close tasks from previous connector swaps
     if _pool_state.pending_close_tasks:
-        pending = list(_pool_state.pending_close_tasks)
+        pending: list[asyncio.Task[Any]] = list(_pool_state.pending_close_tasks)
         if pending:
             logger.debug(f"Awaiting {len(pending)} pending connector close tasks")
             await asyncio.gather(*pending, return_exceptions=True)
@@ -308,7 +310,7 @@ def get_stream_buffer_size() -> int:
 
 # Legacy constant for backward compatibility - prefer get_stream_buffer_size()
 # Must match settings.agent.stream_buffer_size default (10MB)
-MAX_STREAM_BUFFER_SIZE = 10 * 1024 * 1024  # 10MB - matches settings default
+MAX_STREAM_BUFFER_SIZE: int = 10 * 1024 * 1024  # 10MB - matches settings default
 
 
 def calculate_retry_delay(
@@ -328,7 +330,7 @@ def calculate_retry_delay(
         attempt: Current retry attempt (0-indexed)
         base_delay: Initial delay in seconds (default: 1.0)
         max_delay: Maximum delay cap in seconds (default: 60.0)
-        jitter_factor: Fraction of delay to randomize (default: 0.3 = ±30%)
+        jitter_factor: Fraction of delay to randomize (default: 0.3 = +/-30%)
 
     Returns:
         Delay in seconds with jitter applied
@@ -340,10 +342,10 @@ def calculate_retry_delay(
         attempt=3: ~8s (5.6-10.4s)
     """
     # Calculate base exponential delay
-    delay = min(base_delay * (2**attempt), max_delay)
+    delay: float = min(base_delay * (2**attempt), max_delay)
 
-    # Apply random jitter: delay ± (jitter_factor * delay)
-    jitter = delay * jitter_factor * random.uniform(-1, 1)
+    # Apply random jitter: delay +/- (jitter_factor * delay)
+    jitter: float = delay * jitter_factor * random.uniform(-1, 1)
 
     # Ensure minimum delay of 0.1s
     return max(0.1, delay + jitter)
@@ -356,12 +358,12 @@ def _get_stream_chunk_timeout() -> float:
     return get_settings().agent.stream_chunk_timeout
 
 
-STREAM_CHUNK_TIMEOUT = 90.0  # Default fallback (increased for long-form models)
+STREAM_CHUNK_TIMEOUT: float = 90.0  # Default fallback (increased for long-form models)
 
 
 async def iter_chunks_with_timeout(
     response_content: aiohttp.StreamReader,
-    chunk_timeout: float | None = None,
+    chunk_timeout: Optional[float] = None,
 ) -> AsyncGenerator[bytes, None]:
     """
     Async generator that wraps response content iteration with per-chunk timeout.
@@ -388,10 +390,10 @@ async def iter_chunks_with_timeout(
     if chunk_timeout is None:
         chunk_timeout = _get_stream_chunk_timeout()
 
-    async_iter = response_content.iter_any().__aiter__()
+    async_iter: AsyncGenerator[bytes, None] = response_content.iter_any().__aiter__()
     while True:
         try:
-            chunk = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)
+            chunk: bytes = await asyncio.wait_for(async_iter.__anext__(), timeout=chunk_timeout)
             yield chunk
         except StopAsyncIteration:
             break
@@ -422,13 +424,18 @@ class SSEStreamParser:
         )
     """
 
+    content_extractor: Callable[[dict[str, Any]], str]
+    done_marker: str
+    max_buffer_size: int
+    chunk_timeout: float
+
     def __init__(
         self,
-        content_extractor: Callable[[dict], str],
+        content_extractor: Callable[[dict[str, Any]], str],
         done_marker: str = "[DONE]",
-        max_buffer_size: int | None = None,
-        chunk_timeout: float | None = None,
-    ):
+        max_buffer_size: Optional[int] = None,
+        chunk_timeout: Optional[float] = None,
+    ) -> None:
         """
         Initialize the SSE parser.
 
@@ -469,7 +476,7 @@ class SSEStreamParser:
             RuntimeError: If buffer exceeds maximum size or connection error
             asyncio.TimeoutError: If chunk timeout exceeded
         """
-        buffer = ""
+        buffer: str = ""
         try:
             async for chunk in iter_chunks_with_timeout(response_content, self.chunk_timeout):
                 buffer += chunk.decode("utf-8", errors="ignore")
@@ -477,11 +484,13 @@ class SSEStreamParser:
                 # DoS protection: prevent unbounded buffer growth
                 if len(buffer) > self.max_buffer_size:
                     raise AgentStreamError(
-                        agent_name=agent_name, message="Streaming buffer exceeded maximum size"
+                        agent_name=agent_name,
+                        message="Streaming buffer exceeded maximum size",
                     )
 
                 # Process complete SSE lines
                 while "\n" in buffer:
+                    line: str
                     line, buffer = buffer.split("\n", 1)
                     line = line.strip()
 
@@ -489,7 +498,7 @@ class SSEStreamParser:
                     if not line or not line.startswith("data: "):
                         continue
 
-                    data_str = line[6:]  # Remove 'data: ' prefix
+                    data_str: str = line[6:]  # Remove 'data: ' prefix
 
                     # Check for end marker
                     if data_str == self.done_marker:
@@ -497,13 +506,13 @@ class SSEStreamParser:
 
                     # Parse JSON and extract content
                     try:
-                        event = json.loads(data_str)
+                        event: Any = json.loads(data_str)
                         if not isinstance(event, dict):
                             logger.debug(
                                 f"[{agent_name}] Unexpected JSON type: {type(event).__name__}"
                             )
                             continue
-                        content = self.content_extractor(event)
+                        content: str = self.content_extractor(event)
                         if content:
                             yield content
                     except json.JSONDecodeError as e:
@@ -525,17 +534,17 @@ class SSEStreamParser:
 def create_openai_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for OpenAI API responses."""
 
-    def extract_openai_content(event: dict) -> str:
-        choices = event.get("choices")
+    def extract_openai_content(event: dict[str, Any]) -> str:
+        choices: Any = event.get("choices")
         if not choices or not isinstance(choices, list) or len(choices) == 0:
             return ""
-        first_choice = choices[0]
+        first_choice: Any = choices[0]
         if not isinstance(first_choice, dict):
             return ""
-        delta = first_choice.get("delta")
+        delta: Any = first_choice.get("delta")
         if not isinstance(delta, dict):
             return ""
-        content = delta.get("content", "")
+        content: Any = delta.get("content", "")
         return content if isinstance(content, str) else ""
 
     return SSEStreamParser(content_extractor=extract_openai_content)
@@ -544,21 +553,21 @@ def create_openai_sse_parser() -> SSEStreamParser:
 def create_anthropic_sse_parser() -> SSEStreamParser:
     """Create an SSE parser configured for Anthropic API responses."""
 
-    def extract_anthropic_content(event: dict) -> str:
+    def extract_anthropic_content(event: dict[str, Any]) -> str:
         if event.get("type") != "content_block_delta":
             return ""
-        delta = event.get("delta")
+        delta: Any = event.get("delta")
         if not isinstance(delta, dict):
             return ""
         if delta.get("type") != "text_delta":
             return ""
-        text = delta.get("text", "")
+        text: Any = delta.get("text", "")
         return text if isinstance(text, str) else ""
 
     return SSEStreamParser(content_extractor=extract_anthropic_content)
 
 
-__all__ = [
+__all__: list[str] = [
     # Standard library
     "asyncio",
     "aiohttp",

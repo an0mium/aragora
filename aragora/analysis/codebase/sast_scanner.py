@@ -1232,8 +1232,10 @@ The scanner will fall back to local pattern matching until Semgrep is installed.
             errors=errors,
         )
 
-    def _parse_semgrep_result(self, result: dict[str, Any]) -> SASTFinding | None:
+    def _parse_semgrep_result(self, result: dict[str, Any] | None) -> SASTFinding | None:
         """Parse a single Semgrep result into a SASTFinding."""
+        if result is None:
+            return None
         try:
             check_id = result.get("check_id", "unknown")
             path = result.get("path", "")

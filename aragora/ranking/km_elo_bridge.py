@@ -193,7 +193,7 @@ if TYPE_CHECKING:
         EloAdjustmentRecommendation,
         KMEloPattern,
     )
-    from aragora.knowledge.mound.core import KnowledgeMound
+    from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.ranking.elo import EloSystem
 
 logger = logging.getLogger(__name__)

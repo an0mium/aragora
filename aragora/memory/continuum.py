@@ -331,19 +331,19 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         storage_path: str | None = None,
         base_dir: str | None = None,
         km_adapter: Optional["ContinuumAdapter"] = None,
-    ):
+    ) -> None:
         if db_path is None:
             db_path = get_db_path(DatabaseType.CONTINUUM_MEMORY)
         resolved_path: str | Path = db_path
-        base_path = storage_path or base_dir
+        base_path: str | None = storage_path or base_dir
         if base_path:
-            base = Path(base_path)
+            base: Path = Path(base_path)
             if base.suffix:
                 resolved_path = base
             else:
                 resolved_path = base / "continuum_memory.db"
         else:
-            candidate = Path(db_path)
+            candidate: Path = Path(db_path)
             if candidate.exists() and candidate.is_dir():
                 resolved_path = candidate / "continuum_memory.db"
 
@@ -351,10 +351,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         super().__init__(resolved_path)
 
         # Use provided TierManager or get the shared instance
-        self._tier_manager = tier_manager or get_tier_manager()
+        self._tier_manager: TierManager = tier_manager or get_tier_manager()
 
         # Optional event emitter for WebSocket streaming
-        self.event_emitter = event_emitter
+        self.event_emitter: Optional["EventEmitterProtocol"] = event_emitter
 
         # Hyperparameters (can be modified by MetaLearner)
         self.hyperparams: ContinuumHyperparams = ContinuumHyperparams(
@@ -378,7 +378,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         self._tier_manager.promotion_cooldown_hours = self.hyperparams["promotion_cooldown_hours"]
 
         # Lock for atomic tier transitions (prevents TOCTOU race in promote/demote)
-        self._tier_lock = threading.Lock()
+        self._tier_lock: threading.Lock = threading.Lock()
 
         # Optional Knowledge Mound adapter for bidirectional integration
         self._km_adapter: Optional["ContinuumAdapter"] = km_adapter
@@ -479,10 +479,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         Returns:
             The created memory entry
         """
-        now = datetime.now().isoformat()
+        now: str = datetime.now().isoformat()
 
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO continuum_memory
@@ -494,7 +494,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             )
             conn.commit()
 
-        entry = ContinuumMemoryEntry(
+        entry: ContinuumMemoryEntry = ContinuumMemoryEntry(
             id=id,
             tier=tier,
             content=content,
@@ -545,7 +545,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
-        loop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.add(
@@ -566,8 +566,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         metadata: dict[str, Any] | None = None,
     ) -> ContinuumMemoryEntry:
         """Async wrapper for add() - offloads blocking I/O to executor."""
-        normalized_tier = MemoryTier(tier) if isinstance(tier, str) else tier
-        loop = asyncio.get_event_loop()
+        normalized_tier: MemoryTier = MemoryTier(tier) if isinstance(tier, str) else tier
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.add(
@@ -581,7 +581,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
     async def get_async(self, id: str) -> ContinuumMemoryEntry | None:
         """Async wrapper for get() - offloads blocking I/O to executor."""
-        loop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.get, id)
 
     async def retrieve_async(
@@ -594,7 +594,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         tier: str | MemoryTier | None = None,
     ) -> list[ContinuumMemoryEntry]:
         """Async wrapper for retrieve() - offloads blocking I/O to executor."""
-        loop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.retrieve(
@@ -614,7 +614,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         agent_prediction_error: float | None = None,
     ) -> float:
         """Async wrapper for update_outcome() - offloads blocking I/O to executor."""
-        loop = asyncio.get_event_loop()
+        loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.update_outcome(id, success, agent_prediction_error),
@@ -623,7 +623,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     def get(self, id: str) -> ContinuumMemoryEntry | None:
         """Get a memory entry by ID."""
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT id, tier, content, importance, surprise_score, consolidation_score,
@@ -634,7 +634,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 """,
                 (id,),
             )
-            row = cursor.fetchone()
+            row: tuple[Any, ...] | None = cursor.fetchone()
 
         if not row:
             return None
@@ -660,13 +660,13 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         """Alias for get() for interface compatibility with OutcomeMemoryBridge."""
         return self.get(id)
 
-    def update_entry(self, entry: "ContinuumMemoryEntry") -> bool:
+    def update_entry(self, entry: ContinuumMemoryEntry) -> bool:
         """Update an entry's success/failure counts.
 
         Interface compatibility method for OutcomeMemoryBridge.
         """
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 """
                 UPDATE continuum_memory
@@ -734,7 +734,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         params.append(memory_id)
 
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute(
                 f"""
                 UPDATE continuum_memory
@@ -746,7 +746,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             conn.commit()
             return cursor.rowcount > 0
 
-    def promote_entry(self, memory_id: str, new_tier: "MemoryTier") -> bool:
+    def promote_entry(self, memory_id: str, new_tier: MemoryTier) -> bool:
         """Promote an entry to a specific tier.
 
         Interface compatibility method for OutcomeMemoryBridge.

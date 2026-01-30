@@ -7,8 +7,11 @@ beads/convoys backed by the canonical Nomic stores.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, TypeVar
+
+logger = logging.getLogger(__name__)
 
 from aragora.nomic.beads import Bead as NomicBead
 from aragora.nomic.beads import BeadStatus as NomicBeadStatus
@@ -73,8 +76,8 @@ def resolve_workspace_bead_status(
     if isinstance(stored, str):
         try:
             return status_cls(stored)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Invalid workspace bead status '%s': %s", stored, e)
     return status_cls(_NOMIC_TO_WORKSPACE_BEAD.get(nomic_status, "pending"))
 
 
@@ -158,8 +161,8 @@ def resolve_workspace_convoy_status(
     if isinstance(stored, str):
         try:
             return status_cls(stored)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Invalid workspace convoy status '%s': %s", stored, e)
     return status_cls(_NOMIC_TO_WORKSPACE_CONVOY.get(nomic_status, "created"))
 
 

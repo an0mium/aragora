@@ -697,7 +697,7 @@ class TestErrorHandling:
         """Test that Redis get errors increment the error counter."""
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
-        mock_redis.get.side_effect = Exception("Redis error")
+        mock_redis.get.side_effect = ConnectionError("Redis error")
 
         with patch("redis.from_url", return_value=mock_redis):
             config = RBACCacheConfig(
@@ -719,7 +719,7 @@ class TestErrorHandling:
         """Test that Redis set errors increment the error counter."""
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
-        mock_redis.setex.side_effect = Exception("Redis write error")
+        mock_redis.setex.side_effect = ConnectionError("Redis write error")
 
         with patch("redis.from_url", return_value=mock_redis):
             config = RBACCacheConfig(

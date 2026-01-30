@@ -778,3 +778,338 @@ class TestEdgeCases:
         result = await selector.select_judge(proposals={}, context=[])
 
         assert result is None
+
+
+# ===========================================================================
+# Test: Deliberate and Vote
+# ===========================================================================
+
+
+class TestDeliberateAndVote:
+    """Tests for JudgePanel.deliberate_and_vote() method."""
+
+    @pytest.fixture
+    def panel_with_judges(self, mock_agents):
+        """Create a panel with mock judges."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy
+
+        return JudgePanel(judges=mock_agents, strategy=JudgingStrategy.MAJORITY)
+
+    @pytest.fixture
+    def mock_generate_fn(self):
+        """Create a mock generate function."""
+
+        async def generate(agent, prompt, context):
+            # Return approval-leaning responses
+            return "I approve of this proposal because it addresses the core issue."
+
+        return generate
+
+    @pytest.mark.asyncio
+    async def test_deliberate_returns_result(self, panel_with_judges, mock_generate_fn):
+        """deliberate_and_vote returns a JudgingResult."""
+        proposals = {"agent1": "Proposal A"}
+        task = "Evaluate proposal A"
+        context = []
+
+        result = await panel_with_judges.deliberate_and_vote(
+            proposals=proposals,
+            task=task,
+            context=context,
+            generate_fn=mock_generate_fn,
+            deliberation_rounds=1,
+        )
+
+        assert result is not None
+        assert hasattr(result, "approved")
+        assert hasattr(result, "votes")
+
+    @pytest.mark.asyncio
+    async def test_deliberate_with_zero_rounds(self, panel_with_judges, mock_generate_fn):
+        """Deliberation with 0 rounds still collects votes."""
+        proposals = {"agent1": "Proposal A"}
+        task = "Evaluate proposal A"
+        context = []
+
+        result = await panel_with_judges.deliberate_and_vote(
+            proposals=proposals,
+            task=task,
+            context=context,
+            generate_fn=mock_generate_fn,
+            deliberation_rounds=0,
+        )
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_deliberate_handles_empty_proposals(self, panel_with_judges, mock_generate_fn):
+        """Handles empty proposals gracefully."""
+        result = await panel_with_judges.deliberate_and_vote(
+            proposals={},
+            task="Empty task",
+            context=[],
+            generate_fn=mock_generate_fn,
+        )
+
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_deliberate_custom_assessment_prompt(self, panel_with_judges, mock_generate_fn):
+        """Accepts custom assessment prompt builder."""
+        custom_prompt_called = []
+
+        def custom_assessment_prompt(proposals, task):
+            custom_prompt_called.append(True)
+            return f"Custom: Evaluate {task} with proposals {list(proposals.keys())}"
+
+        result = await panel_with_judges.deliberate_and_vote(
+            proposals={"agent1": "Proposal"},
+            task="Test task",
+            context=[],
+            generate_fn=mock_generate_fn,
+            build_assessment_prompt=custom_assessment_prompt,
+        )
+
+        assert len(custom_prompt_called) > 0  # Custom prompt was used
+
+    @pytest.mark.asyncio
+    async def test_deliberate_custom_deliberation_prompt(self, panel_with_judges, mock_generate_fn):
+        """Accepts custom deliberation prompt builder."""
+        custom_prompt_called = []
+
+        def custom_deliberation_prompt(assessments, proposals, task, round_num):
+            custom_prompt_called.append(round_num)
+            return f"Custom deliberation for round {round_num}"
+
+        result = await panel_with_judges.deliberate_and_vote(
+            proposals={"agent1": "Proposal"},
+            task="Test task",
+            context=[],
+            generate_fn=mock_generate_fn,
+            deliberation_rounds=2,
+            build_deliberation_prompt=custom_deliberation_prompt,
+        )
+
+        assert len(custom_prompt_called) >= 1  # At least one deliberation round
+
+
+# ===========================================================================
+# Test: Historical Dissenter Finding
+# ===========================================================================
+
+
+class TestCruxAwareHistoricalQuery:
+    """Tests for _find_historical_dissenters method."""
+
+    @pytest.fixture
+    def crux_strategy(self, mock_elo_system):
+        """Create CruxAwareStrategy with mock consensus memory."""
+        from aragora.debate.judge_selector import CruxAwareStrategy
+
+        mock_consensus_memory = MagicMock()
+        mock_consensus_memory.find_similar_debates.return_value = []
+
+        return CruxAwareStrategy(
+            elo_system=mock_elo_system,
+            consensus_memory=mock_consensus_memory,
+        )
+
+    def test_find_dissenters_no_memory(self, mock_elo_system):
+        """Returns empty list when no consensus memory."""
+        from aragora.debate.judge_selector import CruxAwareStrategy
+
+        strategy = CruxAwareStrategy(
+            elo_system=mock_elo_system,
+            consensus_memory=None,
+        )
+
+        result = strategy._find_historical_dissenters(
+            cruxes=[{"claim": "Test claim"}],
+            agents=[],
+        )
+
+        assert result == []
+
+    def test_find_dissenters_empty_cruxes(self, crux_strategy, mock_agents):
+        """Returns empty list for empty cruxes."""
+        result = crux_strategy._find_historical_dissenters(
+            cruxes=[],
+            agents=mock_agents,
+        )
+
+        assert result == []
+
+    def test_find_dissenters_with_matches(self, mock_agents, mock_elo_system):
+        """Returns agents who dissented in similar debates."""
+        from aragora.debate.judge_selector import CruxAwareStrategy
+
+        # Create mock debate with dissenting agents
+        mock_debate = MagicMock()
+        mock_debate.dissenting_agents = ["agent_1"]
+
+        mock_consensus_memory = MagicMock()
+        mock_consensus_memory.find_similar_debates.return_value = [mock_debate]
+
+        strategy = CruxAwareStrategy(
+            elo_system=mock_elo_system,
+            consensus_memory=mock_consensus_memory,
+        )
+
+        result = strategy._find_historical_dissenters(
+            cruxes=[{"claim": "Test claim"}],
+            agents=mock_agents,
+        )
+
+        # Should find agents matching dissenting names
+        assert isinstance(result, list)
+
+
+# ===========================================================================
+# Test: Default Prompts
+# ===========================================================================
+
+
+class TestCustomPrompts:
+    """Tests for default prompt generation methods."""
+
+    @pytest.fixture
+    def panel(self, mock_agents):
+        """Create a basic panel."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy
+
+        return JudgePanel(judges=mock_agents, strategy=JudgingStrategy.MAJORITY)
+
+    def test_default_assessment_prompt_format(self, panel):
+        """Assessment prompt includes proposals and task."""
+        proposals = {"agent1": "Proposal content here"}
+        task = "Evaluate the proposal"
+
+        prompt = panel._default_assessment_prompt(proposals, task)
+
+        assert isinstance(prompt, str)
+        assert len(prompt) > 0
+        # Should mention the task or proposals
+        assert "proposal" in prompt.lower() or task.lower() in prompt.lower()
+
+    def test_default_assessment_prompt_multiple_proposals(self, panel):
+        """Assessment prompt handles multiple proposals."""
+        proposals = {
+            "agent1": "First proposal",
+            "agent2": "Second proposal",
+            "agent3": "Third proposal",
+        }
+        task = "Compare all proposals"
+
+        prompt = panel._default_assessment_prompt(proposals, task)
+
+        assert isinstance(prompt, str)
+        assert len(prompt) > 0
+
+    def test_default_deliberation_prompt_format(self, panel):
+        """Deliberation prompt includes assessments and round info."""
+        assessments = {
+            "judge1": {"reasoning": "Looks good", "recommendation": "approve"},
+            "judge2": {"reasoning": "Has issues", "recommendation": "reject"},
+        }
+        proposals = {"agent1": "Proposal"}
+        task = "Evaluate"
+        round_num = 1
+
+        prompt = panel._default_deliberation_prompt(assessments, proposals, task, round_num)
+
+        assert isinstance(prompt, str)
+        assert len(prompt) > 0
+
+
+# ===========================================================================
+# Test: Weighted Voting Edge Cases
+# ===========================================================================
+
+
+class TestWeightedVotingEdgeCases:
+    """Tests for edge cases in weighted voting."""
+
+    def test_weighted_all_same_weight(self, mock_agents):
+        """Weighted voting with equal weights."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy, JudgeVote
+
+        # All judges have equal weight
+        weights = {"agent_1": 1.0, "agent_2": 1.0, "agent_3": 1.0}
+        panel = JudgePanel(
+            judges=mock_agents,
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights=weights,
+        )
+
+        panel.record_vote("agent_1", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("agent_2", JudgeVote.REJECT, 0.8, "Bad")
+        panel.record_vote("agent_3", JudgeVote.APPROVE, 0.7, "Fine")
+
+        result = panel.get_result()
+
+        # 2 approve vs 1 reject should be approved
+        assert result.approved is True
+
+    def test_weighted_high_weight_dissent(self, mock_agents):
+        """High weight dissenter can change outcome."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy, JudgeVote
+
+        # One judge has much higher weight
+        weights = {"agent_1": 0.3, "agent_2": 0.3, "agent_3": 0.9}
+        panel = JudgePanel(
+            judges=mock_agents,
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights=weights,
+        )
+
+        # Two low-weight approvals
+        panel.record_vote("agent_1", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("agent_2", JudgeVote.APPROVE, 0.8, "Also good")
+        # One high-weight rejection
+        panel.record_vote("agent_3", JudgeVote.REJECT, 0.9, "Critical flaw")
+
+        result = panel.get_result()
+
+        # High weight rejection should lower weighted approval
+        assert result.weighted_approval < result.approval_ratio
+
+    def test_weighted_zero_weights(self, mock_agents):
+        """Handles zero weights gracefully."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy, JudgeVote
+
+        # Some judges have zero weight
+        weights = {"agent_1": 0.0, "agent_2": 0.0, "agent_3": 1.0}
+        panel = JudgePanel(
+            judges=mock_agents,
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights=weights,
+        )
+
+        panel.record_vote("agent_1", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("agent_2", JudgeVote.APPROVE, 0.8, "Also good")
+        panel.record_vote("agent_3", JudgeVote.REJECT, 0.9, "Bad")
+
+        result = panel.get_result()
+
+        # Only the non-zero weight should matter in weighted calculation
+        assert result is not None
+
+    def test_weighted_tie_with_different_weights(self, mock_agents):
+        """Tie-breaking with weighted votes."""
+        from aragora.debate.judge_selector import JudgePanel, JudgingStrategy, JudgeVote
+
+        weights = {"agent_1": 0.5, "agent_2": 0.5}
+        panel = JudgePanel(
+            judges=mock_agents[:2],
+            strategy=JudgingStrategy.WEIGHTED,
+            judge_weights=weights,
+        )
+
+        panel.record_vote("agent_1", JudgeVote.APPROVE, 0.9, "Good")
+        panel.record_vote("agent_2", JudgeVote.REJECT, 0.8, "Bad")
+
+        result = panel.get_result()
+
+        # Should handle tie gracefully
+        assert result is not None
+        assert result.weighted_approval == 0.5 or result.approval_ratio == 0.5

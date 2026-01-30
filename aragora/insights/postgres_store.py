@@ -534,31 +534,34 @@ class PostgresInsightStore(PostgresStore):
             return [self._row_to_insight(row) for row in rows]
 
     async def get_stats(self) -> dict:
-        """Get overall statistics about stored insights."""
+        """Get overall statistics about stored insights.
+
+        Optimized to use 2 queries instead of 6 for better performance.
+        """
         async with self.connection() as conn:
-            stats: dict[str, Any] = {}
+            # Query 1: All scalar stats in a single query using subqueries
+            row = await conn.fetchrow("""
+                SELECT
+                    (SELECT COUNT(*) FROM insights) as total_insights,
+                    (SELECT COUNT(*) FROM debate_summaries) as total_debates,
+                    (SELECT COUNT(*) FROM debate_summaries WHERE consensus_reached = TRUE) as consensus_debates,
+                    (SELECT COUNT(DISTINCT agent_name) FROM agent_performance_history) as unique_agents,
+                    (SELECT COALESCE(AVG(total_insights), 0) FROM debate_summaries) as avg_insights
+            """)
 
-            row = await conn.fetchrow("SELECT COUNT(*) as count FROM insights")
-            stats["total_insights"] = row["count"] if row else 0
+            stats: dict[str, Any] = {
+                "total_insights": row["total_insights"] if row else 0,
+                "total_debates": row["total_debates"] if row else 0,
+                "consensus_debates": row["consensus_debates"] if row else 0,
+                "unique_agents": row["unique_agents"] if row else 0,
+                "avg_insights_per_debate": float(row["avg_insights"])
+                if row and row["avg_insights"]
+                else 0,
+            }
 
-            row = await conn.fetchrow("SELECT COUNT(*) as count FROM debate_summaries")
-            stats["total_debates"] = row["count"] if row else 0
-
-            row = await conn.fetchrow(
-                "SELECT COUNT(*) as count FROM debate_summaries WHERE consensus_reached = TRUE"
-            )
-            stats["consensus_debates"] = row["count"] if row else 0
-
+            # Query 2: Grouped stats (must be separate due to different result shape)
             rows = await conn.fetch("SELECT type, COUNT(*) as count FROM insights GROUP BY type")
             stats["insights_by_type"] = {row["type"]: row["count"] for row in rows}
-
-            row = await conn.fetchrow(
-                "SELECT COUNT(DISTINCT agent_name) as count FROM agent_performance_history"
-            )
-            stats["unique_agents"] = row["count"] if row else 0
-
-            row = await conn.fetchrow("SELECT AVG(total_insights) as avg FROM debate_summaries")
-            stats["avg_insights_per_debate"] = float(row["avg"]) if row and row["avg"] else 0
 
             return stats
 
