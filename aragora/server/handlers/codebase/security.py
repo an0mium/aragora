@@ -51,6 +51,7 @@ from aragora.events.security_events import (
     get_security_emitter,
 )
 from aragora.services import ServiceRegistry
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -1001,8 +1002,8 @@ class SecurityHandler(BaseHandler):
             severity=params.get("severity"),
             package=params.get("package"),
             ecosystem=params.get("ecosystem"),
-            limit=int(params.get("limit", 100)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=100, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
     async def handle_get_cve(self, params: dict[str, Any], cve_id: str) -> HandlerResult:
@@ -1014,8 +1015,8 @@ class SecurityHandler(BaseHandler):
         return await handle_list_scans(
             repo_id=repo_id,
             status=params.get("status"),
-            limit=int(params.get("limit", 20)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=20, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
     # =========================================================================
@@ -1033,7 +1034,9 @@ class SecurityHandler(BaseHandler):
             repo_id=repo_id,
             branch=data.get("branch"),
             include_history=data.get("include_history", False),
-            history_depth=int(data.get("history_depth", 100)),
+            history_depth=safe_query_int(
+                data, "history_depth", default=100, min_val=1, max_val=10000
+            ),
             workspace_id=data.get("workspace_id"),
             user_id=self._get_user_id(),
         )
@@ -1057,8 +1060,8 @@ class SecurityHandler(BaseHandler):
             severity=params.get("severity"),
             secret_type=params.get("secret_type"),
             include_history=params.get("include_history", "true").lower() == "true",
-            limit=int(params.get("limit", 100)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=100, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
     async def handle_list_secrets_scans(
@@ -1068,8 +1071,8 @@ class SecurityHandler(BaseHandler):
         return await handle_list_secrets_scans(
             repo_id=repo_id,
             status=params.get("status"),
-            limit=int(params.get("limit", 20)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=20, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
     def _get_user_id(self) -> str:
@@ -1100,8 +1103,8 @@ class SecurityHandler(BaseHandler):
             repo_id=repo_id,
             severity=params.get("severity"),
             owasp_category=params.get("owasp_category"),
-            limit=int(params.get("limit", 100)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=100, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
     async def handle_get_owasp_summary(self, params: dict[str, Any], repo_id: str) -> HandlerResult:

@@ -43,7 +43,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Literal, Optional
 
-from aragora.persistence.db_config import DatabaseType, get_db_path
 from aragora.knowledge.types import (
     Fact,
     ValidationStatus,
@@ -880,7 +879,10 @@ class KnowledgeMound:
         """
         self.workspace_id = workspace_id
         if db_path is None:
-            knowledge_dir = get_db_path(DatabaseType.KNOWLEDGE).parent  # type: ignore[attr-defined]
+            # Use the nomic directory for knowledge mound storage
+            from aragora.persistence.db_config import get_nomic_dir
+
+            knowledge_dir = get_nomic_dir() / "knowledge"
             self._db_path = knowledge_dir / "mound.db"
         else:
             self._db_path = Path(db_path)
@@ -1358,7 +1360,7 @@ class KnowledgeMound:
                         debate_id=getattr(debate_result, "debate_id", None),
                     ),
                     workspace_id=self.workspace_id,
-                    validation_status=ValidationStatus.PENDING,  # type: ignore[attr-defined]
+                    validation_status=ValidationStatus.UNVERIFIED,
                     metadata={
                         "agent": agent_id,
                         "debate_round": getattr(msg, "round", 0),
@@ -1450,11 +1452,7 @@ class KnowledgeMound:
                         {
                             "source": rel.from_node_id,
                             "target": rel.to_node_id,
-                            "type": (
-                                rel.relationship_type.value  # type: ignore[union-attr]
-                                if hasattr(rel.relationship_type, "value")
-                                else str(rel.relationship_type)
-                            ),
+                            "type": rel.relationship_type,
                             "strength": rel.strength,
                         }
                     )

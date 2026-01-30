@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from types import FrameType
 
+    import uvicorn
+
     from aragora.agents.grounded import MomentDetector, PositionLedger
     from aragora.agents.personas import PersonaManager
     from aragora.agents.truth_grounding import PositionTracker
@@ -73,12 +75,12 @@ from aragora.server.static_file_handler import StaticFileHandler
 from aragora.server.upload_rate_limit import get_upload_limiter
 
 # DoS protection limits
-MAX_MULTIPART_PARTS = 10
-MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB for uploads
-MAX_JSON_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB for JSON API
+MAX_MULTIPART_PARTS: int = 10
+MAX_CONTENT_LENGTH: int = 100 * 1024 * 1024  # 100MB for uploads
+MAX_JSON_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10MB for JSON API
 
 # Trusted proxies for X-Forwarded-For header validation
-TRUSTED_PROXIES = frozenset(
+TRUSTED_PROXIES: frozenset[str] = frozenset(
     p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
 
@@ -391,7 +393,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         return content_length
 
     # Paths exempt from authentication (health checks, probes, OAuth flow, public read-only)
-    AUTH_EXEMPT_PATHS = frozenset(
+    AUTH_EXEMPT_PATHS: frozenset[str] = frozenset(
         [
             # Health checks (needed for load balancers, monitoring)
             "/healthz",
@@ -462,7 +464,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
     # Path prefixes exempt from authentication (OAuth callbacks, read-only data)
     # Note: These endpoints bypass the legacy API token check (ARAGORA_API_TOKEN).
     # JWT authentication is still enforced via RBAC middleware for protected endpoints.
-    AUTH_EXEMPT_PREFIXES = (
+    AUTH_EXEMPT_PREFIXES: tuple[str, ...] = (
         "/api/auth/",  # All auth endpoints (JWT auth via RBAC, not API token)
         "/api/v1/auth/",  # All v1 auth endpoints (JWT auth via RBAC, not API token)
         "/api/agent/",  # Agent profiles (read-only)
@@ -473,7 +475,7 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
 
     # Path prefixes exempt ONLY for GET requests (read-only access)
     # These are public dashboard data endpoints that don't require auth for viewing
-    AUTH_EXEMPT_GET_PREFIXES = (
+    AUTH_EXEMPT_GET_PREFIXES: tuple[str, ...] = (
         "/api/evidence/",  # Evidence read-only access
         "/api/evolution/",  # Public evolution data
         "/api/v1/evolution/",  # Public evolution data (v1)
@@ -955,6 +957,8 @@ class UnifiedServer:
 
         # HTTP server reference for graceful shutdown
         self._http_server: ThreadingHTTPServer | None = None
+        # Uvicorn server reference for graceful shutdown
+        self._uvicorn_server: "uvicorn.Server | None" = None
 
         # Create WebSocket servers
         self.stream_server: DebateStreamServer = DebateStreamServer(host=ws_host, port=ws_port)
@@ -1272,6 +1276,7 @@ class UnifiedServer:
                 access_log=True,
             )
             server = uvicorn.Server(config)
+            self._uvicorn_server = server  # Store reference for graceful shutdown
             await server.serve()
         except ImportError:
             logger.error(
@@ -1416,7 +1421,7 @@ async def run_unified_server(
         logger.warning(f"[server] Demo data initialization failed: {e}")
 
     # Build server kwargs, only passing host params if explicitly provided
-    server_kwargs: dict = {
+    server_kwargs: dict[str, Any] = {
         "http_port": http_port,
         "ws_port": ws_port,
         "static_dir": static_dir,

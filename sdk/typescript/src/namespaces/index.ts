@@ -1180,3 +1180,77 @@ export {
   type BatchDeleteResponse,
   type FactStats,
 } from './facts';
+
+// Evaluation (LLM-as-Judge)
+export {
+  EvaluationAPI,
+  type EvaluationDimension,
+  type EvaluationProfile,
+  type EvaluateRequest,
+  type EvaluationResult,
+  type CompareRequest,
+  type ComparisonResult,
+} from './evaluation';
+
+// Disaster Recovery
+export {
+  DisasterRecoveryAPI,
+  type DRStatus,
+  type DRIssue,
+  type DRObjectives,
+  type DRDrillRequest,
+  type DRDrillResult,
+  type DRDrillStep,
+  type DRValidateRequest,
+  type DRValidationResult,
+  type DRValidationCheck,
+} from './disaster-recovery';
+
+// Repository Indexing
+export {
+  RepositoryAPI,
+  type IndexRepositoryRequest,
+  type IndexRepositoryResponse,
+  type IncrementalIndexRequest,
+  type IndexStatus,
+  type CodeEntity,
+  type EntityRelationship,
+  type RepositoryGraph,
+  type EntityFilterParams,
+  type BatchIndexRequest,
+  type BatchIndexResponse,
+} from './repository';
+
+// Dependency Analysis
+export {
+  DependencyAnalysisAPI,
+  type AnalyzeDependenciesRequest,
+  type Dependency,
+  type DependencyAnalysisResult,
+  type GenerateSBOMRequest,
+  type SBOMResult,
+  type SBOMComponent,
+  type SBOMRelationship,
+  type ScanVulnerabilitiesRequest,
+  type Vulnerability,
+  type VulnerabilityScanResult,
+  type CheckLicensesRequest,
+  type LicenseInfo,
+  type LicenseCheckResult,
+} from './dependency-analysis';
+
+// Agent Selection
+export {
+  AgentSelectionAPI,
+  type SelectionPlugin,
+  type ScorerPlugin,
+  type TeamSelectorPlugin,
+  type RoleAssignerPlugin,
+  type DefaultPluginConfig,
+  type ScoreAgentsRequest,
+  type AgentScore,
+  type ScoreAgentsResponse,
+  type SelectTeamRequest,
+  type TeamMember,
+  type SelectTeamResponse,
+} from './agent-selection';

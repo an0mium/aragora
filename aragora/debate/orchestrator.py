@@ -978,9 +978,9 @@ class Arena:
 
     async def compress_debate_messages(
         self,
-        messages: list,
-        critiques: list | None = None,
-    ) -> tuple[list, list | None]:
+        messages: list[Message],
+        critiques: Optional[list[Critique]] = None,
+    ) -> tuple[list[Message], Optional[list[Critique]]]:
         """Compress debate messages using RLM cognitive load limiter.
 
         Delegates to orchestrator_memory.compress_debate_messages().
@@ -1002,7 +1002,7 @@ class Arena:
             result, self.env.task, belief_cruxes=belief_cruxes
         )
 
-    def _store_evidence_in_memory(self, evidence_snippets: list, task: str) -> None:
+    def _store_evidence_in_memory(self, evidence_snippets: list[Any], task: str) -> None:
         """Store evidence. Delegates to CheckpointOperations."""
         self._checkpoint_ops.store_evidence(evidence_snippets, task)
 
@@ -1010,22 +1010,22 @@ class Arena:
         """Update memory outcomes. Delegates to CheckpointOperations."""
         self._checkpoint_ops.update_memory_outcomes(result)
 
-    def _has_high_priority_needs(self, needs: list[dict]) -> list[dict]:
+    def _has_high_priority_needs(self, needs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter citation needs to high-priority items only."""
         return [n for n in needs if n["priority"] == "high"]
 
-    def _log_citation_needs(self, agent_name: str, needs: list[dict]) -> None:
+    def _log_citation_needs(self, agent_name: str, needs: list[dict[str, Any]]) -> None:
         """Log high-priority citation needs for an agent if any exist."""
         high_priority = self._has_high_priority_needs(needs)
         if high_priority:
             logger.debug(f"citations_needed agent={agent_name} count={len(high_priority)}")
 
-    def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict]]:
+    def _extract_citation_needs(self, proposals: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
         """Extract claims that need citations from all proposals."""
         if not self.citation_extractor:
             return {}
 
-        citation_needs = {}
+        citation_needs: dict[str, list[dict[str, Any]]] = {}
         for agent_name, proposal in proposals.items():
             needs = self.citation_extractor.identify_citation_needs(proposal)
             if needs:
@@ -1112,7 +1112,7 @@ class Arena:
             candidates=all_critics,
         )
 
-    def _handle_user_event(self, event) -> None:
+    def _handle_user_event(self, event: Any) -> None:
         """Handle user participation events. Delegates to AudienceManager."""
         self.audience_manager.handle_event(event)
 
@@ -1120,11 +1120,11 @@ class Arena:
         """Drain pending user events. Delegates to AudienceManager."""
         self.audience_manager.drain_events()
 
-    def _notify_spectator(self, event_type: str, **kwargs) -> None:
+    def _notify_spectator(self, event_type: str, **kwargs: Any) -> None:
         """Notify spectator. Delegates to EventEmitter."""
         self._event_emitter.notify_spectator(event_type, **kwargs)
 
-    def _emit_moment_event(self, moment) -> None:
+    def _emit_moment_event(self, moment: Any) -> None:
         """Emit moment event. Delegates to EventEmitter."""
         self._event_emitter.emit_moment(moment)
 
@@ -1139,8 +1139,8 @@ class Arena:
         debate_id: str,
         round_num: int,
         confidence: float = 0.7,
-        domain: str | None = None,
-    ):
+        domain: Optional[str] = None,
+    ) -> None:
         """Record position. Delegates to GroundedOperations."""
         self._grounded_ops.record_position(
             agent_name=agent_name,
@@ -1152,8 +1152,8 @@ class Arena:
         )
 
     def _update_agent_relationships(
-        self, debate_id: str, participants: list[str], winner: str | None, votes: list
-    ):
+        self, debate_id: str, participants: list[str], winner: Optional[str], votes: list[Vote]
+    ) -> None:
         """Update relationships. Delegates to GroundedOperations."""
         self._grounded_ops.update_relationships(debate_id, participants, winner, votes)
 
@@ -1169,7 +1169,7 @@ class Arena:
         """Fetch similar past debates for historical context."""
         return await self._context_delegator.fetch_historical_context(task, limit)
 
-    def _format_patterns_for_prompt(self, patterns: list[dict]) -> str:
+    def _format_patterns_for_prompt(self, patterns: list[dict[str, Any]]) -> str:
         """Format learned patterns as prompt context for agents."""
         return self._context_delegator.format_patterns_for_prompt(patterns)
 
@@ -1236,9 +1236,9 @@ class Arena:
     @classmethod
     async def recover_pending_debates(
         cls,
-        bead_store=None,
+        bead_store: Any = None,
         max_age_hours: int = 24,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Recover pending debates from hook queues. Delegates to orchestrator_hooks."""
         return await _hooks_recover_pending_debates(bead_store, max_age_hours)
 
@@ -1270,11 +1270,11 @@ class Arena:
         """Assign debate stances to agents. Delegates to RolesManager."""
         self.roles_manager.assign_stances(round_num)
 
-    def _get_stance_guidance(self, agent) -> str:
+    def _get_stance_guidance(self, agent: Agent) -> str:
         """Get stance guidance for agent. Delegates to RolesManager."""
         return self.roles_manager.get_stance_guidance(agent)
 
-    async def _create_checkpoint(self, ctx, round_num: int) -> None:
+    async def _create_checkpoint(self, ctx: DebateContext, round_num: int) -> None:
         """Create checkpoint. Delegates to CheckpointOperations."""
         await self._checkpoint_ops.create_checkpoint(
             ctx, round_num, self.env, self.agents, self.protocol
@@ -1296,8 +1296,8 @@ class Arena:
     async def __aexit__(
         self,
         exc_type: Optional[type[BaseException]],
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
     ) -> None:
         """Exit async context - cleanup resources.
 
@@ -1310,7 +1310,7 @@ class Arena:
         """Track circuit breaker state in metrics. Delegates to LifecycleManager."""
         self._lifecycle.track_circuit_breaker_metrics()
 
-    def _log_phase_failures(self, execution_result) -> None:
+    def _log_phase_failures(self, execution_result: Any) -> None:
         """Log any failed phases. Delegates to LifecycleManager."""
         self._lifecycle.log_phase_failures(execution_result)
 
@@ -1682,7 +1682,7 @@ class Arena:
     # NOTE: Token usage recording and training export are now handled by
     # ArenaExtensions.on_debate_complete() - see debate/extensions.py
 
-    async def _index_debate_async(self, artifact: dict) -> None:
+    async def _index_debate_async(self, artifact: dict[str, Any]) -> None:
         """Index debate asynchronously to avoid blocking."""
         try:
             if self.debate_embeddings:
@@ -1788,11 +1788,11 @@ class Arena:
     async def run_security_debate(
         cls,
         event: "SecurityEvent",
-        agents: list[Agent] | None = None,
+        agents: Optional[list[Agent]] = None,
         confidence_threshold: float = 0.7,
         timeout_seconds: int = 300,
         org_id: str = "default",
-    ) -> "DebateResult":
+    ) -> DebateResult:
         """Run a security debate. Delegates to aragora.debate.security_debate."""
         from aragora.debate.security_debate import run_security_debate
 

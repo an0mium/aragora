@@ -29,6 +29,7 @@ from ..base import (
 from ..utils.responses import HandlerResult
 from ..secure import SecureHandler
 from ..utils.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -295,10 +296,14 @@ class BudgetControlsHandler(SecureHandler):
         manager = self._get_budget_manager()
 
         try:
+            try:
+                amount_usd_float = float(amount_usd)
+            except (ValueError, TypeError):
+                return error_response("Invalid amount_usd value", 400)
             budget = manager.create_budget(
                 org_id=org.id,
                 name=name,
-                amount_usd=float(amount_usd),
+                amount_usd=amount_usd_float,
                 period=period,
                 description=data.get("description", ""),
                 auto_suspend=data.get("auto_suspend", True),
@@ -368,19 +373,30 @@ class BudgetControlsHandler(SecureHandler):
         if "description" in data:
             update_kwargs["description"] = data["description"]
         if "amount_usd" in data:
-            if data["amount_usd"] <= 0:
+            try:
+                amount_usd_val = float(data["amount_usd"])
+            except (ValueError, TypeError):
+                return error_response("Invalid amount_usd value", 400)
+            if amount_usd_val <= 0:
                 return error_response("amount_usd must be positive", 400)
-            update_kwargs["amount_usd"] = float(data["amount_usd"])
+            update_kwargs["amount_usd"] = amount_usd_val
         if "auto_suspend" in data:
             update_kwargs["auto_suspend"] = bool(data["auto_suspend"])
         if "allow_overage" in data:
             update_kwargs["allow_overage"] = bool(data["allow_overage"])
         if "overage_rate_multiplier" in data:
-            update_kwargs["overage_rate_multiplier"] = float(data["overage_rate_multiplier"])
+            try:
+                update_kwargs["overage_rate_multiplier"] = float(data["overage_rate_multiplier"])
+            except (ValueError, TypeError):
+                return error_response("Invalid overage_rate_multiplier value", 400)
         if "max_overage_usd" in data:
-            update_kwargs["max_overage_usd"] = (
-                float(data["max_overage_usd"]) if data["max_overage_usd"] else None
-            )
+            if data["max_overage_usd"] is not None:
+                try:
+                    update_kwargs["max_overage_usd"] = float(data["max_overage_usd"])
+                except (ValueError, TypeError):
+                    return error_response("Invalid max_overage_usd value", 400)
+            else:
+                update_kwargs["max_overage_usd"] = None
 
         if not update_kwargs:
             return error_response("No update fields provided", 400)
@@ -476,7 +492,8 @@ class BudgetControlsHandler(SecureHandler):
             return error_response("Budget not found", 404)
 
         unack_only = get_string_param(handler, "unacknowledged_only", "false") == "true"
-        limit = int(get_string_param(handler, "limit", "50"))
+        limit_str = get_string_param(handler, "limit", "50")
+        limit = safe_query_int({"limit": [limit_str]}, "limit", default=50, min_val=1, max_val=1000)
 
         alerts = manager.get_alerts(budget_id, unacknowledged_only=unack_only, limit=limit)
 
@@ -588,8 +605,12 @@ class BudgetControlsHandler(SecureHandler):
         if budget.org_id != org.id:
             return error_response("Budget not found", 404)
 
-        limit = int(get_string_param(handler, "limit", "50"))
-        offset = int(get_string_param(handler, "offset", "0"))
+        limit_str = get_string_param(handler, "limit", "50")
+        offset_str = get_string_param(handler, "offset", "0")
+        limit = safe_query_int({"limit": [limit_str]}, "limit", default=50, min_val=1, max_val=1000)
+        offset = safe_query_int(
+            {"offset": [offset_str]}, "offset", default=0, min_val=0, max_val=10000
+        )
 
         # Get transactions
         transactions = manager.get_transactions(budget_id, limit=limit, offset=offset)
@@ -672,7 +693,11 @@ class BudgetControlsHandler(SecureHandler):
             budget = budgets[0]
 
         # Check if spend is allowed
-        result = budget.can_spend_extended(float(amount_usd), user_id=db_user.id)
+        try:
+            amount_usd_float = float(amount_usd)
+        except (ValueError, TypeError):
+            return error_response("Invalid amount_usd value", 400)
+        result = budget.can_spend_extended(amount_usd_float, user_id=db_user.id)
 
         return json_response(
             {

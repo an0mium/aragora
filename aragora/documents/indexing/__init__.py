@@ -17,10 +17,10 @@ try:
         WEAVIATE_AVAILABLE,
     )
 except ImportError:
-    WeaviateStore: Any = None
-    WeaviateConfig: Any = None
-    SearchResult: Any = None
-    get_weaviate_store: Any = None
+    WeaviateStore: Any = None  # type: ignore[no-redef]
+    WeaviateConfig: Any = None  # type: ignore[no-redef]
+    SearchResult: Any = None  # type: ignore[no-redef]
+    get_weaviate_store: Any = None  # type: ignore[no-redef]
     WEAVIATE_AVAILABLE = False
 from aragora.documents.indexing.hybrid_search import (
     HybridSearcher,

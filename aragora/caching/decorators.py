@@ -29,6 +29,7 @@ from typing import (
     Optional,
     ParamSpec,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -355,7 +356,7 @@ def cached(
         setattr(wrapper, "cache_info", cache.cache_info)
         setattr(wrapper, "cache_clear", cache.clear)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     # Handle both @cached and @cached() syntax
     if func is not None:
@@ -443,7 +444,7 @@ def async_cached(
         setattr(wrapper, "cache_info", cache.cache_info)
         setattr(wrapper, "cache_clear", cache.clear)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(F, wrapper)
 
     # Handle both @async_cached and @async_cached() syntax
     if func is not None:
@@ -531,7 +532,7 @@ def memoize(func: F) -> F:
     setattr(wrapper, "cache_info", cache_info)
     setattr(wrapper, "cache_clear", cache_clear)
 
-    return wrapper  # type: ignore[return-value]
+    return cast(F, wrapper)
 
 
 def cache_key(*key_args: str) -> Callable[[F], F]:

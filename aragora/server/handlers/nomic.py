@@ -40,6 +40,7 @@ from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
     HandlerResult,
+    MaybeAsyncHandlerResult,
     ServerContext,
     error_response,
     get_int_param,
@@ -55,7 +56,7 @@ from aragora.audit.unified import audit_admin, audit_security
 logger = logging.getLogger(__name__)
 
 
-class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
+class NomicHandler(SecureEndpointMixin, SecureHandler):
     """Handler for nomic loop state, monitoring, and control endpoints.
 
     Supports real-time WebSocket event streaming when a stream server is configured.
@@ -112,10 +113,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
     def _emit_event(
         self,
         emit_method: str,
-        *args,
+        *args: Any,
         max_retries: int = 3,
         base_delay: float = 0.1,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Emit an event to the Nomic Loop stream with retry logic.
 
@@ -181,7 +182,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:read", handler_arg=2)
-    async def handle(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:  # type: ignore[override]
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> MaybeAsyncHandlerResult:
         """Route nomic endpoint requests.
 
         Requires nomic:read permission (enforced by @require_permission decorator).
@@ -627,9 +630,9 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]
 
     @rate_limit(requests_per_minute=30)
     @require_permission("nomic:admin", handler_arg=2)
-    async def handle_post(  # type: ignore[override]
-        self, path: str, query_params: dict, handler: Any
-    ) -> HandlerResult | None:
+    async def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> MaybeAsyncHandlerResult:
         """Handle POST requests for control operations.
 
         Requires nomic:admin permission (enforced by @require_permission decorator).

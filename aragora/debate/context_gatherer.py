@@ -33,8 +33,8 @@ try:
 except ImportError:
     HAS_RLM = False
     HAS_OFFICIAL_RLM = False
-    get_rlm: Any = None
-    get_compressor: Any = None
+    get_rlm: Any = None  # type: ignore[no-redef]
+    get_compressor: Any = None  # type: ignore[no-redef]
 
 # Check for Knowledge Mound availability
 try:
@@ -43,7 +43,7 @@ try:
     HAS_KNOWLEDGE_MOUND = True
 except ImportError:
     HAS_KNOWLEDGE_MOUND = False
-    KnowledgeMound: Any = None
+    KnowledgeMound: Any = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,13 @@ KNOWLEDGE_MOUND_TIMEOUT = float(os.getenv("ARAGORA_KNOWLEDGE_MOUND_TIMEOUT", "10
 BELIEF_CRUX_TIMEOUT = float(os.getenv("ARAGORA_BELIEF_CRUX_TIMEOUT", "5.0"))
 THREAT_INTEL_TIMEOUT = float(os.getenv("ARAGORA_THREAT_INTEL_TIMEOUT", "10.0"))
 
+# Cache size limits to prevent unbounded memory growth
+# These can be configured via environment variables for different deployment scenarios
+MAX_EVIDENCE_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_EVIDENCE_CACHE", "100"))
+MAX_CONTEXT_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_CONTEXT_CACHE", "100"))
+MAX_CONTINUUM_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_CONTINUUM_CACHE", "100"))
+MAX_TRENDING_CACHE_SIZE = int(os.getenv("ARAGORA_MAX_TRENDING_CACHE", "50"))
+
 # Check for Threat Intelligence Enrichment availability
 try:
     from aragora.security.threat_intel_enrichment import (
@@ -68,7 +75,7 @@ try:
 except ImportError:
     HAS_THREAT_INTEL = False
     THREAT_INTEL_ENABLED = False
-    ThreatIntelEnrichment: Any = None
+    ThreatIntelEnrichment: Any = None  # type: ignore[no-redef]
 
 
 class ContextGatherer:
@@ -400,6 +407,7 @@ class ContextGatherer:
 
         if context_parts:
             result = "\n\n".join(context_parts)
+            self._enforce_cache_limit(self._research_context_cache, MAX_CONTEXT_CACHE_SIZE)
             self._research_context_cache[task_hash] = result
             return result
         else:
@@ -713,6 +721,7 @@ class ContextGatherer:
 
             if evidence_pack.snippets:
                 task_hash = self._get_task_hash(task)
+                self._enforce_cache_limit(self._research_evidence_pack, MAX_EVIDENCE_CACHE_SIZE)
                 self._research_evidence_pack[task_hash] = evidence_pack
 
                 # Update prompt builder if available
@@ -779,7 +788,8 @@ class ContextGatherer:
 
             if topics:
                 # Cache TrendingTopic objects for PromptBuilder injection
-                self._trending_topics_cache = list(topics)
+                # Limit cache size to prevent unbounded memory growth
+                self._trending_topics_cache = list(topics)[:MAX_TRENDING_CACHE_SIZE]
 
                 # Pass to prompt builder if available
                 if self._prompt_builder:
@@ -1174,6 +1184,21 @@ class ContextGatherer:
             self._research_evidence_pack.pop(task_hash, None)
             self._continuum_context_cache.pop(task_hash, None)
 
+    def _enforce_cache_limit(self, cache: dict, max_size: int) -> None:
+        """Enforce maximum cache size using FIFO eviction.
+
+        When the cache exceeds max_size, removes the oldest entries
+        (first-inserted) to bring it back under the limit.
+
+        Args:
+            cache: The cache dict to enforce limits on
+            max_size: Maximum number of entries allowed
+        """
+        while len(cache) >= max_size:
+            # Remove oldest entry (first key in dict - Python 3.7+ maintains order)
+            oldest_key = next(iter(cache))
+            del cache[oldest_key]
+
     async def _compress_with_rlm(
         self,
         content: str,
@@ -1551,6 +1576,7 @@ class ContextGatherer:
                     context_parts.append(f"- [glacial|foundational] {content}")
 
             context = "\n".join(context_parts)
+            self._enforce_cache_limit(self._continuum_context_cache, MAX_CONTINUUM_CACHE_SIZE)
             self._continuum_context_cache[task_hash] = context
             logger.info(
                 f"  [continuum] Retrieved {len(recent_mems)} recent + {len(glacial_mems)} glacial "
@@ -1615,6 +1641,7 @@ class ContextGatherer:
                 existing_pack.snippets.extend(new_snippets)
                 existing_pack.total_searched += evidence_pack.total_searched
             else:
+                self._enforce_cache_limit(self._research_evidence_pack, MAX_EVIDENCE_CACHE_SIZE)
                 self._research_evidence_pack[task_hash] = evidence_pack
 
             # Store in memory for future debates

@@ -413,7 +413,7 @@ class OrchestrationHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/orchestration/")
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests."""
@@ -441,10 +441,9 @@ class OrchestrationHandler(SecureHandler):
 
         return None
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        data: dict[str, Any],
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult | None:
@@ -463,6 +462,11 @@ class OrchestrationHandler(SecureHandler):
         except ForbiddenError:
             logger.warning(f"Orchestration execute denied for user {auth_context.user_id}")
             return error_response("Permission denied: orchestration:execute", 403)
+
+        # Read JSON body from the request
+        data = self.read_json_body(handler)
+        if data is None:
+            return error_response("Invalid JSON body", 400)
 
         if path == "/api/v1/orchestration/deliberate":
             return self._handle_deliberate(data, handler, sync=False)
@@ -548,7 +552,13 @@ class OrchestrationHandler(SecureHandler):
                 if not request.knowledge_sources:
                     for src in template.default_knowledge_sources:
                         request.knowledge_sources.append(KnowledgeContextSource.from_string(src))
-                request.output_format = template.output_format  # type: ignore[assignment]
+                # Convert template's OutputFormat to local OutputFormat via string value
+                try:
+                    template_format_value = template.output_format.value
+                    request.output_format = OutputFormat(template_format_value)
+                except ValueError:
+                    # Template uses format not in local enum, keep default
+                    pass
                 request.max_rounds = template.max_rounds
 
             # Store request

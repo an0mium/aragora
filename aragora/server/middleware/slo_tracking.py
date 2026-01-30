@@ -24,17 +24,19 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Awaitable, Generator
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from aragora.config.performance_slos import check_latency_slo
 from aragora.observability.slo import _record_measurement
 
 logger = logging.getLogger(__name__)
 
-# Type for decorated functions
-F = TypeVar("F", bound=Callable[..., Any])
+# Type variables for decorators
+P = ParamSpec("P")
+R = TypeVar("R")
 
 # Request counters (thread-safe via atomic operations)
 _total_requests = 0
@@ -127,7 +129,7 @@ def get_tracking_stats() -> dict[str, Any]:
 
 
 @contextmanager
-def slo_context(operation: str, is_debate: bool = False):
+def slo_context(operation: str, is_debate: bool = False) -> Generator[None, None, None]:
     """Context manager for tracking SLO metrics.
 
     Args:
@@ -162,7 +164,9 @@ def slo_context(operation: str, is_debate: bool = False):
             logger.warning(f"slo_violation operation={operation} {message}")
 
 
-def track_slo(operation: str, is_debate: bool = False) -> Callable[[F], F]:
+def track_slo(
+    operation: str, is_debate: bool = False
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator for tracking SLO metrics on a function.
 
     Args:
@@ -178,18 +182,20 @@ def track_slo(operation: str, is_debate: bool = False) -> Callable[[F], F]:
             ...
     """
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             with slo_context(operation, is_debate):
                 return func(*args, **kwargs)
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
 
-def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]:
+def track_slo_async(
+    operation: str, is_debate: bool = False
+) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
     """Async decorator for tracking SLO metrics.
 
     Args:
@@ -200,9 +206,9 @@ def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]
         Decorated async function
     """
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             start_time = time.perf_counter()
             success = True
 
@@ -221,12 +227,12 @@ def track_slo_async(operation: str, is_debate: bool = False) -> Callable[[F], F]
                 if not is_within:
                     logger.warning(f"slo_violation operation={operation} {message}")
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator
 
 
-def slo_middleware(handler_func: F) -> F:
+def slo_middleware(handler_func: Callable[P, R]) -> Callable[P, R]:
     """Middleware decorator for HTTP handlers.
 
     Tracks request latency and success/failure for SLO compliance.
@@ -244,12 +250,15 @@ def slo_middleware(handler_func: F) -> F:
     """
 
     @wraps(handler_func)
-    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         start_time = time.perf_counter()
         success = True
 
+        # Extract self from args for path attribute access
+        handler_self: Any = args[0] if args else None
+
         try:
-            result = handler_func(self, *args, **kwargs)
+            result = handler_func(*args, **kwargs)
             return result
         except Exception:  # Intentionally broad: re-raises after recording SLO metrics
             success = False
@@ -264,10 +273,10 @@ def slo_middleware(handler_func: F) -> F:
             # Check against API endpoint SLO
             is_within, message = check_latency_slo("api_endpoint", elapsed_ms)
             if not is_within:
-                path = getattr(self, "path", "unknown")
+                path = getattr(handler_self, "path", "unknown")
                 logger.warning(f"slo_violation path={path} {message}")
 
-    return wrapper  # type: ignore[return-value]
+    return wrapper
 
 
 __all__ = [

@@ -531,9 +531,12 @@ class RLMContextHandler(BaseHandler):
                 }
             )
 
-        except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
+        except asyncio.CancelledError as e:
+            logger.exception("Compression cancelled: %s", e)
+            return error_response("Operation cancelled", 500)
+        except (RuntimeError, asyncio.TimeoutError) as e:
             logger.exception("Compression async operation failed: %s", e)
-            return error_response(safe_error_message(e, "compression"), 500)  # type: ignore[arg-type]
+            return error_response(safe_error_message(e, "compression"), 500)
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Compression data processing error: %s", e)
             return error_response(safe_error_message(e, "compression"), 500)
@@ -643,9 +646,12 @@ class RLMContextHandler(BaseHandler):
                 }
             )
 
-        except (RuntimeError, asyncio.TimeoutError, asyncio.CancelledError) as e:
+        except asyncio.CancelledError as e:
+            logger.exception("Query cancelled: %s", e)
+            return error_response("Operation cancelled", 500)
+        except (RuntimeError, asyncio.TimeoutError) as e:
             logger.exception("Query async operation failed: %s", e)
-            return error_response(safe_error_message(e, "query"), 500)  # type: ignore[arg-type]
+            return error_response(safe_error_message(e, "query"), 500)
         except (ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Query data processing error: %s", e)
             return error_response(safe_error_message(e, "query"), 500)
@@ -822,18 +828,29 @@ class RLMContextHandler(BaseHandler):
     # Utility Methods
     # ============================================================================
 
-    def read_json_body(self, handler: Any) -> dict[str, Any] | None:  # type: ignore[override]
-        """Read and parse JSON body from request."""
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
+        """Read and parse JSON body from request.
+
+        Args:
+            handler: The HTTP request handler with headers and rfile
+            max_size: Maximum body size to accept (default: 10MB)
+
+        Returns:
+            Parsed JSON dict, or None for parse errors or missing body
+        """
         if handler is None:
             return None
+
+        # Use provided max_size or default to 10MB
+        effective_max_size = max_size if max_size is not None else 10_000_000
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
             if content_length == 0:
                 return None
 
-            # Limit body size to 10MB
-            if content_length > 10_000_000:
+            # Limit body size
+            if content_length > effective_max_size:
                 return None
 
             raw_body = handler.rfile.read(content_length)

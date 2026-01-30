@@ -428,9 +428,16 @@ def _shutdown_state_manager() -> None:
         if registry.has(StateManager):
             state_manager = registry.resolve(StateManager)
             state_manager.shutdown()
-    except Exception:
-        # Silently ignore errors during shutdown - logging is disabled anyway
-        pass
+    except Exception as e:
+        # During shutdown, logging is disabled and may not work reliably.
+        # Write to stderr for debugging (stderr is more reliable than logging at exit).
+        import sys
+
+        try:
+            sys.stderr.write(f"[StateManager shutdown error] {type(e).__name__}: {e}\n")
+        except Exception:
+            # Even stderr might fail during final shutdown - silently ignore
+            pass
 
 
 def reset_state_manager() -> None:

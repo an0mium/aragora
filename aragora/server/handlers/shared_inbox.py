@@ -42,6 +42,7 @@ from aragora.server.handlers.base import (
 from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 from aragora.observability.metrics import track_handler
 from aragora.rbac.decorators import require_permission
+from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
 
@@ -1694,8 +1695,8 @@ class SharedInboxHandler(BaseHandler):
             status=params.get("status"),
             assigned_to=params.get("assigned_to"),
             tag=params.get("tag"),
-            limit=int(params.get("limit", 50)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=50, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
         if result.get("success"):
@@ -1804,8 +1805,8 @@ class SharedInboxHandler(BaseHandler):
         result = await handle_list_routing_rules(
             workspace_id=workspace_id,
             enabled_only=params.get("enabled_only", "false").lower() == "true",
-            limit=int(params.get("limit", 100)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=100, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
             inbox_id=params.get("inbox_id"),
         )
 

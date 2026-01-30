@@ -1121,18 +1121,28 @@ class CRMHandler(SecureHandler):
     def _normalize_hubspot_company(self, company: Any) -> dict[str, Any]:
         """Normalize HubSpot company to unified format."""
         props = company.properties if hasattr(company, "properties") else {}
+        # Safely parse employee_count
+        employee_count = None
+        if props.get("numberofemployees"):
+            try:
+                employee_count = int(props.get("numberofemployees"))
+            except (ValueError, TypeError):
+                employee_count = None
+        # Safely parse annual_revenue
+        annual_revenue = None
+        if props.get("annualrevenue"):
+            try:
+                annual_revenue = float(props.get("annualrevenue"))
+            except (ValueError, TypeError):
+                annual_revenue = None
         return {
             "id": company.id,
             "platform": "hubspot",
             "name": props.get("name"),
             "domain": props.get("domain"),
             "industry": props.get("industry"),
-            "employee_count": (
-                int(props.get("numberofemployees")) if props.get("numberofemployees") else None
-            ),
-            "annual_revenue": (
-                float(props.get("annualrevenue")) if props.get("annualrevenue") else None
-            ),
+            "employee_count": employee_count,
+            "annual_revenue": annual_revenue,
             "owner_id": props.get("hubspot_owner_id"),
             "created_at": (
                 company.created_at.isoformat()
@@ -1144,11 +1154,18 @@ class CRMHandler(SecureHandler):
     def _normalize_hubspot_deal(self, deal: Any) -> dict[str, Any]:
         """Normalize HubSpot deal to unified format."""
         props = deal.properties if hasattr(deal, "properties") else {}
+        # Safely parse amount
+        amount = None
+        if props.get("amount"):
+            try:
+                amount = float(props.get("amount"))
+            except (ValueError, TypeError):
+                amount = None
         return {
             "id": deal.id,
             "platform": "hubspot",
             "name": props.get("dealname"),
-            "amount": float(props.get("amount")) if props.get("amount") else None,
+            "amount": amount,
             "stage": props.get("dealstage"),
             "pipeline": props.get("pipeline"),
             "close_date": props.get("closedate"),

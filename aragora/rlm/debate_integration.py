@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from aragora.rlm.training.buffer import ExperienceBuffer, Step, Trajectory
 
 if TYPE_CHECKING:
-    from aragora.core_types import Message
+    from aragora.core_types import DebateResult, Message
     from aragora.debate.context import DebateContext
 
 logger = logging.getLogger(__name__)
@@ -162,17 +162,19 @@ class DebateTrajectoryCollector:
         if not ctx.result:
             return None
 
-        result = ctx.result
+        result: DebateResult = ctx.result
+        messages = ctx.context_messages
+        agents = ctx.agents
         return self.record_debate_outcome(
             debate_id=ctx.debate_id,
             task=ctx.env.task if ctx.env else "",
             consensus_reached=result.consensus_reached,
             confidence=result.confidence,
-            messages=ctx.messages,  # type: ignore[attr-defined]
+            messages=messages,
             winner=result.winner,
-            final_answer=result.final_answer or "",  # type: ignore[attr-defined]
-            num_rounds=len(ctx.messages) // max(len(ctx.agents), 1) if ctx.agents else 0,  # type: ignore[attr-defined]
-            agents=[a.name for a in ctx.agents] if ctx.agents else [],
+            final_answer=result.final_answer,
+            num_rounds=len(messages) // max(len(agents), 1) if agents else 0,
+            agents=[a.name for a in agents] if agents else [],
             domain=ctx.domain or "general",
         )
 

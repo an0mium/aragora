@@ -17,12 +17,17 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional
+from functools import partial
+from typing import TYPE_CHECKING, Callable, Optional, TypeVar
 
 import httpx
 
 if TYPE_CHECKING:
     import anthropic
+    from anthropic.types import Message
+    from anthropic.types.web_search_tool_20250305_param import WebSearchTool20250305Param
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
@@ -158,8 +163,9 @@ class PreDebateResearcher:
         """
         try:
             # Offload to thread pool to avoid blocking the event loop
-            response = await asyncio.to_thread(  # type: ignore[arg-type,misc]
-                self.anthropic_client.messages.create,  # type: ignore[arg-type]
+            # Use partial to bind arguments, making it a proper callable for to_thread
+            create_fn: Callable[[], Message] = partial(
+                self.anthropic_client.messages.create,
                 model=RESEARCH_MODEL,
                 max_tokens=100,
                 messages=[
@@ -173,6 +179,7 @@ Respond with just "yes" or "no".""",
                     }
                 ],
             )
+            response = await asyncio.to_thread(create_fn)
             content_block = response.content[0]
             content = str(getattr(content_block, "text", "")).strip().lower()
             return content.startswith("yes")
@@ -266,11 +273,16 @@ Respond with just "yes" or "no".""",
             )
 
             # Define the sync API call to run in thread pool
-            def _call_claude():
+            def _call_claude() -> Message:
+                # Type the web_search tool parameter properly
+                web_search_tool: WebSearchTool20250305Param = {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                }
                 return self.anthropic_client.messages.create(
                     model=RESEARCH_MODEL,
                     max_tokens=2000,
-                    tools=[{"type": "web_search_20250305", "name": "web_search"}],  # type: ignore[list-item]
+                    tools=[web_search_tool],
                     messages=[
                         {
                             "role": "user",

@@ -11,7 +11,7 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 from aragora.observability.metrics.base import (
     NoOpMetric,
@@ -160,8 +160,8 @@ def measure_latency(metric_name: str = "request") -> Callable[[F], F]:
                 REQUEST_LATENCY.labels(endpoint=metric_name).observe(latency)
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
-        return sync_wrapper  # type: ignore[return-value]
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
 
     return decorator
 

@@ -25,7 +25,9 @@ These endpoints support enterprise disaster recovery requirements.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from aragora.rbac.decorators import require_permission
@@ -38,8 +40,17 @@ from aragora.server.handlers.base import (
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.validation.query_params import safe_query_int
+from aragora.utils.paths import PathTraversalError, safe_path
 
 logger = logging.getLogger(__name__)
+
+# SECURITY: Allowed base directories for backup source paths.
+# Only files within these directories can be backed up via the API.
+_ALLOWED_BACKUP_SOURCE_DIRS: list[Path] = [
+    Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic")).resolve(),
+    Path("/var/aragora/data"),
+    Path("/var/lib/aragora"),
+]
 
 
 class BackupHandler(BaseHandler):
@@ -230,6 +241,28 @@ class BackupHandler(BaseHandler):
         if not source_path:
             return error_response("source_path is required", 400)
 
+        # SECURITY: Validate source_path to prevent path traversal attacks.
+        # Only allow paths within configured allowed directories.
+        validated_path = None
+        for allowed_base in _ALLOWED_BACKUP_SOURCE_DIRS:
+            if not allowed_base.exists():
+                continue
+            try:
+                validated_path = safe_path(allowed_base, source_path, must_exist=True)
+                break
+            except PathTraversalError:
+                continue
+            except FileNotFoundError:
+                # Path within allowed dir but doesn't exist - try next base
+                continue
+
+        if validated_path is None:
+            logger.warning(f"Backup source path validation failed: {source_path}")
+            return error_response(
+                "Invalid source path. Path must be within allowed backup directories.",
+                400,
+            )
+
         backup_type_str = body.get("backup_type", "full")
         metadata = body.get("metadata", {})
 
@@ -247,7 +280,7 @@ class BackupHandler(BaseHandler):
 
         try:
             backup = manager.create_backup(
-                source_path=source_path,
+                source_path=validated_path,
                 backup_type=backup_type,
                 metadata=metadata,
             )

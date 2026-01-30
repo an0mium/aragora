@@ -42,11 +42,31 @@ def register_all_auditors() -> None:
     """Register all built-in auditors with the global registry."""
     from aragora.audit.registry import audit_registry
 
-    # Core auditors
-    audit_registry.register(SecurityAuditor())  # type: ignore[arg-type]
-    audit_registry.register(ComplianceAuditor())  # type: ignore[arg-type]
-    audit_registry.register(ConsistencyAuditor())  # type: ignore[arg-type]
-    audit_registry.register(QualityAuditor())  # type: ignore[arg-type]
+    # Core auditors (legacy - don't inherit from BaseAuditor)
+    audit_registry.register_legacy(
+        "security",
+        SecurityAuditor(),
+        display_name="Security Analysis",
+        description="Detects credentials, injection vulnerabilities, and security risks",
+    )
+    audit_registry.register_legacy(
+        "compliance",
+        ComplianceAuditor(),
+        display_name="Compliance Check",
+        description="Checks GDPR, HIPAA, SOC2, and contractual compliance",
+    )
+    audit_registry.register_legacy(
+        "consistency",
+        ConsistencyAuditor(),
+        display_name="Consistency Analysis",
+        description="Finds cross-document contradictions and inconsistencies",
+    )
+    audit_registry.register_legacy(
+        "quality",
+        QualityAuditor(),
+        display_name="Quality Assessment",
+        description="Evaluates ambiguity, completeness, and documentation quality",
+    )
 
     # Domain-specific auditors
     audit_registry.register(LegalAuditor())

@@ -34,6 +34,7 @@ from .base import (
 )
 from .utils.rate_limit import rate_limit
 from aragora.observability.metrics import track_handler
+from aragora.server.validation.query_params import safe_query_int, safe_query_float
 
 logger = logging.getLogger(__name__)
 
@@ -292,10 +293,14 @@ class BudgetHandler(BaseHandler):
                 return error_response(f"Invalid period: {period_str}", 400)
 
             manager = self._get_budget_manager()
+            try:
+                amount_usd_float = float(amount_usd)
+            except (ValueError, TypeError):
+                return error_response("Invalid amount_usd value", 400)
             budget = manager.create_budget(
                 org_id=org_id,
                 name=name,
-                amount_usd=float(amount_usd),
+                amount_usd=amount_usd_float,
                 period=period,
                 description=body.get("description", ""),
                 auto_suspend=body.get("auto_suspend", True),
@@ -413,9 +418,13 @@ class BudgetHandler(BaseHandler):
                 return error_response("Invalid estimated_cost_usd: must be positive", 400)
 
             manager = self._get_budget_manager()
+            try:
+                estimated_cost_float = float(estimated_cost)
+            except (ValueError, TypeError):
+                return error_response("Invalid estimated_cost_usd value", 400)
             allowed, reason, action = manager.check_budget(
                 org_id=org_id,
-                estimated_cost_usd=float(estimated_cost),
+                estimated_cost_usd=estimated_cost_float,
                 user_id=user_id,
             )
 
@@ -495,10 +504,16 @@ class BudgetHandler(BaseHandler):
 
             duration_hours = body.get("duration_hours")
 
+            duration_hours_float = None
+            if duration_hours is not None:
+                try:
+                    duration_hours_float = float(duration_hours)
+                except (ValueError, TypeError):
+                    return error_response("Invalid duration_hours value", 400)
             manager.add_override(
                 budget_id=budget_id,
                 user_id=target_user_id,
-                duration_hours=float(duration_hours) if duration_hours else None,
+                duration_hours=duration_hours_float,
             )
 
             return json_response(
@@ -587,12 +602,16 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                limit = min(int(params.get("limit", ["50"])[0]), 100)
-                offset = int(params.get("offset", ["0"])[0])
+                limit = safe_query_int(params, "limit", default=50, min_val=1, max_val=100)
+                offset = safe_query_int(params, "offset", default=0, min_val=0, max_val=10000)
                 if "date_from" in params:
-                    date_from = float(params["date_from"][0])
+                    date_from = safe_query_float(
+                        params, "date_from", default=0.0, min_val=0.0, max_val=float("inf")
+                    )
                 if "date_to" in params:
-                    date_to = float(params["date_to"][0])
+                    date_to = safe_query_float(
+                        params, "date_to", default=0.0, min_val=0.0, max_val=float("inf")
+                    )
                 user_id = params.get("user_id", [None])[0]
 
             transactions = manager.get_transactions(
@@ -651,7 +670,7 @@ class BudgetHandler(BaseHandler):
 
                 params = parse_qs(query_str)
                 period = params.get("period", ["day"])[0]
-                limit = min(int(params.get("limit", ["30"])[0]), 365)
+                limit = safe_query_int(params, "limit", default=30, min_val=1, max_val=365)
 
             if period not in ("hour", "day", "week", "month"):
                 return error_response(
@@ -693,7 +712,7 @@ class BudgetHandler(BaseHandler):
 
                 params = parse_qs(query_str)
                 period = params.get("period", ["day"])[0]
-                limit = min(int(params.get("limit", ["30"])[0]), 365)
+                limit = safe_query_int(params, "limit", default=30, min_val=1, max_val=365)
 
             if period not in ("hour", "day", "week", "month"):
                 return error_response(

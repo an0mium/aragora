@@ -18,10 +18,24 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.facade import KnowledgeMound
+    from aragora.knowledge.mound.types import QueryResult
+
+
+class KnowledgeMoundProtocol(Protocol):
+    """Protocol for Knowledge Mound interface used by analytics."""
+
+    async def query(
+        self,
+        workspace_id: str,
+        query: str,
+        limit: int = 100,
+    ) -> "QueryResult":
+        """Query knowledge items."""
+        ...
+
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +364,7 @@ class KnowledgeAnalytics:
 
     async def analyze_coverage(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         workspace_id: str,
         stale_threshold_days: int = 90,
     ) -> CoverageReport:
@@ -526,7 +540,7 @@ class KnowledgeAnalytics:
 
     async def capture_quality_snapshot(
         self,
-        mound: "KnowledgeMound",
+        mound: KnowledgeMoundProtocol,
         workspace_id: str,
     ) -> QualitySnapshot:
         """Capture current quality metrics.
@@ -681,9 +695,9 @@ class AnalyticsMixin:
     ) -> CoverageReport:
         """Analyze domain coverage."""
         return await self._get_analytics().analyze_coverage(
-            self,  # type: ignore[arg-type]
+            cast(KnowledgeMoundProtocol, self),
             workspace_id,
-            stale_threshold_days,  # type: ignore[arg-type]
+            stale_threshold_days,
         )
 
     async def analyze_usage(
@@ -699,7 +713,9 @@ class AnalyticsMixin:
         workspace_id: str,
     ) -> QualitySnapshot:
         """Capture current quality metrics."""
-        return await self._get_analytics().capture_quality_snapshot(self, workspace_id)  # type: ignore[arg-type]
+        return await self._get_analytics().capture_quality_snapshot(
+            cast(KnowledgeMoundProtocol, self), workspace_id
+        )
 
     async def get_quality_trend(
         self,

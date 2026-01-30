@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Any, AsyncIterator, Optional
@@ -194,6 +195,102 @@ SALESFORCE_OBJECTS = {
     },
 }
 
+# SOQL security patterns
+# Valid Salesforce object name: alphanumeric + underscores, optionally ending in __c/__r
+_SOQL_OBJECT_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(__c|__r)?$")
+# Valid Salesforce field name: alphanumeric + underscores, optionally ending in __c/__r
+_SOQL_FIELD_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(__c|__r)?$")
+# Dangerous SOQL keywords that could indicate injection attempts
+_SOQL_DANGEROUS_KEYWORDS = frozenset(
+    {
+        "insert",
+        "update",
+        "delete",
+        "upsert",
+        "merge",
+        "undelete",
+        "grant",
+        "revoke",
+        ";",
+        "--",
+        "/*",
+        "*/",
+    }
+)
+
+
+def _validate_object_name(name: str) -> str:
+    """
+    Validate a Salesforce object name to prevent SOQL injection.
+
+    Args:
+        name: Object API name to validate
+
+    Returns:
+        The validated object name
+
+    Raises:
+        ValueError: If the object name is invalid
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Object name must be a non-empty string")
+    if len(name) > 80:  # Salesforce object name limit
+        raise ValueError(f"Object name too long: {len(name)} chars (max 80)")
+    if not _SOQL_OBJECT_PATTERN.match(name):
+        raise ValueError(f"Invalid object name format: {name}")
+    return name
+
+
+def _validate_field_name(name: str) -> str:
+    """
+    Validate a Salesforce field name to prevent SOQL injection.
+
+    Args:
+        name: Field API name to validate
+
+    Returns:
+        The validated field name
+
+    Raises:
+        ValueError: If the field name is invalid
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Field name must be a non-empty string")
+    if len(name) > 80:  # Salesforce field name limit
+        raise ValueError(f"Field name too long: {len(name)} chars (max 80)")
+    if not _SOQL_FIELD_PATTERN.match(name):
+        raise ValueError(f"Invalid field name format: {name}")
+    return name
+
+
+def _sanitize_soql_filter(filter_clause: str | None) -> str | None:
+    """
+    Sanitize a SOQL WHERE clause filter.
+
+    This function provides defense-in-depth by rejecting filters containing
+    dangerous keywords. The soql_filter is expected to be set by administrators,
+    not end users.
+
+    Args:
+        filter_clause: SOQL WHERE clause fragment
+
+    Returns:
+        The sanitized filter clause or None
+
+    Raises:
+        ValueError: If the filter contains dangerous patterns
+    """
+    if not filter_clause:
+        return None
+    if len(filter_clause) > 2000:
+        raise ValueError(f"SOQL filter too long: {len(filter_clause)} chars (max 2000)")
+    # Check for dangerous keywords (case-insensitive)
+    lower_filter = filter_clause.lower()
+    for keyword in _SOQL_DANGEROUS_KEYWORDS:
+        if keyword in lower_filter:
+            raise ValueError(f"SOQL filter contains dangerous keyword: {keyword}")
+    return filter_clause
+
 
 @dataclass
 class SalesforceRecord:
@@ -285,9 +382,13 @@ class SalesforceConnector(EnterpriseConnector):
         super().__init__(connector_id="salesforce", **kwargs)
 
         self.instance_url = instance_url
-        self.objects = objects or ["Account", "Contact", "Opportunity"]
-        self.custom_objects = custom_objects or []
-        self.soql_filter = soql_filter
+        # Validate object names to prevent SOQL injection
+        raw_objects = objects or ["Account", "Contact", "Opportunity"]
+        self.objects = [_validate_object_name(obj) for obj in raw_objects]
+        raw_custom = custom_objects or []
+        self.custom_objects = [_validate_object_name(obj) for obj in raw_custom]
+        # Validate and sanitize SOQL filter
+        self.soql_filter = _sanitize_soql_filter(soql_filter)
         self.include_attachments = include_attachments
         self.include_notes = include_notes
         self.exclude_archived = exclude_archived

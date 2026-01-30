@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Coroutine, Optional
 
 from aragora.core import Agent
 from aragora.debate.consensus import (
@@ -76,8 +76,8 @@ try:
     PERSONAS_AVAILABLE = True
 except ImportError:
     PERSONAS_AVAILABLE = False
-    RegulatoryPersona: Optional[type[Any]] = None
-    PersonaAttack: Optional[type[Any]] = None
+    RegulatoryPersona: Optional[type[Any]] = None  # type: ignore[no-redef]
+    PersonaAttack: Optional[type[Any]] = None  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 
@@ -500,7 +500,12 @@ class GauntletOrchestrator:
             )
 
         # 2. Run parallel stress tests
-        tasks = []
+        # Initialize result variables for type safety
+        redteam_result: RedTeamResult | None = None
+        probe_report: VulnerabilityReport | None = None
+        audit_verdict: DeepAuditVerdict | None = None
+
+        tasks: list[tuple[str, Coroutine[Any, Any, Any]]] = []
 
         if config.enable_redteam and self.agents:
             tasks.append(("redteam", self._run_redteam(config)))

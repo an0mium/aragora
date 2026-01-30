@@ -52,6 +52,7 @@ from aragora.nomic.agent_roles import (
     RoleBasedRouter,
     RoleCapability,
 )
+from aragora.nomic.stores.paths import resolve_store_dir
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,14 @@ class ConvoyCoordinator:
         self.hierarchy = hierarchy
         self.hook_queue = hook_queue
         self.bead_store = bead_store or convoy_manager.bead_store
-        self.storage_dir = storage_dir or Path(".convoys")
+        if storage_dir is None:
+            canonical_dir = resolve_store_dir()
+            legacy_dir = Path(".convoys")
+            if legacy_dir.exists() and not canonical_dir.exists():
+                storage_dir = legacy_dir
+            else:
+                storage_dir = canonical_dir
+        self.storage_dir = storage_dir
         self.policy = policy or RebalancePolicy()
 
         self._assignments: dict[str, BeadAssignment] = {}  # assignment_id -> assignment

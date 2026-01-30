@@ -907,7 +907,7 @@ async def handle_gmail_oauth_url(
         }
 
 
-@rate_limit(requests_per_minute=30)
+@rate_limit(requests_per_minute=5)  # Strict rate limit for OAuth callback security
 @track_handler("email/gmail/oauth/callback")
 async def handle_gmail_oauth_callback(
     code: str,

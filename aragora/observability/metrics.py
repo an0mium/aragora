@@ -1055,6 +1055,32 @@ def start_metrics_server(port: int = 9090) -> bool:
         return False
 
 
+def stop_metrics_server() -> bool:
+    """Stop the Prometheus metrics server.
+
+    Note: prometheus_client's start_http_server() creates a daemon thread
+    that cannot be cleanly stopped. This function marks the server as
+    stopped for tracking purposes; the actual thread terminates with
+    process exit.
+
+    Returns:
+        True if server was marked as stopped, False if not running.
+    """
+    global _metrics_server
+
+    if _metrics_server is None:
+        return False
+
+    try:
+        port = _metrics_server
+        _metrics_server = None
+        logger.info(f"Metrics server on port {port} marked for shutdown")
+        return True
+    except Exception as e:
+        logger.warning(f"Error stopping metrics server: {e}")
+        return False
+
+
 # Endpoint normalization regex
 _ENDPOINT_PATTERN = re.compile(
     r"(/api/v\d+)?/(debates|agents|workspaces|tenants|users|knowledge|receipts|memory)"

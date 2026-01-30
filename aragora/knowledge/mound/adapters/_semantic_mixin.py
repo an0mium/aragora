@@ -25,10 +25,11 @@ from __future__ import annotations
 import logging
 import time
 from abc import abstractmethod
+from pathlib import Path
 from typing import Any, Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass  # SemanticStore import for type hints
+    from aragora.knowledge.mound.semantic_store import SemanticSearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -133,18 +134,20 @@ class SemanticSearchMixin:
         try:
             # Try semantic search first
             try:
+                from aragora.config import DB_KNOWLEDGE_PATH
                 from aragora.knowledge.mound.semantic_store import SemanticStore
 
-                # Get or create semantic store
-                store = SemanticStore()  # type: ignore[call-arg]
+                # Get or create semantic store with default path
+                semantic_db_path: str | Path = DB_KNOWLEDGE_PATH / "mound_semantic.db"
+                store = SemanticStore(db_path=semantic_db_path)
 
                 # Search using embeddings
-                results = await store.search_similar(  # type: ignore[call-arg]
+                results: list[SemanticSearchResult] = await store.search_similar(
                     query=query,
                     tenant_id=tenant_id or "default",
                     limit=limit,
                     min_similarity=min_similarity,
-                    source_type=self.source_type,
+                    source_types=[self.source_type],
                 )
 
                 # Enrich results with full records
@@ -181,12 +184,17 @@ class SemanticSearchMixin:
             fallback_results: list[dict[str, Any]]
             if fallback_fn:
                 fallback_results = fallback_fn(query, limit=limit, min_confidence=min_similarity)
-            elif hasattr(self, "search_similar"):
-                fallback_results = self.search_similar(
-                    query, limit=limit, min_confidence=min_similarity
-                )  # type: ignore[attr-defined]
             else:
-                fallback_results = []
+                # Try to use adapter's search_similar method if available
+                search_method: Callable[..., list[dict[str, Any]]] | None = getattr(
+                    self, "search_similar", None
+                )
+                if search_method is not None:
+                    fallback_results = search_method(
+                        query, limit=limit, min_confidence=min_similarity
+                    )
+                else:
+                    fallback_results = []
 
             success = True
             return fallback_results

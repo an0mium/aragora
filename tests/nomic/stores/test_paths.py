@@ -64,3 +64,17 @@ def test_convoy_executor_env_override(monkeypatch, tmp_path):
         reviewers=[],
     )
     assert executor.bead_dir == tmp_path / ".aragora_beads"
+
+
+def test_convoy_coordinator_default_storage(monkeypatch, tmp_path):
+    """ConvoyCoordinator defaults to canonical storage when no override set."""
+    from unittest.mock import MagicMock
+
+    from aragora.nomic.convoy_coordinator import ConvoyCoordinator
+    from aragora.nomic.stores.paths import resolve_store_dir
+
+    monkeypatch.chdir(tmp_path)
+    manager = MagicMock()
+    manager.bead_store = MagicMock()
+    coord = ConvoyCoordinator(convoy_manager=manager, hierarchy=MagicMock())
+    assert coord.storage_dir.resolve() == resolve_store_dir().resolve()

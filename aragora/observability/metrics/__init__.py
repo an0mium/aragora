@@ -399,4 +399,6 @@ from _aragora_metrics_impl import (  # noqa: F401, E402
     track_websocket_connection,
     # Handler instrumentation
     track_handler,
+    # Metrics server control
+    stop_metrics_server,
 )

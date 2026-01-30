@@ -58,6 +58,9 @@ class PlatformHealth:
     last_success_at: float | None = None
     last_error_at: float | None = None
     last_error_message: str | None = None
+    consecutive_failures: int = 0
+    total_requests: int = 0
+    total_failures: int = 0
 
 
 @dataclass
@@ -75,9 +78,10 @@ class PlatformCircuitBreaker:
     success_threshold: int = 3  # Successes needed to fully close from half-open
 
     # Internal state
-    _circuit: CircuitBreaker = field(default=None, repr=False)
+    _circuit: CircuitBreaker | None = field(default=None, repr=False)
     _success_count: int = field(default=0, repr=False)
     _failure_count: int = field(default=0, repr=False)
+    _consecutive_failures: int = field(default=0, repr=False)
     _total_requests: int = field(default=0, repr=False)
     _latencies: list[float] = field(default_factory=list, repr=False)
     _max_latency_samples: int = field(default=100, repr=False)
@@ -95,6 +99,8 @@ class PlatformCircuitBreaker:
 
     def can_proceed(self) -> bool:
         """Check if requests can proceed to this platform."""
+        if self._circuit is None:
+            return True
         return self._circuit.can_proceed()
 
     def record_success(self, latency_ms: float = 0.0) -> None:
@@ -102,23 +108,28 @@ class PlatformCircuitBreaker:
         with self._lock:
             self._success_count += 1
             self._total_requests += 1
+            self._consecutive_failures = 0  # Reset on success
             self._last_success_at = time.time()
             if latency_ms > 0:
                 self._latencies.append(latency_ms)
                 if len(self._latencies) > self._max_latency_samples:
                     self._latencies.pop(0)
 
-        self._circuit.record_success()
+        if self._circuit is not None:
+            self._circuit.record_success()
 
     def record_failure(self, error_message: str = "") -> bool:
         """Record a failed request. Returns True if circuit just opened."""
         with self._lock:
             self._failure_count += 1
+            self._consecutive_failures += 1
             self._total_requests += 1
             self._last_error_at = time.time()
             self._last_error_message = error_message[:500]  # Truncate
 
-        return self._circuit.record_failure()
+        if self._circuit is not None:
+            return self._circuit.record_failure()
+        return False
 
     def get_health(self) -> PlatformHealth:
         """Get current health status."""
@@ -128,7 +139,7 @@ class PlatformCircuitBreaker:
             avg_latency = sum(self._latencies) / len(self._latencies) if self._latencies else 0.0
 
             # Determine status
-            circuit_state = self._circuit.get_status()
+            circuit_state = self._circuit.get_status() if self._circuit is not None else "closed"
             if circuit_state == "open":
                 status = PlatformStatus.UNAVAILABLE
             elif circuit_state == "half-open" or success_rate < 0.9:
@@ -146,6 +157,9 @@ class PlatformCircuitBreaker:
                 last_success_at=self._last_success_at if self._last_success_at > 0 else None,
                 last_error_at=self._last_error_at if self._last_error_at > 0 else None,
                 last_error_message=self._last_error_message or None,
+                consecutive_failures=self._consecutive_failures,
+                total_requests=self._total_requests,
+                total_failures=self._failure_count,
             )
 
     def reset(self) -> None:
@@ -153,9 +167,11 @@ class PlatformCircuitBreaker:
         with self._lock:
             self._success_count = 0
             self._failure_count = 0
+            self._consecutive_failures = 0
             self._total_requests = 0
             self._latencies.clear()
-        self._circuit.reset()
+        if self._circuit is not None:
+            self._circuit.reset()
 
 
 # Global platform circuit breakers registry
@@ -202,9 +218,9 @@ class PlatformResilience:
         for platform, ph in health.items():
             circuit_states[platform] = {
                 "status": ph.status.value,
-                "consecutive_failures": ph.consecutive_failures,  # type: ignore[attr-defined]
-                "total_requests": ph.total_requests,  # type: ignore[attr-defined]
-                "total_failures": ph.total_failures,  # type: ignore[attr-defined]
+                "consecutive_failures": ph.consecutive_failures,
+                "total_requests": ph.total_requests,
+                "total_failures": ph.total_failures,
             }
 
         return {

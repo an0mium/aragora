@@ -44,6 +44,38 @@ from aragora.audit.audit_types import (
     AcademicAuditor,
 )
 
+# Type alias for auditor classes that can be used in the vertical mapping.
+# Some auditors (Security, Compliance, Quality, Consistency) are standalone classes
+# that don't inherit from BaseAuditor but provide a compatible audit interface.
+# Other auditors (Legal, Accounting, Software, Healthcare, Regulatory, Academic)
+# properly inherit from BaseAuditor.
+AuditorClass = (
+    type[SecurityAuditor]
+    | type[ComplianceAuditor]
+    | type[ConsistencyAuditor]
+    | type[QualityAuditor]
+    | type[LegalAuditor]
+    | type[AccountingAuditor]
+    | type[SoftwareAuditor]
+    | type[HealthcareAuditor]
+    | type[RegulatoryAuditor]
+    | type[AcademicAuditor]
+)
+
+# Type alias for auditor instances
+AuditorInstance = (
+    SecurityAuditor
+    | ComplianceAuditor
+    | ConsistencyAuditor
+    | QualityAuditor
+    | LegalAuditor
+    | AccountingAuditor
+    | SoftwareAuditor
+    | HealthcareAuditor
+    | RegulatoryAuditor
+    | AcademicAuditor
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -66,11 +98,11 @@ class AuditVertical(str, Enum):
 
 
 # Mapping of verticals to auditor classes
-VERTICAL_AUDITORS: dict[AuditVertical, type[BaseAuditor]] = {
-    AuditVertical.SECURITY: SecurityAuditor,  # type: ignore[dict-item]
-    AuditVertical.COMPLIANCE: ComplianceAuditor,  # type: ignore[dict-item]
-    AuditVertical.QUALITY: QualityAuditor,  # type: ignore[dict-item]
-    AuditVertical.CONSISTENCY: ConsistencyAuditor,  # type: ignore[dict-item]
+VERTICAL_AUDITORS: dict[AuditVertical, AuditorClass] = {
+    AuditVertical.SECURITY: SecurityAuditor,
+    AuditVertical.COMPLIANCE: ComplianceAuditor,
+    AuditVertical.QUALITY: QualityAuditor,
+    AuditVertical.CONSISTENCY: ConsistencyAuditor,
     AuditVertical.LEGAL: LegalAuditor,
     AuditVertical.ACCOUNTING: AccountingAuditor,
     AuditVertical.SOFTWARE: SoftwareAuditor,
@@ -287,7 +319,7 @@ class AuditOrchestrator:
             self._profile = AUDIT_PROFILES["enterprise_full"]
 
         # Initialize auditors
-        self._auditors: dict[AuditVertical, BaseAuditor] = {}
+        self._auditors: dict[AuditVertical, AuditorInstance] = {}
         self._initialize_auditors()
 
         # Runtime state

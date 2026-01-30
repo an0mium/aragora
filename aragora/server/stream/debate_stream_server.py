@@ -19,8 +19,11 @@ import json
 import logging
 import os
 import secrets
+import sys
 import threading
 import time
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from .emitter import TokenBucket
 from .events import AudienceMessage, StreamEvent, StreamEventType
@@ -37,6 +40,25 @@ from aragora.server.auth import auth_config
 
 # Centralized CORS configuration
 from aragora.server.cors_config import WS_ALLOWED_ORIGINS
+
+# Python 3.11+ has asyncio.timeout, earlier versions need async-timeout package
+if sys.version_info >= (3, 11):
+    _asyncio_timeout = asyncio.timeout
+else:
+    try:
+        from async_timeout import timeout as _asyncio_timeout
+    except ImportError:
+        # Fallback: no actual timeout enforcement if async-timeout not installed
+        @asynccontextmanager
+        async def _asyncio_timeout(delay: float | None) -> AsyncIterator[None]:
+            """Fallback timeout context manager (no actual timeout)."""
+            if delay is not None:
+                logger.warning(
+                    "async-timeout not installed, timeout not enforced. "
+                    "Install with: pip install async-timeout"
+                )
+            yield
+
 
 # Trusted proxies for X-Forwarded-For header validation
 TRUSTED_PROXIES = frozenset(
@@ -344,7 +366,7 @@ class DebateStreamServer(ServerBase):
         if total > 0:
             logger.debug(f"Cleaned up {total} stale entries")
 
-    def _update_debate_state(self, event: StreamEvent) -> None:  # type: ignore[override]
+    def _update_debate_state(self, event: StreamEvent) -> None:
         """Update cached debate state based on emitted events.
 
         Overrides ServerBase._update_debate_state with StreamEvent-specific handling.
@@ -449,7 +471,7 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with asyncio.timeout(5.0):  # type: ignore[attr-defined]
+                    async with _asyncio_timeout(5.0):
                         await client.send(message)
                 except asyncio.TimeoutError:
                     logger.warning("Client send timed out during broadcast, marking for disconnect")
@@ -505,7 +527,7 @@ class DebateStreamServer(ServerBase):
             if should_send:
                 try:
                     # Timeout prevents hanging if client disconnects mid-send
-                    async with asyncio.timeout(5.0):  # type: ignore[attr-defined]
+                    async with _asyncio_timeout(5.0):
                         await client.send(message)
                 except asyncio.TimeoutError:
                     logger.warning(

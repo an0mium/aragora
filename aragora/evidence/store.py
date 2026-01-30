@@ -14,7 +14,7 @@ import hashlib
 import json
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -853,38 +853,51 @@ class EvidenceStore(SQLiteStore):
 
         with self.connection() as conn:
             cursor = conn.cursor()
-            # Safe after validation - retention_days is now a bounded integer
-            cutoff_query = f"datetime('now', '-{retention_days} days')"
+            # Pre-compute cutoff date in Python to avoid SQL interpolation
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+            cutoff_iso = cutoff_date.isoformat()
 
             # Total expired
-            cursor.execute(f"SELECT COUNT(*) FROM evidence WHERE created_at < {cutoff_query}")
+            cursor.execute(
+                "SELECT COUNT(*) FROM evidence WHERE created_at < ?",
+                (cutoff_iso,),
+            )
             total_expired = cursor.fetchone()[0]
 
             # Expired but linked
-            cursor.execute(f"""
+            cursor.execute(
+                """
                 SELECT COUNT(DISTINCT e.id) FROM evidence e
                 INNER JOIN debate_evidence de ON de.evidence_id = e.id
-                WHERE e.created_at < {cutoff_query}
-            """)
+                WHERE e.created_at < ?
+                """,
+                (cutoff_iso,),
+            )
             expired_linked = cursor.fetchone()[0]
 
             # Expired with high reliability
-            cursor.execute(f"""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM evidence
-                WHERE created_at < {cutoff_query}
+                WHERE created_at < ?
                 AND reliability_score >= 0.8
-            """)
+                """,
+                (cutoff_iso,),
+            )
             expired_high_reliability = cursor.fetchone()[0]
 
             # Deletable (expired, not linked, low reliability)
-            cursor.execute(f"""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM evidence e
-                WHERE e.created_at < {cutoff_query}
+                WHERE e.created_at < ?
                 AND e.reliability_score < 0.8
                 AND NOT EXISTS (
                     SELECT 1 FROM debate_evidence de WHERE de.evidence_id = e.id
                 )
-            """)
+                """,
+                (cutoff_iso,),
+            )
             deletable = cursor.fetchone()[0]
 
             return {

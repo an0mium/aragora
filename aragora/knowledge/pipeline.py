@@ -78,15 +78,14 @@ try:
         MoundBackend,
         IngestionRequest,
         KnowledgeSource,
-        ConfidenceLevel,
     )
 
     MOUND_AVAILABLE = True
 except ImportError:
     MOUND_AVAILABLE = False
-    KnowledgeMound = None  # Optional module fallback
-    MoundConfig = None  # Optional module fallback
-    MoundBackend = None  # Optional module fallback
+    KnowledgeMound = None  # type: ignore[misc,assignment]
+    MoundConfig = None  # type: ignore[misc,assignment]
+    MoundBackend = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +97,7 @@ try:
     )
 except ImportError:
     UNSTRUCTURED_AVAILABLE = False
-    UnstructuredParser = None  # Optional module fallback
+    UnstructuredParser = None  # type: ignore[misc,assignment]
 
 
 @dataclass
@@ -267,7 +266,7 @@ class KnowledgePipeline:
         if self.config.use_knowledge_mound and MOUND_AVAILABLE and self._knowledge_mound is None:
             try:
                 mound_config = self.config.mound_config or MoundConfig()
-                self._knowledge_mound = KnowledgeMound(
+                self._knowledge_mound = KnowledgeMound(  # type: ignore[abstract]
                     config=mound_config,
                     workspace_id=self.config.workspace_id,
                 )
@@ -490,7 +489,7 @@ class KnowledgePipeline:
             overlap=self.config.chunk_overlap,
         )
 
-        strategy = get_chunking_strategy(strategy_name, **vars(config))
+        strategy = get_chunking_strategy(strategy_name, **vars(config))  # type: ignore[arg-type]
         chunks = strategy.chunk(text=text, document_id=document.id)
 
         # Update document
@@ -621,9 +620,9 @@ Include dates, numbers, names, and specific claims where possible."""
             # Store the document as a knowledge item
             doc_request = IngestionRequest(
                 content=document.text or "",
-                source=KnowledgeSource.DOCUMENT,
+                source_type=KnowledgeSource.DOCUMENT,
                 workspace_id=self.config.workspace_id,
-                confidence=ConfidenceLevel.HIGH,
+                confidence=0.9,  # High confidence
                 metadata={
                     "document_id": document.id,
                     "filename": document.filename,
@@ -641,9 +640,9 @@ Include dates, numbers, names, and specific claims where possible."""
             for chunk in chunks[:50]:  # Limit chunks to avoid overload
                 chunk_request = IngestionRequest(
                     content=chunk.content,
-                    source=KnowledgeSource.DOCUMENT,
+                    source_type=KnowledgeSource.DOCUMENT,
                     workspace_id=self.config.workspace_id,
-                    confidence=ConfidenceLevel.HIGH,
+                    confidence=0.9,  # High confidence
                     metadata={
                         "chunk_id": chunk.id,
                         "document_id": document.id,
@@ -658,15 +657,11 @@ Include dates, numbers, names, and specific claims where possible."""
 
             # Store each fact as a knowledge item
             for fact in facts:
-                # Convert confidence score to ConfidenceLevel
-                confidence_level = ConfidenceLevel.HIGH
-                if hasattr(ConfidenceLevel, "from_score"):
-                    confidence_level = ConfidenceLevel.from_score(fact.confidence)
                 fact_request = IngestionRequest(
                     content=fact.statement,
-                    source=KnowledgeSource.EXTRACTION,
+                    source_type=KnowledgeSource.EXTRACTION,
                     workspace_id=self.config.workspace_id,
-                    confidence=confidence_level,
+                    confidence=fact.confidence,  # Use fact's confidence directly
                     metadata={
                         "fact_id": fact.id,
                         "document_id": document.id,

@@ -803,19 +803,19 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         Returns:
             True if the entry was marked, False if entry not found
         """
-        now = datetime.now().isoformat()
+        now: str = datetime.now().isoformat()
 
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
 
             # Check if memory exists
             cursor.execute("SELECT tier FROM continuum_memory WHERE id = ?", (memory_id,))
-            row = cursor.fetchone()
+            row: tuple[Any, ...] | None = cursor.fetchone()
             if not row:
                 logger.warning("Cannot mark non-existent memory as red line: %s", memory_id)
                 return False
 
-            current_tier = row[0]
+            current_tier: str = row[0]
 
             # Mark as red line
             if promote_to_glacial and current_tier != MemoryTier.GLACIAL.value:
@@ -854,7 +854,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             List of all protected memory entries
         """
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, tier, content, importance, surprise_score, consolidation_score,
                        update_count, success_count, failure_count, created_at, updated_at, metadata,
@@ -863,7 +863,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 WHERE red_line = 1
                 ORDER BY created_at ASC
                 """)
-            rows = cursor.fetchall()
+            rows: list[tuple[Any, ...]] = cursor.fetchall()
 
         return [
             ContinuumMemoryEntry(
@@ -913,9 +913,9 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             List of memory entries sorted by retrieval score
         """
         if tier is not None:
-            target_tier = MemoryTier(tier) if isinstance(tier, str) else tier
+            target_tier: MemoryTier = MemoryTier(tier) if isinstance(tier, str) else tier
             if query:
-                entry = self.get(query)
+                entry: ContinuumMemoryEntry | None = self.get(query)
                 if entry and entry.tier == target_tier:
                     return AwaitableList([entry])
                 return AwaitableList([])
@@ -927,27 +927,27 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         if not include_glacial:
             tiers = [t for t in tiers if t != MemoryTier.GLACIAL]
 
-        tier_values = [t.value for t in tiers]
-        placeholders = ",".join("?" * len(tier_values))
+        tier_values: list[str] = [t.value for t in tiers]
+        placeholders: str = ",".join("?" * len(tier_values))
 
         # Build keyword filter clause for SQL (more efficient than Python filtering)
-        keyword_clause = ""
-        keyword_params: list = []
+        keyword_clause: str = ""
+        keyword_params: list[str] = []
         if query:
             # Split query into words and require at least one match
             # Limit to 50 keywords to prevent unbounded SQL condition generation
-            MAX_QUERY_KEYWORDS = 50
-            keywords = [
+            MAX_QUERY_KEYWORDS: int = 50
+            keywords: list[str] = [
                 kw.strip().lower() for kw in query.split()[:MAX_QUERY_KEYWORDS] if kw.strip()
             ]
             if keywords:
                 # Use INSTR for case-insensitive containment check (faster than LIKE)
-                keyword_conditions = ["INSTR(LOWER(content), ?) > 0" for _ in keywords]
+                keyword_conditions: list[str] = ["INSTR(LOWER(content), ?) > 0" for _ in keywords]
                 keyword_clause = f" AND ({' OR '.join(keyword_conditions)})"
                 keyword_params = keywords
 
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
 
             # Retrieval query with time-decay scoring
             # Score = importance * (1 + surprise) * decay_factor
@@ -974,11 +974,11 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 (*tier_values, min_importance, *keyword_params, limit),
             )
 
-            rows = cursor.fetchall()
+            rows: list[tuple[Any, ...]] = cursor.fetchall()
 
-        entries = []
+        entries: list[ContinuumMemoryEntry] = []
         for row in rows:
-            entry = ContinuumMemoryEntry(
+            entry: ContinuumMemoryEntry = ContinuumMemoryEntry(
                 id=row[0],
                 tier=MemoryTier(row[1]),
                 content=row[2],
@@ -1076,7 +1076,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         # Convert MemoryTier enum values to strings for hybrid search
         tier_strings: list[str] | None = None
         if tiers:
-            tier_strings = [t.value if isinstance(t, MemoryTier) else t for t in tiers]
+            tier_strings = [t.value if isinstance(t, MemoryTier) else str(t) for t in tiers]
 
         results = await self._hybrid_search.search(
             query=query,
@@ -1119,7 +1119,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 config=HybridMemoryConfig(),
             )
 
-        count = self._hybrid_search.rebuild_keyword_index()
+        count: int = self._hybrid_search.rebuild_keyword_index()
         logger.info(f"Rebuilt keyword index: {count} entries")
         return count
 
@@ -1148,7 +1148,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         try:
             # Retrieve relevant memories to warm cache
-            entries = self.retrieve(
+            entries: list[ContinuumMemoryEntry] = self.retrieve(
                 query=query,
                 limit=limit,
                 min_importance=0.3,  # Only cache moderately important memories
@@ -1158,17 +1158,17 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 return 0
 
             # Batch update all entries in a single transaction (avoid N+1)
-            prewarm_time = datetime.now().isoformat()
+            prewarm_time: str = datetime.now().isoformat()
 
             with self.connection() as conn:
-                cursor = conn.cursor()
+                cursor: sqlite3.Cursor = conn.cursor()
                 # Use json_patch to update metadata in batch
                 # For SQLite, we need to update each row but in a single transaction
                 for entry in entries:
                     if entry.metadata is None:
                         entry.metadata = {}
                     entry.metadata["last_prewarm"] = prewarm_time
-                    metadata_json = json.dumps(entry.metadata)
+                    metadata_json: str = json.dumps(entry.metadata)
 
                     cursor.execute(
                         """
@@ -1180,7 +1180,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                     )
                 conn.commit()
 
-            count = len(entries)
+            count: int = len(entries)
             logger.debug(f"Pre-warmed {count} memories for query: '{query[:50]}...'")
             return count
 
@@ -1207,10 +1207,10 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             True if any references were invalidated
         """
         try:
-            updated_count = 0
+            updated_count: int = 0
             # Find entries that reference this node and batch update
             with self.connection() as conn:
-                cursor = conn.cursor()
+                cursor: sqlite3.Cursor = conn.cursor()
                 cursor.execute(
                     """
                     SELECT id, metadata FROM continuum_memory
@@ -1219,15 +1219,15 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                     (f"%{node_id}%",),
                 )
 
-                rows = cursor.fetchall()
+                rows: list[tuple[Any, ...]] = cursor.fetchall()
 
                 # Collect updates to perform in batch
                 updates: list[tuple[str, str]] = []
 
                 for row in rows:
-                    entry_id = row[0]
+                    entry_id: str = row[0]
                     metadata: dict[str, Any] = safe_json_loads(row[1], {})
-                    modified = False
+                    modified: bool = False
 
                     # Remove km_node_id reference if present
                     if metadata.get("km_node_id") == node_id:
@@ -1236,7 +1236,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                         modified = True
 
                     # Remove from cross_references if present
-                    cross_refs = metadata.get("cross_references", [])
+                    cross_refs: list[str] = metadata.get("cross_references", [])
                     if node_id in cross_refs:
                         cross_refs.remove(node_id)
                         metadata["cross_references"] = cross_refs
@@ -1297,7 +1297,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
             Updated surprise score
         """
         with self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
 
             # Use BEGIN IMMEDIATE to acquire write lock before reading.
             # This prevents race conditions in read-modify-write operations.
@@ -1315,38 +1315,42 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                     """,
                     (id,),
                 )
-                row = cursor.fetchone()
+                row: tuple[Any, ...] | None = cursor.fetchone()
                 if not row:
                     cursor.execute("ROLLBACK")
                     return 0.0
 
+                success_count: int
+                failure_count: int
+                old_surprise_raw: Any
+                tier: str
                 success_count, failure_count, old_surprise_raw, tier = row
                 old_surprise: float = float(old_surprise_raw) if old_surprise_raw else 0.0
-                total = success_count + failure_count
+                total: int = success_count + failure_count
 
                 # Calculate expected success rate (base rate)
-                expected_rate = success_count / total if total > 0 else 0.5
+                expected_rate: float = success_count / total if total > 0 else 0.5
 
                 # Actual outcome
-                actual = 1.0 if success else 0.0
+                actual: float = 1.0 if success else 0.0
 
                 # Success rate surprise component
-                success_surprise = abs(actual - expected_rate)
+                success_surprise: float = abs(actual - expected_rate)
 
                 # Combine surprise signals
-                new_surprise = self.hyperparams[
+                new_surprise: float = self.hyperparams[
                     "surprise_weight_success"
                 ] * success_surprise + self.hyperparams["surprise_weight_agent"] * (
                     agent_prediction_error or 0.0
                 )
 
                 # Exponential moving average for surprise
-                alpha = 0.3
-                updated_surprise = old_surprise * (1 - alpha) + new_surprise * alpha
+                alpha: float = 0.3
+                updated_surprise: float = old_surprise * (1 - alpha) + new_surprise * alpha
 
                 # Update consolidation score
-                update_count = total + 1
-                consolidation = min(
+                update_count: int = total + 1
+                consolidation: float = min(
                     1.0,
                     math.log(1 + update_count)
                     / math.log(self.hyperparams["consolidation_threshold"]),
@@ -1402,7 +1406,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         HOPE-inspired: fast tiers have high initial LR with rapid decay,
         slow tiers have low initial LR with gradual decay.
         """
-        config = TIER_CONFIGS[tier]
+        config: TierConfig = TIER_CONFIGS[tier]
         return config.base_learning_rate * (config.decay_rate**update_count)
 
     def promote(self, id: str) -> MemoryTier | None:
@@ -1415,22 +1419,22 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         Returns the new tier if promoted, None otherwise.
         """
         with self._tier_lock, self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
 
             cursor.execute(
                 "SELECT tier, surprise_score, last_promotion_at FROM continuum_memory WHERE id = ?",
                 (id,),
             )
-            row = cursor.fetchone()
+            row: tuple[Any, ...] | None = cursor.fetchone()
             if not row:
                 return None
 
-            current_tier = MemoryTier(row[0])
-            surprise_score = row[1]
-            last_promotion = row[2]
+            current_tier: MemoryTier = MemoryTier(row[0])
+            surprise_score: float = row[1]
+            last_promotion: str | None = row[2]
 
             # Use TierManager for decision
-            tm_current = MemoryTier(current_tier.value)
+            tm_current: MemoryTier = MemoryTier(current_tier.value)
             if not self._tier_manager.should_promote(tm_current, surprise_score, last_promotion):
                 logger.debug(
                     f"[memory] Promotion denied for {id}: tier={current_tier.value}, "
@@ -1439,15 +1443,15 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 return None
 
             # Get next tier using TierManager
-            tm_new = self._tier_manager.get_next_tier(tm_current, "faster")
+            tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "faster")
             if tm_new is None:
                 logger.debug(
                     f"[memory] No faster tier available for {id} (already at {current_tier.value})"
                 )
                 return None
 
-            new_tier = MemoryTier(tm_new.value)
-            now = datetime.now().isoformat()
+            new_tier: MemoryTier = MemoryTier(tm_new.value)
+            now: str = datetime.now().isoformat()
 
             logger.info(
                 f"[memory] Promoting {id}: {current_tier.value} -> {new_tier.value} "
@@ -1493,22 +1497,22 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         Returns the new tier if demoted, None otherwise.
         """
         with self._tier_lock, self.connection() as conn:
-            cursor = conn.cursor()
+            cursor: sqlite3.Cursor = conn.cursor()
 
             cursor.execute(
                 "SELECT tier, surprise_score, update_count FROM continuum_memory WHERE id = ?",
                 (id,),
             )
-            row = cursor.fetchone()
+            row: tuple[Any, ...] | None = cursor.fetchone()
             if not row:
                 return None
 
-            current_tier = MemoryTier(row[0])
-            surprise_score = row[1]
-            update_count = row[2]
+            current_tier: MemoryTier = MemoryTier(row[0])
+            surprise_score: float = row[1]
+            update_count: int = row[2]
 
             # Use TierManager for decision
-            tm_current = MemoryTier(current_tier.value)
+            tm_current: MemoryTier = MemoryTier(current_tier.value)
             if not self._tier_manager.should_demote(tm_current, surprise_score, update_count):
                 logger.debug(
                     f"[memory] Demotion denied for {id}: tier={current_tier.value}, "
@@ -1517,15 +1521,15 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 return None
 
             # Get next tier using TierManager
-            tm_new = self._tier_manager.get_next_tier(tm_current, "slower")
+            tm_new: MemoryTier | None = self._tier_manager.get_next_tier(tm_current, "slower")
             if tm_new is None:
                 logger.debug(
                     f"[memory] No slower tier available for {id} (already at {current_tier.value})"
                 )
                 return None
 
-            new_tier = MemoryTier(tm_new.value)
-            now = datetime.now().isoformat()
+            new_tier: MemoryTier = MemoryTier(tm_new.value)
+            now: str = datetime.now().isoformat()
 
             logger.info(
                 f"[memory] Demoting {id}: {current_tier.value} -> {new_tier.value} "

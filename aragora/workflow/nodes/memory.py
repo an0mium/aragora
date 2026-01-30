@@ -9,9 +9,12 @@ Provides workflow steps for reading and writing to the Knowledge Mound:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from aragora.workflow.step import BaseStep, WorkflowContext
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound.api.crud import CRUDProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +63,7 @@ class MemoryReadStep(BaseStep):
 
         # Get Knowledge Mound instance
         try:
-            from aragora.knowledge.mound import KnowledgeMound
+            from aragora.knowledge.mound import get_knowledge_mound
             from aragora.knowledge.mound.types import UnifiedQueryRequest
 
             # Build query request
@@ -75,8 +78,8 @@ class MemoryReadStep(BaseStep):
                 limit=config.get("limit", 10),
             )
 
-            # Execute query
-            mound = KnowledgeMound(workspace_id=request.tenant_id)  # type: ignore[abstract]
+            # Execute query using the singleton factory which handles initialization
+            mound = get_knowledge_mound(workspace_id=request.tenant_id)
             await mound.initialize()
 
             result = await mound.query(
@@ -176,7 +179,11 @@ class MemoryWriteStep(BaseStep):
             return {"success": False, "error": "Empty content"}
 
         try:
-            from aragora.knowledge.mound import KnowledgeMound, IngestionRequest, KnowledgeSource
+            from aragora.knowledge.mound import (
+                get_knowledge_mound,
+                IngestionRequest,
+                KnowledgeSource,
+            )
 
             tenant_id = config.get("tenant_id", context.metadata.get("tenant_id", "default"))
 
@@ -188,7 +195,7 @@ class MemoryWriteStep(BaseStep):
                 source_type = KnowledgeSource.FACT
 
             # Build ingestion request
-            request = IngestionRequest(
+            ingestion_request = IngestionRequest(
                 content=content,
                 workspace_id=tenant_id,
                 source_type=source_type,
@@ -208,17 +215,18 @@ class MemoryWriteStep(BaseStep):
                 target = self._interpolate_content(rel.get("target", ""), context)
                 if target:
                     if rel_type == "supports":
-                        request.supports.append(target)
+                        ingestion_request.supports.append(target)
                     elif rel_type == "contradicts":
-                        request.contradicts.append(target)
+                        ingestion_request.contradicts.append(target)
                     elif rel_type == "derived_from":
-                        request.derived_from.append(target)
+                        ingestion_request.derived_from.append(target)
 
-            # Execute write
-            mound = KnowledgeMound(workspace_id=tenant_id)  # type: ignore[abstract]
+            # Execute write using the singleton factory which handles initialization
+            mound = get_knowledge_mound(workspace_id=tenant_id)
             await mound.initialize()
 
-            result = await mound.store(request)  # type: ignore[arg-type, misc]
+            # Cast to CRUDProtocol for proper typing of the store method
+            result = await cast("CRUDProtocol", mound).store(ingestion_request)
 
             logger.info(f"Memory write '{self.name}': stored as {result.node_id}")
 

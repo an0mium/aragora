@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from ._base import KnowledgeMoundAdapter
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
+    from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.fabric import AgentFabric
 
 logger = logging.getLogger(__name__)
@@ -917,15 +917,17 @@ class FabricAdapter(KnowledgeMoundAdapter):
                         # Map UsageReport attributes to BudgetUsageSnapshot
                         # UsageReport uses total_tokens/total_cost_usd; BudgetUsageSnapshot uses tokens_used/cost_used_usd
                         # Convert datetime to timestamp if needed
+                        period_start_val = report.period_start
                         period_start_ts = (
-                            report.period_start.timestamp()
-                            if hasattr(report.period_start, "timestamp")
-                            else float(report.period_start)  # type: ignore[arg-type]
+                            period_start_val.timestamp()
+                            if isinstance(period_start_val, datetime)
+                            else float(period_start_val)
                         )
+                        period_end_val = report.period_end
                         period_end_ts = (
-                            report.period_end.timestamp()
-                            if hasattr(report.period_end, "timestamp")
-                            else float(report.period_end)  # type: ignore[arg-type]
+                            period_end_val.timestamp()
+                            if isinstance(period_end_val, datetime)
+                            else float(period_end_val)
                         )
 
                         budget_snapshot = BudgetUsageSnapshot(

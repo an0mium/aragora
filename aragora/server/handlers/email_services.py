@@ -46,16 +46,21 @@ except ImportError:
 
 
 def _check_email_permission(auth_context: Any | None, permission_key: str) -> HandlerResult | None:
-    """Check RBAC permission, return error response if denied."""
+    """Check RBAC permission, return error response if denied.
+
+    SECURITY: All email operations require authentication. Both read and write
+    operations must have a valid auth_context to prevent unauthorized access.
+    """
     write_permissions = {"email:create", "email:update", "email:delete"}
+    # SECURITY: Require authentication for ALL email operations (read and write)
     if auth_context is None:
-        if permission_key in write_permissions:
-            return error_response("Authentication required", status=401)
-        return None
+        return error_response("Authentication required", status=401)
 
     if not RBAC_AVAILABLE:
+        # Fail closed for write operations when RBAC is unavailable.
         if permission_key in write_permissions:
             return error_response("RBAC unavailable", status=503)
+        logger.warning(f"RBAC unavailable for permission check: {permission_key}")
         return None
 
     try:
@@ -65,9 +70,8 @@ def _check_email_permission(auth_context: Any | None, permission_key: str) -> Ha
             return error_response(f"Permission denied: {decision.reason}", status=403)
     except Exception as e:
         logger.warning(f"RBAC check failed: {e}")
-        if permission_key in write_permissions:
-            return error_response("RBAC check failed", status=503)
-        return None
+        # Fail closed - deny access if RBAC check fails
+        return error_response("Authorization check failed", status=503)
 
     return None
 

@@ -557,4 +557,75 @@ def create_server_shutdown_sequence(server: Any) -> ShutdownSequence:
         )
     )
 
+    # Phase 19: Shutdown HTTP server (ThreadingHTTPServer)
+    async def shutdown_http_server():
+        if hasattr(server, "_http_server") and server._http_server:
+            try:
+                server._http_server.shutdown()
+                logger.info("HTTP server shutdown complete")
+            except Exception as e:
+                logger.debug(f"HTTP server shutdown error (expected if not running): {e}")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Shutdown HTTP server",
+            execute=shutdown_http_server,
+            timeout=5.0,
+            critical=True,
+        )
+    )
+
+    # Phase 20: Shutdown FastAPI/uvicorn server
+    async def shutdown_uvicorn():
+        if hasattr(server, "_uvicorn_server") and server._uvicorn_server:
+            try:
+                server._uvicorn_server.should_exit = True
+                logger.info("Uvicorn server signaled for shutdown")
+            except Exception as e:
+                logger.debug(f"Uvicorn shutdown error: {e}")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Shutdown uvicorn server",
+            execute=shutdown_uvicorn,
+            timeout=5.0,
+            critical=False,
+        )
+    )
+
+    # Phase 21: Stop Prometheus metrics server
+    async def stop_metrics():
+        try:
+            from aragora.observability.metrics import stop_metrics_server
+
+            stop_metrics_server()
+            logger.debug("Metrics server stopped")
+        except ImportError:
+            pass
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Stop metrics server",
+            execute=stop_metrics,
+            timeout=2.0,
+            critical=False,
+        )
+    )
+
+    # Phase 22: Flush logging
+    async def flush_logging():
+        import logging as stdlib_logging
+
+        stdlib_logging.shutdown()
+        logger.info("Logging shutdown complete")
+
+    sequence.add_phase(
+        ShutdownPhase(
+            name="Flush logging",
+            execute=flush_logging,
+            timeout=2.0,
+            critical=True,
+        )
+    )
+
     return sequence

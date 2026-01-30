@@ -164,6 +164,7 @@ class PostgresInsightStore(PostgresStore):
         pool: Any,
         km_adapter: Optional["InsightsAdapter"] = None,
         km_min_confidence: float = 0.7,
+        cache_ttl: float = 60.0,
     ):
         """Initialize the insight store.
 
@@ -171,10 +172,38 @@ class PostgresInsightStore(PostgresStore):
             pool: asyncpg connection pool
             km_adapter: Optional Knowledge Mound adapter for sync
             km_min_confidence: Minimum confidence for KM sync
+            cache_ttl: Cache time-to-live in seconds (default: 60)
         """
         super().__init__(pool)
         self._km_adapter = km_adapter
         self._km_min_confidence = km_min_confidence
+        self._cache_ttl = cache_ttl
+        # Simple TTL cache: {cache_key: (value, timestamp)}
+        self._cache: dict[str, tuple[Any, float]] = {}
+        self._cache_version = 0  # Increment to invalidate all caches
+
+    def _get_cached(self, key: str) -> Any | None:
+        """Get value from cache if not expired."""
+        import time
+
+        if key not in self._cache:
+            return None
+        value, cached_at = self._cache[key]
+        if time.time() - cached_at > self._cache_ttl:
+            del self._cache[key]
+            return None
+        return value
+
+    def _set_cached(self, key: str, value: Any) -> None:
+        """Store value in cache with current timestamp."""
+        import time
+
+        self._cache[key] = (value, time.time())
+
+    def invalidate_cache(self) -> None:
+        """Invalidate all cached data."""
+        self._cache.clear()
+        self._cache_version += 1
 
     def set_km_adapter(self, adapter: "InsightsAdapter") -> None:
         """Set the Knowledge Mound adapter for bidirectional sync."""
@@ -346,15 +375,30 @@ class PostgresInsightStore(PostgresStore):
                         json.dumps([insights.debate_id]),
                     )
 
-        # Sync high-confidence insights to Knowledge Mound
+        # Sync high-confidence insights to Knowledge Mound (batch operation)
         if self._km_adapter:
-            for insight in all_insights:
-                if insight.confidence >= self._km_min_confidence:
-                    try:
-                        self._km_adapter.store_insight(insight)
-                        logger.debug(f"Insight synced to Knowledge Mound: {insight.id}")
-                    except (RuntimeError, ValueError, TypeError) as e:
-                        logger.warning(f"Failed to sync insight to KM: {e}")
+            # Filter first, then batch store for better performance
+            high_conf_insights = [
+                i for i in all_insights if i.confidence >= self._km_min_confidence
+            ]
+            if high_conf_insights:
+                try:
+                    # Use batch method if available, otherwise fall back to individual
+                    if hasattr(self._km_adapter, "store_debate_insights"):
+                        # Create a minimal DebateInsights wrapper for batch storage
+                        stored_ids = self._km_adapter.store_debate_insights(
+                            insights, self._km_min_confidence
+                        )
+                        logger.debug(f"Batch synced {len(stored_ids)} insights to Knowledge Mound")
+                    else:
+                        # Fallback to individual storage
+                        for insight in high_conf_insights:
+                            try:
+                                self._km_adapter.store_insight(insight)
+                            except (RuntimeError, ValueError, TypeError) as e:
+                                logger.warning(f"Failed to sync insight to KM: {e}")
+                except (RuntimeError, ValueError, TypeError) as e:
+                    logger.warning(f"Failed to batch sync insights to KM: {e}")
 
         return stored_count
 
@@ -463,7 +507,12 @@ class PostgresInsightStore(PostgresStore):
             ]
 
     async def get_agent_stats(self, agent_name: str) -> dict:
-        """Get aggregate statistics for an agent."""
+        """Get aggregate statistics for an agent (cached for performance)."""
+        cache_key = f"agent_stats:{agent_name}"
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
         async with self.connection() as conn:
             row = await conn.fetchrow(
                 """
@@ -481,18 +530,21 @@ class PostgresInsightStore(PostgresStore):
             )
 
             if not row or row["debate_count"] == 0:
-                return {"agent": agent_name, "debate_count": 0}
+                result = {"agent": agent_name, "debate_count": 0}
+            else:
+                result = {
+                    "agent": agent_name,
+                    "debate_count": row["debate_count"],
+                    "total_proposals": row["total_proposals"],
+                    "proposals_accepted": row["proposals_accepted"],
+                    "acceptance_rate": row["proposals_accepted"] / max(1, row["total_proposals"]),
+                    "total_critiques": row["total_critiques"],
+                    "avg_contribution": float(row["avg_contribution"]),
+                    "avg_severity_received": float(row["avg_severity_received"]),
+                }
 
-            return {
-                "agent": agent_name,
-                "debate_count": row["debate_count"],
-                "total_proposals": row["total_proposals"],
-                "proposals_accepted": row["proposals_accepted"],
-                "acceptance_rate": row["proposals_accepted"] / max(1, row["total_proposals"]),
-                "total_critiques": row["total_critiques"],
-                "avg_contribution": float(row["avg_contribution"]),
-                "avg_severity_received": float(row["avg_severity_received"]),
-            }
+            self._set_cached(cache_key, result)
+            return result
 
     async def get_all_agent_rankings(self) -> list[dict]:
         """Get ranked list of all agents by performance."""

@@ -37,6 +37,7 @@ from aragora.server.handlers.secure import (
     SecureHandler,
     UnauthorizedError,
 )
+from aragora.server.validation.query_params import safe_query_int
 
 # Permission constants for codebase metrics operations
 METRICS_READ_PERMISSION = "codebase:metrics:read"
@@ -543,8 +544,10 @@ class MetricsHandler(SecureHandler):
         """GET /api/v1/codebase/{repo}/hotspots"""
         result = await handle_get_hotspots(
             repo_id=repo_id,
-            min_complexity=int(params.get("min_complexity", 5)),
-            limit=int(params.get("limit", 20)),
+            min_complexity=safe_query_int(
+                params, "min_complexity", default=5, min_val=1, max_val=100
+            ),
+            limit=safe_query_int(params, "limit", default=20, min_val=1, max_val=1000),
         )
 
         if result.get("success"):
@@ -556,8 +559,8 @@ class MetricsHandler(SecureHandler):
         """GET /api/v1/codebase/{repo}/duplicates"""
         result = await handle_get_duplicates(
             repo_id=repo_id,
-            min_lines=int(params.get("min_lines", 6)),
-            limit=int(params.get("limit", 20)),
+            min_lines=safe_query_int(params, "min_lines", default=6, min_val=1, max_val=1000),
+            limit=safe_query_int(params, "limit", default=20, min_val=1, max_val=1000),
         )
 
         if result.get("success"):
@@ -580,8 +583,8 @@ class MetricsHandler(SecureHandler):
         """GET /api/v1/codebase/{repo}/metrics/history"""
         result = await handle_list_analyses(
             repo_id=repo_id,
-            limit=int(params.get("limit", 20)),
-            offset=int(params.get("offset", 0)),
+            limit=safe_query_int(params, "limit", default=20, min_val=1, max_val=1000),
+            offset=safe_query_int(params, "offset", default=0, min_val=0, max_val=100000),
         )
 
         if result.get("success"):

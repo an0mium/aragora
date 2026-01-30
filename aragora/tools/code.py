@@ -234,10 +234,10 @@ class CodeReader:
 
         return results
 
-    def get_file_tree(self, max_depth: int = 3) -> dict:
+    def get_file_tree(self, max_depth: int = 3) -> dict[str, Any]:
         """Get directory tree structure."""
 
-        def build_tree(path: Path, depth: int) -> dict:
+        def build_tree(path: Path, depth: int) -> dict[str, Any]:
             if depth > max_depth:
                 return {"...": "..."}
 
