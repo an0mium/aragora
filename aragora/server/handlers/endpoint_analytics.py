@@ -328,8 +328,8 @@ class EndpointAnalyticsHandler(SecureHandler):
     def _get_error_endpoints(self, query_params: dict) -> HandlerResult:
         """GET /api/analytics/endpoints/errors - Top N endpoints by error rate."""
         try:
-            limit = min(int(query_params.get("limit", "10")), 100)
-            min_requests = int(query_params.get("min_requests", "10"))
+            limit = safe_query_int(query_params, "limit", default=10, max_val=100)
+            min_requests = safe_query_int(query_params, "min_requests", default=10, max_val=100000)
 
             endpoints = _metrics_store.get_all_endpoints()
 
