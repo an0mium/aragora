@@ -102,11 +102,12 @@ class DedupReport:
     estimated_reduction_percent: float
 
 
-class DedupOperationsMixin:
-    """Mixin providing deduplication operations for Knowledge Mound."""
+class DedupOperationsMixin(_MoundOpsProtocol):
+    """Mixin providing deduplication operations for Knowledge Mound.
 
-    # Type stubs for mixin - actual implementation provided by composed class
-    # Uses adapter methods from KnowledgeMoundCore
+    Type stubs for mixin - actual implementation provided by composed class.
+    Uses adapter methods from KnowledgeMoundCore.
+    """
 
     async def find_duplicates(
         self,

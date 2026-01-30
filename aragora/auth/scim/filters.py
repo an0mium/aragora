@@ -213,11 +213,11 @@ class SCIMFilterParser:
     NUMBER_VALUE = r"-?\d+(?:\.\d+)?"
     LOGICAL = r"(?:and|or|not)"
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the filter parser."""
         self._pos = 0
         self._text = ""
-        self._tokens: list[tuple[str, str]] = []
+        self._tokens: list[tuple[str, str | bool | int | float]] = []
 
     def parse(self, filter_text: str) -> SCIMFilter | SCIMCompoundFilter | None:
         """

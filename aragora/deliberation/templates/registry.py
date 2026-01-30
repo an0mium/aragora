@@ -18,6 +18,7 @@ from aragora.deliberation.templates.base import (
     DeliberationTemplate,
     TemplateCategory,
 )
+import builtins
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +60,11 @@ class TemplateRegistry:
     def list(
         self,
         category: TemplateCategory | None = None,
-        tags: Optional[list[str]] = None,
+        tags: Optional[builtins.list[str]] = None,
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[DeliberationTemplate]:
+    ) -> builtins.list[DeliberationTemplate]:
         """
         List templates with optional filtering.
 
@@ -103,7 +104,7 @@ class TemplateRegistry:
     def count(
         self,
         category: TemplateCategory | None = None,
-        tags: Optional[list[str]] = None,
+        tags: Optional[builtins.list[str]] = None,
     ) -> int:
         """Count templates with optional filtering."""
         return len(self.list(category=category, tags=tags, limit=10000))

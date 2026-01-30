@@ -366,7 +366,7 @@ class SCIMUser(SCIMResource):
     roles: list[str] = field(default_factory=list)
     enterprise: SCIMEnterprise | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Ensure User schema is in schemas list."""
         if SCHEMA_USER not in self.schemas:
             self.schemas = [SCHEMA_USER] + self.schemas
@@ -536,7 +536,7 @@ class SCIMGroup(SCIMResource):
     display_name: str = ""
     members: list[SCIMGroupMember] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Ensure Group schema is in schemas list."""
         if SCHEMA_GROUP not in self.schemas:
             self.schemas = [SCHEMA_GROUP] + self.schemas
