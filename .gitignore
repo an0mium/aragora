@@ -172,6 +172,7 @@ docs/investor/
 
 # Bead tracking data (has its own git repo)
 .beads/
+.aragora_beads/
 
 # Build tool caches
 .ruff_cache/
