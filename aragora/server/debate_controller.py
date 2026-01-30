@@ -298,7 +298,8 @@ Return JSON with these exact fields:
                 timeout=5.0,
             )
             # Parse JSON from response
-            content = response.content[0].text.strip()  # type: ignore[union-attr]
+            content_block = response.content[0]
+            content = str(getattr(content_block, "text", "")).strip()
             # Handle potential markdown code blocks
             if content.startswith("```"):
                 content = content.split("```")[1]

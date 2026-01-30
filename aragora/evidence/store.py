@@ -145,7 +145,7 @@ class EvidenceStore(SQLiteStore):
                 limit=limit,
                 min_similarity=min_similarity,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for similar evidence: {e}")
             return []
 
@@ -176,7 +176,7 @@ class EvidenceStore(SQLiteStore):
                 limit=limit,
                 min_reliability=min_reliability,
             )
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for topic evidence: {e}")
             return []
 
@@ -315,7 +315,7 @@ class EvidenceStore(SQLiteStore):
                     **self._km_adapter.from_ingestion_request(request, evidence_id=evidence_id)
                 )
                 logger.debug(f"Evidence synced to Knowledge Mound: {evidence_id}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
                 # Log but don't fail - KM sync is optional
                 logger.warning(f"Failed to sync evidence to Knowledge Mound: {e}")
 

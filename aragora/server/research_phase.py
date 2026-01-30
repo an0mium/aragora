@@ -173,7 +173,8 @@ Respond with just "yes" or "no".""",
                     }
                 ],
             )
-            content = response.content[0].text.strip().lower()  # type: ignore[union-attr]
+            content_block = response.content[0]
+            content = str(getattr(content_block, "text", "")).strip().lower()
             return content.startswith("yes")
         except Exception as e:
             logger.warning(f"LLM classification failed: {e}")
@@ -486,7 +487,8 @@ Focus on facts, not opinions. Include relevant dates and specifics.""",
                 ],
             )
 
-            result.summary = response.content[0].text  # type: ignore[union-attr]
+            content_block = response.content[0]
+            result.summary = str(getattr(content_block, "text", ""))
 
         except Exception as e:
             logger.warning(f"[research] Summary generation failed: {e}")
@@ -518,7 +520,8 @@ Note: Clearly indicate if certain information may be outdated or requires verifi
                 ],
             )
 
-            summary = response.content[0].text  # type: ignore[union-attr]
+            content_block = response.content[0]
+            summary = str(getattr(content_block, "text", ""))
             return ResearchResult(
                 query=question,
                 summary=f"## Background Context (from AI knowledge)\n\n{summary}\n\n*Note: This context is based on AI training data. For the most current information, external verification is recommended.*",

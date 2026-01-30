@@ -12,12 +12,40 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
 
 
-class FusionImplementationMixin:
+class _FusionHostProtocol(Protocol):
+    """Protocol for host class of FusionImplementationMixin."""
+
+    def _emit_event(self, event_type: str, data: dict[str, Any]) -> None: ...
+
+
+class _SemanticSearchHostProtocol(Protocol):
+    """Protocol for host class of SemanticSearchImplementationMixin."""
+
+    ELO_PREFIX: str
+    EXPERTISE_PREFIX: str
+    _ratings: dict[str, dict[str, Any]]
+    _expertise: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+
+
+class _SearchHostProtocol(Protocol):
+    """Protocol for host class of SearchMixin."""
+
+    _ratings: dict[str, dict[str, Any]]
+    _expertise: dict[str, dict[str, Any]]
+    _matches: dict[str, dict[str, Any]]
+    _calibrations: dict[str, dict[str, Any]]
+
+    def _get_record_by_id(self, record_id: str) -> Optional[dict[str, Any]]: ...
+
+
+class FusionImplementationMixin(_FusionHostProtocol):
     """Implements FusionMixin abstract methods for PerformanceAdapter.
 
     Expects the following attributes on the host class:
@@ -134,7 +162,7 @@ class FusionImplementationMixin:
             return False
 
 
-class SemanticSearchImplementationMixin:
+class SemanticSearchImplementationMixin(_SemanticSearchHostProtocol):
     """Implements SemanticSearchMixin abstract methods for PerformanceAdapter.
 
     Expects the following attributes on the host class:
@@ -206,7 +234,7 @@ class SemanticSearchImplementationMixin:
         return source_id
 
 
-class SearchMixin:
+class SearchMixin(_SearchHostProtocol):
     """Mixin providing search and record retrieval methods.
 
     Expects the following attributes on the host class:

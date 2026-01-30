@@ -228,7 +228,7 @@ class CodeReader:
                     for i, line in enumerate(content.splitlines(), 1):
                         if regex.search(line):
                             results.append(self.read_span(str(path), i, i, context_lines=2))
-                except Exception as e:
+                except (OSError, UnicodeDecodeError) as e:
                     logger.debug(f"Failed to search in {path}: {e}")
                     continue
 
@@ -411,7 +411,7 @@ class CodeWriter:
         for change in proposal.changes:
             try:
                 self._apply_change(change)
-            except Exception as e:
+            except (OSError, FileNotFoundError, PermissionError, ValueError) as e:
                 errors.append(f"Failed to apply {change.change_id}: {str(e)}")
 
         # Validate if requested
@@ -609,7 +609,7 @@ class SelfImprover:
                         f"{ctx.path}: File too long ({ctx.line_count} lines)"
                     )
 
-            except Exception as e:
+            except (OSError, UnicodeDecodeError, ValueError) as e:
                 logger.debug(f"[code] Failed to analyze {py_file}: {e}")
                 continue
 

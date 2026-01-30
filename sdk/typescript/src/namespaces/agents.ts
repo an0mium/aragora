@@ -20,37 +20,137 @@ import type {
   HeadToHeadStats,
   OpponentBriefing,
   PaginationParams,
+  TeamSelection,
+  TeamSelectionRequest,
 } from '../types';
+
+// =============================================================================
+// Agent-specific Types (matching Python SDK)
+// =============================================================================
+
+/**
+ * Agent persona configuration.
+ */
+export interface AgentPersona {
+  agent_name: string;
+  description?: string;
+  traits?: string[];
+  expertise?: string[];
+  model?: string;
+  temperature?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Grounded persona with performance metrics.
+ */
+export interface GroundedPersona {
+  agent_name: string;
+  elo: number;
+  domain_elos: Record<string, number>;
+  win_rate: number;
+  calibration_score: number;
+  position_accuracy: number;
+  debates_count: number;
+  last_active?: string;
+}
+
+/**
+ * Identity prompt response.
+ */
+export interface IdentityPrompt {
+  agent_name: string;
+  prompt: string;
+  sections_included?: string[];
+  token_count?: number;
+}
+
+/**
+ * Agent accuracy metrics.
+ */
+export interface AgentAccuracy {
+  agent_name: string;
+  total_positions: number;
+  verified_positions: number;
+  correct_positions: number;
+  accuracy_rate: number;
+  by_domain?: Record<string, {
+    total: number;
+    correct: number;
+    accuracy: number;
+  }>;
+}
+
+/**
+ * Team selection strategy.
+ */
+export type TeamSelectionStrategy = 'balanced' | 'competitive' | 'diverse' | 'specialized';
+
+/**
+ * Team selection request for agent selection endpoint.
+ */
+export interface SelectTeamRequest {
+  task: string;
+  team_size?: number;
+  strategy?: TeamSelectionStrategy;
+}
+
+/**
+ * Team selection response.
+ */
+export interface SelectTeamResponse {
+  agents: string[];
+  rationale?: string;
+  diversity_score?: number;
+  total_score?: number;
+  coverage?: Record<string, string[]>;
+}
 
 /**
  * Interface for the internal client methods used by AgentsAPI.
  */
 interface AgentsClientInterface {
+  // Core listing methods
   listAgents(): Promise<{ agents: Agent[] }>;
   listAgentsAvailability(): Promise<{ available: string[]; missing?: string[] }>;
   listAgentsHealth(): Promise<Record<string, unknown>>;
   listLocalAgents(): Promise<Record<string, unknown>>;
   getLocalAgentsStatus(): Promise<Record<string, unknown>>;
+
+  // Basic agent info
   getAgent(name: string): Promise<Agent>;
   getAgentProfile(name: string): Promise<AgentProfile>;
   getAgentHistory(name: string, params?: PaginationParams): Promise<{ matches: unknown[] }>;
+
+  // Calibration
   getAgentCalibration(name: string): Promise<AgentCalibration>;
   getAgentCalibrationCurve(name: string): Promise<Record<string, unknown>>;
   getAgentCalibrationSummary(name: string): Promise<Record<string, unknown>>;
+
+  // Performance
   getAgentPerformance(name: string): Promise<AgentPerformance>;
   getAgentHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats>;
   getAgentOpponentBriefing(name: string, opponent: string): Promise<OpponentBriefing>;
   getAgentConsistency(name: string): Promise<AgentConsistency>;
+
+  // Flips and positions
   getAgentFlips(name: string, params?: { limit?: number } & PaginationParams): Promise<{ flips: AgentFlip[] }>;
+  getAgentPositions(name: string, params?: { topic?: string; limit?: number } & PaginationParams): Promise<{ positions: AgentPosition[] }>;
+
+  // Network and relationships
   getAgentNetwork(name: string): Promise<AgentNetwork>;
   getAgentAllies(name: string): Promise<{ allies: AgentRelationship[] }>;
   getAgentRivals(name: string): Promise<{ rivals: AgentRelationship[] }>;
+  getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship>;
+
+  // Other metrics
   getAgentReputation(name: string): Promise<{ reputation: number | null }>;
   getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }>;
-  getAgentPositions(name: string, params?: { topic?: string; limit?: number } & PaginationParams): Promise<{ positions: AgentPosition[] }>;
   getAgentDomains(name: string): Promise<{ domains: DomainRating[] }>;
   getAgentElo(agentName: string): Promise<{ agent: string; elo: number; history: Array<{ date: string; elo: number }> }>;
-  getAgentRelationship(agentA: string, agentB: string): Promise<AgentRelationship>;
+
+  // Comparison and leaderboards
   getLeaderboard(): Promise<{ agents: Agent[] }>;
   compareAgents(agents: string[]): Promise<AgentComparison>;
   getAgentMetadata(name: string): Promise<Record<string, unknown>>;
@@ -60,6 +160,16 @@ interface AgentsClientInterface {
   getRecentFlips(params?: { limit?: number }): Promise<{ flips: unknown[] }>;
   getFlipsSummary(): Promise<Record<string, unknown>>;
   getCalibrationLeaderboard(): Promise<{ agents: Array<{ name: string; score: number }> }>;
+
+  // Team selection
+  selectTeam(request: TeamSelectionRequest): Promise<TeamSelection>;
+
+  // Generic request method (for persona/identity/accuracy endpoints)
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; body?: unknown }
+  ): Promise<T>;
 }
 
 /**

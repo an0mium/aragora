@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -19,7 +19,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class KMPersistenceMixin:
+class _KMPersistenceHostProtocol(Protocol):
+    """Protocol for host class of KMPersistenceMixin."""
+
+    EXPERTISE_PREFIX: str
+    _expertise: dict[str, dict[str, Any]]
+    _domain_agents: dict[str, list[str]]
+    _agent_domains: dict[str, list[str]]
+
+
+class KMPersistenceMixin(_KMPersistenceHostProtocol):
     """Mixin providing Knowledge Mound sync/load and conversion methods.
 
     Expects the following attributes on the host class:

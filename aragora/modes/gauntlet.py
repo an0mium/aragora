@@ -769,7 +769,7 @@ class GauntletOrchestrator:
                 f"Red-team: {result.total_attacks} attacks, robustness={result.robustness_score:.0%}"
             )
             return result
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(f"Red-team failed: {e}")
             return None
 
@@ -807,7 +807,7 @@ class GauntletOrchestrator:
                 )
                 findings.extend(parsed_findings)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
                 logger.debug(f"Persona attack {attack.id} failed: {e}")
 
         logger.info(
@@ -908,7 +908,7 @@ class GauntletOrchestrator:
                 f"Probing: {report.vulnerabilities_found}/{report.probes_run} vulnerabilities"
             )
             return report
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(f"Probing failed: {e}")
             return None
 
@@ -934,7 +934,7 @@ class GauntletOrchestrator:
                 f"Deep audit: confidence={verdict.confidence:.0%}, {len(verdict.findings)} findings"
             )
             return verdict
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.warning(f"Deep audit failed: {e}")
             return None
 
@@ -979,7 +979,7 @@ class GauntletOrchestrator:
                 else:
                     unverified.append(claim)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.debug(f"Verification failed for claim: {e}")
                 unverified.append(claim)
 

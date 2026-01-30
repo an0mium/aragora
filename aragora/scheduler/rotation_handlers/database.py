@@ -114,7 +114,7 @@ class DatabaseRotationHandler(RotationHandler):
                 from aragora.config.secrets import get_secret
 
                 admin_password = get_secret("POSTGRES_ADMIN_PASSWORD")
-            except Exception:
+            except (ImportError, KeyError, ValueError, OSError):
                 raise RotationError("Admin password required for PostgreSQL rotation", secret_id)
 
         try:
@@ -142,7 +142,7 @@ class DatabaseRotationHandler(RotationHandler):
                 "asyncpg not installed, skipping actual rotation. Install with: pip install asyncpg"
             )
             # In production, this would fail. For testing, we allow it.
-        except Exception as e:
+        except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
             raise RotationError(f"PostgreSQL rotation failed: {e}", secret_id)
 
     async def _rotate_supabase(
@@ -178,7 +178,14 @@ class DatabaseRotationHandler(RotationHandler):
                     )
                     response.raise_for_status()
                     logger.info("Updated Supabase database password via API")
-            except Exception as e:
+            except (
+                ImportError,
+                OSError,
+                TimeoutError,
+                ConnectionError,
+                RuntimeError,
+                ValueError,
+            ) as e:
                 logger.warning(f"Supabase API rotation failed: {e}, falling back to direct")
                 # Fall back to direct PostgreSQL rotation
                 await self._rotate_postgresql(secret_id, username, new_password, metadata)
@@ -229,7 +236,7 @@ class DatabaseRotationHandler(RotationHandler):
             except ImportError:
                 logger.warning("asyncpg not installed, assuming credentials valid")
                 return True
-            except Exception as e:
+            except (OSError, TimeoutError, ConnectionError, RuntimeError) as e:
                 logger.error(f"Database validation failed for {secret_id}: {e}")
                 return False
         else:

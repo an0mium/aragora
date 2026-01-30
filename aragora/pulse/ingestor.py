@@ -108,7 +108,7 @@ class PulseIngestor(ABC):
                 result = await coro_factory()
                 self.circuit_breaker.record_success()
                 return result
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, TimeoutError) as e:
                 last_error = e
                 delay = self.base_retry_delay * (2**attempt)
                 logger.warning(
@@ -414,7 +414,7 @@ class RedditIngestor(PulseIngestor):
                                 },
                             )
                             all_topics.append(topic)
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, RuntimeError) as e:
                         logger.warning(f"Error fetching r/{subreddit}: {e}")
                         continue
 
@@ -675,7 +675,7 @@ class GoogleTrendsIngestor(PulseIngestor):
                         last_error = e
                         logger.debug(f"[google_trends] URL {url} failed: {e}")
                         continue
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, RuntimeError) as e:
                         last_error = e
                         logger.debug(f"[google_trends] URL {url} error: {e}")
                         continue
@@ -1201,7 +1201,7 @@ class SubstackIngestor(PulseIngestor):
                                     },
                                 )
                                 all_topics.append(topic)
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, RuntimeError) as e:
                         logger.warning(f"Error fetching Substack feed {feed_url}: {e}")
                         continue
 

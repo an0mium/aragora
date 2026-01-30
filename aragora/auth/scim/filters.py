@@ -310,8 +310,8 @@ class SCIMFilterParser:
             match = re.match(self.NUMBER_VALUE, text[pos:])
             if match:
                 num_str = match.group(0)
-                value = float(num_str) if "." in num_str else int(num_str)
-                self._tokens.append(("VALUE", value))
+                num_value: float | int = float(num_str) if "." in num_str else int(num_str)
+                self._tokens.append(("VALUE", num_value))
                 pos += len(match.group(0))
                 continue
 

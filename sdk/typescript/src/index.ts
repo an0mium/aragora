@@ -165,6 +165,14 @@ export type {
   MemoryAnalytics,
   MemoryTierStats,
 
+  // Analytics
+  DisagreementAnalytics,
+  RoleRotationAnalytics,
+  EarlyStopAnalytics,
+  ConsensusQualityAnalytics,
+  RankingStats,
+  MemoryStats,
+
   // Auth
   RegisterRequest,
   RegisterResponse,
@@ -287,7 +295,28 @@ export {
 } from './websocket';
 
 // Re-export namespace APIs (for advanced use cases)
-export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI, BeliefAPI, BotsAPI, UsageAPI, FactsAPI } from './namespaces';
+export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI, BeliefAPI, BotsAPI, UsageAPI, FactsAPI, AdminAPI, AnalyticsAPI } from './namespaces';
+export type { AnalyticsPeriodOptions } from './namespaces';
+
+// Re-export Admin types (Platform Administration)
+export type {
+  AdminOrganization,
+  OrganizationList,
+  AdminUser,
+  AdminUserList,
+  PlatformStats,
+  SystemMetrics,
+  RevenueData,
+  ImpersonationToken,
+  NomicStatus,
+  CircuitBreaker,
+  CircuitBreakerList,
+  CreditAccount,
+  CreditTransaction,
+  CreditTransactionList,
+  SecurityStatus,
+  SecurityKey,
+} from './namespaces';
 
 // Re-export Facts types (Knowledge CRUD)
 export type {

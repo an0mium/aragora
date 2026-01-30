@@ -386,7 +386,7 @@ class PulseDebateScheduler:
                 query=topic,
                 limit=limit,
             )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.warning(f"Failed to query KM for past debates: {e}")
             return []
 
@@ -536,7 +536,7 @@ class PulseDebateScheduler:
                 except asyncio.TimeoutError:
                     pass  # Continue to next poll
 
-            except Exception as e:
+            except (OSError, RuntimeError, asyncio.CancelledError) as e:
                 logger.error(f"Error in scheduler loop: {e}", exc_info=True)
                 # Wait before retrying to avoid tight error loop
                 await asyncio.sleep(60)
@@ -593,7 +593,7 @@ class PulseDebateScheduler:
                 await self._create_debate(topic, scored)
                 break  # Only create one debate per poll
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Error in poll_and_create: {e}", exc_info=True)
 
     async def _create_debate(self, topic: TrendingTopic, scored: TopicScore) -> None:
@@ -684,14 +684,14 @@ class PulseDebateScheduler:
                                 rounds_used=rounds_used,
                             )
                         logger.debug(f"Pulse debate synced to Knowledge Mound: {debate_id}")
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                         logger.warning(f"Failed to sync pulse debate to KM: {e}")
             else:
                 # Debate creation returned None
                 self._metrics.debates_failed += 1
                 logger.warning("Debate creator returned None")
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             self._metrics.debates_failed += 1
             logger.error(f"Failed to create debate: {e}", exc_info=True)
 

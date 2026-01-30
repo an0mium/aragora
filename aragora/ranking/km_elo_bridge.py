@@ -372,7 +372,7 @@ class KMEloBridge:
                             all_patterns[agent_name] = patterns
                             result.patterns_detected += len(patterns)
                             _record_patterns_for_agent(agent_name, len(patterns))
-                    except Exception as e:
+                    except (AttributeError, TypeError, ValueError, RuntimeError) as e:
                         error_msg = f"Error analyzing {agent_name}: {e}"
                         logger.error(error_msg)
                         result.errors.append(error_msg)
@@ -402,7 +402,7 @@ class KMEloBridge:
             # Update gauges
             _update_total_syncs(self._total_syncs)
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError, OSError) as e:
             error_msg = f"Sync error: {e}"
             logger.error(error_msg, exc_info=True)
             result.errors.append(error_msg)
@@ -449,7 +449,7 @@ class KMEloBridge:
         try:
             ratings = self._elo_system.get_all_ratings()
             return [r.agent_name for r in ratings]
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.error(f"Error getting agents: {e}")
             return []
 
@@ -510,7 +510,7 @@ class KMEloBridge:
                     agent_name,
                     limit=100,
                 )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, RuntimeError) as e:
             logger.error(f"Error querying KM for {agent_name}: {e}")
 
         return []

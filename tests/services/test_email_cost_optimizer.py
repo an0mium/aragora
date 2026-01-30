@@ -819,7 +819,7 @@ class TestCreateCostOptimizedPrioritizer:
     async def test_create_optimizer_minimal(self):
         """Test creating optimizer with minimal config."""
         with patch(
-            "aragora.services.email_cost_optimizer.EmailPrioritizer"
+            "aragora.services.email_prioritization.EmailPrioritizer"
         ) as mock_prioritizer_class:
             mock_prioritizer = MagicMock()
             mock_prioritizer_class.return_value = mock_prioritizer
@@ -837,7 +837,7 @@ class TestCreateCostOptimizedPrioritizer:
     async def test_create_optimizer_with_config(self):
         """Test creating optimizer with custom config."""
         with patch(
-            "aragora.services.email_cost_optimizer.EmailPrioritizer"
+            "aragora.services.email_prioritization.EmailPrioritizer"
         ) as mock_prioritizer_class:
             mock_prioritizer = MagicMock()
             mock_prioritizer_class.return_value = mock_prioritizer
@@ -856,7 +856,7 @@ class TestCreateCostOptimizedPrioritizer:
     async def test_create_optimizer_with_connectors(self):
         """Test creating optimizer with connectors."""
         with patch(
-            "aragora.services.email_cost_optimizer.EmailPrioritizer"
+            "aragora.services.email_prioritization.EmailPrioritizer"
         ) as mock_prioritizer_class:
             mock_prioritizer = MagicMock()
             mock_prioritizer_class.return_value = mock_prioritizer

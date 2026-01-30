@@ -441,7 +441,9 @@ def log_function(
                     fields["result_type"] = type(result).__name__
                 logger._log(log_level, f"Function completed: {func.__name__}", **fields)
                 return result
-            except Exception as e:
+            except (KeyboardInterrupt, SystemExit, GeneratorExit):
+                raise
+            except BaseException as e:
                 fields["duration_ms"] = (time.monotonic() - start) * 1000
                 fields["error"] = str(e)
                 logger.error(f"Function failed: {func.__name__}", exc_info=True, **fields)
@@ -463,7 +465,9 @@ def log_function(
                     fields["result_type"] = type(result).__name__
                 logger._log(log_level, f"Function completed: {func.__name__}", **fields)
                 return result
-            except Exception as e:
+            except (KeyboardInterrupt, SystemExit, GeneratorExit):
+                raise
+            except BaseException as e:
                 fields["duration_ms"] = (time.monotonic() - start) * 1000
                 fields["error"] = str(e)
                 logger.error(f"Function failed: {func.__name__}", exc_info=True, **fields)
@@ -508,7 +512,9 @@ def log_request(logger: StructuredLogger = None):
                         status="success",
                     )
                     return result
-                except Exception as e:
+                except (KeyboardInterrupt, SystemExit, GeneratorExit):
+                    raise
+                except BaseException as e:
                     duration_ms = (time.monotonic() - start) * 1000
                     _logger.error(
                         "Request failed",

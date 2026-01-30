@@ -153,7 +153,7 @@ class ImpersonationManager:
                 from aragora.storage.impersonation_store import get_impersonation_store
 
                 self._store = get_impersonation_store()
-            except Exception as e:
+            except (ImportError, OSError, RuntimeError) as e:
                 logger.warning(f"Failed to get impersonation store: {e}")
         return self._store
 
@@ -190,13 +190,13 @@ class ImpersonationManager:
                     action_details=entry.action_details,
                     error_message=entry.error_message,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, TypeError, ValueError) as e:
                 logger.error(f"Failed to persist audit entry to store: {e}")
 
         if self._audit_callback:
             try:
                 self._audit_callback(entry)
-            except Exception as e:
+            except (OSError, RuntimeError, TypeError, ValueError) as e:
                 logger.error(f"Failed to persist audit entry via callback: {e}")
 
         # Always log to structured logger

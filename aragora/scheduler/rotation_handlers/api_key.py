@@ -111,7 +111,7 @@ class APIKeyRotationHandler(RotationHandler):
                 from aragora.config.secrets import get_secret
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
-            except Exception as e:
+            except (ImportError, KeyError, OSError) as e:
                 logger.debug(f"Could not load OpenAI admin key from secrets: {e}")
 
         if not admin_key:
@@ -158,7 +158,7 @@ class APIKeyRotationHandler(RotationHandler):
 
         except ImportError:
             raise RotationError("httpx not installed. Install with: pip install httpx", secret_id)
-        except Exception as e:
+        except (OSError, ConnectionError, TimeoutError, ValueError, KeyError) as e:
             logger.error(f"OpenAI key rotation failed: {e}")
             await self._notify_manual_rotation(secret_id, "openai", metadata)
             raise RotationError(
@@ -195,7 +195,7 @@ class APIKeyRotationHandler(RotationHandler):
                     metadata=metadata,
                 )
                 logger.info(f"Sent rotation notification for {secret_id}")
-            except Exception as e:
+            except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
                 logger.error(f"Failed to send notification for {secret_id}: {e}")
         else:
             logger.warning(
@@ -251,7 +251,7 @@ class APIKeyRotationHandler(RotationHandler):
                 # 401 = invalid key, 400 = valid key but bad request
                 return response.status_code != 401
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"Anthropic validation error: {e}")
             return False
 
@@ -268,7 +268,7 @@ class APIKeyRotationHandler(RotationHandler):
                 )
                 return response.status_code == 200
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"OpenAI validation error: {e}")
             return False
 
@@ -284,7 +284,7 @@ class APIKeyRotationHandler(RotationHandler):
                 )
                 return response.status_code == 200
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"Google validation error: {e}")
             return False
 
@@ -301,7 +301,7 @@ class APIKeyRotationHandler(RotationHandler):
                 )
                 return response.status_code == 200
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"Mistral validation error: {e}")
             return False
 
@@ -320,7 +320,7 @@ class APIKeyRotationHandler(RotationHandler):
                 )
                 return response.status_code == 200
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"OpenRouter validation error: {e}")
             return False
 
@@ -359,7 +359,7 @@ class APIKeyRotationHandler(RotationHandler):
                 from aragora.config.secrets import get_secret
 
                 admin_key = get_secret("OPENAI_ADMIN_KEY")
-            except Exception as e:
+            except (ImportError, KeyError, OSError) as e:
                 logger.debug(f"Could not load OpenAI admin key from secrets for revocation: {e}")
 
         if not admin_key:
@@ -382,7 +382,7 @@ class APIKeyRotationHandler(RotationHandler):
                     logger.warning(f"OpenAI revocation returned {response.status_code}")
                     return False
 
-        except Exception as e:
+        except (ImportError, OSError, ConnectionError, TimeoutError, ValueError) as e:
             logger.error(f"OpenAI revocation error: {e}")
             return False
 

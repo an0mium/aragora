@@ -297,7 +297,7 @@ class QualityScorer:
         if self._embedding_provider and ctx.query:
             try:
                 scores.semantic_score = await self._score_semantic(content, ctx.query)
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, OSError) as e:
                 logger.warning(f"Semantic scoring failed, using default: {e}")
                 scores.semantic_score = 0.5
 
@@ -338,7 +338,7 @@ class QualityScorer:
         except ImportError:
             logger.debug("Embedding module not available for semantic scoring")
             return 0.5
-        except Exception as e:
+        except (ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.debug(f"Semantic scoring error: {e}")
             return 0.5
 
@@ -381,7 +381,7 @@ class QualityScorer:
                     max(0.0, min(1.0, (cosine_similarity(query_embedding, emb) + 1) / 2))
                     for emb in content_embeddings
                 ]
-            except Exception as e:
+            except (ValueError, TypeError, RuntimeError, AttributeError, ImportError) as e:
                 logger.warning(f"Batch semantic scoring failed: {e}")
                 similarities = [0.5] * len(evidence_list)
         else:
@@ -489,7 +489,7 @@ class QualityScorer:
                 if domain in self.DOMAIN_AUTHORITY:
                     # Blend with source type score
                     score = (score + self.DOMAIN_AUTHORITY[domain]) / 2
-            except Exception as e:
+            except (ValueError, AttributeError) as e:
                 logger.debug(f"Could not parse URL for authority scoring: {e}")
 
         # Provenance adjustments

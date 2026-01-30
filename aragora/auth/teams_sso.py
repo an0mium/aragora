@@ -250,7 +250,7 @@ class TeamsSSO:
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token: {e}")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Token validation failed: {e}")
             return None
 
@@ -285,7 +285,7 @@ class TeamsSSO:
         except ImportError:
             logger.warning("PyJWT with cryptography not installed")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError) as e:
             logger.error(f"Failed to get signing key: {e}")
             return None
 
@@ -342,7 +342,7 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for OBO flow")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"OBO token exchange error: {e}")
             return None
 
@@ -377,7 +377,7 @@ class TeamsSSO:
         except ImportError:
             logger.warning("httpx not installed for Graph API")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.error(f"Graph API error: {e}")
             return None
 

@@ -243,7 +243,7 @@ class CodexHarness(CodeAnalysisHarness):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception(f"Codex analysis failed: {e}")
             return HarnessResult(
                 harness="codex",
@@ -274,7 +274,7 @@ class CodexHarness(CodeAnalysisHarness):
                     try:
                         content = file_path.read_text(encoding="utf-8", errors="ignore")
                         files_content[str(file_path)] = content
-                    except Exception as e:
+                    except (OSError, UnicodeDecodeError) as e:
                         logger.warning(f"Failed to read {file_path}: {e}")
 
             if not files_content:
@@ -307,7 +307,7 @@ class CodexHarness(CodeAnalysisHarness):
                 },
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception(f"Codex file analysis failed: {e}")
             return HarnessResult(
                 harness="codex",
@@ -364,7 +364,7 @@ class CodexHarness(CodeAnalysisHarness):
                 if chunk.choices and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception(f"Codex stream analysis failed: {e}")
             yield f"Error: {e}"
 
@@ -429,7 +429,7 @@ class CodexHarness(CodeAnalysisHarness):
                 response=response_text if response_text is not None else "",
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError) as e:
             logger.exception(f"Codex interactive session failed: {e}")
             return SessionResult(
                 session_id=context.session_id,
@@ -467,7 +467,7 @@ class CodexHarness(CodeAnalysisHarness):
                             continue
                         files_content[rel_path] = content
                         files_found += 1
-                    except Exception as e:
+                    except (OSError, UnicodeDecodeError) as e:
                         logger.warning(f"Failed to read {file_path}: {e}")
 
             if files_found >= max_files:

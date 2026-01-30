@@ -243,7 +243,11 @@ class CrossChannelContextService:
         if self.slack:
             tasks.append(self._get_slack_signal(user_email))
         else:
-            tasks.append(asyncio.coroutine(lambda: None)())
+            # Create a no-op coroutine when no Slack connector
+            async def _noop():
+                return None
+
+            tasks.append(_noop())
 
         # More connectors would be added here (Drive, Calendar)
         # For now, we'll stub them

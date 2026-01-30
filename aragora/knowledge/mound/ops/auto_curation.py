@@ -256,7 +256,7 @@ class CurationHistory:
     trigger: str  # "scheduled", "manual", "threshold"
 
 
-class AutoCurationMixin:
+class AutoCurationMixin(_AutoCurationOpsProtocol):
     """Mixin providing auto-curation operations for Knowledge Mound."""
 
     # Policies stored per workspace

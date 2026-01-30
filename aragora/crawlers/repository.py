@@ -203,14 +203,14 @@ class RepositoryCrawler(BaseCrawler):
                     else:
                         self._stats.skipped_files += 1
 
-                except Exception as e:
+                except (OSError, IOError, UnicodeDecodeError, ValueError) as e:
                     self._stats.failed_files += 1
                     self._stats.errors.append(f"{file_path}: {str(e)}")
                     logger.warning(f"Failed to crawl {file_path}: {e}")
 
             self._stats.status = CrawlStatus.COMPLETED
 
-        except Exception as e:
+        except (OSError, IOError, RuntimeError, ValueError) as e:
             self._stats.status = CrawlStatus.FAILED
             self._stats.errors.append(str(e))
             logger.exception(f"Crawl failed: {e}")
@@ -284,7 +284,7 @@ class RepositoryCrawler(BaseCrawler):
             )
             return temp_dir
 
-        except Exception as e:
+        except (OSError, IOError, RuntimeError, ValueError) as e:
             logger.exception(f"Failed to clone repository: {e}")
             return None
 
@@ -319,7 +319,7 @@ class RepositoryCrawler(BaseCrawler):
         # Read content
         try:
             content = full_path.read_text(encoding="utf-8", errors="ignore")
-        except Exception as e:
+        except (OSError, IOError, UnicodeDecodeError) as e:
             logger.debug(f"Failed to read {rel_path}: {e}")
             return None
 

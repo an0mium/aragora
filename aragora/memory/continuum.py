@@ -512,18 +512,13 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         # Emit MEMORY_STORED event for cross-subsystem tracking
         if self.event_emitter:
             try:
-                from aragora.events.types import StreamEvent, StreamEventType
-
-                self.event_emitter.emit(  # type: ignore[unused-coroutine,misc]
-                    StreamEvent(  # type: ignore[arg-type]
-                        type=StreamEventType.MEMORY_STORED,
-                        data={
-                            "memory_id": id,
-                            "tier": tier.value,
-                            "importance": importance,
-                            "content_length": len(content),
-                        },
-                    )
+                self.event_emitter.emit_sync(
+                    event_type="memory_stored",
+                    debate_id="",
+                    memory_id=id,
+                    tier=tier.value,
+                    importance=importance,
+                    content_length=len(content),
                 )
             except (ImportError, AttributeError, TypeError):
                 pass  # Events module not available
@@ -536,7 +531,7 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
                 logger.debug(f"Failed to sync memory to KM (network): {e}")
             except (ValueError, KeyError, TypeError) as e:
                 logger.debug(f"Failed to sync memory to KM (data): {e}")
-            except Exception as e:
+            except (RuntimeError, AttributeError) as e:
                 logger.warning(f"Unexpected error syncing memory to KM: {e}")
 
         return entry
@@ -1002,45 +997,34 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         # Emit MEMORY_RECALL event if memories were retrieved
         if entries and self.event_emitter:
             try:
-                from aragora.server.stream.events import StreamEvent, StreamEventType
-
                 tier_counts: dict[str, int] = {}
                 for e in entries:
                     tier_counts[e.tier.value] = tier_counts.get(e.tier.value, 0) + 1
 
-                self.event_emitter.emit(  # type: ignore[unused-coroutine]
-                    StreamEvent(  # type: ignore[arg-type]
-                        type=StreamEventType.MEMORY_RECALL,
-                        data={
-                            "count": len(entries),
-                            "query": query[:100] if query else None,
-                            "tier_distribution": tier_counts,
-                            "top_importance": max(e.importance for e in entries),
-                        },
-                    )
+                self.event_emitter.emit_sync(
+                    event_type="memory_recall",
+                    debate_id="",
+                    count=len(entries),
+                    query=query[:100] if query else None,
+                    tier_distribution=tier_counts,
+                    top_importance=max(e.importance for e in entries),
                 )
             except (ImportError, AttributeError, TypeError):
-                pass  # Stream module not available or emitter misconfigured
+                pass  # Emitter not available or misconfigured
 
             # Also emit MEMORY_RETRIEVED for cross-subsystem tracking
             try:
-                from aragora.events.types import StreamEvent as CrossEvent
-                from aragora.events.types import StreamEventType as CrossEventType
-
                 for entry in entries:
-                    self.event_emitter.emit(  # type: ignore[unused-coroutine]
-                        CrossEvent(  # type: ignore[arg-type]
-                            type=CrossEventType.MEMORY_RETRIEVED,
-                            data={
-                                "memory_id": entry.id,
-                                "tier": entry.tier.value,
-                                "importance": entry.importance,
-                                "cache_hit": False,  # DB retrieval, not cache
-                            },
-                        )
+                    self.event_emitter.emit_sync(
+                        event_type="memory_retrieved",
+                        debate_id="",
+                        memory_id=entry.id,
+                        tier=entry.tier.value,
+                        importance=entry.importance,
+                        cache_hit=False,  # DB retrieval, not cache
                     )
             except (ImportError, AttributeError, TypeError):
-                pass  # Events module not available
+                pass  # Emitter not available
 
         return AwaitableList(entries)
 
@@ -1105,18 +1089,13 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         # Emit event for hybrid search
         if results and self.event_emitter:
             try:
-                from aragora.server.stream.events import StreamEvent, StreamEventType
-
-                self.event_emitter.emit(  # type: ignore[unused-coroutine]
-                    StreamEvent(  # type: ignore[arg-type]
-                        type=StreamEventType.MEMORY_RECALL,
-                        data={
-                            "count": len(results),
-                            "query": query[:100] if query else None,
-                            "search_type": "hybrid",
-                            "top_combined_score": max(r.combined_score for r in results),
-                        },
-                    )
+                self.event_emitter.emit_sync(
+                    event_type="memory_recall",
+                    debate_id="",
+                    count=len(results),
+                    query=query[:100] if query else None,
+                    search_type="hybrid",
+                    top_combined_score=max(r.combined_score for r in results),
                 )
             except (ImportError, AttributeError, TypeError):
                 pass
@@ -1211,8 +1190,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         except (ConnectionError, TimeoutError, OSError) as e:
             logger.warning(f"Memory pre-warm failed (network): {e}")
             return 0
-        except Exception as e:
-            logger.exception(f"Unexpected error during memory pre-warm: {e}")
+        except (RuntimeError, AttributeError, ValueError, TypeError) as e:
+            logger.warning(f"Unexpected error during memory pre-warm: {e}")
             return 0
 
     def invalidate_reference(self, node_id: str) -> bool:
@@ -1290,8 +1269,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Failed to invalidate KM reference {node_id} (data): {e}")
             return False
-        except Exception as e:
-            logger.exception(f"Unexpected error invalidating KM reference {node_id}: {e}")
+        except (RuntimeError, AttributeError) as e:
+            logger.warning(f"Unexpected error invalidating KM reference {node_id}: {e}")
             return False
 
     def update_outcome(
