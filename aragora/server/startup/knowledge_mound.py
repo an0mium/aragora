@@ -40,7 +40,7 @@ async def init_tts_integration() -> bool:
 
     except ImportError as e:
         logger.debug(f"TTS integration not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, OSError, AttributeError) as e:
         logger.warning(f"Failed to initialize TTS integration: {e}")
 
     return False
@@ -191,7 +191,7 @@ async def init_knowledge_mound_from_env() -> bool:
 
     except ImportError as e:
         logger.debug(f"Knowledge Mound not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, OSError, ConnectionError) as e:
         logger.warning(f"Failed to initialize Knowledge Mound from env: {e}")
 
     return False
@@ -252,7 +252,7 @@ async def init_km_adapters() -> bool:
 
     except ImportError as e:
         logger.debug(f"KM adapters not available: {e}")
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, AttributeError, KeyError) as e:
         logger.warning(f"Failed to initialize KM adapters: {e}")
 
     return False

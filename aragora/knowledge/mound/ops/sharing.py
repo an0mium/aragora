@@ -287,47 +287,75 @@ class KnowledgeSharingMixin:
 
     async def get_share_grants(
         self: SharingProtocol,
-        item_id: str,
+        item_id: str | None = None,
+        shared_by: str | None = None,
+        workspace_id: str | None = None,
     ) -> list["AccessGrant"]:
         """
-        Get all sharing grants for an item.
+        Get sharing grants, optionally filtered by item, grantor, or workspace.
 
         Args:
-            item_id: ID of the item
+            item_id: ID of the item (if filtering by item)
+            shared_by: User ID of the grantor (if filtering by who shared)
+            workspace_id: Workspace ID (if filtering by workspace)
 
         Returns:
             List of AccessGrant objects
         """
         self._ensure_initialized()
 
-        if hasattr(self._meta_store, "get_access_grants_async"):
-            return await self._meta_store.get_access_grants_async(item_id)
+        # If filtering by item_id, use the standard method
+        if item_id and hasattr(self._meta_store, "get_access_grants_async"):
+            grants = await self._meta_store.get_access_grants_async(item_id)
+            # Apply additional filters if provided
+            if shared_by:
+                grants = [g for g in grants if g.granted_by == shared_by]
+            return grants
 
+        # If filtering by shared_by or workspace_id only
+        if hasattr(self._meta_store, "get_grants_by_grantor_async"):
+            return await self._meta_store.get_grants_by_grantor_async(
+                shared_by=shared_by, workspace_id=workspace_id
+            )
+
+        # Fallback: If no specific store method, return empty
+        # In production, the store should implement get_grants_by_grantor_async
+        logger.warning(
+            "Store does not support filtering grants by grantor. "
+            "Implement get_grants_by_grantor_async for full functionality."
+        )
         return []
 
     async def update_share_permissions(
         self: SharingProtocol,
         item_id: str,
         grantee_id: str,
-        new_permissions: list[str],
         updated_by: str,
+        new_permissions: list[str] | None = None,
+        permissions: list[str] | None = None,
+        expires_at: datetime | None = None,
     ) -> Optional["AccessGrant"]:
         """
-        Update permissions for an existing share grant.
+        Update permissions and/or expiration for an existing share grant.
 
         Args:
             item_id: ID of the shared item
             grantee_id: ID of the grantee
-            new_permissions: New permissions list
             updated_by: User ID making the update
+            new_permissions: New permissions list (preferred parameter name)
+            permissions: Alias for new_permissions (for API compatibility)
+            expires_at: Optional new expiration datetime
 
         Returns:
             Updated AccessGrant or None if not found
         """
         self._ensure_initialized()
 
+        # Support both parameter names for permissions
+        perms = new_permissions or permissions
+
         # Get existing grant
-        grants = await self.get_share_grants(item_id)
+        grants = await self.get_share_grants(item_id=item_id)
         existing = next((g for g in grants if g.grantee_id == grantee_id), None)
 
         if not existing:
@@ -341,17 +369,17 @@ class KnowledgeSharingMixin:
             item_id=existing.item_id,
             grantee_type=existing.grantee_type,
             grantee_id=existing.grantee_id,
-            permissions=new_permissions,
+            permissions=perms if perms else existing.permissions,
             granted_by=updated_by,
             granted_at=datetime.now(),
-            expires_at=existing.expires_at,
+            expires_at=expires_at if expires_at is not None else existing.expires_at,
         )
 
         if hasattr(self._meta_store, "save_access_grant_async"):
             await self._meta_store.save_access_grant_async(updated_grant)
 
         logger.info(
-            f"Updated permissions for item {item_id} grantee {grantee_id}: {new_permissions}"
+            f"Updated permissions for item {item_id} grantee {grantee_id}: {perms or existing.permissions}"
         )
 
         return updated_grant

@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Knowledge Mound health check utility functions.
 
@@ -19,7 +18,10 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound import KnowledgeMound
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ def check_knowledge_mound_module() -> tuple[dict[str, Any], bool]:
         }, True
 
 
-def check_mound_core_initialization() -> tuple[dict[str, Any], Any]:
+def check_mound_core_initialization() -> tuple[dict[str, Any], "KnowledgeMound | None"]:
     """Check core mound initialization.
 
     Returns:
@@ -57,9 +59,14 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], Any]:
         - mound_instance: The KnowledgeMound instance if successful, None otherwise
     """
     try:
-        from aragora.knowledge.mound import KnowledgeMound
+        from aragora.knowledge.mound import KnowledgeMound as KnowledgeMoundClass
+        from aragora.knowledge.mound.types import MoundConfig
 
-        mound = KnowledgeMound(workspace_id="health_check")  # type: ignore[abstract]
+        # KnowledgeMound is a concrete class composed of mixins but mypy sees it as abstract
+        # due to how the mixin pattern is implemented. It is instantiable at runtime.
+        mound: KnowledgeMound = KnowledgeMoundClass(  # type: ignore[abstract]
+            workspace_id="health_check"
+        )
 
         result: dict[str, Any] = {
             "healthy": True,
@@ -67,13 +74,20 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], Any]:
             "workspace_id": mound.workspace_id,
         }
 
-        # Check config
+        # Check config - use getattr for optional attributes that may vary by version
         if hasattr(mound, "config") and mound.config:
+            config: MoundConfig = mound.config
             result["config"] = {
-                "enable_staleness_tracking": mound.config.enable_staleness_tracking,  # type: ignore[attr-defined]
-                "enable_culture_accumulator": mound.config.enable_culture_accumulator,  # type: ignore[attr-defined]
-                "enable_rlm_summaries": mound.config.enable_rlm_summaries,  # type: ignore[attr-defined]
-                "default_staleness_hours": mound.config.default_staleness_hours,  # type: ignore[attr-defined]
+                "enable_staleness_tracking": getattr(
+                    config, "enable_staleness_detection", False
+                ),
+                "enable_culture_accumulator": getattr(
+                    config, "enable_culture_accumulator", False
+                ),
+                "enable_rlm_summaries": getattr(config, "enable_rlm_summaries", False),
+                "default_staleness_hours": getattr(
+                    config, "default_staleness_hours", None
+                ),
             }
 
         return result, mound
@@ -86,7 +100,7 @@ def check_mound_core_initialization() -> tuple[dict[str, Any], Any]:
         }, None
 
 
-def check_storage_backend(mound: Any = None) -> dict[str, Any]:
+def check_storage_backend(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
     """Check storage backend configuration and status.
 
     Args:
@@ -131,7 +145,7 @@ def check_storage_backend(mound: Any = None) -> dict[str, Any]:
         }
 
 
-def check_culture_accumulator(mound: Any = None) -> dict[str, Any]:
+def check_culture_accumulator(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
     """Check culture accumulator status.
 
     Args:
@@ -180,7 +194,7 @@ def check_culture_accumulator(mound: Any = None) -> dict[str, Any]:
         }
 
 
-def check_staleness_tracker(mound: Any = None) -> dict[str, Any]:
+def check_staleness_tracker(mound: "KnowledgeMound | None" = None) -> dict[str, Any]:
     """Check staleness tracker status.
 
     Args:
@@ -260,16 +274,26 @@ def check_debate_integration() -> dict[str, Any]:
         Dict with debate-KM integration health status.
     """
     try:
-        from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
+        from aragora.debate import knowledge_mound_ops
 
-        km_stats = get_knowledge_mound_stats()
-        return {
-            "healthy": True,
-            "status": "active",
-            "facts_count": km_stats.get("facts_count", 0),
-            "consensus_stored": km_stats.get("consensus_stored", 0),
-            "retrievals_count": km_stats.get("retrievals_count", 0),
-        }
+        # Check if get_knowledge_mound_stats function exists in the module
+        get_stats_fn = getattr(knowledge_mound_ops, "get_knowledge_mound_stats", None)
+        if get_stats_fn is not None:
+            km_stats: dict[str, Any] = get_stats_fn()
+            return {
+                "healthy": True,
+                "status": "active",
+                "facts_count": km_stats.get("facts_count", 0),
+                "consensus_stored": km_stats.get("consensus_stored", 0),
+                "retrievals_count": km_stats.get("retrievals_count", 0),
+            }
+        else:
+            # Module exists but function not available
+            return {
+                "healthy": True,
+                "status": "partial",
+                "note": "KnowledgeMoundOperations class available but stats function not found",
+            }
     except ImportError:
         return {
             "healthy": True,
@@ -293,9 +317,9 @@ def check_knowledge_mound_redis_cache() -> dict[str, Any]:
     try:
         redis_url = os.environ.get("KNOWLEDGE_MOUND_REDIS_URL") or os.environ.get("REDIS_URL")
         if redis_url:
-            from aragora.knowledge.mound.redis_cache import KnowledgeMoundCache  # type: ignore[attr-defined]
+            from aragora.knowledge.mound.redis_cache import RedisCache
 
-            KnowledgeMoundCache(redis_url=redis_url)
+            RedisCache(url=redis_url)
             return {
                 "healthy": True,
                 "status": "configured",

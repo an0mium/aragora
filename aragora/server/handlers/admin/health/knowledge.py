@@ -9,9 +9,13 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from ...base import HandlerResult, json_response
+
+if TYPE_CHECKING:
+    from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.types import MoundConfig
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +79,7 @@ class KnowledgeMixin:
         # 2. Check core mound initialization
         mound = None
         try:
-            mound = KnowledgeMound(workspace_id="health_check")  # type: ignore[abstract]
+            mound: KnowledgeMound = KnowledgeMound(workspace_id="health_check")
 
             components["core"] = {
                 "healthy": True,
@@ -85,11 +89,11 @@ class KnowledgeMixin:
 
             # Check config
             if hasattr(mound, "config") and mound.config:
+                config: MoundConfig = mound.config
                 components["core"]["config"] = {
-                    "enable_staleness_tracking": mound.config.enable_staleness_tracking,  # type: ignore[attr-defined]
-                    "enable_culture_accumulator": mound.config.enable_culture_accumulator,  # type: ignore[attr-defined]
-                    "enable_rlm_summaries": mound.config.enable_rlm_summaries,  # type: ignore[attr-defined]
-                    "default_staleness_hours": mound.config.default_staleness_hours,  # type: ignore[attr-defined]
+                    "enable_staleness_detection": config.enable_staleness_detection,
+                    "enable_culture_accumulator": config.enable_culture_accumulator,
+                    "staleness_age_threshold_days": config.staleness_age_threshold.days,
                 }
 
         except Exception as e:
@@ -296,9 +300,19 @@ class KnowledgeMixin:
     def _check_debate_integration(self) -> dict[str, Any]:
         """Check debate integration via knowledge_mound_ops."""
         try:
-            from aragora.debate.knowledge_mound_ops import get_knowledge_mound_stats  # type: ignore[attr-defined]
+            from aragora.debate import knowledge_mound_ops
 
-            km_stats = get_knowledge_mound_stats()
+            get_knowledge_mound_stats = getattr(
+                knowledge_mound_ops, "get_knowledge_mound_stats", None
+            )
+            if get_knowledge_mound_stats is None:
+                return {
+                    "healthy": True,
+                    "status": "not_available",
+                    "note": "get_knowledge_mound_stats not found in knowledge_mound_ops",
+                }
+
+            km_stats: dict[str, Any] = get_knowledge_mound_stats()
             return {
                 "healthy": True,
                 "status": "active",
@@ -326,9 +340,9 @@ class KnowledgeMixin:
 
             redis_url = os.environ.get("KNOWLEDGE_MOUND_REDIS_URL") or os.environ.get("REDIS_URL")
             if redis_url:
-                from aragora.knowledge.mound.redis_cache import KnowledgeMoundCache  # type: ignore[attr-defined]
+                from aragora.knowledge.mound.redis_cache import RedisCache
 
-                KnowledgeMoundCache(redis_url=redis_url)
+                RedisCache(url=redis_url)
                 return {
                     "healthy": True,
                     "status": "configured",

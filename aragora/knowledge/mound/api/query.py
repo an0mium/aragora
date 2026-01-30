@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Protocol, Sequence
 
 # Distributed tracing support
@@ -36,10 +38,8 @@ except ImportError:
         def set_error(self, error: Exception) -> None:
             pass
 
-    from contextlib import contextmanager
-
     @contextmanager
-    def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
+    def trace_context(operation: str, **kwargs: Any) -> Iterator[_MockSpan]:
         yield _MockSpan()
 
 
@@ -125,6 +125,26 @@ class QueryProtocol(Protocol):
         depth: int = 2,
         max_nodes: int = 50,
     ) -> "GraphQueryResult": ...
+    async def export_graph_d3(
+        self,
+        start_node_id: str | None = None,
+        depth: int = 3,
+        limit: int = 100,
+    ) -> dict[str, Any]: ...
+    async def _filter_by_visibility(
+        self,
+        items: list["KnowledgeItem"],
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: str | None = None,
+    ) -> list["KnowledgeItem"]: ...
+    def _has_access_grant(
+        self,
+        grants: list[dict[str, Any]],
+        actor_id: str,
+        actor_workspace_id: str,
+        actor_org_id: str | None,
+    ) -> bool: ...
 
 
 class QueryOperationsMixin:
@@ -232,7 +252,7 @@ class QueryOperationsMixin:
             except ImportError:
                 pass  # Metrics not available
 
-            result = QueryResult(  # type: ignore[assignment]
+            result: QueryResult = QueryResult(
                 items=items,
                 total_count=len(items),
                 query=query,
@@ -246,7 +266,7 @@ class QueryOperationsMixin:
                 await self._cache.set_query(cache_key, result)
                 span.add_event("result_cached")
 
-            return result  # type: ignore[return-value]
+            return result
 
     async def get_recent_nodes(
         self: QueryProtocol,
@@ -534,7 +554,7 @@ class QueryOperationsMixin:
         Returns:
             GraphML XML string
         """
-        d3_data = await self.export_graph_d3(start_node_id, depth, limit)  # type: ignore[attr-defined]
+        d3_data = await self.export_graph_d3(start_node_id, depth, limit)
 
         # Build GraphML XML
         lines = [
@@ -628,7 +648,7 @@ class QueryOperationsMixin:
         )  # Get extra for filtering
 
         # Filter by visibility
-        filtered_items = await self._filter_by_visibility(  # type: ignore[attr-defined]
+        filtered_items = await self._filter_by_visibility(
             items=result.items,
             actor_id=actor_id,
             actor_workspace_id=actor_workspace_id,
@@ -695,7 +715,7 @@ class QueryOperationsMixin:
             elif vis == VisibilityLevel.PRIVATE:
                 # Private items require explicit grant - check access_grants
                 grants = (item.metadata or {}).get("access_grants", [])
-                if self._has_access_grant(grants, actor_id, actor_workspace_id, actor_org_id):  # type: ignore[attr-defined]
+                if self._has_access_grant(grants, actor_id, actor_workspace_id, actor_org_id):
                     result.append(item)
 
         return result

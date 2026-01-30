@@ -190,6 +190,8 @@ class KnowledgeMound:
         source_list = self._resolve_sources(sources)
 
         # Query each source
+        # Results can be list[KnowledgeItem] or BaseException when return_exceptions=True
+        results: list[list[KnowledgeItem] | BaseException]
         if self.config.parallel_queries:
             tasks = []
             for source in source_list:
@@ -206,11 +208,11 @@ class KnowledgeMound:
 
         # Combine results
         all_items: list[KnowledgeItem] = []
-        for i, result in enumerate(results):  # type: ignore[assignment]
-            if isinstance(result, Exception):
-                logger.warning(f"Query to {source_list[i]} failed: {result}")
-            elif result:
-                all_items.extend(result)
+        for i, query_result in enumerate(results):
+            if isinstance(query_result, BaseException):
+                logger.warning(f"Query to {source_list[i]} failed: {query_result}")
+            elif query_result:
+                all_items.extend(query_result)
 
         # Sort by importance/relevance and limit
         all_items.sort(key=lambda x: x.importance or 0, reverse=True)
@@ -506,8 +508,8 @@ class KnowledgeMound:
             return []
 
         try:
-            # Use keyword matching for now (semantic search in Phase 1.2)
-            entries = self._continuum.search_by_keyword(query, limit=limit)  # type: ignore[attr-defined]
+            # Use retrieve() for keyword matching (semantic search in Phase 1.2)
+            entries = self._continuum.retrieve(query=query, limit=limit)
             items = []
             for entry in entries:
                 items.append(
@@ -539,38 +541,26 @@ class KnowledgeMound:
             return []
 
         try:
-            # Search by topic similarity
-            entries = await self._consensus.search_by_topic(query, limit=limit)  # type: ignore[attr-defined]
+            # Search by topic similarity using find_similar_debates
+            similar_debates = self._consensus.find_similar_debates(topic=query, limit=limit)
             items = []
-            for entry in entries:
+            for similar in similar_debates:
+                consensus = similar.consensus
                 items.append(
                     KnowledgeItem(
-                        id=f"cs_{entry.id}",
-                        content=entry.final_claim or entry.topic,
+                        id=f"cs_{consensus.id}",
+                        content=consensus.conclusion or consensus.topic,
                         source=KnowledgeSource.CONSENSUS,
-                        source_id=entry.id,
-                        confidence=self._strength_to_confidence(
-                            entry.strength.value if hasattr(entry, "strength") else "moderate"
-                        ),
-                        created_at=(
-                            datetime.fromisoformat(entry.created_at)
-                            if hasattr(entry, "created_at")
-                            else datetime.now(timezone.utc)
-                        ),
-                        updated_at=(
-                            datetime.fromisoformat(entry.updated_at)
-                            if hasattr(entry, "updated_at")
-                            else datetime.now(timezone.utc)
-                        ),
+                        source_id=consensus.id,
+                        confidence=self._strength_to_confidence(consensus.strength.value),
+                        created_at=consensus.timestamp,
+                        updated_at=consensus.timestamp,
                         metadata={
-                            "debate_id": entry.debate_id if hasattr(entry, "debate_id") else None,
-                            "supporting_agents": (
-                                entry.supporting_agents
-                                if hasattr(entry, "supporting_agents")
-                                else []
-                            ),
+                            "debate_id": consensus.id,
+                            "supporting_agents": consensus.agreeing_agents,
+                            "similarity": similar.similarity_score,
                         },
-                        importance=entry.confidence if hasattr(entry, "confidence") else 0.5,
+                        importance=consensus.confidence,
                     )
                 )
             return items
@@ -589,11 +579,15 @@ class KnowledgeMound:
             return []
 
         try:
-            facts = await self._facts.query_facts(  # type: ignore[misc,call-arg]
-                query=query,
+            from aragora.knowledge.types import FactFilters
+
+            # Build FactFilters from QueryFilters
+            fact_filters = FactFilters(
                 workspace_id=filters.workspace_id if filters else None,
                 limit=limit,
             )
+            # query_facts is sync, not async
+            facts = self._facts.query_facts(query=query, filters=fact_filters)
             items = []
             for fact in facts:
                 items.append(
@@ -608,7 +602,7 @@ class KnowledgeMound:
                         metadata={
                             "evidence_ids": fact.evidence_ids,
                             "source_documents": fact.source_documents,
-                            "tags": fact.tags,
+                            "tags": fact.topics,
                         },
                         importance=fact.confidence,
                     )
@@ -629,30 +623,33 @@ class KnowledgeMound:
             return []
 
         try:
-            results = await self._vectors.search(  # type: ignore[attr-defined]
+            # WeaviateStore uses search_keyword for BM25 text search
+            # (search_vector requires an embedding, which we don't have here)
+            document_ids = None
+            if filters and filters.workspace_id:
+                # workspace_id doesn't directly map to document_ids
+                # but we can pass None and filter results if needed
+                pass
+            results = await self._vectors.search_keyword(
                 query=query,
                 limit=limit,
-                filters=(
-                    {"workspace_id": filters.workspace_id}
-                    if filters and filters.workspace_id
-                    else None
-                ),
+                document_ids=document_ids,
             )
             items = []
             for result in results:
                 items.append(
                     KnowledgeItem(
-                        id=f"vc_{result.id}",
+                        id=f"vc_{result.chunk_id}",
                         content=result.content,
                         source=KnowledgeSource.VECTOR,
-                        source_id=result.id,
+                        source_id=result.chunk_id,
                         confidence=ConfidenceLevel.MEDIUM,
                         created_at=datetime.now(
                             timezone.utc
                         ),  # Vector store may not have timestamps
                         updated_at=datetime.now(timezone.utc),
                         metadata=result.metadata or {},
-                        importance=result.score if hasattr(result, "score") else 0.5,
+                        importance=result.score,
                     )
                 )
             return items
@@ -671,11 +668,15 @@ class KnowledgeMound:
         if not self._continuum:
             raise RuntimeError("ContinuumMemory not available")
 
-        await self._continuum.store(  # type: ignore[call-arg]
+        # ContinuumMemory.store() takes key, content, tier, importance, metadata
+        await self._continuum.store(
+            key=item_id,
             content=content,
             importance=importance,
-            tags=metadata.get("tags", []),
-            source_type=metadata.get("source_type", "knowledge_mound"),
+            metadata={
+                "tags": metadata.get("tags", []),
+                "source_type": metadata.get("source_type", "knowledge_mound"),
+            },
         )
 
     async def _store_to_facts(
@@ -739,7 +740,8 @@ class KnowledgeMound:
         """Get a FactStore item by source ID."""
         if not self._facts:
             return None
-        fact = await self._facts.get_fact(source_id)  # type: ignore[misc]
+        # get_fact is sync, not async
+        fact = self._facts.get_fact(source_id)
         if fact:
             return KnowledgeItem(
                 id=f"fc_{fact.id}",

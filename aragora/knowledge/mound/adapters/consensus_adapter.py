@@ -483,7 +483,20 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         Returns:
             List of DissentRecord with type RISK_WARNING
         """
-        return self._consensus.find_risk_warnings(topic=topic, limit=limit)  # type: ignore[attr-defined]
+        from aragora.memory.consensus import DissentType
+
+        if topic:
+            return self._consensus.find_relevant_dissent(
+                topic=topic,
+                dissent_types=[DissentType.RISK_WARNING, DissentType.EDGE_CASE_CONCERN],
+                limit=limit,
+            )
+        # Without topic, search broadly using a generic query
+        return self._consensus.find_relevant_dissent(
+            topic="risk warning concern edge case",
+            dissent_types=[DissentType.RISK_WARNING, DissentType.EDGE_CASE_CONCERN],
+            limit=limit,
+        )
 
     def get_contrarian_views(
         self,
@@ -501,11 +514,21 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         Returns:
             List of DissentRecord with type FUNDAMENTAL_DISAGREEMENT
         """
-        return self._consensus.find_contrarian_views(limit=limit)  # type: ignore[attr-defined]
+        from aragora.memory.consensus import DissentType
+
+        # Search for fundamental disagreements and alternative approaches
+        return self._consensus.find_relevant_dissent(
+            topic="fundamental disagreement alternative approach",
+            dissent_types=[
+                DissentType.FUNDAMENTAL_DISAGREEMENT,
+                DissentType.ALTERNATIVE_APPROACH,
+            ],
+            limit=limit,
+        )
 
     def get_stats(self) -> dict[str, Any]:
         """Get statistics about the consensus memory."""
-        return self._consensus.get_stats()  # type: ignore[attr-defined]
+        return self._consensus.get_statistics()
 
     def search_similar(
         self,
@@ -606,12 +629,34 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
             },
         )
 
+    def _get_all_consensus_records(self) -> list["ConsensusRecord"]:
+        """Get all consensus records from the underlying ConsensusMemory.
+
+        This helper method provides access to all records for sync operations
+        by querying the database directly.
+
+        Returns:
+            List of all ConsensusRecord objects
+        """
+        from aragora.memory.consensus import ConsensusRecord
+        from aragora.utils.json_helpers import safe_json_loads
+
+        records: list[ConsensusRecord] = []
+        with self._consensus.connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT data FROM consensus ORDER BY timestamp DESC")
+            for row in cursor.fetchall():
+                data: dict[str, Any] = safe_json_loads(row[0], {}, context="consensus:get_all")
+                if data:
+                    records.append(ConsensusRecord.from_dict(data))
+        return records
+
     async def sync_to_km(
         self,
         mound: Any,
         min_confidence: float = 0.7,
         batch_size: int = 50,
-    ) -> dict[str, Any]:
+    ) -> SyncResult:
         """
         Sync pending consensus records to Knowledge Mound (forward flow).
 
@@ -643,8 +688,8 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         }
 
         # Find all pending records
-        pending_records = []
-        for record in self._consensus.get_all_consensus():  # type: ignore[attr-defined]
+        pending_records: list["ConsensusRecord"] = []
+        for record in self._get_all_consensus_records():
             if record.metadata.get("km_sync_pending") and record.confidence >= min_confidence:
                 pending_records.append(record)
             elif record.confidence < min_confidence:
@@ -653,7 +698,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
         if not pending_records:
             logger.debug("No pending consensus records to sync to KM")
             result["duration_ms"] = (time.time() - start) * 1000
-            return result  # type: ignore[return-value]
+            return result
 
         logger.info(f"Syncing {len(pending_records[:batch_size])} consensus records to KM")
 
@@ -717,7 +762,7 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin, Resil
             f"failed={result['records_failed']}"
         )
 
-        return result  # type: ignore[return-value]
+        return result
 
     async def sync_validations_from_km(
         self,

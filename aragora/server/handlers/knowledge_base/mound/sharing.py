@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.http_utils import run_async as _run_async
@@ -31,6 +31,7 @@ from ...utils.rate_limit import rate_limit
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
+    from aragora.knowledge.mound.types import AccessGrant, KnowledgeItem
 
 logger = logging.getLogger(__name__)
 
@@ -95,26 +96,32 @@ class SharingOperationsMixin:
 
         try:
             if target_type == "workspace":
-                _run_async(
-                    mound.share_with_workspace(  # type: ignore[misc]
-                        item_id=item_id,
-                        from_workspace_id=workspace_id,
-                        to_workspace_id=target_id,
-                        shared_by=user_id,
-                        permissions=permissions,
-                        expires_at=expires_at,
-                    )
+                cast(
+                    "AccessGrant",
+                    _run_async(
+                        mound.share_with_workspace(
+                            item_id=item_id,
+                            from_workspace_id=workspace_id,
+                            to_workspace_id=target_id,
+                            shared_by=user_id,
+                            permissions=permissions,
+                            expires_at=expires_at,
+                        )
+                    ),
                 )
             else:
-                _run_async(
-                    mound.share_with_user(  # type: ignore[misc,call-arg]
-                        item_id=item_id,
-                        from_workspace_id=workspace_id,
-                        to_user_id=target_id,
-                        shared_by=user_id,
-                        permissions=permissions,
-                        expires_at=expires_at,
-                    )
+                cast(
+                    "AccessGrant",
+                    _run_async(
+                        mound.share_with_user(
+                            item_id=item_id,
+                            from_workspace_id=workspace_id,
+                            user_id=target_id,
+                            shared_by=user_id,
+                            permissions=permissions,
+                            expires_at=expires_at,
+                        )
+                    ),
                 )
         except ValueError as e:
             return error_response(str(e), 404)
@@ -164,14 +171,18 @@ class SharingOperationsMixin:
 
         user_id = getattr(user, "id", None) or getattr(user, "user_id", "unknown")
 
+        # Note: include_expired is not supported by the current API
+        _ = include_expired  # Kept for future use
         try:
-            items = _run_async(
-                mound.get_shared_with_me(  # type: ignore[misc,call-arg]
-                    workspace_id=workspace_id,
-                    user_id=user_id,
-                    limit=limit,
-                    include_expired=include_expired,
-                )
+            items = cast(
+                "list[KnowledgeItem]",
+                _run_async(
+                    mound.get_shared_with_me(
+                        workspace_id=workspace_id,
+                        user_id=user_id,
+                        limit=limit,
+                    )
+                ),
             )
         except Exception as e:
             logger.error(f"Failed to get shared items: {e}")
@@ -228,12 +239,15 @@ class SharingOperationsMixin:
         user_id = getattr(user, "id", None) or getattr(user, "user_id", "unknown")
 
         try:
-            _run_async(
-                mound.revoke_share(  # type: ignore[misc]
-                    item_id=item_id,
-                    grantee_id=grantee_id,
-                    revoked_by=user_id,
-                )
+            cast(
+                bool,
+                _run_async(
+                    mound.revoke_share(
+                        item_id=item_id,
+                        grantee_id=grantee_id,
+                        revoked_by=user_id,
+                    )
+                ),
             )
         except ValueError as e:
             return error_response(str(e), 404)
@@ -273,11 +287,14 @@ class SharingOperationsMixin:
         user_id = getattr(user, "id", None) or getattr(user, "user_id", "unknown")
 
         try:
-            grants = _run_async(
-                mound.get_share_grants(  # type: ignore[misc,call-arg]
-                    shared_by=user_id,
-                    workspace_id=workspace_id,
-                )
+            grants = cast(
+                "list[AccessGrant]",
+                _run_async(
+                    mound.get_share_grants(
+                        shared_by=user_id,
+                        workspace_id=workspace_id,
+                    )
+                ),
             )
         except Exception as e:
             logger.error(f"Failed to list shares: {e}")
@@ -337,14 +354,17 @@ class SharingOperationsMixin:
         user_id = getattr(user, "id", None) or getattr(user, "user_id", "unknown")
 
         try:
-            updated_grant = _run_async(
-                mound.update_share_permissions(  # type: ignore[misc,call-arg]
-                    item_id=item_id,
-                    grantee_id=grantee_id,
-                    permissions=permissions,
-                    expires_at=expires_at,
-                    updated_by=user_id,
-                )
+            updated_grant = cast(
+                "AccessGrant | None",
+                _run_async(
+                    mound.update_share_permissions(
+                        item_id=item_id,
+                        grantee_id=grantee_id,
+                        permissions=permissions,
+                        expires_at=expires_at,
+                        updated_by=user_id,
+                    )
+                ),
             )
         except ValueError as e:
             return error_response(str(e), 404)

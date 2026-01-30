@@ -353,33 +353,47 @@ class TestDissentQueries:
         mock_consensus.find_relevant_dissent.assert_called_once_with(topic="security", limit=10)
 
     def test_get_risk_warnings(self):
-        """Should retrieve risk warnings."""
+        """Should retrieve risk warnings by using find_relevant_dissent."""
         from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
+        from aragora.memory.consensus import DissentType
 
         mock_warning = MagicMock()
         mock_consensus = MagicMock()
-        mock_consensus.find_risk_warnings = MagicMock(return_value=[mock_warning])
+        mock_consensus.find_relevant_dissent = MagicMock(return_value=[mock_warning])
 
         adapter = ConsensusAdapter(mock_consensus)
 
         warnings = adapter.get_risk_warnings(topic="auth", limit=5)
 
         assert len(warnings) == 1
-        mock_consensus.find_risk_warnings.assert_called_once_with(topic="auth", limit=5)
+        mock_consensus.find_relevant_dissent.assert_called_once_with(
+            topic="auth",
+            dissent_types=[DissentType.RISK_WARNING, DissentType.EDGE_CASE_CONCERN],
+            limit=5,
+        )
 
     def test_get_contrarian_views(self):
-        """Should retrieve contrarian views."""
+        """Should retrieve contrarian views by using find_relevant_dissent."""
         from aragora.knowledge.mound.adapters.consensus_adapter import ConsensusAdapter
+        from aragora.memory.consensus import DissentType
 
         mock_view = MagicMock()
         mock_consensus = MagicMock()
-        mock_consensus.find_contrarian_views = MagicMock(return_value=[mock_view])
+        mock_consensus.find_relevant_dissent = MagicMock(return_value=[mock_view])
 
         adapter = ConsensusAdapter(mock_consensus)
 
         views = adapter.get_contrarian_views(limit=5)
 
         assert len(views) == 1
+        mock_consensus.find_relevant_dissent.assert_called_once_with(
+            topic="fundamental disagreement alternative approach",
+            dissent_types=[
+                DissentType.FUNDAMENTAL_DISAGREEMENT,
+                DissentType.ALTERNATIVE_APPROACH,
+            ],
+            limit=5,
+        )
 
 
 class TestSearchSimilar:
@@ -522,11 +536,11 @@ class TestStatistics:
             "total_dissents": 20,
         }
         mock_consensus = MagicMock()
-        mock_consensus.get_stats = MagicMock(return_value=mock_stats)
+        mock_consensus.get_statistics = MagicMock(return_value=mock_stats)
 
         adapter = ConsensusAdapter(mock_consensus)
 
         stats = adapter.get_stats()
 
         assert stats["total_records"] == 100
-        mock_consensus.get_stats.assert_called_once()
+        mock_consensus.get_statistics.assert_called_once()

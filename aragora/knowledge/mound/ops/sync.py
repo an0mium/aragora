@@ -46,6 +46,41 @@ class SyncProtocol(Protocol):
     def _ensure_initialized(self) -> None: ...
     async def store(self, request: "IngestionRequest") -> Any: ...
 
+    async def sync_from_continuum(
+        self,
+        continuum: "ContinuumMemory",
+        incremental: bool = True,
+        batch_size: int = 100,
+    ) -> "SyncResult": ...
+
+    async def sync_from_consensus(
+        self,
+        consensus: "ConsensusMemory",
+        incremental: bool = True,
+        batch_size: int = 100,
+    ) -> "SyncResult": ...
+
+    async def sync_from_facts(
+        self,
+        facts: "FactStore",
+        incremental: bool = True,
+        batch_size: int = 100,
+    ) -> "SyncResult": ...
+
+    async def sync_from_evidence(
+        self,
+        evidence: "EvidenceStore",
+        incremental: bool = True,
+        batch_size: int = 100,
+    ) -> "SyncResult": ...
+
+    async def sync_from_critique(
+        self,
+        critique: "CritiqueStore",
+        incremental: bool = True,
+        batch_size: int = 100,
+    ) -> "SyncResult": ...
+
 
 class SyncOperationsMixin:
     """Mixin providing sync operations for KnowledgeMound."""
@@ -300,11 +335,13 @@ class SyncOperationsMixin:
         try:
             # FactStore has query_facts method
             if hasattr(facts, "query_facts"):
-                all_facts = facts.query_facts(  # type: ignore[call-arg]
-                    query="",
+                from aragora.knowledge.types import FactFilters
+
+                filters = FactFilters(
                     workspace_id=self.workspace_id,
                     limit=10000,
                 )
+                all_facts = facts.query_facts(query="", filters=filters)
 
                 for fact in all_facts:
                     try:
@@ -530,24 +567,30 @@ class SyncOperationsMixin:
         Returns a dict mapping source name to SyncResult.
         Only syncs from sources that have been connected.
         """
+        from aragora.knowledge.mound.types import SyncResult
 
         self._ensure_initialized()
         results: dict[str, SyncResult] = {}
 
-        if self._continuum:
-            results["continuum"] = await self.sync_from_continuum(self._continuum)  # type: ignore[arg-type,attr-defined]
+        continuum = self._continuum
+        if continuum is not None:
+            results["continuum"] = await self.sync_from_continuum(continuum)
 
-        if self._consensus:
-            results["consensus"] = await self.sync_from_consensus(self._consensus)  # type: ignore[arg-type,attr-defined]
+        consensus = self._consensus
+        if consensus is not None:
+            results["consensus"] = await self.sync_from_consensus(consensus)
 
-        if self._facts:
-            results["facts"] = await self.sync_from_facts(self._facts)  # type: ignore[arg-type,attr-defined]
+        facts = self._facts
+        if facts is not None:
+            results["facts"] = await self.sync_from_facts(facts)
 
-        if self._evidence:
-            results["evidence"] = await self.sync_from_evidence(self._evidence)  # type: ignore[arg-type,attr-defined]
+        evidence = self._evidence
+        if evidence is not None:
+            results["evidence"] = await self.sync_from_evidence(evidence)
 
-        if self._critique:
-            results["critique"] = await self.sync_from_critique(self._critique)  # type: ignore[arg-type,attr-defined]
+        critique = self._critique
+        if critique is not None:
+            results["critique"] = await self.sync_from_critique(critique)
 
         logger.info(
             "Sync complete: %d sources, %d total nodes synced",
@@ -859,12 +902,23 @@ class SyncOperationsMixin:
 
         try:
             if hasattr(self._facts, "query_facts"):
-                all_facts = self._facts.query_facts(  # type: ignore[call-arg]
-                    query="",
+                from datetime import datetime as dt
+                from aragora.knowledge.types import FactFilters
+
+                # Parse since timestamp for incremental sync
+                created_after = None
+                if since:
+                    try:
+                        created_after = dt.fromisoformat(since.replace("Z", "+00:00"))
+                    except ValueError:
+                        pass  # Not a valid timestamp
+
+                filters = FactFilters(
                     workspace_id=ws_id,
                     limit=limit,
-                    since=since,  # Pass since to the query if supported
+                    created_after=created_after,
                 )
+                all_facts = self._facts.query_facts(query="", filters=filters)
 
                 for fact in all_facts:
                     try:
