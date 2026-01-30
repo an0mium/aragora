@@ -181,13 +181,60 @@ class RateLimiterRegistry:
         name: str,
         requests_per_minute: int = DEFAULT_RATE_LIMIT,
         burst: int | None = None,
-    ) -> RateLimiter:
-        """Get or create a named rate limiter."""
+    ) -> RateLimiter | RedisRateLimiter:
+        """Get or create a named rate limiter.
+
+        When Redis is available, returns a Redis-backed limiter for distributed
+        rate limiting across multiple server instances. Falls back to in-memory
+        limiter if Redis is unavailable.
+
+        Args:
+            name: Unique name for this limiter (e.g., "debate_create").
+            requests_per_minute: Max requests per minute.
+            burst: Burst capacity (default: 2x rate).
+
+        Returns:
+            RateLimiter or RedisRateLimiter instance.
+        """
         if name not in self._limiters:
-            self._limiters[name] = RateLimiter(
-                default_limit=requests_per_minute,
-                ip_limit=requests_per_minute,
-            )
+            # Ensure default limiter is initialized (triggers Redis detection)
+            self.get_default()
+
+            if self._use_redis:
+                # Create Redis-backed limiter for distributed rate limiting
+                redis_client = get_redis_client()
+                if redis_client is not None:
+                    try:
+                        from aragora.config.settings import get_settings
+
+                        settings = get_settings()
+                        limiter = RedisRateLimiter(
+                            redis_client,
+                            key_prefix=f"{settings.rate_limit.redis_key_prefix}:{name}",
+                            ttl_seconds=settings.rate_limit.redis_ttl_seconds,
+                        )
+                        # Configure the default limit
+                        limiter.configure_endpoint("*", requests_per_minute, key_type="ip")
+                        self._limiters[name] = limiter
+                        logger.debug(f"Created Redis-backed rate limiter: {name}")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create Redis rate limiter for {name}: {e}"
+                        )
+                        self._limiters[name] = RateLimiter(
+                            default_limit=requests_per_minute,
+                            ip_limit=requests_per_minute,
+                        )
+                else:
+                    self._limiters[name] = RateLimiter(
+                        default_limit=requests_per_minute,
+                        ip_limit=requests_per_minute,
+                    )
+            else:
+                self._limiters[name] = RateLimiter(
+                    default_limit=requests_per_minute,
+                    ip_limit=requests_per_minute,
+                )
         return self._limiters[name]
 
     def cleanup(self, max_age_seconds: int = 300) -> int:
