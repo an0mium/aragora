@@ -121,8 +121,11 @@ class KnowledgeMoundAdapter(ResilientAdapterMixin):
 
         # Initialize resilience patterns (circuit breaker, bulkhead, retry)
         if enable_resilience:
+            # Use per-adapter circuit config if available
+            circuit_config = ADAPTER_CIRCUIT_CONFIGS.get(self.adapter_name)
             self._init_resilience(
                 adapter_name=self.adapter_name,
+                circuit_config=circuit_config,
                 timeout_seconds=resilience_timeout,
             )
 

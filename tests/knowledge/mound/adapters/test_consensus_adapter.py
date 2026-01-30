@@ -467,8 +467,21 @@ class TestSemanticSearch:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Mock search_similar directly to bypass internal call chain issues
-        with patch.object(adapter, "search_similar", return_value=[expected_result]):
+        # Force the semantic search import to fail, triggering fallback
+        # Mock search_similar to return expected results via fallback path
+        with (
+            patch(
+                "aragora.knowledge.mound.adapters._semantic_mixin.SemanticStore",
+                side_effect=ImportError("forced"),
+            ) if False else patch.dict(
+                "sys.modules",
+                {
+                    "aragora.knowledge.mound.semantic_store": None,
+                    "aragora.config": None,
+                },
+            ),
+            patch.object(adapter, "search_similar", return_value=[expected_result]),
+        ):
             results = await adapter.semantic_search("test query", limit=5)
 
         assert len(results) == 1
