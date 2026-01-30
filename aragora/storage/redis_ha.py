@@ -421,7 +421,8 @@ def _create_standalone_client(config: RedisHAConfig) -> Any:
             health_check_interval=config.health_check_interval,
         )
     else:
-        pool = redis.ConnectionPool(**pool_kwargs)  # type: ignore[arg-type]
+        pool_args: dict[str, Any] = pool_kwargs
+        pool = redis.ConnectionPool(**pool_args)
 
     client = redis.Redis(connection_pool=pool)
 
@@ -528,7 +529,8 @@ def _create_cluster_client(config: RedisHAConfig) -> Any:
         if config.ssl_ca_certs:
             cluster_kwargs["ssl_ca_certs"] = config.ssl_ca_certs
 
-    client = RedisCluster(**cluster_kwargs)  # type: ignore[arg-type]
+    cluster_args: dict[str, Any] = cluster_kwargs
+    client = RedisCluster(**cluster_args)
 
     # Verify connection
     client.ping()
