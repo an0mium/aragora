@@ -437,7 +437,7 @@ async def init_key_rotation_scheduler() -> bool:
         return False
 
     try:
-        from aragora.operations.key_rotation import (
+        from aragora.ops.key_rotation import (
             get_key_rotation_scheduler,
             KeyRotationConfig,
         )

@@ -19,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import importlib
 import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Optional
@@ -47,130 +48,230 @@ logger = logging.getLogger(__name__)
 # This allows proper type hints without requiring type: ignore comments
 HandlerType = Optional[type[Any]]
 
-# Handler class placeholders - set to actual classes on successful import
-SystemHandler: HandlerType = None
-HealthHandler: HandlerType = None
-NomicHandler: HandlerType = None
-DocsHandler: HandlerType = None
-DebatesHandler: HandlerType = None
-AgentsHandler: HandlerType = None
-PulseHandler: HandlerType = None
-AnalyticsHandler: HandlerType = None
-AnalyticsDashboardHandler: HandlerType = None
-EndpointAnalyticsHandler: HandlerType = None
-AnalyticsMetricsHandler: HandlerType = None
-MetricsHandler: HandlerType = None
-ConsensusHandler: HandlerType = None
-BeliefHandler: HandlerType = None
-DecisionExplainHandler: HandlerType = None
-DecisionHandler: HandlerType = None
-CritiqueHandler: HandlerType = None
-GenesisHandler: HandlerType = None
-ReplaysHandler: HandlerType = None
-TournamentHandler: HandlerType = None
-MemoryHandler: HandlerType = None
-LeaderboardViewHandler: HandlerType = None
-DocumentHandler: HandlerType = None
-DocumentBatchHandler: HandlerType = None
-VerificationHandler: HandlerType = None
-AuditingHandler: HandlerType = None
-RelationshipHandler: HandlerType = None
-MomentsHandler: HandlerType = None
-PersonaHandler: HandlerType = None
-DashboardHandler: HandlerType = None
-IntrospectionHandler: HandlerType = None
-CalibrationHandler: HandlerType = None
-RoutingHandler: HandlerType = None
-EvolutionHandler: HandlerType = None
-EvolutionABTestingHandler: HandlerType = None
-PluginsHandler: HandlerType = None
-BroadcastHandler: HandlerType = None
-AudioHandler: HandlerType = None
-DeviceHandler: HandlerType = None
-SocialMediaHandler: HandlerType = None
-LaboratoryHandler: HandlerType = None
-ProbesHandler: HandlerType = None
-InsightsHandler: HandlerType = None
-BreakpointsHandler: HandlerType = None
-LearningHandler: HandlerType = None
-GalleryHandler: HandlerType = None
-AuthHandler: HandlerType = None
-BillingHandler: HandlerType = None
-BudgetHandler: HandlerType = None
-CheckpointHandler: HandlerType = None
-GraphDebatesHandler: HandlerType = None
-MatrixDebatesHandler: HandlerType = None
-FeaturesHandler: HandlerType = None
-MemoryAnalyticsHandler: HandlerType = None
-GauntletHandler: HandlerType = None
-SlackHandler: HandlerType = None
-SlackOAuthHandler: HandlerType = None
-TeamsIntegrationHandler: HandlerType = None
-TeamsOAuthHandler: HandlerType = None
-DiscordOAuthHandler: HandlerType = None
-OrganizationsHandler: HandlerType = None
-OAuthHandler: HandlerType = None
-ExternalIntegrationsHandler: HandlerType = None
-IntegrationManagementHandler: HandlerType = None
-FeatureIntegrationsHandler: HandlerType = None
-OAuthWizardHandler: HandlerType = None
-ReviewsHandler: HandlerType = None
-FormalVerificationHandler: HandlerType = None
-EvaluationHandler: HandlerType = None
-EvidenceHandler: HandlerType = None
-FolderUploadHandler: HandlerType = None
-WebhookHandler: HandlerType = None
-WorkflowHandler: HandlerType = None
-AdminHandler: HandlerType = None
-SecurityHandler: HandlerType = None
-ControlPlaneHandler: HandlerType = None
-OrchestrationHandler: HandlerType = None
-DeliberationsHandler: HandlerType = None
-KnowledgeHandler: HandlerType = None
-KnowledgeMoundHandler: HandlerType = None
-KnowledgeChatHandler: HandlerType = None
-PolicyHandler: HandlerType = None
-QueueHandler: HandlerType = None
-RLMContextHandler: HandlerType = None
-TrainingHandler: HandlerType = None
-TranscriptionHandler: HandlerType = None
-UncertaintyHandler: HandlerType = None
-VerticalsHandler: HandlerType = None
-WorkspaceHandler: HandlerType = None
-EmailHandler: HandlerType = None
-EmailServicesHandler: HandlerType = None
-GmailIngestHandler: HandlerType = None
-GmailLabelsHandler: HandlerType = None
-GmailQueryHandler: HandlerType = None
-GmailThreadsHandler: HandlerType = None
-GoogleChatHandler: HandlerType = None
-ExplainabilityHandler: HandlerType = None
-A2AHandler: HandlerType = None
-CodeIntelligenceHandler: HandlerType = None
-AdvertisingHandler: HandlerType = None
-AnalyticsPlatformsHandler: HandlerType = None
-CRMHandler: HandlerType = None
-SupportHandler: HandlerType = None
-EcommerceHandler: HandlerType = None
-ReconciliationHandler: HandlerType = None
-UnifiedInboxHandler: HandlerType = None
-CodebaseAuditHandler: HandlerType = None
-LegalHandler: HandlerType = None
-DevOpsHandler: HandlerType = None
-ReceiptsHandler: HandlerType = None
-BackupHandler: HandlerType = None
-DRHandler: HandlerType = None
-ComplianceHandler: HandlerType = None
-SLOHandler: HandlerType = None
-ConnectorsHandler: HandlerType = None
-MarketplaceHandler: HandlerType = None
-OnboardingHandler: HandlerType = None
-SMEUsageDashboardHandler: HandlerType = None
-CanvasHandler: HandlerType = None
-GatewayHandler: HandlerType = None
-SCIMHandler: HandlerType = None
-ComputerUseHandler: HandlerType = None
-HandlerResult: HandlerType = None
+
+def _safe_import(module_path: str, class_name: str) -> HandlerType:
+    """Safely import a handler class with graceful fallback.
+
+    Returns the handler class if import succeeds, None otherwise.
+    Individual failures are logged as warnings and don't cascade.
+    """
+    try:
+        mod = importlib.import_module(module_path)
+        return getattr(mod, class_name)
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Failed to import {class_name} from {module_path}: {e}")
+        return None
+
+
+# =============================================================================
+# Handler Imports - Individual safe imports for graceful degradation
+# =============================================================================
+# Each handler is imported individually so failures don't cascade.
+# Handlers that fail to import remain None and are skipped during routing.
+
+# Core system handlers
+SystemHandler = _safe_import("aragora.server.handlers", "SystemHandler")
+HealthHandler = _safe_import("aragora.server.handlers", "HealthHandler")
+NomicHandler = _safe_import("aragora.server.handlers", "NomicHandler")
+DocsHandler = _safe_import("aragora.server.handlers", "DocsHandler")
+
+# Debate handlers
+DebatesHandler = _safe_import("aragora.server.handlers", "DebatesHandler")
+GraphDebatesHandler = _safe_import("aragora.server.handlers", "GraphDebatesHandler")
+MatrixDebatesHandler = _safe_import("aragora.server.handlers", "MatrixDebatesHandler")
+ConsensusHandler = _safe_import("aragora.server.handlers", "ConsensusHandler")
+GenesisHandler = _safe_import("aragora.server.handlers", "GenesisHandler")
+ReplaysHandler = _safe_import("aragora.server.handlers", "ReplaysHandler")
+TournamentHandler = _safe_import("aragora.server.handlers", "TournamentHandler")
+DeliberationsHandler = _safe_import("aragora.server.handlers", "DeliberationsHandler")
+OrchestrationHandler = _safe_import("aragora.server.handlers", "OrchestrationHandler")
+
+# Agent handlers
+AgentsHandler = _safe_import("aragora.server.handlers", "AgentsHandler")
+PersonaHandler = _safe_import("aragora.server.handlers", "PersonaHandler")
+CalibrationHandler = _safe_import("aragora.server.handlers", "CalibrationHandler")
+
+# Analytics handlers
+AnalyticsHandler = _safe_import("aragora.server.handlers", "AnalyticsHandler")
+AnalyticsDashboardHandler = _safe_import("aragora.server.handlers", "AnalyticsDashboardHandler")
+EndpointAnalyticsHandler = _safe_import("aragora.server.handlers", "EndpointAnalyticsHandler")
+AnalyticsMetricsHandler = _safe_import("aragora.server.handlers", "AnalyticsMetricsHandler")
+MetricsHandler = _safe_import("aragora.server.handlers", "MetricsHandler")
+SLOHandler = _safe_import("aragora.server.handlers", "SLOHandler")
+MemoryAnalyticsHandler = _safe_import("aragora.server.handlers", "MemoryAnalyticsHandler")
+
+# Knowledge handlers
+KnowledgeHandler = _safe_import("aragora.server.handlers", "KnowledgeHandler")
+KnowledgeMoundHandler = _safe_import("aragora.server.handlers", "KnowledgeMoundHandler")
+KnowledgeChatHandler = _safe_import("aragora.server.handlers", "KnowledgeChatHandler")
+BeliefHandler = _safe_import("aragora.server.handlers", "BeliefHandler")
+EvidenceHandler = _safe_import("aragora.server.handlers", "EvidenceHandler")
+LearningHandler = _safe_import("aragora.server.handlers", "LearningHandler")
+
+# Decision handlers
+DecisionExplainHandler = _safe_import("aragora.server.handlers", "DecisionExplainHandler")
+DecisionHandler = _safe_import("aragora.server.handlers", "DecisionHandler")
+CritiqueHandler = _safe_import("aragora.server.handlers", "CritiqueHandler")
+ExplainabilityHandler = _safe_import("aragora.server.handlers", "ExplainabilityHandler")
+UncertaintyHandler = _safe_import("aragora.server.handlers", "UncertaintyHandler")
+
+# Memory handlers
+MemoryHandler = _safe_import("aragora.server.handlers", "MemoryHandler")
+CheckpointHandler = _safe_import("aragora.server.handlers", "CheckpointHandler")
+
+# Document handlers
+DocumentHandler = _safe_import("aragora.server.handlers", "DocumentHandler")
+DocumentBatchHandler = _safe_import("aragora.server.handlers", "DocumentBatchHandler")
+FolderUploadHandler = _safe_import("aragora.server.handlers", "FolderUploadHandler")
+
+# Verification & auditing handlers
+VerificationHandler = _safe_import("aragora.server.handlers", "VerificationHandler")
+AuditingHandler = _safe_import("aragora.server.handlers", "AuditingHandler")
+FormalVerificationHandler = _safe_import("aragora.server.handlers", "FormalVerificationHandler")
+GauntletHandler = _safe_import("aragora.server.handlers", "GauntletHandler")
+ComplianceHandler = _safe_import("aragora.server.handlers.compliance_handler", "ComplianceHandler")
+
+# UI handlers
+DashboardHandler = _safe_import("aragora.server.handlers", "DashboardHandler")
+LeaderboardViewHandler = _safe_import("aragora.server.handlers", "LeaderboardViewHandler")
+GalleryHandler = _safe_import("aragora.server.handlers", "GalleryHandler")
+CanvasHandler = _safe_import("aragora.server.handlers.canvas", "CanvasHandler")
+SMEUsageDashboardHandler = _safe_import(
+    "aragora.server.handlers.sme_usage_dashboard", "SMEUsageDashboardHandler"
+)
+
+# Pulse & insights handlers
+PulseHandler = _safe_import("aragora.server.handlers", "PulseHandler")
+InsightsHandler = _safe_import("aragora.server.handlers", "InsightsHandler")
+MomentsHandler = _safe_import("aragora.server.handlers", "MomentsHandler")
+
+# Lab handlers
+LaboratoryHandler = _safe_import("aragora.server.handlers", "LaboratoryHandler")
+ProbesHandler = _safe_import("aragora.server.handlers", "ProbesHandler")
+BreakpointsHandler = _safe_import("aragora.server.handlers", "BreakpointsHandler")
+IntrospectionHandler = _safe_import("aragora.server.handlers", "IntrospectionHandler")
+
+# Evolution handlers
+EvolutionHandler = _safe_import("aragora.server.handlers", "EvolutionHandler")
+EvolutionABTestingHandler = _safe_import("aragora.server.handlers", "EvolutionABTestingHandler")
+
+# Relationship & routing handlers
+RelationshipHandler = _safe_import("aragora.server.handlers", "RelationshipHandler")
+RoutingHandler = _safe_import("aragora.server.handlers", "RoutingHandler")
+
+# Plugin handlers
+PluginsHandler = _safe_import("aragora.server.handlers", "PluginsHandler")
+FeaturesHandler = _safe_import("aragora.server.handlers", "FeaturesHandler")
+
+# Media handlers
+AudioHandler = _safe_import("aragora.server.handlers", "AudioHandler")
+DeviceHandler = _safe_import("aragora.server.handlers", "DeviceHandler")
+BroadcastHandler = _safe_import("aragora.server.handlers", "BroadcastHandler")
+TranscriptionHandler = _safe_import("aragora.server.handlers", "TranscriptionHandler")
+
+# Social handlers
+SocialMediaHandler = _safe_import("aragora.server.handlers", "SocialMediaHandler")
+SlackHandler = _safe_import("aragora.server.handlers", "SlackHandler")
+SlackOAuthHandler = _safe_import("aragora.server.handlers.social.slack_oauth", "SlackOAuthHandler")
+TeamsIntegrationHandler = _safe_import(
+    "aragora.server.handlers.social.teams", "TeamsIntegrationHandler"
+)
+TeamsOAuthHandler = _safe_import("aragora.server.handlers.social.teams_oauth", "TeamsOAuthHandler")
+DiscordOAuthHandler = _safe_import(
+    "aragora.server.handlers.social.discord_oauth", "DiscordOAuthHandler"
+)
+GoogleChatHandler = _safe_import("aragora.server.handlers", "GoogleChatHandler")
+
+# Auth & billing handlers
+AuthHandler = _safe_import("aragora.server.handlers", "AuthHandler")
+BillingHandler = _safe_import("aragora.server.handlers", "BillingHandler")
+BudgetHandler = _safe_import("aragora.server.handlers", "BudgetHandler")
+OAuthHandler = _safe_import("aragora.server.handlers", "OAuthHandler")
+OAuthWizardHandler = _safe_import("aragora.server.handlers.oauth_wizard", "OAuthWizardHandler")
+SCIMHandler = _safe_import("aragora.server.handlers.scim_handler", "SCIMHandler")
+SecurityHandler = _safe_import("aragora.server.handlers.admin", "SecurityHandler")
+
+# Organization handlers
+OrganizationsHandler = _safe_import("aragora.server.handlers", "OrganizationsHandler")
+WorkspaceHandler = _safe_import("aragora.server.handlers", "WorkspaceHandler")
+
+# Integration handlers
+ExternalIntegrationsHandler = _safe_import(
+    "aragora.server.handlers.external_integrations", "ExternalIntegrationsHandler"
+)
+IntegrationManagementHandler = _safe_import(
+    "aragora.server.handlers.integration_management", "IntegrationsHandler"
+)
+FeatureIntegrationsHandler = _safe_import(
+    "aragora.server.handlers.features.integrations", "IntegrationsHandler"
+)
+ConnectorsHandler = _safe_import("aragora.server.handlers", "ConnectorsHandler")
+MarketplaceHandler = _safe_import("aragora.server.handlers", "MarketplaceHandler")
+
+# Workflow handlers
+WorkflowHandler = _safe_import("aragora.server.handlers", "WorkflowHandler")
+WebhookHandler = _safe_import("aragora.server.handlers", "WebhookHandler")
+QueueHandler = _safe_import("aragora.server.handlers", "QueueHandler")
+
+# Admin handlers
+AdminHandler = _safe_import("aragora.server.handlers", "AdminHandler")
+ControlPlaneHandler = _safe_import("aragora.server.handlers", "ControlPlaneHandler")
+PolicyHandler = _safe_import("aragora.server.handlers", "PolicyHandler")
+GatewayHandler = _safe_import("aragora.server.handlers.gateway_handler", "GatewayHandler")
+
+# Email handlers
+EmailHandler = _safe_import("aragora.server.handlers", "EmailHandler")
+EmailServicesHandler = _safe_import("aragora.server.handlers", "EmailServicesHandler")
+GmailIngestHandler = _safe_import("aragora.server.handlers.features", "GmailIngestHandler")
+GmailLabelsHandler = _safe_import("aragora.server.handlers.features", "GmailLabelsHandler")
+GmailQueryHandler = _safe_import("aragora.server.handlers.features", "GmailQueryHandler")
+GmailThreadsHandler = _safe_import("aragora.server.handlers.features", "GmailThreadsHandler")
+
+# Specialized feature handlers
+A2AHandler = _safe_import("aragora.server.handlers", "A2AHandler")
+CodeIntelligenceHandler = _safe_import("aragora.server.handlers.codebase", "IntelligenceHandler")
+ComputerUseHandler = _safe_import(
+    "aragora.server.handlers.computer_use_handler", "ComputerUseHandler"
+)
+RLMContextHandler = _safe_import("aragora.server.handlers", "RLMContextHandler")
+TrainingHandler = _safe_import("aragora.server.handlers", "TrainingHandler")
+VerticalsHandler = _safe_import("aragora.server.handlers", "VerticalsHandler")
+OnboardingHandler = _safe_import("aragora.server.handlers.onboarding", "OnboardingHandler")
+
+# Feature platform handlers
+AdvertisingHandler = _safe_import("aragora.server.handlers.features", "AdvertisingHandler")
+AnalyticsPlatformsHandler = _safe_import(
+    "aragora.server.handlers.features", "AnalyticsPlatformsHandler"
+)
+CRMHandler = _safe_import("aragora.server.handlers.features", "CRMHandler")
+SupportHandler = _safe_import("aragora.server.handlers.features", "SupportHandler")
+EcommerceHandler = _safe_import("aragora.server.handlers.features", "EcommerceHandler")
+ReconciliationHandler = _safe_import("aragora.server.handlers.features", "ReconciliationHandler")
+UnifiedInboxHandler = _safe_import("aragora.server.handlers.features", "UnifiedInboxHandler")
+CodebaseAuditHandler = _safe_import("aragora.server.handlers.features", "CodebaseAuditHandler")
+LegalHandler = _safe_import("aragora.server.handlers.features", "LegalHandler")
+DevOpsHandler = _safe_import("aragora.server.handlers.features", "DevOpsHandler")
+
+# Review & evaluation handlers
+ReviewsHandler = _safe_import("aragora.server.handlers", "ReviewsHandler")
+EvaluationHandler = _safe_import("aragora.server.handlers", "EvaluationHandler")
+
+# Backup & DR handlers
+BackupHandler = _safe_import("aragora.server.handlers.backup_handler", "BackupHandler")
+DRHandler = _safe_import("aragora.server.handlers.dr_handler", "DRHandler")
+ReceiptsHandler = _safe_import("aragora.server.handlers.receipts", "ReceiptsHandler")
+
+# Base handler result
+HandlerResult = _safe_import("aragora.server.handlers", "HandlerResult")
+
+# Compute availability based on critical handlers
+HANDLERS_AVAILABLE = all(
+    [
+        SystemHandler is not None,
+        HealthHandler is not None,
+        DebatesHandler is not None,
+    ]
+)
 
 # Import handlers with graceful fallback
 try:

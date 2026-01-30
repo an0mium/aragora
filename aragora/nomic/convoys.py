@@ -107,6 +107,57 @@ class Convoy:
     metadata: dict[str, Any] = field(default_factory=dict)
     error_message: str | None = None
 
+    # ConvoyRecord protocol properties (cross-layer compatibility)
+    @property
+    def convoy_id(self) -> str:
+        """Protocol: convoy identifier."""
+        return self.id
+
+    @property
+    def convoy_title(self) -> str:
+        """Protocol: convoy title."""
+        return self.title
+
+    @property
+    def convoy_description(self) -> str:
+        """Protocol: convoy description."""
+        return self.description
+
+    @property
+    def convoy_bead_ids(self) -> list[str]:
+        """Protocol: bead IDs in convoy."""
+        return self.bead_ids
+
+    @property
+    def convoy_status_value(self) -> str:
+        """Protocol: status enum value."""
+        return self.status.value
+
+    @property
+    def convoy_created_at(self) -> datetime:
+        """Protocol: creation timestamp."""
+        return self.created_at
+
+    @property
+    def convoy_updated_at(self) -> datetime:
+        """Protocol: last update timestamp."""
+        return self.updated_at
+
+    @property
+    def convoy_assigned_agents(self) -> list[str]:
+        """Protocol: assigned agent IDs."""
+        return self.assigned_to
+
+    @property
+    def convoy_error(self) -> str | None:
+        """Protocol: error message if failed."""
+        return self.error_message
+
+    @property
+    def convoy_metadata(self) -> dict[str, Any]:
+        """Protocol: metadata dictionary."""
+        return self.metadata
+
     @classmethod
     def create(
         cls,

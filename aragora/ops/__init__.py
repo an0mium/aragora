@@ -15,12 +15,20 @@ from aragora.ops.enterprise_validator import (
     get_enterprise_health_summary,
     validate_enterprise_deployment,
 )
+from aragora.ops.key_rotation import (
+    KeyRotationConfig,
+    KeyRotationScheduler,
+    get_key_rotation_scheduler,
+)
 
 __all__ = [
     "ComponentStatus",
     "DeploymentValidator",
+    "KeyRotationConfig",
+    "KeyRotationScheduler",
     "ValidationResult",
     "get_enterprise_health_summary",
+    "get_key_rotation_scheduler",
     "quick_health_check",
     "validate_deployment",
     "validate_enterprise_deployment",

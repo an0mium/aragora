@@ -1,17 +1,30 @@
 """
 Operations utilities for Aragora.
 
-Provides operational tools for:
-- Key rotation scheduling with data re-encryption
-- Data migration
-- Maintenance tasks
-- Health checks
+DEPRECATED: This package is a backward compatibility shim.
+Import from `aragora.ops` instead:
 
-Note: For KMS provider integration and multi-tenant key rotation,
-see aragora.security.key_rotation instead.
+    # New style (preferred)
+    from aragora.ops import KeyRotationScheduler, get_key_rotation_scheduler
+
+    # Old style (still works)
+    from aragora.operations import KeyRotationScheduler, get_key_rotation_scheduler
+
+Both imports resolve to the same code.
 """
 
-from aragora.operations.key_rotation import (
+import warnings
+
+warnings.warn(
+    "aragora.operations is deprecated. "
+    "Import from aragora.ops instead. "
+    "This package will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Re-export from aragora.ops for backward compatibility
+from aragora.ops.key_rotation import (
     KeyRotationScheduler,
     KeyRotationConfig,
     KeyRotationResult,

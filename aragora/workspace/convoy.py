@@ -120,6 +120,62 @@ class Convoy:
     error: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
 
+    # ConvoyRecord protocol properties (cross-layer compatibility)
+    # Note: convoy_id field already exists, so we alias to convoy_record_id
+    @property
+    def convoy_record_id(self) -> str:
+        """Protocol: convoy identifier (alias for convoy_id field)."""
+        return object.__getattribute__(self, "convoy_id")
+
+    @property
+    def convoy_title(self) -> str:
+        """Protocol: convoy title (maps from name)."""
+        return self.name
+
+    @property
+    def convoy_description(self) -> str:
+        """Protocol: convoy description."""
+        return self.description
+
+    @property
+    def convoy_bead_ids(self) -> list[str]:
+        """Protocol: bead IDs in convoy."""
+        return self.bead_ids
+
+    @property
+    def convoy_status_value(self) -> str:
+        """Protocol: status enum value."""
+        return self.status.value
+
+    @property
+    def convoy_created_at(self) -> datetime:
+        """Protocol: creation timestamp (converted from float)."""
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(self.created_at, tz=timezone.utc)
+
+    @property
+    def convoy_updated_at(self) -> datetime:
+        """Protocol: last update timestamp (converted from float)."""
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(self.updated_at, tz=timezone.utc)
+
+    @property
+    def convoy_assigned_agents(self) -> list[str]:
+        """Protocol: assigned agent IDs."""
+        return self.assigned_agents
+
+    @property
+    def convoy_error(self) -> str | None:
+        """Protocol: error message if failed."""
+        return self.error
+
+    @property
+    def convoy_metadata(self) -> dict[str, Any]:
+        """Protocol: metadata dictionary."""
+        return dict(self.metadata)  # Convert str values to Any
+
     @property
     def total_beads(self) -> int:
         """Total number of beads in this convoy."""

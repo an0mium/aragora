@@ -1,12 +1,25 @@
-# PostgreSQL StatefulSet for Development/Testing
-# For production, consider using:
-# - AWS RDS for PostgreSQL
-# - Google Cloud SQL
-# - Azure Database for PostgreSQL
-# - Supabase
-# - CloudNativePG operator
+# =============================================================================
+# PostgreSQL StatefulSet - DEVELOPMENT/TESTING ONLY
+# =============================================================================
 #
-# This manifest is for development or small-scale deployments only.
+# WARNING: This single-replica configuration is NOT suitable for production!
+#
+# Production Issues:
+# - Single point of failure (no automatic failover)
+# - No replication (data loss risk on pod failure)
+# - No connection pooling (limited scalability)
+# - Placeholder credentials (security risk)
+#
+# For production deployments, use one of:
+# - AWS RDS Multi-AZ (recommended for AWS)
+# - Google Cloud SQL with HA (recommended for GCP)
+# - Azure Database for PostgreSQL Flexible Server
+# - Supabase (managed PostgreSQL)
+# - CloudNativePG operator (self-managed K8s) - see deploy/k8s/cnpg-cluster.yaml
+#
+# See docs/POSTGRES_HA.md for detailed HA configuration guide.
+#
+# =============================================================================
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
