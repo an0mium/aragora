@@ -38,49 +38,26 @@ from aragora.observability import (
 
 # Type-only imports for optional modules
 if TYPE_CHECKING:
-    from aragora.config.redis import RedisHASettings as _RedisHASettings
-    from aragora.control_plane.arena_bridge import (
-        ArenaControlPlaneBridge as _ArenaControlPlaneBridge,
-    )
-    from aragora.control_plane.deliberation import (
-        DeliberationOutcome as _DeliberationOutcome,
-        DeliberationTask as _DeliberationTask,
-    )
-    from aragora.control_plane.policy import (
-        ControlPlanePolicyManager as _ControlPlanePolicyManager,
-        EnforcementLevel as _EnforcementLevel,
-        PolicyViolation as _PolicyViolation,
-    )
-    from aragora.control_plane.watchdog import (
-        IssueSeverity as _IssueSeverity,
-        ThreeTierWatchdog as _ThreeTierWatchdog,
-        WatchdogConfig as _WatchdogConfig,
-        WatchdogIssue as _WatchdogIssue,
-        WatchdogTier as _WatchdogTier,
-    )
-    from aragora.knowledge.mound.adapters.control_plane_adapter import (
-        ControlPlaneAdapter as _ControlPlaneAdapter,
-        TaskOutcome as _TaskOutcome,
-    )
+    pass
 
 # Policy imports (optional - graceful fallback if not available)
+ControlPlanePolicyManager: Any = None
+PolicyViolation: Any = None
+EnforcementLevel: Any = None
 try:
     from aragora.control_plane.policy import (
         ControlPlanePolicyManager,
         PolicyViolation,
-        PolicyViolationError,
         EnforcementLevel,
     )
 
     HAS_POLICY = True
 except ImportError:
     HAS_POLICY = False
-    ControlPlanePolicyManager: Optional[type[_ControlPlanePolicyManager]] = None  # type: ignore[no-redef]
-    PolicyViolation: Optional[type[_PolicyViolation]] = None  # type: ignore[no-redef]
-    PolicyViolationError: Optional[type[BaseException]] = None  # type: ignore[no-redef]
-    EnforcementLevel: Optional[type[_EnforcementLevel]] = None  # type: ignore[no-redef]
 
 # Optional KM integration
+ControlPlaneAdapter: Any = None
+TaskOutcome: Any = None
 try:
     from aragora.knowledge.mound.adapters.control_plane_adapter import (
         ControlPlaneAdapter,
@@ -90,10 +67,15 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     HAS_KM_ADAPTER = False
-    ControlPlaneAdapter: Optional[type[_ControlPlaneAdapter]] = None  # type: ignore[no-redef]
-    TaskOutcome: Optional[type[_TaskOutcome]] = None  # type: ignore[no-redef]
 
 # Optional Arena Bridge
+ArenaControlPlaneBridge: Any = None
+DeliberationTask: Any = None
+DeliberationOutcome: Any = None
+DELIBERATION_TASK_TYPE = "deliberation"
+get_arena_bridge: Any = None
+init_arena_bridge: Any = None
+AgentPerformance: Any = None
 try:
     from aragora.control_plane.arena_bridge import (  # noqa: F401
         ArenaControlPlaneBridge,
@@ -110,23 +92,24 @@ try:
     HAS_ARENA_BRIDGE = True
 except ImportError:
     HAS_ARENA_BRIDGE = False
-    ArenaControlPlaneBridge: Optional[type[_ArenaControlPlaneBridge]] = None  # type: ignore[no-redef]
-    DeliberationTask: Optional[type[_DeliberationTask]] = None  # type: ignore[no-redef]
-    DeliberationOutcome: Optional[type[_DeliberationOutcome]] = None  # type: ignore[no-redef]
-    DELIBERATION_TASK_TYPE = "deliberation"
 
 # Optional Redis HA support
+RedisHASettings: Any = None
+get_redis_ha_config: Any = None
 try:
-    from aragora.config.redis import RedisHASettings, RedisMode, get_redis_ha_config
+    from aragora.config.redis import RedisHASettings, get_redis_ha_config
 
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
-    RedisHASettings: Optional[type[_RedisHASettings]] = None  # type: ignore[no-redef]
-    RedisMode: Optional[type[Any]] = None  # type: ignore[no-redef]
-    get_redis_ha_config: Optional[Callable[[], Any]] = None  # type: ignore[no-redef]
 
 # Optional Watchdog support (Gastown three-tier monitoring)
+ThreeTierWatchdog: Any = None
+WatchdogConfig: Any = None
+WatchdogTier: Any = None
+WatchdogIssue: Any = None
+IssueSeverity: Any = None
+get_watchdog: Any = None
 try:
     from aragora.control_plane.watchdog import (
         ThreeTierWatchdog,
@@ -140,12 +123,6 @@ try:
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
-    ThreeTierWatchdog: Optional[type[_ThreeTierWatchdog]] = None  # type: ignore[no-redef]
-    WatchdogConfig: Optional[type[_WatchdogConfig]] = None  # type: ignore[no-redef]
-    WatchdogTier: Optional[type[_WatchdogTier]] = None  # type: ignore[no-redef]
-    WatchdogIssue: Optional[type[_WatchdogIssue]] = None  # type: ignore[no-redef]
-    IssueSeverity: Optional[type[_IssueSeverity]] = None  # type: ignore[no-redef]
-    get_watchdog: Optional[Callable[[], Any]] = None  # type: ignore[no-redef]
 
 logger = get_logger(__name__)
 
