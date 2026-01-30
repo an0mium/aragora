@@ -3487,12 +3487,8 @@ The most valuable proposals combine deep analysis with actionable implementation
             aragora_path=self.aragora_path,
             claude_agent=getattr(self, "claude", None),
             codex_agent=getattr(self, "codex", None),
-            kilocode_available=KILOCODE_AVAILABLE if "KILOCODE_AVAILABLE" in dir() else False,
-            skip_kilocode=(
-                SKIP_KILOCODE_CONTEXT_GATHERING
-                if "SKIP_KILOCODE_CONTEXT_GATHERING" in dir()
-                else True
-            ),
+            kilocode_available=self._resolve_kilocode_available(),
+            skip_kilocode=self._resolve_kilocode_skip(),
             kilocode_agent_factory=KiloCodeAgent if "KiloCodeAgent" in dir() else None,
             cycle_count=self.cycle_count,
             log_fn=self._log,
@@ -3502,6 +3498,33 @@ The most valuable proposals combine deep analysis with actionable implementation
             ),
             context_builder=getattr(self, "_context_builder", None),
         )
+
+    def _resolve_kilocode_available(self) -> bool:
+        """Determine whether KiloCode should be treated as available for context."""
+        kilocode_available = KILOCODE_AVAILABLE if "KILOCODE_AVAILABLE" in dir() else False
+        env_kilo = os.environ.get("NOMIC_KILOCODE_AVAILABLE")
+        if env_kilo is not None:
+            return env_kilo.strip().lower() in {"1", "true", "yes", "on"}
+        if not kilocode_available:
+            try:
+                import shutil
+
+                return shutil.which("kilocode") is not None
+            except Exception:
+                return False
+        return kilocode_available
+
+    def _resolve_kilocode_skip(self) -> bool:
+        """Resolve whether KiloCode context gathering should be skipped."""
+        skip_kilocode = (
+            SKIP_KILOCODE_CONTEXT_GATHERING if "SKIP_KILOCODE_CONTEXT_GATHERING" in dir() else True
+        )
+        env_skip = os.environ.get("NOMIC_SKIP_KILOCODE_CONTEXT_GATHERING")
+        if env_skip is None:
+            env_skip = os.environ.get("NOMIC_SKIP_KILOCODE_CONTEXT")
+        if env_skip is not None:
+            return env_skip.strip().lower() in {"1", "true", "yes", "on"}
+        return skip_kilocode
 
     def _create_agent_for_implement(self, agent_name: str):
         """Create or retrieve an agent instance for implementation tasks.
