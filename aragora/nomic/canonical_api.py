@@ -26,6 +26,7 @@ from aragora.nomic.convoys import (
     ConvoyStatus,
     get_convoy_manager,
 )
+from aragora.nomic.stores.paths import resolve_store_dir
 
 
 @runtime_checkable
@@ -78,12 +79,14 @@ class NomicBeadAPI(BeadAPI):
     """Canonical bead API backed by BeadStore."""
 
     bead_store: BeadStore | None = None
-    bead_dir: str = ".beads"
+    bead_dir: str | None = None
     git_enabled: bool = True
     auto_commit: bool = False
 
     async def _store(self) -> BeadStore:
         if self.bead_store is None:
+            if self.bead_dir is None:
+                self.bead_dir = str(resolve_store_dir())
             self.bead_store = await create_bead_store(
                 bead_dir=self.bead_dir,
                 git_enabled=self.git_enabled,
@@ -139,13 +142,15 @@ class NomicConvoyAPI(ConvoyAPI):
 
     bead_store: BeadStore | None = None
     convoy_manager: ConvoyManager | None = None
-    bead_dir: str = ".beads"
+    bead_dir: str | None = None
     git_enabled: bool = True
     auto_commit: bool = False
 
     async def _manager(self) -> ConvoyManager:
         if self.convoy_manager is None:
             if self.bead_store is None:
+                if self.bead_dir is None:
+                    self.bead_dir = str(resolve_store_dir())
                 self.bead_store = await create_bead_store(
                     bead_dir=self.bead_dir,
                     git_enabled=self.git_enabled,

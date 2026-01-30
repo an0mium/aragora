@@ -35,6 +35,16 @@ Context for Claude Code when working with the Aragora codebase.
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
 | Ops | `aragora/ops/` | `deployment_validator.py` (runtime validation) |
 
+## Canonical Storage Paths
+
+Bead and convoy data are stored under the canonical store root:
+
+```
+<workspace_root>/.aragora_beads
+```
+
+Legacy `.gt` stores are supported for backwards compatibility when present.
+
 ## Project Overview
 
 Aragora is the **control plane for multi-agent robust decisionmaking across organizational knowledge and channels**. It orchestrates 15+ AI models—Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, and more—to debate your organization's knowledge and deliver defensible decisions to any channel. It implements self-improvement through the **Nomic Loop** - an autonomous cycle where agents debate improvements, design solutions, implement code, and verify changes.

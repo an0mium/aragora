@@ -653,11 +653,15 @@ class BeadStore:
 
 # Convenience functions
 async def create_bead_store(
-    bead_dir: str = ".beads",
+    bead_dir: str | None = None,
     git_enabled: bool = True,
     auto_commit: bool = False,
 ) -> BeadStore:
     """Create and initialize a bead store."""
+    if bead_dir is None:
+        from aragora.nomic.stores.paths import resolve_store_dir
+
+        bead_dir = str(resolve_store_dir())
     store = BeadStore(
         bead_dir=Path(bead_dir),
         git_enabled=git_enabled,
@@ -671,7 +675,7 @@ async def create_bead_store(
 _default_store: BeadStore | None = None
 
 
-async def get_bead_store(bead_dir: str = ".beads") -> BeadStore:
+async def get_bead_store(bead_dir: str | None = None) -> BeadStore:
     """Get the default bead store instance."""
     global _default_store
     if _default_store is None:

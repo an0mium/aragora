@@ -51,13 +51,13 @@ async def create_debate_bead(
 
     try:
         from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
+        from aragora.nomic.stores.paths import resolve_store_dir
 
         bead_store = getattr(bead_store_holder, "_bead_store", None)
         if bead_store is None:
+            bead_dir = Path(env.context.get("bead_dir")) if env.context else None
             bead_store = BeadStore(
-                bead_dir=Path(env.context.get("bead_dir", ".beads"))
-                if env.context
-                else Path(".beads"),
+                bead_dir=bead_dir or resolve_store_dir(),
                 git_enabled=True,
                 auto_commit=getattr(protocol, "bead_auto_commit", False),
             )
@@ -133,13 +133,13 @@ async def create_pending_debate_bead(
 
     try:
         from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
+        from aragora.nomic.stores.paths import resolve_store_dir
 
         bead_store = getattr(bead_store_holder, "_bead_store", None)
         if bead_store is None:
+            bead_dir = Path(env.context.get("bead_dir")) if env.context else None
             bead_store = BeadStore(
-                bead_dir=Path(env.context.get("bead_dir", ".beads"))
-                if env.context
-                else Path(".beads"),
+                bead_dir=bead_dir or resolve_store_dir(),
                 git_enabled=True,
                 auto_commit=getattr(protocol, "bead_auto_commit", False),
             )
@@ -372,10 +372,11 @@ async def recover_pending_debates(
         from datetime import datetime, timedelta, timezone
 
         from aragora.nomic.stores import BeadStatus, BeadStore, BeadType
+        from aragora.nomic.stores.paths import resolve_store_dir
         from aragora.nomic.hook_queue import HookQueueRegistry
 
         if bead_store is None:
-            bead_store = BeadStore(bead_dir=Path(".beads"), git_enabled=False)
+            bead_store = BeadStore(bead_dir=resolve_store_dir(), git_enabled=False)
             await bead_store.initialize()
 
         registry = HookQueueRegistry(bead_store)

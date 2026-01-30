@@ -2,6 +2,17 @@
 
 Per-repo project containers with work batch tracking and merge queue capabilities for multi-agent parallel development.
 
+## Storage Paths
+
+Bead and convoy persistence is stored under the canonical store root:
+
+```
+<workspace_root>/.aragora_beads
+```
+
+Legacy `.gt` stores are still supported for existing workspaces, but new
+workspaces should rely on the canonical store root.
+
 ## Quick Start
 
 ```python
