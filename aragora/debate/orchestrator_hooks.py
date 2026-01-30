@@ -50,7 +50,7 @@ async def create_debate_bead(
         return None
 
     try:
-        from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
+        from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
 
         bead_store = getattr(bead_store_holder, "_bead_store", None)
         if bead_store is None:
@@ -95,7 +95,7 @@ async def create_debate_bead(
         return bead_id
 
     except ImportError:
-        logger.debug("Bead tracking unavailable: aragora.nomic.beads not found")
+        logger.debug("Bead tracking unavailable: aragora.nomic.stores not found")
         return None
     except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
         logger.warning(f"Failed to create debate bead: {e}")
@@ -132,7 +132,7 @@ async def create_pending_debate_bead(
         return None
 
     try:
-        from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
+        from aragora.nomic.stores import Bead, BeadPriority, BeadStore, BeadType
 
         bead_store = getattr(bead_store_holder, "_bead_store", None)
         if bead_store is None:
@@ -191,7 +191,7 @@ async def update_debate_bead(
         return
 
     try:
-        from aragora.nomic.beads import BeadPriority, BeadStatus
+        from aragora.nomic.stores import BeadPriority, BeadStatus
 
         bead_store = getattr(bead_store_holder, "_bead_store", None)
         if bead_store is None:
@@ -371,7 +371,7 @@ async def recover_pending_debates(
     try:
         from datetime import datetime, timedelta, timezone
 
-        from aragora.nomic.beads import BeadStatus, BeadStore, BeadType
+        from aragora.nomic.stores import BeadStatus, BeadStore, BeadType
         from aragora.nomic.hook_queue import HookQueueRegistry
 
         if bead_store is None:

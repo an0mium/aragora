@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from aragora.nomic.beads import BeadStore as NomicBeadStore
+from aragora.nomic.stores import BeadStore as NomicBeadStore
 from aragora.workspace.bead import BeadManager, BeadStatus
 from aragora.workspace.convoy import ConvoyStatus, ConvoyTracker
 

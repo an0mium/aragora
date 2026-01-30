@@ -17,6 +17,7 @@ SOC 2 Control: A1.1 - Service availability monitoring and communication
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -98,6 +99,11 @@ class StatusPageHandler(BaseHandler):
             "name": "Knowledge Mound",
             "description": "Knowledge storage and retrieval",
         },
+        {
+            "id": "codebase_context",
+            "name": "Codebase Context",
+            "description": "RLM codebase index and manifest availability",
+        },
         {"id": "websocket", "name": "Real-time", "description": "WebSocket streaming"},
         {"id": "auth", "name": "Authentication", "description": "Login and authorization"},
     ]
@@ -169,6 +175,7 @@ class StatusPageHandler(BaseHandler):
             "redis": self._check_redis_health,
             "debates": self._check_debate_health,
             "knowledge": self._check_knowledge_health,
+            "codebase_context": self._check_codebase_context_health,
             "websocket": self._check_websocket_health,
             "auth": self._check_auth_health,
         }
@@ -280,6 +287,49 @@ class StatusPageHandler(BaseHandler):
             name="Knowledge Mound",
             status=ServiceStatus.DEGRADED,
             message="Knowledge Mound not fully available",
+        )
+
+    def _check_codebase_context_health(self) -> ComponentHealth:
+        """Check codebase context manifest availability."""
+        start = time.perf_counter()
+        try:
+            from aragora.server.handlers.admin.health.knowledge_mound_utils import (
+                check_codebase_context,
+            )
+
+            status = check_codebase_context()
+            response_time = (time.perf_counter() - start) * 1000
+            optional = os.environ.get("ARAGORA_CODEBASE_STATUS_OPTIONAL", "1") == "1"
+
+            if status.get("status") == "available":
+                return ComponentHealth(
+                    name="Codebase Context",
+                    status=ServiceStatus.OPERATIONAL,
+                    response_time_ms=response_time,
+                )
+            if status.get("status") == "missing":
+                return ComponentHealth(
+                    name="Codebase Context",
+                    status=ServiceStatus.OPERATIONAL if optional else ServiceStatus.DEGRADED,
+                    response_time_ms=response_time,
+                    message="not configured" if optional else "manifest missing",
+                )
+            if status.get("status") == "error":
+                return ComponentHealth(
+                    name="Codebase Context",
+                    status=ServiceStatus.PARTIAL_OUTAGE,
+                    response_time_ms=response_time,
+                    message=status.get("error", "health check error"),
+                )
+        except Exception as exc:
+            logger.debug("Codebase context health check failed: %s", exc)
+
+        response_time = (time.perf_counter() - start) * 1000
+        return ComponentHealth(
+            name="Codebase Context",
+            status=ServiceStatus.DEGRADED,
+            response_time_ms=response_time,
+            message="health check unavailable",
         )
 
     def _check_websocket_health(self) -> ComponentHealth:
