@@ -62,12 +62,13 @@ class DebateCommandHandler(BaseCommandHandler):
 
         try:
             from aragora import Arena, Environment, DebateProtocol
-            from aragora.agents import get_default_agents  # type: ignore[attr-defined]
+            import aragora.agents as agents_module
 
             # Create debate
             env = Environment(task=topic)
             protocol = DebateProtocol(rounds=DEFAULT_ROUNDS, consensus=DEFAULT_CONSENSUS)
-            agents = get_default_agents()
+            get_agents_fn = getattr(agents_module, "get_default_agents", None)
+            agents = get_agents_fn() if get_agents_fn else []
 
             # Register origin for result routing
             from aragora.server.debate_origin import register_debate_origin
@@ -144,9 +145,12 @@ class StatusCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()  # type: ignore[attr-defined]
+            init_fn = getattr(memory, "initialize", None)
+            if init_fn:
+                await init_fn()
 
-            debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
+            get_debate_fn = getattr(memory, "get_debate", None)
+            debate = await get_debate_fn(debate_id) if get_debate_fn else None
             if not debate:
                 return CommandResult.error(
                     f"Debate `{debate_id}` not found.\n\n"
@@ -204,7 +208,8 @@ class StatusCommandHandler(BaseCommandHandler):
             # Note: ConsensusMemory initializes in __init__, no separate init needed
 
             # Get recent verified debates
-            debates = memory.list_verified_debates(verified_only=False, limit=5)  # type: ignore[attr-defined]
+            list_fn = getattr(memory, "list_verified_debates", None)
+            debates = list_fn(verified_only=False, limit=5) if list_fn else []
 
             if not debates:
                 return CommandResult.ok(
@@ -310,9 +315,12 @@ class HistoryCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()  # type: ignore[attr-defined]
+            init_fn = getattr(memory, "initialize", None)
+            if init_fn:
+                await init_fn()
 
-            debates = await memory.list_debates(limit=count)  # type: ignore[attr-defined]
+            list_debates_fn = getattr(memory, "list_debates", None)
+            debates = await list_debates_fn(limit=count) if list_debates_fn else []
 
             if not debates:
                 return CommandResult.ok(
@@ -365,9 +373,12 @@ class ResultsCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()  # type: ignore[attr-defined]
+            init_fn = getattr(memory, "initialize", None)
+            if init_fn:
+                await init_fn()
 
-            debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
+            get_debate_fn = getattr(memory, "get_debate", None)
+            debate = await get_debate_fn(debate_id) if get_debate_fn else None
             if not debate:
                 return CommandResult.error(f"Debate `{debate_id}` not found.", ephemeral=True)
 
