@@ -51,3 +51,16 @@ def test_create_bead_store_resolves_default(monkeypatch, tmp_path):
         assert store.bead_dir == resolve_store_dir()
     finally:
         monkeypatch.chdir(orig_cwd)
+
+
+def test_convoy_executor_env_override(monkeypatch, tmp_path):
+    """Convoy executor uses canonical store when env toggle is set."""
+    from aragora.nomic.convoy_executor import GastownConvoyExecutor
+
+    monkeypatch.setenv("NOMIC_CONVOY_CANONICAL_STORE", "1")
+    executor = GastownConvoyExecutor(
+        repo_path=tmp_path,
+        implementers=[],
+        reviewers=[],
+    )
+    assert executor.bead_dir == tmp_path / ".aragora_beads"

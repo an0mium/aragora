@@ -143,6 +143,17 @@ convoy = await manager.create_convoy(
 # Status: PENDING → ACTIVE → COMPLETED/FAILED/PARTIAL
 ```
 
+#### Convoy Executor Storage
+
+The Gastown-style convoy executor can optionally use the canonical store root:
+
+```bash
+export NOMIC_CONVOY_CANONICAL_STORE=1
+```
+
+When enabled and no explicit `bead_dir` is supplied, the executor will resolve
+its bead/convoy storage under `<workspace_root>/.aragora_beads`.
+
 ## Recovery & Resilience
 
 ```python
