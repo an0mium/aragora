@@ -265,8 +265,8 @@ class ProvenanceAdapter:
                             relationship_type=rel_type,
                         )
                         relationships_created += 1
-                    except Exception:
-                        pass  # Non-critical
+                    except Exception as e:
+                        logger.debug("Failed to create evidence-claim relationship: %s", e)
 
             except Exception as e:
                 errors.append(f"Failed to ingest citation: {str(e)[:100]}")
@@ -289,8 +289,8 @@ class ProvenanceAdapter:
                                 relationship_type=RelationshipType.DERIVED_FROM,
                             )
                             relationships_created += 1
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("Failed to create summary-record relationship: %s", e)
         except Exception as e:
             errors.append(f"Failed to create chain summary: {str(e)[:100]}")
 

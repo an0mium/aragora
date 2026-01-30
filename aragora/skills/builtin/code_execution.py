@@ -200,8 +200,8 @@ print("__RESULT__:" + json.dumps(output))
 
                     result_line = stdout_str.split("__RESULT__:")[-1].strip()
                     result_data = json.loads(result_line)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to parse execution result JSON: %s", e)
 
             return {
                 "language": "python",

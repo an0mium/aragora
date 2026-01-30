@@ -411,8 +411,8 @@ class AuditLog:
                             StorageMode.SQLITE,
                             f"PostgreSQL backend unavailable: {e}",
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Failed to require distributed store for audit log: %s", e)
 
         if self._backend is None:
             require_distributed_store(

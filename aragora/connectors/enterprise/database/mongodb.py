@@ -424,8 +424,8 @@ class MongoDBConnector(EnterpriseConnector):
                     from bson import ObjectId
 
                     query_id = ObjectId(doc_id)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("ObjectId conversion failed for doc_id %s: %s", doc_id, e)
 
             doc = await collection.find_one({"_id": query_id})
 

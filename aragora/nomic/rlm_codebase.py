@@ -175,8 +175,8 @@ async def build_codebase_corpus(
                 truncated=manifest.get("truncated", False),
                 warnings=manifest.get("warnings", []),
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load cached codebase corpus manifest: %s", e)
 
     crawler = RepositoryCrawler(
         config=_default_crawl_config(max_file_bytes=max_file_bytes, max_files=max_files)

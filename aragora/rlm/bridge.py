@@ -621,8 +621,8 @@ Write Python code to analyze the context and call FINAL(answer) with your answer
             try:
                 if Path(content_path).exists():
                     return content_path
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to check context file path %s: %s", content_path, e)
 
         # No existing file; write if we have content
         if not context.original_content:

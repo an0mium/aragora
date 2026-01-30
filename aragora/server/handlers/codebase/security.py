@@ -1727,8 +1727,8 @@ async def handle_compare_sboms(
                     else:  # SPDX
                         for pkg in data.get("packages", []):
                             components[pkg.get("name", "")] = pkg.get("versionInfo", "")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to parse SBOM components: %s", e)
             return components
 
         components_a = extract_components(result_a.content, result_a.format)

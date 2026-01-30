@@ -149,8 +149,8 @@ class NomicContextBuilder:
             from aragora.rlm import RLMConfig
 
             default_max = RLMConfig().max_content_bytes_nomic
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load RLMConfig for max_content_bytes_nomic: %s", e)
         self._max_context_bytes = max_context_bytes or int(env_max or default_max)
         if include_tests is None:
             self._include_tests = os.environ.get("NOMIC_INCLUDE_TESTS", "1") == "1"

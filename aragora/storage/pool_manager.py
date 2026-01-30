@@ -185,8 +185,8 @@ async def initialize_shared_pool(
             # Pool is broken, clean up and fall back
             try:
                 _shared_pool.terminate()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to terminate broken database pool: %s", e)
             _shared_pool = None
             _pool_event_loop = None
             _pool_config = {}

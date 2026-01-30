@@ -628,8 +628,8 @@ class ContainerPool:
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to cleanup partial container %s: %s", container_name, e)
 
     async def _destroy_container(self, container_id: str) -> None:
         """Destroy a container."""

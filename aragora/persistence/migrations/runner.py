@@ -826,8 +826,12 @@ class MigrationRunner:
                             (migration.version,),
                         )
                         conn.commit()
-                    except Exception:
-                        pass  # Table may not exist
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to remove migration checksum for version %s: %s",
+                            migration.version,
+                            e,
+                        )
 
                     rolled_back.append(migration.version)
                     logger.info(f"[{db_name}] Rolled back migration {migration.version}")

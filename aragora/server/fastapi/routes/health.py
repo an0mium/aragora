@@ -9,6 +9,7 @@ Provides Kubernetes-compatible health endpoints:
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import time
@@ -16,6 +17,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Request
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Health"])
 
@@ -153,7 +156,7 @@ async def metrics_summary(request: Request) -> dict[str, Any]:
     if storage and hasattr(storage, "count_debates"):
         try:
             metrics["debates_total"] = storage.count_debates()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to retrieve debate count from storage: %s", e)
 
     return metrics

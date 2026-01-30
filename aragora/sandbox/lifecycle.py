@@ -657,8 +657,8 @@ class SessionContainerManager:
             try:
                 proc.kill()
                 await proc.wait()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to kill timed-out process: %s", e)
             raise
 
     def _build_execution_command(self, language: str) -> Optional[list[str]]:

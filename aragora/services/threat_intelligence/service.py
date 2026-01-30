@@ -715,8 +715,8 @@ class ThreatIntelligenceService:
                         "threat_type": ThreatType.SUSPICIOUS,
                         "pattern": f"suspicious_tld:{tld}",
                     }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to parse URL for suspicious TLD check: %s", e)
 
         return None
 

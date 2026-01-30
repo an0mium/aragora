@@ -55,8 +55,8 @@ def decimal_decoder(dct: dict[str, Any]) -> dict[str, Any]:
         if key in dct and isinstance(dct[key], str):
             try:
                 dct[key] = Decimal(dct[key])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to convert field '%s' to Decimal: %s", key, e)
     return dct
 
 

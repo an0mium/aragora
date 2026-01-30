@@ -1791,8 +1791,8 @@ class SpamClassifier:
                     spam_score=row[3],
                     model_used="cached",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to retrieve cached classification result: %s", e)
         return None
 
     async def _cache_result(self, content_hash: str, result: SpamClassificationResult) -> None:
@@ -1817,8 +1817,8 @@ class SpamClassifier:
                 ),
             )
             self._db_conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to cache spam classification result: %s", e)
 
     async def _invalidate_cache(self, content_hash: str) -> None:
         """Invalidate cached result after feedback."""
@@ -1832,8 +1832,8 @@ class SpamClassifier:
                 (content_hash,),
             )
             self._db_conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to invalidate cached classification: %s", e)
 
     async def get_statistics(self) -> dict[str, Any]:
         """Get classifier statistics."""
@@ -1856,8 +1856,8 @@ class SpamClassifier:
 
                 cursor.execute("SELECT COUNT(*) FROM classification_cache")
                 stats["cached_results"] = cursor.fetchone()[0]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to retrieve classifier statistics from DB: %s", e)
 
         return stats
 

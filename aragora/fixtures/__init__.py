@@ -200,8 +200,8 @@ def ensure_demo_agents() -> int:
             if existing:
                 logger.debug(f"ELO system already has {len(existing)} agents, skipping seed")
                 return 0
-        except Exception:
-            pass  # Proceed with seeding
+        except Exception as e:
+            logger.debug("Failed to check existing ELO leaderboard, proceeding with seeding: %s", e)
 
         # Create demo agents with simulated match history
         demo_agents = ["demo-anthropic", "demo-openai", "demo-gemini", "demo-grok"]

@@ -430,8 +430,8 @@ class SandboxExecutor:
                 stderr=asyncio.subprocess.DEVNULL,
             )
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to kill Docker container sandbox-%s: %s", execution_id, e)
 
         return False
 

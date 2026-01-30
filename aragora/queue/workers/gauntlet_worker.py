@@ -306,8 +306,10 @@ class GauntletWorker:
                         current_phase=progress.phase,
                         progress_percent=progress.percent,
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(
+                        "Failed to update inflight status for gauntlet %s: %s", gauntlet_id, e
+                    )
 
         # Run gauntlet
         orchestrator = GauntletOrchestrator(agent_instances, on_progress=on_progress)

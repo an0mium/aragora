@@ -266,8 +266,8 @@ class ReceiptAdapter:
                             relationship_type=RelationshipType.SUPPORTS,
                         )
                         relationships_created += 1
-                    except Exception:
-                        pass  # Non-critical
+                    except Exception as e:
+                        logger.debug("Failed to create receipt summary relationship: %s", e)
         except Exception as e:
             errors.append(f"Failed to create receipt summary: {str(e)[:100]}")
 
