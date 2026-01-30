@@ -46575,6 +46575,5032 @@
         }
       }
     },
+    "/api/v1/computer-use/actions": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "List computer use actions",
+        "description": "List recent computer use actions with statistics. Returns aggregated action counts by type (click, type, screenshot, scroll, key) across all completed tasks.",
+        "operationId": "listComputerUseActions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of actions to return (default: 20)",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "action_type",
+            "in": "query",
+            "description": "Filter by action type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "click",
+                "type",
+                "screenshot",
+                "scroll",
+                "key"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of computer use actions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "action_id": {
+                            "type": "string"
+                          },
+                          "action_type": {
+                            "type": "string",
+                            "enum": [
+                              "click",
+                              "type",
+                              "screenshot",
+                              "scroll",
+                              "key"
+                            ]
+                          },
+                          "task_id": {
+                            "type": "string"
+                          },
+                          "success": {
+                            "type": "boolean"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Execute a computer use action",
+        "description": "Execute a single computer use action (click, type, screenshot, scroll, key). The action is validated against the active policy before execution.",
+        "operationId": "createComputerUseAction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "action_type"
+                ],
+                "properties": {
+                  "action_type": {
+                    "type": "string",
+                    "enum": [
+                      "click",
+                      "type",
+                      "screenshot",
+                      "scroll",
+                      "key"
+                    ],
+                    "description": "The type of action to perform"
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "description": "Action-specific parameters (e.g., coordinates for click, text for type)",
+                    "properties": {
+                      "x": {
+                        "type": "integer",
+                        "description": "X coordinate (for click)"
+                      },
+                      "y": {
+                        "type": "integer",
+                        "description": "Y coordinate (for click)"
+                      },
+                      "text": {
+                        "type": "string",
+                        "description": "Text to type (for type action)"
+                      },
+                      "key": {
+                        "type": "string",
+                        "description": "Key to press (for key action)"
+                      },
+                      "direction": {
+                        "type": "string",
+                        "enum": [
+                          "up",
+                          "down"
+                        ],
+                        "description": "Scroll direction (for scroll action)"
+                      },
+                      "amount": {
+                        "type": "integer",
+                        "description": "Scroll amount (for scroll action)"
+                      }
+                    }
+                  },
+                  "task_id": {
+                    "type": "string",
+                    "description": "Associated task ID (optional)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Action executed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "action_id": {
+                      "type": "string"
+                    },
+                    "action_type": {
+                      "type": "string"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/computer-use/actions/{action_id}": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Get action details",
+        "description": "Get detailed information about a specific computer use action, including its parameters, result, and associated task.",
+        "operationId": "getComputerUseAction",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "description": "Action ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "action_id": {
+                      "type": "string"
+                    },
+                    "action_type": {
+                      "type": "string",
+                      "enum": [
+                        "click",
+                        "type",
+                        "screenshot",
+                        "scroll",
+                        "key"
+                      ]
+                    },
+                    "task_id": {
+                      "type": "string"
+                    },
+                    "parameters": {
+                      "type": "object"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "result": {
+                      "type": "object"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Delete an action record",
+        "description": "Delete a computer use action record. Only completed or failed actions can be deleted.",
+        "operationId": "deleteComputerUseAction",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "description": "Action ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "action_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/computer-use/policies": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "List computer use policies",
+        "description": "List all active computer use policies. Policies define which actions are allowed, blocked domains, and execution constraints.",
+        "operationId": "listComputerUsePolicies",
+        "responses": {
+          "200": {
+            "description": "List of policies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "allowed_actions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "blocked_domains": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Create a computer use policy",
+        "description": "Create a new computer use policy that defines allowed actions, blocked domains, and execution constraints for computer use tasks.",
+        "operationId": "createComputerUsePolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Policy name"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Policy description"
+                  },
+                  "allowed_actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "click",
+                        "type",
+                        "screenshot",
+                        "scroll",
+                        "key"
+                      ]
+                    },
+                    "description": "List of allowed action types"
+                  },
+                  "blocked_domains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of domains to block"
+                  },
+                  "max_steps": {
+                    "type": "integer",
+                    "description": "Maximum number of steps per task",
+                    "default": 20
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Timeout in seconds for task execution",
+                    "default": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Policy created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policy_id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/computer-use/policies/{policy_id}": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Get policy details",
+        "description": "Get detailed information about a specific computer use policy, including its allowed actions, blocked domains, and constraints.",
+        "operationId": "getComputerUsePolicy",
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "allowed_actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "blocked_domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "max_steps": {
+                      "type": "integer"
+                    },
+                    "timeout_seconds": {
+                      "type": "integer"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Update a computer use policy",
+        "description": "Replace the configuration of an existing computer use policy.",
+        "operationId": "updateComputerUsePolicy",
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Policy name"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Policy description"
+                  },
+                  "allowed_actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "click",
+                        "type",
+                        "screenshot",
+                        "scroll",
+                        "key"
+                      ]
+                    },
+                    "description": "List of allowed action types"
+                  },
+                  "blocked_domains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of domains to block"
+                  },
+                  "max_steps": {
+                    "type": "integer",
+                    "description": "Maximum number of steps per task"
+                  },
+                  "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Timeout in seconds for task execution"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Policy updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "policy_id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Delete a computer use policy",
+        "description": "Delete a computer use policy. The default policy cannot be deleted.",
+        "operationId": "deleteComputerUsePolicy",
+        "parameters": [
+          {
+            "name": "policy_id",
+            "in": "path",
+            "required": true,
+            "description": "Policy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policy deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "policy_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/computer-use/tasks": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "List computer use tasks",
+        "description": "List recent computer use tasks. Tasks represent high-level goals that are decomposed into individual actions by the orchestrator.",
+        "operationId": "listComputerUseTasks",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of tasks to return (default: 20)",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by task status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tasks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "task_id": {
+                            "type": "string"
+                          },
+                          "goal": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "running",
+                              "completed",
+                              "failed",
+                              "cancelled"
+                            ]
+                          },
+                          "max_steps": {
+                            "type": "integer"
+                          },
+                          "dry_run": {
+                            "type": "boolean"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "result": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "success": {
+                                "type": "boolean"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "steps_taken": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Create a computer use task",
+        "description": "Create and run a computer use task. The orchestrator will decompose the goal into individual actions and execute them step by step.",
+        "operationId": "createComputerUseTask",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "goal"
+                ],
+                "properties": {
+                  "goal": {
+                    "type": "string",
+                    "description": "The goal to accomplish via computer use"
+                  },
+                  "max_steps": {
+                    "type": "integer",
+                    "description": "Maximum number of steps to execute (default: 10)",
+                    "default": 10
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, simulate execution without performing actions",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "running",
+                        "completed",
+                        "failed"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/computer-use/tasks/{task_id}": {
+      "get": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Get task details",
+        "description": "Get detailed information about a specific computer use task, including its goal, status, steps executed, and result.",
+        "operationId": "getComputerUseTask",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "Task ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task": {
+                      "type": "object",
+                      "properties": {
+                        "task_id": {
+                          "type": "string"
+                        },
+                        "goal": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "running",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                          ]
+                        },
+                        "max_steps": {
+                          "type": "integer"
+                        },
+                        "dry_run": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "cancelled_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true
+                        },
+                        "steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "action": {
+                                "type": "string"
+                              },
+                              "success": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        },
+                        "result": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "success": {
+                              "type": "boolean"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "steps_taken": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Computer Use"
+        ],
+        "summary": "Delete a task record",
+        "description": "Delete a computer use task record. Only completed, failed, or cancelled tasks can be deleted. Running tasks must be cancelled first.",
+        "operationId": "deleteComputerUseTask",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "description": "Task ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    },
+                    "task_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/gateway/channels": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "List gateway channels",
+        "description": "List all available gateway channels and their current status.",
+        "operationId": "listGatewayChannels",
+        "responses": {
+          "200": {
+            "description": "List of gateway channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "description": "Channel name"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "available",
+                              "unavailable"
+                            ],
+                            "description": "Channel availability status"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Create gateway channel",
+        "description": "Register a new gateway channel for device communication.",
+        "operationId": "createGatewayChannel",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Channel name"
+                  },
+                  "protocol": {
+                    "type": "string",
+                    "description": "Communication protocol (e.g. mqtt, http, websocket)"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Additional channel configuration"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Channel created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "channel": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "Channel name"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "available",
+                            "unavailable"
+                          ],
+                          "description": "Channel availability status"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/devices": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "List registered devices",
+        "description": "List all devices registered with the gateway. Supports filtering by status and device type.",
+        "operationId": "listGatewayDevices",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter devices by status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "online",
+                "offline",
+                "degraded",
+                "unknown"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter devices by type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of registered devices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "devices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "device_id": {
+                            "type": "string",
+                            "description": "Unique device identifier"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Human-readable device name"
+                          },
+                          "device_type": {
+                            "type": "string",
+                            "description": "Device type classification"
+                          },
+                          "capabilities": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "List of device capabilities"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "online",
+                              "offline",
+                              "degraded",
+                              "unknown"
+                            ],
+                            "description": "Current device status"
+                          },
+                          "paired_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Timestamp when device was registered"
+                          },
+                          "last_seen": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Timestamp of last device heartbeat"
+                          },
+                          "allowed_channels": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Channels the device is allowed to communicate on"
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "description": "Arbitrary key-value metadata"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Register a device",
+        "description": "Register a new device with the gateway. The device name is required; a device_id will be generated if not supplied.",
+        "operationId": "registerGatewayDevice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "device_id": {
+                    "type": "string",
+                    "description": "Optional explicit device ID"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Human-readable device name"
+                  },
+                  "device_type": {
+                    "type": "string",
+                    "description": "Device type classification",
+                    "default": "unknown"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Device capabilities"
+                  },
+                  "allowed_channels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Channels the device may communicate on"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Arbitrary key-value metadata"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device_id": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/devices/{device_id}": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get device details",
+        "description": "Retrieve full details for a specific registered device, including allowed channels and metadata.",
+        "operationId": "getGatewayDevice",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique device identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device": {
+                      "type": "object",
+                      "properties": {
+                        "device_id": {
+                          "type": "string",
+                          "description": "Unique device identifier"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Human-readable device name"
+                        },
+                        "device_type": {
+                          "type": "string",
+                          "description": "Device type classification"
+                        },
+                        "capabilities": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "List of device capabilities"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "online",
+                            "offline",
+                            "degraded",
+                            "unknown"
+                          ],
+                          "description": "Current device status"
+                        },
+                        "paired_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Timestamp when device was registered"
+                        },
+                        "last_seen": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Timestamp of last device heartbeat"
+                        },
+                        "allowed_channels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Channels the device is allowed to communicate on"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "description": "Arbitrary key-value metadata"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Update device",
+        "description": "Update the configuration of an existing registered device.",
+        "operationId": "updateGatewayDevice",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique device identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Updated device name"
+                  },
+                  "device_type": {
+                    "type": "string",
+                    "description": "Updated device type"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Updated capabilities list"
+                  },
+                  "allowed_channels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Updated allowed channels"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Updated metadata"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Device updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "device": {
+                      "type": "object",
+                      "properties": {
+                        "device_id": {
+                          "type": "string",
+                          "description": "Unique device identifier"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Human-readable device name"
+                        },
+                        "device_type": {
+                          "type": "string",
+                          "description": "Device type classification"
+                        },
+                        "capabilities": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "List of device capabilities"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "online",
+                            "offline",
+                            "degraded",
+                            "unknown"
+                          ],
+                          "description": "Current device status"
+                        },
+                        "paired_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Timestamp when device was registered"
+                        },
+                        "last_seen": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Timestamp of last device heartbeat"
+                        },
+                        "allowed_channels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Channels the device is allowed to communicate on"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "description": "Arbitrary key-value metadata"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Unregister device",
+        "description": "Remove a device from the gateway registry. This is irreversible.",
+        "operationId": "deleteGatewayDevice",
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique device identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device unregistered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/messages": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "List routed messages",
+        "description": "List messages that have been routed through the gateway. Supports filtering by channel and status.",
+        "operationId": "listGatewayMessages",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "Filter by channel name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by delivery status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "routed",
+                "delivered",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results (default: 20, max: 100)",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of routed messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "message_id": {
+                            "type": "string",
+                            "description": "Unique message identifier"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "description": "Channel the message was routed through"
+                          },
+                          "content": {
+                            "type": "string",
+                            "description": "Message content"
+                          },
+                          "agent_id": {
+                            "type": "string",
+                            "description": "ID of the agent that handled the message"
+                          },
+                          "rule_id": {
+                            "type": "string",
+                            "description": "ID of the routing rule that matched"
+                          },
+                          "routed_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Timestamp when message was routed"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "routed",
+                              "delivered",
+                              "failed"
+                            ],
+                            "description": "Message delivery status"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Route a message",
+        "description": "Submit a message to the gateway for routing to the appropriate agent based on configured rules.",
+        "operationId": "routeGatewayMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "channel",
+                  "content"
+                ],
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "description": "Target channel for routing"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "Message content to route"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Additional message metadata"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message routed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "routed": {
+                      "type": "boolean"
+                    },
+                    "agent_id": {
+                      "type": "string",
+                      "description": "Agent the message was routed to"
+                    },
+                    "rule_id": {
+                      "type": "string",
+                      "description": "Routing rule that matched"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/messages/{message_id}": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get message details",
+        "description": "Retrieve the full details and routing information for a specific message.",
+        "operationId": "getGatewayMessage",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique message identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "object",
+                      "properties": {
+                        "message_id": {
+                          "type": "string",
+                          "description": "Unique message identifier"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "description": "Channel the message was routed through"
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "Message content"
+                        },
+                        "agent_id": {
+                          "type": "string",
+                          "description": "ID of the agent that handled the message"
+                        },
+                        "rule_id": {
+                          "type": "string",
+                          "description": "ID of the routing rule that matched"
+                        },
+                        "routed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Timestamp when message was routed"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "routed",
+                            "delivered",
+                            "failed"
+                          ],
+                          "description": "Message delivery status"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Delete a message",
+        "description": "Delete a routed message from the gateway message log.",
+        "operationId": "deleteGatewayMessage",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique message identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/routing": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "List routing rules",
+        "description": "List all routing rules configured in the gateway, including statistics.",
+        "operationId": "listGatewayRoutingRules",
+        "responses": {
+          "200": {
+            "description": "List of routing rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique route rule identifier"
+                          },
+                          "channel": {
+                            "type": "string",
+                            "description": "Target channel for routing"
+                          },
+                          "pattern": {
+                            "type": "string",
+                            "description": "Message pattern to match"
+                          },
+                          "agent_id": {
+                            "type": "string",
+                            "description": "Agent to route matched messages to"
+                          },
+                          "priority": {
+                            "type": "integer",
+                            "description": "Rule evaluation priority (lower is higher)"
+                          },
+                          "enabled": {
+                            "type": "boolean",
+                            "description": "Whether the rule is active"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "total_rules": {
+                          "type": "integer"
+                        },
+                        "messages_routed": {
+                          "type": "integer"
+                        },
+                        "routing_errors": {
+                          "type": "integer"
+                        }
+                      },
+                      "description": "Aggregate routing statistics"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Create routing rule",
+        "description": "Create a new routing rule that maps message patterns on a channel to a specific agent.",
+        "operationId": "createGatewayRoutingRule",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "channel",
+                  "pattern",
+                  "agent_id"
+                ],
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "description": "Channel to apply the rule to"
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "description": "Message matching pattern (regex supported)"
+                  },
+                  "agent_id": {
+                    "type": "string",
+                    "description": "Target agent for matched messages"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "description": "Rule evaluation priority (lower is higher)",
+                    "default": 100
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Whether the rule is active",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Routing rule created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique route rule identifier"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "description": "Target channel for routing"
+                        },
+                        "pattern": {
+                          "type": "string",
+                          "description": "Message pattern to match"
+                        },
+                        "agent_id": {
+                          "type": "string",
+                          "description": "Agent to route matched messages to"
+                        },
+                        "priority": {
+                          "type": "integer",
+                          "description": "Rule evaluation priority (lower is higher)"
+                        },
+                        "enabled": {
+                          "type": "boolean",
+                          "description": "Whether the rule is active"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gateway/routing/{route_id}": {
+      "get": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Get routing rule",
+        "description": "Retrieve details for a specific routing rule.",
+        "operationId": "getGatewayRoutingRule",
+        "parameters": [
+          {
+            "name": "route_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique routing rule identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Routing rule details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique route rule identifier"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "description": "Target channel for routing"
+                        },
+                        "pattern": {
+                          "type": "string",
+                          "description": "Message pattern to match"
+                        },
+                        "agent_id": {
+                          "type": "string",
+                          "description": "Agent to route matched messages to"
+                        },
+                        "priority": {
+                          "type": "integer",
+                          "description": "Rule evaluation priority (lower is higher)"
+                        },
+                        "enabled": {
+                          "type": "boolean",
+                          "description": "Whether the rule is active"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Update routing rule",
+        "description": "Update an existing routing rule configuration.",
+        "operationId": "updateGatewayRoutingRule",
+        "parameters": [
+          {
+            "name": "route_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique routing rule identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "description": "Updated target channel"
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "description": "Updated message matching pattern"
+                  },
+                  "agent_id": {
+                    "type": "string",
+                    "description": "Updated target agent"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "description": "Updated priority"
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Updated active status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Routing rule updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rule": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Unique route rule identifier"
+                        },
+                        "channel": {
+                          "type": "string",
+                          "description": "Target channel for routing"
+                        },
+                        "pattern": {
+                          "type": "string",
+                          "description": "Message pattern to match"
+                        },
+                        "agent_id": {
+                          "type": "string",
+                          "description": "Agent to route matched messages to"
+                        },
+                        "priority": {
+                          "type": "integer",
+                          "description": "Rule evaluation priority (lower is higher)"
+                        },
+                        "enabled": {
+                          "type": "boolean",
+                          "description": "Whether the rule is active"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 12",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "Delete routing rule",
+        "description": "Remove a routing rule from the gateway. Messages will no longer match this rule.",
+        "operationId": "deleteGatewayRoutingRule",
+        "parameters": [
+          {
+            "name": "route_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique routing rule identifier",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Routing rule deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/debates/graph": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",
