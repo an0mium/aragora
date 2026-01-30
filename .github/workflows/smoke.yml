@@ -1,0 +1,65 @@
+name: Smoke Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/smoke.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,test]"
+
+      - name: Run smoke tests
+        run: |
+          pytest -m smoke \
+            --timeout=60 \
+            -v \
+            --tb=short \
+            -x \
+            --no-header
+        env:
+          PYTHONPATH: .
+
+      - name: Smoke test summary
+        if: always()
+        run: |
+          echo "## Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Smoke tests validate critical system paths:" >> $GITHUB_STEP_SUMMARY
+          echo "- Core dataclass creation (Message, Critique, Vote)" >> $GITHUB_STEP_SUMMARY
+          echo "- E2E harness startup and agent registration" >> $GITHUB_STEP_SUMMARY
+          echo "- Debate lifecycle (basic + multi-agent + control plane)" >> $GITHUB_STEP_SUMMARY
+          echo "- Task submission and completion" >> $GITHUB_STEP_SUMMARY
+          echo "- Control plane operations" >> $GITHUB_STEP_SUMMARY
+          echo "- Error handling and performance baselines" >> $GITHUB_STEP_SUMMARY

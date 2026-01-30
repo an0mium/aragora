@@ -12,7 +12,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal, cast
 
 from .models import (
     ChannelType,
@@ -166,7 +166,7 @@ class OnboardingOrchestrator:
             step = OnboardingStep(
                 id=step_id,
                 name=name,
-                type=step_type,  # type: ignore[arg-type]  # StepType from string
+                type=cast(Literal["info", "input", "verification", "action", "decision"], step_type),
                 content=content or {},
                 required=required,
                 order=order,

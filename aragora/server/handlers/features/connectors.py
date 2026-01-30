@@ -742,7 +742,7 @@ class ConnectorsHandler(SecureHandler):
         # Fallback to in-memory
         connectors = list(_connectors.values())
 
-        total_items = sum(int(c.get("items_synced", 0) or 0) for c in connectors)  # type: ignore[call-overload]
+        total_items = sum(int(str(c.get("items_synced", 0) or 0)) for c in connectors)
         connected = sum(1 for c in connectors if c["status"] in ("connected", "syncing"))
         syncing = sum(1 for c in connectors if c["status"] == "syncing")
         errors = sum(1 for c in connectors if c["status"] == "error")

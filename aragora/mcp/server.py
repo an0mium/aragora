@@ -535,7 +535,7 @@ class AragoraMCPServer:
             for debate_id, debate_data in self._debates_cache.items():
                 resources.append(
                     Resource(
-                        uri=f"debate://{debate_id}",  # type: ignore[arg-type]
+                        uri=cast(Any, f"debate://{debate_id}"),
                         name=f"Debate: {debate_data.get('task', 'Unknown')[:50]}",
                         description=f"Debate result from {debate_data.get('timestamp', 'unknown time')}",
                         mimeType="application/json",

@@ -18,6 +18,7 @@ from aragora.server.collaboration import (
 )
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
+from aragora.server.handlers.utils.responses import error_dict
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,11 @@ def _check_permission(
         decision = checker.check_permission(context, permission)
         if not decision.allowed:
             logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
-            return {"error": f"Permission denied: {decision.reason}", "status": 403}
+            return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
         return None
     except Exception as e:
         logger.error(f"RBAC check failed: {e}")
-        return {"error": "Authorization check failed", "status": 500}
+        return error_dict("Authorization check failed", code="INTERNAL_ERROR", status=500)
 
 
 class CollaborationHandlers:
@@ -101,9 +102,9 @@ class CollaborationHandlers:
         }
         """
         if not debate_id:
-            return {"error": "debate_id is required"}
+            return error_dict("debate_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
 
         # RBAC check
         if denied := _check_permission(user_id, "collaboration:create", org_id):
@@ -128,7 +129,7 @@ class CollaborationHandlers:
             }
         except Exception as e:
             logger.error(f"Failed to create session: {e}")
-            return {"error": f"Failed to create session: {e}"}
+            return error_dict(f"Failed to create session: {e}", code="INTERNAL_ERROR")
 
     async def get_session(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """
@@ -137,7 +138,7 @@ class CollaborationHandlers:
         GET /api/collaboration/sessions/{session_id}
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
 
         # RBAC check (optional user_id for backward compatibility)
         if user_id:
@@ -146,7 +147,7 @@ class CollaborationHandlers:
 
         session = self.manager.get_session(session_id)
         if not session:
-            return {"error": "Session not found"}
+            return error_dict("Session not found", code="NOT_FOUND", status=404)
 
         return {"session": session.to_dict()}
 
@@ -210,9 +211,9 @@ class CollaborationHandlers:
         }
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
 
         # RBAC check
         if denied := _check_permission(user_id, "collaboration:join"):
@@ -221,7 +222,7 @@ class CollaborationHandlers:
         try:
             participant_role = ParticipantRole(role)
         except ValueError:
-            return {"error": f"Invalid role: {role}"}
+            return error_dict(f"Invalid role: {role}", code="VALIDATION_ERROR")
 
         success, message, participant = self.manager.join_session(
             session_id=session_id,
@@ -248,9 +249,9 @@ class CollaborationHandlers:
         POST /api/collaboration/sessions/{session_id}/leave
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
 
         # RBAC check - users can leave their own sessions
         if denied := _check_permission(user_id, "collaboration:leave"):
@@ -275,9 +276,9 @@ class CollaborationHandlers:
         Body: {"is_online": bool}
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
 
         success = self.manager.update_presence(session_id, user_id, is_online)
         return {
@@ -299,9 +300,9 @@ class CollaborationHandlers:
         Body: {"is_typing": bool, "context": str (e.g., "vote", "suggestion")}
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
 
         success = self.manager.set_typing(session_id, user_id, is_typing, context)
         return {
@@ -323,11 +324,11 @@ class CollaborationHandlers:
         Body: {"target_user_id": str, "new_role": str}
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not target_user_id:
-            return {"error": "target_user_id is required"}
+            return error_dict("target_user_id is required", code="VALIDATION_ERROR")
         if not changed_by:
-            return {"error": "Moderator user_id required"}
+            return error_dict("Moderator user_id required", code="VALIDATION_ERROR")
 
         # RBAC check - requires admin permission
         if denied := _check_permission(changed_by, "collaboration:admin"):
@@ -336,7 +337,7 @@ class CollaborationHandlers:
         try:
             participant_role = ParticipantRole(new_role)
         except ValueError:
-            return {"error": f"Invalid role: {new_role}"}
+            return error_dict(f"Invalid role: {new_role}", code="VALIDATION_ERROR")
 
         success, message = self.manager.change_role(
             session_id=session_id,
@@ -362,11 +363,11 @@ class CollaborationHandlers:
         Body: {"user_id": str, "approved": bool, "role": str (optional)}
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not user_id:
-            return {"error": "user_id is required"}
+            return error_dict("user_id is required", code="VALIDATION_ERROR")
         if not approved_by:
-            return {"error": "Moderator user_id required"}
+            return error_dict("Moderator user_id required", code="VALIDATION_ERROR")
 
         # RBAC check - requires admin permission
         if denied := _check_permission(approved_by, "collaboration:admin"):
@@ -398,9 +399,9 @@ class CollaborationHandlers:
         POST /api/collaboration/sessions/{session_id}/close
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
         if not closed_by:
-            return {"error": "Moderator user_id required"}
+            return error_dict("Moderator user_id required", code="VALIDATION_ERROR")
 
         # RBAC check - requires admin permission
         if denied := _check_permission(closed_by, "collaboration:admin"):
@@ -432,7 +433,7 @@ class CollaborationHandlers:
         GET /api/collaboration/sessions/{session_id}/participants
         """
         if not session_id:
-            return {"error": "session_id is required"}
+            return error_dict("session_id is required", code="VALIDATION_ERROR")
 
         # RBAC check
         if user_id:
@@ -441,7 +442,7 @@ class CollaborationHandlers:
 
         session = self.manager.get_session(session_id)
         if not session:
-            return {"error": "Session not found"}
+            return error_dict("Session not found", code="NOT_FOUND", status=404)
 
         return {
             "participants": [p.to_dict() for p in session.participants.values()],

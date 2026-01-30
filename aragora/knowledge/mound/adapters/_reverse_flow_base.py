@@ -34,13 +34,31 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from abc import abstractmethod
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional, TypedDict
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BatchTimeoutConfig:
+    """Configuration for per-item and total batch timeout enforcement.
+
+    Attributes:
+        per_item_timeout_seconds: Maximum time to process a single item.
+        total_batch_timeout_seconds: Maximum time for the entire batch.
+        fail_fast_on_timeout: If True, stop the batch on first timeout.
+            If False, skip the timed-out item and continue.
+    """
+
+    per_item_timeout_seconds: float = 2.0
+    total_batch_timeout_seconds: float = 60.0
+    fail_fast_on_timeout: bool = False
 
 
 class ValidationSyncResult(TypedDict):
@@ -177,6 +195,7 @@ class ReverseFlowMixin:
         km_items: list[dict[str, Any]],
         min_confidence: float = 0.7,
         batch_size: int = 100,
+        timeout_config: BatchTimeoutConfig | None = None,
     ) -> ValidationSyncResult:
         """Sync KM validations back to the source system (reverse flow).
 
@@ -188,11 +207,13 @@ class ReverseFlowMixin:
             km_items: KM items with validation data.
             min_confidence: Minimum confidence for applying changes.
             batch_size: Maximum items to process per batch.
+            timeout_config: Optional per-item and total batch timeout config.
 
         Returns:
             ValidationSyncResult with sync statistics.
         """
         start_time = time.time()
+        tc = timeout_config or BatchTimeoutConfig()
 
         result: ValidationSyncResult = {
             "records_analyzed": 0,
@@ -206,6 +227,15 @@ class ReverseFlowMixin:
         items_to_process = km_items[:batch_size]
 
         for item in items_to_process:
+            # Check total batch timeout
+            elapsed = time.time() - start_time
+            if elapsed >= tc.total_batch_timeout_seconds:
+                result["errors"].append(
+                    f"Total batch timeout ({tc.total_batch_timeout_seconds}s) exceeded "
+                    f"after {result['records_analyzed']} items"
+                )
+                break
+
             source_id = self._extract_source_id(item)
             if not source_id:
                 continue
@@ -213,51 +243,32 @@ class ReverseFlowMixin:
             result["records_analyzed"] += 1
 
             try:
-                # Get the source record
-                record = self._get_record_for_validation(source_id)
-                if record is None:
-                    result["records_skipped"] += 1
-                    continue
+                # Wrap per-item processing with timeout
+                await asyncio.wait_for(
+                    self._process_single_item(
+                        item, source_id, min_confidence, result
+                    ),
+                    timeout=tc.per_item_timeout_seconds,
+                )
 
-                # Parse and validate confidence
-                km_confidence = self._parse_km_confidence(item.get("confidence", 0.0))
+            except asyncio.TimeoutError:
+                error_msg = (
+                    f"Per-item timeout ({tc.per_item_timeout_seconds}s) "
+                    f"for {source_id}"
+                )
+                result["errors"].append(error_msg)
+                logger.warning(f"[{self.adapter_name}] {error_msg}")
 
-                if km_confidence < min_confidence:
-                    result["records_skipped"] += 1
-                    continue
-
-                # Extract cross-references and metadata
-                meta = item.get("metadata", {})
-                cross_refs = meta.get("cross_references", [])
-                validation_meta = {
-                    "km_validated": True,
-                    "km_validation_confidence": km_confidence,
-                    "km_validation_timestamp": self._get_validation_timestamp(),
-                }
-                if extra_meta := meta.get("validation_data"):
-                    validation_meta.update(extra_meta)
-
-                # Apply the validation
-                if self._apply_km_validation(record, km_confidence, cross_refs, validation_meta):
-                    result["records_updated"] += 1
-
-                    # Emit event for reverse sync
-                    self._emit_event(
-                        "km_adapter_reverse_sync",
-                        {
-                            "source": self.adapter_name,
-                            "source_id": source_id,
-                            "km_confidence": km_confidence,
-                            "action": "validated",
-                        },
-                    )
-                else:
-                    result["records_skipped"] += 1
+                if tc.fail_fast_on_timeout:
+                    result["errors"].append("Batch stopped: fail_fast_on_timeout=True")
+                    break
 
             except Exception as e:
                 error_msg = f"Failed to update {source_id}: {str(e)}"
                 result["errors"].append(error_msg)
-                logger.warning(f"[{self.adapter_name}] Reverse sync failed for {source_id}: {e}")
+                logger.warning(
+                    f"[{self.adapter_name}] Reverse sync failed for {source_id}: {e}"
+                )
 
         result["duration_ms"] = (time.time() - start_time) * 1000
 
@@ -270,5 +281,65 @@ class ReverseFlowMixin:
 
         return result
 
+    async def _process_single_item(
+        self,
+        item: dict[str, Any],
+        source_id: str,
+        min_confidence: float,
+        result: ValidationSyncResult,
+    ) -> None:
+        """Process a single KM item for reverse validation.
 
-__all__ = ["ReverseFlowMixin", "ValidationSyncResult"]
+        Extracted to enable per-item timeout enforcement.
+
+        Args:
+            item: The KM item with validation data.
+            source_id: The source record identifier.
+            min_confidence: Minimum confidence threshold.
+            result: Mutable result dict to update in place.
+        """
+        # Get the source record
+        record = self._get_record_for_validation(source_id)
+        if record is None:
+            result["records_skipped"] += 1
+            return
+
+        # Parse and validate confidence
+        km_confidence = self._parse_km_confidence(item.get("confidence", 0.0))
+
+        if km_confidence < min_confidence:
+            result["records_skipped"] += 1
+            return
+
+        # Extract cross-references and metadata
+        meta = item.get("metadata", {})
+        cross_refs = meta.get("cross_references", [])
+        validation_meta = {
+            "km_validated": True,
+            "km_validation_confidence": km_confidence,
+            "km_validation_timestamp": self._get_validation_timestamp(),
+        }
+        if extra_meta := meta.get("validation_data"):
+            validation_meta.update(extra_meta)
+
+        # Apply the validation
+        if self._apply_km_validation(
+            record, km_confidence, cross_refs, validation_meta
+        ):
+            result["records_updated"] += 1
+
+            # Emit event for reverse sync
+            self._emit_event(
+                "km_adapter_reverse_sync",
+                {
+                    "source": self.adapter_name,
+                    "source_id": source_id,
+                    "km_confidence": km_confidence,
+                    "action": "validated",
+                },
+            )
+        else:
+            result["records_skipped"] += 1
+
+
+__all__ = ["BatchTimeoutConfig", "ReverseFlowMixin", "ValidationSyncResult"]

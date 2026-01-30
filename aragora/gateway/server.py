@@ -2,7 +2,7 @@
 Local Gateway Server - Device-local routing and auth daemon.
 
 Pattern: Local-first Gateway
-Inspired by: Moltbot (https://github.com/moltbot)
+Inspired by: OpenClaw (formerly Moltbot)
 Aragora adaptation: Unified inbox routing with Agent Fabric integration
 
 A lightweight service that runs on the user's device, routing incoming
@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -33,6 +34,7 @@ from aiohttp import web, WSMsgType
 from aragora.gateway.inbox import InboxAggregator, InboxMessage
 from aragora.gateway.device_registry import DeviceNode, DeviceRegistry
 from aragora.gateway.router import AgentRouter
+from aragora.gateway.persistence import get_gateway_store
 
 logger = logging.getLogger(__name__)
 
@@ -88,10 +90,23 @@ class LocalGateway:
         self._inbox = InboxAggregator(max_size=self._config.max_inbox_size)
         self._devices = DeviceRegistry()
         self._router = AgentRouter()
+        self._session_store = None
         self._running = False
         self._started_at: float | None = None
         self._messages_routed = 0
         self._messages_failed = 0
+
+    def _get_session_store(self):
+        if self._session_store is not None:
+            return self._session_store
+        backend = os.getenv("ARAGORA_GATEWAY_SESSION_STORE", "memory")
+        backend = backend.strip().lower() if backend else "memory"
+        if backend in {"none", "off", "disabled"}:
+            return None
+        path = os.getenv("ARAGORA_GATEWAY_SESSION_PATH")
+        redis_url = os.getenv("ARAGORA_GATEWAY_SESSION_REDIS_URL") or os.getenv("REDIS_URL")
+        self._session_store = get_gateway_store(backend, path=path, redis_url=redis_url)
+        return self._session_store
 
     @property
     def is_running(self) -> bool:
@@ -425,7 +440,14 @@ class LocalGateway:
 
         from aragora.gateway.protocol import GatewayProtocolAdapter, GatewayWebSocketProtocol
 
-        protocol = GatewayWebSocketProtocol(GatewayProtocolAdapter(self))
+        store = self._get_session_store()
+        protocol = GatewayWebSocketProtocol(GatewayProtocolAdapter(self, store=store))
+
+        # Send protocol challenge to align with OpenClaw connection flow.
+        try:
+            await ws.send_json(protocol.create_challenge_event())
+        except Exception:
+            pass
 
         # Add to subscribers
         if not hasattr(self, "_ws_subscribers"):
@@ -451,6 +473,13 @@ class LocalGateway:
                     response = await protocol.handle_message(data)
                     if response is not None:
                         await ws.send_json(response)
+                    close_request = protocol.consume_close_request()
+                    if close_request:
+                        await ws.close(
+                            code=close_request.code,
+                            message=close_request.reason.encode(),
+                        )
+                        break
                 elif msg.type == WSMsgType.ERROR:
                     logger.warning(f"WebSocket error: {ws.exception()}")
         finally:

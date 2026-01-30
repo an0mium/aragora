@@ -76,8 +76,10 @@ from aragora.knowledge.mound.ops.analytics import AnalyticsMixin
 from aragora.knowledge.mound.ops.extraction import ExtractionMixin
 from aragora.knowledge.mound.types import MoundConfig
 
+from typing import Any
 
-class KnowledgeMound(  # type: ignore[misc]
+
+class KnowledgeMound(
     CRUDOperationsMixin,
     QueryOperationsMixin,
     RLMOperationsMixin,
@@ -98,6 +100,13 @@ class KnowledgeMound(  # type: ignore[misc]
     ExtractionMixin,
     KnowledgeMoundCore,
 ):
+
+    # Explicit override to resolve MRO conflict between
+    # ConfidenceDecayMixin.apply_confidence_decay(workspace_id, force) -> DecayReport
+    # and PruningOperationsMixin.apply_confidence_decay(workspace_id, decay_rate, min_confidence) -> int
+    async def apply_confidence_decay(self, *args: Any, **kwargs: Any) -> Any:
+        """Apply confidence decay - delegates to ConfidenceDecayMixin."""
+        return await ConfidenceDecayMixin.apply_confidence_decay(self, *args, **kwargs)
     """
     Unified knowledge facade for the Aragora multi-agent control plane.
 

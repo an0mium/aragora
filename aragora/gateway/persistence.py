@@ -2,7 +2,7 @@
 Gateway Persistence Layer - Session and message durability.
 
 Pattern: Local-first Persistence
-Inspired by: Moltbot (https://github.com/moltbot)
+Inspired by: OpenClaw (formerly Moltbot)
 Aragora adaptation: Multi-backend storage with local-first default
 
 Provides persistent storage for gateway state:
@@ -14,6 +14,7 @@ Persisted state includes:
 - Inbox messages (with TTL-based expiration)
 - Device registry (paired devices)
 - Routing rules (agent routing configuration)
+- Gateway sessions (WebSocket presence)
 """
 
 from __future__ import annotations
@@ -80,6 +81,22 @@ class GatewayStore(Protocol):
 
     async def delete_rule(self, rule_id: str) -> bool:
         """Delete a routing rule."""
+        ...
+
+    async def save_session(self, session: dict[str, Any]) -> None:
+        """Save a gateway session."""
+        ...
+
+    async def load_sessions(self, limit: int = 1000) -> list[dict[str, Any]]:
+        """Load gateway sessions."""
+        ...
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        ...
+
+    async def clear_sessions(self, older_than_seconds: float | None = None) -> int:
+        """Clear sessions, optionally older than a threshold."""
         ...
 
     async def close(self) -> None:
@@ -204,6 +221,8 @@ class InMemoryGatewayStore:
         self._messages: dict[str, InboxMessage] = {}
         self._devices: dict[str, DeviceNode] = {}
         self._rules: dict[str, RoutingRule] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     async def save_message(self, message: InboxMessage) -> None:
@@ -278,6 +297,49 @@ class InMemoryGatewayStore:
                 del self._rules[rule_id]
                 return True
             return False
+
+    async def save_session(self, session: dict[str, Any]) -> None:
+        """Save a gateway session."""
+        session_id = session.get("session_id")
+        if not session_id:
+            return
+        async with self._lock:
+            self._sessions[session_id] = session
+
+    async def load_sessions(self, limit: int = 1000) -> list[dict[str, Any]]:
+        """Load gateway sessions."""
+        async with self._lock:
+            sessions = list(self._sessions.values())
+            sessions.sort(
+                key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True
+            )
+            return sessions[:limit]
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        async with self._lock:
+            if session_id in self._sessions:
+                del self._sessions[session_id]
+                return True
+            return False
+
+    async def clear_sessions(self, older_than_seconds: float | None = None) -> int:
+        """Clear sessions, optionally older than a threshold."""
+        async with self._lock:
+            if older_than_seconds is None:
+                count = len(self._sessions)
+                self._sessions.clear()
+                return count
+
+            cutoff = time.time() - older_than_seconds
+            to_delete = [
+                sid
+                for sid, sess in self._sessions.items()
+                if sess.get("last_seen", sess.get("created_at", 0)) < cutoff
+            ]
+            for sid in to_delete:
+                del self._sessions[sid]
+            return len(to_delete)
 
     async def close(self) -> None:
         """Close the store (no-op for in-memory)."""
@@ -366,9 +428,19 @@ class FileGatewayStore:
                 except Exception as e:
                     logger.warning(f"Failed to load rule: {e}")
 
+            # Load sessions
+            for session_data in data.get("sessions", []):
+                try:
+                    session_id = session_data.get("session_id")
+                    if session_id:
+                        self._sessions[session_id] = session_data
+                except Exception as e:
+                    logger.warning(f"Failed to load session: {e}")
+
             logger.debug(
                 f"Loaded gateway state: {len(self._messages)} messages, "
-                f"{len(self._devices)} devices, {len(self._rules)} rules"
+                f"{len(self._devices)} devices, {len(self._rules)} rules, "
+                f"{len(self._sessions)} sessions"
             )
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse gateway state file: {e}")
@@ -394,6 +466,7 @@ class FileGatewayStore:
                 "messages": [_message_to_dict(m) for m in self._messages.values()],
                 "devices": [_device_to_dict(d) for d in self._devices.values()],
                 "rules": [_rule_to_dict(r) for r in self._rules.values()],
+                "sessions": list(self._sessions.values()),
             }
 
             # Write atomically via temp file
@@ -513,6 +586,64 @@ class FileGatewayStore:
                 return True
             return False
 
+    async def save_session(self, session: dict[str, Any]) -> None:
+        """Save a gateway session."""
+        session_id = session.get("session_id")
+        if not session_id:
+            return
+        async with self._lock:
+            await self._ensure_loaded()
+            self._sessions[session_id] = session
+            self._dirty = True
+            if self._auto_save:
+                await self._save()
+
+    async def load_sessions(self, limit: int = 1000) -> list[dict[str, Any]]:
+        """Load gateway sessions."""
+        async with self._lock:
+            await self._ensure_loaded()
+            sessions = list(self._sessions.values())
+            sessions.sort(
+                key=lambda s: s.get("last_seen", s.get("created_at", 0)), reverse=True
+            )
+            return sessions[:limit]
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        async with self._lock:
+            await self._ensure_loaded()
+            if session_id in self._sessions:
+                del self._sessions[session_id]
+                self._dirty = True
+                if self._auto_save:
+                    await self._save()
+                return True
+            return False
+
+    async def clear_sessions(self, older_than_seconds: float | None = None) -> int:
+        """Clear sessions, optionally older than a threshold."""
+        async with self._lock:
+            await self._ensure_loaded()
+            if older_than_seconds is None:
+                count = len(self._sessions)
+                self._sessions.clear()
+            else:
+                cutoff = time.time() - older_than_seconds
+                to_delete = [
+                    sid
+                    for sid, sess in self._sessions.items()
+                    if sess.get("last_seen", sess.get("created_at", 0)) < cutoff
+                ]
+                for sid in to_delete:
+                    del self._sessions[sid]
+                count = len(to_delete)
+
+            if count > 0:
+                self._dirty = True
+                if self._auto_save:
+                    await self._save()
+            return count
+
     async def close(self) -> None:
         """Close the store and save any pending changes."""
         async with self._lock:
@@ -539,6 +670,7 @@ class RedisGatewayStore:
         key_prefix: str = "aragora:gateway:",
         message_ttl_seconds: int = 86400 * 7,  # 7 days
         device_ttl_seconds: int = 86400 * 30,  # 30 days
+        session_ttl_seconds: int = 86400,  # 1 day
     ) -> None:
         """
         Initialize Redis gateway store.
@@ -553,6 +685,7 @@ class RedisGatewayStore:
         self._key_prefix = key_prefix
         self._message_ttl = message_ttl_seconds
         self._device_ttl = device_ttl_seconds
+        self._session_ttl = session_ttl_seconds
         self._redis: Any = None
 
     async def _get_redis(self) -> Any:
@@ -585,6 +718,12 @@ class RedisGatewayStore:
 
     def _rule_index_key(self) -> str:
         return f"{self._key_prefix}rule:index"
+
+    def _session_key(self, session_id: str) -> str:
+        return f"{self._key_prefix}sess:{session_id}"
+
+    def _session_index_key(self) -> str:
+        return f"{self._key_prefix}sess:index"
 
     async def save_message(self, message: InboxMessage) -> None:
         """Save an inbox message."""
@@ -751,6 +890,89 @@ class RedisGatewayStore:
         pipe.zrem(self._rule_index_key(), rule_id)
         results = await pipe.execute()
         return results[0] > 0
+
+    async def save_session(self, session: dict[str, Any]) -> None:
+        """Save a gateway session."""
+        redis = await self._get_redis()
+        session_id = session.get("session_id")
+        if not session_id:
+            return
+        key = self._session_key(session_id)
+        data = json.dumps(session)
+        score = session.get("last_seen", session.get("created_at", time.time()))
+
+        pipe = redis.pipeline()
+        pipe.set(key, data, ex=self._session_ttl)
+        pipe.zadd(self._session_index_key(), {session_id: score})
+        await pipe.execute()
+
+    async def load_sessions(self, limit: int = 1000) -> list[dict[str, Any]]:
+        """Load gateway sessions."""
+        redis = await self._get_redis()
+        session_ids = await redis.zrevrange(self._session_index_key(), 0, limit - 1)
+        if not session_ids:
+            return []
+
+        keys = [
+            self._session_key(sid.decode() if isinstance(sid, bytes) else sid)
+            for sid in session_ids
+        ]
+        data_list = await redis.mget(keys)
+
+        sessions: list[dict[str, Any]] = []
+        for data in data_list:
+            if data:
+                try:
+                    sess = json.loads(data)
+                    if isinstance(sess, dict):
+                        sessions.append(sess)
+                except Exception as e:
+                    logger.warning(f"Failed to parse session: {e}")
+        return sessions
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        redis = await self._get_redis()
+        key = self._session_key(session_id)
+
+        pipe = redis.pipeline()
+        pipe.delete(key)
+        pipe.zrem(self._session_index_key(), session_id)
+        results = await pipe.execute()
+        return results[0] > 0
+
+    async def clear_sessions(self, older_than_seconds: float | None = None) -> int:
+        """Clear sessions, optionally older than a threshold."""
+        redis = await self._get_redis()
+
+        if older_than_seconds is None:
+            session_ids = await redis.zrange(self._session_index_key(), 0, -1)
+            if not session_ids:
+                return 0
+            keys = [
+                self._session_key(sid.decode() if isinstance(sid, bytes) else sid)
+                for sid in session_ids
+            ]
+            pipe = redis.pipeline()
+            pipe.delete(*keys)
+            pipe.delete(self._session_index_key())
+            await pipe.execute()
+            return len(session_ids)
+
+        cutoff = time.time() - older_than_seconds
+        session_ids = await redis.zrangebyscore(self._session_index_key(), "-inf", cutoff)
+        if not session_ids:
+            return 0
+
+        keys = [
+            self._session_key(sid.decode() if isinstance(sid, bytes) else sid)
+            for sid in session_ids
+        ]
+        pipe = redis.pipeline()
+        pipe.delete(*keys)
+        pipe.zremrangebyscore(self._session_index_key(), "-inf", cutoff)
+        await pipe.execute()
+        return len(session_ids)
 
     async def close(self) -> None:
         """Close the Redis connection."""

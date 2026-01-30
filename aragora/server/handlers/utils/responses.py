@@ -5,7 +5,8 @@ Provides standardized JSON response formatting with consistent error handling.
 
 Functions:
     json_response: Create a JSON response with any data
-    error_response: Create a structured error response
+    error_response: Create a structured error response (returns HandlerResult)
+    error_dict: Create a standardized error dict (for dict-returning handlers)
 
 Classes:
     HandlerResult: Dataclass representing an HTTP response
@@ -171,10 +172,47 @@ def success_response(
     return json_response(payload, status=200, headers=headers)
 
 
+def error_dict(
+    message: str,
+    *,
+    code: str | None = None,
+    status: int | None = None,
+) -> dict[str, Any]:
+    """Create a standardized error dict for handlers that return dicts.
+
+    Use this instead of inline ``{"error": "..."}`` dicts to ensure consistent
+    error format across all handlers.
+
+    Args:
+        message: Human-readable error message
+        code: Optional machine-readable error code (e.g., "NOT_FOUND")
+        status: Optional HTTP status code hint for the server layer
+
+    Returns:
+        Dict with standardized error structure
+
+    Examples:
+        return error_dict("Not found", code="NOT_FOUND", status=404)
+        # -> {"error": "Not found", "code": "NOT_FOUND", "status": 404}
+
+        return error_dict("Extensions not initialized")
+        # -> {"error": "Extensions not initialized"}
+    """
+    result: dict[str, Any] = {"error": message}
+    if code:
+        result["code"] = code
+    if status is not None:
+        result["status"] = status
+    return result
+
+
 def html_response(
     content: str,
     status: int = 200,
     headers: dict | None = None,
+    *,
+    escape_content: bool = False,
+    nonce: str | None = None,
 ) -> HandlerResult:
     """Create an HTML response.
 
@@ -182,16 +220,79 @@ def html_response(
         content: HTML string content
         status: HTTP status code (default: 200)
         headers: Optional additional headers
+        escape_content: If True, HTML-escape the content for XSS protection
+        nonce: Optional CSP nonce to include in Content-Security-Policy header
 
     Returns:
         HandlerResult with HTML body and text/html content type
     """
+    if escape_content:
+        from aragora.server.middleware.xss_protection import escape_html
+
+        content = escape_html(content)
+
+    all_headers = headers.copy() if headers else {}
+
+    # Add CSP header with nonce if provided
+    if nonce:
+        all_headers["Content-Security-Policy"] = (
+            f"default-src 'self'; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            f"style-src 'self' 'unsafe-inline'; "
+            f"img-src 'self' data: https:; "
+            f"font-src 'self'; "
+            f"connect-src 'self'"
+        )
+
     return HandlerResult(
         status_code=status,
         content_type="text/html; charset=utf-8",
         body=content.encode("utf-8"),
-        headers=headers or {},
+        headers=all_headers,
     )
+
+
+def safe_html_response(
+    builder_or_content: Any,
+    status: int = 200,
+    headers: dict | None = None,
+    *,
+    nonce: str | None = None,
+) -> HandlerResult:
+    """Create an HTML response from a SafeHTMLBuilder or pre-escaped content.
+
+    This is the recommended way to return HTML responses when the content
+    includes user-provided data. Use SafeHTMLBuilder to construct HTML
+    with automatic escaping.
+
+    Args:
+        builder_or_content: Either a SafeHTMLBuilder instance or a pre-escaped
+            HTML string. If a SafeHTMLBuilder, .build() is called automatically.
+        status: HTTP status code (default: 200)
+        headers: Optional additional headers
+        nonce: Optional CSP nonce to include in Content-Security-Policy header
+
+    Returns:
+        HandlerResult with HTML body and text/html content type
+
+    Example:
+        from aragora.server.middleware.xss_protection import SafeHTMLBuilder
+
+        builder = SafeHTMLBuilder()
+        builder.add_raw("<!DOCTYPE html><html><body>")
+        builder.add_element("h1", user_provided_title)  # Auto-escaped
+        builder.add_element("p", user_provided_content)
+        builder.add_raw("</body></html>")
+        return safe_html_response(builder)
+    """
+    from aragora.server.middleware.xss_protection import SafeHTMLBuilder
+
+    if isinstance(builder_or_content, SafeHTMLBuilder):
+        content = builder_or_content.build()
+    else:
+        content = str(builder_or_content)
+
+    return html_response(content, status=status, headers=headers, nonce=nonce)
 
 
 def redirect_response(

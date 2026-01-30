@@ -38,6 +38,7 @@ import asyncio
 import functools
 import json
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -149,6 +150,39 @@ class ApprovalDeniedError(Exception):
 
 # In-memory storage for pending approvals (should use GovernanceStore in production)
 _pending_approvals: dict[str, OperationApprovalRequest] = {}
+_MAX_PENDING_APPROVALS = 10_000  # Prevent unbounded growth
+_CLEANUP_INTERVAL = 300  # Cleanup every 5 minutes
+_last_cleanup_time: float = 0.0
+
+
+def _cleanup_expired_approvals() -> int:
+    """Remove expired or resolved approvals from in-memory store.
+
+    Returns number of entries removed.
+    """
+    global _last_cleanup_time
+    now = datetime.now(timezone.utc)
+    _last_cleanup_time = time.time()
+
+    expired_ids = [
+        rid
+        for rid, req in _pending_approvals.items()
+        if (req.expires_at and now > req.expires_at)
+        or req.state != ApprovalState.PENDING
+    ]
+    for rid in expired_ids:
+        del _pending_approvals[rid]
+
+    if expired_ids:
+        logger.debug(f"Cleaned up {len(expired_ids)} expired/resolved approval requests")
+
+    return len(expired_ids)
+
+
+def _maybe_cleanup() -> None:
+    """Run cleanup if enough time has elapsed since last cleanup."""
+    if time.time() - _last_cleanup_time >= _CLEANUP_INTERVAL:
+        _cleanup_expired_approvals()
 
 
 async def create_approval_request(
@@ -198,6 +232,17 @@ async def create_approval_request(
         context=context or {},
         expires_at=datetime.now(timezone.utc) + timedelta(hours=timeout_hours),
     )
+
+    # Cleanup expired entries periodically and enforce max size
+    _maybe_cleanup()
+    if len(_pending_approvals) >= _MAX_PENDING_APPROVALS:
+        _cleanup_expired_approvals()
+        if len(_pending_approvals) >= _MAX_PENDING_APPROVALS:
+            logger.warning(
+                "Pending approvals at capacity (%d), rejecting new request",
+                _MAX_PENDING_APPROVALS,
+            )
+            raise RuntimeError("Too many pending approval requests")
 
     # Store in memory and persist to governance store
     _pending_approvals[request_id] = request

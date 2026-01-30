@@ -11,7 +11,7 @@ Requirements:
 from __future__ import annotations
 
 import logging
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 from aragora.knowledge.mound.vector_abstraction.base import (
     BaseVectorStore,
@@ -84,7 +84,10 @@ class WeaviateVectorStore(BaseVectorStore):
             # Parse URL for connection
             if self.config.api_key:
                 # Cloud or authenticated connection
-                self._client = weaviate.connect_to_custom(  # type: ignore[call-arg]
+                # weaviate v4 connect_to_custom signature varies across versions;
+                # cast to Any to avoid call-arg mismatches with type stubs
+                _connect = cast(Any, weaviate.connect_to_custom)
+                self._client = _connect(
                     http_host=url.replace("http://", "").replace("https://", "").split(":")[0],
                     http_port=int(url.split(":")[-1]) if ":" in url.split("/")[-1] else 8080,
                     http_secure=url.startswith("https"),

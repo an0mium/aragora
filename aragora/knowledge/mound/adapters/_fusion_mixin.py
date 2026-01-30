@@ -201,8 +201,9 @@ class FusionMixin:
             The record, or None if not found.
         """
         # Try to use ReverseFlowMixin method if available
-        if hasattr(self, "_get_record_for_validation"):
-            return self._get_record_for_validation(source_id)  # type: ignore[attr-defined]  # Mixin method
+        lookup = getattr(self, "_get_record_for_validation", None)
+        if lookup is not None:
+            return lookup(source_id)
         return None
 
     def fuse_validations_from_km(

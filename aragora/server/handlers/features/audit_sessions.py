@@ -607,13 +607,13 @@ class AuditSessionsHandler(SecureHandler):
             )
 
             # Create a mock session object for the generator
-            from aragora.audit.document_auditor import (  # type: ignore[attr-defined]
+            from aragora.audit.document_auditor import (
                 AuditSession as RealSession,
                 AuditFinding,
+                AuditStatus,
                 AuditType,
                 FindingSeverity,
                 FindingStatus,
-                SessionStatus,
             )
 
             # Convert dict findings to AuditFinding objects
@@ -646,7 +646,7 @@ class AuditSessionsHandler(SecureHandler):
                 audit_types=[AuditType(t) for t in session.get("audit_types", ["security"])],
                 name=session.get("name", ""),
                 model=session.get("model", "unknown"),
-                status=SessionStatus(session.get("status", "completed")),
+                status=AuditStatus(session.get("status", "completed")),
             )
             mock_session.findings = finding_objects
             mock_session.total_chunks = session.get("progress", {}).get("total_chunks", 0)

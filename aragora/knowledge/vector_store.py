@@ -24,7 +24,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from aragora.server.metrics import (
     track_vector_index_batch,
@@ -167,7 +167,8 @@ class KnowledgeVectorStore:
         try:
             # Create client
             if self.config.api_key:
-                self._client = weaviate.connect_to_custom(  # type: ignore[call-arg]
+                _connect = cast(Any, weaviate).connect_to_custom
+                self._client = _connect(
                     http_host=self.config.url.replace("http://", "").replace("https://", ""),
                     http_port=8080,
                     http_secure=self.config.url.startswith("https"),

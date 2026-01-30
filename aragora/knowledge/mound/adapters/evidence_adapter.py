@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
@@ -818,7 +818,7 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin, ResilientAdapterMixin):
         store = self._ensure_store()
 
         try:
-            return store.get_debate_evidence(debate_id, min_relevance)  # type: ignore[arg-type]
+            return cast(Any, store).get_debate_evidence(debate_id, min_relevance)
         except AttributeError:
             # Store doesn't support debate evidence lookup
             logger.debug("Evidence store does not support get_debate_evidence")

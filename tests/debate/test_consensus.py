@@ -30,6 +30,7 @@ from aragora.debate.consensus import (
 class TestVoteType:
     """Tests for VoteType enum."""
 
+    @pytest.mark.smoke
     def test_vote_type_values(self):
         """Test VoteType enum values."""
         assert VoteType.AGREE.value == "agree"

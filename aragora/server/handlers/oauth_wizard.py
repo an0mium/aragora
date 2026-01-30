@@ -186,12 +186,12 @@ class OAuthWizardHandler(SecureHandler):
         return path.startswith("/api/v2/integrations/wizard")
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
-        query_params: dict,
-        handler: Any | None = None,
-    ) -> HandlerResult:
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method.
 
         RBAC:

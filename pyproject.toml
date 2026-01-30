@@ -386,6 +386,7 @@ markers = [
     "experimental: marks tests for experimental/unstable features",
     "external: marks tests requiring external services (APIs, databases)",
     "benchmark: marks benchmark tests (run separately from unit suite)",
+    "smoke: marks critical smoke tests for fast CI gating (run with '-m smoke')",
     "flaky: marks tests with known intermittent failures",
     "requires_server: marks tests that need a running Aragora server",
     "audit: marks tests for audit trail retention and SOC 2 compliance",

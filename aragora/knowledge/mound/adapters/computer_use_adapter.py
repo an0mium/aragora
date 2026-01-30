@@ -19,7 +19,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from ._base import KnowledgeMoundAdapter
 
@@ -816,7 +816,7 @@ class ComputerUseAdapter(KnowledgeMoundAdapter):
 
         with self._timed_operation("sync_from_orchestrator"):
             try:
-                metrics = self._orchestrator.get_metrics()  # type: ignore[attr-defined]
+                metrics = cast(Any, self._orchestrator).get_metrics()
 
                 # Store action performance aggregates
                 action_types = ["click", "type", "scroll", "key", "screenshot", "wait"]

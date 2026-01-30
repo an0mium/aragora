@@ -20,6 +20,7 @@ from aragora.debate.protocol import DebateProtocol, user_vote_multiplier
 class TestDebateProtocol:
     """Tests for DebateProtocol configuration."""
 
+    @pytest.mark.smoke
     def test_default_values(self):
         """Default values should be sensible."""
         protocol = DebateProtocol()

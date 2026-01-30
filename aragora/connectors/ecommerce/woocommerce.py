@@ -1228,7 +1228,21 @@ class WooCommerceConnector(EnterpriseConnector):
         """
         effective_secret = secret if secret is not None else self.get_webhook_secret()
         if not effective_secret:
-            return True  # No secret configured, skip verification
+            import os
+
+            env = os.environ.get("ARAGORA_ENV", "development").lower()
+            is_production = env not in ("development", "dev", "local", "test")
+            if is_production:
+                logger.error(
+                    "SECURITY: WooCommerce webhook secret not configured in production. "
+                    "Rejecting webhook to prevent signature bypass."
+                )
+                return False
+            logger.warning(
+                "WooCommerce webhook secret not configured - skipping verification. "
+                "This is only acceptable in development!"
+            )
+            return True
 
         import base64
         import hashlib

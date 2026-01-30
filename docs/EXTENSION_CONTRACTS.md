@@ -1,7 +1,7 @@
-# Extension Contracts (Workspace/Gastown + Gateway/Moltbot)
+# Extension Contracts (Workspace/Gastown + Gateway/OpenClaw)
 
 This document captures the current cross-layer contracts used by the
-Gastown (developer orchestration) and Moltbot (consumer assistant)
+Gastown (developer orchestration) and OpenClaw (consumer assistant)
 extensions. The goal is to keep Aragora's enterprise control plane stable
 while allowing compatibility adapters to evolve independently.
 

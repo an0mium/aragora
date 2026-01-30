@@ -14,6 +14,7 @@ import json
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from aragora.rbac.decorators import require_permission  # noqa: F401
 
@@ -54,8 +55,8 @@ class LearningHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler=None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
         # Rate limit check

@@ -803,10 +803,11 @@ class InvoiceHandler(BaseHandler):
 
         return error_response("Route not found", status=404)
 
-    async def handle_post(  # type: ignore[override]
+    async def handle_post(
         self,
         path: str,
-        data: Optional[dict[str, Any]] = None,
+        data: Any = None,
+        handler: Any = None,
     ) -> HandlerResult:
         """Handle POST requests."""
         data = data or {}

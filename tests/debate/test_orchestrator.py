@@ -723,6 +723,7 @@ class TestArenaRun:
     def protocol(self):
         return DebateProtocol(rounds=1, consensus="majority")
 
+    @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_run_returns_debate_result(self, environment, agents, protocol):
         """Arena.run() returns a DebateResult."""

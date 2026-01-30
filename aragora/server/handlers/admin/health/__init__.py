@@ -144,7 +144,7 @@ class HealthHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route health endpoint requests with RBAC for non-public routes."""

@@ -23,7 +23,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -489,12 +489,12 @@ async def trigger_security_debate(
         # Create environment
         env = Environment(
             task=question,
-            context={  # type: ignore[arg-type]
+            context=cast(str, {
                 "security_event_id": event.id,
                 "repository": event.repository,
                 "scan_id": event.scan_id,
                 "findings": [f.to_dict() for f in event.findings],
-            },
+            }),
         )
 
         # Create protocol for security debates

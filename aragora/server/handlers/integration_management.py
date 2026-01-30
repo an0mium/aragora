@@ -82,17 +82,16 @@ class IntegrationsHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
-        self,
-        method: str,
-        path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
-    ) -> HandlerResult:
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
-        query_params = query_params or {}
-        body = body or {}
+        # Extract method, body, and headers from the request handler
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
+        body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
+        headers: dict[str, str] = (
+            dict(handler.headers) if handler and hasattr(handler, "headers") else {}
+        )
 
         # Extract tenant ID from auth context (header or query param)
         tenant_id = (headers.get("X-Tenant-ID") if headers else None) or query_params.get(

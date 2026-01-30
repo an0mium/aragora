@@ -20,7 +20,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 from ._base import KnowledgeMoundAdapter
 
@@ -840,7 +840,7 @@ class GatewayAdapter(KnowledgeMoundAdapter):
                         synced["channels"] += 1
 
                 # Sync device registrations
-                devices = await self._gateway.list_devices()  # type: ignore[attr-defined]
+                devices = await cast(Any, self._gateway).list_devices()
                 for device in devices:
                     record = DeviceRegistrationRecord(
                         device_id=device.device_id,

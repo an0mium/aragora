@@ -252,6 +252,24 @@ class TestInMemoryGatewayStore:
         assert await store.delete_rule("r1") is True
         assert await store.delete_rule("r1") is False
 
+    # Session tests
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_session(self, store):
+        session = {
+            "session_id": "s1",
+            "user_id": "u1",
+            "device_id": "d1",
+            "status": "active",
+            "created_at": 100.0,
+            "last_seen": 150.0,
+            "metadata": {"role": "assistant"},
+        }
+        await store.save_session(session)
+        sessions = await store.load_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["session_id"] == "s1"
+
     @pytest.mark.asyncio
     async def test_close(self, store):
         # Should be a no-op
@@ -358,6 +376,44 @@ class TestFileGatewayStore:
         rules = await store2.load_rules()
         assert len(rules) == 1
         assert rules[0].priority == 5
+        await store2.close()
+
+    # Session tests
+
+    @pytest.mark.asyncio
+    async def test_save_and_load_session(self, store):
+        session = {
+            "session_id": "s1",
+            "user_id": "u1",
+            "device_id": "d1",
+            "status": "active",
+            "created_at": 100.0,
+            "last_seen": 150.0,
+            "metadata": {"role": "assistant"},
+        }
+        await store.save_session(session)
+        sessions = await store.load_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["session_id"] == "s1"
+
+    @pytest.mark.asyncio
+    async def test_session_persistence(self, temp_path):
+        store1 = FileGatewayStore(path=temp_path, auto_save=True, auto_save_interval=0)
+        session = {
+            "session_id": "s2",
+            "user_id": "u2",
+            "device_id": "d2",
+            "status": "active",
+            "created_at": 200.0,
+            "last_seen": 250.0,
+        }
+        await store1.save_session(session)
+        await store1.close()
+
+        store2 = FileGatewayStore(path=temp_path)
+        sessions = await store2.load_sessions()
+        assert len(sessions) == 1
+        assert sessions[0]["session_id"] == "s2"
         await store2.close()
 
     # Edge cases

@@ -87,7 +87,9 @@ class EmailDock(ChannelDock):
             )
 
         try:
-            from aragora.server.handlers.social.notifications import send_email_notification  # type: ignore[attr-defined]
+            from aragora.server.handlers.social import notifications as _notif_mod
+
+            send_email_notification = getattr(_notif_mod, "send_email_notification")
 
             email = kwargs.get("email") or channel_id
             subject = kwargs.get("subject") or message.title or "Aragora Notification"

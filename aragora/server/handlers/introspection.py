@@ -161,8 +161,9 @@ class IntrospectionHandler(BaseHandler):
 
                 # Add reputation if available
                 if memory and hasattr(memory, "get_agent_reputation"):
+                    _get_reputation = getattr(memory, "get_agent_reputation")
                     try:
-                        reputation = memory.get_agent_reputation(agent)  # type: ignore[union-attr]
+                        reputation = _get_reputation(agent)
                         if reputation:
                             agent_info["reputation_score"] = getattr(reputation, "score", 0.5)
                             agent_info["total_critiques"] = getattr(

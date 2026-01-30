@@ -28,12 +28,12 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils import parse_json_body
-from aragora.server.handlers.utils.responses import error_response
+from aragora.server.handlers.utils.responses import error_dict, error_response
 from aragora.server.validation.query_params import safe_query_int
 
 logger = logging.getLogger(__name__)
@@ -341,7 +341,7 @@ class SupportHandler(SecureHandler):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching tickets from {platform}: {result}")
                 continue
-            all_tickets.extend(result)  # type: ignore[arg-type]
+            all_tickets.extend(cast(list[dict[str, Any]], result))
 
         # Sort by created_at descending
         all_tickets.sort(key=lambda t: t.get("created_at") or "", reverse=True)
@@ -697,7 +697,7 @@ class SupportHandler(SecureHandler):
         """Fetch metrics from a specific platform."""
         connector = await self._get_connector(platform)
         if not connector:
-            return {"error": "Connector not available"}
+            return error_dict("Connector not available", code="SERVICE_UNAVAILABLE")
 
         # Fetch recent tickets to calculate metrics
         tickets = await self._fetch_platform_tickets(platform, limit=1000)

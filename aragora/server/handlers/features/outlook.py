@@ -29,12 +29,13 @@ import asyncio
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from uuid import uuid4
 
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -768,7 +769,7 @@ class OutlookHandler(BaseHandler):
 
     def __init__(self, ctx: dict[str, Any]):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(cast(ServerContext, ctx))
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

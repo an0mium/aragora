@@ -1,6 +1,6 @@
-# Parity Epics (Gastown + Moltbot Extensions)
+# Parity Epics (Gastown + OpenClaw Extensions)
 
-These epics track the work required to reach Gastown and Moltbot parity as
+These epics track the work required to reach Gastown and OpenClaw parity as
 extensions, while keeping Aragora as the enterprise decision control plane.
 
 ## Epics
@@ -20,7 +20,7 @@ Owner: TBD
 Milestone: M2 (Weeks 5-6)
 Goal: Workspace manager, git worktree persistence, convoys, and Mayor-style coordination.
 
-### EPIC-4: Moltbot Local Gateway + Inbox
+### EPIC-4: OpenClaw Local Gateway + Inbox
 Owner: TBD
 Milestone: M3 (Weeks 7-8)
 Goal: Local gateway daemon, device registry, and unified inbox surface.

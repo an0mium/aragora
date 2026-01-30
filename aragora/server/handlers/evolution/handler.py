@@ -25,6 +25,7 @@ from ..base import (
     json_response,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -71,12 +72,16 @@ class EvolutionHandler(BaseHandler):
             return True
         return False
 
-    # TODO: RBAC should be handled at middleware level, not handler decorator
     def handle(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route evolution requests to appropriate methods."""
         normalized = strip_version_prefix(path)
         if not normalized.startswith("/api/evolution/"):
             return None
+
+        # Require authentication
+        user, err = self.require_auth_or_error(handler)
+        if err:
+            return err
 
         # Rate limit check
         client_ip = get_client_ip(handler)

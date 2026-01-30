@@ -12,6 +12,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from aragora.utils.optional_imports import try_import_class
 from aragora.server.versioning.compat import strip_version_prefix
@@ -70,8 +71,8 @@ class CalibrationHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route calibration requests with RBAC."""
         path = strip_version_prefix(path)

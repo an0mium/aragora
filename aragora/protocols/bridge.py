@@ -25,7 +25,7 @@ from aragora.protocols.a2a import (
 )
 
 if TYPE_CHECKING:
-    from aragora.agents.base import BaseAgent  # type: ignore[attr-defined]
+    from aragora.agents.base import BaseDebateAgent as BaseAgent
 
 logger = logging.getLogger(__name__)
 

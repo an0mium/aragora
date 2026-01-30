@@ -1,6 +1,6 @@
 # Gateway Guide
 
-Device-local message routing and unified inbox for Moltbot parity.
+Device-local message routing and unified inbox for OpenClaw parity.
 
 ## Overview
 
@@ -37,6 +37,14 @@ await gateway.stop_http()
 ```
 
 ## Core Concepts
+
+### Session Persistence (OpenClaw WS)
+
+Gateway WebSocket sessions can be persisted by setting:
+
+- `ARAGORA_GATEWAY_SESSION_STORE=memory|file|redis|auto`
+- `ARAGORA_GATEWAY_SESSION_PATH` (for file backend)
+- `ARAGORA_GATEWAY_SESSION_REDIS_URL` or `REDIS_URL` (for redis backend)
 
 ### LocalGateway
 

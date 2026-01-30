@@ -44,6 +44,24 @@ from aragora.control_plane.leader import (
 logger = logging.getLogger(__name__)
 
 
+def _rbac_scan_and_delete(redis: Any, pattern: str, batch_size: int = 100) -> int:
+    """Delete Redis keys matching *pattern* using incremental SCAN.
+
+    Replaces the O(N)-blocking ``redis.keys(pattern)`` call with the
+    non-blocking ``SCAN`` command that returns results incrementally.
+    """
+    deleted = 0
+    cursor: int | str = 0
+    while True:
+        cursor, keys = redis.scan(cursor, match=pattern, count=batch_size)
+        if keys:
+            redis.delete(*keys)
+            deleted += len(keys)
+        if cursor == 0 or cursor == b"0":
+            break
+    return deleted
+
+
 @dataclass
 class RBACCacheConfig:
     """Configuration for RBAC distributed cache."""
@@ -502,12 +520,10 @@ class RBACDistributedCache:
         redis = self._get_redis()
         if redis:
             try:
-                # Delete matching keys
+                # Delete matching keys using incremental SCAN
                 for key_type in ["decision", "roles"]:
                     full_pattern = self._redis_key(key_type, pattern)
-                    keys = redis.keys(full_pattern)
-                    if keys:
-                        redis.delete(*keys)
+                    _rbac_scan_and_delete(redis, full_pattern)
 
                 # Broadcast invalidation
                 if self.config.enable_pubsub:
@@ -557,9 +573,7 @@ class RBACDistributedCache:
             try:
                 for key_type in ["decision", "roles", "permissions"]:
                     pattern = self._redis_key(key_type, "*")
-                    keys = redis.keys(pattern)
-                    if keys:
-                        redis.delete(*keys)
+                    _rbac_scan_and_delete(redis, pattern)
 
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, "all")

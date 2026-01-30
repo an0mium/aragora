@@ -152,7 +152,7 @@ logger = logging.getLogger(__name__)
 _knowledge_limiter = RateLimiter(requests_per_minute=60)
 
 
-class KnowledgeMoundHandler(  # type: ignore[misc]
+class _KnowledgeMoundMixins(
     NodeOperationsMixin,
     RelationshipOperationsMixin,
     GraphOperationsMixin,
@@ -173,6 +173,12 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
     AnalyticsOperationsMixin,
     ExtractionOperationsMixin,
     ConfidenceDecayOperationsMixin,
+):
+    """Intermediate base combining all Knowledge Mound operation mixins."""
+
+
+class KnowledgeMoundHandler(
+    _KnowledgeMoundMixins,
     BaseHandler,
 ):
     """Handler for Knowledge Mound API endpoints (unified knowledge storage).

@@ -608,6 +608,51 @@ class TestConcurrentAccess:
 
         await asyncio.gather(*tasks)
 
+    @pytest.mark.asyncio
+    async def test_concurrent_payments_atomic(self, store):
+        """Concurrent payment recordings should be atomic.
+
+        When 10 concurrent $10 payments are made on the same invoice,
+        the final total should be exactly $100, not less due to race conditions.
+        """
+        # Create invoice with $1000 total
+        invoice = {
+            "id": "inv_concurrent_payments",
+            "vendor_id": "test",
+            "total_amount": Decimal("1000.00"),
+            "amount_paid": Decimal("0.00"),
+            "balance_due": Decimal("1000.00"),
+            "status": "pending",
+            "payments": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await store.save(invoice)
+
+        # Record 10 payments of $10 each concurrently
+        async def record_payment(i: int):
+            await store.record_payment(
+                "inv_concurrent_payments",
+                Decimal("10.00"),
+                datetime.now(timezone.utc),
+                payment_method=f"card_{i}",
+                reference=f"ref_{i}",
+            )
+
+        await asyncio.gather(*[record_payment(i) for i in range(10)])
+
+        # Verify all payments were recorded correctly
+        result = await store.get("inv_concurrent_payments")
+        assert result is not None
+
+        # Total paid should be exactly $100 (10 x $10)
+        payments = result.get("payments", [])
+        total_paid = sum(Decimal(p["amount"]) for p in payments)
+        assert total_paid == Decimal("100.00"), f"Expected $100, got ${total_paid}"
+
+        # Balance should be $900
+        balance = Decimal(result.get("balance_due", "0"))
+        assert balance == Decimal("900.00"), f"Expected $900 balance, got ${balance}"
+
 
 # =============================================================================
 # Edge Cases
@@ -721,3 +766,150 @@ class TestStoreLifecycle:
         result = await store.get("inv_001")
         assert result is not None
         assert result["status"] == "approved"
+
+
+# =============================================================================
+# PostgresInvoiceStore Precision Tests
+# =============================================================================
+
+
+class TestPostgresDecimalPrecision:
+    """Tests for PostgresInvoiceStore decimal precision handling.
+
+    These tests verify that Decimal values are converted to strings (not floats)
+    to prevent precision loss when stored in PostgreSQL NUMERIC columns.
+    """
+
+    @pytest.fixture
+    def mock_pool(self):
+        """Create a mock asyncpg connection pool."""
+        pool = MagicMock()
+        conn = AsyncMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+        return pool, conn
+
+    @pytest.mark.asyncio
+    async def test_save_converts_decimal_to_string_not_float(self, mock_pool):
+        """Decimal total_amount should be converted to str, not float.
+
+        This is critical for financial accuracy - float(Decimal("1234567.89"))
+        can lose precision, but str(Decimal("1234567.89")) preserves it exactly.
+        """
+        from aragora.storage.invoice_store import PostgresInvoiceStore
+
+        pool, conn = mock_pool
+        store = PostgresInvoiceStore(pool)
+
+        # Use an amount that would lose precision with float
+        invoice = {
+            "id": "inv_precision_test",
+            "total_amount": Decimal("12345678901234.56"),
+            "vendor_id": "v1",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await store.save(invoice)
+
+        # Verify execute was called and check the total_amount parameter
+        conn.execute.assert_called_once()
+        call_args = conn.execute.call_args
+        # The total_amount is the 6th positional argument ($6 in the query)
+        amount_arg = call_args[0][6]
+
+        # Should be string, not float
+        assert isinstance(amount_arg, str), f"Expected str, got {type(amount_arg)}"
+        assert amount_arg == "12345678901234.56"
+
+    @pytest.mark.asyncio
+    async def test_save_converts_string_amount_to_normalized_string(self, mock_pool):
+        """String amounts should be normalized through Decimal for consistency."""
+        from aragora.storage.invoice_store import PostgresInvoiceStore
+
+        pool, conn = mock_pool
+        store = PostgresInvoiceStore(pool)
+
+        invoice = {
+            "id": "inv_string_test",
+            "total_amount": "9999.99",
+            "vendor_id": "v1",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await store.save(invoice)
+
+        call_args = conn.execute.call_args
+        amount_arg = call_args[0][6]
+
+        assert isinstance(amount_arg, str)
+        assert amount_arg == "9999.99"
+
+    @pytest.mark.asyncio
+    async def test_save_preserves_sub_cent_precision(self, mock_pool):
+        """Sub-cent amounts should be preserved exactly."""
+        from aragora.storage.invoice_store import PostgresInvoiceStore
+
+        pool, conn = mock_pool
+        store = PostgresInvoiceStore(pool)
+
+        invoice = {
+            "id": "inv_subcent",
+            "total_amount": Decimal("123.456789"),
+            "vendor_id": "v1",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await store.save(invoice)
+
+        call_args = conn.execute.call_args
+        amount_arg = call_args[0][6]
+
+        assert amount_arg == "123.456789"
+
+    @pytest.mark.asyncio
+    async def test_find_duplicates_uses_string_amount(self, mock_pool):
+        """Duplicate detection should use string amounts for precision."""
+        from aragora.storage.invoice_store import PostgresInvoiceStore
+
+        pool, conn = mock_pool
+        conn.fetch.return_value = []  # No duplicates found
+        store = PostgresInvoiceStore(pool)
+
+        await store.find_duplicates(
+            vendor_id="vendor_123",
+            invoice_number="INV-001",
+            total_amount=Decimal("99999999.99"),
+        )
+
+        conn.fetch.assert_called_once()
+        call_args = conn.fetch.call_args
+        # total_amount is the 3rd argument ($3)
+        amount_arg = call_args[0][3]
+
+        assert isinstance(amount_arg, str), f"Expected str, got {type(amount_arg)}"
+        assert amount_arg == "99999999.99"
+
+    @pytest.mark.asyncio
+    async def test_large_amount_float_vs_str_precision_difference(self, mock_pool):
+        """Demonstrate why float conversion loses precision for large amounts.
+
+        This test documents the bug that was fixed: float() loses precision
+        for amounts > ~15 significant digits.
+        """
+        # This amount has 18 significant digits - beyond float precision
+        original = Decimal("123456789012345678.99")
+
+        # float() loses precision (this is the bug we fixed)
+        float_converted = float(original)
+        str_converted = str(original)
+
+        # String preserves exact representation
+        assert str_converted == "123456789012345678.99"
+
+        # When converted back to Decimal, float loses precision
+        float_back = Decimal(str(float_converted))
+        str_back = Decimal(str_converted)
+
+        # This proves the precision loss with float
+        assert float_back != original  # BROKEN with float
+        assert str_back == original    # CORRECT with str

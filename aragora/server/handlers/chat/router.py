@@ -315,7 +315,7 @@ class ChatWebhookRouter:
         # Verify signature
         if not self.verify_webhook(platform, headers, body):
             logger.warning(f"Webhook verification failed for {platform}")
-            return {"error": "Invalid signature", "status": 401}
+            return error_dict("Invalid signature", code="UNAUTHORIZED", status=401)
 
         # Parse event
         event = self.parse_event(platform, headers, body)
@@ -664,10 +664,10 @@ class ChatWebhookRouter:
         )
 
         # Build request context
-        context = RequestContext(  # type: ignore[call-arg]
+        context = RequestContext(
             user_id=command.user.id if command and command.user else None,
             user_name=command.user.name if command and command.user else None,
-            org_id=getattr(command, "team_id", None) if command else None,
+            tenant_id=getattr(command, "team_id", None) if command else None,
             session_id=command.channel if command else None,
         )
 

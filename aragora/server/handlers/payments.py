@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -182,9 +183,12 @@ async def get_stripe_connector(request: web.Request) -> Any | None:
     global _stripe_connector
     if _stripe_connector is None:
         try:
-            from aragora.connectors.payments.stripe import StripeConnector
+            from aragora.connectors.payments.stripe import StripeConnector, StripeCredentials
 
-            _stripe_connector = StripeConnector()  # type: ignore[call-arg]
+            _stripe_connector = StripeConnector(StripeCredentials(
+                secret_key=os.environ.get("STRIPE_SECRET_KEY", ""),
+                webhook_secret=os.environ.get("STRIPE_WEBHOOK_SECRET"),
+            ))
             logger.info("Stripe connector initialized")
         except ImportError:
             logger.warning("Stripe connector not available")

@@ -22,6 +22,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
+from aragora.server.handlers.utils.responses import error_dict
+
 logger = logging.getLogger(__name__)
 
 # Try to import handler base
@@ -557,7 +559,7 @@ async def _expand_archive(
                         }
                     )
         except Exception as e:
-            return {"error": str(e)}
+            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
 
     elif ext in (".tar", ".gz", ".tgz"):
         try:
@@ -573,7 +575,7 @@ async def _expand_archive(
                         }
                     )
         except Exception as e:
-            return {"error": str(e)}
+            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
 
     return {
         "expanded": True,

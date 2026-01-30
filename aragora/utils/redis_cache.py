@@ -30,6 +30,33 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def _scan_and_delete(redis: Any, pattern: str, batch_size: int = 100) -> int:
+    """Delete Redis keys matching *pattern* using incremental SCAN.
+
+    Unlike ``redis.keys(pattern)`` which blocks the server for the
+    entire keyspace, ``SCAN`` returns results incrementally and is
+    safe for production use.
+
+    Args:
+        redis: Synchronous Redis client.
+        pattern: Glob-style pattern (e.g. ``aragora:cache:*``).
+        batch_size: Number of keys to scan per iteration.
+
+    Returns:
+        Total number of keys deleted.
+    """
+    deleted = 0
+    cursor: int | str = 0
+    while True:
+        cursor, keys = redis.scan(cursor, match=pattern, count=batch_size)
+        if keys:
+            redis.delete(*keys)
+            deleted += len(keys)
+        if cursor == 0 or cursor == b"0":
+            break
+    return deleted
+
+
 class RedisTTLCache(Generic[T]):
     """
     TTL cache with Redis backend and in-memory fallback.
@@ -192,9 +219,7 @@ class RedisTTLCache(Generic[T]):
         if redis is not None:
             try:
                 pattern = self._redis_key("*")
-                keys = redis.keys(pattern)
-                if keys:
-                    redis.delete(*keys)
+                _scan_and_delete(redis, pattern)
             except Exception as e:
                 logger.debug(f"Redis clear failed: {e}")
 
@@ -213,9 +238,7 @@ class RedisTTLCache(Generic[T]):
         if redis is not None:
             try:
                 pattern = self._redis_key(f"{prefix}*")
-                keys = redis.keys(pattern)
-                if keys:
-                    redis.delete(*keys)
+                _scan_and_delete(redis, pattern)
             except Exception as e:
                 logger.debug(f"Redis clear_prefix failed: {e}")
 

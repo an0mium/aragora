@@ -62,14 +62,14 @@ class BudgetHandler(BaseHandler):
 
     @track_handler("budgets/main", method="GET")
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         path: str,
-        method: str,
-        handler: Any = None,
-        query_params: dict[str, Any] | None = None,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult | None:
         """Route budget requests to appropriate methods."""
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
         # Authentication check
         from aragora.billing.jwt_auth import extract_user_from_request
 

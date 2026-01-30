@@ -71,15 +71,14 @@ class AuditTrailHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=60)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
-        method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
         query_params = query_params or {}
 
         try:

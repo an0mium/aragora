@@ -82,8 +82,8 @@ class AgentConfigHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path.startswith("/api/v1/agents/configs")
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route config requests to appropriate methods with RBAC."""
         # Determine required permission based on endpoint

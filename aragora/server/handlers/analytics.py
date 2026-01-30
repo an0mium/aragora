@@ -80,8 +80,8 @@ class AnalyticsHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return strip_version_prefix(path) in self.ROUTES
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler: Any
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route analytics requests to appropriate methods with RBAC."""
         path = strip_version_prefix(path)

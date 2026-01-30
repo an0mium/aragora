@@ -1,11 +1,11 @@
 """
-Local Gateway - Moltbot parity extension for consumer/device interface.
+Local Gateway - OpenClaw parity extension for consumer/device interface.
 
 Provides a device-local routing and auth service that aggregates messages
 from multiple channels into a unified inbox, routes them to appropriate
 agents, and manages device registrations.
 
-This module implements the Moltbot consumer interface model on top of
+This module implements the OpenClaw consumer interface model on top of
 the existing Aragora connector infrastructure.
 
 Key concepts:

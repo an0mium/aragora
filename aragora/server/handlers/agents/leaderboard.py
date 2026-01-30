@@ -83,8 +83,8 @@ class LeaderboardViewHandler(SecureHandler):
             errors[key] = str(e)
             data[key] = fallback
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route leaderboard view requests with RBAC."""
         path = strip_version_prefix(path)

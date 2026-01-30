@@ -93,6 +93,7 @@ def populated_memory(memory):
 class TestMemoryTierInitialization:
     """Test ContinuumMemory initialization and tier configuration."""
 
+    @pytest.mark.smoke
     def test_default_initialization(self, temp_db_path):
         """Test that ContinuumMemory initializes with default settings."""
         cms = ContinuumMemory(db_path=temp_db_path)

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from aragora.server.validation.query_params import safe_query_int
 from aragora.storage.gmail_token_store import GmailUserState
@@ -318,7 +318,7 @@ class GmailThreadsHandler(SecureHandler):
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            connector = GmailConnector()  # type: ignore[abstract]
+            connector = cast(type, GmailConnector)()
             connector._access_token = state.access_token
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry

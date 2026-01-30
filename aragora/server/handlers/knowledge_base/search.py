@@ -56,9 +56,10 @@ class SearchOperationsMixin:
         limit = get_clamped_int_param(query_params, "limit", 10, min_val=1, max_val=50)
 
         engine = self._get_query_engine()
+        assert hasattr(engine, "search"), "Query engine does not support search"
 
         try:
-            results = _run_async(engine.search(query, workspace_id, limit))  # type: ignore[union-attr]
+            results = _run_async(engine.search(query, workspace_id, limit))
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return error_response(f"Search failed: {e}", 500)

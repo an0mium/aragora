@@ -68,14 +68,20 @@ class PolicyHandler(BaseHandler):
         return False
 
     @rate_limit(requests_per_minute=120)
-    async def handle(self, path: str, method: str, handler: Any = None) -> HandlerResult | None:  # type: ignore[override]
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any = None
+    ) -> HandlerResult | None:
         """Route request to appropriate handler method."""
-        query_params: dict[str, Any] = {}
+        method: str = "GET"
         if handler:
-            query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
-            from urllib.parse import parse_qs
+            if hasattr(handler, "command"):
+                method = handler.command
+            # Also parse query params from the handler path if not already provided
+            if not query_params and hasattr(handler, "path") and "?" in handler.path:
+                query_str = handler.path.split("?", 1)[1]
+                from urllib.parse import parse_qs
 
-            query_params = parse_qs(query_str)
+                query_params = parse_qs(query_str)
 
         # === Policy endpoints ===
 

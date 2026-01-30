@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -1096,9 +1097,9 @@ class PRReviewHandler(BaseHandler):
         "/api/v1/github/pr/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

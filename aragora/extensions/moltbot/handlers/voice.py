@@ -186,13 +186,13 @@ class MoltbotVoiceHandler(BaseHandler):
         from aragora.extensions.moltbot import VoiceSessionConfig
 
         config_data = body.get("config", {})
-        config = VoiceSessionConfig(  # type: ignore[call-arg]
+        config = VoiceSessionConfig(
             sample_rate=config_data.get("sample_rate", 16000),
-            channels=config_data.get("channels", 1),
             encoding=config_data.get("encoding", "pcm"),
             language=config_data.get("language", "en-US"),
             enable_stt=config_data.get("enable_stt", True),
             enable_tts=config_data.get("enable_tts", True),
+            metadata={"channels": config_data.get("channels", 1)},
         )
 
         processor = get_voice_processor()

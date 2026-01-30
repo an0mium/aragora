@@ -217,8 +217,8 @@ class EndpointAnalyticsHandler(SecureHandler):
             return True
         return bool(self.ENDPOINT_PATTERN.match(normalized))
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler: Any
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests to appropriate methods with RBAC."""
         normalized = strip_version_prefix(path)

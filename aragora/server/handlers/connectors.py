@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.audit.unified import audit_admin, audit_data
+from aragora.server.handlers.utils.responses import error_dict
 
 from aragora.connectors.enterprise import (
     SyncScheduler,
@@ -79,12 +80,12 @@ def _check_permission(
                 f"Permission denied: {permission_key} for user {auth_context.user_id}: {decision.reason}"
             )
             record_rbac_check(permission_key, allowed=False, handler="ConnectorsHandler")
-            return {"error": f"Permission denied: {decision.reason}", "status": 403}
+            return error_dict(f"Permission denied: {decision.reason}", code="FORBIDDEN", status=403)
         record_rbac_check(permission_key, allowed=True)
     except PermissionDeniedError as e:
         logger.warning(f"Permission denied: {permission_key} for user {auth_context.user_id}: {e}")
         record_rbac_check(permission_key, allowed=False, handler="ConnectorsHandler")
-        return {"error": f"Permission denied: {str(e)}", "status": 403}
+        return error_dict(f"Permission denied: {str(e)}", code="FORBIDDEN", status=403)
 
     return None
 

@@ -84,8 +84,12 @@ def _get_safe_subprocess_env() -> dict[str, str]:
     return safe_env
 
 
+# Maximum allowed code size to prevent memory-based attacks
+MAX_CODE_SIZE = 100_000  # 100KB
+
 # Patterns that could enable sandbox escape via Python introspection
 DANGEROUS_PATTERNS = [
+    # Dunder attribute access (sandbox escape vectors)
     "__class__",
     "__bases__",
     "__subclasses__",
@@ -95,8 +99,28 @@ DANGEROUS_PATTERNS = [
     "__builtins__",
     "__import__",
     "__getattribute__",
+    "__getattr__",
+    "__setattr__",
+    "__delattr__",
     "__reduce__",
     "__reduce_ex__",
+    "__init_subclass__",
+    "__dict__",
+    "__init__",
+    "__new__",
+    "__call__",
+    "__del__",
+    "__closure__",
+    "__func__",
+    "__self__",
+    "__wrapped__",
+    "__module__",
+    "__name__",
+    "__qualname__",
+    "__loader__",
+    "__spec__",
+    "__annotations__",
+    # Dangerous builtin function calls
     "exec(",
     "eval(",
     "compile(",
@@ -104,20 +128,30 @@ DANGEROUS_PATTERNS = [
     "getattr(",
     "setattr(",
     "delattr(",
+    "hasattr(",
     "globals(",
     "locals(",
     "vars(",
     "dir(",
     "breakpoint(",
-    "__dict__",
-    "__init__",
-    "__new__",
-    "__call__",
-    "__del__",
+    "input(",
+    "memoryview(",
+    "type(",
+    "classmethod(",
+    "staticmethod(",
+    "property(",
+    "super(",
+    # Module access
     "os.",
     "sys.",
     "subprocess",
     "importlib",
+    "ctypes",
+    "pickle",
+    "marshal",
+    "shutil",
+    "socket",
+    "signal",
 ]
 
 

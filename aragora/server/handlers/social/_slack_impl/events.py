@@ -264,7 +264,7 @@ class EventsMixin(MessagingMixin):
         """Create debate from DM and send result back to user."""
         try:
             from aragora import Arena, DebateProtocol, Environment
-            from aragora.agents import get_agents_by_names  # type: ignore[attr-defined]
+            from aragora.agents import get_agents_by_names
 
             env = Environment(task=f"Debate: {topic}")
             agents = get_agents_by_names(["anthropic-api", "openai-api"])

@@ -17,7 +17,7 @@ Install TRUE RLM: pip install aragora[rlm]
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol, cast
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import KnowledgeItem, MoundConfig
@@ -299,7 +299,7 @@ class RLMOperationsMixin:
             try:
                 result = await rlm.query(
                     query=query,
-                    context=full_content,  # type: ignore[arg-type]
+                    context=cast(Any, full_content),
                     strategy="auto",
                 )
 

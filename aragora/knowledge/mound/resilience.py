@@ -108,6 +108,9 @@ class TransactionConfig:
     isolation: TransactionIsolation = TransactionIsolation.READ_COMMITTED
     timeout_seconds: float = 30.0
     savepoint_on_nested: bool = True
+    deadlock_retries: int = 3
+    deadlock_base_delay: float = 0.1
+    deadlock_max_delay: float = 2.0
 
 
 @dataclass
@@ -314,6 +317,14 @@ def with_retry(
     return decorator
 
 
+class DeadlockError(Exception):
+    """Raised when a database deadlock is detected and max retries exceeded."""
+
+    def __init__(self, message: str, retry_count: int = 0):
+        self.retry_count = retry_count
+        super().__init__(message)
+
+
 class TransactionManager:
     """
     Manages explicit transaction boundaries for PostgreSQL operations.
@@ -396,12 +407,70 @@ class TransactionManager:
             await conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
             raise
 
+    def _is_deadlock_error(self, error: Exception) -> bool:
+        """Check if an exception is a database deadlock.
+
+        Detects PostgreSQL deadlock (40P01) and serialization failure (40001).
+        """
+        error_str = str(error).lower()
+        return "deadlock" in error_str or "40p01" in error_str or "40001" in error_str
+
+    def _calculate_deadlock_delay(self, attempt: int) -> float:
+        """Calculate delay for deadlock retry with exponential backoff and jitter."""
+        delay = self._config.deadlock_base_delay * (2**attempt)
+        delay = min(delay, self._config.deadlock_max_delay)
+        # Add ±25% jitter
+        delay = delay * (0.75 + random.random() * 0.5)
+        return delay
+
+    @asynccontextmanager
+    async def transaction_with_retry(
+        self,
+        isolation: TransactionIsolation | None = None,
+        timeout: float | None = None,
+    ) -> AsyncIterator[Any]:
+        """Execute operations within a transaction with deadlock retry.
+
+        Automatically retries on deadlock with exponential backoff.
+
+        Usage:
+            async with tx_manager.transaction_with_retry() as conn:
+                await conn.execute("UPDATE ...")
+                # Retries automatically on deadlock
+
+        Raises:
+            DeadlockError: If max deadlock retries exceeded.
+        """
+        max_retries = self._config.deadlock_retries
+
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.transaction(isolation, timeout) as conn:
+                    yield conn
+                    return  # Success - exit the retry loop
+            except Exception as e:
+                if self._is_deadlock_error(e) and attempt < max_retries:
+                    delay = self._calculate_deadlock_delay(attempt)
+                    logger.warning(
+                        f"Deadlock detected (attempt {attempt + 1}/{max_retries + 1}), "
+                        f"retrying in {delay:.2f}s"
+                    )
+                    await asyncio.sleep(delay)
+                elif self._is_deadlock_error(e):
+                    raise DeadlockError(
+                        f"Deadlock persisted after {max_retries + 1} attempts: {e}",
+                        retry_count=max_retries + 1,
+                    ) from e
+                else:
+                    raise
+
     def get_stats(self) -> dict[str, Any]:
         """Get transaction manager statistics."""
         return {
             "active_transactions": self._active_transactions,
             "default_isolation": self._config.isolation.value,
             "default_timeout": self._config.timeout_seconds,
+            "deadlock_retries": self._config.deadlock_retries,
         }
 
 
@@ -1258,6 +1327,163 @@ class AdapterCircuitBreaker:
         except Exception as e:
             self.record_failure(str(e))
             raise
+
+
+class HealthAwareCircuitBreaker:
+    """Circuit breaker that syncs state from a ConnectionHealthMonitor.
+
+    Opens circuit automatically when the health monitor detects degradation.
+    This bridges the gap between connection-level health and adapter-level
+    circuit breakers.
+
+    Usage:
+        health_cb = HealthAwareCircuitBreaker("continuum", health_monitor)
+        if health_cb.can_proceed():
+            # Safe to call adapter
+            ...
+    """
+
+    def __init__(
+        self,
+        adapter_name: str,
+        health_monitor: ConnectionHealthMonitor,
+        config: AdapterCircuitBreakerConfig | None = None,
+    ):
+        self.adapter_name = adapter_name
+        self._health_monitor = health_monitor
+        self._circuit = AdapterCircuitBreaker(adapter_name, config)
+
+    def sync_from_health(self) -> None:
+        """Sync circuit state from health monitor.
+
+        If health monitor reports unhealthy, force circuit open.
+        If healthy and circuit is open, allow half-open transition.
+        """
+        if not self._health_monitor.is_healthy():
+            if self._circuit.is_closed:
+                self._circuit._transition_to_open()
+                logger.warning(
+                    f"Health-aware circuit {self.adapter_name} opened due to health degradation"
+                )
+
+    def can_proceed(self) -> bool:
+        """Check if request can proceed, syncing health first."""
+        self.sync_from_health()
+        return self._circuit.can_proceed()
+
+    def record_success(self) -> None:
+        """Record successful operation."""
+        self._circuit.record_success()
+
+    def record_failure(self, error: str | None = None) -> bool:
+        """Record failed operation."""
+        return self._circuit.record_failure(error)
+
+    @property
+    def state(self) -> AdapterCircuitState:
+        """Get current circuit state."""
+        return self._circuit.state
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get combined health and circuit stats."""
+        stats = self._circuit.get_stats().to_dict()
+        stats["health_monitor_healthy"] = self._health_monitor.is_healthy()
+        return stats
+
+
+class LatencyTracker:
+    """Tracks operation latencies and computes adaptive timeouts.
+
+    Records latency samples and calculates P50/P90/P95/P99 percentiles
+    for adaptive timeout configuration.
+
+    Usage:
+        tracker = LatencyTracker()
+        tracker.record(150.0)  # 150ms
+        tracker.record(200.0)
+        timeout = tracker.get_adaptive_timeout()  # P95 * multiplier
+    """
+
+    def __init__(
+        self,
+        max_samples: int = 1000,
+        timeout_multiplier: float = 1.5,
+        min_timeout_ms: float = 100.0,
+        max_timeout_ms: float = 30000.0,
+    ):
+        """Initialize latency tracker.
+
+        Args:
+            max_samples: Maximum number of latency samples to keep.
+            timeout_multiplier: Multiplier for P95 to compute adaptive timeout.
+            min_timeout_ms: Minimum adaptive timeout in milliseconds.
+            max_timeout_ms: Maximum adaptive timeout in milliseconds.
+        """
+        self._samples: list[float] = []
+        self._max_samples = max_samples
+        self._timeout_multiplier = timeout_multiplier
+        self._min_timeout_ms = min_timeout_ms
+        self._max_timeout_ms = max_timeout_ms
+        self._total_count: int = 0
+
+    def record(self, latency_ms: float) -> None:
+        """Record a latency sample in milliseconds."""
+        self._samples.append(latency_ms)
+        self._total_count += 1
+        if len(self._samples) > self._max_samples:
+            self._samples = self._samples[-self._max_samples:]
+
+    def get_adaptive_timeout(self) -> float:
+        """Calculate adaptive timeout based on P95 latency.
+
+        Returns:
+            Adaptive timeout in milliseconds, clamped to min/max bounds.
+        """
+        if not self._samples:
+            return self._min_timeout_ms
+
+        sorted_samples = sorted(self._samples)
+        p95_idx = int(len(sorted_samples) * 0.95)
+        p95 = sorted_samples[min(p95_idx, len(sorted_samples) - 1)]
+
+        timeout = p95 * self._timeout_multiplier
+        return max(self._min_timeout_ms, min(timeout, self._max_timeout_ms))
+
+    def get_percentile(self, percentile: float) -> float:
+        """Get a specific percentile value.
+
+        Args:
+            percentile: Percentile to compute (0.0-1.0).
+
+        Returns:
+            Latency at the given percentile in milliseconds.
+        """
+        if not self._samples:
+            return 0.0
+        sorted_samples = sorted(self._samples)
+        idx = int(len(sorted_samples) * percentile)
+        return sorted_samples[min(idx, len(sorted_samples) - 1)]
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get latency statistics."""
+        if not self._samples:
+            return {
+                "sample_count": 0,
+                "total_count": self._total_count,
+                "adaptive_timeout_ms": self._min_timeout_ms,
+            }
+
+        return {
+            "sample_count": len(self._samples),
+            "total_count": self._total_count,
+            "p50_ms": self.get_percentile(0.50),
+            "p90_ms": self.get_percentile(0.90),
+            "p95_ms": self.get_percentile(0.95),
+            "p99_ms": self.get_percentile(0.99),
+            "min_ms": min(self._samples),
+            "max_ms": max(self._samples),
+            "adaptive_timeout_ms": self.get_adaptive_timeout(),
+        }
 
 
 class AdapterUnavailableError(Exception):

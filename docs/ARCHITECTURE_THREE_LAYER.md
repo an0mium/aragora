@@ -1,7 +1,7 @@
 # Three-Layer Architecture: Aragora Core + Extensions
 
 This document defines the layered architecture for Aragora as an enterprise
-decision control plane with optional Gastown and Moltbot extension layers.
+decision control plane with optional Gastown and OpenClaw (formerly Moltbot) extension layers.
 
 ## Design Principles
 
@@ -15,7 +15,7 @@ decision control plane with optional Gastown and Moltbot extension layers.
 ```
 +------------------------------------------------------------------+
 |                     Extension Layer: Consumer                      |
-|  (Moltbot parity: local gateway, voice, canvas, device nodes)     |
+|  (OpenClaw parity: local gateway, voice, canvas, device nodes)     |
 +------------------------------------------------------------------+
                               |
                     Extension APIs (gRPC/REST)
@@ -118,7 +118,7 @@ decision control plane with optional Gastown and Moltbot extension layers.
 - `/api/v2/gastown/hooks/*` - Hook status and control
 - CLI: `aragora gt convoy start|status|complete`
 
-## Layer 3b: Consumer Extension (Moltbot Parity)
+## Layer 3b: Consumer Extension (OpenClaw Parity)
 
 **Purpose**: Consumer-grade personal assistant with device integration.
 
@@ -171,21 +171,21 @@ decision control plane with optional Gastown and Moltbot extension layers.
 - Aragora Core: enabled
 - Agent Fabric: enabled
 - Gastown Extension: disabled (opt-in)
-- Moltbot Extension: disabled (opt-in)
+- OpenClaw Extension: disabled (opt-in)
 - Computer Use: disabled (opt-in)
 
 ### Developer Platform
 - Aragora Core: enabled
 - Agent Fabric: enabled
 - Gastown Extension: enabled
-- Moltbot Extension: disabled
+- OpenClaw Extension: disabled
 - Computer Use: enabled (with strict policies)
 
 ### Consumer Assistant
 - Aragora Core: enabled (minimal surface)
 - Agent Fabric: enabled
 - Gastown Extension: disabled
-- Moltbot Extension: enabled
+- OpenClaw Extension: enabled
 - Computer Use: enabled (with approval gates)
 
 ### Full Platform
@@ -202,6 +202,6 @@ decision control plane with optional Gastown and Moltbot extension layers.
 
 1. Implement Agent Fabric foundation (scheduler, isolation, policy)
 2. Build Gastown extension prototype (workspace, hooks, convoys)
-3. Build Moltbot extension prototype (gateway, inbox, onboarding)
+3. Build OpenClaw extension prototype (gateway, inbox, onboarding)
 4. Add computer use MVP (browser, shell, approvals)
 5. Document integration contracts and test extensively

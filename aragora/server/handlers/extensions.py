@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from aragora.rbac.decorators import require_permission
 from aragora.server.extensions import get_extension_state
+from aragora.server.handlers.utils.responses import error_dict
 
 if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
+@require_permission("extensions:read")
 async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any]:
     """
     GET /api/extensions/status
@@ -35,10 +37,7 @@ async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any
     """
     state = get_extension_state()
     if not state:
-        return {
-            "error": "Extensions not initialized",
-            "status": "unavailable",
-        }
+        return error_dict("Extensions not initialized", code="SERVICE_UNAVAILABLE")
 
     return {
         "status": "ok",
@@ -63,6 +62,7 @@ async def handle_extensions_status(ctx: "AuthorizationContext") -> dict[str, Any
     }
 
 
+@require_permission("extensions:read")
 async def handle_extensions_stats(ctx: "AuthorizationContext") -> dict[str, Any]:
     """
     GET /api/extensions/stats
@@ -71,7 +71,7 @@ async def handle_extensions_stats(ctx: "AuthorizationContext") -> dict[str, Any]
     """
     state = get_extension_state()
     if not state:
-        return {"error": "Extensions not initialized"}
+        return error_dict("Extensions not initialized", code="SERVICE_UNAVAILABLE")
 
     stats: dict[str, Any] = {"status": "ok"}
 
@@ -133,10 +133,10 @@ async def handle_gastown_workspaces_list(ctx: "AuthorizationContext") -> dict[st
     """
     state = get_extension_state()
     if not state or not state.gastown_enabled:
-        return {"error": "Gastown extension not enabled"}
+        return error_dict("Gastown extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.workspace_manager:
-        return {"error": "Workspace manager not available"}
+        return error_dict("Workspace manager not available", code="SERVICE_UNAVAILABLE")
 
     try:
         workspaces = await state.workspace_manager.list_workspaces()
@@ -154,7 +154,7 @@ async def handle_gastown_workspaces_list(ctx: "AuthorizationContext") -> dict[st
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 @require_permission("workspaces:write")
@@ -169,10 +169,10 @@ async def handle_gastown_workspace_create(
     """
     state = get_extension_state()
     if not state or not state.gastown_enabled:
-        return {"error": "Gastown extension not enabled"}
+        return error_dict("Gastown extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.coordinator:
-        return {"error": "Coordinator not available"}
+        return error_dict("Coordinator not available", code="SERVICE_UNAVAILABLE")
 
     try:
         workspace = await state.coordinator.create_workspace(
@@ -191,7 +191,7 @@ async def handle_gastown_workspace_create(
             },
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 @require_permission("convoys:read")
@@ -203,10 +203,10 @@ async def handle_gastown_convoys_list(ctx: "AuthorizationContext") -> dict[str, 
     """
     state = get_extension_state()
     if not state or not state.gastown_enabled:
-        return {"error": "Gastown extension not enabled"}
+        return error_dict("Gastown extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.convoy_tracker:
-        return {"error": "Convoy tracker not available"}
+        return error_dict("Convoy tracker not available", code="SERVICE_UNAVAILABLE")
 
     try:
         convoys = await state.convoy_tracker.list_convoys()
@@ -224,7 +224,7 @@ async def handle_gastown_convoys_list(ctx: "AuthorizationContext") -> dict[str, 
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 # =============================================================================
@@ -241,10 +241,10 @@ async def handle_moltbot_inbox_messages(ctx: "AuthorizationContext") -> dict[str
     """
     state = get_extension_state()
     if not state or not state.moltbot_enabled:
-        return {"error": "Moltbot extension not enabled"}
+        return error_dict("Moltbot extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.inbox_manager:
-        return {"error": "Inbox manager not available"}
+        return error_dict("Inbox manager not available", code="SERVICE_UNAVAILABLE")
 
     try:
         messages = await state.inbox_manager.list_messages(
@@ -266,7 +266,7 @@ async def handle_moltbot_inbox_messages(ctx: "AuthorizationContext") -> dict[str
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 @require_permission("devices:read")
@@ -278,10 +278,10 @@ async def handle_moltbot_gateway_devices(ctx: "AuthorizationContext") -> dict[st
     """
     state = get_extension_state()
     if not state or not state.moltbot_enabled:
-        return {"error": "Moltbot extension not enabled"}
+        return error_dict("Moltbot extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.local_gateway:
-        return {"error": "Gateway not available"}
+        return error_dict("Gateway not available", code="SERVICE_UNAVAILABLE")
 
     try:
         devices = await state.local_gateway.list_devices()
@@ -299,7 +299,7 @@ async def handle_moltbot_gateway_devices(ctx: "AuthorizationContext") -> dict[st
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 @require_permission("onboarding:read")
@@ -311,10 +311,10 @@ async def handle_moltbot_onboarding_flows(ctx: "AuthorizationContext") -> dict[s
     """
     state = get_extension_state()
     if not state or not state.moltbot_enabled:
-        return {"error": "Moltbot extension not enabled"}
+        return error_dict("Moltbot extension not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.onboarding:
-        return {"error": "Onboarding orchestrator not available"}
+        return error_dict("Onboarding orchestrator not available", code="SERVICE_UNAVAILABLE")
 
     try:
         flows = await state.onboarding.list_flows()
@@ -333,7 +333,7 @@ async def handle_moltbot_onboarding_flows(ctx: "AuthorizationContext") -> dict[s
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 # =============================================================================
@@ -350,10 +350,10 @@ async def handle_fabric_agents_list(ctx: "AuthorizationContext") -> dict[str, An
     """
     state = get_extension_state()
     if not state or not state.fabric_enabled:
-        return {"error": "Agent Fabric not enabled"}
+        return error_dict("Agent Fabric not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.fabric:
-        return {"error": "Fabric not available"}
+        return error_dict("Fabric not available", code="SERVICE_UNAVAILABLE")
 
     try:
         agents = await state.fabric.list_agents()
@@ -370,7 +370,7 @@ async def handle_fabric_agents_list(ctx: "AuthorizationContext") -> dict[str, An
             ],
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 @require_permission("tasks:read")
@@ -382,10 +382,10 @@ async def handle_fabric_tasks_list(ctx: "AuthorizationContext") -> dict[str, Any
     """
     state = get_extension_state()
     if not state or not state.fabric_enabled:
-        return {"error": "Agent Fabric not enabled"}
+        return error_dict("Agent Fabric not enabled", code="SERVICE_UNAVAILABLE")
 
     if not state.fabric:
-        return {"error": "Fabric not available"}
+        return error_dict("Fabric not available", code="SERVICE_UNAVAILABLE")
 
     try:
         # Get scheduler stats which includes task info
@@ -395,7 +395,7 @@ async def handle_fabric_tasks_list(ctx: "AuthorizationContext") -> dict[str, Any
             "stats": stats,
         }
     except Exception as e:
-        return {"error": str(e)}
+        return error_dict(str(e), code="INTERNAL_ERROR")
 
 
 # =============================================================================

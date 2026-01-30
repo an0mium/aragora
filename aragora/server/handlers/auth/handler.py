@@ -20,6 +20,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 # Lockout tracker for brute-force protection
 
@@ -150,8 +151,8 @@ class AuthHandler(SecureHandler):
             return True
         return False
 
-    async def handle(  # type: ignore[override]
-        self, path: str, query_params: dict, handler, method: str = "GET"
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route auth requests to appropriate methods.
 
@@ -160,9 +161,8 @@ class AuthHandler(SecureHandler):
         # Normalize path to handle v1 routes
         path = strip_version_prefix(path)
 
-        # Determine HTTP method from handler if not provided
-        if hasattr(handler, "command"):
-            method = handler.command
+        # Determine HTTP method from handler
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
 
         if path == "/api/auth/register" and method == "POST":
             return self._handle_register(handler)

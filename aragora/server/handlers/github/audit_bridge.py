@@ -30,6 +30,7 @@ from uuid import uuid4
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
     success_response,
 )
@@ -1093,9 +1094,9 @@ class AuditGitHubBridgeHandler(BaseHandler):
         "/api/v1/github/audit/sync/",
     ]
 
-    def __init__(self, ctx: dict[str, Any]):
+    def __init__(self, ctx: ServerContext):
         """Initialize with server context."""
-        super().__init__(ctx)  # type: ignore[arg-type]
+        super().__init__(ctx)
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""

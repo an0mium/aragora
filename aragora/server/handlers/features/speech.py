@@ -27,6 +27,7 @@ from ..base import (
     safe_error_message,
 )
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from ..utils.responses import error_dict
 from aragora.rbac.decorators import require_permission
 from aragora.utils.async_utils import run_async
 
@@ -286,16 +287,16 @@ class SpeechHandler(BaseHandler):
 
         except ImportError as e:
             logger.error(f"Speech module import error: {e}")
-            return {"error": "Speech transcription not available. Check server configuration."}
+            return error_dict("Speech transcription not available. Check server configuration.", code="SERVICE_UNAVAILABLE")
         except RuntimeError as e:
             logger.error(f"STT provider error: {e}")
-            return {"error": str(e)}
+            return error_dict(str(e), code="INTERNAL_ERROR", status=500)
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid transcription parameters: {e}")
-            return {"error": f"Invalid parameters: {str(e)}"}
+            return error_dict(f"Invalid parameters: {str(e)}", code="VALIDATION_ERROR")
         except OSError as e:
             logger.exception(f"IO error during transcription: {e}")
-            return {"error": f"Transcription failed: {str(e)}"}
+            return error_dict(f"Transcription failed: {str(e)}", code="INTERNAL_ERROR", status=500)
 
     def _parse_upload(
         self,

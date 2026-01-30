@@ -16,21 +16,24 @@ from aragora.knowledge.search.bm25 import BM25Index, HybridSearcher
 logger = logging.getLogger(__name__)
 
 # Optional Weaviate import
+WeaviateConnectionError: type[Exception]
+
 try:
     import weaviate
     from weaviate.classes.config import Configure, Property, DataType
     from weaviate.classes.query import MetadataQuery, Filter
-    from weaviate.exceptions import WeaviateConnectionError
+    from weaviate.exceptions import WeaviateConnectionError as _WeaviateConnectionError
 
+    WeaviateConnectionError = _WeaviateConnectionError
     WEAVIATE_AVAILABLE = True
 except ImportError:
     WEAVIATE_AVAILABLE = False
     weaviate = None
 
-    class WeaviateConnectionError(Exception):  # type: ignore[no-redef]
+    class _FallbackWeaviateConnectionError(Exception):
         """Fallback exception when Weaviate is not available."""
 
-        pass
+    WeaviateConnectionError = _FallbackWeaviateConnectionError
 
 
 @dataclass

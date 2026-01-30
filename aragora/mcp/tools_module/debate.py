@@ -32,7 +32,7 @@ async def run_debate_tool(
     Returns:
         Dict with debate results including final_answer, consensus status, confidence
     """
-    from aragora.agents.base import create_agent
+    from aragora.agents.base import AgentType, create_agent
     from aragora.config.settings import AgentSettings, DebateSettings
     from aragora.core import Environment
     from aragora.debate.orchestrator import Arena, DebateProtocol
@@ -62,7 +62,7 @@ async def run_debate_tool(
         role = roles[i] if i < len(roles) else "critic"
         try:
             agent = create_agent(
-                model_type=agent_name,  # type: ignore[arg-type]
+                model_type=cast("AgentType", agent_name),
                 name=f"{agent_name}_{role}",
                 role=role,
             )

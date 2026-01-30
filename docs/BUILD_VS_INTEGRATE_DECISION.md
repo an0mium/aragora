@@ -1,14 +1,14 @@
-# Build vs Integrate Decision: Gastown and Moltbot Parity
+# Build vs Integrate Decision: Gastown and OpenClaw Parity
 
 This document captures the strategic decision on whether to build custom
-implementations or integrate existing code for Gastown and Moltbot parity.
+implementations or integrate existing code for Gastown and OpenClaw (formerly Moltbot) parity.
 
 ## Executive Summary
 
 | Target | Decision | Rationale |
 |--------|----------|-----------|
 | Gastown concepts | **Build** (inspired by) | Concepts need Aragora-specific semantics |
-| Moltbot concepts | **Build** (inspired by) | Extension must integrate with enterprise core |
+| OpenClaw concepts | **Build** (inspired by) | Extension must integrate with enterprise core |
 | Agent Fabric | **Build** | Core infrastructure, must be Aragora-native |
 
 ## Analysis
@@ -37,7 +37,7 @@ Implementation approach:
 - Build workspace manager that supports both Gastown-style and Aragora-native workflows
 - Use git hooks for persistence but with Aragora-specific schema
 
-### Moltbot (Consumer/Device Extension)
+### OpenClaw (Consumer/Device Extension)
 
 **Option A: Integrate Moltbot directly**
 - Pros: Full-featured consumer assistant, proven UX

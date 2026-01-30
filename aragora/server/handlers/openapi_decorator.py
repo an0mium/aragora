@@ -279,7 +279,7 @@ def api_endpoint(
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             return func(*args, **kwargs)
 
-        wrapper._openapi = endpoint  # type: ignore[attr-defined]
+        setattr(wrapper, "_openapi", endpoint)
         return cast(F, wrapper)
 
     return decorator

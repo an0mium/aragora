@@ -1,14 +1,14 @@
-# 90-Day Execution Plan (Aragora Core + Gastown + Moltbot Extensions)
+# 90-Day Execution Plan (Aragora Core + Gastown + OpenClaw Extensions)
 
 **Last Updated:** 2026-01-28
 **Status:** Phase 0-2 COMPLETE, Phase 3 IN PROGRESS
 
 Objective: Preserve Aragora as the enterprise decision control plane while
 building extension layers that can reach parity with Gastown (developer
-orchestration) and Moltbot (consumer/device interface).
+orchestration) and OpenClaw (consumer/device interface).
 
 **Key Decision:** BUILD all features independently in Aragora, adopting patterns
-from Gastown and Moltbot with proper attribution (see `docs/BUILD_VS_INTEGRATE.md`).
+from Gastown and OpenClaw with proper attribution (see `docs/BUILD_VS_INTEGRATE.md`).
 
 See also: `docs/PARITY_MATRIX_GASTOWN_MOLTBOT.md` for the full construct-level
 mapping, gap analysis, and build-vs-integrate recommendations.
@@ -22,7 +22,7 @@ mapping, gap analysis, and build-vs-integrate recommendations.
 | Phase 0 | Architecture Lock | DONE | 100% |
 | Phase 1 | Agent Fabric Foundation | DONE | 100% |
 | Phase 2 | Gastown Parity Prototype | DONE | 100% |
-| Phase 3 | Moltbot Parity Prototype | IN PROGRESS | 30% |
+| Phase 3 | OpenClaw Parity Prototype | IN PROGRESS | 30% |
 | Phase 4 | Safe Computer Use MVP | PENDING | 0% |
 | Phase 5 | Integration Hardening | PENDING | 0% |
 
@@ -35,7 +35,7 @@ mapping, gap analysis, and build-vs-integrate recommendations.
    `aragora/gateway/`, and `aragora/sandbox/`. No changes to `aragora/debate/`
    or `aragora/control_plane/` unless fixing bugs.
 2. **Fabric first** -- Build the shared Agent Fabric (scheduling, isolation,
-   budgets, policy) before any extension UX. Both Gastown and Moltbot
+   budgets, policy) before any extension UX. Both Gastown and OpenClaw
    extensions depend on it.
 3. **Feature flags** -- Every extension capability ships behind a flag so it
    can be disabled without code removal.

@@ -2,17 +2,21 @@
 Gateway Protocol Adapter.
 
 Provides a minimal session/presence protocol layer that can be used to
-match Moltbot-style gateway behavior without requiring full protocol parity.
+match OpenClaw-style gateway behavior without requiring full protocol parity.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional
 
+from aragora.gateway.persistence import GatewayStore
 from aragora.gateway.server import GatewayConfig, LocalGateway
+
+OPENCLAW_PROTOCOL_VERSION = 3
 
 
 @dataclass
@@ -29,6 +33,14 @@ class GatewaySession:
     end_reason: str | None = None
 
 
+@dataclass
+class CloseRequest:
+    """Request to close the WebSocket connection."""
+
+    code: int
+    reason: str
+
+
 class GatewayProtocolAdapter:
     """
     Minimal protocol adapter for gateway session + presence semantics.
@@ -37,9 +49,63 @@ class GatewayProtocolAdapter:
     presence tracking that can be extended into full Moltbot parity.
     """
 
-    def __init__(self, gateway: LocalGateway):
+    def __init__(self, gateway: LocalGateway, store: GatewayStore | None = None):
         self._gateway = gateway
         self._sessions: dict[str, GatewaySession] = {}
+        self._store = store
+        self._store_loaded = False
+        self._store_lock = asyncio.Lock()
+
+    async def _ensure_loaded(self) -> None:
+        if self._store is None or self._store_loaded:
+            return
+        async with self._store_lock:
+            if self._store_loaded:
+                return
+            records = await self._store.load_sessions()
+            for record in records:
+                session = self._record_to_session(record)
+                if session:
+                    self._sessions[session.session_id] = session
+            self._store_loaded = True
+
+    async def _persist_session(self, session: GatewaySession) -> None:
+        if self._store is None:
+            return
+        await self._store.save_session(self._session_to_record(session))
+
+    def _record_to_session(self, record: dict[str, Any]) -> GatewaySession | None:
+        session_id = record.get("session_id")
+        user_id = record.get("user_id")
+        device_id = record.get("device_id")
+        if not session_id or not user_id or not device_id:
+            return None
+        return GatewaySession(
+            session_id=session_id,
+            user_id=user_id,
+            device_id=device_id,
+            status=record.get("status", "active"),
+            created_at=record.get("created_at", time.time()),
+            last_seen=record.get("last_seen", record.get("created_at", time.time())),
+            metadata=record.get("metadata", {}) or {},
+            end_reason=record.get("end_reason"),
+        )
+
+    def _session_to_record(self, session: GatewaySession) -> dict[str, Any]:
+        return {
+            "session_id": session.session_id,
+            "user_id": session.user_id,
+            "device_id": session.device_id,
+            "status": session.status,
+            "created_at": session.created_at,
+            "last_seen": session.last_seen,
+            "metadata": dict(session.metadata),
+            "end_reason": session.end_reason,
+        }
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Return gateway stats for protocol responses."""
+        return await self._gateway.get_stats()
 
     def get_config(self) -> GatewayConfig:
         """Return the active gateway configuration."""
@@ -52,6 +118,7 @@ class GatewayProtocolAdapter:
         metadata: Optional[dict[str, Any]] = None,
     ) -> GatewaySession:
         """Create a new session."""
+        await self._ensure_loaded()
         session_id = f"sess-{uuid.uuid4().hex[:12]}"
         session = GatewaySession(
             session_id=session_id,
@@ -60,16 +127,19 @@ class GatewayProtocolAdapter:
             metadata=metadata or {},
         )
         self._sessions[session_id] = session
+        await self._persist_session(session)
         return session
 
     async def close_session(self, session_id: str, reason: str = "ended") -> GatewaySession | None:
         """End a session and record a reason."""
+        await self._ensure_loaded()
         session = self._sessions.get(session_id)
         if not session:
             return None
         session.status = "ended"
         session.end_reason = reason
         session.last_seen = time.time()
+        await self._persist_session(session)
         return session
 
     async def update_presence(
@@ -78,15 +148,18 @@ class GatewayProtocolAdapter:
         status: str = "active",
     ) -> GatewaySession | None:
         """Update presence for a session."""
+        await self._ensure_loaded()
         session = self._sessions.get(session_id)
         if not session:
             return None
         session.status = status
         session.last_seen = time.time()
+        await self._persist_session(session)
         return session
 
     async def get_session(self, session_id: str) -> GatewaySession | None:
         """Get a session by ID."""
+        await self._ensure_loaded()
         return self._sessions.get(session_id)
 
     async def list_sessions(
@@ -96,6 +169,7 @@ class GatewayProtocolAdapter:
         status: str | None = None,
     ) -> list[GatewaySession]:
         """List sessions with optional filters."""
+        await self._ensure_loaded()
         sessions = list(self._sessions.values())
         if user_id:
             sessions = [s for s in sessions if s.user_id == user_id]
@@ -111,6 +185,7 @@ class GatewayProtocolAdapter:
         Validates the session exists and is not ended before returning
         the active gateway configuration.
         """
+        await self._ensure_loaded()
         session = self._sessions.get(session_id)
         if not session or session.status == "ended":
             return None
@@ -123,6 +198,7 @@ class GatewayProtocolAdapter:
         ``last_seen``.  Returns ``None`` if the session does not exist,
         is not paused, or the device_id does not match.
         """
+        await self._ensure_loaded()
         session = self._sessions.get(session_id)
         if not session:
             return None
@@ -132,6 +208,7 @@ class GatewayProtocolAdapter:
             return None
         session.status = "active"
         session.last_seen = time.time()
+        await self._persist_session(session)
         return session
 
     async def bind_device_to_session(self, session_id: str, device_id: str) -> bool:
@@ -140,24 +217,66 @@ class GatewayProtocolAdapter:
         Allows device migration (e.g. reconnecting from a new browser tab).
         The session must be active.  Returns ``True`` on success.
         """
+        await self._ensure_loaded()
         session = self._sessions.get(session_id)
         if not session or session.status != "active":
             return False
         session.device_id = device_id
         session.last_seen = time.time()
+        await self._persist_session(session)
         return True
 
 
 class GatewayWebSocketProtocol:
     """Minimal WebSocket protocol handler for gateway session/presence parity."""
 
-    def __init__(self, adapter: GatewayProtocolAdapter) -> None:
+    def __init__(
+        self,
+        adapter: GatewayProtocolAdapter,
+        *,
+        protocol_version: int = OPENCLAW_PROTOCOL_VERSION,
+        tick_interval_ms: int = 15000,
+        require_connect_first: bool = True,
+    ) -> None:
         self._adapter = adapter
+        self._protocol_version = protocol_version
+        self._tick_interval_ms = tick_interval_ms
+        self._require_connect_first = require_connect_first
+        self._connected = False
+        self._session_id: str | None = None
+        self._close_request: CloseRequest | None = None
+        self._challenge_nonce: str | None = None
+
+    def create_challenge_event(self) -> dict[str, Any]:
+        """Create an OpenClaw-style connect challenge event."""
+        nonce = uuid.uuid4().hex
+        self._challenge_nonce = nonce
+        return {
+            "type": "event",
+            "event": "connect.challenge",
+            "payload": {
+                "nonce": nonce,
+                "issued_at": time.time(),
+                "protocol": {"min": 1, "max": self._protocol_version},
+            },
+        }
+
+    def consume_close_request(self) -> CloseRequest | None:
+        """Return and clear any pending close request."""
+        close = self._close_request
+        self._close_request = None
+        return close
 
     async def handle_message(self, payload: dict[str, Any]) -> dict[str, Any] | None:
         """Handle a WebSocket message payload and return a response payload."""
         msg_type = payload.get("type")
         request_id = payload.get("request_id") or payload.get("requestId")
+
+        if msg_type == "req":
+            return await self._handle_openclaw_request(payload)
+
+        if msg_type == "event":
+            return None
 
         if msg_type == "ping":
             return self._wrap_response({"type": "pong"}, request_id)
@@ -300,6 +419,113 @@ class GatewayWebSocketProtocol:
 
         return self._error("unknown_type", f"unsupported type: {msg_type}", request_id)
 
+    async def _handle_openclaw_request(self, payload: dict[str, Any]) -> dict[str, Any]:
+        request_id = payload.get("id")
+        method = payload.get("method")
+        params = payload.get("params") or {}
+
+        if self._require_connect_first and not self._connected and method != "connect":
+            self._close_request = CloseRequest(1008, "connect required before other requests")
+            return self._openclaw_error(
+                request_id,
+                "invalid_state",
+                "connect required before other requests",
+            )
+
+        if method == "connect":
+            return await self._handle_connect(request_id, params)
+
+        if method == "presence.update":
+            session_id = params.get("session_id") or params.get("sessionId") or self._session_id
+            status = params.get("status", "active")
+            if not session_id:
+                return self._openclaw_error(request_id, "missing_fields", "session_id required")
+            session = await self._adapter.update_presence(session_id, status=status)
+            if session is None:
+                return self._openclaw_error(request_id, "not_found", "session not found")
+            return self._openclaw_ok(
+                request_id,
+                {
+                    "type": "presence.updated",
+                    "session": self._serialize_session(session),
+                },
+            )
+
+        if method == "system.presence":
+            sessions = await self._adapter.list_sessions()
+            return self._openclaw_ok(
+                request_id,
+                {
+                    "type": "system.presence",
+                    "sessions": [self._serialize_session(s) for s in sessions],
+                },
+            )
+
+        if method in {"health", "status"}:
+            stats = await self._adapter.get_stats()
+            return self._openclaw_ok(request_id, {"type": method, "stats": stats})
+
+        return self._openclaw_error(request_id, "unknown_method", f"unsupported method: {method}")
+
+    async def _handle_connect(
+        self,
+        request_id: str | None,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        min_protocol = params.get("minProtocol", 1)
+        max_protocol = params.get("maxProtocol", self._protocol_version)
+        try:
+            min_protocol = int(min_protocol)
+            max_protocol = int(max_protocol)
+        except (TypeError, ValueError):
+            return self._openclaw_error(
+                request_id,
+                "invalid_protocol",
+                "minProtocol/maxProtocol must be integers",
+            )
+
+        if min_protocol > self._protocol_version:
+            self._close_request = CloseRequest(1008, "protocol unsupported")
+            return self._openclaw_error(
+                request_id,
+                "protocol_unsupported",
+                "protocol version too new",
+            )
+
+        negotiated = min(max_protocol, self._protocol_version)
+        user_id = params.get("user_id") or params.get("userId") or "unknown"
+        device_id = None
+        device = params.get("device") or {}
+        if isinstance(device, dict):
+            device_id = device.get("id")
+        device_id = device_id or params.get("device_id") or params.get("deviceId") or "unknown"
+
+        metadata = {
+            "role": params.get("role"),
+            "scopes": params.get("scopes", []),
+            "client": params.get("client"),
+            "commands": params.get("commands"),
+            "permissions": params.get("permissions"),
+            "auth": params.get("auth"),
+            "nonce": params.get("nonce") or self._challenge_nonce,
+        }
+
+        session = await self._adapter.open_session(
+            user_id=user_id,
+            device_id=device_id,
+            metadata=metadata,
+        )
+        self._connected = True
+        self._session_id = session.session_id
+
+        payload = {
+            "type": "hello-ok",
+            "protocol": {"version": negotiated},
+            "session": self._serialize_session(session),
+            "policy": {"tickIntervalMs": self._tick_interval_ms},
+        }
+        return self._openclaw_ok(request_id, payload)
+
     def _wrap_response(self, payload: dict[str, Any], request_id: str | None) -> dict[str, Any]:
         if request_id:
             payload["request_id"] = request_id
@@ -309,6 +535,17 @@ class GatewayWebSocketProtocol:
         return self._wrap_response(
             {"type": "error", "error": {"code": code, "message": message}}, request_id
         )
+
+    def _openclaw_ok(self, request_id: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+        return {"type": "res", "id": request_id, "ok": True, "payload": payload}
+
+    def _openclaw_error(self, request_id: str | None, code: str, message: str) -> dict[str, Any]:
+        return {
+            "type": "res",
+            "id": request_id,
+            "ok": False,
+            "error": {"code": code, "message": message},
+        }
 
     def _serialize_session(self, session: GatewaySession | None) -> dict[str, Any] | None:
         if session is None:

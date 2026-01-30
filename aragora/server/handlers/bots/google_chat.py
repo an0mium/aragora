@@ -18,7 +18,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Coroutine, Optional, Protocol, cast
 
 from aragora.audit.unified import audit_data
 
@@ -387,7 +387,7 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
             # This import will fail until it's implemented.
             from aragora.memory.consensus import ConsensusStore
 
-            store: VoteRecordingStore = ConsensusStore()  # type: ignore[assignment]
+            store: VoteRecordingStore = cast(VoteRecordingStore, ConsensusStore())
             store.record_vote(
                 debate_id=debate_id,
                 user_id=f"gchat:{user_id}",

@@ -233,7 +233,8 @@ class SupabaseAuthValidator:
         # Cache for validated tokens (short TTL)
         # Stores: (user, cached_at, token_exp)
         self._cache: dict[str, tuple[User, float, float]] = {}
-        self._cache_ttl = 60  # 1 minute
+        self._cache_ttl = 30  # 30 seconds (reduced from 60s for revocation safety)
+        self._cache_max_size = 10_000  # Prevent unbounded growth
 
     def validate_jwt(self, token: str) -> User | None:
         """
@@ -303,6 +304,11 @@ class SupabaseAuthValidator:
             # Cache the result with token expiration time
             # Default to cache_ttl from now if no exp claim (shouldn't happen with valid JWTs)
             token_exp = payload.get("exp", time.time() + self._cache_ttl)
+
+            # Evict stale entries when cache is at capacity
+            if len(self._cache) >= self._cache_max_size:
+                self._evict_stale_cache_entries()
+
             self._cache[token] = (user, time.time(), token_exp)
 
             return user
@@ -336,6 +342,29 @@ class SupabaseAuthValidator:
             else:
                 logger.warning(f"JWT validation system error (dev mode): {e}")
                 return None
+
+    def _evict_stale_cache_entries(self) -> None:
+        """Remove expired and oldest entries when cache is at capacity."""
+        now = time.time()
+        # First pass: remove expired entries
+        expired = [
+            tok
+            for tok, (_, cached_at, token_exp) in self._cache.items()
+            if now - cached_at >= self._cache_ttl or now >= token_exp
+        ]
+        for tok in expired:
+            del self._cache[tok]
+
+        # If still over capacity, remove oldest 25%
+        if len(self._cache) >= self._cache_max_size:
+            sorted_tokens = sorted(
+                self._cache.keys(),
+                key=lambda t: self._cache[t][1],  # sort by cached_at
+            )
+            evict_count = len(sorted_tokens) // 4
+            for tok in sorted_tokens[:evict_count]:
+                del self._cache[tok]
+            logger.debug("Evicted %d stale JWT cache entries", evict_count + len(expired))
 
     def _decode_jwt_unsafe(self, token: str) -> Optional[dict[str, Any]]:
         """

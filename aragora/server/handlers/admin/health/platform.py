@@ -379,7 +379,7 @@ def platform_health(handler) -> HandlerResult:
                 if cb:
                     platform_circuits[plat] = {
                         "state": (cb.state.value if hasattr(cb.state, "value") else str(cb.state)),
-                        "failure_count": cb.failure_count,  # type: ignore[attr-defined]
+                        "failure_count": getattr(cb, "failure_count", cb.failures),
                         "success_count": getattr(cb, "success_count", 0),
                     }
             except Exception as e:

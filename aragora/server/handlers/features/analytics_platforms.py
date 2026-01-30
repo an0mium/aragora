@@ -28,11 +28,11 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
-from aragora.server.handlers.utils.responses import error_response
+from aragora.server.handlers.utils.responses import error_dict, error_response
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.validation.query_params import safe_query_int
 
@@ -346,7 +346,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
             if isinstance(result, BaseException):
                 logger.error(f"Error fetching dashboards from {platform}: {result}")
                 continue
-            all_dashboards.extend(result)  # type: ignore[arg-type]
+            all_dashboards.extend(cast(list[dict[str, Any]], result))
 
         return self._json_response(
             200,
@@ -615,7 +615,7 @@ class AnalyticsPlatformsHandler(SecureHandler):
         """Fetch report data from a specific platform."""
         connector = await self._get_connector(platform)
         if not connector:
-            return {"error": "Connector not available"}
+            return error_dict("Connector not available", code="SERVICE_UNAVAILABLE")
 
         if platform == "google_analytics":
             if report_type == "traffic_overview":

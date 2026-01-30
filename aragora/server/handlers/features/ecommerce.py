@@ -29,7 +29,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.handlers.secure import SecureHandler, ForbiddenError, UnauthorizedError
 from aragora.server.handlers.utils.responses import error_response
@@ -908,7 +908,7 @@ class EcommerceHandler(SecureHandler):
                     ShopifyCredentials,
                 )
 
-                connector: Any = ShopifyConnector(ShopifyCredentials(**creds))  # type: ignore[abstract]
+                connector: Any = cast(type, ShopifyConnector)(ShopifyCredentials(**creds))
 
             elif platform == "shipstation":
                 from aragora.connectors.ecommerce.shipstation import (

@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from collections.abc import Awaitable
 from typing import Any, Callable, Protocol
 
 from aragora.documents.indexing.weaviate_store import (
@@ -326,7 +327,7 @@ class HybridSearcher:
         self,
         query: str,
         results: list[HybridResult],
-        reranker: Callable[[str, list[str]], list[float]],
+        reranker: Callable[[str, list[str]], Awaitable[list[float]]],
     ) -> list[HybridResult]:
         """
         Rerank results using a cross-encoder or other reranker.
@@ -346,7 +347,7 @@ class HybridSearcher:
         documents = [r.content for r in results]
 
         # Get rerank scores
-        scores = await reranker(query, documents)  # type: ignore[assignment,misc]
+        scores = await reranker(query, documents)
 
         # Update combined scores with rerank scores
         for result, score in zip(results, scores):

@@ -13,7 +13,7 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal, cast
 
 from aragora.gateway.inbox import (
     InboxAggregator as GatewayInbox,
@@ -170,7 +170,7 @@ class InboxManager:
             if not channel:
                 return None
 
-            channel.status = status  # type: ignore[assignment]  # ChannelStatus from string
+            channel.status = cast(Literal["active", "paused", "disconnected"], status)
             channel.updated_at = datetime.utcnow()
             return channel
 

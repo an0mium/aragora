@@ -107,17 +107,17 @@ class ComplianceHandler(BaseHandler):
 
     @track_handler("compliance/main", method="GET")
     @rate_limit(requests_per_minute=20)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
-        method: str,
         path: str,
-        body: Optional[dict[str, Any]] = None,
-        query_params: Optional[dict[str, str]] = None,
-        headers: Optional[dict[str, str]] = None,
+        query_params: dict[str, Any],
+        handler: Any,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
+        body: dict[str, Any] = (self.read_json_body(handler) or {}) if handler else {}
+        headers: Optional[dict[str, str]] = dict(handler.headers) if handler and hasattr(handler, "headers") else None
         query_params = query_params or {}
-        body = body or {}
 
         try:
             # Status endpoint

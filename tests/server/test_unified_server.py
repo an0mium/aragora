@@ -601,6 +601,7 @@ class TestRateLimitCleanup:
 class TestServerInitialization:
     """Tests for server initialization."""
 
+    @pytest.mark.smoke
     def test_unified_server_init(self, temp_nomic_dir):
         """Test UnifiedServer initialization."""
         from aragora.server.unified_server import UnifiedServer

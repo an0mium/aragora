@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
-    from aragora.knowledge.mound.core import KnowledgeMound  # type: ignore[attr-defined]
+    from aragora.knowledge.mound.facade import KnowledgeMound
     from aragora.control_plane.coordinator import ControlPlaneCoordinator
 
 logger = logging.getLogger(__name__)

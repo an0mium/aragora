@@ -47,7 +47,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, cast
 
 from aragora.audit.document_auditor import AuditType
 
@@ -212,7 +212,7 @@ class QueenOrchestrator:
                 id=f"{session.id}:{chunk_id}",
                 chunk_id=chunk_id,
                 chunk_content=chunk_content,
-                audit_types=audit_types,  # type: ignore[arg-type]
+                audit_types=cast(list[str], audit_types),
                 priority=priority,
                 metadata={"session_id": session.id, "chunk_index": i},
             )

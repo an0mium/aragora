@@ -1,7 +1,7 @@
-# Gastown + Moltbot Parity Backlog
+# Gastown + OpenClaw Parity Backlog
 
 This backlog tracks parity work for the Gastown (developer orchestration) and
-Moltbot (consumer assistant) extension layers. It focuses on gaps between
+OpenClaw (consumer assistant) extension layers. It focuses on gaps between
 existing Aragora implementations and parity targets, and provides acceptance
 criteria for each item.
 
@@ -24,11 +24,11 @@ Status legend:
 | CLI workflows | partial | `aragora/cli/gt.py` | CLI uses nomic convoys/beads |
 | Dashboard endpoints | partial | `aragora/server/handlers/gastown_dashboard.py` | Mostly stubs |
 
-### Moltbot (Consumer Assistant)
+### OpenClaw (Consumer Assistant)
 
 | Capability | Status | Code refs | Notes |
 | --- | --- | --- | --- |
-| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | No Moltbot WS protocol adapter |
+| Local Gateway server | partial | `aragora/gateway/server.py`, `aragora/gateway/router.py` | OpenClaw WS adapter partial (connect/presence); routing commands pending |
 | Unified inbox | partial | `aragora/gateway/inbox.py`, `aragora/extensions/moltbot/inbox.py`, `aragora/storage/unified_inbox_store.py` | Multiple inbox layers |
 | Device registry + pairing | partial | `aragora/gateway/device_registry.py`, `aragora/server/handlers/devices.py`, `aragora/onboarding/wizard.py` | No device runtime clients |
 | Capability routing | partial | `aragora/gateway/capability_router.py`, `aragora/extensions/moltbot/capabilities.py` | Needs device node telemetry |
@@ -51,7 +51,7 @@ Status legend:
    - Current: `aragora.nomic.stores` provides the canonical surface; continue migrating callers
 
 ### P1: Protocol compatibility & device runtime
-4. **Gateway WS protocol adapter (Moltbot-compatible)**
+4. **Gateway WS protocol adapter (OpenClaw-compatible)**
    - Acceptance: sessions/presence/config endpoints mapped to gateway server; test fixture for compatibility
 5. **Device node runtime reference client**
    - Acceptance: local device node can pair, heartbeat, and report capabilities; end-to-end test with DeviceRegistry

@@ -347,25 +347,16 @@ class GauntletHandler(BaseHandler):
 
     @track_handler("gauntlet/main", method="GET")
     @rate_limit(requests_per_minute=10)
-    async def handle(  # type: ignore[override]
-        self, path: str, method: str, handler: Any = None
+    async def handle(
+        self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route request to appropriate handler.
-
-        Note: This handler uses a different signature than BaseHandler.handle()
-        because it needs the HTTP method to route requests appropriately.
-        The unified server calls this with (path, method, handler) for
-        handlers that implement can_handle with method support.
 
         Supports both versioned (/api/v1/gauntlet/*) and legacy (/api/gauntlet/*) routes.
         """
         original_path = path
-        query_params: dict[str, Any] = {}
-        if handler:
-            query_str = handler.path.split("?", 1)[1] if "?" in handler.path else ""
-            from urllib.parse import parse_qs
-
-            query_params = parse_qs(query_str)
+        # Determine HTTP method from handler
+        method: str = getattr(handler, "command", "GET") if handler else "GET"
 
         # Normalize path for routing (remove version prefix)
         path = self._normalize_path(path)

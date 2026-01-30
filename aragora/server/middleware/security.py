@@ -85,7 +85,7 @@ CSP_DEFAULT = CSP_DEVELOPMENT
 def get_security_headers(
     production: bool = False,
     enable_hsts: bool = True,
-    enable_csp: bool = False,
+    enable_csp: bool = True,
     csp_mode: str = "standard",
     custom_csp: str | None = None,
     csp_report_uri: str | None = None,
@@ -151,7 +151,7 @@ def apply_security_headers(
     handler,
     production: bool = False,
     enable_hsts: bool = True,
-    enable_csp: bool = False,
+    enable_csp: bool = True,
     csp_mode: str = "standard",
     csp_report_uri: str | None = None,
     nonce: str | None = None,

@@ -98,6 +98,7 @@ def mock_phases():
 class TestEventBus:
     """Tests for EventBus service."""
 
+    @pytest.mark.smoke
     def test_create_event_bus(self):
         """Test event bus creation."""
         bus = EventBus()

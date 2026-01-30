@@ -1,11 +1,11 @@
-# Build vs Integrate Decisions (Gastown + Moltbot Extensions)
+# Build vs Integrate Decisions (Gastown + OpenClaw Extensions)
 
 **Decision Date:** 2026-01-28
 **Decision:** BUILD all features independently in Aragora, adopting patterns with attribution.
 
 This document captures finalized decisions for parity work. The guiding principle is to
 **reimplement features in Aragora** rather than depend on external repos, while adopting
-good patterns from Gastown and Moltbot with proper attribution.
+good patterns from Gastown and OpenClaw (formerly Moltbot) with proper attribution.
 
 ---
 
@@ -16,7 +16,7 @@ All reimplemented patterns must include attribution in docstrings:
 ```python
 """
 Pattern: [Pattern Name]
-Inspired by: [Gastown/Moltbot] (https://github.com/[repo])
+Inspired by: [Gastown/OpenClaw] (https://github.com/[repo])
 Aragora adaptation: [Description of how adapted for Aragora]
 """
 ```
@@ -35,18 +35,18 @@ Aragora adaptation: [Description of how adapted for Aragora]
 | Refinery (merge queue) | **BUILD** | PENDING | New `workspace/refinery.py` - Gastown Refinery |
 | Nudge (inter-agent mail) | **BUILD** | PENDING | New `fabric/nudge.py` - Gastown Nudge |
 
-## Moltbot Extension
+## OpenClaw Extension
 
 | Capability | Decision | Status | Attribution |
 | --- | --- | --- | --- |
-| Local gateway daemon | **BUILD** | DONE | `gateway/server.py` - Moltbot local-first |
+| Local gateway daemon | **BUILD** | DONE | `gateway/server.py` - OpenClaw local-first |
 | Gateway persistence | **BUILD** | DONE | `gateway/persistence.py` - File/Redis backends |
-| Multi-channel inbox | **BUILD** | DONE | `gateway/inbox.py` - Moltbot unified inbox |
+| Multi-channel inbox | **BUILD** | DONE | `gateway/inbox.py` - OpenClaw unified inbox |
 | Multi-agent routing | **BUILD** | DONE | `gateway/router.py` |
 | Device registry | **BUILD** | DONE | `gateway/device_registry.py` |
 | Live Canvas UI | **BUILD** | EXISTS | `canvas/manager.py` - use existing infra |
 | Voice wake word | **BUILD** | PARTIAL | Integrate proven framework (e.g., Picovoice) |
-| Onboarding wizard | **BUILD** | PENDING | New `onboarding/wizard.py` - Moltbot pattern |
+| Onboarding wizard | **BUILD** | PENDING | New `onboarding/wizard.py` - OpenClaw pattern |
 | Device nodes | **BUILD** | DONE | `gateway/device_registry.py` |
 | Computer-use sandbox | **BUILD** | PENDING | New `sandbox/computer_use.py` |
 | Security pairing | **BUILD** | PARTIAL | Extend `gateway/device_registry.py` |
@@ -75,9 +75,9 @@ Aragora adaptation: [Description of how adapted for Aragora]
 
 | Priority | Module | Effort | Pattern Source | Status |
 | --- | --- | --- | --- | --- |
-| P0 | `gateway/server.py` - HTTP server | 300-400 lines | Moltbot | DONE |
-| P1 | `gateway/persistence.py` | 400-500 lines | Moltbot | DONE |
+| P0 | `gateway/server.py` - HTTP server | 300-400 lines | OpenClaw | DONE |
+| P1 | `gateway/persistence.py` | 400-500 lines | OpenClaw | DONE |
 | P2 | `sandbox/computer_use.py` | 600-800 lines | Anthropic patterns | PENDING |
 | P3 | `workspace/refinery.py` | 300-400 lines | Gastown | PENDING |
-| P4 | `onboarding/wizard.py` | 300-400 lines | Moltbot | PENDING |
+| P4 | `onboarding/wizard.py` | 300-400 lines | OpenClaw | PENDING |
 | P5 | `fabric/nudge.py` | 200-300 lines | Gastown | PENDING |

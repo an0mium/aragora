@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from aragora.connectors.automation import (
     AutomationEventType,
@@ -34,6 +34,7 @@ from aragora.rbac import AuthorizationContext, check_permission
 from aragora.rbac.defaults import get_role_permissions
 from aragora.server.handlers.base import (
     HandlerResult,
+    ServerContext,
     error_response,
     json_response,
     success_response,
@@ -81,7 +82,7 @@ class AutomationHandler(SecureHandler):
 
     def __init__(self, server_context: Any = None) -> None:
         """Initialize automation handler."""
-        super().__init__(server_context or {})  # type: ignore[arg-type]
+        super().__init__(cast(ServerContext, server_context or {}))
         self._zapier = ZapierConnector()
         self._n8n = N8NConnector()
         self._connectors = {

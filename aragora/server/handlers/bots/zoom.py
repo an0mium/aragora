@@ -20,7 +20,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from aragora.server.handlers.base import MaybeAsyncHandlerResult
 
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -122,9 +125,9 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(requests_per_minute=30)
-    async def handle(  # type: ignore[override]
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> HandlerResult | None:
+    ) -> "MaybeAsyncHandlerResult":
         """Route Zoom requests with RBAC for status endpoint."""
         if path == "/api/v1/bots/zoom/status":
             # Use BotHandlerMixin's RBAC-protected status handler

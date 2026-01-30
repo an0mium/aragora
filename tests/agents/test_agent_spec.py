@@ -13,6 +13,7 @@ from aragora.agents.spec import AgentSpec, parse_agents, VALID_ROLES
 class TestAgentSpecCreation:
     """Test AgentSpec creation with explicit fields."""
 
+    @pytest.mark.smoke
     def test_create_with_provider_only(self):
         """Create spec with just provider."""
         spec = AgentSpec(provider="anthropic-api")

@@ -256,7 +256,7 @@ class KMMetrics:
     ) -> None:
         """Export operation to Prometheus metrics."""
         try:
-            from aragora.observability.metrics import record_km_operation, record_km_cache_access  # type: ignore[attr-defined]
+            from aragora.observability.metrics import record_km_operation, record_km_cache_access
 
             # Convert ms to seconds for Prometheus
             latency_seconds = latency_ms / 1000.0

@@ -1,8 +1,8 @@
-# Aragora Parity + Agent Fabric Backlog (Gastown + Moltbot)
+# Aragora Parity + Agent Fabric Backlog (Gastown + OpenClaw)
 
 **Version:** 2.4.x  
 **Created:** January 2026  
-**Scope:** Enterprise core + Developer (Gastown) + Consumer (Moltbot) extensions  
+**Scope:** Enterprise core + Developer (Gastown) + Consumer (OpenClaw) extensions  
 **Goal:** Maintain Aragora as an enterprise decision control plane while adding opt-in parity layers.
 
 ---
@@ -14,7 +14,7 @@ This backlog focuses on three priorities in the correct order:
 2. **Unify duplicated primitives** (convoys/beads/workspaces, gateway/inbox/routing) into canonical APIs.
 3. **Upgrade the Nomic loop** to run a true multi-agent debate and multi-agent implementation flow.
 
-Parity with Gastown and Moltbot is treated as **opt-in extension layers**, gated by policy, with clear identity and security boundaries.
+Parity with Gastown and OpenClaw is treated as **opt-in extension layers**, gated by policy, with clear identity and security boundaries.
 
 ---
 
@@ -35,7 +35,7 @@ Parity with Gastown and Moltbot is treated as **opt-in extension layers**, gated
 - **Acceptance:** One source of truth per primitive + deprecation plan.
 
 **M3. Parity Matrix + Acceptance Tests**
-- **Goal:** Define MVP parity scope for Gastown + Moltbot with tests.
+- **Goal:** Define MVP parity scope for Gastown + OpenClaw with tests.
 - **Acceptance:** Each parity item mapped to module + test plan.
 
 ---
@@ -136,4 +136,3 @@ Parity with Gastown and Moltbot is treated as **opt-in extension layers**, gated
 - **SDKs are incomplete:** Do not auto-regenerate from OpenAPI until endpoints stabilize.
 - **Context scale:** RLM REPL must handle large repo sizes safely (size caps + chunking).
 - **Scope creep:** Keep parity layers opt-in and gated by policy.
-

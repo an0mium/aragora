@@ -37,6 +37,7 @@ from aragora.connectors.accounting.gusto import GustoConnector
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.params import get_pagination_params
+from aragora.server.handlers.utils.responses import error_dict
 
 logger = logging.getLogger(__name__)
 
@@ -705,7 +706,7 @@ def _generate_mock_report(
             "total": 46270.50,
         }
     else:
-        return {"error": f"Unknown report type: {report_type}"}
+        return error_dict(f"Unknown report type: {report_type}", code="VALIDATION_ERROR")
 
 
 @require_permission("hr:read")

@@ -1,11 +1,11 @@
-# Gastown + Moltbot Parity Matrix (Extension Targets)
+# Gastown + OpenClaw Parity Matrix (Extension Targets)
 
 Status legend:
 - **present**: capability exists in Aragora core as a first-class feature
 - **partial**: related capability exists but lacks specific workflow/UX/semantics
 - **missing**: no clear equivalent in Aragora core today
 
-This matrix treats Gastown and Moltbot parity as extension layers on top of the
+This matrix treats Gastown and OpenClaw (formerly Moltbot) parity as extension layers on top of the
 Aragora enterprise decision control plane.
 
 ## Core invariants (Aragora must remain)
@@ -68,16 +68,16 @@ Reference: https://github.com/steveyegge/gastown
 
 ---
 
-## Moltbot Parity (Consumer/Device Extension)
+## OpenClaw Parity (Consumer/Device Extension)
 
-Moltbot is a local-first personal AI assistant that runs on user devices with
+OpenClaw (formerly Moltbot) is a local-first personal AI assistant that runs on user devices with
 multi-channel inbox, voice, and live canvas capabilities.
 
-Reference: https://github.com/moltbot/moltbot
+Reference: https://github.com/openclaw/openclaw
 
 ### Feature-Level Mapping
 
-| Moltbot Feature | Purpose | Aragora Equivalent | Status | Gap Summary |
+| OpenClaw Feature | Purpose | Aragora Equivalent | Status | Gap Summary |
 |---|---|---|---|---|
 | **Local-first gateway** | Device-local routing + auth control plane | `server/unified_server.py` (server-centric) | **missing** | Aragora is server/cloud-oriented; needs local daemon |
 | **Multi-channel inbox** | Unified inbox across WhatsApp/Telegram/Slack/Discord/Signal/iMessage/Teams/etc | `connectors/chat/` | partial | Channels exist; no unified consumer "inbox" aggregation |

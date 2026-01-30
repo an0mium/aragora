@@ -1,5 +1,5 @@
 """
-Tests for gateway WebSocket protocol adapter (Moltbot parity skeleton).
+Tests for gateway WebSocket protocol adapter (OpenClaw parity skeleton).
 """
 
 import pytest
@@ -69,3 +69,50 @@ async def test_ws_protocol_errors():
     unknown = await ws_protocol.handle_message({"type": "does.not.exist"})
     assert unknown["type"] == "error"
     assert unknown["error"]["code"] == "unknown_type"
+
+
+@pytest.mark.asyncio
+async def test_openclaw_connect_flow():
+    gateway = LocalGateway(config=GatewayConfig(enable_auth=False))
+    adapter = GatewayProtocolAdapter(gateway)
+    ws_protocol = GatewayWebSocketProtocol(adapter)
+
+    challenge = ws_protocol.create_challenge_event()
+    assert challenge["type"] == "event"
+    assert challenge["event"] == "connect.challenge"
+
+    response = await ws_protocol.handle_message(
+        {
+            "type": "req",
+            "id": "req-1",
+            "method": "connect",
+            "params": {
+                "minProtocol": 1,
+                "maxProtocol": 3,
+                "role": "assistant",
+                "scopes": ["chat:read", "chat:write"],
+                "device": {"id": "dev-1"},
+            },
+        }
+    )
+    assert response["type"] == "res"
+    assert response["ok"] is True
+    assert response["payload"]["type"] == "hello-ok"
+    assert response["payload"]["session"]["device_id"] == "dev-1"
+
+
+@pytest.mark.asyncio
+async def test_openclaw_requires_connect_first():
+    gateway = LocalGateway(config=GatewayConfig(enable_auth=False))
+    adapter = GatewayProtocolAdapter(gateway)
+    ws_protocol = GatewayWebSocketProtocol(adapter)
+
+    response = await ws_protocol.handle_message(
+        {"type": "req", "id": "req-2", "method": "status", "params": {}}
+    )
+    assert response["type"] == "res"
+    assert response["ok"] is False
+    assert response["error"]["code"] == "invalid_state"
+    close_request = ws_protocol.consume_close_request()
+    assert close_request is not None
+    assert close_request.code == 1008

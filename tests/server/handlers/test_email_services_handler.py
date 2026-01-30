@@ -242,6 +242,42 @@ def create_mock_handler(
     return mock
 
 
+@dataclass
+class MockAuthContext:
+    """Mock authorization context for testing."""
+
+    user_id: str = "test_user"
+    tenant_id: str = "test_tenant"
+    roles: List[str] = field(default_factory=lambda: ["admin"])
+    permissions: List[str] = field(default_factory=lambda: ["email:read", "email:create", "email:update", "email:delete"])
+
+
+@dataclass
+class MockPermissionDecision:
+    """Mock permission decision for RBAC."""
+
+    allowed: bool = True
+    reason: str = "allowed"
+
+
+@pytest.fixture
+def mock_auth_context():
+    """Create mock auth context for tests that need authentication."""
+    return MockAuthContext()
+
+
+@pytest.fixture(autouse=True)
+def auto_mock_rbac(request):
+    """Auto-mock RBAC for most tests, skip for tests marked with no_auto_auth."""
+    if "no_auto_auth" in [marker.name for marker in request.node.iter_markers()]:
+        yield
+        return
+
+    with patch("aragora.server.handlers.email_services.check_permission") as mock_check:
+        mock_check.return_value = MockPermissionDecision(allowed=True)
+        yield mock_check
+
+
 @pytest.fixture
 def mock_server_context():
     """Create mock server context."""
@@ -371,11 +407,10 @@ class TestEmailServicesHandlerRBAC:
             result = await h.handle_post(
                 "/api/v1/email/followups/mark",
                 {"email_id": "e1", "thread_id": "t1"},
-                {},
                 mock_handler,
             )
             assert result is not None
-            assert result["status"] == 401
+            assert result.status_code == 401
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
@@ -395,11 +430,10 @@ class TestEmailServicesHandlerRBAC:
             result = await h.handle_post(
                 "/api/v1/email/email_123/snooze",
                 {"snooze_until": "2026-01-30T09:00:00"},
-                {},
                 mock_handler,
             )
             assert result is not None
-            assert result["status"] == 401
+            assert result.status_code == 401
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
@@ -421,7 +455,7 @@ class TestEmailServicesHandlerRBAC:
                 mock_handler,
             )
             assert result is not None
-            assert result["status"] == 401
+            assert result.status_code == 401
         finally:
             del os.environ["ARAGORA_TEST_REAL_AUTH"]
 
@@ -435,7 +469,7 @@ class TestEmailServicesValidation:
     """Test input validation."""
 
     @pytest.mark.asyncio
-    async def test_mark_followup_missing_email_id(self):
+    async def test_mark_followup_missing_email_id(self, mock_auth_context):
         """Test marking follow-up without email_id returns 400."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = MockFollowUpTracker()
@@ -443,14 +477,15 @@ class TestEmailServicesValidation:
             result = await handle_mark_followup(
                 data={"thread_id": "t1"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 400
-            body = json.loads(result["body"])
+            assert result.status_code == 400
+            body = json.loads(result.body)
             assert "email_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_mark_followup_missing_thread_id(self):
+    async def test_mark_followup_missing_thread_id(self, mock_auth_context):
         """Test marking follow-up without thread_id returns 400."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = MockFollowUpTracker()
@@ -458,40 +493,43 @@ class TestEmailServicesValidation:
             result = await handle_mark_followup(
                 data={"email_id": "e1"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 400
-            body = json.loads(result["body"])
+            assert result.status_code == 400
+            body = json.loads(result.body)
             assert "thread_id" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_missing_snooze_until(self):
+    async def test_apply_snooze_missing_snooze_until(self, mock_auth_context):
         """Test applying snooze without snooze_until returns 400."""
         result = await handle_apply_snooze(
             email_id="email_123",
             data={"label": "Test"},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        assert result["status"] == 400
-        body = json.loads(result["body"])
+        assert result.status_code == 400
+        body = json.loads(result.body)
         assert "snooze_until" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_invalid_date_format(self):
+    async def test_apply_snooze_invalid_date_format(self, mock_auth_context):
         """Test applying snooze with invalid date format returns 400."""
         result = await handle_apply_snooze(
             email_id="email_123",
             data={"snooze_until": "not-a-valid-date"},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        assert result["status"] == 400
-        body = json.loads(result["body"])
+        assert result.status_code == 400
+        body = json.loads(result.body)
         assert "invalid" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_category_feedback_missing_fields(self):
+    async def test_category_feedback_missing_fields(self, mock_auth_context):
         """Test category feedback missing required fields returns 400."""
         with patch("aragora.server.handlers.email_services.get_email_categorizer") as mock_get:
             mock_get.return_value = MockEmailCategorizer()
@@ -499,10 +537,11 @@ class TestEmailServicesValidation:
             result = await handle_category_feedback(
                 data={"email_id": "e1"},  # Missing predicted_category and correct_category
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 400
-            body = json.loads(result["body"])
+            assert result.status_code == 400
+            body = json.loads(result.body)
             assert "required" in body.get("error", "").lower()
 
 
@@ -515,7 +554,7 @@ class TestMarkFollowup:
     """Test mark follow-up endpoint."""
 
     @pytest.mark.asyncio
-    async def test_mark_followup_success(self):
+    async def test_mark_followup_success(self, mock_auth_context):
         """Test successfully marking an email for follow-up."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = MockFollowUpTracker()
@@ -530,10 +569,11 @@ class TestMarkFollowup:
                     "expected_reply_days": 5,
                 },
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert "followup_id" in body
             assert body["email_id"] == "email_001"
             assert body["thread_id"] == "thread_001"
@@ -543,7 +583,7 @@ class TestGetPendingFollowups:
     """Test get pending follow-ups endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_pending_followups_success(self, mock_followup_tracker):
+    async def test_get_pending_followups_success(self, mock_followup_tracker, mock_auth_context):
         """Test getting pending follow-ups."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = mock_followup_tracker
@@ -552,10 +592,11 @@ class TestGetPendingFollowups:
                 user_id="test_user",
                 include_resolved=False,
                 sort_by="urgency",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert "followups" in body
             assert "total" in body
             assert isinstance(body["followups"], list)
@@ -565,7 +606,7 @@ class TestResolveFollowup:
     """Test resolve follow-up endpoint."""
 
     @pytest.mark.asyncio
-    async def test_resolve_followup_success(self, mock_followup_tracker):
+    async def test_resolve_followup_success(self, mock_followup_tracker, mock_auth_context):
         """Test resolving a follow-up."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = mock_followup_tracker
@@ -579,15 +620,16 @@ class TestResolveFollowup:
                     followup_id=followup_id,
                     data={"status": "resolved", "notes": "Done"},
                     user_id="test_user",
+                    auth_context=mock_auth_context,
                 )
 
-                assert result["status"] == 200
-                body = json.loads(result["body"])
+                assert result.status_code == 200
+                body = json.loads(result.body)
                 assert body["followup_id"] == followup_id
                 assert body["status"] == "resolved"
 
     @pytest.mark.asyncio
-    async def test_resolve_followup_not_found(self):
+    async def test_resolve_followup_not_found(self, mock_auth_context):
         """Test resolving non-existent follow-up returns 404."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             tracker = MockFollowUpTracker()
@@ -597,24 +639,25 @@ class TestResolveFollowup:
                 followup_id="nonexistent_id",
                 data={"status": "resolved"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 404
+            assert result.status_code == 404
 
 
 class TestCheckReplies:
     """Test check replies endpoint."""
 
     @pytest.mark.asyncio
-    async def test_check_replies_success(self, mock_followup_tracker):
+    async def test_check_replies_success(self, mock_followup_tracker, mock_auth_context):
         """Test checking for replies."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = mock_followup_tracker
 
-            result = await handle_check_replies(user_id="test_user")
+            result = await handle_check_replies(user_id="test_user", auth_context=mock_auth_context)
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert "replied" in body
             assert "still_pending" in body
 
@@ -623,7 +666,7 @@ class TestAutoDetectFollowups:
     """Test auto-detect follow-ups endpoint."""
 
     @pytest.mark.asyncio
-    async def test_auto_detect_followups_success(self):
+    async def test_auto_detect_followups_success(self, mock_auth_context):
         """Test auto-detecting emails needing follow-up."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             mock_get.return_value = MockFollowUpTracker()
@@ -631,10 +674,11 @@ class TestAutoDetectFollowups:
             result = await handle_auto_detect_followups(
                 user_id="test_user",
                 days_back=7,
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert "detected" in body
             assert "total_detected" in body
 
@@ -648,7 +692,7 @@ class TestGetSnoozeSuggestions:
     """Test get snooze suggestions endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_snooze_suggestions_success(self):
+    async def test_get_snooze_suggestions_success(self, mock_auth_context):
         """Test getting snooze suggestions for an email."""
         with patch("aragora.server.handlers.email_services.get_snooze_recommender") as mock_get:
             mock_get.return_value = MockSnoozeRecommender()
@@ -657,10 +701,11 @@ class TestGetSnoozeSuggestions:
                 email_id="email_123",
                 data={"subject": "Test", "sender": "test@example.com"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert body["email_id"] == "email_123"
             assert "suggestions" in body
             assert isinstance(body["suggestions"], list)
@@ -670,7 +715,7 @@ class TestApplySnooze:
     """Test apply snooze endpoint."""
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_success(self):
+    async def test_apply_snooze_success(self, mock_auth_context):
         """Test applying snooze to an email."""
         snooze_until = (datetime.now() + timedelta(days=1)).isoformat()
 
@@ -678,10 +723,11 @@ class TestApplySnooze:
             email_id="email_123",
             data={"snooze_until": snooze_until, "label": "Tomorrow"},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert body["email_id"] == "email_123"
         assert body["status"] == "snoozed"
         assert body["label"] == "Tomorrow"
@@ -691,7 +737,7 @@ class TestCancelSnooze:
     """Test cancel snooze endpoint."""
 
     @pytest.mark.asyncio
-    async def test_cancel_snooze_success(self):
+    async def test_cancel_snooze_success(self, mock_auth_context):
         """Test canceling snooze on an email."""
         # First apply a snooze
         snooze_until = (datetime.now() + timedelta(days=1)).isoformat()
@@ -699,35 +745,38 @@ class TestCancelSnooze:
             email_id="email_123",
             data={"snooze_until": snooze_until},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
         # Then cancel it
         result = await handle_cancel_snooze(
             email_id="email_123",
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert body["email_id"] == "email_123"
         assert body["status"] == "unsnooze"
 
     @pytest.mark.asyncio
-    async def test_cancel_snooze_not_found(self):
+    async def test_cancel_snooze_not_found(self, mock_auth_context):
         """Test canceling snooze on non-snoozed email returns 404."""
         result = await handle_cancel_snooze(
             email_id="not_snoozed_email",
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        assert result["status"] == 404
+        assert result.status_code == 404
 
 
 class TestGetSnoozedEmails:
     """Test get snoozed emails endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_snoozed_emails_success(self):
+    async def test_get_snoozed_emails_success(self, mock_auth_context):
         """Test getting list of snoozed emails."""
         # First apply a snooze
         snooze_until = (datetime.now() + timedelta(days=1)).isoformat()
@@ -735,12 +784,13 @@ class TestGetSnoozedEmails:
             email_id="email_123",
             data={"snooze_until": snooze_until, "label": "Tomorrow"},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        result = await handle_get_snoozed_emails(user_id="test_user")
+        result = await handle_get_snoozed_emails(user_id="test_user", auth_context=mock_auth_context)
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert "snoozed" in body
         assert "total" in body
         assert body["total"] == 1
@@ -750,7 +800,7 @@ class TestProcessDueSnoozes:
     """Test process due snoozes endpoint."""
 
     @pytest.mark.asyncio
-    async def test_process_due_snoozes_success(self):
+    async def test_process_due_snoozes_success(self, mock_auth_context):
         """Test processing snoozed emails that are now due."""
         # Apply a snooze that is already due
         snooze_until = (datetime.now() - timedelta(hours=1)).isoformat()
@@ -758,12 +808,13 @@ class TestProcessDueSnoozes:
             email_id="email_due",
             data={"snooze_until": snooze_until},
             user_id="test_user",
+            auth_context=mock_auth_context,
         )
 
-        result = await handle_process_due_snoozes(user_id="test_user")
+        result = await handle_process_due_snoozes(user_id="test_user", auth_context=mock_auth_context)
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert "processed" in body
         assert "count" in body
 
@@ -777,12 +828,12 @@ class TestGetCategories:
     """Test get categories endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_categories_success(self):
+    async def test_get_categories_success(self, mock_auth_context):
         """Test getting available email categories."""
-        result = await handle_get_categories(user_id="test_user")
+        result = await handle_get_categories(user_id="test_user", auth_context=mock_auth_context)
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert "categories" in body
         assert isinstance(body["categories"], list)
         assert len(body["categories"]) > 0
@@ -798,7 +849,7 @@ class TestCategoryFeedback:
     """Test category feedback endpoint."""
 
     @pytest.mark.asyncio
-    async def test_category_feedback_success(self):
+    async def test_category_feedback_success(self, mock_auth_context):
         """Test submitting category feedback."""
         with patch("aragora.server.handlers.email_services.get_email_categorizer") as mock_get:
             mock_get.return_value = MockEmailCategorizer()
@@ -810,10 +861,11 @@ class TestCategoryFeedback:
                     "correct_category": "projects",
                 },
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 200
-            body = json.loads(result["body"])
+            assert result.status_code == 200
+            body = json.loads(result.body)
             assert body["email_id"] == "email_123"
             assert body["feedback_recorded"] is True
 
@@ -827,7 +879,7 @@ class TestEmailServicesErrors:
     """Test error handling."""
 
     @pytest.mark.asyncio
-    async def test_followup_tracker_error(self):
+    async def test_followup_tracker_error(self, mock_auth_context):
         """Test handling when follow-up tracker raises an error."""
         with patch("aragora.server.handlers.email_services.get_followup_tracker") as mock_get:
             tracker = MagicMock()
@@ -837,14 +889,15 @@ class TestEmailServicesErrors:
             result = await handle_mark_followup(
                 data={"email_id": "e1", "thread_id": "t1"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 500
-            body = json.loads(result["body"])
+            assert result.status_code == 500
+            body = json.loads(result.body)
             assert "error" in body
 
     @pytest.mark.asyncio
-    async def test_snooze_recommender_error(self):
+    async def test_snooze_recommender_error(self, mock_auth_context):
         """Test handling when snooze recommender raises an error."""
         with patch("aragora.server.handlers.email_services.get_snooze_recommender") as mock_get:
             recommender = MagicMock()
@@ -855,10 +908,11 @@ class TestEmailServicesErrors:
                 email_id="email_123",
                 data={"subject": "Test"},
                 user_id="test_user",
+                auth_context=mock_auth_context,
             )
 
-            assert result["status"] == 500
-            body = json.loads(result["body"])
+            assert result.status_code == 500
+            body = json.loads(result.body)
             assert "error" in body
 
 
@@ -919,8 +973,8 @@ class TestHandlerMethods:
             mock_http,
         )
 
-        assert result["status"] == 200
-        body = json.loads(result["body"])
+        assert result.status_code == 200
+        body = json.loads(result.body)
         assert "categories" in body
 
     @pytest.mark.asyncio
@@ -935,11 +989,10 @@ class TestHandlerMethods:
         result = await handler.handle_post(
             "/api/v1/email/unknown/path",
             {},
-            {},
             mock_http,
         )
 
-        assert result["status"] == 404
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_handle_get_not_found(self, handler):
@@ -952,7 +1005,7 @@ class TestHandlerMethods:
             mock_http,
         )
 
-        assert result["status"] == 404
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_handle_delete_not_found(self, handler):
@@ -965,4 +1018,4 @@ class TestHandlerMethods:
             mock_http,
         )
 
-        assert result["status"] == 404
+        assert result.status_code == 404

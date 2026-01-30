@@ -262,11 +262,11 @@ class PrivacyHandler(SecureHandler):
 
         csv_content = output.getvalue()
 
-        return (  # type: ignore[return-value]
-            csv_content.encode("utf-8"),
-            200,
-            {
-                "Content-Type": "text/csv; charset=utf-8",
+        return HandlerResult(
+            status_code=200,
+            content_type="text/csv; charset=utf-8",
+            body=csv_content.encode("utf-8"),
+            headers={
                 "Content-Disposition": f"attachment; filename=aragora_export_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv",
             },
         )
