@@ -510,11 +510,13 @@ class TestRedisLockoutBackend:
         backend = RedisLockoutBackend(redis_url=None)
         mock_client = MagicMock()
         mock_client.ping.return_value = True
-        mock_client.get.return_value = json.dumps({
-            "failed_attempts": 3,
-            "lockout_until": 1704067200.0,
-            "last_attempt": 1704067100.0,
-        })
+        mock_client.get.return_value = json.dumps(
+            {
+                "failed_attempts": 3,
+                "lockout_until": 1704067200.0,
+                "last_attempt": 1704067100.0,
+            }
+        )
         backend._client = mock_client
         backend._available = True
 

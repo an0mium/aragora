@@ -42,38 +42,68 @@ from aragora.server.handlers.explainability_store import (
 
 logger = logging.getLogger(__name__)
 
-# Cache for built Decision objects (simple TTL cache)
-_decision_cache: dict[str, Any] = {}
-_cache_timestamps: dict[str, float] = {}
+# LRU TTL Cache for Decision objects with bounded size and proper eviction
 CACHE_TTL_SECONDS = 300  # 5 minutes
+CACHE_MAX_SIZE = 100  # Maximum entries before eviction
+
+
+class _LRUTTLCache:
+    """LRU cache with TTL support and bounded size.
+
+    Thread-safe implementation using OrderedDict for O(1) LRU operations.
+    Entries expire after TTL seconds and oldest entries are evicted when max size reached.
+    """
+
+    def __init__(self, max_size: int = CACHE_MAX_SIZE, ttl_seconds: float = CACHE_TTL_SECONDS):
+        from collections import OrderedDict
+
+        self._cache: OrderedDict[str, tuple[Any, float]] = OrderedDict()
+        self._max_size = max_size
+        self._ttl = ttl_seconds
+
+    def get(self, key: str) -> Any | None:
+        """Get value if exists and not expired, updating LRU order."""
+        if key not in self._cache:
+            return None
+
+        value, cached_at = self._cache[key]
+        if time.time() - cached_at > self._ttl:
+            del self._cache[key]
+            return None
+
+        # Move to end (most recently used)
+        self._cache.move_to_end(key)
+        return value
+
+    def set(self, key: str, value: Any) -> None:
+        """Store value, evicting oldest entries if at max size."""
+        # If key exists, remove it first to update position
+        if key in self._cache:
+            del self._cache[key]
+
+        # Evict oldest entries if at capacity
+        while len(self._cache) >= self._max_size:
+            self._cache.popitem(last=False)  # Remove oldest (first) entry
+
+        self._cache[key] = (value, time.time())
+
+    def clear(self) -> None:
+        """Clear all cached entries."""
+        self._cache.clear()
+
+
+# Global cache instance
+_decision_cache = _LRUTTLCache()
 
 
 def _get_cached_decision(debate_id: str) -> Any | None:
     """Get cached decision if not expired."""
-    import time
-
-    if debate_id not in _decision_cache:
-        return None
-
-    timestamp = _cache_timestamps.get(debate_id, 0)
-    if time.time() - timestamp > CACHE_TTL_SECONDS:
-        del _decision_cache[debate_id]
-        del _cache_timestamps[debate_id]
-        return None
-
-    return _decision_cache[debate_id]
+    return _decision_cache.get(debate_id)
 
 
 def _cache_decision(debate_id: str, decision: Any) -> None:
-    """Cache a decision."""
-    _decision_cache[debate_id] = decision
-    _cache_timestamps[debate_id] = time.time()
-
-    # Prune old entries
-    if len(_decision_cache) > 100:
-        oldest = min(_cache_timestamps, key=lambda k: _cache_timestamps.get(k, 0.0))
-        del _decision_cache[oldest]
-        del _cache_timestamps[oldest]
+    """Cache a decision with LRU eviction."""
+    _decision_cache.set(debate_id, decision)
 
 
 # ============================================================================

@@ -937,9 +937,7 @@ class TestDebateQueueWebhook:
         with patch("aiohttp.ClientSession") as mock_session:
             mock_response = AsyncMock()
             mock_response.status = 200
-            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = (
-                mock_response
-            )
+            mock_session.return_value.__aenter__.return_value.post.return_value.__aenter__.return_value = mock_response
 
             await queue.submit_batch(batch)
             await asyncio.sleep(0.5)

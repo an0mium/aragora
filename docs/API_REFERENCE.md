@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-29 (v2.4.0 alignment with repo versions)
+> **Last Updated:** 2026-01-30 (v2.4.0 alignment with repo versions)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.

@@ -234,9 +234,7 @@ class TestKnowledgeMoundCoreInitialize:
         )
         core = KnowledgeMoundCore(config=config)
 
-        with patch.object(
-            core, "_init_postgres", new_callable=AsyncMock
-        ) as mock_postgres:
+        with patch.object(core, "_init_postgres", new_callable=AsyncMock) as mock_postgres:
             with patch.object(
                 core, "_init_semantic_store", new_callable=AsyncMock
             ) as mock_semantic:
@@ -255,9 +253,7 @@ class TestKnowledgeMoundCoreInitialize:
         )
         core = KnowledgeMoundCore(config=config)
 
-        with patch.object(
-            core, "_init_postgres", new_callable=AsyncMock
-        ) as mock_postgres:
+        with patch.object(core, "_init_postgres", new_callable=AsyncMock) as mock_postgres:
             with patch.object(core, "_init_redis", new_callable=AsyncMock) as mock_redis:
                 with patch.object(
                     core, "_init_semantic_store", new_callable=AsyncMock
@@ -293,9 +289,7 @@ class TestKnowledgeMoundCoreInitialize:
         core = KnowledgeMoundCore(config=config)
 
         with patch.object(core, "_init_sqlite", new_callable=AsyncMock):
-            with patch.object(
-                core, "_init_weaviate", new_callable=AsyncMock
-            ) as mock_weaviate:
+            with patch.object(core, "_init_weaviate", new_callable=AsyncMock) as mock_weaviate:
                 with patch.object(core, "_init_semantic_store", new_callable=AsyncMock):
                     await core.initialize()
 
@@ -312,9 +306,7 @@ class TestKnowledgeMoundCoreInitialize:
 
         with patch.object(core, "_init_sqlite", new_callable=AsyncMock):
             with patch.object(core, "_init_semantic_store", new_callable=AsyncMock):
-                with patch(
-                    "aragora.knowledge.mound.staleness.StalenessDetector"
-                ) as mock_detector:
+                with patch("aragora.knowledge.mound.staleness.StalenessDetector") as mock_detector:
                     await core.initialize()
 
         mock_detector.assert_called_once()
@@ -359,9 +351,7 @@ class TestKnowledgeMoundCoreInitBackends:
         """Should initialize SQLite meta store."""
         core = KnowledgeMoundCore()
 
-        with patch(
-            "aragora.knowledge.mound.KnowledgeMoundMetaStore"
-        ) as mock_store_class:
+        with patch("aragora.knowledge.mound.KnowledgeMoundMetaStore") as mock_store_class:
             await core._init_sqlite()
 
         mock_store_class.assert_called_once()
@@ -391,9 +381,7 @@ class TestKnowledgeMoundCoreInitBackends:
             "aragora.knowledge.mound.postgres_store.PostgresStore",
             side_effect=ConnectionError("Connection failed"),
         ):
-            with patch.object(
-                core, "_init_sqlite", new_callable=AsyncMock
-            ) as mock_sqlite:
+            with patch.object(core, "_init_sqlite", new_callable=AsyncMock) as mock_sqlite:
                 await core._init_postgres()
 
         mock_sqlite.assert_called_once()
@@ -762,7 +750,8 @@ class TestKnowledgeMoundCoreGetNode:
         """Should use sync method and convert to item."""
         core = KnowledgeMoundCore()
         mock_node = MagicMock()
-        mock_store = MagicMock()
+        # Use spec to ensure get_node_async doesn't exist
+        mock_store = MagicMock(spec=["get_node"])
         mock_store.get_node = MagicMock(return_value=mock_node)
         core._meta_store = mock_store
 
@@ -778,7 +767,8 @@ class TestKnowledgeMoundCoreGetNode:
     async def test_get_node_returns_none_when_not_found(self):
         """Should return None when node not found."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure get_node_async doesn't exist
+        mock_store = MagicMock(spec=["get_node"])
         mock_store.get_node = MagicMock(return_value=None)
         core._meta_store = mock_store
 
@@ -809,7 +799,8 @@ class TestKnowledgeMoundCoreUpdateNode:
         core = KnowledgeMoundCore()
         mock_node = MagicMock()
         mock_node.confidence = 0.5
-        mock_store = MagicMock()
+        # Use spec to ensure update_node_async doesn't exist
+        mock_store = MagicMock(spec=["get_node", "save_node"])
         mock_store.get_node = MagicMock(return_value=mock_node)
         mock_store.save_node = MagicMock()
         core._meta_store = mock_store
@@ -848,7 +839,8 @@ class TestKnowledgeMoundCoreDeleteNode:
         mock_conn.execute.return_value = mock_cursor
         mock_conn.__enter__ = MagicMock(return_value=mock_conn)
         mock_conn.__exit__ = MagicMock(return_value=None)
-        mock_store = MagicMock()
+        # Use spec to ensure delete_node_async doesn't exist
+        mock_store = MagicMock(spec=["connection"])
         mock_store.connection.return_value = mock_conn
         core._meta_store = mock_store
 
@@ -876,19 +868,18 @@ class TestKnowledgeMoundCoreSaveRelationship:
 
         await core._save_relationship("from_id", "to_id", "supports")
 
-        mock_store.save_relationship_async.assert_called_once_with(
-            "from_id", "to_id", "supports"
-        )
+        mock_store.save_relationship_async.assert_called_once_with("from_id", "to_id", "supports")
 
     @pytest.mark.asyncio
     async def test_save_relationship_sync_fallback(self):
         """Should use sync method as fallback."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure save_relationship_async doesn't exist
+        mock_store = MagicMock(spec=["save_relationship"])
         mock_store.save_relationship = MagicMock()
         core._meta_store = mock_store
 
-        with patch("aragora.knowledge.mound.core.KnowledgeRelationship"):
+        with patch("aragora.knowledge.mound.KnowledgeRelationship"):
             await core._save_relationship("from_id", "to_id", "supports")
 
         mock_store.save_relationship.assert_called_once()
@@ -929,7 +920,8 @@ class TestKnowledgeMoundCoreGetRelationships:
         """Should use sync method and convert relationships."""
         core = KnowledgeMoundCore()
         mock_rel = MagicMock()
-        mock_store = MagicMock()
+        # Use spec to ensure get_relationships_async doesn't exist
+        mock_store = MagicMock(spec=["get_relationships"])
         mock_store.get_relationships = MagicMock(return_value=[mock_rel])
         core._meta_store = mock_store
 
@@ -968,16 +960,15 @@ class TestKnowledgeMoundCoreGetRelationshipsBatch:
 
         result = await core._get_relationships_batch(["node_1", "node_2"])
 
-        mock_store.get_relationships_batch_async.assert_called_once_with(
-            ["node_1", "node_2"], None
-        )
+        mock_store.get_relationships_batch_async.assert_called_once_with(["node_1", "node_2"], None)
         assert result == mock_result
 
     @pytest.mark.asyncio
     async def test_get_relationships_batch_parallel_fallback(self):
         """Should fall back to parallel fetching."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure get_relationships_batch_async doesn't exist
+        mock_store = MagicMock(spec=[])
         core._meta_store = mock_store
 
         mock_links = {"node_1": [MagicMock(spec=KnowledgeLink)], "node_2": []}
@@ -985,9 +976,7 @@ class TestKnowledgeMoundCoreGetRelationshipsBatch:
         async def mock_get_rels(node_id, types=None):
             return mock_links.get(node_id, [])
 
-        with patch.object(
-            core, "_get_relationships", side_effect=mock_get_rels
-        ) as mock_get:
+        with patch.object(core, "_get_relationships", side_effect=mock_get_rels) as mock_get:
             result = await core._get_relationships_batch(["node_1", "node_2"])
 
         assert mock_get.call_count == 2
@@ -998,7 +987,8 @@ class TestKnowledgeMoundCoreGetRelationshipsBatch:
     async def test_get_relationships_batch_handles_errors(self):
         """Should handle individual errors gracefully."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure get_relationships_batch_async doesn't exist
+        mock_store = MagicMock(spec=[])
         core._meta_store = mock_store
 
         async def mock_get_rels(node_id, types=None):
@@ -1046,7 +1036,8 @@ class TestKnowledgeMoundCoreQueryLocal:
         mock_node3 = MagicMock()
         mock_node3.content = "Cooking recipes"
 
-        mock_store = MagicMock()
+        # Use spec to ensure query_async doesn't exist
+        mock_store = MagicMock(spec=["query_nodes"])
         mock_store.query_nodes = MagicMock(return_value=[mock_node1, mock_node2, mock_node3])
         core._meta_store = mock_store
 
@@ -1353,7 +1344,8 @@ class TestKnowledgeMoundCoreOpsMixinAdapters:
     async def test_count_nodes_stats_fallback(self):
         """Should use get_stats as fallback."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure count_nodes_async doesn't exist
+        mock_store = MagicMock(spec=["get_stats"])
         mock_store.get_stats.return_value = {"total_nodes": 25}
         core._meta_store = mock_store
 
@@ -1366,9 +1358,7 @@ class TestKnowledgeMoundCoreOpsMixinAdapters:
         """Should delegate to _save_relationship."""
         core = KnowledgeMoundCore()
 
-        with patch.object(
-            core, "_save_relationship", new_callable=AsyncMock
-        ) as mock_save:
+        with patch.object(core, "_save_relationship", new_callable=AsyncMock) as mock_save:
             await core._create_relationship("src", "tgt", "supports", "ws_1")
 
         mock_save.assert_called_once_with("src", "tgt", "supports")
@@ -1379,9 +1369,7 @@ class TestKnowledgeMoundCoreOpsMixinAdapters:
         core = KnowledgeMoundCore()
         mock_links = [MagicMock(spec=KnowledgeLink)]
 
-        with patch.object(
-            core, "_get_relationships", new_callable=AsyncMock
-        ) as mock_get:
+        with patch.object(core, "_get_relationships", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_links
             result = await core._get_node_relationships_for_ops("node_1", "ws_1")
 
@@ -1455,9 +1443,7 @@ class TestKnowledgeMoundCoreConverters:
         mock_node.metadata = {}
         mock_node.confidence = 0.8
 
-        with patch(
-            "aragora.knowledge.mound.core.node_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.node_to_item") as mock_converter:
             mock_item = MagicMock(spec=KnowledgeItem)
             mock_converter.return_value = mock_item
 
@@ -1471,9 +1457,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_rel = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.relationship_to_link"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.relationship_to_link") as mock_converter:
             mock_link = MagicMock(spec=KnowledgeLink)
             mock_converter.return_value = mock_link
 
@@ -1487,9 +1471,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_entry = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.continuum_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.continuum_to_item") as mock_converter:
             result = core._continuum_to_item(mock_entry)
 
         mock_converter.assert_called_once_with(mock_entry)
@@ -1499,9 +1481,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_entry = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.consensus_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.consensus_to_item") as mock_converter:
             result = core._consensus_to_item(mock_entry)
 
         mock_converter.assert_called_once_with(mock_entry)
@@ -1521,9 +1501,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_result = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.vector_result_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.vector_result_to_item") as mock_converter:
             result = core._vector_result_to_item(mock_result)
 
         mock_converter.assert_called_once_with(mock_result)
@@ -1533,9 +1511,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_evidence = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.evidence_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.evidence_to_item") as mock_converter:
             result = core._evidence_to_item(mock_evidence)
 
         mock_converter.assert_called_once_with(mock_evidence)
@@ -1545,9 +1521,7 @@ class TestKnowledgeMoundCoreConverters:
         core = KnowledgeMoundCore()
         mock_pattern = MagicMock()
 
-        with patch(
-            "aragora.knowledge.mound.core.critique_to_item"
-        ) as mock_converter:
+        with patch("aragora.knowledge.mound.core.critique_to_item") as mock_converter:
             result = core._critique_to_item(mock_pattern)
 
         mock_converter.assert_called_once_with(mock_pattern)
@@ -1570,9 +1544,7 @@ class TestKnowledgeMoundCoreSearchSimilar:
         mock_store.search_similar_async = AsyncMock(return_value=mock_results)
         core._meta_store = mock_store
 
-        result = await core._search_similar(
-            "ws_1", embedding=[0.1, 0.2], top_k=10, min_score=0.7
-        )
+        result = await core._search_similar("ws_1", embedding=[0.1, 0.2], top_k=10, min_score=0.7)
 
         mock_store.search_similar_async.assert_called_once()
         assert result == mock_results
@@ -1585,12 +1557,11 @@ class TestKnowledgeMoundCoreSearchSimilar:
         mock_semantic = MagicMock()
         mock_semantic.search = AsyncMock(return_value=mock_results)
         core._semantic_store = mock_semantic
-        mock_store = MagicMock()
+        # Use spec to ensure search_similar_async doesn't exist
+        mock_store = MagicMock(spec=[])
         core._meta_store = mock_store
 
-        result = await core._search_similar(
-            "ws_1", query="test query", top_k=10, min_score=0.8
-        )
+        result = await core._search_similar("ws_1", query="test query", top_k=10, min_score=0.8)
 
         mock_semantic.search.assert_called_once()
         assert len(result) == 1
@@ -1600,15 +1571,14 @@ class TestKnowledgeMoundCoreSearchSimilar:
         """Should fall back to _query_local."""
         core = KnowledgeMoundCore()
         mock_items = [MagicMock()]
-        mock_store = MagicMock()
+        # Use spec to ensure search_similar_async doesn't exist
+        mock_store = MagicMock(spec=[])
         core._meta_store = mock_store
         core._semantic_store = None
 
         with patch.object(core, "_query_local", new_callable=AsyncMock) as mock_query:
             mock_query.return_value = mock_items
-            result = await core._search_similar(
-                "ws_1", query="test query", top_k=10, min_score=0.8
-            )
+            result = await core._search_similar("ws_1", query="test query", top_k=10, min_score=0.8)
 
         mock_query.assert_called_once()
         assert len(result) == 1
@@ -1641,7 +1611,8 @@ class TestKnowledgeMoundCoreFindByContentHash:
         core = KnowledgeMoundCore()
         mock_node = MagicMock()
         mock_node.id = "node_1"
-        mock_store = MagicMock()
+        # Use spec to ensure find_by_content_hash_async doesn't exist
+        mock_store = MagicMock(spec=["find_by_content_hash"])
         mock_store.find_by_content_hash = MagicMock(return_value=mock_node)
         core._meta_store = mock_store
 
@@ -1654,7 +1625,8 @@ class TestKnowledgeMoundCoreFindByContentHash:
     async def test_find_by_content_hash_not_found(self):
         """Should return None when not found."""
         core = KnowledgeMoundCore()
-        mock_store = MagicMock()
+        # Use spec to ensure find_by_content_hash_async doesn't exist
+        mock_store = MagicMock(spec=["find_by_content_hash"])
         mock_store.find_by_content_hash = MagicMock(return_value=None)
         core._meta_store = mock_store
 
@@ -1695,7 +1667,8 @@ class TestKnowledgeMoundCoreGetNodesByContentHash:
         mock_node2 = MagicMock()
         mock_node2.id = "id2"
         mock_node2.content_hash = "hash1"
-        mock_store = MagicMock()
+        # Use spec to ensure get_nodes_by_content_hash_async doesn't exist
+        mock_store = MagicMock(spec=["query_nodes"])
         mock_store.query_nodes = MagicMock(return_value=[mock_node1, mock_node2])
         core._meta_store = mock_store
 
@@ -1721,6 +1694,4 @@ class TestKnowledgeMoundCoreIncrementUpdateCount:
         with patch.object(core, "_update_node", new_callable=AsyncMock) as mock_update:
             await core._increment_update_count("node_1")
 
-        mock_update.assert_called_once_with(
-            "node_1", {"update_count": "update_count + 1"}
-        )
+        mock_update.assert_called_once_with("node_1", {"update_count": "update_count + 1"})

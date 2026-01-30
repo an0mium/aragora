@@ -25,6 +25,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
+from ..openapi_decorator import api_endpoint
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..versioning.compat import strip_version_prefix
 
@@ -82,6 +83,22 @@ class GraphDebatesHandler(SecureHandler):
         """Route GET requests through the async handler."""
         return self.handle_get(handler, path, query_params)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/graph/{debate_id}",
+        summary="Get graph debate",
+        description="Get a graph-structured debate by ID, including branches and nodes.",
+        tags=["Debates", "Graph Debates"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Graph debate details"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Graph debate not found"},
+        },
+    )
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
         """Handle GET requests for graph debates with RBAC."""
@@ -118,6 +135,21 @@ class GraphDebatesHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/graph",
+        summary="Create graph debate",
+        description="Run a new graph-structured debate with automatic branching on disagreement.",
+        tags=["Debates", "Graph Debates"],
+        responses={
+            "200": {"description": "Graph debate created and executed"},
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "429": {"description": "Rate limit exceeded"},
+            "500": {"description": "Graph debate module not available"},
+        },
+    )
     @handle_errors("graph debates POST")
     async def handle_post(self, *args, **kwargs) -> HandlerResult:
         """Handle POST requests for graph debates with RBAC.
@@ -365,6 +397,21 @@ class GraphDebatesHandler(SecureHandler):
             logger.error(f"Failed to get graph debate {debate_id}: {e}")
             return error_response("Failed to retrieve graph debate", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/graph/{debate_id}/branches",
+        summary="Get graph debate branches",
+        description="Get all branches created during a graph-structured debate.",
+        tags=["Debates", "Graph Debates"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "List of debate branches"},
+            "401": {"description": "Authentication required"},
+            "503": {"description": "Storage not configured"},
+        },
+    )
     async def _get_branches(self, handler, debate_id: str) -> HandlerResult:
         """Get all branches for a graph debate."""
         storage = getattr(handler, "storage", None)
@@ -378,6 +425,21 @@ class GraphDebatesHandler(SecureHandler):
             logger.error(f"Failed to get branches for {debate_id}: {e}")
             return error_response("Failed to retrieve branches", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/graph/{debate_id}/nodes",
+        summary="Get graph debate nodes",
+        description="Get all nodes in a graph-structured debate.",
+        tags=["Debates", "Graph Debates"],
+        parameters=[
+            {"name": "debate_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "List of debate nodes"},
+            "401": {"description": "Authentication required"},
+            "503": {"description": "Storage not configured"},
+        },
+    )
     async def _get_nodes(self, handler, debate_id: str) -> HandlerResult:
         """Get all nodes in a graph debate."""
         storage = getattr(handler, "storage", None)

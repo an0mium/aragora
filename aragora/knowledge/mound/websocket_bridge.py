@@ -410,7 +410,9 @@ class KMWebSocketBridge:
 
                     metrics.record_km_event_emitted(event_type)
                 except (ImportError, AttributeError):
-                    pass
+                    logger.debug(
+                        "[km_websocket] Observability metrics not available, skipping metric recording"
+                    )
             else:
                 logger.debug("[km_websocket] No event loop available, event not broadcast")
 

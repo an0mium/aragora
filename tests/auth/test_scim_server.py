@@ -1127,10 +1127,12 @@ class TestTokenAuthenticationEdgeCases:
         server = SCIMServer(config)
 
         # Operations should work without auth
-        result, status = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "no_auth_user@example.com",
-        })
+        result, status = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "no_auth_user@example.com",
+            }
+        )
         assert status == 201
 
     def test_bearer_token_with_jwt_format(self):
@@ -1214,10 +1216,12 @@ class TestPasswordChangeSecurity:
     async def test_password_update_via_patch(self, server_with_password_sync):
         """Should handle password updates via PATCH operation."""
         # Create user
-        create_result, _ = await server_with_password_sync.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "patch_password@example.com",
-        })
+        create_result, _ = await server_with_password_sync.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "patch_password@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Patch password
@@ -1237,10 +1241,12 @@ class TestPasswordChangeSecurity:
     async def test_password_update_via_put(self, server_with_password_sync):
         """Should handle password updates via PUT operation."""
         # Create user
-        create_result, _ = await server_with_password_sync.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "put_password@example.com",
-        })
+        create_result, _ = await server_with_password_sync.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "put_password@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Replace with new password
@@ -1259,10 +1265,12 @@ class TestPasswordChangeSecurity:
     async def test_password_ignored_when_sync_disabled(self, server_without_password_sync):
         """Password should be ignored in PATCH when sync is disabled."""
         # Create user
-        create_result, _ = await server_without_password_sync.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "ignore_password@example.com",
-        })
+        create_result, _ = await server_without_password_sync.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "ignore_password@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Try to patch password
@@ -1538,10 +1546,12 @@ class TestSCIMRBACPermissions:
     async def test_user_operations_respect_config(self, server):
         """User operations should respect server configuration."""
         # Create user
-        result, status = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "tenant_user@example.com",
-        })
+        result, status = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "tenant_user@example.com",
+            }
+        )
         assert status == 201
 
         # User ID should be generated
@@ -1570,10 +1580,12 @@ class TestSCIMRBACPermissions:
 
         # Group operations should still work at server level
         # (the config flag affects router creation, not direct method calls)
-        result, status = await server.create_group({
-            "schemas": [SCHEMA_GROUP],
-            "displayName": "Test Group",
-        })
+        result, status = await server.create_group(
+            {
+                "schemas": [SCHEMA_GROUP],
+                "displayName": "Test Group",
+            }
+        )
 
         # Direct method calls still work
         assert status == 201
@@ -1582,10 +1594,12 @@ class TestSCIMRBACPermissions:
     async def test_soft_delete_respects_config(self, server):
         """Delete operations should respect soft_delete configuration."""
         # Create user
-        create_result, _ = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "delete_test@example.com",
-        })
+        create_result, _ = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "delete_test@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Delete (soft)
@@ -1607,10 +1621,12 @@ class TestSCIMRBACPermissions:
         server = SCIMServer(config)
 
         # Create user
-        create_result, _ = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "hard_delete@example.com",
-        })
+        create_result, _ = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "hard_delete@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Delete (hard)
@@ -1770,10 +1786,12 @@ class TestSecurityEdgeCases:
     @pytest.mark.asyncio
     async def test_patch_operation_case_sensitivity(self, server):
         """PATCH operation names should be case-insensitive per RFC."""
-        create_result, _ = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "patch_case@example.com",
-        })
+        create_result, _ = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "patch_case@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         # Use uppercase operation
@@ -1806,10 +1824,12 @@ class TestSecurityEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_operations_list_patch(self, server):
         """Should handle PATCH with empty operations list."""
-        create_result, _ = await server.create_user({
-            "schemas": [SCHEMA_USER],
-            "userName": "empty_ops@example.com",
-        })
+        create_result, _ = await server.create_user(
+            {
+                "schemas": [SCHEMA_USER],
+                "userName": "empty_ops@example.com",
+            }
+        )
         user_id = create_result["id"]
 
         patch_data = {

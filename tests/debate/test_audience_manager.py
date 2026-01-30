@@ -345,12 +345,8 @@ class TestDrainEvents:
         from aragora.events.types import StreamEventType
 
         # Add suggestions to queue
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "suggestion 1"})
-        )
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "suggestion 2"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "suggestion 1"}))
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "suggestion 2"}))
 
         drained = manager.drain_events()
 
@@ -362,9 +358,7 @@ class TestDrainEvents:
         from aragora.events.types import StreamEventType
 
         manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"agent": "a"}))
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "tip"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "tip"}))
         manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"agent": "b"}))
 
         drained = manager.drain_events()
@@ -446,9 +440,7 @@ class TestGetVotesAndSuggestions:
         """Test getting suggestions after draining."""
         from aragora.events.types import StreamEventType
 
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "idea 1"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "idea 1"}))
         manager.drain_events()
 
         suggestions = manager.get_suggestions()
@@ -481,9 +473,7 @@ class TestClear:
         """Test clearing suggestions."""
         from aragora.events.types import StreamEventType
 
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "idea"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "idea"}))
         manager.drain_events()
         assert manager.suggestions_count == 1
 
@@ -497,9 +487,7 @@ class TestClear:
 
         # Add events to queue and drain
         manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"agent": "a"}))
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "idea"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "idea"}))
         manager.drain_events()
 
         # Add more events to queue (not drained)
@@ -549,9 +537,7 @@ class TestProperties:
 
         assert manager.suggestions_count == 0
 
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_SUGGESTION, {"text": "idea"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_SUGGESTION, {"text": "idea"}))
         manager.drain_events()
 
         assert manager.suggestions_count == 1
@@ -635,9 +621,7 @@ class TestThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=add_events, args=(i,)) for i in range(num_threads)
-        ]
+        threads = [threading.Thread(target=add_events, args=(i,)) for i in range(num_threads)]
 
         for t in threads:
             t.start()
@@ -906,9 +890,7 @@ class TestAudienceManagerIntegration:
         from aragora.events.types import StreamEventType
 
         # Round 1
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_VOTE, {"round": 1, "agent": "a"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"round": 1, "agent": "a"}))
         manager.drain_events()
         round1_votes = manager.get_votes()
         assert len(round1_votes) == 1
@@ -916,12 +898,8 @@ class TestAudienceManagerIntegration:
         manager.clear_all()
 
         # Round 2
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_VOTE, {"round": 2, "agent": "b"})
-        )
-        manager._event_queue.put_nowait(
-            (StreamEventType.USER_VOTE, {"round": 2, "agent": "c"})
-        )
+        manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"round": 2, "agent": "b"}))
+        manager._event_queue.put_nowait((StreamEventType.USER_VOTE, {"round": 2, "agent": "c"}))
         manager.drain_events()
         round2_votes = manager.get_votes()
         assert len(round2_votes) == 2

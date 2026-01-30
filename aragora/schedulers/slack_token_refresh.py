@@ -317,11 +317,8 @@ class SlackTokenRefreshScheduler:
         workspace_name = getattr(workspace, "workspace_name", workspace_id)
 
         try:
-            # Run the synchronous refresh in a thread pool
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                None,
-                self.store.refresh_workspace_token,
+            # Call async refresh directly
+            result = await self.store.refresh_workspace_token(
                 workspace_id,
                 self.client_id,
                 self.client_secret,

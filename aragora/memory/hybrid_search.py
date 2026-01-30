@@ -315,11 +315,13 @@ class HybridMemorySearch:
 
         effective_tiers = tiers or self.config.tiers
 
-        # Run searches in parallel
+        # Run searches in parallel - use return_exceptions to get partial results
         vector_task = self._vector_search(query, effective_tiers, min_importance)
         keyword_task = self._keyword_search(query, effective_tiers, min_importance)
 
-        vector_results, keyword_results = await asyncio.gather(vector_task, keyword_task)
+        results = await asyncio.gather(vector_task, keyword_task, return_exceptions=True)
+        vector_results = results[0] if not isinstance(results[0], Exception) else []
+        keyword_results = results[1] if not isinstance(results[1], Exception) else []
 
         # Fuse results using RRF
         fused = self._reciprocal_rank_fusion(

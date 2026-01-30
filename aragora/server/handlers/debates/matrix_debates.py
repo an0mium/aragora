@@ -71,6 +71,7 @@ from ..base import (
     json_response,
     safe_error_message,
 )
+from ..openapi_decorator import api_endpoint
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 from aragora.resilience import with_timeout
@@ -113,6 +114,22 @@ class MatrixDebatesHandler(SecureHandler):
             "/api/matrix-debates"
         )
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/matrix/{matrix_id}",
+        summary="Get matrix debate",
+        description="Get the results of a matrix debate with parallel scenario exploration.",
+        tags=["Debates", "Matrix Debates"],
+        parameters=[
+            {"name": "matrix_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Matrix debate results"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "404": {"description": "Matrix debate not found"},
+        },
+    )
     @handle_errors("matrix debates GET")
     async def handle_get(
         self, handler: Any, path: str, query_params: dict[str, Any]
@@ -150,6 +167,21 @@ class MatrixDebatesHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/debates/matrix",
+        summary="Create matrix debate",
+        description="Run parallel scenario debates to explore a topic under different conditions.",
+        tags=["Debates", "Matrix Debates"],
+        responses={
+            "200": {"description": "Matrix debate created and executed"},
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Permission denied"},
+            "429": {"description": "Rate limit exceeded"},
+            "500": {"description": "Matrix debate failed"},
+        },
+    )
     @handle_errors("matrix debates POST")
     async def handle_post(self, handler: Any, path: str, data: dict[str, Any]) -> HandlerResult:
         """Handle POST requests for matrix debates with RBAC.
@@ -498,6 +530,21 @@ class MatrixDebatesHandler(SecureHandler):
             logger.error(f"Failed to get matrix debate {matrix_id}: {e}")
             return error_response("Failed to retrieve matrix debate", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/matrix/{matrix_id}/scenarios",
+        summary="Get matrix debate scenarios",
+        description="Get all scenario results from a matrix debate.",
+        tags=["Debates", "Matrix Debates"],
+        parameters=[
+            {"name": "matrix_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "List of scenario results"},
+            "401": {"description": "Authentication required"},
+            "503": {"description": "Storage not configured"},
+        },
+    )
     async def _get_scenarios(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get all scenario results for a matrix debate."""
         storage = getattr(handler, "storage", None)
@@ -511,6 +558,21 @@ class MatrixDebatesHandler(SecureHandler):
             logger.error(f"Failed to get scenarios for {matrix_id}: {e}")
             return error_response("Failed to retrieve scenarios", 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/matrix/{matrix_id}/conclusions",
+        summary="Get matrix debate conclusions",
+        description="Get universal and conditional conclusions from a matrix debate.",
+        tags=["Debates", "Matrix Debates"],
+        parameters=[
+            {"name": "matrix_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Universal and conditional conclusions"},
+            "401": {"description": "Authentication required"},
+            "503": {"description": "Storage not configured"},
+        },
+    )
     async def _get_conclusions(self, handler: Any, matrix_id: str) -> HandlerResult:
         """Get conclusions for a matrix debate."""
         storage = getattr(handler, "storage", None)

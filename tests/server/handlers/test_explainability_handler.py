@@ -20,7 +20,6 @@ from aragora.server.handlers.explainability import (
     _get_cached_decision,
     _cache_decision,
     _decision_cache,
-    _cache_timestamps,
     BatchStatus,
     BatchDebateResult,
     BatchJob,
@@ -34,7 +33,6 @@ class TestDecisionCache:
     def setup_method(self):
         """Clear cache before each test."""
         _decision_cache.clear()
-        _cache_timestamps.clear()
 
     def test_cache_miss(self):
         """Should return None for uncached debate."""
@@ -52,24 +50,30 @@ class TestDecisionCache:
     def test_cache_expiration(self):
         """Should return None for expired cache entries."""
         mock_decision = {"outcome": "approved"}
-        _cache_decision("debate-123", mock_decision)
 
-        # Manually expire the entry
-        _cache_timestamps["debate-123"] = time.time() - CACHE_TTL_SECONDS - 1
+        # Mock time to simulate expiration
+        with patch("aragora.server.handlers.explainability.time") as mock_time:
+            # Set initial time for caching
+            mock_time.time.return_value = 1000.0
+            _cache_decision("debate-123", mock_decision)
 
-        result = _get_cached_decision("debate-123")
-        assert result is None
-        assert "debate-123" not in _decision_cache
+            # Advance time past TTL
+            mock_time.time.return_value = 1000.0 + CACHE_TTL_SECONDS + 1
+
+            result = _get_cached_decision("debate-123")
+            assert result is None
 
     def test_cache_pruning(self):
         """Should prune oldest entries when cache exceeds limit."""
-        # Fill cache to limit
+        # Fill cache to exceed default limit (100)
         for i in range(105):
             _cache_decision(f"debate-{i}", {"id": i})
-            _cache_timestamps[f"debate-{i}"] = time.time() - i  # Oldest first
 
-        # Cache should be pruned to 100
-        assert len(_decision_cache) <= 101
+        # LRU cache should have pruned to max size (100)
+        # Check that we can still retrieve recent entries
+        assert _get_cached_decision("debate-104") is not None
+        # And oldest entries were evicted
+        assert _get_cached_decision("debate-0") is None
 
 
 class TestBatchStatus:

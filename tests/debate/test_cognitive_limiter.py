@@ -247,9 +247,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_within_limit(self):
         """Test messages within limit are preserved."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=10)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=10))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(5)]
 
         result = limiter.limit_messages(messages)
@@ -258,9 +256,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_exceeds_count_limit(self):
         """Test messages exceeding count limit are truncated."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=5)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=5))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(10)]
 
         result = limiter.limit_messages(messages)
@@ -274,9 +270,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_preserves_first_message(self):
         """Test first message (task description) is always preserved."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=3)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=3))
         messages = [
             self.MockMessage(content="Task: Build a system"),
             self.MockMessage(content="Round 1 response"),
@@ -291,9 +285,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_tracks_truncation_stats(self):
         """Test truncation stats are updated."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=3)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=3))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(10)]
 
         limiter.limit_messages(messages)
@@ -317,9 +309,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_override_max_messages(self):
         """Test overriding max_messages parameter."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=20)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=20))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(10)]
 
         result = limiter.limit_messages(messages, max_messages=3)
@@ -328,9 +318,7 @@ class TestCognitiveLoadLimiterMessages:
 
     def test_limit_messages_handles_plain_strings(self):
         """Test handling messages that are plain strings."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=5)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=5))
         messages = ["Message 1", "Message 2", "Message 3"]
 
         result = limiter.limit_messages(messages)
@@ -560,9 +548,7 @@ class TestCognitiveLoadLimiterContext:
 
     def test_limit_context_patterns(self):
         """Test limiting patterns string."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_patterns_chars=50)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_patterns_chars=50))
         long_patterns = "Pattern: " + "x" * 100
 
         result = limiter.limit_context(patterns=long_patterns)
@@ -640,9 +626,7 @@ class TestCognitiveLoadLimiterStats:
 
     def test_reset_stats(self):
         """Test resetting statistics."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=3)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=3))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(10)]
         limiter.limit_messages(messages)
 
@@ -656,9 +640,7 @@ class TestCognitiveLoadLimiterStats:
 
     def test_stats_accumulate(self):
         """Test stats accumulate across multiple calls."""
-        limiter = CognitiveLoadLimiter(
-            budget=CognitiveBudget(max_history_messages=3)
-        )
+        limiter = CognitiveLoadLimiter(budget=CognitiveBudget(max_history_messages=3))
         messages = [self.MockMessage(content=f"Message {i}") for i in range(10)]
 
         limiter.limit_messages(messages)

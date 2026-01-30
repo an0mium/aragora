@@ -1064,9 +1064,7 @@ class PayPalClient:
         # Validate timestamp freshness (reject webhooks older than 5 minutes)
         try:
             ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            age_seconds = abs(
-                (datetime.now(timezone.utc) - ts).total_seconds()
-            )
+            age_seconds = abs((datetime.now(timezone.utc) - ts).total_seconds())
             if age_seconds > 300:
                 logger.warning(f"PayPal webhook timestamp too old: {age_seconds:.0f}s")
                 return False

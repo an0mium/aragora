@@ -133,9 +133,7 @@ class SingleFlight:
             "shared_calls": self._shared_calls,
             "in_flight": len(self._flights),
             "dedup_rate": (
-                (self._shared_calls / self._total_calls * 100)
-                if self._total_calls > 0
-                else 0.0
+                (self._shared_calls / self._total_calls * 100) if self._total_calls > 0 else 0.0
             ),
         }
 
@@ -224,9 +222,7 @@ class AsyncSingleFlight:
             "shared_calls": self._shared_calls,
             "in_flight": len(self._flights),
             "dedup_rate": (
-                (self._shared_calls / self._total_calls * 100)
-                if self._total_calls > 0
-                else 0.0
+                (self._shared_calls / self._total_calls * 100) if self._total_calls > 0 else 0.0
             ),
         }
 

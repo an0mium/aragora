@@ -732,7 +732,11 @@ class PostgresStore:
             # Parse JSON aggregations back to dicts (handle None safely)
             by_type = dict(node_stats["by_type"]) if node_stats and node_stats["by_type"] else {}
             by_tier = dict(node_stats["by_tier"]) if node_stats and node_stats["by_tier"] else {}
-            by_validation = dict(node_stats["by_validation"]) if node_stats and node_stats["by_validation"] else {}
+            by_validation = (
+                dict(node_stats["by_validation"])
+                if node_stats and node_stats["by_validation"]
+                else {}
+            )
             rel_by_type = dict(rel_stats["by_type"]) if rel_stats and rel_stats["by_type"] else {}
 
             return MoundStats(
@@ -742,7 +746,9 @@ class PostgresStore:
                 nodes_by_validation=by_validation,
                 total_relationships=(rel_stats["total"] if rel_stats else 0) or 0,
                 relationships_by_type=rel_by_type,
-                average_confidence=round((node_stats["avg_confidence"] if node_stats else 0.0) or 0.0, 3),
+                average_confidence=round(
+                    (node_stats["avg_confidence"] if node_stats else 0.0) or 0.0, 3
+                ),
                 stale_nodes_count=(node_stats["stale_count"] if node_stats else 0) or 0,
                 workspace_id=workspace_id,
             )

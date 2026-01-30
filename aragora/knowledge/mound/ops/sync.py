@@ -209,6 +209,8 @@ class SyncOperationsMixin:
                 include_glacial=True,
             )
 
+            # Collect all requests for batch processing
+            requests: list[IngestionRequest] = []
             for entry in entries:
                 try:
                     # Create ingestion request from continuum entry
@@ -228,18 +230,22 @@ class SyncOperationsMixin:
                             "original_metadata": entry.metadata,
                         },
                     )
-
-                    result = await self.store(request)
-
-                    if result.deduplicated:
-                        nodes_updated += 1
-                    else:
-                        nodes_synced += 1
+                    requests.append(request)
 
                 except Exception as e:
                     nodes_skipped += 1
                     errors.append(f"continuum:{entry.id}: {str(e)}")
-                    logger.warning(f"Failed to sync continuum entry {entry.id}: {e}")
+                    logger.warning(f"Failed to create request for continuum entry {entry.id}: {e}")
+
+            # Batch store all requests
+            if requests:
+                synced, updated, skipped, _, batch_errors = await self._batch_store(
+                    requests, batch_size=batch_size
+                )
+                nodes_synced += synced
+                nodes_updated += updated
+                nodes_skipped += skipped
+                errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"continuum:retrieve: {str(e)}")
@@ -308,6 +314,11 @@ class SyncOperationsMixin:
                     )
                     rows = cursor.fetchall()
 
+                # Parse JSON helper
+                from aragora.utils.json_helpers import safe_json_loads
+
+                # Collect all requests for batch processing
+                requests: list[IngestionRequest] = []
                 for row in rows:
                     try:
                         record_id = row[0]
@@ -319,9 +330,6 @@ class SyncOperationsMixin:
                         tags_json = row[8]
                         supersedes = row[10]
                         metadata_json = row[11]
-
-                        # Parse JSON fields
-                        from aragora.utils.json_helpers import safe_json_loads
 
                         tags: list[str] = safe_json_loads(tags_json, [])
                         metadata: dict[str, Any] = safe_json_loads(metadata_json, {})
@@ -348,19 +356,25 @@ class SyncOperationsMixin:
                         if supersedes:
                             request.derived_from = [f"cs_{supersedes}"]
 
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
-
-                        relationships_created += result.relationships_created
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"consensus:{row[0]}: {str(e)}")
-                        logger.warning(f"Failed to sync consensus record {row[0]}: {e}")
+                        logger.warning(
+                            f"Failed to create request for consensus record {row[0]}: {e}"
+                        )
+
+                # Batch store all requests
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"consensus:query: {str(e)}")
@@ -422,6 +436,8 @@ class SyncOperationsMixin:
                 )
                 all_facts = facts.query_facts(query="", filters=filters)
 
+                # Collect all requests for batch processing
+                requests: list[IngestionRequest] = []
                 for fact in all_facts:
                     try:
                         request = IngestionRequest(
@@ -444,18 +460,23 @@ class SyncOperationsMixin:
                                 "source_documents": fact.source_documents,
                             },
                         )
-
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"facts:{fact.id}: {str(e)}")
-                        logger.warning(f"Failed to sync fact {fact.id}: {e}")
+                        logger.warning(f"Failed to create request for fact {fact.id}: {e}")
+
+                # Batch store all requests
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"facts:query: {str(e)}")
@@ -505,11 +526,15 @@ class SyncOperationsMixin:
         nodes_skipped = 0
         errors: list[str] = []
 
+        relationships_created = 0
+
         try:
             # EvidenceStore has search method
             if hasattr(evidence, "search"):
                 all_evidence = evidence.search("", limit=10000)
 
+                # Collect all requests for batch processing
+                requests: list[IngestionRequest] = []
                 for ev in all_evidence:
                     try:
                         request = IngestionRequest(
@@ -526,18 +551,23 @@ class SyncOperationsMixin:
                                 "source_url": getattr(ev, "source_url", None),
                             },
                         )
-
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"evidence:{ev.id}: {str(e)}")
-                        logger.warning(f"Failed to sync evidence {ev.id}: {e}")
+                        logger.warning(f"Failed to create request for evidence {ev.id}: {e}")
+
+                # Batch store all requests
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"evidence:search: {str(e)}")
@@ -548,7 +578,7 @@ class SyncOperationsMixin:
             nodes_synced=nodes_synced,
             nodes_updated=nodes_updated,
             nodes_skipped=nodes_skipped,
-            relationships_created=0,
+            relationships_created=relationships_created,
             duration_ms=int((time.time() - start_time) * 1000),
             errors=errors,
         )
@@ -587,11 +617,15 @@ class SyncOperationsMixin:
         nodes_skipped = 0
         errors: list[str] = []
 
+        relationships_created = 0
+
         try:
             # CritiqueStore has search_patterns method
             if hasattr(critique, "search_patterns"):
                 patterns = critique.search_patterns("", limit=10000)
 
+                # Collect all requests for batch processing
+                requests: list[IngestionRequest] = []
                 for pattern in patterns:
                     try:
                         content = getattr(pattern, "pattern", "") or getattr(pattern, "content", "")
@@ -612,18 +646,25 @@ class SyncOperationsMixin:
                                 "success_count": getattr(pattern, "success_count", 0),
                             },
                         )
-
-                        result = await self.store(request)
-
-                        if result.deduplicated:
-                            nodes_updated += 1
-                        else:
-                            nodes_synced += 1
+                        requests.append(request)
 
                     except Exception as e:
                         nodes_skipped += 1
                         errors.append(f"critique:{pattern.id}: {str(e)}")
-                        logger.warning(f"Failed to sync critique pattern {pattern.id}: {e}")
+                        logger.warning(
+                            f"Failed to create request for critique pattern {pattern.id}: {e}"
+                        )
+
+                # Batch store all requests
+                if requests:
+                    synced, updated, skipped, rels, batch_errors = await self._batch_store(
+                        requests, batch_size=batch_size
+                    )
+                    nodes_synced += synced
+                    nodes_updated += updated
+                    nodes_skipped += skipped
+                    relationships_created += rels
+                    errors.extend(batch_errors)
 
         except Exception as e:
             errors.append(f"critique:search: {str(e)}")
@@ -634,7 +675,7 @@ class SyncOperationsMixin:
             nodes_synced=nodes_synced,
             nodes_updated=nodes_updated,
             nodes_skipped=nodes_skipped,
-            relationships_created=0,
+            relationships_created=relationships_created,
             duration_ms=int((time.time() - start_time) * 1000),
             errors=errors,
         )

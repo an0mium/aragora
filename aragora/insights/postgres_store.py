@@ -416,6 +416,18 @@ class PostgresInsightStore(PostgresStore):
                 except (RuntimeError, ValueError, TypeError) as e:
                     logger.warning(f"Failed to batch sync insights to KM: {e}")
 
+        # Invalidate agent stats cache after storing new performance data
+        # This ensures subsequent get_agent_stats calls return fresh data
+        if insights.agent_performances:
+            for perf in insights.agent_performances:
+                cache_key = f"agent_stats:{perf.agent_name}"
+                if cache_key in self._cache:
+                    del self._cache[cache_key]
+            # Also invalidate recent insights cache since new data was added
+            keys_to_remove = [k for k in self._cache if k.startswith("recent_insights:")]
+            for key in keys_to_remove:
+                del self._cache[key]
+
         return stored_count
 
     async def get_insight(self, insight_id: str) -> Insight | None:

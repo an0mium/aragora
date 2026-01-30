@@ -89,7 +89,7 @@ def _is_trusted_proxy(ip: str) -> bool:
                 if addr in net:
                     return True
         except ValueError:
-            pass
+            logger.debug("Could not parse IP address for trusted proxy check: %s", normalized)
 
     return False
 

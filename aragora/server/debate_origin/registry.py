@@ -491,9 +491,13 @@ def cleanup_expired_origins() -> int:
             try:
                 loop = asyncio.new_event_loop()
                 try:
-                    pg_cleaned = loop.run_until_complete(pg_store.cleanup_expired(ORIGIN_TTL_SECONDS))
+                    pg_cleaned = loop.run_until_complete(
+                        pg_store.cleanup_expired(ORIGIN_TTL_SECONDS)
+                    )
                     if pg_cleaned > 0:
-                        logger.info(f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL")
+                        logger.info(
+                            f"Cleaned up {pg_cleaned} expired debate origins from PostgreSQL"
+                        )
                         total_cleaned += pg_cleaned
                 finally:
                     loop.close()

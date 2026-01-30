@@ -267,6 +267,86 @@ def _auto_register_global_caches() -> None:
 # Register on import
 _auto_register_global_caches()
 
+
+# =============================================================================
+# Cache Key Utilities
+# =============================================================================
+
+
+def make_cache_key(*parts: str, separator: str = ":", max_length: int = 250) -> str:
+    """Generate a collision-safe cache key from multiple parts.
+
+    This function creates cache keys that are:
+    - Properly namespaced using the separator
+    - Safe for use with Redis (no spaces, limited length)
+    - Deterministic (same inputs always produce same output)
+
+    Args:
+        *parts: Components of the cache key (e.g., "users", user_id, "profile")
+        separator: Character to join parts (default ":")
+        max_length: Maximum key length (default 250, safe for Redis)
+
+    Returns:
+        A safe cache key string
+
+    Example:
+        >>> make_cache_key("users", user_id, "profile")
+        "users:abc123:profile"
+
+        >>> make_cache_key("search", very_long_query)  # Auto-hashes if too long
+        "search:sha256_abc123..."
+    """
+    import hashlib
+
+    # Filter out empty parts and convert to strings
+    clean_parts = [str(p).strip() for p in parts if p is not None and str(p).strip()]
+
+    if not clean_parts:
+        raise ValueError("At least one non-empty cache key part is required")
+
+    # Replace problematic characters (spaces, newlines)
+    clean_parts = [p.replace(" ", "_").replace("\n", "_") for p in clean_parts]
+
+    key = separator.join(clean_parts)
+
+    # If key is too long, hash the variable parts
+    if len(key) > max_length:
+        # Keep prefix for debugging, hash the rest
+        prefix = clean_parts[0][:50] if clean_parts else ""
+        content_hash = hashlib.sha256(key.encode()).hexdigest()[:32]
+        key = f"{prefix}{separator}hash_{content_hash}"
+
+    return key
+
+
+def make_content_hash(content: str, length: int = 16) -> str:
+    """Generate a short hash for content-based cache keys.
+
+    Uses SHA-256 (not MD5) for better collision resistance, even when truncated.
+    For a 16-character hex hash (64 bits), collision probability is ~1 in 2^32
+    after 2^32 items (birthday paradox).
+
+    Args:
+        content: Content to hash
+        length: Length of hash to return (default 16, max 64)
+
+    Returns:
+        Hexadecimal hash string
+
+    Example:
+        >>> make_content_hash("some long document text")
+        "a1b2c3d4e5f67890"
+    """
+    import hashlib
+
+    if length < 8:
+        raise ValueError("Hash length must be at least 8 for reasonable collision resistance")
+    if length > 64:
+        length = 64
+
+    return hashlib.sha256(content.encode()).hexdigest()[:length]
+
+
 __all__ = [
     # Protocol and types
     "CacheBackend",
@@ -293,4 +373,7 @@ __all__ = [
     "invalidate_cache",
     "invalidate_method_cache",
     "clear_all_caches",
+    # Key generation
+    "make_cache_key",
+    "make_content_hash",
 ]

@@ -167,7 +167,9 @@ class HybridSearcher:
             document_ids=document_ids,
         )
 
-        vector_results, keyword_results = await asyncio.gather(vector_task, keyword_task)
+        results = await asyncio.gather(vector_task, keyword_task, return_exceptions=True)
+        vector_results = results[0] if not isinstance(results[0], Exception) else []
+        keyword_results = results[1] if not isinstance(results[1], Exception) else []
 
         # Fuse results using RRF
         fused = self._reciprocal_rank_fusion(

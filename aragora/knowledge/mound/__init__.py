@@ -281,9 +281,7 @@ def get_knowledge_mound(
                         "_init_task",
                         loop.create_task(_knowledge_mound_instance.initialize()),
                     )
-                    logger.debug(
-                        "[knowledge_mound] Initialization scheduled (event loop running)"
-                    )
+                    logger.debug("[knowledge_mound] Initialization scheduled (event loop running)")
             except RuntimeError:
                 # No running event loop - create one and run synchronously
                 try:

@@ -37,17 +37,21 @@ class MockCheckpointOperations:
     def store_debate_outcome(
         self, result: Any, task: str, belief_cruxes: list[str] | None = None
     ) -> None:
-        self.stored_outcomes.append({
-            "result": result,
-            "task": task,
-            "belief_cruxes": belief_cruxes,
-        })
+        self.stored_outcomes.append(
+            {
+                "result": result,
+                "task": task,
+                "belief_cruxes": belief_cruxes,
+            }
+        )
 
     def store_evidence(self, evidence_snippets: list, task: str) -> None:
-        self.stored_evidence.append({
-            "snippets": evidence_snippets,
-            "task": task,
-        })
+        self.stored_evidence.append(
+            {
+                "snippets": evidence_snippets,
+                "task": task,
+            }
+        )
 
     def update_memory_outcomes(self, result: Any) -> None:
         self.memory_outcomes_updated.append(result)
@@ -93,9 +97,7 @@ class MockAgentPool:
     def _compute_composite_score(self, agent_name: str, domain: str = "general") -> float:
         return self.composite_scores.get((agent_name, domain), 1000.0)
 
-    def select_critics(
-        self, proposer: Any, candidates: list[Any] | None = None
-    ) -> list[Any]:
+    def select_critics(self, proposer: Any, candidates: list[Any] | None = None) -> list[Any]:
         # Return candidates without proposer
         if candidates is None:
             return []
@@ -163,12 +165,14 @@ class MockGroundedOperations:
     def record_position(
         self, agent_name: str, content: str, debate_id: str, round_num: int
     ) -> None:
-        self.positions_recorded.append({
-            "agent_name": agent_name,
-            "content": content,
-            "debate_id": debate_id,
-            "round_num": round_num,
-        })
+        self.positions_recorded.append(
+            {
+                "agent_name": agent_name,
+                "content": content,
+                "debate_id": debate_id,
+                "round_num": round_num,
+            }
+        )
 
     def create_grounded_verdict(self, result: Any) -> dict:
         self.verdicts_created.append(result)
@@ -251,9 +255,7 @@ def roles_manager():
 
 
 @pytest.fixture
-def delegation(
-    checkpoint_ops, context_delegator, audience_manager, agent_pool, roles_manager
-):
+def delegation(checkpoint_ops, context_delegator, audience_manager, agent_pool, roles_manager):
     """Create ArenaDelegation with all required dependencies."""
     return ArenaDelegation(
         checkpoint_ops=checkpoint_ops,
@@ -397,9 +399,7 @@ class TestCheckpointOperations:
         stored = checkpoint_ops.stored_outcomes[0]
         assert len(stored["belief_cruxes"]) == 10
 
-    def test_store_debate_outcome_converts_cruxes_to_strings(
-        self, delegation, checkpoint_ops
-    ):
+    def test_store_debate_outcome_converts_cruxes_to_strings(self, delegation, checkpoint_ops):
         """Test that belief cruxes are converted to strings."""
         result = MockDebateResult()
         task = "Test task"

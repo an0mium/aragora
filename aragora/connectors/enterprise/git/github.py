@@ -695,9 +695,9 @@ class GitHubEnterpriseConnector(EnterpriseConnector):
         else:
             # Loop is running, create a task
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
-                    asyncio.run,
-                    self.credentials.get_credential("GITHUB_WEBHOOK_SECRET")
+                    asyncio.run, self.credentials.get_credential("GITHUB_WEBHOOK_SECRET")
                 )
                 return future.result()

@@ -42,6 +42,7 @@ from .base import (
     safe_error_message,
 )
 from .utils.rate_limit import rate_limit
+from .openapi_decorator import api_endpoint
 from aragora.rbac.decorators import require_permission
 from aragora.observability.metrics import track_handler
 
@@ -446,6 +447,17 @@ class GauntletHandler(BaseHandler):
 
         return result
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/personas",
+        summary="List available personas",
+        description="List all available regulatory personas for gauntlet stress-testing.",
+        tags=["Gauntlet"],
+        responses={
+            "200": {"description": "List of available personas"},
+            "401": {"description": "Authentication required"},
+        },
+    )
     @require_permission("gauntlet:read")
     def _list_personas(self) -> HandlerResult:
         """List available regulatory personas."""
@@ -481,6 +493,19 @@ class GauntletHandler(BaseHandler):
                 }
             )
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/gauntlet/run",
+        summary="Start gauntlet stress-test",
+        description="Start a new adversarial stress-test with regulatory personas.",
+        tags=["Gauntlet"],
+        responses={
+            "202": {"description": "Gauntlet started successfully"},
+            "400": {"description": "Invalid request body"},
+            "401": {"description": "Authentication required"},
+            "429": {"description": "Quota exceeded"},
+        },
+    )
     @require_permission("gauntlet:run")
     async def _start_gauntlet(self, handler: Any) -> HandlerResult:
         """Start a new gauntlet stress-test."""
@@ -843,6 +868,21 @@ class GauntletHandler(BaseHandler):
             except (OSError, RuntimeError, ValueError):
                 pass
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/{gauntlet_id}",
+        summary="Get gauntlet status",
+        description="Get the status and results of a gauntlet stress-test run.",
+        tags=["Gauntlet"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Gauntlet status and results"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "Gauntlet run not found"},
+        },
+    )
     @require_permission("gauntlet:read")
     async def _get_status(self, gauntlet_id: str) -> HandlerResult:
         """Get gauntlet run status."""
@@ -990,6 +1030,28 @@ class GauntletHandler(BaseHandler):
         else:
             return "CRITICAL"
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/{gauntlet_id}/receipt",
+        summary="Get decision receipt",
+        description="Get the cryptographic decision receipt for a completed gauntlet run.",
+        tags=["Gauntlet", "Receipts"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {
+                "name": "format",
+                "in": "query",
+                "schema": {"type": "string", "enum": ["json", "html", "md", "sarif", "pdf", "csv"]},
+            },
+            {"name": "signed", "in": "query", "schema": {"type": "string", "default": "true"}},
+        ],
+        responses={
+            "200": {"description": "Decision receipt in requested format"},
+            "400": {"description": "Gauntlet not completed"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "Gauntlet run not found"},
+        },
+    )
     @require_permission("gauntlet:read")
     async def _get_receipt(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get decision receipt for gauntlet run."""
@@ -1150,6 +1212,21 @@ class GauntletHandler(BaseHandler):
             _notify_export("json", len(json.dumps(receipt_data)))
             return json_response(receipt_data)
 
+    @api_endpoint(
+        method="POST",
+        path="/api/v1/gauntlet/{gauntlet_id}/receipt/verify",
+        summary="Verify decision receipt",
+        description="Verify the cryptographic signature and integrity of a signed decision receipt.",
+        tags=["Gauntlet", "Receipts"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Verification result with detailed status"},
+            "400": {"description": "Invalid or missing request body"},
+            "401": {"description": "Authentication required"},
+        },
+    )
     @require_permission("gauntlet:read")
     async def _verify_receipt(self, gauntlet_id: str, handler: Any) -> HandlerResult:
         """Verify a signed decision receipt.
@@ -1306,6 +1383,27 @@ class GauntletHandler(BaseHandler):
             # Return 200 with verification failure details (not a client error)
             return json_response(verification_result)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/{gauntlet_id}/heatmap",
+        summary="Get risk heatmap",
+        description="Get the risk heatmap visualization for a completed gauntlet run.",
+        tags=["Gauntlet"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {
+                "name": "format",
+                "in": "query",
+                "schema": {"type": "string", "enum": ["json", "svg", "ascii"]},
+            },
+        ],
+        responses={
+            "200": {"description": "Risk heatmap in requested format"},
+            "400": {"description": "Gauntlet not completed"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "Gauntlet run not found"},
+        },
+    )
     @require_permission("gauntlet:read")
     async def _get_heatmap(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Get risk heatmap for gauntlet run."""
@@ -1393,6 +1491,28 @@ class GauntletHandler(BaseHandler):
         else:
             return json_response(heatmap.to_dict())
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/results",
+        summary="List gauntlet results",
+        description="List recent gauntlet stress-test results with pagination and filtering.",
+        tags=["Gauntlet"],
+        parameters=[
+            {
+                "name": "limit",
+                "in": "query",
+                "schema": {"type": "integer", "default": 20, "maximum": 100},
+            },
+            {"name": "offset", "in": "query", "schema": {"type": "integer", "default": 0}},
+            {"name": "verdict", "in": "query", "schema": {"type": "string"}},
+            {"name": "min_severity", "in": "query", "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Paginated list of gauntlet results"},
+            "401": {"description": "Authentication required"},
+            "500": {"description": "Storage error"},
+        },
+    )
     @require_permission("gauntlet:read")
     def _list_results(self, query_params: dict) -> HandlerResult:
         """List recent gauntlet results with pagination."""
@@ -1448,6 +1568,23 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to list results: {e}")
             return error_response(safe_error_message(e, "list results"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/{gauntlet_id}/compare/{compare_id}",
+        summary="Compare gauntlet results",
+        description="Compare two gauntlet stress-test runs to analyze differences.",
+        tags=["Gauntlet"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {"name": "compare_id", "in": "path", "required": True, "schema": {"type": "string"}},
+        ],
+        responses={
+            "200": {"description": "Comparison results"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "One or both gauntlet runs not found"},
+            "500": {"description": "Comparison failed"},
+        },
+    )
     @require_permission("gauntlet:compare")
     def _compare_results(self, id1: str, id2: str, query_params: dict) -> HandlerResult:
         """Compare two gauntlet results."""
@@ -1463,6 +1600,22 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to compare results: {e}")
             return error_response(safe_error_message(e, "compare results"), 500)
 
+    @api_endpoint(
+        method="DELETE",
+        path="/api/v1/gauntlet/{gauntlet_id}",
+        summary="Delete gauntlet result",
+        description="Delete a gauntlet stress-test result from storage.",
+        tags=["Gauntlet"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}}
+        ],
+        responses={
+            "200": {"description": "Gauntlet result deleted"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "Gauntlet run not found"},
+            "500": {"description": "Delete failed"},
+        },
+    )
     @require_permission("gauntlet:delete")
     def _delete_result(self, gauntlet_id: str, query_params: dict) -> HandlerResult:
         """Delete a gauntlet result."""
@@ -1483,6 +1636,37 @@ class GauntletHandler(BaseHandler):
             logger.error(f"Failed to delete result: {e}")
             return error_response(safe_error_message(e, "delete result"), 500)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/gauntlet/{gauntlet_id}/export",
+        summary="Export gauntlet report",
+        description="Export a comprehensive gauntlet report with findings, heatmap, and summary.",
+        tags=["Gauntlet"],
+        parameters=[
+            {"name": "gauntlet_id", "in": "path", "required": True, "schema": {"type": "string"}},
+            {
+                "name": "format",
+                "in": "query",
+                "schema": {"type": "string", "enum": ["json", "html", "full_html"]},
+            },
+            {
+                "name": "include_heatmap",
+                "in": "query",
+                "schema": {"type": "string", "default": "true"},
+            },
+            {
+                "name": "include_findings",
+                "in": "query",
+                "schema": {"type": "string", "default": "true"},
+            },
+        ],
+        responses={
+            "200": {"description": "Comprehensive report in requested format"},
+            "400": {"description": "Gauntlet not completed or unsupported format"},
+            "401": {"description": "Authentication required"},
+            "404": {"description": "Gauntlet run not found"},
+        },
+    )
     @require_permission("gauntlet:export")
     async def _export_report(
         self, gauntlet_id: str, query_params: dict, handler: Any = None

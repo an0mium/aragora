@@ -65,12 +65,54 @@ def _run_async_in_thread(coro):
 
 
 # =============================================================================
-# Per-Organization Integration Factory
+# Per-Organization Integration Factory with TTL Caching
 # =============================================================================
 
-# Cache of active integrations per org (cleared on config change)
-_org_email_integrations: dict[str, EmailIntegration] = {}
-_org_telegram_integrations: dict[str, TelegramIntegration] = {}
+import time as _time
+
+# Cache settings
+_CACHE_TTL_SECONDS = 3600  # 1 hour - integrations rarely change
+_CACHE_MAX_SIZE = 50  # Max cached orgs before eviction
+
+
+class _TTLCache:
+    """Simple TTL cache with size limits for integration objects."""
+
+    def __init__(self, max_size: int = _CACHE_MAX_SIZE, ttl: float = _CACHE_TTL_SECONDS):
+        self._cache: dict[str, tuple[Any, float]] = {}
+        self._max_size = max_size
+        self._ttl = ttl
+
+    def get(self, key: str) -> Any | None:
+        if key not in self._cache:
+            return None
+        value, cached_at = self._cache[key]
+        if _time.time() - cached_at > self._ttl:
+            del self._cache[key]
+            return None
+        return value
+
+    def set(self, key: str, value: Any) -> None:
+        # Evict oldest if at capacity
+        if len(self._cache) >= self._max_size and key not in self._cache:
+            oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+            del self._cache[oldest_key]
+        self._cache[key] = (value, _time.time())
+
+    def invalidate(self, key: str) -> None:
+        self._cache.pop(key, None)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+
+# Cache of active integrations per org (with TTL and size limits)
+_org_email_cache = _TTLCache()
+_org_telegram_cache = _TTLCache()
+
+# Legacy references for backward compatibility - these wrapper dicts delegate to cache
+_org_email_integrations: dict[str, EmailIntegration] = {}  # Unused, kept for compat
+_org_telegram_integrations: dict[str, TelegramIntegration] = {}  # Unused, kept for compat
 
 # System-wide fallback from environment (for backward compatibility)
 _system_email_integration: EmailIntegration | None = None
@@ -84,9 +126,11 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
     1. Per-org config from NotificationConfigStore
     2. System-wide config from environment variables (fallback)
     """
-    # Check org-specific cache first
-    if org_id and org_id in _org_email_integrations:
-        return _org_email_integrations[org_id]
+    # Check org-specific TTL cache first
+    if org_id:
+        cached = _org_email_cache.get(org_id)
+        if cached is not None:
+            return cached
 
     # Try to load from store
     if org_id:
@@ -125,7 +169,7 @@ async def get_email_integration_for_org(org_id: str | None = None) -> EmailInteg
                         EmailRecipient(email=r.email, name=r.name, preferences=r.preferences)
                     )
 
-                _org_email_integrations[org_id] = integration
+                _org_email_cache.set(org_id, integration)
                 logger.info(f"Email integration loaded for org {org_id}")
                 return integration
             except Exception as e:
@@ -171,9 +215,11 @@ async def get_telegram_integration_for_org(
     1. Per-org config from NotificationConfigStore
     2. System-wide config from environment variables (fallback)
     """
-    # Check org-specific cache first
-    if org_id and org_id in _org_telegram_integrations:
-        return _org_telegram_integrations[org_id]
+    # Check org-specific TTL cache first
+    if org_id:
+        cached = _org_telegram_cache.get(org_id)
+        if cached is not None:
+            return cached
 
     # Try to load from store
     if org_id:
@@ -191,7 +237,7 @@ async def get_telegram_integration_for_org(
                     max_messages_per_minute=stored_config.max_messages_per_minute,
                 )
                 integration = TelegramIntegration(config)
-                _org_telegram_integrations[org_id] = integration
+                _org_telegram_cache.set(org_id, integration)
                 logger.info(f"Telegram integration loaded for org {org_id}")
                 return integration
             except Exception as e:
@@ -223,8 +269,8 @@ def _get_system_telegram_integration() -> TelegramIntegration | None:
 
 def invalidate_org_integration_cache(org_id: str) -> None:
     """Invalidate cached integrations when config changes."""
-    _org_email_integrations.pop(org_id, None)
-    _org_telegram_integrations.pop(org_id, None)
+    _org_email_cache.invalidate(org_id)
+    _org_telegram_cache.invalidate(org_id)
     logger.debug(f"Invalidated integration cache for org {org_id}")
 
 

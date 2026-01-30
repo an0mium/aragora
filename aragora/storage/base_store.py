@@ -208,23 +208,67 @@ class SQLiteStore(BaseDatabase, ABC):
         row = self.fetch_one(query, (id_value,))
         return row is not None
 
+    def _validate_where_clause(self, where: str, has_params: bool) -> None:
+        """Validate WHERE clause for SQL injection patterns.
+
+        Args:
+            where: The WHERE clause to validate
+            has_params: Whether parameters were provided for placeholders
+
+        Raises:
+            ValueError: If WHERE clause contains injection patterns
+        """
+        if not where:
+            return
+
+        # Block obvious injection patterns
+        dangerous = ["'", '"', ";", "--", "/*", "*/"]
+        where_check = where.upper()
+        for pattern in dangerous:
+            if pattern.upper() in where_check:
+                raise ValueError(
+                    "WHERE clause contains unsafe pattern. "
+                    "Use parameterized placeholders (?) instead of literal values."
+                )
+
+        # Warn if WHERE has no placeholders but also no params
+        has_placeholder = "?" in where
+        if not has_placeholder and not has_params:
+            # Allow simple column checks like "deleted_at IS NULL"
+            safe_patterns = ["IS NULL", "IS NOT NULL", "TRUE", "FALSE"]
+            if not any(p in where_check for p in safe_patterns):
+                logger.warning(
+                    f"WHERE clause without placeholders or params may indicate SQL injection risk: {where[:50]}"
+                )
+
     def count(self, table: str, where: str = "", params: tuple = ()) -> int:
         """Count records in a table.
 
         Args:
             table: Table name
-            where: Optional WHERE clause (without "WHERE" keyword)
-            params: Parameters for WHERE clause
+            where: Optional WHERE clause (without "WHERE" keyword).
+                   MUST use parameterized placeholders (?) for values.
+                   Example: "status = ? AND user_id = ?"
+            params: Parameter values for WHERE clause placeholders
 
         Returns:
             Record count
+
+        Raises:
+            ValueError: If table name is invalid or WHERE contains injection patterns
+
+        Security:
+            Never pass user input directly in the WHERE clause.
+            Always use placeholders: count("users", "status = ?", ("active",))
         """
         if not table.replace("_", "").isalnum():
             raise ValueError(f"Invalid table name: {table}")
 
-        sql = f"SELECT COUNT(*) FROM {table}"  # nosec B608
+        self._validate_where_clause(where, bool(params))
+
+        sql = f"SELECT COUNT(*) FROM {table}"  # nosec B608 - table validated above
         if where:
-            sql += f" WHERE {where}"  # nosec B608
+            sql += f" WHERE {where}"  # nosec B608 - validated by _validate_where_clause
 
         row = self.fetch_one(sql, params)
         return row[0] if row else 0

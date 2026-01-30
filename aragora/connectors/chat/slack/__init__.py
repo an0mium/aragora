@@ -226,7 +226,7 @@ class SlackConnector(SlackMessagesMixin, SlackEventsMixin, ChatPlatformConnector
 
         # Attempt refresh
         logger.info(f"Attempting token refresh for workspace: {self._workspace_id}")
-        workspace = store.refresh_workspace_token(
+        workspace = await store.refresh_workspace_token(
             self._workspace_id,
             client_id=client_id,
             client_secret=client_secret,

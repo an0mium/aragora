@@ -631,12 +631,8 @@ class TestGeminiErrorHandling:
     async def test_missing_api_key_with_fallback(self, mock_env_with_api_keys):
         """Should attempt fallback when API key is empty but fallback enabled."""
         from aragora.agents.api_agents.gemini import GeminiAgent
-        from tests.agents.api_agents.conftest import MockResponse
 
-        # Create agent with explicit empty api_key
-        agent = GeminiAgent(api_key="", enable_fallback=True)
-
-        # Mock the HTTP session to simulate auth error (triggers fallback)
+        # Mock aiohttp at module level to prevent real connections during agent init
         mock_response = AsyncMock()
         mock_response.status = 401
         mock_response.text = AsyncMock(return_value='{"error": "Invalid API key"}')
@@ -645,13 +641,18 @@ class TestGeminiErrorHandling:
 
         mock_session = AsyncMock()
         mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.close = AsyncMock()  # Add close method for cleanup
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
-        # Mock both the HTTP call and the fallback
+        # Patch before agent creation to avoid real network connections
         with patch(
-            "aragora.agents.api_agents.common.aiohttp.ClientSession", return_value=mock_session
+            "aragora.agents.api_agents.common.aiohttp.ClientSession",
+            return_value=mock_session,
         ):
+            # Create agent with explicit empty api_key inside patch context
+            agent = GeminiAgent(api_key="", enable_fallback=True)
+
             with patch.object(agent, "fallback_generate", new_callable=AsyncMock) as mock_fallback:
                 mock_fallback.return_value = "Fallback response"
 

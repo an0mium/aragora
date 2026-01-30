@@ -429,12 +429,12 @@ class TestConfigOperations:
     @pytest.mark.asyncio
     async def test_update_config_resets_prioritizer(self):
         """Updating config should reset the prioritizer so it picks up new values."""
-        email_module._prioritizer = MagicMock()
+        email_storage._prioritizer = MagicMock()
 
         with patch("aragora.server.handlers.email.get_email_store", return_value=None):
             await handle_update_config("reset_user", {"vip_domains": ["x.com"]})
 
-        assert email_module._prioritizer is None
+        assert email_storage._prioritizer is None
 
         with _user_configs_lock:
             _user_configs.pop("reset_user", None)
@@ -542,7 +542,7 @@ class TestGmailOAuth:
     async def test_oauth_url_success(self, allowed_auth_context):
         with (
             patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
+            patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_connector = MagicMock()
@@ -572,7 +572,7 @@ class TestGmailOAuth:
     async def test_oauth_callback_success(self, allowed_auth_context):
         with (
             patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
+            patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_connector = MagicMock()
@@ -596,7 +596,7 @@ class TestGmailOAuth:
     async def test_oauth_callback_error(self, allowed_auth_context):
         with (
             patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
+            patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_connector = MagicMock()
@@ -622,7 +622,7 @@ class TestGmailStatus:
 
     @pytest.mark.asyncio
     async def test_not_authenticated(self):
-        with patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc:
+        with patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc:
             mock_connector = MagicMock()
             mock_connector._access_token = None
             mock_gc.return_value = mock_connector
@@ -633,7 +633,7 @@ class TestGmailStatus:
 
     @pytest.mark.asyncio
     async def test_authenticated_with_user_info(self):
-        with patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc:
+        with patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc:
             mock_connector = MagicMock()
             mock_connector._access_token = "valid_token"
             mock_connector.get_user_info = AsyncMock(
@@ -648,7 +648,7 @@ class TestGmailStatus:
 
     @pytest.mark.asyncio
     async def test_token_expired(self):
-        with patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc:
+        with patch("aragora.server.handlers.email.oauth.get_gmail_connector") as mock_gc:
             mock_connector = MagicMock()
             mock_connector._access_token = "expired"
             mock_connector.get_user_info = AsyncMock(side_effect=ConnectionError("token expired"))
@@ -670,7 +670,7 @@ class TestFetchAndRankInbox:
 
     @pytest.mark.asyncio
     async def test_not_authenticated(self):
-        with patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc:
+        with patch("aragora.server.handlers.email.inbox.get_gmail_connector") as mock_gc:
             mock_connector = MagicMock()
             mock_connector._access_token = None
             mock_gc.return_value = mock_connector
@@ -700,8 +700,8 @@ class TestFetchAndRankInbox:
         mock_rank.to_dict.return_value = {"email_id": "msg_1", "score": 80}
 
         with (
-            patch("aragora.server.handlers.email.get_gmail_connector") as mock_gc,
-            patch("aragora.server.handlers.email.prioritization.get_prioritizer") as mock_gp,
+            patch("aragora.server.handlers.email.inbox.get_gmail_connector") as mock_gc,
+            patch("aragora.server.handlers.email.inbox.get_prioritizer") as mock_gp,
         ):
             mock_connector = MagicMock()
             mock_connector._access_token = "valid"
@@ -733,7 +733,7 @@ class TestCrossChannelContext:
         mock_ctx = MagicMock()
         mock_ctx.to_dict.return_value = {"slack": True, "drive": False}
 
-        with patch("aragora.server.handlers.email.get_context_service") as mock_gs:
+        with patch("aragora.server.handlers.email.context.get_context_service") as mock_gs:
             mock_service = MagicMock()
             mock_service.get_user_context = AsyncMock(return_value=mock_ctx)
             mock_gs.return_value = mock_service
@@ -744,7 +744,7 @@ class TestCrossChannelContext:
 
     @pytest.mark.asyncio
     async def test_get_context_error(self):
-        with patch("aragora.server.handlers.email.get_context_service") as mock_gs:
+        with patch("aragora.server.handlers.email.context.get_context_service") as mock_gs:
             mock_service = MagicMock()
             mock_service.get_user_context = AsyncMock(side_effect=Exception("service down"))
             mock_gs.return_value = mock_service
@@ -767,7 +767,7 @@ class TestCrossChannelContext:
         mock_boost.related_drive_files = ["doc.pdf"]
         mock_boost.related_meetings = ["standup"]
 
-        with patch("aragora.server.handlers.email.get_context_service") as mock_gs:
+        with patch("aragora.server.handlers.email.context.get_context_service") as mock_gs:
             mock_service = MagicMock()
             mock_service.get_email_context = AsyncMock(return_value=mock_boost)
             mock_gs.return_value = mock_service
@@ -796,7 +796,7 @@ class TestCategorization:
             "confidence": 0.92,
         }
 
-        with patch("aragora.server.handlers.email.get_categorizer") as mock_gc:
+        with patch("aragora.server.handlers.email.categorization.get_categorizer") as mock_gc:
             mock_categorizer = MagicMock()
             mock_categorizer.categorize_email = AsyncMock(return_value=mock_cat_result)
             mock_gc.return_value = mock_categorizer
@@ -810,7 +810,7 @@ class TestCategorization:
         mock_r = MagicMock()
         mock_r.to_dict.return_value = {"category": "invoices"}
 
-        with patch("aragora.server.handlers.email.get_categorizer") as mock_gc:
+        with patch("aragora.server.handlers.email.categorization.get_categorizer") as mock_gc:
             mock_categorizer = MagicMock()
             mock_categorizer.categorize_batch = AsyncMock(return_value=[mock_r])
             mock_categorizer.get_category_stats.return_value = {"invoices": 1}
@@ -826,7 +826,7 @@ class TestCategorization:
     async def test_apply_category_label_success(self, allowed_auth_context):
         with (
             patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_categorizer") as mock_gc,
+            patch("aragora.server.handlers.email.categorization.get_categorizer") as mock_gc,
         ):
             mock_cp.return_value = MagicMock(allowed=True)
             mock_categorizer = MagicMock()
@@ -843,7 +843,7 @@ class TestCategorization:
     async def test_apply_category_label_invalid_category(self, allowed_auth_context):
         with (
             patch("aragora.server.handlers.email.storage.check_permission") as mock_cp,
-            patch("aragora.server.handlers.email.get_categorizer") as mock_gc,
+            patch("aragora.server.handlers.email.categorization.get_categorizer") as mock_gc,
             patch(
                 "aragora.services.email_categorizer.EmailCategory",
                 side_effect=ValueError("bad category"),
@@ -952,7 +952,7 @@ class TestLazyInitialization:
     """Test lazy initialization of service singletons."""
 
     def test_gmail_connector_lazy_init(self):
-        email_module._gmail_connector = None
+        email_storage._gmail_connector = None
 
         with patch("aragora.connectors.enterprise.communication.gmail.GmailConnector") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -960,7 +960,7 @@ class TestLazyInitialization:
             assert connector is not None
 
     def test_context_service_lazy_init(self):
-        email_module._context_service = None
+        email_storage._context_service = None
 
         with patch("aragora.services.cross_channel_context.CrossChannelContextService") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -969,7 +969,7 @@ class TestLazyInitialization:
 
     def test_gmail_connector_reuses_singleton(self):
         sentinel = MagicMock()
-        email_module._gmail_connector = sentinel
+        email_storage._gmail_connector = sentinel
         assert get_gmail_connector() is sentinel
 
 
@@ -994,7 +994,7 @@ class TestEmailHandlerMethods:
         data = {"email": {"id": "msg_1", "subject": "Hello"}}
 
         with patch(
-            "aragora.server.handlers.email.handle_prioritize_email",
+            "aragora.server.handlers.email.handler.handle_prioritize_email",
             new_callable=AsyncMock,
         ) as mock_fn:
             mock_fn.return_value = {"success": True, "result": {"score": 70}}
@@ -1006,7 +1006,7 @@ class TestEmailHandlerMethods:
         data = {"email": {"id": "msg_1"}}
 
         with patch(
-            "aragora.server.handlers.email.handle_prioritize_email",
+            "aragora.server.handlers.email.handler.handle_prioritize_email",
             new_callable=AsyncMock,
         ) as mock_fn:
             mock_fn.return_value = {"success": False, "error": "boom"}
@@ -1061,7 +1061,7 @@ class TestEmailHandlerMethods:
     @pytest.mark.asyncio
     async def test_get_inbox_needs_auth_returns_401(self, handler_with_user):
         with patch(
-            "aragora.server.handlers.email.handle_fetch_and_rank_inbox",
+            "aragora.server.handlers.email.handler.handle_fetch_and_rank_inbox",
             new_callable=AsyncMock,
         ) as mock_fn:
             mock_fn.return_value = {

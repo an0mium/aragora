@@ -454,7 +454,6 @@ class ReceiptDeliveryHook:
     ) -> DeliveryResult:
         """Send receipt to a webhook."""
         try:
-
             import httpx
 
             payload = {

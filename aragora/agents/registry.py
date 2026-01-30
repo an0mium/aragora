@@ -26,13 +26,17 @@ from typing import TYPE_CHECKING, Any, Callable
 from aragora.agents.types import T
 from aragora.config import ALLOWED_AGENT_TYPES
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 _LocalLLMDetector: Any = None
 try:
     from aragora.agents.local_llm_detector import LocalLLMDetector
 
     _LocalLLMDetector = LocalLLMDetector
 except (ImportError, ModuleNotFoundError):
-    pass
+    logger.debug("LocalLLMDetector not available, local LLM detection disabled")
 
 if TYPE_CHECKING:
     from aragora.agents.api_agents import APIAgent
@@ -447,14 +451,14 @@ def register_all_agents() -> None:
     try:
         from aragora.agents import cli_agents  # noqa: F401
     except ImportError:
-        pass
+        logger.debug("cli_agents module not available for registration")
 
     try:
         from aragora.agents import demo_agent  # noqa: F401
     except ImportError:
-        pass
+        logger.debug("demo_agent module not available for registration")
 
     try:
         from aragora.agents import api_agents  # noqa: F401
     except ImportError:
-        pass
+        logger.debug("api_agents module not available for registration")

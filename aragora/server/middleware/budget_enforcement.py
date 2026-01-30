@@ -121,7 +121,7 @@ def check_budget(
 
             except ImportError:
                 # Budget manager not available - allow
-                pass
+                logger.debug("Budget manager module not available, skipping budget check")
             except BudgetExceededError:
                 raise
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
@@ -187,7 +187,7 @@ def check_budget(
                             )
 
             except ImportError:
-                pass
+                logger.debug("Budget manager module not available, skipping budget check")
             except BudgetExceededError:
                 raise
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
@@ -266,8 +266,8 @@ def record_spend(
             description = description_template
             try:
                 description = description_template.format(**kwargs)
-            except KeyError:
-                pass
+            except KeyError as e:
+                logger.debug(f"Could not format description template with kwargs: {e}")
 
             # Record spend
             try:
@@ -282,7 +282,7 @@ def record_spend(
                     user_id=user_id,
                 )
             except ImportError:
-                pass
+                logger.debug("Budget manager module not available, skipping spend recording")
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to record spend: {e}")
 
@@ -320,8 +320,8 @@ def record_spend(
             description = description_template
             try:
                 description = description_template.format(**kwargs)
-            except KeyError:
-                pass
+            except KeyError as e:
+                logger.debug(f"Could not format description template with kwargs: {e}")
 
             try:
                 from aragora.billing.budget_manager import get_budget_manager
@@ -335,7 +335,7 @@ def record_spend(
                     user_id=user_id,
                 )
             except ImportError:
-                pass
+                logger.debug("Budget manager module not available, skipping spend recording")
             except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
                 logger.warning(f"Failed to record spend: {e}")
 

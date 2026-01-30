@@ -31,18 +31,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+logger = logging.getLogger(__name__)
+
 _yaml: Any = None
 try:
     import yaml
 
     _yaml = yaml
 except ImportError:
-    pass
+    logger.debug("PyYAML not installed, YAML config loading will be unavailable")
 
 if TYPE_CHECKING:
     from aragora.core import Agent
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigValidationError(Exception):

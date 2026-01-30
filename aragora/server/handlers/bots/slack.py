@@ -1021,9 +1021,7 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                     return future.result(timeout=30)
             except RuntimeError:
                 # No running loop, create one
-                return asyncio.run(
-                    self.handle_post(normalized_path, query_params, handler)
-                )
+                return asyncio.run(self.handle_post(normalized_path, query_params, handler))
             except (asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
                 logger.error(f"Error handling Slack POST: {e}")
                 return error_response(f"Error: {str(e)}", 500)
