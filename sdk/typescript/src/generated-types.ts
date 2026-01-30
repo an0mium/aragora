@@ -1845,3 +1845,67 @@ export interface UnifiedCampaign {
   /** When the campaign was last updated */
   updated_at?: string;
 }
+
+export interface StarterTemplate {
+  id: string;
+  name: string;
+  description: string;
+  use_cases: string[];
+  agents_count: number;
+  rounds: number;
+  estimated_minutes: number;
+  example_prompt: string;
+  tags?: string[];
+  difficulty?: string;
+}
+
+export interface GauntletResult {
+  id?: string;
+  status?: string;
+  verdict?: string;
+  confidence?: number;
+  findings?: Record<string, any>[];
+  created_at?: string;
+  completed_at?: any;
+}
+
+export interface PolicyDefinition {
+  id?: string;
+  name?: string;
+  description?: string;
+  rules?: Record<string, any>[];
+  enabled?: boolean;
+  priority?: number;
+}
+
+export interface GauntletRun {
+  id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  verdict?: any;
+  confidence?: number;
+  findings?: Record<string, any>[];
+  metadata?: Record<string, any>;
+  created_at?: string;
+  started_at?: any;
+  completed_at?: any;
+}
+
+export interface GauntletComparison {
+  run_a?: GauntletRun;
+  run_b?: GauntletRun;
+  diff?: Record<string, any>;
+  similarity_score?: number;
+  comparison_notes?: string[];
+}
+
+export interface Policy {
+  id: string;
+  name: string;
+  description?: string;
+  type?: string;
+  rules?: Record<string, any>[];
+  enabled?: boolean;
+  priority?: number;
+  created_at?: string;
+  updated_at?: string;
+}
