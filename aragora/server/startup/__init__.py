@@ -65,6 +65,11 @@ from aragora.server.startup.workers import (
     init_webhook_dispatcher,
     init_workflow_checkpoint_persistence,
 )
+from aragora.server.startup.dr_drilling import (
+    get_dr_drill_scheduler,
+    start_dr_drilling,
+    stop_dr_drilling,
+)
 from aragora.server.startup.security import (
     _get_degraded_status,
     init_access_review_scheduler,
@@ -326,6 +331,7 @@ async def run_startup_sequence(
         "notification_worker": False,
         "graphql": False,
         "backup_scheduler": False,
+        "dr_drill_scheduler": False,
         "witness_patrol": False,
         "mayor_coordinator": False,
         "postgres_pool": {"enabled": False},
@@ -381,6 +387,10 @@ async def run_startup_sequence(
 
     # Start backup scheduler for automated backups and DR drills (if enabled)
     status["backup_scheduler"] = await init_backup_scheduler()
+
+    # Start DR drill scheduler for SOC 2 CC9 compliance (if enabled)
+    dr_scheduler = await start_dr_drilling()
+    status["dr_drill_scheduler"] = dr_scheduler is not None
 
     # Start notification dispatcher worker for queue processing
     status["notification_worker"] = await init_notification_worker()
@@ -512,6 +522,9 @@ __all__ = [
     "get_witness_behavior",
     "init_mayor_coordinator",
     "get_mayor_coordinator",
+    "start_dr_drilling",
+    "stop_dr_drilling",
+    "get_dr_drill_scheduler",
     "run_startup_sequence",
     "get_km_config_from_env",
     "init_knowledge_mound_from_env",

@@ -566,6 +566,9 @@ class DashboardHandler(SecureHandler):
 
         return activity
 
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="agent_performance", skip_first=True
+    )
     def _get_agent_performance(self, limit: int) -> dict:
         """Get agent performance metrics."""
         performance = {
@@ -654,6 +657,9 @@ class DashboardHandler(SecureHandler):
 
         return patterns
 
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="consensus_insights", skip_first=True
+    )
     def _get_consensus_insights(self, domain: str | None) -> dict:
         """Get consensus memory insights."""
         insights = {
@@ -881,6 +887,9 @@ class DashboardHandler(SecureHandler):
 
         return json_response(result)
 
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_overview", skip_first=True
+    )
     def _get_overview(self, query_params: dict, handler: Any) -> HandlerResult:
         """Return dashboard overview summary."""
         now = datetime.now(timezone.utc).isoformat()
@@ -986,6 +995,9 @@ class DashboardHandler(SecureHandler):
             return error_response("debate_id is required", 400)
         return json_response({"debate_id": debate_id})
 
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="dashboard_stats", skip_first=True
+    )
     def _get_dashboard_stats(self) -> HandlerResult:
         """Return dashboard statistics aggregated from storage and ELO."""
         stats: dict[str, Any] = {
@@ -1075,6 +1087,7 @@ class DashboardHandler(SecureHandler):
 
         return json_response(stats)
 
+    @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="stat_cards", skip_first=True)
     def _get_stat_cards(self) -> HandlerResult:
         """Return stat cards summarizing key metrics."""
         cards: list[dict[str, Any]] = []
@@ -1130,6 +1143,9 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"cards": cards})
 
+    @ttl_cache(
+        ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="team_performance", skip_first=True
+    )
     def _get_team_performance(self, limit: int, offset: int) -> HandlerResult:
         """Return team performance grouped by provider from ELO ratings."""
         teams: list[dict[str, Any]] = []
@@ -1293,6 +1309,7 @@ class DashboardHandler(SecureHandler):
 
         return json_response({"activity": activity, "total": total})
 
+    @ttl_cache(ttl_seconds=CACHE_TTL_DASHBOARD_DEBATES, key_prefix="inbox_summary", skip_first=True)
     def _get_inbox_summary(self) -> HandlerResult:
         """Return inbox summary derived from debate storage."""
         summary: dict[str, Any] = {

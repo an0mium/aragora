@@ -105,6 +105,9 @@ class QueryProtocol(Protocol):
     async def _get_relationships(
         self, node_id: str, types: Optional[list["RelationshipType"]] = None
     ) -> list["KnowledgeLink"]: ...
+    async def _get_relationships_batch(
+        self, node_ids: list[str], types: Optional[list["RelationshipType"]] = None
+    ) -> dict[str, list["KnowledgeLink"]]: ...
     def _node_to_item(self, node: Any) -> "KnowledgeItem": ...
     def _vector_result_to_item(self, result: Any) -> "KnowledgeItem": ...
 
@@ -362,6 +365,9 @@ class QueryOperationsMixin:
     ) -> "GraphQueryResult":
         """Traverse knowledge graph from a starting node.
 
+        Uses level-by-level traversal with batch relationship fetching
+        and parallel node retrieval for improved performance.
+
         Args:
             start_id: Node ID to start traversal from
             relationship_types: Filter to specific relationship types
@@ -384,26 +390,60 @@ class QueryOperationsMixin:
 
         nodes: dict[str, KnowledgeItem] = {}
         edges: list[KnowledgeLink] = []
-        visited: set = set()
+        visited: set[str] = set()
 
-        async def traverse(node_id: str, current_depth: int) -> None:
-            if current_depth > depth or node_id in visited or len(nodes) >= max_nodes:
-                return
+        # Level-by-level BFS traversal with parallel fetching
+        current_level: list[str] = [start_id]
 
-            visited.add(node_id)
-            node = await self.get(node_id)
-            if node:
-                nodes[node_id] = node
+        for current_depth in range(depth + 1):
+            if not current_level or len(nodes) >= max_nodes:
+                break
 
-                if current_depth < depth:
-                    relationships = await self._get_relationships(node_id, relationship_types)
+            # Filter out already visited nodes
+            to_visit = [nid for nid in current_level if nid not in visited]
+            if not to_visit:
+                break
+
+            # Limit how many we process to respect max_nodes
+            remaining_capacity = max_nodes - len(nodes)
+            to_visit = to_visit[:remaining_capacity]
+
+            # Mark as visited
+            visited.update(to_visit)
+
+            # Fetch all nodes in parallel
+            node_results = await asyncio.gather(
+                *[self.get(node_id) for node_id in to_visit],
+                return_exceptions=True,
+            )
+
+            # Process results and collect valid nodes
+            valid_node_ids = []
+            for node_id, node_result in zip(to_visit, node_results):
+                if isinstance(node_result, Exception):
+                    logger.warning(f"Failed to fetch node {node_id}: {node_result}")
+                    continue
+                if node_result:
+                    nodes[node_id] = node_result
+                    valid_node_ids.append(node_id)
+
+            # If we haven't reached max depth, get relationships for next level
+            next_level: list[str] = []
+            if current_depth < depth and valid_node_ids:
+                # Batch fetch relationships for all nodes at this level
+                rels_by_node = await self._get_relationships_batch(
+                    valid_node_ids, relationship_types
+                )
+
+                for node_id in valid_node_ids:
+                    relationships = rels_by_node.get(node_id, [])
                     for rel in relationships:
                         edges.append(rel)
                         target = rel.target_id if rel.source_id == node_id else rel.source_id
                         if target not in visited:
-                            await traverse(target, current_depth + 1)
+                            next_level.append(target)
 
-        await traverse(start_id, 0)
+            current_level = next_level
 
         return GraphQueryResult(
             nodes=list(nodes.values()),
@@ -508,9 +548,12 @@ class QueryOperationsMixin:
                     }
                 )
 
-            # Get relationships between collected nodes
-            for node_id in list(node_ids)[:50]:
-                rels = await self._get_relationships(node_id)
+            # Get relationships between collected nodes using batch fetching
+            batch_node_ids = list(node_ids)[:50]
+            rels_by_node = await self._get_relationships_batch(batch_node_ids)
+
+            for node_id in batch_node_ids:
+                rels = rels_by_node.get(node_id, [])
                 for rel in rels:
                     target = rel.target_id if rel.source_id == node_id else rel.source_id
                     if target in node_ids:

@@ -418,6 +418,13 @@ CACHE_INVALIDATION_MAP: dict[str, list[str]] = {
     # Debate events
     "debate_completed": [
         "dashboard_debates",
+        "dashboard_overview",
+        "dashboard_stats",
+        "stat_cards",
+        "team_performance",
+        "agent_performance",
+        "consensus_insights",
+        "inbox_summary",
         "analytics_debates",
         "replays_list",
         "consensus_stats",

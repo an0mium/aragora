@@ -598,6 +598,49 @@ class KnowledgeMoundCore:
             rels = self._meta_store.get_relationships(node_id)
             return [self._rel_to_link(r) for r in rels]
 
+    async def _get_relationships_batch(
+        self, node_ids: list[str], types: Optional[list[RelationshipType]] = None
+    ) -> dict[str, list[KnowledgeLink]]:
+        """Get relationships for multiple nodes in a single batch operation.
+
+        This method reduces N+1 query patterns by fetching relationships
+        for all requested nodes in a single database query when supported,
+        or falls back to parallel fetching via asyncio.gather.
+
+        Args:
+            node_ids: List of node IDs to fetch relationships for
+            types: Optional filter for specific relationship types
+
+        Returns:
+            Dictionary mapping node_id to list of relationships for that node
+        """
+        import asyncio
+
+        if not node_ids:
+            return {}
+
+        # Try batch method on meta_store first (most efficient - single query)
+        if hasattr(self._meta_store, "get_relationships_batch_async"):
+            return await self._meta_store.get_relationships_batch_async(node_ids, types)
+
+        # Fall back to parallel fetching via asyncio.gather
+        # This is still better than sequential N queries
+        results = await asyncio.gather(
+            *[self._get_relationships(node_id, types) for node_id in node_ids],
+            return_exceptions=True,
+        )
+
+        # Build result dictionary, handling any errors gracefully
+        batch_result: dict[str, list[KnowledgeLink]] = {}
+        for node_id, result in zip(node_ids, results):
+            if isinstance(result, Exception):
+                # Log error but don't fail the whole batch
+                batch_result[node_id] = []
+            else:
+                batch_result[node_id] = result
+
+        return batch_result
+
     async def _find_by_content_hash(self, content_hash: str, workspace_id: str) -> str | None:
         """Find node by content hash."""
         if hasattr(self._meta_store, "find_by_content_hash_async"):

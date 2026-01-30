@@ -349,6 +349,12 @@ class ParallelInitializer:
                 timeout=15.0,
                 required=False,
             ),
+            InitTask(
+                name="dr_drilling",
+                func=self._init_dr_drilling,
+                timeout=10.0,
+                required=False,
+            ),
         ]
 
         return await run_phase("subsystems", tasks)
@@ -604,6 +610,23 @@ class ParallelInitializer:
 
         self._results.update(results)
         return results
+
+    async def _init_dr_drilling(self) -> dict[str, Any]:
+        """Initialize DR drill scheduler for SOC 2 CC9 compliance."""
+        from aragora.server.startup.dr_drilling import start_dr_drilling
+
+        result: dict[str, Any] = {"enabled": False}
+
+        try:
+            scheduler = await start_dr_drilling()
+            if scheduler:
+                result["enabled"] = True
+                self._results["dr_drill_scheduler"] = result
+        except (ImportError, RuntimeError, OSError, ValueError, TypeError) as e:
+            logger.warning(f"[parallel_init] DR drilling init failed: {e}")
+            result["error"] = str(e)
+
+        return result
 
     # =========================================================================
     # Phase 3: Finalization

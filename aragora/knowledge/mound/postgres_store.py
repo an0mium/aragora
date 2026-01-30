@@ -555,6 +555,71 @@ class PostgresStore:
                 for row in rows
             ]
 
+    async def get_relationships_batch_async(
+        self,
+        node_ids: list[str],
+        types: Optional[list[RelationshipType]] = None,
+    ) -> dict[str, list[KnowledgeLink]]:
+        """Get relationships for multiple nodes in a single query.
+
+        This is an optimized batch operation that fetches all relationships
+        for the given node IDs in a single database query, avoiding N+1
+        query patterns.
+
+        Args:
+            node_ids: List of node IDs to fetch relationships for
+            types: Optional filter for specific relationship types
+
+        Returns:
+            Dictionary mapping each node_id to its list of relationships
+        """
+        if not node_ids:
+            return {}
+
+        # Initialize result dict with empty lists for all requested nodes
+        result: dict[str, list[KnowledgeLink]] = {node_id: [] for node_id in node_ids}
+
+        async with self.connection() as conn:
+            if types:
+                type_values = [t.value for t in types]
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM knowledge_relationships
+                    WHERE (from_node_id = ANY($1) OR to_node_id = ANY($1))
+                    AND relationship_type = ANY($2)
+                    """,
+                    node_ids,
+                    type_values,
+                )
+            else:
+                rows = await conn.fetch(
+                    """
+                    SELECT * FROM knowledge_relationships
+                    WHERE from_node_id = ANY($1) OR to_node_id = ANY($1)
+                    """,
+                    node_ids,
+                )
+
+            # Group relationships by node_id
+            for row in rows:
+                link = KnowledgeLink(
+                    id=row["id"],
+                    source_id=row["from_node_id"],
+                    target_id=row["to_node_id"],
+                    relationship=RelationshipType(row["relationship_type"]),
+                    confidence=row["strength"],
+                    created_at=row["created_at"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else {},
+                )
+
+                # Add to both source and target node lists if they're in our request
+                if row["from_node_id"] in result:
+                    result[row["from_node_id"]].append(link)
+                if row["to_node_id"] in result and row["to_node_id"] != row["from_node_id"]:
+                    result[row["to_node_id"]].append(link)
+
+        return result
+
     # =========================================================================
     # Query Operations
     # =========================================================================
