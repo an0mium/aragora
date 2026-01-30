@@ -20,6 +20,7 @@ import pytest
 from aragora.ops.deployment_validator import (
     ComponentHealth,
     ComponentStatus,
+    DeploymentNotReadyError,
     DeploymentValidator,
     Severity,
     ValidationIssue,
@@ -916,3 +917,92 @@ class TestModuleFunctions:
             side_effect=ImportError("Module not found"),
         ):
             assert quick_health_check() is False
+
+
+# ============================================================================
+# Strict Mode and DeploymentNotReadyError Tests
+# ============================================================================
+
+
+class TestDeploymentNotReadyError:
+    """Tests for DeploymentNotReadyError."""
+
+    def test_error_message_contains_critical_issues(self):
+        result = ValidationResult(
+            ready=False,
+            live=False,
+            issues=[
+                ValidationIssue("jwt_secret", "JWT missing", Severity.CRITICAL),
+                ValidationIssue("api_keys", "No keys", Severity.CRITICAL),
+                ValidationIssue("cors", "Localhost in origins", Severity.WARNING),
+            ],
+        )
+        err = DeploymentNotReadyError(result)
+        assert "jwt_secret: JWT missing" in str(err)
+        assert "api_keys: No keys" in str(err)
+        # Warning should not appear in message
+        assert "Localhost" not in str(err)
+
+    def test_error_holds_result(self):
+        result = ValidationResult(ready=False, live=True)
+        err = DeploymentNotReadyError(result)
+        assert err.result is result
+        assert err.result.ready is False
+
+    def test_is_runtime_error(self):
+        result = ValidationResult(ready=False, live=True)
+        err = DeploymentNotReadyError(result)
+        assert isinstance(err, RuntimeError)
+
+
+class TestStrictMode:
+    """Tests for validate_deployment strict parameter."""
+
+    @pytest.mark.asyncio
+    async def test_strict_raises_on_critical_issues(self, monkeypatch):
+        """Strict mode raises DeploymentNotReadyError on critical issues."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.delenv("ARAGORA_JWT_SECRET", raising=False)
+        monkeypatch.delenv("JWT_SECRET", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.delenv("ARAGORA_ENCRYPTION_KEY", raising=False)
+        monkeypatch.setenv("ARAGORA_DISABLE_RATE_LIMIT", "true")
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(Path(__file__).parent / "test_data"))
+
+        with pytest.raises(DeploymentNotReadyError) as exc_info:
+            await validate_deployment(strict=True)
+
+        assert exc_info.value.result.ready is False
+        assert len(exc_info.value.result.issues) > 0
+
+    @pytest.mark.asyncio
+    async def test_strict_passes_when_ready(self, monkeypatch):
+        """Strict mode does not raise when deployment is ready."""
+        monkeypatch.setenv("ARAGORA_ENV", "development")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(Path(__file__).parent / "test_data"))
+
+        # Should not raise
+        result = await validate_deployment(strict=True)
+        assert isinstance(result, ValidationResult)
+
+    @pytest.mark.asyncio
+    async def test_non_strict_returns_result_on_failure(self, monkeypatch):
+        """Non-strict mode returns result even on critical issues."""
+        monkeypatch.setenv("ARAGORA_ENV", "production")
+        monkeypatch.delenv("ARAGORA_JWT_SECRET", raising=False)
+        monkeypatch.delenv("JWT_SECRET", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.delenv("ARAGORA_ENCRYPTION_KEY", raising=False)
+        monkeypatch.setenv("ARAGORA_DISABLE_RATE_LIMIT", "true")
+        monkeypatch.setenv("ARAGORA_DATA_DIR", str(Path(__file__).parent / "test_data"))
+
+        # Should not raise, just return
+        result = await validate_deployment(strict=False)
+        assert result.ready is False

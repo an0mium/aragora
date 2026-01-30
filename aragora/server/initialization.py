@@ -1148,20 +1148,51 @@ async def upgrade_handler_stores(nomic_dir: Path) -> dict[str, str]:
         logger.info(f"[upgrade] UserStore upgrade failed: {type(e).__name__}: {e}")
         results["user_store"] = "skipped"
 
-    # Upgrade additional stores (job queue, governance, etc.)
-    store_upgrades: list[tuple[str, str, str]] = [
-        ("job_queue", "aragora.storage.job_queue_store", "PostgresJobQueueStore"),
-        ("governance", "aragora.storage.governance_store", "PostgresGovernanceStore"),
-        ("inbox", "aragora.storage.inbox_store", "PostgresInboxStore"),
+    # Upgrade additional stores (job queue, governance, inbox).
+    # Each entry: (name, module_path, class_name, setter_module, setter_func)
+    store_upgrades: list[tuple[str, str, str, str | None, str | None]] = [
+        (
+            "job_queue",
+            "aragora.storage.job_queue_store",
+            "PostgresJobQueueStore",
+            "aragora.storage.job_queue_store",
+            "set_job_store",
+        ),
+        (
+            "governance",
+            "aragora.storage.governance_store",
+            "PostgresGovernanceStore",
+            None,  # Uses module-global _postgres_store directly
+            None,
+        ),
+        (
+            "inbox",
+            "aragora.storage.unified_inbox_store",
+            "PostgresUnifiedInboxStore",
+            "aragora.storage.unified_inbox_store",
+            "set_unified_inbox_store",
+        ),
     ]
 
-    for name, module_path, class_name in store_upgrades:
+    for name, module_path, class_name, setter_module, setter_func in store_upgrades:
         try:
             module = __import__(module_path, fromlist=[class_name])
             store_class = getattr(module, class_name)
             store = store_class(pool)
             if hasattr(store, "initialize"):
                 await store.initialize()
+
+            # Wire the upgraded store into the module-level singleton so
+            # handlers that call get_*_store() receive the PostgreSQL instance.
+            if setter_module and setter_func:
+                setter_mod = __import__(setter_module, fromlist=[setter_func])
+                getattr(setter_mod, setter_func)(store)
+            elif name == "governance":
+                # governance_store uses _postgres_store module global
+                import aragora.storage.governance_store as _gov_mod
+
+                _gov_mod._postgres_store = store
+
             results[name] = "postgres"
             logger.info(f"[upgrade] {name} upgraded to PostgreSQL")
         except ImportError:

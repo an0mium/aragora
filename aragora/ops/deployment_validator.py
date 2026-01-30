@@ -39,6 +39,20 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+class DeploymentNotReadyError(RuntimeError):
+    """Raised when strict deployment validation fails.
+
+    Contains the full ValidationResult for inspection.
+    """
+
+    def __init__(self, result: "ValidationResult") -> None:
+        critical = [i for i in result.issues if i.severity.value == "critical"]
+        summary = "; ".join(f"{i.component}: {i.message}" for i in critical)
+        super().__init__(f"Deployment validation failed: {summary}")
+        self.result = result
+
+
 # Known weak/default JWT secrets that should not be used in production
 WEAK_JWT_SECRETS = {
     "secret",
@@ -1197,14 +1211,24 @@ class DeploymentValidator:
         )
 
 
-async def validate_deployment() -> ValidationResult:
+async def validate_deployment(*, strict: bool = False) -> ValidationResult:
     """Run deployment validation.
+
+    Args:
+        strict: If True and validation finds critical issues, raise
+            DeploymentNotReadyError instead of returning a failed result.
 
     Returns:
         ValidationResult with readiness status
+
+    Raises:
+        DeploymentNotReadyError: When strict=True and result.ready is False.
     """
     validator = DeploymentValidator()
-    return await validator.validate()
+    result = await validator.validate()
+    if strict and not result.ready:
+        raise DeploymentNotReadyError(result)
+    return result
 
 
 def quick_health_check() -> bool:
@@ -1232,6 +1256,7 @@ def quick_health_check() -> bool:
 
 __all__ = [
     "DeploymentValidator",
+    "DeploymentNotReadyError",
     "ValidationResult",
     "ValidationIssue",
     "ComponentHealth",

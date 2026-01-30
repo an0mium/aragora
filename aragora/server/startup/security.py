@@ -64,13 +64,28 @@ async def init_deployment_validation() -> dict:
     - TLS/HTTPS settings
     - Encryption key configuration
 
+    When ``ARAGORA_STRICT_DEPLOYMENT=true`` is set, the server will refuse
+    to start if any critical validation issues are found.
+
     Returns:
         Dictionary with validation results summary
+
+    Raises:
+        DeploymentNotReadyError: When strict mode is enabled and
+            critical issues are detected.
     """
+    import os
+
     try:
         from aragora.ops.deployment_validator import validate_deployment, Severity
 
-        result = await validate_deployment()
+        strict = os.environ.get("ARAGORA_STRICT_DEPLOYMENT", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
+        result = await validate_deployment(strict=strict)
 
         # Log validation results
         critical_count = sum(1 for i in result.issues if i.severity == Severity.CRITICAL)
